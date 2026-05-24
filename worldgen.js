@@ -357,7 +357,6 @@
       entry.layers = layers;
       entry.status = 'ready';
       entry.fromCache = fromCache;
-      console.log(`tile ${Z}/${x}/${y} ready: ${objects.length} objects (${objects.filter(o=>o.kind==='house').length} houses, ${objects.filter(o=>o.kind==='tree').length} trees)`);
       return entry;
     })();
     tileCache.set(key, entry);
@@ -375,6 +374,6 @@
   global.WorldGen = {
     Z, CELL_M, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
-    tileXYForLonLat, loadTile, tileCache,
+    tileXYForLonLat, loadTile, tileCache, makeRng,
   };
 })(window);
