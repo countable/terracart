@@ -26,7 +26,18 @@ const COLORS = {
   9: 0x8b4d3a,  // building
   10: 0x7d736b, // rock
 };
-const PLANTABLE = new Set([0, 4, 6]); // grass, farmland, park
+// Anything that isn't water (3) or building (9) is tillable.
+const NON_TILLABLE = new Set([3, 9]);
+function isTillable(type) { return !NON_TILLABLE.has(type); }
+
+// Themed chest emoji + loot table
+const CHEST_INFO = {
+  food:   { icon: '🍱', stash: 'food',   amount: () => 1 + Math.floor(Math.random() * 2) },
+  rare:   { icon: '💎', stash: 'rare',   amount: () => 1 },
+  potion: { icon: '🧪', stash: 'potion', amount: () => 1 },
+  lore:   { icon: '📜', stash: 'lore',   amount: () => 1 },
+  herb:   { icon: '🌿', stash: 'herb',   amount: () => 1 + Math.floor(Math.random() * 3) },
+};
 
 const SAVE_KEY = 'terracart.save.v1';
 function loadSave() {
@@ -41,7 +52,15 @@ const ITEMS = [
   { id: 'corn_seed',   name: 'Corn Seed',   kind: 'seed', grows: 'corn',   icon: '🌽' },
   { id: 'net',         name: 'Net',         kind: 'tool', icon: '🪤' },
   { id: 'feed',        name: 'Feed',        kind: 'tool', icon: '🌾' },
+  // Loot types
+  { id: 'wood',   name: 'Wood',   kind: 'res', icon: '🪵' },
+  { id: 'food',   name: 'Food',   kind: 'res', icon: '🍱' },
+  { id: 'herb',   name: 'Herb',   kind: 'res', icon: '🌿' },
+  { id: 'potion', name: 'Potion', kind: 'res', icon: '🧪' },
+  { id: 'lore',   name: 'Lore',   kind: 'res', icon: '📜' },
+  { id: 'rare',   name: 'Rare',   kind: 'res', icon: '💎' },
 ];
+const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -52,14 +71,33 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('trees','Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house', 'Objects/House.png');
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('crops',   'Objects/Spring Crops.png',     { frameWidth: 16, frameHeight: 16 });
   }
 
   create() {
     this.save = Object.assign(
-      { caught: [], planted: [], inv: ['carrot_seed','tomato_seed','corn_seed','net','feed',null], selSlot: 0 },
+      {
+        caught: [], planted: [], opened: [],
+        // inv is array of {id, count?} (no count = infinite, e.g. seeds)
+        inv: [
+          { id: 'carrot_seed' }, { id: 'tomato_seed' }, { id: 'corn_seed' },
+          { id: 'net' }, { id: 'feed' },
+        ],
+        selSlot: 0,
+      },
       loadSave()
     );
+    this.save.opened = this.save.opened || [];
+    // Migrate older save (inv as string array, or stash object)
+    if (this.save.inv && typeof this.save.inv[0] === 'string') {
+      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id }));
+    }
+    if (this.save.stash) {
+      for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
+      delete this.save.stash;
+    }
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
@@ -112,6 +150,7 @@ class MapScene extends Phaser.Scene {
     this.anims.create({ key: 'idle-anim', frames: this.anims.generateFrameNumbers('idle', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
     this.anims.create({ key: 'walk-anim', frames: this.anims.generateFrameNumbers('walk', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'chicken-idle', frames: this.anims.generateFrameNumbers('chicken', { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
+    this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
 
     // Player sprite
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
@@ -221,22 +260,25 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
-    const want = 4 + Math.floor(rng() * 6);
-    for (let i = 0; i < want; i++) {
+    const tryPlace = (kindWant, classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = entry.grid[cy * N + cx];
-        if (t === 0 || t === 4 || t === 6) {
+        if (classesOK.has(t)) {
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-          const id = `${tx}_${ty}_${i}`;
-          if (this.save.caught.includes(id)) break;
-          creatures.push({ x: wmx, y: wmy, kind: 'chicken', id });
-          break;
+          const id = `${kindStr}_${tx}_${ty}_${idx}`;
+          if (this.save.caught.includes(id)) return;
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id });
+          return;
         }
       }
-    }
+    };
+    const chickenN = 4 + Math.floor(rng() * 6);
+    for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 6]), i, 'chicken');
+    const cowN = Math.floor(rng() * 3);   // 0..2 cows, only in farmland
+    for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([4]), i, 'cow');
     entry.creatures = creatures;
   }
 
@@ -300,10 +342,13 @@ class MapScene extends Phaser.Scene {
         g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
       }
     }
+    // Grid lines slide with the same fractional offset as the cells.
     g.lineStyle(1, 0x000000, 0.08);
-    for (let i = 0; i <= VIEW_CELLS; i++) {
-      const x = this.viewLeft + i * CELL_PX;
-      const y = this.viewTop + i * CELL_PX;
+    const xShift = -fracX * CELL_PX;
+    const yShift = -fracY * CELL_PX;
+    for (let i = -1; i <= VIEW_CELLS + 1; i++) {
+      const x = Math.round(this.viewLeft + i * CELL_PX + xShift);
+      const y = Math.round(this.viewTop  + i * CELL_PX + yShift);
       g.lineBetween(x, this.viewTop, x, this.viewTop + this.viewSize);
       g.lineBetween(this.viewLeft, y, this.viewLeft + this.viewSize, y);
     }
@@ -354,8 +399,10 @@ class MapScene extends Phaser.Scene {
       plantedList.push({ p, dx, dy });
     }
 
-    objList.sort((a, b) => a.dy - b.dy);
-    this.renderPool(this.objectPool, this.objectsContainer, objList, (s, item) => {
+    // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
+    const filteredObj = objList.filter(({ o }) => !o.chopped);
+    filteredObj.sort((a, b) => a.dy - b.dy);
+    this.renderPool(this.objectPool, this.objectsContainer, filteredObj, (s, item) => {
       const { o, dx, dy } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
@@ -366,6 +413,12 @@ class MapScene extends Phaser.Scene {
         if (s.texture.key !== 'trees') s.setTexture('trees');
         s.setFrame(Phaser.Math.Clamp(o.variant || 2, 0, 4));
         s.setOrigin(0.5, 0.95).setScale(0.85).setPosition(Math.round(sx), Math.round(sy));
+      } else if (o.kind === 'chest') {
+        if (s.texture.key !== 'chest') s.setTexture('chest');
+        const opened = this.save.opened.includes(o.id);
+        s.setFrame(opened ? 1 : 0);
+        s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+        s.setAlpha(opened ? 0.55 : 1);
       }
     });
 
@@ -388,11 +441,13 @@ class MapScene extends Phaser.Scene {
       const { c, dx, dy } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
-      if (s.texture.key !== 'chicken') {
-        s.setTexture('chicken');
-        s.play('chicken-idle');
+      if (c.kind === 'cow') {
+        if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
+        s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
+      } else {
+        if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
+        s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
       }
-      s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
     });
   }
 
@@ -432,6 +487,39 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // 1b) World objects: chest open, tree chop, house flavor
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.objects) continue;
+      for (const o of entry.objects) {
+        const r = o.kind === 'house' ? 6 : 3.5;
+        if (Math.hypot(o.x - wm.x, o.y - wm.y) >= r) continue;
+        if (Math.hypot(o.x - pWorldX, o.y - pWorldY) > 18) {
+          this.flash('too far', sx, sy); return;
+        }
+        if (o.kind === 'chest') {
+          if (this.save.opened.includes(o.id)) { this.flash('already looted', sx, sy); return; }
+          const info = CHEST_INFO[o.subkind] || CHEST_INFO.food;
+          const n = info.amount();
+          this.addToInv(info.stash, n);
+          this.save.opened.push(o.id);
+          persistSave(this.save);
+          const label = o.name ? `${info.icon}×${n}  ${o.name}` : `${info.icon}×${n}`;
+          this.flash(label, sx, sy);
+          return;
+        }
+        if (o.kind === 'tree') {
+          o.chopped = true;
+          this.addToInv('wood', 1);
+          persistSave(this.save);
+          this.flash('🪵 +1 wood', sx, sy);
+          return;
+        }
+        if (o.kind === 'house') {
+          this.flash(o.name || 'a cozy house', sx, sy);
+          return;
+        }
+      }
+    }
     // 2) Harvest planted crop
     for (let idx = 0; idx < this.save.planted.length; idx++) {
       const p = this.save.planted[idx];
@@ -450,11 +538,11 @@ class MapScene extends Phaser.Scene {
     }
     // 3) Plant seed if seed selected and within 15m
     const sel = this.save.inv[this.save.selSlot];
-    const item = ITEMS.find(it => it.id === sel);
+    const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (item && item.kind === 'seed') {
       if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
       const cell = this.cellAt(wm.x, wm.y);
-      if (!PLANTABLE.has(cell.type)) { this.flash("can't plant here", sx, sy); return; }
+      if (!isTillable(cell.type)) { this.flash("can't plant here", sx, sy); return; }
       const cwmx = Math.floor(wm.x / this.cellM) * this.cellM + this.cellM / 2;
       const cwmy = Math.floor(wm.y / this.cellM) * this.cellM + this.cellM / 2;
       if (this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
@@ -504,21 +592,39 @@ class MapScene extends Phaser.Scene {
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
   }
 
+  addToInv(id, n = 1, silent = false) {
+    const item = ITEM_BY_ID[id];
+    if (!item) return;
+    const existing = this.save.inv.find(s => s && s.id === id);
+    if (existing) existing.count = (existing.count || 0) + n;
+    else this.save.inv.push({ id, count: n });
+    if (!silent) {
+      persistSave(this.save);
+      this.buildInventoryDOM();
+    }
+  }
   buildInventoryDOM() {
     const game = document.getElementById('game');
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;gap:4px;padding:6px;z-index:6;pointer-events:auto;';
+    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;overflow-x:auto;flex-wrap:nowrap;';
+    if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = 0;
     for (let i = 0; i < this.save.inv.length; i++) {
+      const entry = this.save.inv[i];
+      const item = ITEM_BY_ID[entry.id];
       const slot = document.createElement('button');
-      const id = this.save.inv[i];
-      const item = ITEMS.find(it => it.id === id);
       slot.dataset.slot = i;
-      slot.style.cssText = 'width:44px;height:44px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+      slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.textContent = item ? item.icon : '·';
-      slot.title = item ? item.name : 'empty';
+      slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
+      if (entry.count != null) {
+        const badge = document.createElement('span');
+        badge.textContent = entry.count;
+        badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+        slot.appendChild(badge);
+      }
       slot.addEventListener('click', (e) => {
         e.stopPropagation();
         this.save.selSlot = i; persistSave(this.save);

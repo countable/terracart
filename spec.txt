@@ -1,22 +1,26 @@
-a mobile web based game (works on desktop too, uses mobile sized screen centred in browser.
+a mobile web based game (works on desktop too, uses mobile sized screen centred in browser.    [DONE — 390x844 canvas centered]
 
 core concept:
- - like pokemon go, uses vector map tiles to render the world. find a good free/open vector tile source for this. cache tiles on-device.
- - user's gps for navigation (wasd for fallback on testing)
- - uses phaser to render objects from vector tiles
- - each type of vector region and point becomes some farm fantasy themed variant.
- - use map vector tiles to inform the base ground state but add some randomness/variety.
- - player's phaser camera shows an 11x11 square region, and moving the gps or wasd keys moves this camera (and player in centre)
- - tapping the player locks position, since gps may drift a little. tapping again unlocks and snaps back to gps location.
- - when the user moves around into new areas, spawn some random creatures, resources and item drops there.
- - player may tap anything in their camera to interact.
- - player can cycle through their inventory on a bottom bar, and tap items to select them.
- - with a seed selected in inventory, player can tap a ground tile to plant.
- - creatures can be caught when discovered and added to player's farm.
- - use the assets in this folder
- - graceful behaviour when network temporarily disconnects. show 'reconnecting', and let the user continue to walk around just with no new map tiles until network returns
+ - like pokemon go, uses vector map tiles to render the world. find a good free/open vector tile source for this. cache tiles on-device.    [DONE — OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache in worldgen.js]
+ - user's gps for navigation (wasd for fallback on testing)    [DONE — navigator.geolocation.watchPosition + WASD fallback]
+ - uses phaser to render objects from vector tiles    [DONE — Phaser 3.87, MVT polygons → house/tree/chest sprites]
+ - each type of vector region and point becomes some farm fantasy themed variant.    [PARTIAL — building→house, forest landcover→tree, POI classes → themed chests (food/herb/potion/lore/rare); ground regions still flat colored cells (real tileset auto-tile deferred)]
+ - use map vector tiles to inform the base ground state but add some randomness/variety.    [DONE — ground class deterministic from MVT; tree scatter and creature/chest placement randomized per tile via seeded RNG]
+ - player's phaser camera shows an 11x11 square region, and moving the gps or wasd keys moves this camera (and player in centre)    [DONE — player fixed at center, world pans, clipped to 11x11 viewport]
+ - tapping the player locks position, since gps may drift a little. tapping again unlocks and snaps back to gps location.    [DONE — player tints yellow when locked, snaps to gpsM on unlock]
+ - when the user moves around into new areas, spawn some random creatures, resources and item drops there.    [DONE — chickens in grass/farmland/park, cows in farmland, ~75 POI-derived chests per tile (food/herb/potion/lore/rare)]
+ - player may tap anything in their camera to interact.    [DONE — tap creature → catch; tap chest → open + loot; tap tree → chop + wood; tap house → name; tap ground with seed → plant; tap crop → harvest]
+ - player can cycle through their inventory on a bottom bar, and tap items to select them.    [DONE — 6-slot bar, tap to select, persists in localStorage]
+ - with a seed selected in inventory, player can tap a ground tile to plant.    [DONE — all ground except water/building is tillable; 15m range; 3-stage 40s growth from Spring Crops sheet]
+ - creatures can be caught when discovered and added to player's farm.    [DONE — caught chickens/cows removed from world, persisted in save, counted in HUD]
+ - use the assets in this folder    [MOSTLY — using Character, Maple Tree, House, Chicken Red, Cow, Chest, Spring Crops; NOT yet using Tileset Spring (terrain art), Fence, Interior, Road sprite, Baby Chicken / Green / Blonde chicken variants]
+ - graceful behaviour when network temporarily disconnects. show 'reconnecting', and let the user continue to walk around just with no new map tiles until network returns    [DONE — banner on offline event, cached tiles still served from IDB]
 
-initial prototype:
- - start with just rendering map tiles in an interactive camera centred around the player.
- - move onto generated world tiles based on map vector tiles. use the smallest map vector tile, and convert it to tiles about 3M in size. So the camera viewport is 33M.
+initial prototype:    [DONE]
+ - start with just rendering map tiles in an interactive camera centred around the player.    [DONE]
+ - move onto generated world tiles based on map vector tiles. use the smallest map vector tile, and convert it to tiles about 3M in size. So the camera viewport is 33M.    [DONE — adjusted per direction: 5m cells, 55m viewport, OpenFreeMap z14 (highest available for full layer set incl. landuse/water/poi)]
 
+remaining work:
+ - real terrain art from Tileset Spring.png — needs 4x4 auto-tile (wang) lookup; deferred (asset analysis returned low-confidence frame indices, needs a debug viewer to confirm)
+ - secondary uses for remaining assets — fences (around planted plots?), interior (enter buildings?), road sprite (overlay), additional chicken variants (rare drops?)
+ - stash → inventory conversion (food/herb/etc. currently only counted, not usable items)

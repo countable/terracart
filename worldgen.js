@@ -315,18 +315,22 @@
           const wCells = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell);
         } else if (f.type === 1 && name === 'poi') {
-          // POI points: drop a themed object
+          // POI points: themed pickup (chest/herb) keyed by POI class.
+          const cls = f.tags.class || '';
+          let chestType = null;
+          if (['restaurant', 'cafe', 'fast_food', 'grocery', 'butcher', 'ice_cream',
+               'alcohol_shop', 'beer', 'bakery', 'shop'].includes(cls)) chestType = 'food';
+          else if (['attraction', 'museum', 'library', 'town_hall'].includes(cls)) chestType = 'rare';
+          else if (['pharmacy', 'hospital', 'dentist'].includes(cls)) chestType = 'potion';
+          else if (['place_of_worship', 'school', 'college'].includes(cls)) chestType = 'lore';
+          else if (['park', 'garden', 'playground', 'pitch'].includes(cls)) chestType = 'herb';
+          if (!chestType) continue;
           for (const ring of f.geom) {
             const p = ring[0];
             const m = toMeters(p.x, p.y);
-            const cls = f.tags.class || '';
-            const sub = f.tags.subclass || '';
-            // For prototype, just mark notable types
-            if (['park', 'garden', 'pitch'].includes(cls)) {
-              objects.push({ kind: 'tree', x: m.x, y: m.y, variant: 4 });
-            } else if (['shop', 'food_and_drink', 'tourism', 'office'].includes(cls)) {
-              objects.push({ kind: 'house', x: m.x, y: m.y, area: 60 });
-            }
+            const id = `c_${Math.round(m.x)}_${Math.round(m.y)}`;
+            objects.push({ kind: 'chest', subkind: chestType, x: m.x, y: m.y, id,
+              poiClass: cls, name: f.tags.name || '' });
           }
         }
       }

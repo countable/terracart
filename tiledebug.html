@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tileset Spring - Tile Debug</title>
+<style>
+  html, body {
+    background: #000;
+    color: #fff;
+    margin: 0;
+    padding: 16px;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  .legend { font-size: 12px; margin-bottom: 12px; }
+  .legend span { display: inline-block; padding: 2px 6px; margin-right: 8px; border: 2px solid; }
+  .legend .grass    { border-color: #00ff66; color: #00ff66; }
+  .legend .farmland { border-color: #ffaa00; color: #ffaa00; }
+  .legend .forest   { border-color: #ff3366; color: #ff3366; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 48px);
+    gap: 4px;
+    width: max-content;
+  }
+  .cell {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    box-sizing: border-box;
+    background: #111;
+  }
+  .cell canvas {
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    display: block;
+  }
+  .cell .idx {
+    position: absolute;
+    top: 0; left: 1px;
+    font-size: 8px;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 2px #000, 1px 0 2px #000, 0 1px 2px #000, -1px 0 2px #000, 0 -1px 2px #000;
+    pointer-events: none;
+  }
+  .cell .rc {
+    position: absolute;
+    bottom: 0; right: 1px;
+    font-size: 7px;
+    line-height: 1;
+    color: #cfc;
+    text-shadow: 0 0 2px #000, 1px 0 2px #000, 0 1px 2px #000, -1px 0 2px #000, 0 -1px 2px #000;
+    pointer-events: none;
+  }
+  .cell.hl {
+    outline: 2px solid var(--hl);
+    outline-offset: -2px;
+  }
+  .cell .tag {
+    position: absolute;
+    top: -10px;
+    left: -2px;
+    font-size: 9px;
+    color: var(--hl);
+    background: #000;
+    padding: 0 3px;
+    border: 1px solid var(--hl);
+    z-index: 2;
+    white-space: nowrap;
+  }
+  #status { font-size: 12px; margin-bottom: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+<h1>Tileset Spring.png - 12 x 20, 16x16 tiles (240 frames)</h1>
+<div class="legend">
+  <span class="grass">46 = GRASS?</span>
+  <span class="farmland">106 = FARMLAND?</span>
+  <span class="forest">226 = FOREST?</span>
+  &nbsp; Each cell shows index (top-left) and (row,col) (bottom-right).
+</div>
+<div id="status">Loading tileset...</div>
+<div class="grid" id="grid"></div>
+
+<script>
+(function () {
+  var COLS = 12, ROWS = 20, TILE = 16, SCALE = 3;
+  var SRC = 'Tileset/Tileset Spring.png';
+  var HIGHLIGHTS = {
+    46:  { label: 'GRASS?',    color: '#00ff66' },
+    106: { label: 'FARMLAND?', color: '#ffaa00' },
+    226: { label: 'FOREST?',   color: '#ff3366' }
+  };
+
+  var img = new Image();
+  img.onload = function () {
+    document.getElementById('status').textContent =
+      'Loaded ' + SRC + ' (' + img.naturalWidth + ' x ' + img.naturalHeight + ')';
+    var grid = document.getElementById('grid');
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < COLS * ROWS; i++) {
+      var col = i % COLS;
+      var row = Math.floor(i / COLS);
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      var canvas = document.createElement('canvas');
+      canvas.width = TILE;
+      canvas.height = TILE;
+      var ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, col * TILE, row * TILE, TILE, TILE, 0, 0, TILE, TILE);
+      cell.appendChild(canvas);
+
+      var idx = document.createElement('div');
+      idx.className = 'idx';
+      idx.textContent = i;
+      cell.appendChild(idx);
+
+      var rc = document.createElement('div');
+      rc.className = 'rc';
+      rc.textContent = row + ',' + col;
+      cell.appendChild(rc);
+
+      if (HIGHLIGHTS[i]) {
+        cell.classList.add('hl');
+        cell.style.setProperty('--hl', HIGHLIGHTS[i].color);
+        var tag = document.createElement('div');
+        tag.className = 'tag';
+        tag.textContent = HIGHLIGHTS[i].label;
+        cell.appendChild(tag);
+      }
+
+      frag.appendChild(cell);
+    }
+    grid.appendChild(frag);
+  };
+  img.onerror = function () {
+    document.getElementById('status').textContent =
+      'ERROR: failed to load ' + SRC + ' - serve this page from the terracart folder.';
+  };
+  img.src = SRC;
+})();
+</script>
+</body>
+</html>
