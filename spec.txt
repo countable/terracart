@@ -1,26 +1,89 @@
-a mobile web based game (works on desktop too, uses mobile sized screen centred in browser.    [DONE — 390x844 canvas centered]
+terracart — Pokémon-Go-style farm game on real map data.
+Source of truth: this file. Features below are implemented unless marked [TODO]/[DEFERRED].
 
-core concept:
- - like pokemon go, uses vector map tiles to render the world. find a good free/open vector tile source for this. cache tiles on-device.    [DONE — OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache in worldgen.js]
- - user's gps for navigation (wasd for fallback on testing)    [DONE — navigator.geolocation.watchPosition + WASD fallback]
- - uses phaser to render objects from vector tiles    [DONE — Phaser 3.87, MVT polygons → house/tree/chest sprites]
- - each type of vector region and point becomes some farm fantasy themed variant.    [PARTIAL — building→house, forest landcover→tree, POI classes → themed chests (food/herb/potion/lore/rare); ground regions still flat colored cells (real tileset auto-tile deferred)]
- - use map vector tiles to inform the base ground state but add some randomness/variety.    [DONE — ground class deterministic from MVT; tree scatter and creature/chest placement randomized per tile via seeded RNG]
- - player's phaser camera shows an 11x11 square region, and moving the gps or wasd keys moves this camera (and player in centre)    [DONE — player fixed at center, world pans, clipped to 11x11 viewport]
- - tapping the player locks position, since gps may drift a little. tapping again unlocks and snaps back to gps location.    [DONE — player tints yellow when locked, snaps to gpsM on unlock]
- - when the user moves around into new areas, spawn some random creatures, resources and item drops there.    [DONE — chickens in grass/farmland/park, cows in farmland, ~75 POI-derived chests per tile (food/herb/potion/lore/rare)]
- - player may tap anything in their camera to interact.    [DONE — tap creature → catch; tap chest → open + loot; tap tree → chop + wood; tap house → name; tap ground with seed → plant; tap crop → harvest]
- - player can cycle through their inventory on a bottom bar, and tap items to select them.    [DONE — 6-slot bar, tap to select, persists in localStorage]
- - with a seed selected in inventory, player can tap a ground tile to plant.    [DONE — all ground except water/building is tillable; 15m range; 3-stage 40s growth from Spring Crops sheet]
- - creatures can be caught when discovered and added to player's farm.    [DONE — caught chickens/cows removed from world, persisted in save, counted in HUD]
- - use the assets in this folder    [MOSTLY — using Character, Maple Tree, House, Chicken Red, Cow, Chest, Spring Crops; NOT yet using Tileset Spring (terrain art), Fence, Interior, Road sprite, Baby Chicken / Green / Blonde chicken variants]
- - graceful behaviour when network temporarily disconnects. show 'reconnecting', and let the user continue to walk around just with no new map tiles until network returns    [DONE — banner on offline event, cached tiles still served from IDB]
+CORE
+ - mobile web (desktop too), 390x844 viewport centered in browser
+ - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache
+ - Phaser 3.87 renders the world
+ - Geolocation API for navigation, WASD as fallback (works on localhost / desktop)
+ - tap player to lock position (drift protection); tap again to unlock + snap back to GPS
+ - camera shows 11x11 cells, 5m each (55m viewport). player fixed at center, world pans
+ - graceful network disconnect: 'reconnecting' banner; cached tiles still served from IDB
 
-initial prototype:    [DONE]
- - start with just rendering map tiles in an interactive camera centred around the player.    [DONE]
- - move onto generated world tiles based on map vector tiles. use the smallest map vector tile, and convert it to tiles about 3M in size. So the camera viewport is 33M.    [DONE — adjusted per direction: 5m cells, 55m viewport, OpenFreeMap z14 (highest available for full layer set incl. landuse/water/poi)]
+WORLD GENERATION
+ - each MVT tile is rasterized once into a 315x315 grid of 5m cells (one terrain class per cell)
+ - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path, building, rock
+ - cell colors are flat placeholders for now ([TODO] real tile art from Tileset Spring.png with auto-tile lookup)
+ - building polygons → house sprite at centroid
+ - forest landcover polygons → scattered Maple Tree sprites (seeded per tile)
+ - POI points → chest sprite at the POI location (see CHESTS below)
 
-remaining work:
- - real terrain art from Tileset Spring.png — needs 4x4 auto-tile (wang) lookup; deferred (asset analysis returned low-confidence frame indices, needs a debug viewer to confirm)
- - secondary uses for remaining assets — fences (around planted plots?), interior (enter buildings?), road sprite (overlay), additional chicken variants (rare drops?)
- - stash → inventory conversion (food/herb/etc. currently only counted, not usable items)
+CREATURES
+ - chickens (Chicken Red) spawn seeded-per-tile in grass/farmland/park cells, 4-9 per tile
+ - cows (Female Cow Brown) spawn 0-2 per tile in farmland only
+ - tap creature within 4m to catch; caught state persists in localStorage; caught count in HUD
+ - [DEFERRED] variant chickens (Baby Yellow, Blonde Green) and Male Cow as rare/uncommon spawns
+
+CHESTS (POI-driven, drop existing inventory items only)
+ - POI classes mapped to chest sprite (uses Objects/chest.png, 16x16, 2 frames closed/open):
+     restaurant/cafe/fast_food/grocery/butcher/ice_cream/alcohol_shop/beer/bakery/shop → "food" chest
+     park/garden/playground/pitch → "herb" chest
+     pharmacy/hospital/dentist → "potion" chest
+     attraction/museum/library/town_hall → "rare" chest
+     place_of_worship/school/college → "lore" chest
+   (Subkind is flavor only — same loot table.)
+ - tap chest within 4m + within 18m of player to open
+ - chest gives 1-2 of a random EXISTING inventory item (seeds + tools); no new resource types
+ - opened chest stays open and dimmed; opened state persists
+ - real POI name shown in flash text (e.g. "🍱 → 🥕×2  Casorso Elementary School")
+ - density: ~75 chests per tile (one per useful POI)
+
+INVENTORY
+ - infinite list, scrolled in pages of 5 slots with ◀ ▶ buttons (page count shown)
+ - tap a slot to select; selection persists
+ - inventory contains SEEDS only — tools (hoe, watering can, net, feed) are implicit, always available
+ - starter seeds (all infinite): 🥕 Carrot, 🍅 Tomato, 🌽 Corn
+ - looted seeds (harvested crops, chest drops) add to inventory with a count badge; existing stacks increment
+ - count is null/absent = infinite (starter seeds never deplete)
+
+INTERACTION
+ - tapping is reserved for: PLANTING seeds, and (future) BUYING / SELLING at shops
+ - all other state changes happen via player intersection (walking over a cell)
+ - tap inside the 11x11 viewport (priority order):
+     1) creature within 4m → catch
+     2) world object within ~4m: chest→open+loot, tree→flavor, house→POI name
+     3) tillable cell within 15m with seed selected → plant (cell must already be tilled by walking)
+ - tap player → toggle GPS lock (yellow tint when locked)
+ - flash text fades upward over 0.9s
+
+ECONOMY (TODO — buying & selling)
+ - shop POIs (food/herb/potion/rare/lore chest classes) become MARKETS:
+     tap shop → modal lets player BUY items (consumable inventory) or SELL produce for coins
+ - currency = coins; persisted in save.coins
+ - sell prices = base + small randomness per shop class (e.g. food shops pay 2x for carrots)
+ - buy stock = small rotating set of items (seeds, future tools)
+ - one-time loot drop (current chest behavior) stays available for non-shop POI types
+ - NOT YET IMPLEMENTED — current chests give random seed on tap; replace when economy is added
+
+FARMING LOOP
+ - the ONLY manual farming action is PLANTING. tools are implicit; other state changes happen
+   automatically as the player walks over the cell.
+     1) walk over untilled tillable cell → AUTO-TILL (visual: brown tint)
+     2) tap tilled cell with a seed selected → PLANT
+     3) walk over planted-but-dry cell → AUTO-WATER (halves remaining growth time)
+     4) walk over fully-grown crop → AUTO-HARVEST → +1-3 produce of that crop
+ - any tillable cell (non-water, non-building) can be tilled
+ - crop grows over 3 stages: 40s unwatered, 20s watered
+ - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .watered_t, .crop, .t)
+ - tilled cells render with a brown tint overlay until planted
+
+HUD (debug)
+ - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)
+ - line 2: current MVT tile coords, loaded tile count, caught creatures, planted plot count
+ - useful for testing; not styled for production
+
+NOT IN SCOPE / REJECTED
+ - fences (proposal dropped; OSM/OpenMapTiles tiles don't expose barrier data; user opted out)
+ - house interiors (proposal dropped)
+ - new resource item types like wood/stone (rejected — inventory uses only seeds + tools)
+ - farm view scene (rejected — caught count in HUD is sufficient for now)

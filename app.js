@@ -30,14 +30,14 @@ const COLORS = {
 const NON_TILLABLE = new Set([3, 9]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
-// Themed chest emoji + loot table
-const CHEST_INFO = {
-  food:   { icon: '🍱', stash: 'food',   amount: () => 1 + Math.floor(Math.random() * 2) },
-  rare:   { icon: '💎', stash: 'rare',   amount: () => 1 },
-  potion: { icon: '🧪', stash: 'potion', amount: () => 1 },
-  lore:   { icon: '📜', stash: 'lore',   amount: () => 1 },
-  herb:   { icon: '🌿', stash: 'herb',   amount: () => 1 + Math.floor(Math.random() * 3) },
-};
+// All chests drop a random existing inventory item (seeds + tools).
+// Subkind (carried from POI class in worldgen) is kept as flavor only — same loot table for now.
+const CHEST_ICON = { food: '🍱', rare: '💎', potion: '🧪', lore: '📜', herb: '🌿' };
+function pickLoot(rng) {
+  const id = LOOTABLE_IDS[Math.floor((rng ?? Math.random)() * LOOTABLE_IDS.length)];
+  const n = 1 + Math.floor((rng ?? Math.random)() * 2);
+  return { id, n };
+}
 
 const SAVE_KEY = 'terracart.save.v1';
 function loadSave() {
@@ -46,21 +46,19 @@ function loadSave() {
 }
 function persistSave(s) { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
 
+// Per spec: inventory holds seeds (infinite starters) and produce (harvested crops).
+// Tools (hoe, watering can) are IMPLICIT — handled automatically by walking over cells.
 const ITEMS = [
-  { id: 'carrot_seed', name: 'Carrot Seed', kind: 'seed', grows: 'carrot', icon: '🥕' },
-  { id: 'tomato_seed', name: 'Tomato Seed', kind: 'seed', grows: 'tomato', icon: '🍅' },
-  { id: 'corn_seed',   name: 'Corn Seed',   kind: 'seed', grows: 'corn',   icon: '🌽' },
-  { id: 'net',         name: 'Net',         kind: 'tool', icon: '🪤' },
-  { id: 'feed',        name: 'Feed',        kind: 'tool', icon: '🌾' },
-  // Loot types
-  { id: 'wood',   name: 'Wood',   kind: 'res', icon: '🪵' },
-  { id: 'food',   name: 'Food',   kind: 'res', icon: '🍱' },
-  { id: 'herb',   name: 'Herb',   kind: 'res', icon: '🌿' },
-  { id: 'potion', name: 'Potion', kind: 'res', icon: '🧪' },
-  { id: 'lore',   name: 'Lore',   kind: 'res', icon: '📜' },
-  { id: 'rare',   name: 'Rare',   kind: 'res', icon: '💎' },
+  { id: 'carrot_seed', name: 'Carrot Seed', kind: 'seed', grows: 'carrot', icon: '🌱' },
+  { id: 'tomato_seed', name: 'Tomato Seed', kind: 'seed', grows: 'tomato', icon: '🌱' },
+  { id: 'corn_seed',   name: 'Corn Seed',   kind: 'seed', grows: 'corn',   icon: '🌱' },
+  { id: 'carrot',      name: 'Carrot',      kind: 'produce', icon: '🥕' },
+  { id: 'tomato',      name: 'Tomato',      kind: 'produce', icon: '🍅' },
+  { id: 'corn',        name: 'Corn',        kind: 'produce', icon: '🌽' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// Chests drop random seeds.
+const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -79,17 +77,19 @@ class MapScene extends Phaser.Scene {
   create() {
     this.save = Object.assign(
       {
-        caught: [], planted: [], opened: [],
-        // inv is array of {id, count?} (no count = infinite, e.g. seeds)
+        caught: [], planted: [], opened: [], tilled: [],
+        // inv is array of {id, count?} (no count = infinite, e.g. starter seeds)
         inv: [
           { id: 'carrot_seed' }, { id: 'tomato_seed' }, { id: 'corn_seed' },
-          { id: 'net' }, { id: 'feed' },
         ],
         selSlot: 0,
+        invPage: 0,
       },
       loadSave()
     );
     this.save.opened = this.save.opened || [];
+    this.save.tilled = this.save.tilled || [];
+    this.tilledSet = new Set(this.save.tilled);
     // Migrate older save (inv as string array, or stash object)
     if (this.save.inv && typeof this.save.inv[0] === 'string') {
       this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id }));
@@ -309,6 +309,17 @@ class MapScene extends Phaser.Scene {
       this.ensureTilesAround().catch(() => {});
     }
 
+    // Walking auto-progression: when the player enters a new cell, run state transitions.
+    const pWorldX = this.startWorldM.x + this.playerM.x;
+    const pWorldY = this.startWorldM.y + this.playerM.y;
+    const cellIX = Math.floor(pWorldX / this.cellM);
+    const cellIY = Math.floor(pWorldY / this.cellM);
+    const cellKey = `${cellIX}_${cellIY}`;
+    if (cellKey !== this._lastPlayerCellKey) {
+      this._lastPlayerCellKey = cellKey;
+      this.onPlayerEnterCell(cellIX, cellIY);
+    }
+
     this.drawCells();
     this.drawObjects();
     this.updateHUD();
@@ -340,6 +351,18 @@ class MapScene extends Phaser.Scene {
         const sy = this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2;
         g.fillStyle(color, 1);
         g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
+
+        // Tilled overlay (brown tint)
+        const wcMx = (wcx | 0) * (this.cellsPerTile === 0 ? 1 : 1); // noop guard
+        const absCellIX = Math.floor((this.startWorldM.x + this.playerM.x + (ox - fracX) * this.cellM) / this.cellM);
+        const absCellIY = Math.floor((this.startWorldM.y + this.playerM.y + (oy - fracY) * this.cellM) / this.cellM);
+        const cmx = (absCellIX + 0.5) * this.cellM;
+        const cmy = (absCellIY + 0.5) * this.cellM;
+        const tilledKey = `${Math.round(cmx)}_${Math.round(cmy)}`;
+        if (this.tilledSet && this.tilledSet.has(tilledKey)) {
+          g.fillStyle(0x5a3a1f, 0.45);
+          g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
+        }
       }
     }
     // Grid lines slide with the same fractional offset as the cells.
@@ -498,20 +521,19 @@ class MapScene extends Phaser.Scene {
         }
         if (o.kind === 'chest') {
           if (this.save.opened.includes(o.id)) { this.flash('already looted', sx, sy); return; }
-          const info = CHEST_INFO[o.subkind] || CHEST_INFO.food;
-          const n = info.amount();
-          this.addToInv(info.stash, n);
+          const loot = pickLoot();
+          this.addToInv(loot.id, loot.n);
           this.save.opened.push(o.id);
           persistSave(this.save);
-          const label = o.name ? `${info.icon}×${n}  ${o.name}` : `${info.icon}×${n}`;
+          const icon = CHEST_ICON[o.subkind] || '🎁';
+          const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
+          const label = o.name ? `${icon} → ${lootIcon}×${loot.n}  ${o.name}` : `${icon} → ${lootIcon}×${loot.n}`;
           this.flash(label, sx, sy);
           return;
         }
         if (o.kind === 'tree') {
-          o.chopped = true;
-          this.addToInv('wood', 1);
-          persistSave(this.save);
-          this.flash('🪵 +1 wood', sx, sy);
+          // Spec: tap to interact. Trees are decorative for now — flavor only.
+          this.flash('a sturdy maple', sx, sy);
           return;
         }
         if (o.kind === 'house') {
@@ -520,40 +542,34 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // 2) Harvest planted crop
-    for (let idx = 0; idx < this.save.planted.length; idx++) {
-      const p = this.save.planted[idx];
-      if (Math.hypot(p.x - wm.x, p.y - wm.y) < 4) {
-        const elapsedMs = Date.now() - p.t;
-        if (elapsedMs >= 40 * 1000) {
-          this.save.planted.splice(idx, 1);
-          this.flash(`+1 ${p.crop}`, sx, sy);
-          persistSave(this.save);
-        } else {
-          const s = Math.ceil((40 * 1000 - elapsedMs) / 1000);
-          this.flash(`growing (${s}s)`, sx, sy);
-        }
-        return;
-      }
-    }
-    // 3) Plant seed if seed selected and within 15m
+    // 2) Plant a seed (only manual farming action — till/water/harvest are automated by walking).
     const sel = this.save.inv[this.save.selSlot];
     const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (item && item.kind === 'seed') {
-      if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
-      const cell = this.cellAt(wm.x, wm.y);
-      if (!isTillable(cell.type)) { this.flash("can't plant here", sx, sy); return; }
-      const cwmx = Math.floor(wm.x / this.cellM) * this.cellM + this.cellM / 2;
-      const cwmy = Math.floor(wm.y / this.cellM) * this.cellM + this.cellM / 2;
-      if (this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
-        this.flash('already planted', sx, sy); return;
-      }
-      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, t: Date.now() });
-      persistSave(this.save);
-      this.flash(`planted ${item.grows}`, sx, sy);
-    } else {
-      this.flash(item ? `${item.name} —` : '·', sx, sy);
+    if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
+    const cell = this.cellAt(wm.x, wm.y);
+    if (!isTillable(cell.type)) {
+      const flavor = cell.type === 3 ? 'water' : cell.type === 9 ? 'building' : '·';
+      this.flash(flavor, sx, sy);
+      return;
     }
+    if (!item || item.kind !== 'seed') {
+      this.flash('select a seed', sx, sy);
+      return;
+    }
+    const cwmx = Math.floor(wm.x / this.cellM) * this.cellM + this.cellM / 2;
+    const cwmy = Math.floor(wm.y / this.cellM) * this.cellM + this.cellM / 2;
+    const cellKey = `${Math.round(cwmx)}_${Math.round(cwmy)}`;
+    if (!this.tilledSet.has(cellKey)) {
+      this.flash('walk over to till first', sx, sy);
+      return;
+    }
+    if (this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
+      this.flash('already planted', sx, sy);
+      return;
+    }
+    this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, t: Date.now(), watered_t: 0 });
+    persistSave(this.save);
+    this.flash(`planted ${item.grows}`, sx, sy);
   }
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
@@ -568,6 +584,56 @@ class MapScene extends Phaser.Scene {
     this.save.caught.push(c.id);
     persistSave(this.save);
     this.flash(`caught ${c.kind}!`, sx, sy);
+  }
+
+  onPlayerEnterCell(cellIX, cellIY) {
+    // Identify the cell center in world meters.
+    const cwmx = (cellIX + 0.5) * this.cellM;
+    const cwmy = (cellIY + 0.5) * this.cellM;
+    const cellKey = `${Math.round(cwmx)}_${Math.round(cwmy)}`;
+    const cell = this.cellAt(cwmx, cwmy);
+    if (!isTillable(cell.type)) return;
+
+    // 1) Auto-harvest first (so we don't water a ready crop pointlessly).
+    const plantedIdx = this.save.planted.findIndex(p =>
+      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
+    if (plantedIdx >= 0) {
+      const p = this.save.planted[plantedIdx];
+      const stages = 3;
+      const stageMs = p.watered_t ? (20 * 1000 / stages) : (40 * 1000 / stages);
+      const fullMs = stageMs * stages;
+      const elapsed = Date.now() - p.t;
+      if (elapsed >= fullMs) {
+        this.save.planted.splice(plantedIdx, 1);
+        this.tilledSet.delete(cellKey);
+        this.save.tilled = [...this.tilledSet];
+        const yieldN = 1 + Math.floor(Math.random() * 3);
+        this.addToInv(p.crop, yieldN);
+        persistSave(this.save);
+        const icon = ITEM_BY_ID[p.crop]?.icon || '🌾';
+        const ssx = this.viewCenterX, ssy = this.viewCenterY - 20;
+        this.flash(`harvested ${icon}×${yieldN}`, ssx, ssy);
+        return;
+      } else if (!p.watered_t) {
+        // 2) Auto-water
+        const unwateredMs = 40 * 1000, wateredMs = 20 * 1000;
+        const remaining = Math.max(0, unwateredMs - elapsed);
+        const newRemaining = remaining * (wateredMs / unwateredMs);
+        p.t = Date.now() - (wateredMs - newRemaining);
+        p.watered_t = Date.now();
+        persistSave(this.save);
+        this.flash('💧 watered', this.viewCenterX, this.viewCenterY - 20);
+        return;
+      }
+      return;
+    }
+
+    // 3) Auto-till empty tillable ground (silent — no flash to avoid spam)
+    if (!this.tilledSet.has(cellKey)) {
+      this.tilledSet.add(cellKey);
+      this.save.tilled = [...this.tilledSet];
+      persistSave(this.save);
+    }
   }
 
   flash(text, x, y) {
@@ -604,43 +670,77 @@ class MapScene extends Phaser.Scene {
     }
   }
   buildInventoryDOM() {
+    const PAGE = 5;
     const game = document.getElementById('game');
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;overflow-x:auto;flex-wrap:nowrap;';
+    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
     if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = 0;
-    for (let i = 0; i < this.save.inv.length; i++) {
+    if (this.save.invPage == null) this.save.invPage = 0;
+    const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
+    if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
+
+    const makeBtn = (txt, onclick, w = 28) => {
+      const b = document.createElement('button');
+      b.textContent = txt;
+      b.style.cssText = `width:${w}px;height:42px;background:#222a;border:2px solid #555;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
+      b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
+      return b;
+    };
+    bar.appendChild(makeBtn('◀', () => {
+      this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
+      persistSave(this.save); this.buildInventoryDOM();
+    }));
+
+    const startIdx = this.save.invPage * PAGE;
+    for (let s = 0; s < PAGE; s++) {
+      const i = startIdx + s;
       const entry = this.save.inv[i];
-      const item = ITEM_BY_ID[entry.id];
+      const item = entry ? ITEM_BY_ID[entry.id] : null;
       const slot = document.createElement('button');
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.textContent = item ? item.icon : '·';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      if (entry.count != null) {
+      if (entry && entry.count != null) {
         const badge = document.createElement('span');
         badge.textContent = entry.count;
         badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
         slot.appendChild(badge);
       }
-      slot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.save.selSlot = i; persistSave(this.save);
-        this.refreshInventoryHighlight();
-      });
+      if (entry) {
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.save.selSlot = i; persistSave(this.save);
+          this.refreshInventoryHighlight();
+        });
+      }
       bar.appendChild(slot);
     }
+    bar.appendChild(makeBtn('▶', () => {
+      this.save.invPage = (this.save.invPage + 1) % pageCount;
+      persistSave(this.save); this.buildInventoryDOM();
+    }));
+    const pageLbl = document.createElement('span');
+    pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
+    pageLbl.style.cssText = 'color:#fff8;font:10px ui-monospace,monospace;margin-left:4px;';
+    bar.appendChild(pageLbl);
+
     game.appendChild(bar);
     this.refreshInventoryHighlight();
   }
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    [...bar.children].forEach((el, i) => {
-      el.style.borderColor = (i === this.save.selSlot) ? '#ffd866' : '#555';
-      el.style.background  = (i === this.save.selSlot) ? '#553a' : '#222a';
+    const PAGE = 5;
+    const startIdx = this.save.invPage * PAGE;
+    [...bar.querySelectorAll('button[data-slot]')].forEach(el => {
+      const i = +el.dataset.slot;
+      const isSel = i === this.save.selSlot;
+      el.style.borderColor = isSel ? '#ffd866' : '#555';
+      el.style.background  = isSel ? '#553a' : '#222a';
     });
   }
 }
