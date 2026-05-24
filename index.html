@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>map-game prototype</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #111; color: #ddd;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #frame {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #game {
+      width: 390px; height: 844px;
+      max-width: 100vw; max-height: 100vh;
+      background: #000;
+      box-shadow: 0 0 24px #000a;
+      position: relative;
+    }
+    #banner {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
+      font-size: 12px; display: none; z-index: 10;
+    }
+    #hud {
+      position: absolute; bottom: 8px; left: 8px; right: 8px;
+      font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
+      font-family: ui-monospace, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="frame">
+    <div id="game">
+      <div id="banner">reconnecting…</div>
+      <div id="hud"></div>
+    </div>
+  </div>
+  <script src="phaser.js"></script>
+  <script src="mvt.js"></script>
+  <script src="worldgen.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

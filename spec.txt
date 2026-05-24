@@ -1,0 +1,22 @@
+a mobile web based game (works on desktop too, uses mobile sized screen centred in browser.
+
+core concept:
+ - like pokemon go, uses vector map tiles to render the world. find a good free/open vector tile source for this. cache tiles on-device.
+ - user's gps for navigation (wasd for fallback on testing)
+ - uses phaser to render objects from vector tiles
+ - each type of vector region and point becomes some farm fantasy themed variant.
+ - use map vector tiles to inform the base ground state but add some randomness/variety.
+ - player's phaser camera shows an 11x11 square region, and moving the gps or wasd keys moves this camera (and player in centre)
+ - tapping the player locks position, since gps may drift a little. tapping again unlocks and snaps back to gps location.
+ - when the user moves around into new areas, spawn some random creatures, resources and item drops there.
+ - player may tap anything in their camera to interact.
+ - player can cycle through their inventory on a bottom bar, and tap items to select them.
+ - with a seed selected in inventory, player can tap a ground tile to plant.
+ - creatures can be caught when discovered and added to player's farm.
+ - use the assets in this folder
+ - graceful behaviour when network temporarily disconnects. show 'reconnecting', and let the user continue to walk around just with no new map tiles until network returns
+
+initial prototype:
+ - start with just rendering map tiles in an interactive camera centred around the player.
+ - move onto generated world tiles based on map vector tiles. use the smallest map vector tile, and convert it to tiles about 3M in size. So the camera viewport is 33M.
+
