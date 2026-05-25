@@ -615,14 +615,14 @@ function makePlaqueTextures(scene) {
   for (const crop of Object.keys(CROP_ROW)) {
     const key = `plaque_${crop}`;
     if (scene.textures.exists(key)) continue;
-    const PW = 26, PH = 28;
+    const PW = 26, PH = 22;
     const tex = scene.textures.createCanvas(key, PW, PH);
     const ctx = tex.getContext();
 
-    // Board geometry: 22 wide x 12 tall at top. Post: 2 wide x 10 tall below.
+    // Board geometry: 22 wide x 12 tall at top. Post: 2 wide x ~5 tall below.
     const BW = 22, BH = 12;
     const BX = (PW - BW) / 2, BY = 2;
-    const PX = PW / 2 - 1, PY_TOP = BY + BH, PY_H = 10;
+    const PX = PW / 2 - 1, PY_TOP = BY + BH, PY_H = 5;
 
     // ground shadow at base of post
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
