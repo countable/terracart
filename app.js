@@ -1495,11 +1495,16 @@ class MapScene extends Phaser.Scene {
       }
     }
     // 2) Cell interactions — tap drives till / plant / water / harvest.
-    if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
+    // Reach is tested against the affected CELL'S CENTER (not the raw tap
+    // point) so the outline drawn in drawCells matches exactly: any cell whose
+    // centre is within REACH_CELL_M of the feet is actionable, full stop.
     const cell = this.cellAt(wm.x, wm.y);
     if (!cell.loaded) { this.flash('loading…', sx, sy); return; }
     const { cellIX, cellIY } = this.worldMetersToAbsCell(wm.x, wm.y);
     const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
+    if (Math.hypot(cwmx - pWorldX, cwmy - pWorldY) > this.REACH_CELL_M) {
+      this.flash('too far', sx, sy); return;
+    }
     const cellKey = `${cellIX}_${cellIY}`;
 
     // 2a) Tap on a planted crop → harvest if mature, else advance (if 1h elapsed), else water.
@@ -1589,8 +1594,8 @@ class MapScene extends Phaser.Scene {
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
-    // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 6 (milk + beef) and are rarer.
-    const yieldN = c.kind === 'chicken' ? 4 : c.kind === 'cow' ? 6 : 1;
+    // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 1.
+    const yieldN = c.kind === 'chicken' ? 4 : 1;
     this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
