@@ -359,6 +359,17 @@ const PRODUCE_COL = 7;
 const SEEDBOX_COL = 8;
 const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 
+// Per-crop sprite override. Crops listed here use Spring Crops.png (14×8 of 16×16,
+// 224×128 total) instead of Crops.png. Spring Crops layout on each crop's row:
+//   col 0  = seed (also used in-world for stage 0, "just planted")
+//   cols 1-4 = growth stages 1..4 (4 = mature, harvestable)
+//   col 8  = produce / fruit (inventory icon for harvested item)
+// Add more entries as we identify which game crops correspond to Spring Crops rows.
+const SPRING_CROPS_COLS = 14;
+const CROP_SPRITE = {
+  potato: { sheet: 'springcrops', row: 5 },
+};
+
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
@@ -407,6 +418,9 @@ class MapScene extends Phaser.Scene {
     // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
     // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
     this.load.spritesheet('crops',   'Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
+    // Spring Crops sheet (224×128, 14×8 of 16×16 frames). Used by crops whose
+    // art lives here (e.g. potato) — see CROP_SPRITE override below.
+    this.load.spritesheet('springcrops', 'Objects/Spring Crops.png',  { frameWidth: 16, frameHeight: 16 });
     // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
     this.load.once('filecomplete-spritesheet-crops', () => {
       const tex = this.textures.get('crops');
@@ -1151,11 +1165,19 @@ class MapScene extends Phaser.Scene {
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
-      const row = CROP_ROW[p.crop] ?? 1;
-      // In-world growth uses cols 0..5 of the crop's row.
-      const frame = row * CROPS_SHEET_COLS + stage;
-      if (s.texture.key !== 'crops') s.setTexture('crops');
-      s.setFrame(frame);
+      const ov = CROP_SPRITE[p.crop];
+      if (ov && ov.sheet === 'springcrops') {
+        // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
+        const frame = ov.row * SPRING_CROPS_COLS + stage;
+        if (s.texture.key !== 'springcrops') s.setTexture('springcrops');
+        s.setFrame(frame);
+      } else {
+        const row = CROP_ROW[p.crop] ?? 1;
+        // In-world growth uses cols 0..5 of the crop's row.
+        const frame = row * CROPS_SHEET_COLS + stage;
+        if (s.texture.key !== 'crops') s.setTexture('crops');
+        s.setFrame(frame);
+      }
       // 16x16 frame, scale 2 = 32x32 display, anchored near the bottom of the cell.
       s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
     });
@@ -1478,21 +1500,29 @@ class MapScene extends Phaser.Scene {
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon from Crops.png (source 144x256, displayed 2x → bg-size 288x512).
-      //   - Seeds: the sheet only has a single generic seed-bag tile (col 8, row 15);
-      //     there is no per-crop seedbag art, so all seeds share that icon.
-      //   - Produce: per-crop produce icon at col 7, row = CROP_ROW[crop].
+      // Inventory icon. Crops listed in CROP_SPRITE come from Spring Crops.png
+      // (col 0 = seed, col 8 = produce, per-crop row). Everything else falls back
+      // to Crops.png: seeds use the generic seedbag (col 8 row 15), produce uses
+      // per-crop col 7 row = CROP_ROW[crop].
       const cropKey = item && (item.grows || item.crop);
       const cropRow = cropKey != null ? CROP_ROW[cropKey] : null;
+      const ov = cropKey != null ? CROP_SPRITE[cropKey] : null;
+      let iconUrl = "Objects/Crops.png", iconBgSize = "288px 512px";
       let iconCol = null, iconRow = null;
-      if (item && item.kind === 'seed')              { iconCol = 8; iconRow = 15; }
-      else if (item && item.kind === 'produce' && cropRow != null) { iconCol = PRODUCE_COL; iconRow = cropRow; }
+      if (item && ov && ov.sheet === 'springcrops') {
+        iconUrl = "Objects/Spring Crops.png";
+        iconBgSize = "448px 256px";  // 224×128 displayed 2x
+        iconRow = ov.row;
+        if (item.kind === 'seed')         iconCol = 0;
+        else if (item.kind === 'produce') iconCol = 8;
+      } else if (item && item.kind === 'seed')                            { iconCol = 8; iconRow = 15; }
+      else if (item && item.kind === 'produce' && cropRow != null)        { iconCol = PRODUCE_COL; iconRow = cropRow; }
       if (iconCol != null) {
         const icon = document.createElement('span');
         icon.style.cssText =
           "width:32px;height:32px;display:inline-block;" +
-          "background-image:url('Objects/Crops.png');" +
-          "background-size:288px 512px;" +
+          `background-image:url('${iconUrl}');` +
+          `background-size:${iconBgSize};` +
           `background-position:-${iconCol * 32}px -${iconRow * 32}px;` +
           "image-rendering:pixelated;";
         slot.appendChild(icon);
