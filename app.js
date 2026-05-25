@@ -40,7 +40,8 @@ const COLORS = {
   22: 0x4a7a32, // ORCHARD      (FOREST)    — olive
 };
 // Tillable = soil-ish ground. Water, roads (any tier), paths, and any building tier are not.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 11, 12, 13, 14]);
+// Rock (10) is non-tillable too — taps break the rock instead (see handleWorldTap).
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
 // Terrain classes that get no sprite from TileMap — we overlay a procedural
@@ -510,7 +511,7 @@ class MapScene extends Phaser.Scene {
   create() {
     this.save = Object.assign(
       {
-        caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [],
+        caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
@@ -526,6 +527,10 @@ class MapScene extends Phaser.Scene {
     if (this.save.money == null) this.save.money = STARTING_MONEY;
     if (this.save.buyIndex == null) this.save.buyIndex = 0;
     this.tilledSet = new Set(this.save.tilled);
+    this.save.brokenRocks = this.save.brokenRocks || [];
+    this.brokenRockSet = new Set(this.save.brokenRocks);
+    this.save.placedRocks = this.save.placedRocks || [];
+    this.placedRockSet = new Set(this.save.placedRocks);
     // Migrate older save (inv as string array, or stash object)
     if (this.save.inv && typeof this.save.inv[0] === 'string') {
       this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id }));
@@ -1015,15 +1020,22 @@ class MapScene extends Phaser.Scene {
           // Bias back toward home if we've drifted far so chickens stay near
           // their spawn cluster rather than wandering off forever.
           const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-          let angle;
-          if (Math.hypot(dxh, dyh) > 3 * this.cellM) {
-            angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
-          } else {
-            angle = Math.random() * Math.PI * 2;
+          const homeBias = Math.hypot(dxh, dyh) > 3 * this.cellM;
+          // Try up to 6 angles to find one whose destination isn't a placed
+          // rockfruit "fence" — so chickens visibly avoid player-built walls.
+          let tx = c.x, ty = c.y, angle = 0;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            angle = homeBias
+              ? Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8
+              : Math.random() * Math.PI * 2;
+            tx = c.x + Math.cos(angle) * STEP_M;
+            ty = c.y + Math.sin(angle) * STEP_M;
+            const cellIX = Math.floor(tx / this.cellM);
+            const cellIY = Math.floor(ty / this.cellM);
+            if (!this.placedRockSet || !this.placedRockSet.has(`${cellIX}_${cellIY}`)) break;
           }
           c._startX = c.x; c._startY = c.y;
-          c._targetX = c.x + Math.cos(angle) * STEP_M;
-          c._targetY = c.y + Math.sin(angle) * STEP_M;
+          c._targetX = tx; c._targetY = ty;
           c._stepT0 = now;
           c._nextChooseT = now + STEP_MS;
           c._faceFlip = (c._targetX - c._startX) < 0;
@@ -1110,7 +1122,15 @@ class MapScene extends Phaser.Scene {
       for (let col = 0; col < VIEW_CELLS; col++) {
         const ox = col - half;
         const oy = row - half;
-        const type = T(col, row);
+        // Per-cell state override: placed rockfruit rocks render as ROCK (10),
+        // broken natural rocks revert to GRASS (0). cellKey here matches the
+        // tile-pixel basis used for tilled / planted state.
+        const _absIX = baseCellIX + ox;
+        const _absIY = baseCellIY + oy;
+        const _cellKey = `${_absIX}_${_absIY}`;
+        let type = T(col, row);
+        if (this.placedRockSet && this.placedRockSet.has(_cellKey)) type = 10;
+        else if (type === 10 && this.brokenRockSet && this.brokenRockSet.has(_cellKey)) type = 0;
         // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
         // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
         let color = COLORS[type] ?? 0x5fa84a;
@@ -1607,6 +1627,68 @@ class MapScene extends Phaser.Scene {
         this.flash(`released ${item.icon || ''} ${item.id}`, sx, sy);
         return;
       }
+    }
+
+    // 2-placed-rock) Tap a player-placed rockfruit stone → pick it back up
+    // (chickens use them as fences; mining them just returns the rockfruit).
+    if (this.placedRockSet.has(cellKey)) {
+      this.placedRockSet.delete(cellKey);
+      this.save.placedRocks = [...this.placedRockSet];
+      this.addToInv('rockfruit', 1);
+      persistSave(this.save);
+      this.flash('⛏ rockfruit', sx, sy);
+      return;
+    }
+
+    // 2-place-rock) With rockfruit selected, tap an empty tillable cell to drop
+    // a stone (blocks chickens, can be mined back later).
+    {
+      const sel = this.save.inv[this.save.selSlot];
+      const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+      if (selItem && selItem.id === 'rockfruit' && (sel.count ?? 0) > 0 &&
+          isTillable(cell.type) && !this.tilledSet.has(cellKey) &&
+          !this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
+        this.placedRockSet.add(cellKey);
+        this.save.placedRocks = [...this.placedRockSet];
+        sel.count -= 1;
+        if (sel.count <= 0) {
+          this.save.inv.splice(this.save.selSlot, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flash('🪨 placed', sx, sy);
+        return;
+      }
+    }
+
+    // 2-rock) Tap a natural rock cell → break it (one-shot, persisted). Loot table:
+    //   ~45% rockfruit_seed (common, the "floor" reward)
+    //     7% $5
+    //     2% gemfruit_seed (rare)
+    //     1% $25 (rare)
+    //   0.5% gemfruit produce (very rare)
+    //   ~45% nothing — just rubble
+    if (cell.type === 10) {
+      if (this.brokenRockSet.has(cellKey)) {
+        this.flash('rubble', sx, sy);
+        return;
+      }
+      this.brokenRockSet.add(cellKey);
+      this.save.brokenRocks = [...this.brokenRockSet];
+      const r = Math.random();
+      let msg = '💥 broken';
+      if (r < 0.005)        { this.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
+      else if (r < 0.015)   { this.save.money = (this.save.money || 0) + 25; this.updateMoneyDOM?.(); msg = '💥 → $25'; }
+      else if (r < 0.035)   { this.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
+      else if (r < 0.105)   { this.save.money = (this.save.money || 0) + 5;  this.updateMoneyDOM?.(); msg = '💥 → $5'; }
+      else if (r < 0.555)   { this.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
+      // else: nothing
+      persistSave(this.save);
+      this.flash(msg, sx, sy);
+      return;
     }
 
     // 2a) Tap on a planted crop → harvest if mature, else advance (if 1h elapsed), else water.
