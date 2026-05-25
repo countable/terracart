@@ -369,9 +369,10 @@ Render.drawCells = function drawCells(scene) {
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
       // Vertical bars start below the top bar so corners are never double-painted
       // (double 50% alpha at the same pixel makes corners darker / look rounded).
-      const B = 1;  // top / left / right border: 1 px
+      const B = 1;               // left / right border: 1 px
+      const BT = type === 12 ? 2 : 1;  // top border: 2 px for LARGE (castle), 1 px otherwise
       g.fillStyle(0x000000, 0.5);
-      if (!isB(T(col, row - 1))) g.fillRect(sx,               sy, CELL_PX, B);
+      if (!isB(T(col, row - 1))) g.fillRect(sx,               sy, CELL_PX, BT);
       if (!isB(T(col - 1, row))) g.fillRect(sx,               sy, B, CELL_PX);
       if (!isB(T(col + 1, row))) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
     }
