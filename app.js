@@ -23,7 +23,9 @@ const REACH_CREATURE_M  = 4;
 const REACH_WILDPLANT_M = 4;
 const REACH_OBJECT_M    = 3.5; // chest / tree
 const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
-const REACH_FAR_M       = 18;  // outer "too far" gate from the player
+// Outer "too far" gate from the player. Matches the visual reach outline drawn by
+// drawCells (15m, scene.REACH_CELL_M) so anything outside the boundary is unreachable.
+const REACH_FAR_M       = 15;
 const REACH_TREASURE_M  = 7.5; // treasure mark
 
 // Compare-only squared distance — avoids sqrt.
@@ -55,9 +57,10 @@ const COLORS = {
   21: 0x88c460, // GOLF         (GRASSLAND) — bright emerald
   22: 0x4a7a32, // ORCHARD      (FOREST)    — olive
 };
-// Tillable = soil-ish ground. Water, roads (any tier), paths, and any building tier are not.
+// Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
+// road tiers, paths, every building tier, and rock are NOT tillable.
 // Rock (10) is non-tillable too — taps break the rock instead (see handleWorldTap).
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
 
@@ -101,374 +104,8 @@ function makePlaqueTextures(scene) {
 }
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
-const CHEST_ICON = '📦';
 
-// === Rustic name transform ===
-// Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
-// Empty string = strip the word.
-const RUSTIC_WORDS = {
-  // Healthcare
-  hospital: 'Apothecary', pharmacy: 'Apothecary', pharmasave: 'Apothecary',
-  clinic: 'Healer Hut', medical: 'Healer', dental: 'Tooth-Drawer',
-  dentist: 'Tooth-Drawer', doctor: 'Healer', optical: 'Spectacles',
-  optician: 'Spectacle-Maker', vision: 'Spectacles',
-  // Education / civic
-  school: 'Hedge School', elementary: '', secondary: 'Apprentice',
-  college: 'Loremaster', university: 'Loremaster',
-  library: 'Scriptorium', museum: 'Curiosity',
-  // Food & drink
-  bakery: 'Bakehouse', butcher: 'Butchery', butchers: 'Butchery',
-  market: 'Market', supermarket: 'Marketplace',
-  grocer: 'Grocer', grocery: 'Grocer', cafe: 'Tea House',
-  coffee: 'Roastery', starbucks: 'Black Bean',
-  restaurant: 'Tavern', diner: 'Tavern', pizza: 'Hearth',
-  burger: 'Mutton', burgers: 'Mutton', noodle: 'Stew Pot',
-  noodles: 'Stew Pot', bistro: 'Tavern', bar: 'Alehouse',
-  pub: 'Alehouse', wine: 'Vintner', liquor: 'Spirits',
-  brewery: 'Brewhouse', bbq: 'Spit-Roast', steakhouse: 'Spit-Roast',
-  seafood: 'Fishmonger', fish: 'Fishmonger', meats: 'Butchery',
-  produce: 'Grocer', organic: 'Wholesome', natural: 'Wild',
-  // Shops
-  store: 'Shoppe', shop: 'Shoppe', mart: 'Stall',
-  centre: 'Hall', center: 'Hall', plaza: 'Square', mall: 'Bazaar',
-  florist: 'Flowerstall', flowers: 'Blossoms', flower: 'Blossom',
-  books: 'Tomes', bookstore: 'Scrivener',
-  pet: 'Beast', pets: 'Beast',
-  cleaners: 'Laundress', cleaning: 'Laundress', laundry: 'Laundress',
-  salon: 'Barber', hair: 'Barber', spa: 'Bathhouse',
-  exchange: 'Crossroads', access: '',
-  recreation: 'Greens', enterprise: 'Guildhouse',
-  // Other
-  petro: 'Forge', foods: 'Provisions', food: 'Provisions',
-  scene: 'Sights', service: 'Servants', station: 'Outpost',
-  fast: 'Swift', express: 'Swift',
-};
-// Fallback labels for POIs missing a `name` tag in OSM. Shown in italics-style
-// brackets so they read as a generic descriptor rather than an actual name.
-const POI_CLASS_FALLBACK = {
-  pitch:            'Practice Field',
-  playground:       'Children\'s Yard',
-  gate:             'Gate',
-  place_of_worship: 'Chapel',
-  garden:           'Garden',
-  park:             'Meadow',
-  attraction:       'Curiosity',
-  museum:           'Curio Hall',
-  school:           'Hedge School',
-  lodging:          'Inn',
-  bus:              'Stagecoach Stop',
-  beer:             'Alehouse',
-  grocery:          'Grocer',
-  restaurant:       'Tavern',
-};
 
-const RUSTIC_CACHE = new Map();
-function rusticifyName(name) {
-  if (!name) return name;
-  const cached = RUSTIC_CACHE.get(name);
-  if (cached !== undefined) return cached;
-  let out = name
-    // Strip business suffixes.
-    .replace(/[ ,]+(Inc\.?|Ltd\.?|LLC|Corp\.?|Co\.?)\b/gi, '')
-    // "X at Y" intersections → "X & Y"
-    .replace(/\s+at\s+/gi, ' & ');
-  out = out.replace(/\b([A-Za-z']+)\b/g, (m) => {
-    const lower = m.toLowerCase();
-    if (lower in RUSTIC_WORDS) {
-      const repl = RUSTIC_WORDS[lower];
-      if (repl === '') return '';
-      // Preserve case of original first letter.
-      return m[0] === m[0].toUpperCase() ? repl : repl.toLowerCase();
-    }
-    return m;
-  });
-  out = out.replace(/\s{2,}/g, ' ').trim();
-  RUSTIC_CACHE.set(name, out);
-  return out;
-}
-const SEED_TIER = {
-  rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, potato_seed: 1, shrub_seed: 1,
-  gemfruit_seed: 2, rockfruit_seed: 2, coffee_seed: 2, tree_seed: 2,
-  iceflower_seed: 3, fireflower_seed: 3, sunflower_seed: 3,
-};
-const TIER_YIELD = { 1: 10, 2: 5, 3: 2 };
-// POI class → category, drives chest loot type (produce vs seed) and tier weights.
-const POI_CATEGORY = {
-  // food: drops PRODUCE (harvested crops) instead of seeds
-  restaurant: 'food', cafe: 'food', fast_food: 'food', grocery: 'food',
-  butcher: 'food', ice_cream: 'food', bakery: 'food',
-  supermarket: 'food', convenience: 'food',
-  // commerce: common-weighted seed drops
-  alcohol_shop: 'commerce', beer: 'commerce', shop: 'commerce',
-  // florist / garden_centre: rare-weighted FLOWER seeds (uses 'flora' category)
-  florist: 'flora', garden_centre: 'flora',
-  // farm: rare-weighted seed drops, any tier
-  farm: 'farm',
-  // civic/educational: rare-weighted seed drops
-  school: 'civic', college: 'civic', library: 'civic',
-  town_hall: 'civic', place_of_worship: 'civic',
-  attraction: 'civic', museum: 'civic', memorial: 'civic',
-  books: 'civic', pet: 'civic',
-  // healthcare: mid-weighted seed drops
-  pharmacy: 'health', hospital: 'health', dentist: 'health',
-  // parks: T2-leaning seed drops
-  park: 'park', garden: 'park', playground: 'park', pitch: 'park',
-  // fountain: special — drops nothing useful; treat as common-seed for now
-  fountain: 'park',
-  // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
-  bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
-};
-const CATEGORY_LOOT = {
-  food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
-  commerce: { drops: 'seed',    weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
-  civic:    { drops: 'seed',    weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
-  health:   { drops: 'seed',    weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
-  park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
-  flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
-  farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
-  lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
-};
-// === POI pad SHAPE mapping ===
-// The pad SHAPE itself conveys POI type — no statues anymore. The chest sits
-// in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
-//   square2  → sports pitches  (chest in corner, pad extends right + down)
-//   cross    → chapels + medical facilities  (+ shape, chest centered)
-//   triangle → schools / colleges  (stepped pyramid, chest middle-row centre)
-//   square3  → default for parks / food / farm / commerce / flora
-//   null     → lowtier (bus stops, intersections, fuel, etc) — bare chest
-const POI_PAD_BY_CLASS = {
-  place_of_worship: 'cross',
-  pharmacy:         'cross',
-  hospital:         'cross',
-  dentist:          'cross',
-  school:           'triangle',
-  college:          'triangle',
-  pitch:            'square2',
-  playground:       'line3v',   // vertical 1×3 strip
-};
-const POI_PAD_BY_CATEGORY = {
-  food:     'line3h',   // horizontal 1×3 strip (market counter / shop front)
-  commerce: 'line3h',
-  civic:    'square3',   // school/college overridden above
-  health:   'cross',
-  park:     'square3',   // pitch + playground overridden above
-  flora:    'square3',
-  farm:     'square3',
-};
-function padShapeKeyForPoi(poiClass) {
-  if (!poiClass) return null;
-  if (POI_PAD_BY_CLASS[poiClass]) return POI_PAD_BY_CLASS[poiClass];
-  const cat = POI_CATEGORY[poiClass];
-  if (cat === 'lowtier') return null;
-  return POI_PAD_BY_CATEGORY[cat] || null;
-}
-
-// Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
-const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
-const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
-
-// Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
-const CHEST_TIER_BY_CATEGORY = {
-  // Commercial businesses (shops, restaurants, bakeries, etc.) sit at the lowest tier —
-  // no gem rendered. Civic / healthcare / parks / farms remain mid-high; flora is epic.
-  lowtier: 1, commerce: 1, food: 1,
-  park: 2,
-  health: 3, civic: 3, farm: 3,
-  flora: 4,
-};
-// Tier 1 = no gem (skipped at render). Tiers 2-4 are clearly distinct hues.
-const CHEST_TIER_COLOR = {
-  1: null,     // common — no gem drawn at all
-  2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
-  3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
-  4: 0xc77dff, // violet — epic
-};
-function chestTier(poiClass) {
-  const cat = POI_CATEGORY[poiClass];
-  return (cat && CHEST_TIER_BY_CATEGORY[cat]) || 2;
-}
-
-// Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
-// 10% one uncommon seed, 5% one rare seed.
-function pickTreasure(rng) {
-  const r = (rng ?? Math.random)();
-  const seedsOfTier = (t) => Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === t);
-  const pickFrom = (pool) => pool[Math.floor((rng ?? Math.random)() * pool.length)];
-  if (r < 0.05) return { kind: 'seed', id: pickFrom(seedsOfTier(3)), n: 1 };
-  if (r < 0.15) return { kind: 'seed', id: pickFrom(seedsOfTier(2)), n: 1 };
-  // 85% — coin flip between common seed and $1.
-  if ((rng ?? Math.random)() < 0.5) return { kind: 'money', amount: 1 };
-  return { kind: 'seed', id: pickFrom(seedsOfTier(1)), n: 1 };
-}
-
-function pickLoot(rng, poiClass) {
-  const cat = POI_CATEGORY[poiClass];
-  const cfg = (cat && CATEGORY_LOOT[cat]) || DEFAULT_LOOT;
-  const r = (rng ?? Math.random)();
-  let tier = 1, acc = 0;
-  for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
-  let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
-  if (cfg.onlyFlowers) {
-    const flowers = pool.filter(s => FLOWER_SEEDS.has(s));
-    if (flowers.length) pool = flowers;
-  }
-  const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
-  const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
-  const n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
-  return { id, n };
-}
-
-// Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
-// Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
-//   residential → rockfruit (with surprise treasure)
-//   park / forest → shrub
-// Surprise treasure: when picking a wild ${key}, ${chance} chance to also get a ${bonus}.
-const WILD_TREASURE = {
-  rockfruit: { chance: 0.1, bonus: 'gemfruit' },
-};
-
-const SAVE_KEY = 'terracart.save.v4';
-function loadSave() {
-  try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
-  catch { return {}; }
-}
-// Save is called from many hot code paths (every till/water/harvest/pickup/
-// movement-quantize). On mobile, synchronous localStorage writes are slow and
-// burn battery. Coalesce calls within a short window into a single write,
-// flushing immediately when the page is hidden/closing so nothing is lost.
-let _saveTimer = null;
-let _pendingSave = null;
-const SAVE_DEBOUNCE_MS = 500;
-function flushSave() {
-  if (_pendingSave) {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
-    _pendingSave = null;
-  }
-  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
-}
-function persistSave(s) {
-  _pendingSave = s;
-  if (_saveTimer) return;
-  _saveTimer = setTimeout(() => { _saveTimer = null; flushSave(); }, SAVE_DEBOUNCE_MS);
-}
-// Don't lose pending writes when the tab is backgrounded or closed.
-window.addEventListener('pagehide', flushSave);
-window.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushSave();
-});
-
-// Crops (Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
-// Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
-// Inventory icons: col 7 = produce, col 8 = seed.
-const CROP_ROW = {
-  rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
-  potato: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
-};
-const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
-const PRODUCE_COL = 7;
-const SEEDBOX_COL = 8;
-const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
-
-// Per-crop sprite override. Crops listed here use Spring Crops.png (14×8 of 16×16,
-// 224×128 total) instead of Crops.png. Spring Crops layout on each crop's row:
-//   col 0  = seed (also used in-world for stage 0, "just planted")
-//   cols 1-4 = growth stages 1..4 (4 = mature, harvestable)
-//   col 8  = produce / fruit (inventory icon for harvested item)
-// Add more entries as we identify which game crops correspond to Spring Crops rows.
-const SPRING_CROPS_COLS = 14;
-const CROP_SPRITE = {
-  potato: { sheet: 'springcrops', row: 5 },
-  // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
-  longgrass: { sheet: 'longgrass', custom: true },
-};
-
-// Resolve the same icon source the inventory uses for an item id.
-// Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
-// or null if the item has no sprite (use emoji fallback).
-//   Spring Crops.png: 14 cols x 8 rows. Inventory: col 7 = seed bag, col 8 = produce.
-//   Crops.png: 9 cols x 16 rows. Inventory: col 8 row 15 = generic seedbag,
-//     col 7 row CROP_ROW[crop] = produce.
-function inventoryIconSource(itemId) {
-  const item = ITEM_BY_ID[itemId];
-  if (!item) return null;
-  const cropKey = item.grows || item.crop;
-  if (!cropKey) return null;
-  const ov = CROP_SPRITE[cropKey];
-  if (ov && ov.sheet === 'springcrops') {
-    const col = item.kind === 'seed' ? 7 : (item.kind === 'produce' ? 8 : null);
-    if (col == null) return null;
-    return { sheet: 'springcrops', frame: ov.row * 14 + col };
-  }
-  if (ov && ov.custom) {
-    // longgrass uses the procedural texture; reuse its key directly.
-    return { sheet: ov.sheet, frame: 0 };
-  }
-  if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * 9 + 8 };
-  if (item.kind === 'produce') {
-    const row = CROP_ROW[cropKey];
-    if (row == null) return null;
-    return { sheet: 'crops', frame: row * 9 + PRODUCE_COL };
-  }
-  return null;
-}
-
-// Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
-const CROP_NAMES = {
-  rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
-  rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
-  fireflower: 'Fireflower', sunflower: 'Sunflower', tree: 'Tree', shrub: 'Shrub',
-};
-const ITEMS = [
-  ...Object.keys(CROP_ROW).map(c => ({
-    id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c, icon: '🌱',
-  })),
-  ...Object.keys(CROP_ROW).map(c => ({
-    id: c, name: CROP_NAMES[c], kind: 'produce', crop: c, icon: '🌾',
-  })),
-  // Caught creatures stack in the inventory.
-  { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
-  { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
-  // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
-  { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
-  // Wild flower pickups (per-polygon color but stacks as a single item).
-  { id: 'flowers', name: 'Flowers', kind: 'produce', icon: '🌼' },
-];
-const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-// Chests drop only seeds.
-const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
-// Shop: tap a house with a selected item to sell it, or with an empty selection
-// to buy the next seed in BUY_LIST.
-// Prices are tuned to how easy each item is to obtain.
-// Produce range: wild-debris commons at $1, rarest T3 flower at $500.
-// Seeds: cheap-to-mid by tier (also paid when buying from the shop).
-// Animals: chicken very common (high yield), cow rare.
-const PRICES = {
-  // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3, shrub_seed: 2,
-  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12, tree_seed: 15,
-  iceflower_seed: 30, fireflower_seed: 40, sunflower_seed: 50,
-  // ── Produce (sell value) ─────────────────────────────────
-  rockfruit: 1,    // wild debris in every residential tile — the floor
-  shrub: 2,        // wild debris in parks/forests
-  nut: 4,
-  potato: 5,
-  rainberry: 6,
-  pairy: 8,
-  gemfruit: 25,    // T2 + occasional rockfruit bonus
-  coffee: 40,      // T2, no wild source
-  tree: 50,        // T2, no wild source, slow grower
-  iceflower: 150,  // T3 rare
-  fireflower: 300, // T3 rare
-  sunflower: 500,  // rarest — ceiling
-  // ── Animals ──────────────────────────────────────────────
-  chicken: 4,      // 150–250/tile, yields 4 per catch
-  cow: 200,        // ~15–30/tile, yields 1 per catch — premium catch, rare drop
-  // ── Wild-only ────────────────────────────────────────────
-  longgrass: 1,    // ubiquitous in grasslands — floor price
-  flowers: 2,      // wild flower pickups — slightly above longgrass
-};
-const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
-const STARTING_MONEY = 25;
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -755,10 +392,15 @@ class MapScene extends Phaser.Scene {
     window.addEventListener('offline', () => this.showBanner(true));
     window.addEventListener('online', () => this.showBanner(false));
 
-    // GPS watch + device compass (best-effort)
-    this.startGps();
-    this.startCompass();
-    this.setupLifecycle();
+    // GPS watch + device compass (best-effort). Test mode skips them so the
+    // test harness can drive playerM directly without GPS easing fighting it.
+    if (!window.__TEST_MODE) {
+      this.startGps();
+      this.startCompass();
+      this.setupLifecycle();
+    }
+    // Tests reach into the scene via window.__scene.
+    window.__scene = this;
   }
 
   // === Power / lifecycle ===
@@ -1791,39 +1433,57 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // 1a) Pick a wild plant within 4m → +1 produce, 25% bonus seed.
+    // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
+    // Picking the nearest (not the first-iterated) fixes a bug where taps that
+    // landed between two stacked plants would grab the one above — plant sprites
+    // render with origin (0.5, 0.85), so the visible art extends ~4m above the
+    // world cell. A tap on the visible top of plant A is geometrically close to
+    // plant B's world cell one row up; nearest-match resolves it correctly.
     const pickedSet = new Set(this.save.picked || []);
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.wildplants) continue;
-      for (const wp of entry.wildplants) {
-        if (pickedSet.has(wp.id)) continue;
-        if (distM2(wp.x, wp.y, wm.x, wm.y) < REACH_WILDPLANT_M * REACH_WILDPLANT_M) {
-          if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return; }
-          this.save.picked = [...pickedSet, wp.id];
-          this.addToInv(wp.crop, 1); // produce only — debris is just the item itself, no bonus seed
-          let bonus = '';
-          // Surprise treasure: e.g. picking a rockfruit sometimes also yields a gemfruit.
-          const treasure = WILD_TREASURE[wp.crop];
-          if (treasure && Math.random() < treasure.chance) {
-            this.addToInv(treasure.bonus, 1);
-            bonus = ` ✨${treasure.bonus}`;
-          }
-          persistSave(this.save);
-          // Treasure bonus → use the splashier flash; ordinary pickup uses a small flash.
-          const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
-          if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
-          else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`, undefined, 1, wp.crop);
-          return;
+    {
+      let bestWp = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
+      for (const entry of WorldGen.tileCache.values()) {
+        if (!entry.wildplants) continue;
+        for (const wp of entry.wildplants) {
+          if (pickedSet.has(wp.id)) continue;
+          const d2 = distM2(wp.x, wp.y, wm.x, wm.y);
+          if (d2 < bestD2) { bestD2 = d2; bestWp = wp; }
         }
       }
+      if (bestWp) {
+        const wp = bestWp;
+        if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return; }
+        this.save.picked = [...pickedSet, wp.id];
+        this.addToInv(wp.crop, 1); // produce only — debris is just the item itself, no bonus seed
+        let bonus = '';
+        // Surprise treasure: e.g. picking a rockfruit sometimes also yields a gemfruit.
+        const treasure = WILD_TREASURE[wp.crop];
+        if (treasure && Math.random() < treasure.chance) {
+          this.addToInv(treasure.bonus, 1);
+          bonus = ` ✨${treasure.bonus}`;
+        }
+        persistSave(this.save);
+        // Treasure bonus → use the splashier flash; ordinary pickup uses a small flash.
+        const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
+        if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
+        else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`, undefined, 1, wp.crop);
+        return;
+      }
     }
-    // 1a') Pick a polygon flower within 4m → +1 flowers.
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.objects) continue;
-      for (const o of entry.objects) {
-        if (o.kind !== 'flora' || o.deco !== 'flower') continue;
-        if (pickedSet.has(o.id)) continue;
-        if (distM2(o.x, o.y, wm.x, wm.y) >= REACH_WILDPLANT_M * REACH_WILDPLANT_M) continue;
+    // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
+    {
+      let bestF = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
+      for (const entry of WorldGen.tileCache.values()) {
+        if (!entry.objects) continue;
+        for (const o of entry.objects) {
+          if (o.kind !== 'flora' || o.deco !== 'flower') continue;
+          if (pickedSet.has(o.id)) continue;
+          const d2 = distM2(o.x, o.y, wm.x, wm.y);
+          if (d2 < bestD2) { bestD2 = d2; bestF = o; }
+        }
+      }
+      if (bestF) {
+        const o = bestF;
         if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
           this.flash('too far', sx, sy); return;
         }
@@ -1835,21 +1495,29 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // 1b) World objects: chest open, tree chop, house flavor
-    // Use the same cross-tile chest dedupe as render so a "ghost" duplicate at the
-    // border can't claim the tap.
-    const seenTapChestKey = new Set();
+    // 1b) World objects: chest open, tree chop, house flavor.
+    // Same distance-based dedupe as drawObjects so a ghost duplicate can't claim the tap.
+    const TAP_DEDUPE_R2 = 40 * 40;
+    const seenTapByIdent = new Map();
+    const isDupTapChest = (o) => {
+      const ident = o.name || o.poiClass;
+      if (!ident) return false;
+      let list = seenTapByIdent.get(ident);
+      if (list) {
+        for (const p of list) {
+          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < TAP_DEDUPE_R2) return true;
+        }
+      } else {
+        list = [];
+        seenTapByIdent.set(ident, list);
+      }
+      list.push({ x: o.x, y: o.y });
+      return false;
+    };
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
       for (const o of entry.objects) {
-        if (o.kind === 'chest') {
-          const ident = o.name || o.poiClass;
-          if (ident) {
-            const k = `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
-            if (seenTapChestKey.has(k)) continue;
-            seenTapChestKey.add(k);
-          }
-        }
+        if (o.kind === 'chest' && isDupTapChest(o)) continue;
         const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
         if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
         if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
@@ -2068,19 +1736,38 @@ class MapScene extends Phaser.Scene {
 
     // 2d) Tap untilled tillable cell → till it.
     // Refuse to till when the cell is occupied by ANY interactable so we never silently
-    // wipe under the player's intent (e.g. they tapped near a debris but just missed pickup).
+    // wipe under the player's intent. Identify the blocker so the flash message can name
+    // what's actually there (helpful when the visual is subtle).
     const cellHalfM = this.cellM / 2;
     const pickedAll = new Set(this.save.picked || []);
-    const occupied =
-      this.placedRockSet.has(cellKey) ||
-      this.save.planted.some(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM) ||
-      [...WorldGen.tileCache.values()].some(e =>
-        (e.wildplants || []).some(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) ||
-        // Decorative flora (flowers/pebbles/mushrooms) is non-blocking — flowers
-        // get picked into inventory before tilling would even fire.
-        (e.objects || []).some(o => o.kind !== 'flora' && Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM)
-      );
-    if (occupied) { this.flash('occupied', sx, sy); return; }
+    let blocker = null;
+    if (this.placedRockSet.has(cellKey)) blocker = 'rock';
+    if (!blocker) {
+      const pp = this.save.planted.find(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
+      if (pp) blocker = pp.crop || 'crop';
+    }
+    if (!blocker) {
+      const openedSet = new Set(this.save.opened || []);
+      for (const e of WorldGen.tileCache.values()) {
+        const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
+        if (wp) { blocker = wp.crop || 'plant'; break; }
+        const oo = (e.objects || []).find(o =>
+          o.kind !== 'flora' &&
+          // Looted chests are visual zombies (still in objects[] but the chest sprite is gone) —
+          // they don't block tilling. Same for chopped trees.
+          !(o.kind === 'chest' && openedSet.has(o.id)) &&
+          !(o.kind === 'tree' && o.chopped) &&
+          Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
+        if (oo) {
+          blocker = oo.kind === 'house' ? 'house' :
+                    oo.kind === 'tree'  ? 'tree'  :
+                    oo.kind === 'chest' ? (oo.name ? rusticifyName(oo.name) : 'chest') :
+                    oo.kind;
+          break;
+        }
+      }
+    }
+    if (blocker) { this.flash(`occupied: ${blocker}`, sx, sy); return; }
     this.tilledSet.add(cellKey);
     this.save.tilled = [...this.tilledSet];
     persistSave(this.save);
@@ -2112,12 +1799,27 @@ class MapScene extends Phaser.Scene {
   teleportNextPoi() {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
-    // Stable per-chest key that collapses name-duplicates across adjacent MVT tile borders.
+    // Distance-based dedupe: a POI represented multiple times within ~40m of each other
+    // (typical OSM duplication near tile borders) collapses to a single visit-candidate.
+    // The "visit key" anchors on the FIRST chest we accept for a given ident, so subsequent
+    // copies share that key in the visited set.
+    const TP_DEDUPE_R2 = 40 * 40;
+    const identAnchor = new Map(); // ident → {x, y} (first accepted position for this ident)
     const chestKey = (o) => {
       const ident = o.name || o.poiClass;
-      return ident
-        ? `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`
-        : o.id;
+      if (!ident) return o.id;
+      const anchor = identAnchor.get(ident);
+      if (!anchor) {
+        identAnchor.set(ident, { x: o.x, y: o.y });
+        return `${ident}|${Math.round(o.x)}|${Math.round(o.y)}`;
+      }
+      // If within dedupe radius, reuse anchor's key. Otherwise treat as a separate POI.
+      const dx = o.x - anchor.x, dy = o.y - anchor.y;
+      if (dx*dx + dy*dy < TP_DEDUPE_R2) {
+        return `${ident}|${Math.round(anchor.x)}|${Math.round(anchor.y)}`;
+      }
+      // Far apart — record a separate anchor under a per-position key.
+      return `${ident}|${Math.round(o.x)}|${Math.round(o.y)}`;
     };
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
