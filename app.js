@@ -269,9 +269,11 @@ const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]]
 
 // Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
 const CHEST_TIER_BY_CATEGORY = {
-  lowtier: 1,
-  commerce: 2, park: 2,
-  food: 3, health: 3, civic: 3, farm: 3,
+  // Commercial businesses (shops, restaurants, bakeries, etc.) sit at the lowest tier —
+  // no gem rendered. Civic / healthcare / parks / farms remain mid-high; flora is epic.
+  lowtier: 1, commerce: 1, food: 1,
+  park: 2,
+  health: 3, civic: 3, farm: 3,
   flora: 4,
 };
 // Tier 1 = no gem (skipped at render). Tiers 2-4 are clearly distinct hues.
@@ -1468,24 +1470,33 @@ class MapScene extends Phaser.Scene {
     const pWorldY = this.startWorldM.y + this.playerM.y;
     const objList = [], creatureList = [], plantedList = [];
     const pickedSet = new Set(this.save.picked || []);
-    // Cross-tile POI dedupe — MVT often duplicates the same named POI across adjacent tile
-    // borders. Key by name + ~30m-rounded coords so duplicates ≈14m apart collapse to one.
-    const seenChestKey = new Set();
+    // Cross-tile POI dedupe — MVT duplicates the same POI across adjacent tile borders, and
+    // an OSM area POI can be represented multiple times with up to ~15m offsets. We dedupe
+    // by ident (name || poiClass) + a distance check (< DEDUPE_R) instead of a fixed-bucket
+    // hash, so near-duplicates at unfortunate coords still collapse.
+    const DEDUPE_R2 = 40 * 40;
+    const seenByIdent = new Map(); // ident → [{x, y}, ...]
+    const isDupChest = (o) => {
+      const ident = o.name || o.poiClass;
+      if (!ident) return false;
+      let list = seenByIdent.get(ident);
+      if (list) {
+        for (const p of list) {
+          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < DEDUPE_R2) return true;
+        }
+      } else {
+        list = [];
+        seenByIdent.set(ident, list);
+      }
+      list.push({ x: o.x, y: o.y });
+      return false;
+    };
     for (const entry of WorldGen.tileCache.values()) {
       if (entry.objects) {
         for (const o of entry.objects) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          if (o.kind === 'chest') {
-            // Dedupe by name when available, else by poiClass — unnamed POIs (e.g. pitch)
-            // still get duplicated by MVT across tile borders and need the same collapse.
-            const ident = o.name || o.poiClass;
-            if (ident) {
-              const k = `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
-              if (seenChestKey.has(k)) continue;
-              seenChestKey.add(k);
-            }
-          }
+          if (o.kind === 'chest' && isDupChest(o)) continue;
           // Picked flowers stay gone — skip rendering them.
           if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
           objList.push({ o, dx, dy });
