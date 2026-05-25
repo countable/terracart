@@ -329,17 +329,50 @@ Render.drawCells = function drawCells(scene) {
       const ox = col - half, oy = row - half;
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
+      // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
+      if (type === 11) {
+        const WOOD_BODY = 0xa67434, WOOD_SHADOW = 0x6b4520, WOOD_TIP = 0x3a240e;
+        const PICKETS = 8, PW = 4;   // 8 pickets × 4px = 32px = CELL_PX
+        // South: pickets stand below the cell, tips touching the cell edge.
+        if (!isB(T(col, row + 1))) {
+          for (let i = 0; i < PICKETS; i++) {
+            const px = sx + i * PW;
+            g.fillStyle(WOOD_BODY, 1);   g.fillRect(px, sy + CELL_PX, 3, 5);
+            g.fillStyle(WOOD_SHADOW, 1); g.fillRect(px + 2, sy + CELL_PX, 1, 5);
+            g.fillStyle(WOOD_TIP, 1);    g.fillRect(px + 1, sy + CELL_PX - 1, 1, 1);
+          }
+        }
+        // North/East/West: 3px palisade-top strip with dark stripes between pickets.
+        const stripeH = (x, y) => {
+          g.fillStyle(WOOD_BODY, 1);   g.fillRect(x, y, CELL_PX, 3);
+          g.fillStyle(WOOD_SHADOW, 1); g.fillRect(x, y + 2, CELL_PX, 1);
+          g.fillStyle(WOOD_TIP, 1);
+          for (let i = 1; i < PICKETS; i++) g.fillRect(x + i * PW - 1, y, 1, 3);
+        };
+        const stripeV = (x, y) => {
+          g.fillStyle(WOOD_BODY, 1);   g.fillRect(x, y, 3, CELL_PX);
+          g.fillStyle(WOOD_SHADOW, 1); g.fillRect(x + 2, y, 1, CELL_PX);
+          g.fillStyle(WOOD_TIP, 1);
+          for (let i = 1; i < PICKETS; i++) g.fillRect(x, y + i * PW - 1, 3, 1);
+        };
+        if (!isB(T(col, row - 1))) stripeH(sx, sy);
+        if (!isB(T(col - 1, row))) stripeV(sx, sy);
+        if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
+        continue;
+      }
       // South wall: tier-specific extrusion, darker shade of the building tier.
       if (!isB(T(col, row + 1))) {
         g.fillStyle(SOUTH_FACE_COLOR[type] || 0x444444, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
-      // Top / left / right edges: thin 50% black tint (silhouette).
-      const lw = type === 12 ? 3 : 1;
-      g.lineStyle(lw, 0x000000, 0.5);
-      if (!isB(T(col, row - 1))) g.lineBetween(sx, sy, sx + CELL_PX, sy);
-      if (!isB(T(col - 1, row))) g.lineBetween(sx, sy, sx, sy + CELL_PX);
-      if (!isB(T(col + 1, row))) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+      // Outer border — fillRect gives independent horizontal (4 px) and vertical (2 px)
+      // thickness; corners align precisely because there's no stroke-centering offset.
+      const BH = 4, BV = 2;
+      g.fillStyle(0x000000, 0.5);
+      if (!isB(T(col, row - 1))) g.fillRect(sx,                sy, CELL_PX, BH);  // top
+      if (!isB(T(col - 1, row))) g.fillRect(sx,                sy, BV, CELL_PX);  // left
+      if (!isB(T(col + 1, row))) g.fillRect(sx + CELL_PX - BV, sy, BV, CELL_PX);  // right
     }
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
@@ -562,7 +595,7 @@ Render.drawObjects = function drawObjects(scene) {
   // white text on a translucent grey bg, with a soft black drop shadow on
   // the text. Fallback labels (unnamed POIs) render smaller, with tighter
   // padding so they read as secondary descriptors.
-  const LABEL_BG    = 'rgba(70,70,70,0.85)';
+  const LABEL_BG    = 'rgb(70,70,70)';   // full opacity — pad labels read crisply on any terrain
   const LABEL_INK   = '#ffffff';
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
@@ -665,6 +698,41 @@ Render.drawObjects = function drawObjects(scene) {
     // 16x16 frame, scale 2 = 32x32 display, anchored near the bottom of the cell.
     s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
   });
+
+  // Growth-timer corner badges: for a watered, still-growing crop, render the
+  // minutes-until-next-stage in the top-left of its cell. ✓ when the timer
+  // has expired (player just needs to tap to advance). Hidden for wildplants
+  // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
+  // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
+  const STAGE_HOLD_MS = 60 * 60 * 1000;
+  const now = Date.now();
+  const timerList = plantedList.filter(({ p }) =>
+    !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
+  let ti = 0;
+  for (const { p, dx, dy } of timerList) {
+    let t = scene.plantedTimerPool[ti];
+    if (!t) {
+      t = scene.add.text(0, 0, '', {
+        font: 'bold 9px ui-monospace, monospace',
+        color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: { x: 2, y: 1 },
+      }).setOrigin(0, 0).setDepth(60);
+      scene.plantedContainer.add(t);
+      scene.plantedTimerPool.push(t);
+    }
+    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const remaining = STAGE_HOLD_MS - (now - p.watered_t);
+    const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
+    // Top-left of the cell. Plant sprite is 32×32 with origin (0.5, 0.85) so
+    // its top is at sy - 32*0.85 ≈ sy - 27, left at sx - 16.
+    t.setText(label)
+     .setPosition(Math.round(sx - CELL_PX / 2), Math.round(sy - 27))
+     .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
+     .setVisible(true);
+    ti++;
+  }
+  for (; ti < scene.plantedTimerPool.length; ti++) scene.plantedTimerPool[ti].setVisible(false);
 
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
