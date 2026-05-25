@@ -1478,18 +1478,22 @@ class MapScene extends Phaser.Scene {
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon: seeds use col 8, produce uses col 7, both at the crop's row in Crops.png.
+      // Inventory icon from Crops.png (source 144x256, displayed 2x → bg-size 288x512).
+      //   - Seeds: the sheet only has a single generic seed-bag tile (col 8, row 15);
+      //     there is no per-crop seedbag art, so all seeds share that icon.
+      //   - Produce: per-crop produce icon at col 7, row = CROP_ROW[crop].
       const cropKey = item && (item.grows || item.crop);
       const cropRow = cropKey != null ? CROP_ROW[cropKey] : null;
-      if (item && cropRow != null && (item.kind === 'seed' || item.kind === 'produce')) {
-        const col = item.kind === 'seed' ? SEEDBOX_COL : PRODUCE_COL;
-        // Source 144x256; display 16x16 cells at 32x32 → 2x scale → bg-size 288x512.
+      let iconCol = null, iconRow = null;
+      if (item && item.kind === 'seed')              { iconCol = 8; iconRow = 15; }
+      else if (item && item.kind === 'produce' && cropRow != null) { iconCol = PRODUCE_COL; iconRow = cropRow; }
+      if (iconCol != null) {
         const icon = document.createElement('span');
         icon.style.cssText =
           "width:32px;height:32px;display:inline-block;" +
           "background-image:url('Objects/Crops.png');" +
           "background-size:288px 512px;" +
-          `background-position:-${col * 32}px -${cropRow * 32}px;` +
+          `background-position:-${iconCol * 32}px -${iconRow * 32}px;` +
           "image-rendering:pixelated;";
         slot.appendChild(icon);
       } else {
