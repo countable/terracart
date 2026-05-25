@@ -23,6 +23,7 @@ const BIOME_TEX = {
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
+  11: { variants: 1, draw: drawBuildingTex },     // building_med: cobbles (same as building)
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
   // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
   15: { variants: 2, draw: drawGrassTex },        // SCHOOL
@@ -357,9 +358,9 @@ function makeTowerTexture(scene) {
   ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
   // Vertical highlight + shadow stripes
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.fillRect(bodyX + 1, bodyTop, 2, bodyBot - bodyTop);
+  ctx.fillRect(bodyX + 1, bodyTop, 1, bodyBot - bodyTop);
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(bodyX + bodyW - 3, bodyTop, 2, bodyBot - bodyTop);
+  ctx.fillRect(bodyX + bodyW - 2, bodyTop, 1, bodyBot - bodyTop);
   // Stone-block joints (a few horizontal nicks)
   ctx.fillStyle = 'rgba(0,0,0,0.30)';
   for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
