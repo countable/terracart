@@ -818,6 +818,16 @@ class MapScene extends Phaser.Scene {
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
+    // Force a guaranteed cow ~8m east of the player's start so the player can
+    // always see one in the opening view.
+    const sx = this.startWorldM.x, sy = this.startWorldM.y;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
+      const id = `cow_start_${tx}_${ty}`;
+      if (!this.save.caught.includes(id)) {
+        creatures.push({ x: sx + 8, y: sy, kind: 'cow', id });
+      }
+    }
     entry.creatures = creatures;
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
@@ -1184,7 +1194,7 @@ class MapScene extends Phaser.Scene {
       const dyM = (oy - fracY + 0.5) * this.cellM - this.feetOffsetM;
       return dxM * dxM + dyM * dyM <= R2;
     };
-    g.lineStyle(1, 0xffffff, 0.45);
+    g.lineStyle(3, 0xffffff, 0.5);
     for (let row = 0; row < VIEW_CELLS; row++) {
       for (let col = 0; col < VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
