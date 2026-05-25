@@ -43,6 +43,28 @@
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
+    #menu { position: absolute; top: 8px; left: 8px; z-index: 8; }
+    #menu summary {
+      list-style: none; cursor: pointer; user-select: none;
+      background: #000a; color: #ddd;
+      border: 2px solid #444; border-radius: 8px;
+      padding: 2px 8px; font: 700 16px ui-monospace, monospace;
+      line-height: 1.4;
+    }
+    #menu summary::-webkit-details-marker { display: none; }
+    #menu[open] summary { border-color: #888; }
+    #menu .items {
+      margin-top: 4px; min-width: 140px;
+      background: #000c; border: 2px solid #444; border-radius: 8px;
+      padding: 4px; display: flex; flex-direction: column; gap: 2px;
+    }
+    #menu .items button {
+      background: transparent; color: #ddd; border: 0;
+      text-align: left; padding: 6px 8px; border-radius: 4px;
+      font: 12px ui-monospace, monospace; cursor: pointer;
+    }
+    #menu .items button:hover { background: #fff2; }
+    #menu .items button.danger { color: #ff8a7a; }
   </style>
 </head>
 <body>
@@ -51,13 +73,36 @@
       <div id="banner">reconnecting…</div>
       <div id="money">$0</div>
       <div id="hud"></div>
+      <details id="menu">
+        <summary>☰</summary>
+        <div class="items">
+          <button class="danger" id="reset-save">Reset save</button>
+        </div>
+      </details>
     </div>
   </div>
+  <script>
+    // Close menu on outside click / world tap.
+    document.addEventListener('pointerdown', (e) => {
+      const m = document.getElementById('menu');
+      if (m && m.open && !m.contains(e.target)) m.open = false;
+    }, true);
+    document.getElementById('reset-save').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!confirm('Wipe all saved progress (inventory, planted crops, opened chests)?')) return;
+      // Clear every terracart save key (current + any older versions).
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('terracart.')) localStorage.removeItem(k);
+      }
+      location.reload();
+    });
+  </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="worldgen.js?v=3"></script>
-  <script src="tilemap.js?v=3"></script>
-  <script src="crops.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="worldgen.js?v=4"></script>
+  <script src="tilemap.js?v=4"></script>
+  <script src="crops.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
