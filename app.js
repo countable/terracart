@@ -288,7 +288,7 @@ function makeBiomeTextures(scene, size) {
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
 const CHEST_ICON = '📦';
 const SEED_TIER = {
-  rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, turnip_seed: 1, shrub_seed: 1,
+  rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, potato_seed: 1, shrub_seed: 1,
   gemfruit_seed: 2, rockfruit_seed: 2, coffee_seed: 2, tree_seed: 2,
   iceflower_seed: 3, fireflower_seed: 3, sunflower_seed: 3,
 };
@@ -334,7 +334,7 @@ function pickLoot(rng, poiClass) {
 //   0=grass, 1=forest, 2=sand, 6=park, 10=rock
 const WILD_BIOME = {
   1:  { crop: 'shrub',      min: 3, max: 6 },  // forest — common
-  6:  { crop: 'turnip',     min: 4, max: 8 },  // park   — common
+  6:  { crop: 'potato',     min: 4, max: 8 },  // park   — common
   0:  { crop: 'sunflower',  min: 0, max: 2 },  // grass  — rare
   2:  { crop: 'fireflower', min: 0, max: 2 },  // sand   — rare
   10: { crop: 'iceflower',  min: 0, max: 2 },  // rock   — rare
@@ -352,7 +352,7 @@ function persistSave(s) { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
 // Inventory icons: col 7 = produce, col 8 = seed.
 const CROP_ROW = {
   rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
-  turnip: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
+  potato: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
 };
 const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
 const PRODUCE_COL = 7;
@@ -362,7 +362,7 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
-  rockfruit: 'Rockfruit', coffee: 'Coffee', turnip: 'Turnip', iceflower: 'Iceflower',
+  rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
   fireflower: 'Fireflower', sunflower: 'Sunflower', tree: 'Tree', shrub: 'Shrub',
 };
 const ITEMS = [
@@ -438,7 +438,7 @@ class MapScene extends Phaser.Scene {
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
-          { id: 'rainberry_seed', count: 10 },
+          { id: 'potato_seed', count: 10 },
         ],
         selSlot: 0,
         invPage: 0,

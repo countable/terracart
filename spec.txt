@@ -28,7 +28,7 @@ CHESTS (POI-driven, drop existing inventory items only)
    generic chest sprite (Objects/chest.png, 16x16, 2 frames closed/open). No themed subkinds.
  - tap chest within 4m + within 18m of player to open
  - chest loot is driven by POI class. Tier yields: T1=10, T2=5, T3=2 (per drop).
-   Tier mapping: T1 rainberry/pairy/nut/turnip/shrub, T2 gemfruit/rockfruit/coffee/tree,
+   Tier mapping: T1 rainberry/pairy/nut/potato/shrub, T2 gemfruit/rockfruit/coffee/tree,
    T3 iceflower/fireflower/sunflower.
    POI categories (weights T1/T2/T3):
      food (restaurant/cafe/fast_food/grocery/butcher/ice_cream/bakery) → drops PRODUCE, 60/30/10
@@ -44,7 +44,7 @@ INVENTORY
  - infinite list, scrolled in pages of 5 slots with ◀ ▶ buttons (page count shown)
  - tap a slot to select; selection persists
  - inventory contains seeds and harvested produce — tools (hoe, watering can, net, feed) are implicit, always available
- - starter seeds - stack of 10 rainberry seeds
+ - starter seeds - stack of 10 potato seeds
  - harvesting adds produce of the crop (count badge); sometimes also drops a bonus seed
  - chest drops are seeds only; existing stacks increment
 
@@ -79,10 +79,10 @@ FARMING LOOP
  - planted crops render from Objects/Crops.png (9 cols x 16 rows of 16x16 cells). Each crop = one row.
    In-world stages: col 0 (sprout) → col 4 (harvestable). Inventory icons: col 7 = produce, col 8 = seed.
  - crops (row in Crops.png): rainberry (0), pairy (1), gemfruit (2), nut (3), rockfruit (4),
-   coffee (5), turnip (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
+   coffee (5), potato (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
  - wild plants spawn deterministically per tile in matching biome cells (no tilling needed).
    Tap within 4m + 18m of player to pick → +1 produce, 25% bonus seed. Picked state persists in save.picked.
-   Biome map: forest→shrub (3-6/tile), park→turnip (4-8), grass→sunflower (0-2), sand→fireflower (0-2), rock→iceflower (0-2)
+   Biome map: forest→shrub (3-6/tile), park→potato (4-8), grass→sunflower (0-2), sand→fireflower (0-2), rock→iceflower (0-2)
 
 HUD (debug)
  - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)
