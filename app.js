@@ -1398,13 +1398,15 @@ class MapScene extends Phaser.Scene {
       s.setVisible(true);
       configure(s, item);
       i++;
+    }
+    for (; i < pool.length; i++) pool[i].setVisible(false);
+  }
+
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
   // this method just forwards to it.
   handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
-    persistSave(this.save);
-    this.flash('tilled', sx, sy);
-  }
+
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
     const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
