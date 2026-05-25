@@ -501,6 +501,13 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
+    // Player sprite (idle, 32px frame, scale 1.5, origin 0.5/0.5) has its visual
+    // feet at viewCenterY + 24 px. Offset reach checks downward by the same so
+    // the reachable area is symmetric around the visible character, not the
+    // sprite's geometric center. ~3.75m at the default CELL_PX/cellM.
+    this.feetOffsetM = (24 / CELL_PX) * this.cellM;
+    this.REACH_CELL_M = 15;   // cell taps: till / plant / water / harvest
+    this.REACH_OBJECT_M = 18; // object taps: chests, trees, houses, treasure
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
@@ -1156,6 +1163,27 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // Reach indicator — subtle white outline on each cell whose center sits
+    // within REACH_CELL_M of the character's visible feet. Symmetric around
+    // (viewCenterX, viewCenterY + feetOffsetPx) which matches the sprite feet.
+    const feetPxY = (this.feetOffsetM / this.cellM) * CELL_PX;
+    g.lineStyle(1, 0xffffff, 0.35);
+    for (let row = 0; row < VIEW_CELLS; row++) {
+      for (let col = 0; col < VIEW_CELLS; col++) {
+        const ox = col - half;
+        const oy = row - half;
+        const dxM = (ox - fracX + 0.5) * this.cellM;
+        const dyM = (oy - fracY + 0.5) * this.cellM - this.feetOffsetM;
+        if (dxM * dxM + dyM * dyM > this.REACH_CELL_M * this.REACH_CELL_M) continue;
+        const sx = Math.round(this.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.strokeRect(sx + 0.5, sy + 0.5, CELL_PX - 1, CELL_PX - 1);
+      }
+    }
+    // Silence the unused-variable lint by referencing feetPxY (kept as a hint
+    // for any future visual marker at the feet centre).
+    void feetPxY;
+
     // Grid lines align with cell edges. Cells are positioned at
     //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
     //   left edge = sx - CELL_PX/2 = viewLeft + CELL_PX/2 + (j - fracX) * CELL_PX
@@ -1331,7 +1359,9 @@ class MapScene extends Phaser.Scene {
 
     const wm = this.screenToWorldMeters(sx, sy);
     const pWorldX = this.startWorldM.x + this.playerM.x;
-    const pWorldY = this.startWorldM.y + this.playerM.y;
+    // Reach is measured from the character's visible feet, not the sprite center,
+    // so the reachable area is symmetric around what the user perceives as "the player".
+    const pWorldY = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
 
     // 0) Treasure mark within 4m — give ultralow-tier loot, mark found.
     {
@@ -1377,14 +1407,13 @@ class MapScene extends Phaser.Scene {
         if (Math.hypot(wp.x - wm.x, wp.y - wm.y) < 4) {
           if (Math.hypot(wp.x - pWorldX, wp.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
           this.save.picked = [...pickedSet, wp.id];
-          this.addToInv(wp.crop, 1); // produce
+          this.addToInv(wp.crop, 1); // produce only — debris is just the item itself, no bonus seed
           let bonus = '';
-          if (Math.random() < 0.25) { this.addToInv(`${wp.crop}_seed`, 1); bonus += ' +seed'; }
           // Surprise treasure: e.g. picking a rockfruit sometimes also yields a gemfruit.
           const treasure = WILD_TREASURE[wp.crop];
           if (treasure && Math.random() < treasure.chance) {
             this.addToInv(treasure.bonus, 1);
-            bonus += ` ✨${treasure.bonus}`;
+            bonus = ` ✨${treasure.bonus}`;
           }
           persistSave(this.save);
           this.flash(`picked ${wp.crop}${bonus}`, sx, sy);
