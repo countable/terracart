@@ -147,7 +147,9 @@ const TAP_HANDLERS = [
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
     const openedSetTap = new Set(save.opened);
     const allObjs = [];
-    WorldGen.forEachItem('objects', (o) => allObjs.push(o));
+    // Wrap push in a block so we don't return its truthy result —
+    // forEachItem treats any truthy return as "stop iterating".
+    WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
     allObjs.sort((a, b) => {
       const ao = a.kind === 'chest' && openedSetTap.has(a.id) ? 1 : 0;
       const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;

@@ -983,7 +983,7 @@ class MapScene extends Phaser.Scene {
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
       // house tap can't silently dump a high-value item.
-      const price = PRICES[sel.id] ?? 1;
+      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) / 2));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       this.showOfferModal({
@@ -1050,7 +1050,7 @@ class MapScene extends Phaser.Scene {
   // If no qualifying barter exists, falls back to the cash offer.
   buildShopOffer(id, baseValue) {
     const wantMoney = Math.random() < 1/3;
-    const cashCost = Math.max(1, Math.ceil(baseValue * 2));
+    const cashCost = Math.max(1, Math.ceil(baseValue * (1.2 + Math.random() * 1.8)));
     const cashOffer = {
       kind: 'money',
       label: `$${cashCost}`,
