@@ -595,6 +595,7 @@ class MapScene extends Phaser.Scene {
     this.objectPool = [];
     this.plantedPool = [];
     this.creaturePool = [];
+    this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -1340,6 +1341,28 @@ class MapScene extends Phaser.Scene {
       }
     });
 
+    // POI name labels above chests (named POIs only). Reuse a parallel text pool.
+    const chestLabels = filteredObj.filter(({ o }) => o.kind === 'chest' && o.name);
+    let li = 0;
+    for (const item of chestLabels) {
+      const { o, dx, dy } = item;
+      const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
+      const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
+      let tx = this.chestLabelPool[li];
+      if (!tx) {
+        tx = this.add.text(0, 0, '', {
+          font: '9px monospace', color: '#fff', backgroundColor: '#000a',
+          padding: { x: 2, y: 1 },
+        }).setOrigin(0.5, 1).setDepth(50);
+        this.objectsContainer.add(tx);
+        this.chestLabelPool.push(tx);
+      }
+      tx.setText(o.name).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
+      tx.setAlpha(this.save.opened.includes(o.id) ? 0.45 : 1);
+      li++;
+    }
+    for (; li < this.chestLabelPool.length; li++) this.chestLabelPool[li].setVisible(false);
+
     this.renderPool(this.plantedPool, this.plantedContainer, plantedList, (s, item) => {
       const { p, dx, dy } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
@@ -1543,8 +1566,13 @@ class MapScene extends Phaser.Scene {
 
     // 2b) Tap non-tillable terrain → flavor.
     if (!isTillable(cell.type)) {
-      const flavor = cell.type === 3 ? 'water'
-                   : (cell.type === 9 || cell.type === 11 || cell.type === 12) ? 'building'
+      const t = cell.type;
+      const flavor = t === 3  ? 'water'
+                   : (t === 9 || t === 11 || t === 12) ? 'building'
+                   : t === 13 ? 'highway'
+                   : t === 14 ? 'avenue'
+                   : t === 7  ? 'road'
+                   : t === 8  ? 'path'
                    : '·';
       this.flash(flavor, sx, sy);
       return;
