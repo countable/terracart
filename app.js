@@ -974,7 +974,16 @@ class MapScene extends Phaser.Scene {
         const absCellIX = baseCellIX + ox;
         const absCellIY = baseCellIY + oy;
         const tilledKey = `${absCellIX}_${absCellIY}`;
-        const isTilled = this.tilledSet && this.tilledSet.has(tilledKey);
+        let isTilled = this.tilledSet && this.tilledSet.has(tilledKey);
+        // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
+        // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
+        // silently drop it so the house renders correctly again.
+        if (isTilled && !isTillable(type)) {
+          this.tilledSet.delete(tilledKey);
+          this.save.tilled = [...this.tilledSet];
+          persistSave(this.save);
+          isTilled = false;
+        }
         let isWatered = false;
         if (isTilled) {
           const c = this.absCellCenterMeters(absCellIX, absCellIY);
@@ -1300,7 +1309,8 @@ class MapScene extends Phaser.Scene {
     const ix = Math.floor((wx - tx * 256) / (256 / this.cellsPerTile));
     const iy = Math.floor((wy - ty * 256) / (256 / this.cellsPerTile));
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
-    return { tx, ty, ix, iy, type: entry && entry.grid ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
+    const loaded = !!(entry && entry.grid);
+    return { tx, ty, ix, iy, loaded, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);
@@ -1354,7 +1364,11 @@ class MapScene extends Phaser.Scene {
       return;
     }
 
-    // 3) Auto-till empty tillable ground (silent — no flash to avoid spam)
+    // 3) Auto-till empty tillable ground (silent — no flash to avoid spam).
+    // Skip when the underlying tile hasn't streamed in yet — otherwise a GPS jump
+    // onto an unloaded building cell falls back to "grass" and gets wrongly tilled,
+    // leaving the house rendered as soil once the real tile data arrives.
+    if (!cell.loaded) return;
     if (!isTillable(cell.type)) return;
     if (!this.tilledSet.has(cellKey)) {
       this.tilledSet.add(cellKey);
