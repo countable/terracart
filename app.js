@@ -274,11 +274,12 @@ const CHEST_TIER_BY_CATEGORY = {
   food: 3, health: 3, civic: 3, farm: 3,
   flora: 4,
 };
+// Tier 1 = no gem (skipped at render). Tiers 2-4 are clearly distinct hues.
 const CHEST_TIER_COLOR = {
-  1: 0xb87333, // bronze
-  2: 0xc0c0c0, // silver
-  3: 0xffd700, // gold
-  4: 0xb9f2ff, // diamond (pale cyan)
+  1: null,     // common — no gem drawn at all
+  2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
+  3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
+  4: 0xc77dff, // violet — epic
 };
 function chestTier(poiClass) {
   const cat = POI_CATEGORY[poiClass];
@@ -378,6 +379,36 @@ const CROP_SPRITE = {
   // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
   longgrass: { sheet: 'longgrass', custom: true },
 };
+
+// Resolve the same icon source the inventory uses for an item id.
+// Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
+// or null if the item has no sprite (use emoji fallback).
+//   Spring Crops.png: 14 cols x 8 rows. Inventory: col 7 = seed bag, col 8 = produce.
+//   Crops.png: 9 cols x 16 rows. Inventory: col 8 row 15 = generic seedbag,
+//     col 7 row CROP_ROW[crop] = produce.
+function inventoryIconSource(itemId) {
+  const item = ITEM_BY_ID[itemId];
+  if (!item) return null;
+  const cropKey = item.grows || item.crop;
+  if (!cropKey) return null;
+  const ov = CROP_SPRITE[cropKey];
+  if (ov && ov.sheet === 'springcrops') {
+    const col = item.kind === 'seed' ? 7 : (item.kind === 'produce' ? 8 : null);
+    if (col == null) return null;
+    return { sheet: 'springcrops', frame: ov.row * 14 + col };
+  }
+  if (ov && ov.custom) {
+    // longgrass uses the procedural texture; reuse its key directly.
+    return { sheet: ov.sheet, frame: 0 };
+  }
+  if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * 9 + 8 };
+  if (item.kind === 'produce') {
+    const row = CROP_ROW[cropKey];
+    if (row == null) return null;
+    return { sheet: 'crops', frame: row * 9 + PRODUCE_COL };
+  }
+  return null;
+}
 
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
@@ -725,6 +756,49 @@ class MapScene extends Phaser.Scene {
     // GPS watch + device compass (best-effort)
     this.startGps();
     this.startCompass();
+    this.setupLifecycle();
+  }
+
+  // === Power / lifecycle ===
+  // Keep the screen awake while the game is foreground, and pause the game +
+  // GPS watch whenever the tab is backgrounded. The OS automatically releases
+  // the wake lock when the tab loses visibility, so it has to be re-requested
+  // on each visibility→visible transition.
+  setupLifecycle() {
+    // Wake Lock — best-effort; not all browsers support it (e.g. iOS < 16.4).
+    this._wakeLock = null;
+    const acquireWakeLock = async () => {
+      if (!('wakeLock' in navigator)) return;
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        this._wakeLock.addEventListener('release', () => { this._wakeLock = null; });
+      } catch (e) {
+        // User-facing failure modes: page not visible, battery saver, etc.
+        // No need to surface — the screen just times out normally.
+        this._wakeLock = null;
+      }
+    };
+    acquireWakeLock();
+
+    // Visibility lifecycle: pause game + GPS when hidden, resume on return.
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') {
+        // Pause Phaser's render+update loop — saves CPU/battery while backgrounded.
+        if (this.game && !this.game.isPaused) this.game.pause();
+        // Stop the GPS watcher — by far the biggest battery drain. We'll
+        // re-arm it on return so a fresh fix is taken.
+        if (this.gpsWatchId != null) {
+          try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
+          this.gpsWatchId = null;
+        }
+      } else {
+        if (this.game && this.game.isPaused) this.game.resume();
+        if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
+        // Wake lock is auto-released on hide; re-acquire on return.
+        if (!this._wakeLock) acquireWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
   }
 
   // === GPS ===
@@ -1402,10 +1476,15 @@ class MapScene extends Phaser.Scene {
         for (const o of entry.objects) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          if (o.kind === 'chest' && o.name) {
-            const k = `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
-            if (seenChestKey.has(k)) continue;
-            seenChestKey.add(k);
+          if (o.kind === 'chest') {
+            // Dedupe by name when available, else by poiClass — unnamed POIs (e.g. pitch)
+            // still get duplicated by MVT across tile borders and need the same collapse.
+            const ident = o.name || o.poiClass;
+            if (ident) {
+              const k = `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
+              if (seenChestKey.has(k)) continue;
+              seenChestKey.add(k);
+            }
           }
           // Picked flowers stay gone — skip rendering them.
           if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
@@ -1528,7 +1607,7 @@ class MapScene extends Phaser.Scene {
           font: '10px monospace',
           color: LABEL_INK, backgroundColor: LABEL_BG,
           padding: { x: 3, y: 2 },
-        }).setOrigin(0.5, 1).setDepth(50);
+        }).setOrigin(0.5, 0).setDepth(50);
         // Soft black drop shadow on the text glyphs themselves.
         tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, false, true);
         this.objectsContainer.add(tx);
@@ -1540,7 +1619,8 @@ class MapScene extends Phaser.Scene {
       const label = isFallback
         ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
         : rusticifyName(o.name);
-      tx.setText(label).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
+      // Anchored just below the chest sprite (chest bottom ≈ sy + 3 after origin+scale).
+      tx.setText(label).setPosition(Math.round(sx), Math.round(sy + 4)).setVisible(true);
       // Switch font size + padding live: fallback labels are smaller.
       tx.setFontSize(isFallback ? 8 : 10);
       tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
@@ -1562,7 +1642,8 @@ class MapScene extends Phaser.Scene {
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       const tier = chestTier(o.poiClass);
-      const color = CHEST_TIER_COLOR[tier] || 0xc0c0c0;
+      const color = CHEST_TIER_COLOR[tier];
+      if (color == null) continue;   // tier 1 → no gem
       const cx = Math.round(sx - 1);
       const cy = Math.round(sy - 18);
       const r = 6;     // 20% smaller (was 8)
@@ -1577,8 +1658,8 @@ class MapScene extends Phaser.Scene {
       g.fillTriangle(cx, cy - r, cx + r, cy, cx, cy + r);
       g.fillStyle(color, 1);
       g.fillTriangle(cx, cy - r, cx - r, cy, cx, cy + r);
-      // 3) Crisp black outline
-      g.lineStyle(2, 0x000000, 1);
+      // 3) Thin black outline (1 px — was 2)
+      g.lineStyle(1, 0x000000, 1);
       g.beginPath();
       g.moveTo(cx, cy - r); g.lineTo(cx + r, cy);
       g.lineTo(cx, cy + r); g.lineTo(cx - r, cy);
@@ -1673,7 +1754,7 @@ class MapScene extends Phaser.Scene {
           this.addToInv(t.id, t.n);
           const tierLbl = SEED_TIER[t.id] === 3 ? 'RARE!' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
           const tierColor = SEED_TIER[t.id] === 3 ? '#ff8aff' : SEED_TIER[t.id] === 2 ? '#7adcff' : '#ffe066';
-          this.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} 🌱 (${tierLbl})`, tierColor);
+          this.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} 🌱 (${tierLbl})`, tierColor, 1, t.id);
         }
         persistSave(this.save);
         return true;
@@ -1719,8 +1800,8 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           // Treasure bonus → use the splashier flash; ordinary pickup uses a small flash.
           const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
-          if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff');
-          else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`);
+          if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
+          else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`, undefined, 1, wp.crop);
           return;
         }
       }
@@ -1750,10 +1831,13 @@ class MapScene extends Phaser.Scene {
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
       for (const o of entry.objects) {
-        if (o.kind === 'chest' && o.name) {
-          const k = `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
-          if (seenTapChestKey.has(k)) continue;
-          seenTapChestKey.add(k);
+        if (o.kind === 'chest') {
+          const ident = o.name || o.poiClass;
+          if (ident) {
+            const k = `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
+            if (seenTapChestKey.has(k)) continue;
+            seenTapChestKey.add(k);
+          }
         }
         const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
         if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
@@ -1772,7 +1856,7 @@ class MapScene extends Phaser.Scene {
           const tier = SEED_TIER[loot.id] || 1;
           const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
           // Show the ITEM obtained, not the POI label.
-          this.flashLoot(`${lootIcon} ${lootName} ×${loot.n}`, color, 1.25);
+          this.flashLoot(`${lootIcon} ${lootName} ×${loot.n}`, color, 1.25, loot.id);
           return;
         }
         if (o.kind === 'tree') {
@@ -1912,7 +1996,7 @@ class MapScene extends Phaser.Scene {
         if (gotSeed) this.addToInv(`${p.crop}_seed`, 1);
         persistSave(this.save);
         const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0');
+        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
         return;
       }
       if (!p.watered_t) {
@@ -2018,9 +2102,12 @@ class MapScene extends Phaser.Scene {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     // Stable per-chest key that collapses name-duplicates across adjacent MVT tile borders.
-    const chestKey = (o) => o.name
-      ? `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`
-      : o.id;
+    const chestKey = (o) => {
+      const ident = o.name || o.poiClass;
+      return ident
+        ? `${ident}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`
+        : o.id;
+    };
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
       for (const entry of WorldGen.tileCache.values()) {
@@ -2079,13 +2166,39 @@ class MapScene extends Phaser.Scene {
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
   // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
-  flashLoot(text, color = '#ffe066', dwellMul = 1) {
+  flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null) {
     const x = this.viewCenterX, y = this.viewCenterY - 40;
     const t = this.add.text(x, y, text, {
       font: 'bold 22px monospace', color, backgroundColor: '#000c',
       stroke: '#000', strokeThickness: 3,
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
+    // Optional item-icon sprite to the left of the text, sourced from the same
+    // crop spritesheet the inventory bar uses (so the icon matches exactly).
+    let icon = null;
+    if (itemId) {
+      const iconSrc = inventoryIconSource(itemId);
+      if (iconSrc) {
+        icon = this.add.image(0, 0, iconSrc.sheet, iconSrc.frame)
+          .setOrigin(1, 1).setDepth(101).setScale(0.6).setAlpha(0);
+        // Position to the left of the text background. We re-place after first
+        // tween frame, since text.getBounds() is only valid once laid out.
+        const placeIcon = () => {
+          const b = t.getBounds();
+          // Anchor icon at bottom-right of its own box, aligned to text's left edge
+          // with a 6 px gap. The image is rendered at 2x logical size (32 px) to
+          // roughly match inventory slot size.
+          icon.setDisplaySize(28, 28);
+          icon.setPosition(b.left - 6, b.bottom);
+        };
+        placeIcon();
+        this.tweens.add({ targets: icon, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out',
+          onUpdate: placeIcon });
+        this.tweens.add({ targets: icon, y: y - 50, alpha: 0,
+          duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
+          ease: 'Sine.In', onComplete: () => icon.destroy() });
+      }
+    }
     // Pop in (140ms), hold (1.44s * dwellMul), drift up + fade (700ms * dwellMul).
     this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
     this.tweens.add({ targets: t, y: y - 50, alpha: 0,
@@ -2175,7 +2288,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
-        this.flashLoot(`🪙 ${item?.icon || ''} ${item?.name || id}\n${offer.shortGain}`, '#ffe066');
+        this.flashLoot(`🪙 ${item?.icon || ''} ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
   }
