@@ -39,6 +39,19 @@ function persistSave(s) {
   _saveTimer = setTimeout(() => { _saveTimer = null; flushSave(); }, SAVE_DEBOUNCE_MS);
 }
 
+// Tiny helpers that read/write save shape — same null-coalescing repeated
+// across many sites collapses to a single call.
+function addMoney(save, delta) {
+  save.money = (save.money ?? 0) + delta;
+}
+function getSelectedItem(save) {
+  const sel = save.inv?.[save.selSlot];
+  return sel ? (typeof ITEM_BY_ID !== 'undefined' ? ITEM_BY_ID[sel.id] : null) : null;
+}
+function getSelectedSlot(save) {
+  return save.inv?.[save.selSlot] || null;
+}
+
 // Don't lose pending writes when the tab is backgrounded or closed.
 window.addEventListener('pagehide', flushSave);
 window.addEventListener('visibilitychange', () => {

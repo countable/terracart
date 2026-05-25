@@ -147,7 +147,7 @@ Render.drawCells = function drawCells(scene) {
       // tile-pixel basis used for tilled / planted state.
       const _absIX = baseCellIX + ox;
       const _absIY = baseCellIY + oy;
-      const _cellKey = `${_absIX}_${_absIY}`;
+      const _cellKey = cellKeyFromAbsCell(_absIX, _absIY);
       let type = T(col, row);
       if (scene.placedRockSet && scene.placedRockSet.has(_cellKey)) type = 10;
       else if (type === 10 && scene.brokenRockSet && scene.brokenRockSet.has(_cellKey)) type = 0;
@@ -189,17 +189,21 @@ Render.drawCells = function drawCells(scene) {
         g.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
 
+      // (Building outlines are drawn in a second pass after every cell is
+      // filled — drawing them inline gets overpainted by the next cell's
+      // fillRect on the shared boundary, leaving missing segments.)
+
       // Tilled check — use the same tile-pixel basis as cell rendering.
       const absCellIX = baseCellIX + ox;
       const absCellIY = baseCellIY + oy;
-      const tilledKey = `${absCellIX}_${absCellIY}`;
+      const tilledKey = cellKeyFromAbsCell(absCellIX, absCellIY);
       let isTilled = scene.tilledSet && scene.tilledSet.has(tilledKey);
       // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
       // the tilled flag from under a live plant produces an "occupied: crop" orphan.
       if (isTilled && !isTillable(type)) {
-        const cc = scene.absCellCenterMeters(absCellIX, absCellIY);
+        const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
         const hasPlant = scene.save.planted.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
         if (!hasPlant) {
@@ -211,7 +215,7 @@ Render.drawCells = function drawCells(scene) {
       }
       let isWatered = false;
       if (isTilled) {
-        const c = scene.absCellCenterMeters(absCellIX, absCellIY);
+        const c = absCellCenterMeters(scene, absCellIX, absCellIY);
         for (const pp of scene.save.planted) {
           if (pp.watered_t && Math.abs(pp.x - c.x) < 0.1 && Math.abs(pp.y - c.y) < 0.1) {
             isWatered = true; break;
@@ -303,6 +307,41 @@ Render.drawCells = function drawCells(scene) {
       }
     }
   }
+  // Building outline pass — runs AFTER all cells are filled so a neighbour
+  // cell's fillRect can't overpaint the shared boundary. For each building cell,
+  // stroke each side whose 4-neighbour isn't itself a building.
+  const isB = (t) => t === 9 || t === 11 || t === 12;
+  // Pseudo-3D extrusion: building footprints are the "top surface", and the
+  // south-facing edge of each building cell gets a 5px-tall darker wall projected
+  // downward, painted on top of the row below. Other edges get a thin black tint
+  // to keep the silhouette crisp.
+  // Wall face = 40% brightness of the footprint colour (60% darker) — deep
+  // shadow under the lit top surface, but with enough hue to read as the
+  // building's own material rather than a generic dark stripe.
+  const SOUTH_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
+  // Houses get a 4px wall + 1px silhouette outline. Civic slabs (LARGE) keep
+  // the thicker 5px wall and 3px outline to read at their bigger footprint scale.
+  const SOUTH_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+  for (let row = 0; row < VIEW_CELLS; row++) {
+    for (let col = 0; col < VIEW_CELLS; col++) {
+      const type = T(col, row);
+      if (!isB(type)) continue;
+      const ox = col - half, oy = row - half;
+      const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+      const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      // South wall: tier-specific extrusion, darker shade of the building tier.
+      if (!isB(T(col, row + 1))) {
+        g.fillStyle(SOUTH_FACE_COLOR[type] || 0x444444, 0.95);
+        g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
+      }
+      // Top / left / right edges: thin 50% black tint (silhouette).
+      const lw = type === 12 ? 3 : 1;
+      g.lineStyle(lw, 0x000000, 0.5);
+      if (!isB(T(col, row - 1))) g.lineBetween(sx, sy, sx + CELL_PX, sy);
+      if (!isB(T(col - 1, row))) g.lineBetween(sx, sy, sx, sy + CELL_PX);
+      if (!isB(T(col + 1, row))) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+    }
+  }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area (cells whose centre is within REACH_CELL_M of the character's
   // visible feet). For each reachable cell, draw only the sides whose neighbour
@@ -327,7 +366,7 @@ Render.drawCells = function drawCells(scene) {
       g.fillRect(sx, sy, CELL_PX, CELL_PX);
     }
   }
-  g.lineStyle(3, 0xffffff, 0.5);
+  g.lineStyle(3, 0xffffff, 0.3);
   for (let row = 0; row < VIEW_CELLS; row++) {
     for (let col = 0; col < VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
@@ -455,35 +494,36 @@ Render.drawObjects = function drawObjects(scene) {
     !(o.kind === 'chest' && openedSet.has(o.id))
   );
   filteredObj.sort((a, b) => a.dy - b.dy);
+  // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
+  // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
+  // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
+  // hides — used for flora variants that haven't baked yet.
+  const RENDER_SPEC = {
+    house:  { key: 'house', frame: 'front', origin: [0.5, 0.9],  scale: 0.6 },
+    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0 },
+    tree:   { key: 'trees', frame: (o) => Phaser.Math.Clamp(o.variant || 2, 0, 4),
+              origin: [0.5, 0.95], scale: 0.85 },
+    chest:  { key: 'chest', frame: 0,        origin: [0.5, 0.9],  scale: 2.0 },
+    flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
+              origin: [0.5, 0.8],  scale: 1.8 },
+  };
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    if (o.kind === 'house') {
-      if (s.texture.key !== 'house') s.setTexture('house', 'front');
-      else if (s.frame.name !== 'front') s.setFrame('front');
-      s.setOrigin(0.5, 0.9).setScale(0.6).setPosition(Math.round(sx), Math.round(sy));
-    } else if (o.kind === 'tree') {
-      if (s.texture.key !== 'trees') s.setTexture('trees');
-      s.setFrame(Phaser.Math.Clamp(o.variant || 2, 0, 4));
-      s.setOrigin(0.5, 0.95).setScale(0.85).setPosition(Math.round(sx), Math.round(sy));
-    } else if (o.kind === 'chest') {
-      // Only unopened chests reach this branch — opened ones are filtered out
-      // above (filteredObj) until they refill.
-      if (s.texture.key !== 'chest') s.setTexture('chest');
-      s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
-      s.setAlpha(1).setTint(0xffffff);
-    } else if (o.kind === 'flora') {
-      const key = `flora_${o.deco}_${o.variant ?? 0}`;
-      if (scene.textures.exists(key)) {
-        if (s.texture.key !== key) s.setTexture(key);
-        s.setOrigin(0.5, 0.8).setScale(1.8).setPosition(Math.round(sx), Math.round(sy));
-        s.setAlpha(1).setTint(0xffffff);
-      } else {
-        s.setVisible(false);
-      }
+    const spec = RENDER_SPEC[o.kind];
+    if (!spec) return;
+    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
+    if (s.texture.key !== texKey) s.setTexture(texKey);
+    if (spec.frame !== undefined) {
+      const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
+      if (s.frame.name !== f) s.setFrame(f);
     }
+    s.setOrigin(spec.origin[0], spec.origin[1])
+     .setScale(spec.scale)
+     .setPosition(Math.round(sx), Math.round(sy))
+     .setAlpha(1).setTint(0xffffff);
   });
 
   // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.

@@ -163,7 +163,10 @@
       }
       xs.sort((p, q) => p - q);
       for (let k = 0; k + 1 < xs.length; k += 2) {
-        const xa = Math.max(0, Math.ceil(xs[k] - 0.5));
+        // Symmetric pixel-centre fill: a cell (x, y) is "inside" iff its centre (x+0.5, y+0.5)
+        // is between the left/right intersection xs[k], xs[k+1]. Previously used mixed
+        // ceil/floor with -0.5 offsets which could clip the rightmost cell column.
+        const xa = Math.max(0, Math.floor(xs[k] + 0.5));
         const xb = Math.min(w - 1, Math.floor(xs[k + 1] - 0.5));
         for (let x = xa; x <= xb; x++) paintCell(grid, w, h, x, y, type);
       }
@@ -437,6 +440,9 @@
               if (areaM2 < 8) continue;
               const tier = buildingTier(areaM2, f.tags.render_height);
               paintPolygon(grid, w, h, [ring], tier, mvtToCell);
+              // Civic / industrial slabs (schools, malls, hospitals) read as a cement pad —
+              // a residential house roof on top of one looks wrong, so skip the sprite.
+              if (tier === T.BUILDING_LARGE) continue;
               const c = ringCentroid(ring);
               const m = toMeters(c.x, c.y);
               // Snap house sprite to the 5m cell centre so a row of houses lines up cleanly.
@@ -521,9 +527,17 @@
             // low-tier street furniture: heavy T1 seed drops
             'bus','fuel','lodging','gate',
           ]);
-          // Snap POI-derived features to the 5m absolute cell centre so the X /
-          // chest sprite always sits squarely in a tile (not floating between two).
-          const snap = (v) => (Math.floor(v / CELL_M) + 0.5) * CELL_M;
+          // Snap POI-derived features to the LOCAL-TILE cell centre — same basis the
+          // grid uses (tileEdgeM/cellsPerEdge, which differs slightly from 5m). This
+          // matches `offsetForPlacement` and `cellAt()`, so the chest's stored x/y
+          // agrees with grid lookups instead of drifting by sub-meter per cell.
+          const cellWidthM = tileEdgeM / w;   // w === cellsPerEdge
+          const snap = (v) => {
+            // Project v back into the tile's local cell index, then expand to cell-centre.
+            const origin = (v === undefined) ? 0 : Math.floor(v / tileEdgeM) * tileEdgeM;
+            const localCell = Math.floor((v - origin) / cellWidthM);
+            return origin + (localCell + 0.5) * cellWidthM;
+          };
           if (cls === 'parking') {
             // Parking lots → guaranteed treasure X (no chest).
             for (const ring of f.geom) {
@@ -609,22 +623,8 @@
             let padType = T.PARK;
             let spawnGreenery = false;
             if (onBuilding) {
-              // Find the nearest house centroid and remove it (so the POI's chest doesn't
-              // collide with the house sprite). Limit search radius to typical building sizes.
-              const poiMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
-              const poiMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
-              let bestI = -1, bestD = 60 * 60; // search within 60m
-              for (let i = 0; i < objects.length; i++) {
-                const o = objects[i];
-                if (o.kind !== 'house') continue;
-                const dxm = o.x - poiMx, dym = o.y - poiMy;
-                const d2 = dxm*dxm + dym*dym;
-                if (d2 < bestD) { bestD = d2; bestI = i; }
-              }
-              if (bestI >= 0) objects.splice(bestI, 1);
-              // Promote any small/medium building cells in this footprint to BUILDING_LARGE
-              // so the pad reads as one civic slab regardless of original tier. Flood-fill
-              // from the POI cell across connected BUILDING* cells.
+              // Flood-fill the connected building footprint and promote it to BUILDING_LARGE
+              // so the pad reads as one civic slab regardless of original tier.
               const seen = new Set([initialIdx]);
               const stack = [[cellIX, cellIY]];
               while (stack.length) {
@@ -638,9 +638,51 @@
                   if (BUILDING(grid[nidx])) { seen.add(nidx); stack.push([nx, ny]); }
                 }
               }
-              // Chest stays at the POI's cell centre — that cell is now part of the pad.
-              const adjustedMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
-              const adjustedMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              // Remove every house sprite whose centroid falls inside the dissolved footprint.
+              // A school/mall is often several adjacent building polygons, each of which pushed
+              // its own house sprite — removing only the nearest leaves the others on the pad.
+              for (let i = objects.length - 1; i >= 0; i--) {
+                const o = objects[i];
+                if (o.kind !== 'house') continue;
+                const ox = Math.floor((o.x - tileOriginMx) / mvtToM * mvtToCell);
+                const oy = Math.floor((o.y - tileOriginMy) / mvtToM * mvtToCell);
+                if (ox < 0 || oy < 0 || ox >= w || oy >= h) continue;
+                if (seen.has(oy * w + ox)) objects.splice(i, 1);
+              }
+              // Public-facing chest placement. Most civic buildings are closed to the
+              // public (school hours, hospital wings, etc.) — dropping the chest deep
+              // inside the slab forces players to "enter" the building. Instead, find
+              // the perimeter cell nearest the closest road/path and put the chest
+              // there: it reads as the building's entrance / sidewalk frontage.
+              const ROADISH = new Set([T.PATH, T.ROAD, T.ROAD_MD, T.ROAD_LG]);
+              let nearRoad = null, bestRoadD = 60 * 60;
+              for (let dy = -60; dy <= 60; dy++) for (let dx = -60; dx <= 60; dx++) {
+                const ix = cellIX + dx, iy = cellIY + dy;
+                if (ix<0||iy<0||ix>=w||iy>=h) continue;
+                if (!ROADISH.has(grid[iy * w + ix])) continue;
+                const d2 = dx*dx + dy*dy;
+                if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
+              }
+              let finalIX = cellIX, finalIY = cellIY;
+              if (nearRoad) {
+                let bestPerimD = Infinity, bestPerim = null;
+                for (const idx of seen) {
+                  const ix = idx % w, iy = Math.floor(idx / w);
+                  let isPerim = false;
+                  for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = ix + ddx, ny = iy + ddy;
+                    if (nx<0||ny<0||nx>=w||ny>=h) { isPerim = true; break; }
+                    if (!seen.has(ny * w + nx)) { isPerim = true; break; }
+                  }
+                  if (!isPerim) continue;
+                  const dx = ix - nearRoad.ix, dy = iy - nearRoad.iy;
+                  const d2 = dx*dx + dy*dy;
+                  if (d2 < bestPerimD) { bestPerimD = d2; bestPerim = { ix, iy }; }
+                }
+                if (bestPerim) { finalIX = bestPerim.ix; finalIY = bestPerim.iy; }
+              }
+              const adjustedMx = tileOriginMx + (finalIX + 0.5) * (1 / mvtToCell) * mvtToM;
+              const adjustedMy = tileOriginMy + (finalIY + 0.5) * (1 / mvtToCell) * mvtToM;
               const lastChest = objects[objects.length - 1];
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
@@ -736,6 +778,28 @@
       nut:       new Set([1]),                  // forest only
       // rockfruit + anything else → GROUND fallback
     };
+    // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
+    // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
+    // cell coord so towers stay aligned across tile boundaries.
+    for (let iy = 0; iy < h; iy++) {
+      for (let ix = 0; ix < w; ix++) {
+        if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
+        // Perimeter test: at least one 4-neighbor is not BUILDING_LARGE (or off-tile).
+        let isPerim = false;
+        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = ix + ddx, ny = iy + ddy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) { isPerim = true; break; }
+          if (grid[ny * w + nx] !== T.BUILDING_LARGE) { isPerim = true; break; }
+        }
+        if (!isPerim) continue;
+        const absX = tx * w + ix, absY = ty * w + iy;
+        if (((absX + absY * 13) % 5 + 5) % 5 !== 0) continue;
+        const cx = tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM;
+        const cy = tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM;
+        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}` });
+      }
+    }
+
     // Unified occupancy pass — at most one interactable / decorative object
     // per cell. Strict priority: chest > house > tree > wildplant > flora.
     // The first one to claim a cell wins; everything else in that cell is
@@ -744,21 +808,20 @@
     const cellKeyOfWorld = (x, y) => {
       const ix = Math.floor(((x - tileOriginMx) / mvtToM) * mvtToCell);
       const iy = Math.floor(((y - tileOriginMy) / mvtToM) * mvtToCell);
-      if (ix < 0 || iy < 0 || ix >= w || iy >= h) return null;
       return `${ix}_${iy}`;
     };
 
     // 1) High-priority objects first (chest > house > tree). These never get
     //    displaced — they claim their cells and everything else (wildplants,
     //    flora) must avoid those cells.
-    const STRUCT_PRIO = { chest: 3, house: 2, tree: 1 };
+    const STRUCT_PRIO = { chest: 3, house: 2, tower: 2, tree: 1 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0));
     const keptStructs = [];
     for (const o of structs) {
       const k = cellKeyOfWorld(o.x, o.y);
-      if (k != null && occupiedCells.has(k)) continue;
-      if (k != null) occupiedCells.add(k);
+      if (occupiedCells.has(k)) continue;
+      occupiedCells.add(k);
       keptStructs.push(o);
     }
 
@@ -885,6 +948,11 @@
   }
 
   async function loadTile(x, y, lat) {
+    // NOTE: cache key is `${Z}/${x}/${y}` — same tile at a different latitude would alias.
+    // Safe today because the player session is anchored to one START_LAT. If we ever
+    // support session-scale long-distance teleports between very different latitudes,
+    // include `cellsPerEdgeForLat(lat)` in this key AND in every `tileCache.get(...)`
+    // call site in app.js.
     const key = `${Z}/${x}/${y}`;
     if (tileCache.has(key)) return tileCache.get(key);
     const entry = { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat) };
@@ -938,9 +1006,24 @@
     return { x, y };
   }
 
+  // Iterate every item across every cached tile's `prop` array. Tiles missing
+  // the property are skipped. fn(item, entry) — return any truthy value to
+  // short-circuit (the return value is propagated back to the caller).
+  function forEachItem(prop, fn) {
+    for (const entry of tileCache.values()) {
+      const arr = entry[prop];
+      if (!arr) continue;
+      for (const item of arr) {
+        const r = fn(item, entry);
+        if (r) return r;
+      }
+    }
+  }
+
   global.WorldGen = {
     Z, CELL_M, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
+    forEachItem,
   };
 })(window);

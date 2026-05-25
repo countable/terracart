@@ -57,14 +57,14 @@ const TAP_HANDLERS = [
       save.foundTreasures = [...found, tr.id];
       const t = pickTreasure();
       if (t.kind === 'money') {
-        save.money = (save.money || 0) + t.amount;
+        addMoney(save, t.amount);
         scene.flashLoot(`✕ → $${t.amount}`, '#ffd96b');
         if (scene.updateMoneyDOM) scene.updateMoneyDOM();
       } else {
         scene.addToInv(t.id, t.n);
-        const tierLbl = SEED_TIER[t.id] === 3 ? 'RARE!' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
-        const tierColor = SEED_TIER[t.id] === 3 ? '#ff8aff' : SEED_TIER[t.id] === 2 ? '#7adcff' : '#ffe066';
-        scene.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} 🌱 (${tierLbl})`, tierColor, 1, t.id);
+        const ti = tierInfo(t.id);
+        // flashLoot already adds an inline sprite (via itemId) — skip the 🌱 emoji.
+        scene.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} (${ti.label})`, ti.color, 1, t.id);
       }
       ctx.dirty = true;
       return true;
@@ -83,19 +83,15 @@ const TAP_HANDLERS = [
   // 1) Catch a creature within 4m of tap.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.creatures) continue;
-      for (const c of entry.creatures) {
-        if (save.caught.includes(c.id)) continue;
-        if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
-          // catchCreature mutates + persists itself; consume the tap without
-          // setting ctx.dirty (would double-flush via the dispatcher's final persistSave).
-          scene.catchCreature(c, sx, sy);
-          return true;
-        }
+    return WorldGen.forEachItem('creatures', (c) => {
+      if (save.caught.includes(c.id)) return;
+      if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
+        // catchCreature mutates + persists itself; consume the tap without
+        // setting ctx.dirty (would double-flush via the dispatcher's final persistSave).
+        scene.catchCreature(c, sx, sy);
+        return true;
       }
-    }
-    return false;
+    }) || false;
   }},
 
   // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
@@ -103,14 +99,11 @@ const TAP_HANDLERS = [
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
     let bestWp = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.wildplants) continue;
-      for (const wp of entry.wildplants) {
-        if (pickedSet.has(wp.id)) continue;
-        const d2 = distM2(wp.x, wp.y, wm.x, wm.y);
-        if (d2 < bestD2) { bestD2 = d2; bestWp = wp; }
-      }
-    }
+    WorldGen.forEachItem('wildplants', (wp) => {
+      if (pickedSet.has(wp.id)) return;
+      const d2 = distM2(wp.x, wp.y, wm.x, wm.y);
+      if (d2 < bestD2) { bestD2 = d2; bestWp = wp; }
+    });
     if (bestWp) {
       const wp = bestWp;
       if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
@@ -124,21 +117,19 @@ const TAP_HANDLERS = [
       }
       ctx.dirty = true;
       const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
-      if (bonus) scene.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
-      else scene.flashLoot(`+1 ${cropIcon} ${wp.crop}`, undefined, 1, wp.crop);
+      // Sprite shows the crop — drop the emoji prefix.
+      if (bonus) scene.flashLoot(`${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
+      else scene.flashLoot(`+1 ${wp.crop}`, undefined, 1, wp.crop);
       return true;
     }
     // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
     let bestF = null, bestD2F = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.objects) continue;
-      for (const o of entry.objects) {
-        if (o.kind !== 'flora' || o.deco !== 'flower') continue;
-        if (pickedSet.has(o.id)) continue;
-        const d2 = distM2(o.x, o.y, wm.x, wm.y);
-        if (d2 < bestD2F) { bestD2F = d2; bestF = o; }
-      }
-    }
+    WorldGen.forEachItem('objects', (o) => {
+      if (o.kind !== 'flora' || o.deco !== 'flower') return;
+      if (pickedSet.has(o.id)) return;
+      const d2 = distM2(o.x, o.y, wm.x, wm.y);
+      if (d2 < bestD2F) { bestD2F = d2; bestF = o; }
+    });
     if (bestF) {
       const o = bestF;
       if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
@@ -156,10 +147,7 @@ const TAP_HANDLERS = [
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
     const openedSetTap = new Set(save.opened);
     const allObjs = [];
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.objects) continue;
-      for (const o of entry.objects) allObjs.push(o);
-    }
+    WorldGen.forEachItem('objects', (o) => allObjs.push(o));
     allObjs.sort((a, b) => {
       const ao = a.kind === 'chest' && openedSetTap.has(a.id) ? 1 : 0;
       const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
@@ -194,11 +182,9 @@ const TAP_HANDLERS = [
         scene.addToInv(loot.id, loot.n);
         save.opened.push(o.id);
         ctx.dirty = true;
-        const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
         const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
-        const tier = SEED_TIER[loot.id] || 1;
-        const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
-        scene.flashLoot(`${lootIcon} ${lootName} ×${loot.n}`, color, 1.25, loot.id);
+        // Sprite shows the loot — drop the icon from the text.
+        scene.flashLoot(`${lootName} ×${loot.n}`, tierInfo(loot.id).color, 1.25, loot.id);
         return true;
       }
       if (o.kind === 'tree') {
@@ -219,8 +205,8 @@ const TAP_HANDLERS = [
     const { scene, wm, pWorldX, pWorldY, sx, sy } = ctx;
     const cell = scene.cellAt(wm.x, wm.y);
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
-    const { cellIX, cellIY } = scene.worldMetersToAbsCell(wm.x, wm.y);
-    const { x: cwmx, y: cwmy } = scene.absCellCenterMeters(cellIX, cellIY);
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
+    const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
     if (Math.hypot(cwmx - pWorldX, cwmy - pWorldY) > scene.REACH_CELL_M) {
       scene.flash('too far', sx, sy); return true;
     }
@@ -229,7 +215,7 @@ const TAP_HANDLERS = [
     ctx.cellIY = cellIY;
     ctx.cwmx = cwmx;
     ctx.cwmy = cwmy;
-    ctx.cellKey = `${cellIX}_${cellIY}`;
+    ctx.cellKey = cellKeyFromAbsCell(cellIX, cellIY);
     return false;
   }},
 
@@ -239,7 +225,7 @@ const TAP_HANDLERS = [
   // roof / inside a wall.
   { name: 'release', try: (ctx) => {
     const { scene, save, sx, sy, cwmx, cwmy, cell } = ctx;
-    const sel = save.inv[save.selSlot];
+    const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!(item && item.kind === 'animal' && (sel.count ?? 0) > 0)) return false;
     if (!isTillable(cell.type)) {
@@ -275,7 +261,7 @@ const TAP_HANDLERS = [
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.
   { name: 'place-rock', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    const sel = save.inv[save.selSlot];
+    const sel = getSelectedSlot(save);
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     if (!(selItem && selItem.id === 'rockfruit' && (sel.count ?? 0) > 0 &&
           isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
@@ -302,9 +288,9 @@ const TAP_HANDLERS = [
     const r = Math.random();
     let msg = '💥 broken';
     if (r < 0.005)        { scene.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
-    else if (r < 0.015)   { save.money = (save.money || 0) + 25; scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
+    else if (r < 0.015)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
     else if (r < 0.035)   { scene.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
-    else if (r < 0.105)   { save.money = (save.money || 0) + 5;  scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
+    else if (r < 0.105)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
     else if (r < 0.555)   { scene.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
     ctx.dirty = true;
     scene.flash(msg, sx, sy);
@@ -337,7 +323,8 @@ const TAP_HANDLERS = [
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
       ctx.dirty = true;
       const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-      scene.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
+      // Sprite shows the crop — drop the wheat / cropIcon emojis from the text.
+      scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
       return true;
     }
     if (!p.watered_t) {
@@ -371,7 +358,7 @@ const TAP_HANDLERS = [
   { name: 'plant', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
     if (!scene.tilledSet.has(cellKey)) return false;
-    const sel = save.inv[save.selSlot];
+    const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || item.kind !== 'seed') {
       scene.tilledSet.delete(cellKey);

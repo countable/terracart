@@ -41,10 +41,10 @@ const COLORS = {
   6: 0x7fbf63,  // park
   7: 0x444444,  // road
   8: 0x9a7a4a,  // path
-  9: 0x8b4d3a,  // building — small house (default brown)
+  9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
-  11: 0x6e5037, // building_med — shop / mid-rise (deeper brown)
-  12: 0x5a5d63, // building_large — civic / school / industrial (slate gray)
+  11: 0x957255, // building_med — shop / mid-rise (lifted brown)
+  12: 0x868a92, // building_large — civic / school / industrial (lifted slate)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
@@ -235,14 +235,14 @@ class MapScene extends Phaser.Scene {
         const [ox, oy] = key.split('_').map(Number);
         const cwmx = (ox + 0.5) * this.cellM;
         const cwmy = (oy + 0.5) * this.cellM;
-        const { cellIX, cellIY } = this.worldMetersToAbsCell(cwmx, cwmy);
-        remapped.add(`${cellIX}_${cellIY}`);
+        const { cellIX, cellIY } = worldMetersToAbsCell(this, cwmx, cwmy);
+        remapped.add(cellKeyFromAbsCell(cellIX, cellIY));
       }
       this.tilledSet = remapped;
       this.save.tilled = [...remapped];
       for (const p of (this.save.planted || [])) {
-        const { cellIX, cellIY } = this.worldMetersToAbsCell(p.x, p.y);
-        const c = this.absCellCenterMeters(cellIX, cellIY);
+        const { cellIX, cellIY } = worldMetersToAbsCell(this, p.x, p.y);
+        const c = absCellCenterMeters(this, cellIX, cellIY);
         p.x = c.x; p.y = c.y;
       }
       this.save.coordSchema = 2;
@@ -255,6 +255,7 @@ class MapScene extends Phaser.Scene {
     // baked in the 'crops' post-load handler in preload, since they composite
     // the produce icon onto a wooden sign.
     makeFloraTextures(this);
+    makeTowerTexture(this);
     // Long-grass wild-debris sprite. 16x16 so it scales the same as crop frames.
     if (!this.textures.exists('longgrass')) {
       const tex = this.textures.createCanvas('longgrass', 16, 16);
@@ -526,28 +527,6 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, cx, cy };
   }
 
-  // Convert world-meters to an absolute cell index using the SAME tile-pixel basis
-  // as playerToWorldCell / drawCells (avoids the half-cell drift you get from
-  // pWorldX/cellM, since cellsPerTile is a rounded integer).
-  worldMetersToAbsCell(wmx, wmy) {
-    const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
-    const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
-    const cellPxSize = 256 / this.cellsPerTile;
-    return {
-      cellIX: Math.floor(wx / cellPxSize),
-      cellIY: Math.floor(wy / cellPxSize),
-    };
-  }
-  // Inverse: meters of a cell's center for a given absolute cell index.
-  absCellCenterMeters(cellIX, cellIY) {
-    const cellPxSize = 256 / this.cellsPerTile;
-    const wx = (cellIX + 0.5) * cellPxSize;
-    const wy = (cellIY + 0.5) * cellPxSize;
-    return {
-      x: this.startWorldM.x + (wx - this.originPx.x) * this.mPerPx,
-      y: this.startWorldM.y + (wy - this.originPx.y) * this.mPerPx,
-    };
-  }
   playerAbsCell() {
     const pc = this.playerToWorldCell();
     return {
@@ -747,48 +726,45 @@ class MapScene extends Phaser.Scene {
     // a chicken just entering the viewport is already mid-step.
     const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.creatures) continue;
-      for (const c of entry.creatures) {
-        if (c.kind !== 'chicken' && c.kind !== 'cow') continue;
-        if (this.save.caught.includes(c.id)) continue;
-        const ddx = c.x - px, ddy = c.y - py;
-        if (ddx * ddx + ddy * ddy > RANGE_SQ) continue;
-        if (c._nextChooseT == null || now >= c._nextChooseT) {
-          if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
-          // Bias back toward home if we've drifted far so chickens stay near
-          // their spawn cluster rather than wandering off forever.
-          const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-          const homeBias = Math.hypot(dxh, dyh) > 3 * this.cellM;
-          // Try up to 6 angles to find one whose destination isn't blocked:
-          // placed rockfruit fences AND any building footprint (small/med/large).
-          // Animals path around walls and houses both.
-          let tx = c.x, ty = c.y, angle = 0;
-          for (let attempt = 0; attempt < 6; attempt++) {
-            angle = homeBias
-              ? Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8
-              : Math.random() * Math.PI * 2;
-            tx = c.x + Math.cos(angle) * STEP_M;
-            ty = c.y + Math.sin(angle) * STEP_M;
-            const cellIX = Math.floor(tx / this.cellM);
-            const cellIY = Math.floor(ty / this.cellM);
-            if (this.placedRockSet && this.placedRockSet.has(`${cellIX}_${cellIY}`)) continue;
-            const dest = this.cellAt(tx, ty);
-            // Block on water (3) and any building tier (9/11/12).
-            if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
-            break;
-          }
-          c._startX = c.x; c._startY = c.y;
-          c._targetX = tx; c._targetY = ty;
-          c._stepT0 = now;
-          c._nextChooseT = now + STEP_MS;
-          c._faceFlip = (c._targetX - c._startX) < 0;
+    WorldGen.forEachItem('creatures', (c) => {
+      if (c.kind !== 'chicken' && c.kind !== 'cow') return;
+      if (this.save.caught.includes(c.id)) return;
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
+      if (c._nextChooseT == null || now >= c._nextChooseT) {
+        if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
+        // Bias back toward home if we've drifted far so chickens stay near
+        // their spawn cluster rather than wandering off forever.
+        const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
+        const homeBias = Math.hypot(dxh, dyh) > 3 * this.cellM;
+        // Try up to 6 angles to find one whose destination isn't blocked:
+        // placed rockfruit fences AND any building footprint (small/med/large).
+        // Animals path around walls and houses both.
+        let tx = c.x, ty = c.y, angle = 0;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          angle = homeBias
+            ? Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8
+            : Math.random() * Math.PI * 2;
+          tx = c.x + Math.cos(angle) * STEP_M;
+          ty = c.y + Math.sin(angle) * STEP_M;
+          const cellIX = Math.floor(tx / this.cellM);
+          const cellIY = Math.floor(ty / this.cellM);
+          if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
+          const dest = this.cellAt(tx, ty);
+          // Block on water (3) and any building tier (9/11/12).
+          if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
+          break;
         }
-        const u = Math.min(1, (now - c._stepT0) / STEP_MS);
-        c.x = c._startX + (c._targetX - c._startX) * u;
-        c.y = c._startY + (c._targetY - c._startY) * u;
+        c._startX = c.x; c._startY = c.y;
+        c._targetX = tx; c._targetY = ty;
+        c._stepT0 = now;
+        c._nextChooseT = now + STEP_MS;
+        c._faceFlip = (c._targetX - c._startX) < 0;
       }
-    }
+      const u = Math.min(1, (now - c._stepT0) / STEP_MS);
+      c.x = c._startX + (c._targetX - c._startX) * u;
+      c.y = c._startY + (c._targetY - c._startY) * u;
+    });
   }
 
   // Walk outward in a ring (up to 6 cells) from the given world-cell coords and return
@@ -852,7 +828,8 @@ class MapScene extends Phaser.Scene {
     this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
-    this.flashLoot(`+${yieldN} ${item?.icon || ''} ${c.kind}`, '#a7ffb0');
+    // Animals have no Crops.png sprite, so the emoji icon stays as a fallback.
+    this.flashLoot(`+${yieldN} ${item?.icon || ''} ${c.kind}`, '#a7ffb0', 1, c.kind);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -885,34 +862,29 @@ class MapScene extends Phaser.Scene {
     };
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
-      for (const entry of WorldGen.tileCache.values()) {
-        if (!entry.objects) continue;
-        for (const o of entry.objects) {
-          if (o.kind !== 'chest' || o.name !== this._poiTpFirst) continue;
-          this._poiTpVisited.add(chestKey(o));
-          this.playerM.x = o.x - this.startWorldM.x;
-          this.playerM.y = o.y - this.startWorldM.y + 4;
-          this.flash(`→ ${rusticifyName(o.name)} (${o.poiClass})`, this.viewCenterX, this.viewCenterY - 40);
-          return;
-        }
-      }
+      WorldGen.forEachItem('objects', (o) => {
+        if (o.kind !== 'chest' || o.name !== this._poiTpFirst) return;
+        this._poiTpVisited.add(chestKey(o));
+        this.playerM.x = o.x - this.startWorldM.x;
+        this.playerM.y = o.y - this.startWorldM.y + 4;
+        this.flash(`→ ${rusticifyName(o.name)} (${o.poiClass})`, this.viewCenterX, this.viewCenterY - 40);
+        return true; // short-circuit
+      });
+      if (this._poiTpVisited.size > 0) return;
     }
     // Find the nearest unvisited decorated chest, deduped by key.
     let best = null, bestD = Infinity, bestKey = null;
     const seenKey = new Set();
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.objects) continue;
-      for (const o of entry.objects) {
-        if (o.kind !== 'chest' || !o.poiClass) continue;
-        if (!padShapeKeyForPoi(o.poiClass)) continue;
-        const k = chestKey(o);
-        if (seenKey.has(k)) continue;
-        seenKey.add(k);
-        if (this._poiTpVisited.has(k)) continue;
-        const d = Math.hypot(o.x - px, o.y - py);
-        if (d < bestD) { bestD = d; best = o; bestKey = k; }
-      }
-    }
+    WorldGen.forEachItem('objects', (o) => {
+      if (o.kind !== 'chest' || !o.poiClass) return;
+      if (!padShapeKeyForPoi(o.poiClass)) return;
+      const k = chestKey(o);
+      if (seenKey.has(k)) return;
+      seenKey.add(k);
+      if (this._poiTpVisited.has(k)) return;
+      const d = Math.hypot(o.x - px, o.y - py);
+      if (d < bestD) { bestD = d; best = o; bestKey = k; }
+    });
     if (!best) {
       // Out of decorated chests within loaded tiles — reset cycle.
       this._poiTpVisited.clear();
@@ -943,36 +915,38 @@ class MapScene extends Phaser.Scene {
   // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
   flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null) {
     const x = this.viewCenterX, y = this.viewCenterY - 40;
+    // Resolve an inline sprite for the loot item. When present, we reserve room
+    // INSIDE the text bg via left-padding so the icon sits over the dark label
+    // (rather than floating outside its left edge).
+    const iconSrc = itemId && (typeof inventoryIconSource === 'function')
+      ? inventoryIconSource(itemId) : null;
+    const ICON_PX = 28;       // displayed icon side
+    const ICON_GAP = 8;       // gap between icon and text inside the bg
+    const RESERVE = iconSrc ? ICON_PX + ICON_GAP : 0;
     const t = this.add.text(x, y, text, {
       font: 'bold 22px monospace', color, backgroundColor: '#000c',
       stroke: '#000', strokeThickness: 3,
-      padding: { x: 10, y: 5 },
+      padding: { left: 10 + RESERVE, right: 10, top: 5, bottom: 5 },
     }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
-    // Optional item-icon sprite to the left of the text, sourced from the same
-    // crop spritesheet the inventory bar uses (so the icon matches exactly).
     let icon = null;
-    if (itemId) {
-      const iconSrc = inventoryIconSource(itemId);
-      if (iconSrc) {
-        icon = this.add.image(0, 0, iconSrc.sheet, iconSrc.frame)
-          .setOrigin(1, 1).setDepth(101).setScale(0.6).setAlpha(0);
-        // Position to the left of the text background. We re-place after first
-        // tween frame, since text.getBounds() is only valid once laid out.
-        const placeIcon = () => {
-          const b = t.getBounds();
-          // Anchor icon at bottom-right of its own box, aligned to text's left edge
-          // with a 6 px gap. The image is rendered at 2x logical size (32 px) to
-          // roughly match inventory slot size.
-          icon.setDisplaySize(28, 28);
-          icon.setPosition(b.left - 6, b.bottom);
-        };
-        placeIcon();
-        this.tweens.add({ targets: icon, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out',
-          onUpdate: placeIcon });
-        this.tweens.add({ targets: icon, y: y - 50, alpha: 0,
-          duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
-          ease: 'Sine.In', onComplete: () => icon.destroy() });
-      }
+    if (iconSrc) {
+      icon = this.add.image(0, 0, iconSrc.sheet)
+        .setFrame(iconSrc.frame)
+        .setOrigin(0.5, 0.5).setDepth(102).setScale(0.6).setAlpha(0);
+      icon.setDisplaySize(ICON_PX, ICON_PX);
+      // Centre the icon inside the reserved zone (which lives at the LEFT of the
+      // text bg). Coordinates are in screen-space; account for text.scale.
+      const placeIcon = () => {
+        const b = t.getBounds();
+        const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
+        icon.setPosition(b.left + reserveCentreFromLeft, (b.top + b.bottom) / 2);
+      };
+      placeIcon();
+      this.tweens.add({ targets: icon, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out',
+        onUpdate: placeIcon });
+      this.tweens.add({ targets: icon, y: y - 50, alpha: 0,
+        duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
+        ease: 'Sine.In', onComplete: () => icon.destroy() });
     }
     // Pop in (140ms), hold (1.44s * dwellMul), drift up + fade (700ms * dwellMul).
     this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
@@ -1015,7 +989,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         title: 'Sell to the shopkeep?',
         get: `+$${price}`,
-        cost: `1× ${item?.icon || ''} ${item?.name || sellId}`,
+        cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
         canAfford: true,
         acceptLabel: 'Sell',
         onAccept: () => {
@@ -1025,7 +999,7 @@ class MapScene extends Phaser.Scene {
           if (idx < 0) { this.flash('gone', sx, sy); return; }
           const cur = this.save.inv[idx];
           cur.count -= 1;
-          this.save.money = (this.save.money ?? 0) + price;
+          addMoney(this.save, price);
           if (cur.count <= 0) {
             this.save.inv.splice(idx, 1);
             if (this.save.selSlot >= this.save.inv.length) {
@@ -1035,7 +1009,8 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.buildInventoryDOM();
           if (this.updateMoneyDOM) this.updateMoneyDOM();
-          this.flashLoot(`🪙 +$${price} ${item?.icon || ''}`, '#ffe066');
+          // Sprite shows the sold item — drop the item-icon emoji from the text.
+          this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
         },
       });
       return;
@@ -1052,7 +1027,7 @@ class MapScene extends Phaser.Scene {
     }
     this.showOfferModal({
       title: 'A trader offers:',
-      get: `${item?.icon || ''} ${item?.name || id} ×1`,
+      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       cost: offer.label,
       canAfford: offer.canAfford(),
       onAccept: () => {
@@ -1064,7 +1039,8 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
-        this.flashLoot(`🪙 ${item?.icon || ''} ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        // Sprite shows the bought item — drop the item-icon emoji.
+        this.flashLoot(`🪙 ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
   }
@@ -1081,7 +1057,7 @@ class MapScene extends Phaser.Scene {
       shortGain: `−$${cashCost}`,
       shortDenial: `need $${cashCost}`,
       canAfford: () => (this.save.money ?? 0) >= cashCost,
-      consume: () => { this.save.money = (this.save.money ?? 0) - cashCost; },
+      consume: () => { addMoney(this.save, -cashCost); },
     };
     if (wantMoney) return cashOffer;
     // Barter — find a held stack worth ≥ 1.5 × baseValue, pick one at random.
@@ -1092,7 +1068,7 @@ class MapScene extends Phaser.Scene {
     const pickItem = ITEM_BY_ID[pick.id];
     return {
       kind: 'item',
-      label: `1× ${pickItem?.icon || ''} ${pickItem?.name || pick.id}`,
+      label: `1× ${this.iconSpanHTML(pick.id)} ${pickItem?.name || pick.id}`,
       shortGain: `−1 ${pickItem?.icon || ''}`,
       shortDenial: `no ${pickItem?.name || pick.id}`,
       canAfford: () => {
@@ -1115,6 +1091,24 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
+  // Inline HTML <span> showing the same Crops.png / Spring Crops.png cell the
+  // inventory bar uses. Returns '' if the item has no sprite (fall back to text).
+  iconSpanHTML(itemId, sizePx = 20) {
+    const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(itemId) : null;
+    if (!src) return '';
+    const sheetSize = src.sheet === 'springcrops'
+      ? { cols: 14, srcW: 224, srcH: 128 }   // Spring Crops.png 14×8
+      : { cols: 9,  srcW: 144, srcH: 256 };  // Crops.png 9×16
+    const col = src.frame % sheetSize.cols;
+    const row = Math.floor(src.frame / sheetSize.cols);
+    const url = src.sheet === 'springcrops' ? 'Objects/Spring Crops.png' : 'Objects/Crops.png';
+    const scale = sizePx / 16;
+    const bgW = sheetSize.srcW * scale, bgH = sheetSize.srcH * scale;
+    return `<span style="display:inline-block;vertical-align:middle;width:${sizePx}px;height:${sizePx}px;`
+      + `background-image:url('${url}');background-size:${bgW}px ${bgH}px;`
+      + `background-position:-${col * sizePx}px -${row * sizePx}px;image-rendering:pixelated;"></span>`;
+  }
+
   showOfferModal({ title, get, cost, canAfford, onAccept, acceptLabel = 'Buy' }) {
     // Remove any existing modal first (only one at a time).
     document.getElementById('offer-modal')?.remove();

@@ -73,12 +73,22 @@ const CROP_NAMES = {
   rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
   fireflower: 'Fireflower', sunflower: 'Sunflower', tree: 'Tree', shrub: 'Shrub',
 };
+// Per-crop produce emoji — used in DOM modals / flash text where Phaser sprites
+// aren't easily embedded. The default 🌾 (sheaf-of-rice) looked like wheat for
+// every crop. These are picked to roughly match each crop's visual identity.
+const PRODUCE_EMOJI = {
+  rainberry:  '🫐',  pairy:     '🍐',  gemfruit:  '💎',
+  nut:        '🌰',  rockfruit: '🪨',  coffee:    '☕',
+  potato:     '🥔',  iceflower: '❄️',  fireflower: '🔥',
+  sunflower:  '🌻',  tree:      '🌳',  shrub:     '🌿',
+};
 const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c, icon: '🌱',
   })),
   ...Object.keys(CROP_ROW).map(c => ({
-    id: c, name: CROP_NAMES[c], kind: 'produce', crop: c, icon: '🌾',
+    id: c, name: CROP_NAMES[c], kind: 'produce', crop: c,
+    icon: PRODUCE_EMOJI[c] || '🌾',
   })),
   // Caught creatures stack in the inventory.
   { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },

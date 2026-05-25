@@ -102,6 +102,17 @@ function rusticifyName(name) {
 // === Loot tier yields (consumed by pickLoot) ===
 const TIER_YIELD = { 1: 10, 2: 5, 3: 2 };
 
+// SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
+// loot flash (chest, treasure) so the player gets consistent visual feedback.
+const SEED_TIER_INFO = {
+  1: { label: 'common',   color: '#ffe066' },
+  2: { label: 'uncommon', color: '#7adcff' },
+  3: { label: 'RARE!',    color: '#ff8aff' },
+};
+function tierInfo(id) {
+  return SEED_TIER_INFO[SEED_TIER[id] || 1];
+}
+
 // POI class → category, drives chest loot type (produce vs seed) and tier weights.
 const POI_CATEGORY = {
   // food: drops PRODUCE (harvested crops) instead of seeds
@@ -193,8 +204,10 @@ const CHEST_TIER_COLOR = {
   4: 0xc77dff, // violet — epic
 };
 function chestTier(poiClass) {
-  const cat = POI_CATEGORY[poiClass];
-  return (cat && CHEST_TIER_BY_CATEGORY[cat]) || 2;
+  return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+}
+function getLootConfig(poiClass) {
+  return CATEGORY_LOOT[POI_CATEGORY[poiClass]] || DEFAULT_LOOT;
 }
 
 // Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
@@ -211,8 +224,7 @@ function pickTreasure(rng) {
 }
 
 function pickLoot(rng, poiClass) {
-  const cat = POI_CATEGORY[poiClass];
-  const cfg = (cat && CATEGORY_LOOT[cat]) || DEFAULT_LOOT;
+  const cfg = getLootConfig(poiClass);
   const r = (rng ?? Math.random)();
   let tier = 1, acc = 0;
   for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }

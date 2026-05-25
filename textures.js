@@ -265,148 +265,8 @@ function drawLongGrassTex(ctx, size, rng) {
   }
 }
 
-// === POI decoration "statues" ===
-// Greyscale stone sculptures placed next to chests. All 16x16, transparent bg.
-const STONE_HI = '#c8c8c8', STONE_MID = '#9a9a9a', STONE_DK = '#6a6a6a', STONE_SH = '#3a3a3a';
-const STONE_BASE = '#5a5a5a';
-
-function drawPlinth(ctx, y = 14) {
-  ctx.fillStyle = STONE_SH; ctx.fillRect(3, y + 1, 10, 1);
-  ctx.fillStyle = STONE_DK; ctx.fillRect(3, y, 10, 1);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(4, y - 1, 8, 1);
-}
-
-function drawSignpostStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 10);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 10);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 4, 1, 2);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 8, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 8, 1);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 5, 1, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 9, 8, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 9, 8, 1);
-  drawPlinth(ctx);
-}
-
-function drawChapelStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(4, 8, 8, 6);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 6);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(11, 8, 1, 6);
-  ctx.fillStyle = STONE_SH;  ctx.fillRect(7, 11, 2, 3);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(3, 7, 10, 1);
-  ctx.fillRect(4, 6, 8, 1);
-  ctx.fillRect(5, 5, 6, 1);
-  ctx.fillRect(6, 4, 4, 1);
-  ctx.fillRect(7, 3, 2, 1);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(4, 6, 8, 1);
-  ctx.fillRect(5, 5, 4, 1);
-  ctx.fillStyle = STONE_HI; ctx.fillRect(7, 0, 2, 3); ctx.fillRect(6, 1, 4, 1);
-  drawPlinth(ctx);
-}
-
-function drawBookStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 10, 2, 4);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 10, 1, 4);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 6, 6, 4); ctx.fillRect(8, 6, 6, 4);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 6, 1); ctx.fillRect(8, 6, 6, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 6, 2, 4);
-  ctx.fillStyle = STONE_SH;
-  ctx.fillRect(3, 7, 4, 1); ctx.fillRect(3, 9, 3, 1);
-  ctx.fillRect(9, 7, 4, 1); ctx.fillRect(9, 9, 3, 1);
-  drawPlinth(ctx);
-}
-
-function drawStockpotStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(3, 7, 10, 6);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 10, 1);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 4);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 12, 1);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 12, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(1, 8, 1, 2); ctx.fillRect(14, 8, 1, 2);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(7, 3, 1, 1); ctx.fillRect(8, 2, 1, 1); ctx.fillRect(6, 2, 1, 1);
-  drawPlinth(ctx);
-}
-
-function drawPotionStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 7, 8, 6);
-  ctx.fillRect(5, 6, 6, 1); ctx.fillRect(5, 13, 6, 1);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(4, 7, 1, 5); ctx.fillRect(5, 6, 5, 1);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(5, 7, 1, 3);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 3);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 2, 4, 2);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(6, 3, 4, 1);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 0, 2, 1);
-  drawPlinth(ctx);
-}
-
-function drawWheatSheafStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 9, 1, 5); ctx.fillRect(6, 8, 1, 6); ctx.fillRect(8, 8, 1, 6);
-  ctx.fillRect(10, 9, 1, 5); ctx.fillRect(12, 10, 1, 4);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(6, 8, 1, 1); ctx.fillRect(8, 8, 1, 1);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(4, 7, 1, 2); ctx.fillRect(6, 6, 1, 2);
-  ctx.fillRect(8, 6, 1, 2); ctx.fillRect(10, 7, 1, 2); ctx.fillRect(12, 8, 1, 2);
-  ctx.fillStyle = STONE_SH;  ctx.fillRect(4, 12, 9, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(4, 11, 9, 1);
-  drawPlinth(ctx);
-}
-
-function drawBouquetStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 9, 1, 5); ctx.fillRect(8, 9, 1, 5);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 12, 6, 2);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(5, 12, 6, 1);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 6, 2, 2); ctx.fillRect(7, 4, 2, 2);
-  ctx.fillRect(10, 6, 2, 2); ctx.fillRect(6, 7, 2, 2); ctx.fillRect(9, 8, 2, 2);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(4, 6, 1, 1); ctx.fillRect(7, 4, 1, 1);
-  ctx.fillRect(10, 6, 1, 1); ctx.fillRect(6, 7, 1, 1); ctx.fillRect(9, 8, 1, 1);
-  drawPlinth(ctx);
-}
-
-function drawMarketStallStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 1, 9); ctx.fillRect(13, 5, 1, 9);
-  for (let x = 2; x < 14; x++) {
-    ctx.fillStyle = (x % 2) ? STONE_MID : STONE_HI;
-    ctx.fillRect(x, 3, 1, 2);
-  }
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 10, 12, 2);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 10, 12, 1);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 3, 3);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 7, 1, 3);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(8, 8, 2, 2); ctx.fillRect(11, 8, 2, 2);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(8, 8, 1, 1); ctx.fillRect(11, 8, 1, 1);
-  drawPlinth(ctx);
-}
-
-function drawFlowerTuftStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 8, 2, 6);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 8, 1, 6);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 4, 6, 4);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 4, 6, 1); ctx.fillRect(5, 4, 1, 4);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 5, 2, 2);
-  drawPlinth(ctx);
-}
+// (Previous greyscale "statue" sprites + plinth helper were superseded by the
+// shape-based concrete pads below — they're no longer drawn anywhere.)
 
 // === Procedural decorative flora ===
 // Tiny non-interactable sprites drawn on transparent 16×16 canvases.
@@ -478,6 +338,61 @@ function makeFloraTextures(scene) {
   }
 }
 
+// Simple procedural castle turret — narrow stone column with crenellated top.
+// One 24×40 canvas, anchor at bottom-centre so it sits on its cell.
+function makeTowerTexture(scene) {
+  const KEY = 'tower';
+  if (scene.textures.exists(KEY)) return;
+  const W = 24, H = 40;
+  const tex = scene.textures.createCanvas(KEY, W, H);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, H);
+  // Body
+  const bodyX = 4, bodyW = W - 8;
+  const bodyTop = 10, bodyBot = H - 2;
+  ctx.fillStyle = '#8e8e96';
+  ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
+  // Vertical highlight + shadow stripes
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(bodyX + 1, bodyTop, 2, bodyBot - bodyTop);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(bodyX + bodyW - 3, bodyTop, 2, bodyBot - bodyTop);
+  // Stone-block joints (a few horizontal nicks)
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
+    ctx.fillRect(bodyX, y, bodyW, 1);
+  }
+  // Arrow-slit window
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(W / 2 - 1, bodyTop + 8, 2, 6);
+  // Battlement slab (wider than body)
+  const battTop = bodyTop - 6;
+  const battH = 6;
+  const battX = bodyX - 2, battW = bodyW + 4;
+  ctx.fillStyle = '#9a9aa2';
+  ctx.fillRect(battX, battTop, battW, battH);
+  // Crenellations — three merlons across the top
+  ctx.fillStyle = '#9a9aa2';
+  const merlonW = 4, merlonH = 4;
+  for (let i = 0; i < 3; i++) {
+    const mx = battX + 1 + i * (merlonW + 2);
+    ctx.fillRect(mx, battTop - merlonH, merlonW, merlonH);
+  }
+  // Dark outline around everything (battlement + body + merlons)
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1;
+  // Body sides
+  ctx.strokeRect(bodyX + 0.5, bodyTop + 0.5, bodyW - 1, bodyBot - bodyTop - 1);
+  // Battlement slab
+  ctx.strokeRect(battX + 0.5, battTop + 0.5, battW - 1, battH - 1);
+  // Merlons
+  for (let i = 0; i < 3; i++) {
+    const mx = battX + 1 + i * (merlonW + 2);
+    ctx.strokeRect(mx + 0.5, battTop - merlonH + 0.5, merlonW - 1, merlonH - 1);
+  }
+  tex.refresh();
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     for (let v = 0; v < spec.variants; v++) {
@@ -496,53 +411,6 @@ function makeBiomeTextures(scene, size) {
     drawTilledTex(tex.getContext(), size, seededRand(7919 + v));
     tex.refresh();
   }
-}
-
-// === POI concrete pad ===
-// Build a 96×96 (3×3 game-cells, 32px each) "concrete slab" texture: rounded-
-// rect grey base with a gentle darker outline, and the chosen statue embossed
-// on each of the 9 cells at 20% alpha. Drawn under POI chests.
-// Pass statueKey = null for a plain pad (no statue).
-function makePadTexture(scene, padKey, statueKey) {
-  if (scene.textures.exists(padKey)) return;
-  const W = 96;
-  const tex = scene.textures.createCanvas(padKey, W, W);
-  const ctx = tex.getContext();
-  ctx.clearRect(0, 0, W, W);
-  // Rounded-rect slab (2px inset so the stroke isn't clipped).
-  const m = 2, r = 8;
-  ctx.beginPath();
-  ctx.moveTo(m + r, m);
-  ctx.lineTo(W - m - r, m);
-  ctx.quadraticCurveTo(W - m, m, W - m, m + r);
-  ctx.lineTo(W - m, W - m - r);
-  ctx.quadraticCurveTo(W - m, W - m, W - m - r, W - m);
-  ctx.lineTo(m + r, W - m);
-  ctx.quadraticCurveTo(m, W - m, m, W - m - r);
-  ctx.lineTo(m, m + r);
-  ctx.quadraticCurveTo(m, m, m + r, m);
-  ctx.closePath();
-  ctx.fillStyle = '#b2b2b2';
-  ctx.fill();
-  ctx.strokeStyle = '#7a7a7a';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  // Emboss statue on each 32×32 cell at 20% alpha.
-  if (statueKey && scene.textures.exists(statueKey)) {
-    const src = scene.textures.get(statueKey).getSourceImage();
-    ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = 0.20;
-    const cellPx = 32, inset = 4;
-    for (let r2 = 0; r2 < 3; r2++) {
-      for (let c2 = 0; c2 < 3; c2++) {
-        ctx.drawImage(src,
-          c2 * cellPx + inset, r2 * cellPx + inset,
-          cellPx - inset * 2, cellPx - inset * 2);
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-  tex.refresh();
 }
 
 // === Shape-based concrete pads ===
@@ -629,18 +497,48 @@ function makePadShapeTexture(scene, shapeKey) {
     if (occ.has(`${c},${r + 1}`)) { ctx.moveTo(x0 + 1, y0 + PAD_CELL); ctx.lineTo(x0 + PAD_CELL - 1, y0 + PAD_CELL); }
   }
   ctx.stroke();
-  // Outer perimeter outline (darker, slightly thicker).
-  ctx.strokeStyle = '#6e6e6e';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (const [c, r] of shape.cells) {
-    const x0 = c * PAD_CELL, y0 = r * PAD_CELL;
-    if (!occ.has(`${c},${r - 1}`)) { ctx.moveTo(x0, y0);                ctx.lineTo(x0 + PAD_CELL, y0); }
-    if (!occ.has(`${c + 1},${r}`)) { ctx.moveTo(x0 + PAD_CELL, y0);      ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL); }
-    if (!occ.has(`${c},${r + 1}`)) { ctx.moveTo(x0, y0 + PAD_CELL);      ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL); }
-    if (!occ.has(`${c - 1},${r}`)) { ctx.moveTo(x0, y0);                ctx.lineTo(x0, y0 + PAD_CELL); }
+  // Outer perimeter outline — lighter than the body and rounded at outer corners.
+  // Each outside-facing edge is drawn as a shortened segment (leaving a corner gap)
+  // with a small quarter-arc joining adjacent edges at each convex corner cell.
+  // Cells where the corner is concave (e.g. inside angle of the cross) keep their
+  // straight intersection.
+  const RADIUS = 5;                      // corner radius in px (PAD_CELL is typically ~16)
+  ctx.strokeStyle = '#c2c2c2';           // lighter than the previous '#6e6e6e'
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const r = Math.min(RADIUS, PAD_CELL / 2 - 1);
+  for (const [c, ro] of shape.cells) {
+    const x0 = c * PAD_CELL, y0 = ro * PAD_CELL;
+    const N = !occ.has(`${c},${ro - 1}`);
+    const E = !occ.has(`${c + 1},${ro}`);
+    const S = !occ.has(`${c},${ro + 1}`);
+    const W = !occ.has(`${c - 1},${ro}`);
+    ctx.beginPath();
+    // Top edge — trimmed by the corner radius on each outside-corner side.
+    if (N) {
+      const xL = x0 + (W ? r : 0), xR = x0 + PAD_CELL - (E ? r : 0);
+      ctx.moveTo(xL, y0); ctx.lineTo(xR, y0);
+    }
+    if (E) {
+      const yT = y0 + (N ? r : 0), yB = y0 + PAD_CELL - (S ? r : 0);
+      ctx.moveTo(x0 + PAD_CELL, yT); ctx.lineTo(x0 + PAD_CELL, yB);
+    }
+    if (S) {
+      const xL = x0 + (W ? r : 0), xR = x0 + PAD_CELL - (E ? r : 0);
+      ctx.moveTo(xL, y0 + PAD_CELL); ctx.lineTo(xR, y0 + PAD_CELL);
+    }
+    if (W) {
+      const yT = y0 + (N ? r : 0), yB = y0 + PAD_CELL - (S ? r : 0);
+      ctx.moveTo(x0, yT); ctx.lineTo(x0, yB);
+    }
+    // Convex corner arcs (both adjacent edges are outside-facing).
+    if (N && E) { ctx.moveTo(x0 + PAD_CELL - r, y0); ctx.arcTo(x0 + PAD_CELL, y0, x0 + PAD_CELL, y0 + r, r); }
+    if (E && S) { ctx.moveTo(x0 + PAD_CELL, y0 + PAD_CELL - r); ctx.arcTo(x0 + PAD_CELL, y0 + PAD_CELL, x0 + PAD_CELL - r, y0 + PAD_CELL, r); }
+    if (S && W) { ctx.moveTo(x0 + r, y0 + PAD_CELL); ctx.arcTo(x0, y0 + PAD_CELL, x0, y0 + PAD_CELL - r, r); }
+    if (W && N) { ctx.moveTo(x0, y0 + r); ctx.arcTo(x0, y0, x0 + r, y0, r); }
+    ctx.stroke();
   }
-  ctx.stroke();
   tex.refresh();
 }
 
