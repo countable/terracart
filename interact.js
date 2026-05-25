@@ -25,6 +25,26 @@
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
+// Two object-position points within this squared screen-pixel distance are
+// treated as the same world object (de-dupes overlapping POI/tree/chest sprites
+// when the player taps a busy corner). 40² = ~1.25 cells at CELL_PX=32.
+const TAP_DEDUPE_R2 = 40 * 40;
+
+// Decrement the selected inventory stack by one. If it hits zero, splice it
+// out and clamp selSlot so it still points at a valid slot. Used by every
+// handler that consumes a held item (plant, release-animal, place-rock).
+// Caller is responsible for setting ctx.dirty and calling buildInventoryDOM.
+function consumeSelected(save) {
+  const sel = save.inv[save.selSlot];
+  if (!sel) return;
+  sel.count -= 1;
+  if (sel.count > 0) return;
+  save.inv.splice(save.selSlot, 1);
+  if (save.selSlot >= save.inv.length) {
+    save.selSlot = Math.max(0, save.inv.length - 1);
+  }
+}
+
 const TAP_HANDLERS = [
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
@@ -68,8 +88,9 @@ const TAP_HANDLERS = [
       for (const c of entry.creatures) {
         if (save.caught.includes(c.id)) continue;
         if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
+          // catchCreature mutates + persists itself; consume the tap without
+          // setting ctx.dirty (would double-flush via the dispatcher's final persistSave).
           scene.catchCreature(c, sx, sy);
-          // catchCreature persists; we still mark dirty so debounced flush is idempotent.
           return true;
         }
       }
@@ -133,7 +154,6 @@ const TAP_HANDLERS = [
   // 1b) World objects: chest open, tree flavor, house shop.
   { name: 'object', try: (ctx) => {
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
-    const TAP_DEDUPE_R2 = 40 * 40;
     const openedSetTap = new Set(save.opened);
     const allObjs = [];
     for (const entry of WorldGen.tileCache.values()) {
@@ -163,7 +183,7 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
+      const r = (o.kind === 'house' || o.kind === 'tower') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
       if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
         scene.flash('too far', sx, sy); return 'far';
@@ -185,7 +205,7 @@ const TAP_HANDLERS = [
         scene.flash('a sturdy maple', sx, sy);
         return true;
       }
-      if (o.kind === 'house') {
+      if (o.kind === 'house' || o.kind === 'tower') {
         scene.shopInteract(sx, sy);
         return true;
       }
@@ -214,11 +234,18 @@ const TAP_HANDLERS = [
   }},
 
   // 2-pre) Release a selected animal onto this cell.
+  // Only on passable (tillable) ground — water, roads, paths, buildings, and cement
+  // pads all refuse the release so the creature sprite never ends up floating on a
+  // roof / inside a wall.
   { name: 'release', try: (ctx) => {
-    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const { scene, save, sx, sy, cwmx, cwmy, cell } = ctx;
     const sel = save.inv[save.selSlot];
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!(item && item.kind === 'animal' && (sel.count ?? 0) > 0)) return false;
+    if (!isTillable(cell.type)) {
+      scene.flash("can't release here", sx, sy);
+      return true;
+    }
     const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
@@ -226,13 +253,7 @@ const TAP_HANDLERS = [
     save.released.push({ x: cwmx, y: cwmy, kind: item.id, id, tx, ty });
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
     if (entry && entry.creatures) entry.creatures.push({ x: cwmx, y: cwmy, kind: item.id, id });
-    sel.count -= 1;
-    if (sel.count <= 0) {
-      save.inv.splice(save.selSlot, 1);
-      if (save.selSlot >= save.inv.length) {
-        save.selSlot = Math.max(0, save.inv.length - 1);
-      }
-    }
+    consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash(`released ${item.icon || ''} ${item.id}`, sx, sy);
@@ -261,13 +282,7 @@ const TAP_HANDLERS = [
           !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) return false;
     scene.placedRockSet.add(cellKey);
     save.placedRocks = [...scene.placedRockSet];
-    sel.count -= 1;
-    if (sel.count <= 0) {
-      save.inv.splice(save.selSlot, 1);
-      if (save.selSlot >= save.inv.length) {
-        save.selSlot = Math.max(0, save.inv.length - 1);
-      }
-    }
+    consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash('🪨 placed', sx, sy);
@@ -370,13 +385,7 @@ const TAP_HANDLERS = [
       return true;
     }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
-    sel.count -= 1;
-    if (sel.count <= 0) {
-      save.inv.splice(save.selSlot, 1);
-      if (save.selSlot >= save.inv.length) {
-        save.selSlot = Math.max(0, save.inv.length - 1);
-      }
-    }
+    consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash(`planted ${item.grows}`, sx, sy);
