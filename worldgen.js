@@ -535,6 +535,11 @@
             continue;
           }
           if (!USEFUL.has(cls)) continue;
+          // "Park family" POIs synthesize a small park buffer (radius ~18m) around the point
+          // so they read as proper meadows / woodland even when OSM hasn't tagged park
+          // landcover here. We paint over residential/grass/etc but NEVER over roads,
+          // water, or buildings — those keep their cells.
+          const PARK_FAMILY = new Set(['park','garden','playground','pitch']);
           for (const ring of f.geom) {
             const p = ring[0];
             const m = toMeters(p.x, p.y);
@@ -542,15 +547,195 @@
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
             objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
+            // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
+            // Building polygons are independent of POIs and never overpainted: if the POI
+            // point lands on or right next to a building, slide it to the nearest non-
+            // building cell — preferring one next to a road/path (so the player can
+            // actually reach the chest).
+            const KEEP = new Set([3, 7, 8, 9, 11, 12, 13, 14]); // water, roads, path, all buildings
+            const BUILDING = (gt) => gt === T.BUILDING || gt === T.BUILDING_MED || gt === T.BUILDING_LARGE;
+            const ROAD_OR_PATH = (gt) => gt === T.ROAD || gt === T.ROAD_MD || gt === T.ROAD_LG || gt === T.PATH;
+            const cellIdxOf = (ix, iy) => iy * w + ix;
+            // Find a placement that isn't inside a building, preferring cells adjacent to a road/path.
+            function offsetForPlacement(startIx, startIy) {
+              const inb = (ix, iy) => ix >= 0 && iy >= 0 && ix < w && iy < h;
+              const initialOk = inb(startIx, startIy) && !BUILDING(grid[cellIdxOf(startIx, startIy)]);
+              if (initialOk) {
+                // Even if not on a building, prefer a tile that's adjacent to a road for reachability.
+                let hasRoad = false;
+                for (let ddy = -1; ddy <= 1 && !hasRoad; ddy++)
+                  for (let ddx = -1; ddx <= 1 && !hasRoad; ddx++)
+                    if (inb(startIx + ddx, startIy + ddy) && ROAD_OR_PATH(grid[cellIdxOf(startIx + ddx, startIy + ddy)]))
+                      hasRoad = true;
+                if (hasRoad) return { ix: startIx, iy: startIy };
+              }
+              // Spiral search up to radius 6 for a non-building cell, scored by:
+              //   + adjacent to road/path  (most important — reachability)
+              //   - distance from original POI                (keep close)
+              let best = null, bestScore = -Infinity;
+              for (let r = 0; r <= 6; r++) {
+                for (let dy = -r; dy <= r; dy++) {
+                  for (let dx = -r; dx <= r; dx++) {
+                    // Iterate only the ring at this radius (Chebyshev)
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+                    const ix = startIx + dx, iy = startIy + dy;
+                    if (!inb(ix, iy)) continue;
+                    const gt = grid[cellIdxOf(ix, iy)];
+                    if (BUILDING(gt) || gt === T.WATER) continue;
+                    let nearRoad = false;
+                    for (let ddy = -2; ddy <= 2 && !nearRoad; ddy++)
+                      for (let ddx = -2; ddx <= 2 && !nearRoad; ddx++)
+                        if (inb(ix + ddx, iy + ddy) && ROAD_OR_PATH(grid[cellIdxOf(ix + ddx, iy + ddy)]))
+                          nearRoad = true;
+                    const score = (nearRoad ? 1000 : 0) - r;
+                    if (score > bestScore) { bestScore = score; best = { ix, iy }; }
+                  }
+                }
+                if (best && bestScore >= 1000 - r) break; // found a road-adjacent cell, take it
+              }
+              return best || { ix: startIx, iy: startIy };
+            }
+            let cellIX = Math.floor(p.x * mvtToCell);
+            let cellIY = Math.floor(p.y * mvtToCell);
+
+            // If the POI is INSIDE a building polygon, dissolve that building into a plain
+            // concrete pad: remove the house sprite, leave the BUILDING_LARGE cells as-is
+            // (they already read as cement), and skip both the placement-offset and the
+            // synthesized pad shape — the building's footprint becomes the POI's pad.
+            const initialIdx = cellIY * w + cellIX;
+            const onBuilding = cellIX >= 0 && cellIY >= 0 && cellIX < w && cellIY < h
+              && BUILDING(grid[initialIdx]);
+            let shapeOffsets = null;
+            let padType = T.PARK;
+            let spawnGreenery = false;
+            if (onBuilding) {
+              // Find the nearest house centroid and remove it (so the POI's chest doesn't
+              // collide with the house sprite). Limit search radius to typical building sizes.
+              const poiMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
+              const poiMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              let bestI = -1, bestD = 60 * 60; // search within 60m
+              for (let i = 0; i < objects.length; i++) {
+                const o = objects[i];
+                if (o.kind !== 'house') continue;
+                const dxm = o.x - poiMx, dym = o.y - poiMy;
+                const d2 = dxm*dxm + dym*dym;
+                if (d2 < bestD) { bestD = d2; bestI = i; }
+              }
+              if (bestI >= 0) objects.splice(bestI, 1);
+              // Promote any small/medium building cells in this footprint to BUILDING_LARGE
+              // so the pad reads as one civic slab regardless of original tier. Flood-fill
+              // from the POI cell across connected BUILDING* cells.
+              const seen = new Set([initialIdx]);
+              const stack = [[cellIX, cellIY]];
+              while (stack.length) {
+                const [ix, iy] = stack.pop();
+                grid[iy * w + ix] = T.BUILDING_LARGE;
+                for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                  const nx = ix + ddx, ny = iy + ddy;
+                  if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                  const nidx = ny * w + nx;
+                  if (seen.has(nidx)) continue;
+                  if (BUILDING(grid[nidx])) { seen.add(nidx); stack.push([nx, ny]); }
+                }
+              }
+              // Chest stays at the POI's cell centre — that cell is now part of the pad.
+              const adjustedMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
+              const adjustedMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              const lastChest = objects[objects.length - 1];
+              if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
+                lastChest.x = adjustedMx; lastChest.y = adjustedMy;
+                lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
+              }
+            } else {
+              // POI is on open ground — apply road-edge offset and synthesize a pad shape.
+              const placement = offsetForPlacement(cellIX, cellIY);
+              cellIX = placement.ix;
+              cellIY = placement.iy;
+              const adjustedMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
+              const adjustedMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              const lastChest = objects[objects.length - 1];
+              if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
+                lastChest.x = adjustedMx; lastChest.y = adjustedMy;
+                lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
+              }
+            }
+            // No synthesized pad when the POI dissolved a building (the building IS the pad).
+            if (!onBuilding) {
+              if (PARK_FAMILY.has(cls)) {
+                const r = Math.ceil(18 / CELL_M);
+                const arr = [];
+                for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++)
+                  if (dx*dx + dy*dy <= r*r) arr.push([dx, dy]);
+                shapeOffsets = arr;
+                padType = T.PARK;
+                spawnGreenery = true;
+              } else if (cls === 'hospital') {
+                const arr = [];
+                const arm = 3;
+                for (let d = -arm; d <= arm; d++) {
+                  arr.push([d, 0]);
+                  if (d !== 0) arr.push([0, d]);
+                }
+                shapeOffsets = arr;
+                padType = T.COMMERCIAL;
+              } else if (cls === 'school' || cls === 'college' || cls === 'university') {
+                const arr = [];
+                const rows = [1, 3, 5, 7];
+                for (let r = 0; r < rows.length; r++) {
+                  const half = (rows[r] - 1) / 2;
+                  for (let dx = -half; dx <= half; dx++) arr.push([dx, r]);
+                }
+                shapeOffsets = arr;
+                padType = T.COMMERCIAL;
+              }
+            }
+            if (shapeOffsets) {
+              const poiKey = ((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0;
+              const prng = makeRng(poiKey ^ 0xfade5a17);
+              const shrubDensity = 0.18;
+              const longgrassDensity = 0.10;
+              for (const [dx, dy] of shapeOffsets) {
+                const ix = cellIX + dx, iy = cellIY + dy;
+                if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+                const idx = iy * w + ix;
+                if (KEEP.has(grid[idx])) continue;
+                grid[idx] = padType;
+                if (spawnGreenery) {
+                  const r1 = prng(), r2 = prng();
+                  const cellCenterMx = tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM;
+                  const cellCenterMy = tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM;
+                  if (r1 < shrubDensity) {
+                    wildplants.push({ x: cellCenterMx, y: cellCenterMy, crop: 'shrub',
+                      _ix: ix, _iy: iy, id: `wp_${tx}_${ty}_${ix}_${iy}_pp` });
+                  } else if (r2 < longgrassDensity) {
+                    wildplants.push({ x: cellCenterMx, y: cellCenterMy, crop: 'longgrass',
+                      _ix: ix, _iy: iy, id: `wp_${tx}_${ty}_${ix}_${iy}_pl` });
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
-    // Post-pass: roads/paths/water/buildings are painted AFTER landuse in this loop, so a
-    // residential polygon may have had rockfruit dropped into a cell that later became road.
-    // Drop any debris whose final cell type isn't a spawn-eligible biome.
-    // residential, park, forest, grass, sand, farmland, rock + new subtype splits (15..22 are all ground tiles)
-    const DEBRIS_OK = new Set([5, 6, 1, 0, 2, 4, 10, 15, 16, 17, 18, 19, 20, 21, 22]);
+    // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a residential
+    // polygon may have had rockfruit dropped into a cell that later became road, OR a park
+    // polygon's shrubs may have ended up under a residential overpaint. Per-crop ALLOWED
+    // terrain sets keep things on their natural biome:
+    //   shrubs: forest / park / grassland-subtype family
+    //   longgrass: grassland family
+    //   nut: forest only
+    //   rockfruit / generic: any soft ground (residential/grass/park/farmland/rock/etc)
+    // Anything else (road, building, water, path, cement) → drop.
+    const GROUND = new Set([5, 6, 1, 0, 2, 4, 10, 15, 16, 17, 18, 19, 20, 21, 22]);
+    const FOREST_PARK_GRASS = new Set([1, 6, 0, 15, 18, 19, 20, 21]);
+    const GRASSLAND_FAMILY  = new Set([0, 6, 15, 18, 19, 21]);
+    const CROP_ALLOWED = {
+      shrub:     FOREST_PARK_GRASS,
+      longgrass: GRASSLAND_FAMILY,
+      nut:       new Set([1]),                  // forest only
+      // rockfruit + anything else → GROUND fallback
+    };
     // Cells with a chest already claim the visual space — no shrubs/rockfruit on them.
     const chestCellKeys = new Set();
     for (const o of objects) {
@@ -562,17 +747,20 @@
     const filtered = [];
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
-      if (DEBRIS_OK.has(t) && !chestCellKeys.has(`${wp._ix}_${wp._iy}`)) {
+      const allowed = CROP_ALLOWED[wp.crop] || GROUND;
+      if (allowed.has(t) && !chestCellKeys.has(`${wp._ix}_${wp._iy}`)) {
         delete wp._ix; delete wp._iy;
         filtered.push(wp);
       }
     }
-    // Same post-pass for decorative flora — drop any whose cell is now road/water/building.
+    // Decorative flora is grass/park flowers — never on residential/commercial/industrial cement.
     for (let i = objects.length - 1; i >= 0; i--) {
       const o = objects[i];
       if (o.kind !== 'flora') continue;
       const ct = grid[o._iy * w + o._ix];
-      if (!DEBRIS_OK.has(ct)) { objects.splice(i, 1); continue; }
+      if (!FOREST_PARK_GRASS.has(ct) && !(new Set([2,4,10])).has(ct)) {
+        objects.splice(i, 1); continue;
+      }
       delete o._ix; delete o._iy;
     }
     // Road-name letters: walk each transportation_name line at ~1 cell per step and assign the
@@ -587,10 +775,11 @@
         if (f.type !== 2) continue;
         const name = f.tags?.name;
         if (!name) continue;
-        // All-caps, single-space collapse — spaces are part of the sequence so a multi-word
-        // name reads with its gaps (one cell per character including ' ').
-        const letters = name.toUpperCase().replace(/\s+/g, ' ');
-        if (!letters.length) continue;
+        // Single-letter labels: every cell along this road gets the road name's
+        // first letter (uppercase). Keeps the map legible without long captions.
+        const first = name.replace(/^\s+/, '').charAt(0).toUpperCase();
+        if (!first) continue;
+        const letters = first;
         for (const line of f.geom) {
           if (line.length < 2) continue;
           let letterIdx = 0;
@@ -608,11 +797,17 @@
             // March along this segment.
             let remaining = segLen - Math.hypot(curX - ax, curY - ay);
             const ux = segDx / segLen, uy = segDy / segLen;
-            while (remaining >= 0 && letterIdx < letters.length * 4) {
+            // Single-letter mode: place the letter every few cells along the road
+            // (not every cell — too noisy). Skip three of every four candidate cells.
+            while (remaining >= 0) {
               const ix = Math.floor(curX * mvtToCell);
               const iy = Math.floor(curY * mvtToCell);
               if (ix >= 0 && iy >= 0 && ix < w && iy < h && ROAD_TYPES.has(grid[iy * w + ix])) {
-                roadLetters[`${ix}_${iy}`] = { char: letters[letterIdx % letters.length], angle: ang };
+                // Stamp the road's initial every 4th candidate cell so labels
+                // are visible but not densely repeated.
+                if ((letterIdx & 3) === 0) {
+                  roadLetters[`${ix}_${iy}`] = { char: letters, angle: ang };
+                }
                 letterIdx++;
               }
               curX += ux * stepMvt;
@@ -625,7 +820,24 @@
         }
       }
     }
-    return { grid, objects, wildplants: filtered, parkingTreasures, roadLetters };
+    // Dedup nearby same-name chests inside this tile. OSM frequently has multiple
+    // POI points for one physical place (e.g. an entrance + main label + amenity).
+    // Group by normalized name, then drop any chest within DEDUP_M of an already-
+    // kept chest of the same name. Unnamed chests are left untouched.
+    const DEDUP_M = 80;
+    const byName = new Map();
+    const keepers = [];
+    for (const o of objects) {
+      if (o.kind !== 'chest' || !o.name) { continue; }
+      const key = o.name.trim().toLowerCase();
+      const prev = byName.get(key);
+      const tooClose = prev && prev.some(p => Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M);
+      if (tooClose) { o._drop = true; continue; }
+      (byName.get(key) || byName.set(key, []).get(key)).push(o);
+      keepers.push(o);
+    }
+    const deduped = objects.filter(o => !o._drop);
+    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters };
   }
 
   function tileEdgeMeters(lat) {
@@ -646,8 +858,30 @@
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
       const { grid, objects, wildplants, parkingTreasures, roadLetters } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      // Cross-tile dedup: drop any newly-spawned chest whose name matches one
+      // already in a previously-loaded tile within 120m (typical OSM intersection
+      // POIs duplicate across the four tiles meeting at that corner).
+      const DEDUP_M = 120;
+      const filteredObjects = [];
+      for (const o of objects) {
+        if (o.kind === 'chest' && o.name) {
+          const key = o.name.trim().toLowerCase();
+          let drop = false;
+          for (const e of tileCache.values()) {
+            if (!e.objects) continue;
+            for (const p of e.objects) {
+              if (p.kind !== 'chest' || !p.name) continue;
+              if (p.name.trim().toLowerCase() !== key) continue;
+              if (Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M) { drop = true; break; }
+            }
+            if (drop) break;
+          }
+          if (drop) continue;
+        }
+        filteredObjects.push(o);
+      }
       entry.grid = grid;
-      entry.objects = objects;
+      entry.objects = filteredObjects;
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLetters = roadLetters || {};
