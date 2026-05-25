@@ -23,11 +23,13 @@ const COLORS = {
   6: 0x7fbf63,  // park
   7: 0x444444,  // road
   8: 0x9a7a4a,  // path
-  9: 0x8b4d3a,  // building
+  9: 0x8b4d3a,  // building — small house (default brown)
   10: 0x7d736b, // rock
+  11: 0x6e5037, // building_med — shop / mid-rise (deeper brown)
+  12: 0x5a5d63, // building_large — civic / school / industrial (slate gray)
 };
-// Tillable = soil-ish ground. Water, roads, paths, and buildings are not.
-const NON_TILLABLE = new Set([3, 7, 8, 9]);
+// Tillable = soil-ish ground. Water, roads, paths, and any building tier are not.
+const NON_TILLABLE = new Set([3, 7, 8, 9, 11, 12]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
 // Terrain classes that get no sprite from TileMap — we overlay a procedural
@@ -281,14 +283,37 @@ function makeBiomeTextures(scene, size) {
   }
 }
 
-// All chests drop a random existing inventory item (seeds + tools).
-// Subkind (carried from POI class in worldgen) is kept as flavor only — same loot table for now.
+// Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
 const CHEST_ICON = '📦';
+const SEED_TIER = {
+  rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, turnip_seed: 1, shrub_seed: 1,
+  gemfruit_seed: 2, rockfruit_seed: 2, coffee_seed: 2, tree_seed: 2,
+  iceflower_seed: 3, fireflower_seed: 3, sunflower_seed: 3,
+};
+const TIER_YIELD = { 1: 10, 2: 5, 3: 2 };
+const TIER_WEIGHT = [
+  [1, 0.60], // common
+  [2, 0.30], // uncommon
+  [3, 0.10], // rare
+];
 function pickLoot(rng) {
-  const id = LOOTABLE_IDS[Math.floor((rng ?? Math.random)() * LOOTABLE_IDS.length)];
-  const n = 1 + Math.floor((rng ?? Math.random)() * 2);
-  return { id, n };
+  const r1 = (rng ?? Math.random)();
+  let tier = 1, acc = 0;
+  for (const [t, w] of TIER_WEIGHT) { acc += w; if (r1 <= acc) { tier = t; break; } }
+  const pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
+  const id = pool[Math.floor((rng ?? Math.random)() * pool.length)];
+  return { id, n: TIER_YIELD[tier] };
 }
+
+// Wild plants grow in specific biomes (no tilling needed). Terrain class → spawn config.
+//   0=grass, 1=forest, 2=sand, 6=park, 10=rock
+const WILD_BIOME = {
+  1:  { crop: 'shrub',      min: 3, max: 6 },  // forest — common
+  6:  { crop: 'turnip',     min: 4, max: 8 },  // park   — common
+  0:  { crop: 'sunflower',  min: 0, max: 2 },  // grass  — rare
+  2:  { crop: 'fireflower', min: 0, max: 2 },  // sand   — rare
+  10: { crop: 'iceflower',  min: 0, max: 2 },  // rock   — rare
+};
 
 const SAVE_KEY = 'terracart.save.v4';
 function loadSave() {
@@ -384,11 +409,11 @@ class MapScene extends Phaser.Scene {
   create() {
     this.save = Object.assign(
       {
-        caught: [], planted: [], opened: [], tilled: [],
+        caught: [], planted: [], opened: [], tilled: [], picked: [],
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
-          { id: 'potato_seed', count: 10 },
+          { id: 'rainberry_seed', count: 10 },
         ],
         selSlot: 0,
         invPage: 0,
@@ -705,6 +730,29 @@ class MapScene extends Phaser.Scene {
     const cowN = Math.floor(rng() * 3);   // 0..2 cows, only in farmland
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([4]), i, 'cow');
     entry.creatures = creatures;
+
+    // Wild plants — biome-specific, seeded per tile. Skip ones already picked.
+    const wildplants = [];
+    const picked = new Set(this.save.picked || []);
+    const placeWild = (crop, classOK, idx) => {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== classOK) continue;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const id = `wild_${crop}_${tx}_${ty}_${idx}`;
+        if (picked.has(id)) return;
+        wildplants.push({ x: wmx, y: wmy, crop, id });
+        return;
+      }
+    };
+    for (const cls of Object.keys(WILD_BIOME)) {
+      const { crop, min, max } = WILD_BIOME[cls];
+      const n = min + Math.floor(rng() * (max - min + 1));
+      for (let i = 0; i < n; i++) placeWild(crop, Number(cls), i);
+    }
+    entry.wildplants = wildplants;
   }
 
   // === Tick ===
@@ -821,11 +869,11 @@ class MapScene extends Phaser.Scene {
     let terrainIdx = 0;
     let cobbleIdx = 0;
     let noiseIdx = 0;
-    // Road copiar.png is a 5x4 grid of 16×16 frames. Row 0 = small single pebbles,
-    // row 3 = dense multi-stone cobbles. Use sparse singles for narrow PATH cells
-    // and dense clusters for wide ROAD cells so the two read distinctly.
-    const PATH_FRAMES = [0, 1, 2, 3, 4];          // small single pebbles → trails
-    const ROAD_FRAMES = [15, 16, 17, 18, 19];     // dense cobble cells → roads
+    // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
+    // 15-16 contain art — the rest are empty or partial pieces of a circular
+    // composition. Use the densest cells for ROAD and the smaller singles for PATH.
+    const ROAD_FRAMES = [0, 1, 2, 5, 6];          // dense cobble clusters → roads
+    const PATH_FRAMES = [3, 4, 7, 8];             // smaller single pebbles → trails
     const ROAD = 7;
     const PATH = 8;
     // Pre-compute a ring of cell types (VIEW_CELLS+2) so edge cells can read their
@@ -1001,6 +1049,7 @@ class MapScene extends Phaser.Scene {
     const pWorldX = this.startWorldM.x + this.playerM.x;
     const pWorldY = this.startWorldM.y + this.playerM.y;
     const objList = [], creatureList = [], plantedList = [];
+    const pickedSet = new Set(this.save.picked || []);
     for (const entry of WorldGen.tileCache.values()) {
       if (entry.objects) {
         for (const o of entry.objects) {
@@ -1015,6 +1064,15 @@ class MapScene extends Phaser.Scene {
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           creatureList.push({ c, dx, dy });
+        }
+      }
+      // Wild plants render as planted crops at the mature stage (col 4).
+      if (entry.wildplants) {
+        for (const wp of entry.wildplants) {
+          if (pickedSet.has(wp.id)) continue;
+          const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
         }
       }
     }
@@ -1112,6 +1170,24 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // 1a) Pick a wild plant within 4m → +1 produce, 25% bonus seed.
+    const pickedSet = new Set(this.save.picked || []);
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.wildplants) continue;
+      for (const wp of entry.wildplants) {
+        if (pickedSet.has(wp.id)) continue;
+        if (Math.hypot(wp.x - wm.x, wp.y - wm.y) < 4) {
+          if (Math.hypot(wp.x - pWorldX, wp.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
+          this.save.picked = [...pickedSet, wp.id];
+          this.addToInv(wp.crop, 1); // produce
+          let bonus = '';
+          if (Math.random() < 0.25) { this.addToInv(`${wp.crop}_seed`, 1); bonus = ' +seed'; }
+          persistSave(this.save);
+          this.flash(`picked ${wp.crop}${bonus}`, sx, sy);
+          return;
+        }
+      }
+    }
     // 1b) World objects: chest open, tree chop, house flavor
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
@@ -1149,7 +1225,9 @@ class MapScene extends Phaser.Scene {
     if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
     const cell = this.cellAt(wm.x, wm.y);
     if (!isTillable(cell.type)) {
-      const flavor = cell.type === 3 ? 'water' : cell.type === 9 ? 'building' : '·';
+      const flavor = cell.type === 3 ? 'water'
+                   : (cell.type === 9 || cell.type === 11 || cell.type === 12) ? 'building'
+                   : '·';
       this.flash(flavor, sx, sy);
       return;
     }
