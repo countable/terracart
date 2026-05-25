@@ -347,10 +347,13 @@ function makeTowerTexture(scene) {
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);
+  // Lightened wall colours (~10% brighter than original #8e8e96 / #9a9aa2)
+  const wallColor   = '#a8a8b0';
+  const battleColor = '#b4b4bc';
   // Body
   const bodyX = 4, bodyW = W - 8;
   const bodyTop = 10, bodyBot = H - 2;
-  ctx.fillStyle = '#8e8e96';
+  ctx.fillStyle = wallColor;
   ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
   // Vertical highlight + shadow stripes
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
@@ -369,27 +372,38 @@ function makeTowerTexture(scene) {
   const battTop = bodyTop - 6;
   const battH = 6;
   const battX = bodyX - 2, battW = bodyW + 4;
-  ctx.fillStyle = '#9a9aa2';
+  ctx.fillStyle = battleColor;
   ctx.fillRect(battX, battTop, battW, battH);
   // Crenellations — three merlons across the top
-  ctx.fillStyle = '#9a9aa2';
+  ctx.fillStyle = battleColor;
   const merlonW = 4, merlonH = 4;
   for (let i = 0; i < 3; i++) {
     const mx = battX + 1 + i * (merlonW + 2);
     ctx.fillRect(mx, battTop - merlonH, merlonW, merlonH);
   }
-  // Dark outline around everything (battlement + body + merlons)
+  // Single silhouette outline — one continuous path so inner joints don't
+  // produce double-strokes and all corners are rendered once cleanly.
   ctx.strokeStyle = '#1a1a1a';
   ctx.lineWidth = 1;
-  // Body sides
-  ctx.strokeRect(bodyX + 0.5, bodyTop + 0.5, bodyW - 1, bodyBot - bodyTop - 1);
-  // Battlement slab
-  ctx.strokeRect(battX + 0.5, battTop + 0.5, battW - 1, battH - 1);
-  // Merlons
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(bodyX, bodyBot);
+  ctx.lineTo(bodyX, bodyTop);
+  ctx.lineTo(battX, bodyTop);
+  ctx.lineTo(battX, battTop);
   for (let i = 0; i < 3; i++) {
     const mx = battX + 1 + i * (merlonW + 2);
-    ctx.strokeRect(mx + 0.5, battTop - merlonH + 0.5, merlonW - 1, merlonH - 1);
+    ctx.lineTo(mx, battTop);
+    ctx.lineTo(mx, battTop - merlonH);
+    ctx.lineTo(mx + merlonW, battTop - merlonH);
+    ctx.lineTo(mx + merlonW, battTop);
   }
+  ctx.lineTo(battX + battW, battTop);
+  ctx.lineTo(battX + battW, bodyTop);
+  ctx.lineTo(bodyX + bodyW, bodyTop);
+  ctx.lineTo(bodyX + bodyW, bodyBot);
+  ctx.closePath();
+  ctx.stroke();
   tex.refresh();
 }
 
