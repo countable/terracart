@@ -43,7 +43,7 @@ const COLORS = {
   8: 0x9a7a4a,  // path
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
-  11: 0x957255, // building_med — shop / mid-rise (lifted brown)
+  11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
   12: 0x868a92, // building_large — civic / school / industrial (lifted slate)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
@@ -324,6 +324,7 @@ class MapScene extends Phaser.Scene {
 
     this.objectPool = [];
     this.plantedPool = [];
+    this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
@@ -579,7 +580,7 @@ class MapScene extends Phaser.Scene {
     // Spawn chickens on any soft ground (grass / farmland / park / residential lawn).
     // Each MVT tile is ~1.5km across — the 55m viewport is only ~0.1% of a tile —
     // so we need hundreds per tile for any to actually be visible.
-    const chickenN = 150 + Math.floor(rng() * 100);   // 150..250 per tile
+    const chickenN = 75 + Math.floor(rng() * 50);    // 75..125 per tile (halved)
     for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
@@ -703,12 +704,39 @@ class MapScene extends Phaser.Scene {
       this.ensureTilesAround().catch(() => {});
     }
 
-    // All farming actions (till/water/plant/harvest) are tap-driven now — no walk-over auto-actions.
+    // Watering + harvesting are still tap-driven. STAGE ADVANCEMENT, however,
+    // auto-fires once the per-stage hold has elapsed since the last watering —
+    // including for plants that grew while the player was away (offscreen,
+    // app closed, tab backgrounded). Cheap: O(plants), tick once a second.
+    this._lastGrowthTick = this._lastGrowthTick || 0;
+    if (performance.now() - this._lastGrowthTick > 1000) {
+      this._lastGrowthTick = performance.now();
+      this.advanceGrowth();
+    }
 
     this.wanderCreatures();
     this.drawCells();
     this.drawObjects();
     this.updateHUD();
+  }
+
+  // Scan save.planted and bump stage on any watered crop whose 60-minute
+  // hold has elapsed. After each advance the crop needs re-watering, so
+  // a single tick advances each plant by at most one stage; a long-idle
+  // plant catches up over subsequent waterings, not all at once.
+  advanceGrowth() {
+    const STAGE_HOLD_MS = 60 * 60 * 1000;
+    const now = Date.now();
+    let mutated = false;
+    for (const p of this.save.planted || []) {
+      if (!p.watered_t) continue;
+      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) continue;
+      if (now - p.watered_t < STAGE_HOLD_MS) continue;
+      p.stage = (p.stage ?? 0) + 1;
+      p.watered_t = 0;
+      mutated = true;
+    }
+    if (mutated) persistSave(this.save);
   }
 
   // Chickens and cows wander ~1 cell every 5s in a random direction.

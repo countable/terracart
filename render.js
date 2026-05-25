@@ -366,13 +366,18 @@ Render.drawCells = function drawCells(scene) {
         g.fillStyle(SOUTH_FACE_COLOR[type] || 0x444444, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
-      // Outer border — fillRect gives independent horizontal (4 px) and vertical (2 px)
-      // thickness; corners align precisely because there's no stroke-centering offset.
+      // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
+      // Vertical bars start below the top bar so corners are never double-painted
+      // (double 50% alpha at the same pixel makes corners darker / look rounded).
       const BH = 4, BV = 2;
+      const hasTop   = !isB(T(col, row - 1));
+      const hasLeft  = !isB(T(col - 1, row));
+      const hasRight = !isB(T(col + 1, row));
+      const vOff = hasTop ? BH : 0;
       g.fillStyle(0x000000, 0.5);
-      if (!isB(T(col, row - 1))) g.fillRect(sx,                sy, CELL_PX, BH);  // top
-      if (!isB(T(col - 1, row))) g.fillRect(sx,                sy, BV, CELL_PX);  // left
-      if (!isB(T(col + 1, row))) g.fillRect(sx + CELL_PX - BV, sy, BV, CELL_PX);  // right
+      if (hasTop)   g.fillRect(sx,                sy,        CELL_PX, BH);
+      if (hasLeft)  g.fillRect(sx,                sy + vOff, BV, CELL_PX - vOff);
+      if (hasRight) g.fillRect(sx + CELL_PX - BV, sy + vOff, BV, CELL_PX - vOff);
     }
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
