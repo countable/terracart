@@ -631,8 +631,8 @@ class MapScene extends Phaser.Scene {
       const t = this.add.text(0, 0, '', {
         font: 'bold 13px serif', color: '#efe6d6',
       }).setOrigin(0.5, 0.5).setAlpha(0.85).setDepth(0).setVisible(false);
-      // Drop shadow: lower-right offset, dark + slightly blurred.
-      t.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, false, true);
+      // Drop shadow: lower-right offset, very dark + blurred.
+      t.setShadow(1, 2, 'rgba(0,0,0,1.0)', 4, false, true);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -1238,7 +1238,8 @@ class MapScene extends Phaser.Scene {
         // Embossed road-name letter — one per road/path cell, low-alpha "carved" look.
         {
           const lt = this.letterPool[letterIdx++];
-          if (!isTilled && (isRoad(type) || type === 8 /* PATH */)) {
+          // Skip PATH (small 2-stone cobble) — too cramped for legible letters.
+          if (!isTilled && isRoad(type)) {
             // Look up letter for this cell from its owning tile.
             const wcxL = pc.cx + ox + pc.tx * this.cellsPerTile;
             const wcyL = pc.cy + oy + pc.ty * this.cellsPerTile;
@@ -1479,14 +1480,12 @@ class MapScene extends Phaser.Scene {
       s.setTint(0xffffff);
     });
 
-    // POI name labels above chests (named POIs only). Reuse a parallel text pool.
-    // On cement (residential/commercial/industrial/building) cells the label adopts
-    // the cement palette so it reads as carved-into-the-pad rather than a black tag.
-    const CEMENT_TYPES = new Set([5, 9, 11, 12, 16, 17]);
-    const CEMENT_BG_STYLE   = 'rgba(138,132,114,0.92)'; // matches COLORS[5] = 0x8a8472
-    const CEMENT_INK_STYLE  = '#3f3b32';                 // dark aggregate fleck colour
-    const DEFAULT_BG_STYLE  = '#000a';
-    const DEFAULT_INK_STYLE = '#ffffff';
+    // POI name labels above chests. One uniform style for all labels:
+    // white text on a translucent grey bg, with a soft black drop shadow on
+    // the text. Fallback labels (unnamed POIs) render smaller, with tighter
+    // padding so they read as secondary descriptors.
+    const LABEL_BG    = 'rgba(70,70,70,0.85)';
+    const LABEL_INK   = '#ffffff';
     const chestLabels = filteredObj.filter(({ o }) =>
       o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
     let li = 0;
@@ -1497,25 +1496,27 @@ class MapScene extends Phaser.Scene {
       let tx = this.chestLabelPool[li];
       if (!tx) {
         tx = this.add.text(0, 0, '', {
-          font: '9px monospace',
-          color: DEFAULT_INK_STYLE, backgroundColor: DEFAULT_BG_STYLE,
-          padding: { x: 2, y: 1 },
+          font: '10px monospace',
+          color: LABEL_INK, backgroundColor: LABEL_BG,
+          padding: { x: 3, y: 2 },
         }).setOrigin(0.5, 1).setDepth(50);
+        // Soft black drop shadow on the text glyphs themselves.
+        tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, false, true);
         this.objectsContainer.add(tx);
         this.chestLabelPool.push(tx);
       }
-      const cellType = this.cellAt(o.x, o.y).type;
-      const onCement = CEMENT_TYPES.has(cellType);
       // Named POIs get their rusticified name; unnamed POIs fall back to a
       // class-based descriptor in brackets (e.g. "(Chapel)", "(Practice Field)").
-      const label = o.name
-        ? rusticifyName(o.name)
-        : `(${POI_CLASS_FALLBACK[o.poiClass]})`;
+      const isFallback = !o.name;
+      const label = isFallback
+        ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
+        : rusticifyName(o.name);
       tx.setText(label).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
-      // Phaser Text doesn't repaint background/color unless we set style. Use setColor
-      // and setBackgroundColor for live restyles without recreating the object.
-      tx.setColor(onCement ? CEMENT_INK_STYLE : DEFAULT_INK_STYLE);
-      tx.setBackgroundColor(onCement ? CEMENT_BG_STYLE : DEFAULT_BG_STYLE);
+      // Switch font size + padding live: fallback labels are smaller.
+      tx.setFontSize(isFallback ? 8 : 10);
+      tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
+      tx.setColor(LABEL_INK);
+      tx.setBackgroundColor(LABEL_BG);
       tx.setAlpha(this.save.opened.includes(o.id) ? 0.45 : 1);
       li++;
     }
