@@ -27,11 +27,15 @@ CHESTS (POI-driven, drop existing inventory items only)
  - useful POIs (shops, civic, parks, healthcare classes — see worldgen.js USEFUL set) spawn a single
    generic chest sprite (Objects/chest.png, 16x16, 2 frames closed/open). No themed subkinds.
  - tap chest within 4m + within 18m of player to open
- - chest tier is picked weighted: T1 common 60% (10 seeds), T2 uncommon 30% (5), T3 rare 10% (2),
-   then a random seed within that tier is chosen. Tier mapping:
-     T1: rainberry, pairy, nut, turnip, shrub
-     T2: gemfruit, rockfruit, coffee, tree
-     T3: iceflower, fireflower, sunflower
+ - chest loot is driven by POI class. Tier yields: T1=10, T2=5, T3=2 (per drop).
+   Tier mapping: T1 rainberry/pairy/nut/turnip/shrub, T2 gemfruit/rockfruit/coffee/tree,
+   T3 iceflower/fireflower/sunflower.
+   POI categories (weights T1/T2/T3):
+     food (restaurant/cafe/fast_food/grocery/butcher/ice_cream/bakery) → drops PRODUCE, 60/30/10
+     commerce (alcohol_shop/beer/shop) → seeds, 70/25/5
+     civic (school/college/library/town_hall/place_of_worship/attraction/museum) → seeds, 30/40/30
+     health (pharmacy/hospital/dentist) → seeds, 50/30/20
+     park (park/garden/playground/pitch) → seeds, 40/40/20
  - opened chest stays open and dimmed; opened state persists
  - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Elementary School")
  - density: ~75 chests per tile (one per useful POI)

@@ -293,17 +293,40 @@ const SEED_TIER = {
   iceflower_seed: 3, fireflower_seed: 3, sunflower_seed: 3,
 };
 const TIER_YIELD = { 1: 10, 2: 5, 3: 2 };
-const TIER_WEIGHT = [
-  [1, 0.60], // common
-  [2, 0.30], // uncommon
-  [3, 0.10], // rare
-];
-function pickLoot(rng) {
-  const r1 = (rng ?? Math.random)();
+// POI class → category, drives chest loot type (produce vs seed) and tier weights.
+const POI_CATEGORY = {
+  // food: drops PRODUCE (harvested crops) instead of seeds
+  restaurant: 'food', cafe: 'food', fast_food: 'food', grocery: 'food',
+  butcher: 'food', ice_cream: 'food', bakery: 'food',
+  // commerce: common-weighted seed drops
+  alcohol_shop: 'commerce', beer: 'commerce', shop: 'commerce',
+  // civic/educational: rare-weighted seed drops
+  school: 'civic', college: 'civic', library: 'civic',
+  town_hall: 'civic', place_of_worship: 'civic',
+  attraction: 'civic', museum: 'civic',
+  // healthcare: mid-weighted seed drops
+  pharmacy: 'health', hospital: 'health', dentist: 'health',
+  // parks: T2-leaning seed drops
+  park: 'park', garden: 'park', playground: 'park', pitch: 'park',
+};
+const CATEGORY_LOOT = {
+  food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
+  commerce: { drops: 'seed',    weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
+  civic:    { drops: 'seed',    weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
+  health:   { drops: 'seed',    weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
+  park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
+};
+const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
+
+function pickLoot(rng, poiClass) {
+  const cat = POI_CATEGORY[poiClass];
+  const cfg = (cat && CATEGORY_LOOT[cat]) || DEFAULT_LOOT;
+  const r = (rng ?? Math.random)();
   let tier = 1, acc = 0;
-  for (const [t, w] of TIER_WEIGHT) { acc += w; if (r1 <= acc) { tier = t; break; } }
-  const pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
-  const id = pool[Math.floor((rng ?? Math.random)() * pool.length)];
+  for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
+  const seedsInTier = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
+  const seedId = seedsInTier[Math.floor((rng ?? Math.random)() * seedsInTier.length)];
+  const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
   return { id, n: TIER_YIELD[tier] };
 }
 
@@ -1207,7 +1230,7 @@ class MapScene extends Phaser.Scene {
         }
         if (o.kind === 'chest') {
           if (this.save.opened.includes(o.id)) { this.flash('already looted', sx, sy); return; }
-          const loot = pickLoot();
+          const loot = pickLoot(undefined, o.poiClass);
           this.addToInv(loot.id, loot.n);
           this.save.opened.push(o.id);
           persistSave(this.save);
