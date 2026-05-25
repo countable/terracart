@@ -13,6 +13,22 @@ const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 390, H = 844;
 
+// --- Debug ---
+// Arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
+const DEBUG = true;
+const DEBUG_SPEED_MUL = 10;
+
+// --- Tap reach radii (metres). Used by handleWorldTap distance checks. ---
+const REACH_CREATURE_M  = 4;
+const REACH_WILDPLANT_M = 4;
+const REACH_OBJECT_M    = 3.5; // chest / tree
+const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
+const REACH_FAR_M       = 18;  // outer "too far" gate from the player
+const REACH_TREASURE_M  = 7.5; // treasure mark
+
+// Compare-only squared distance — avoids sqrt.
+function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
+
 const COLORS = {
   0: 0x5fa84a,  // grass
   1: 0x2e6a2e,  // forest
@@ -58,6 +74,11 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain (sparse cobble sprite layered on top)
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
+  // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
+  15: { variants: 2, draw: drawGrassTex },        // SCHOOL — mown schoolyard
+  18: { variants: 2, draw: drawGrassTex },        // PLAYGROUND — grass + mulch underfoot
+  19: { variants: 2, draw: drawGrassTex },        // PITCH — sports turf
+  21: { variants: 2, draw: drawGrassTex },        // GOLF — fairway/rough
 };
 
 // Tilled soil is per-cell state (not a terrain class). Painted as a yellow-brown
@@ -75,17 +96,43 @@ function seededRand(seed) {
 }
 
 function drawGrassTex(ctx, size, rng) {
-  // Short blade strokes — mix of darker and lighter green on transparent.
+  // Visible grass blades — tall(ish) curving strokes in mixed greens on transparent bg.
   ctx.clearRect(0, 0, size, size);
   ctx.lineWidth = 1;
-  for (let i = 0; i < 28; i++) {
+  // Layer 1: low scatter of dark roots (2-3px columns) for grounding.
+  for (let i = 0; i < 10; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * (size - 3));
+    ctx.fillStyle = 'rgba(15,45,15,0.55)';
+    ctx.fillRect(x, y + 2, 1, 2);
+  }
+  // Layer 2: actual blade strokes — 3-5px tall, slight horizontal jitter to feel curved.
+  const bladeCount = 18 + Math.floor(rng() * 6);
+  for (let i = 0; i < bladeCount; i++) {
+    const baseX = Math.floor(rng() * size);
+    const baseY = Math.floor(rng() * (size - 2)) + 2;
+    const height = 3 + Math.floor(rng() * 3);              // 3..5 px tall
+    const lean = rng() < 0.5 ? -1 : 1;                       // ±1 px lean at the tip
+    const dark = rng() < 0.5;
+    const color = dark
+      ? 'rgba(25,70,25,0.75)'   // darker green
+      : 'rgba(140,210,90,0.65)'; // lighter green
+    ctx.fillStyle = color;
+    for (let dy = 0; dy < height; dy++) {
+      const y = baseY - dy;
+      if (y < 0) break;
+      // Tip leans gradually.
+      const xoff = Math.round((dy / height) * lean);
+      const px = (baseX + xoff + size) % size;
+      ctx.fillRect(px, y, 1, 1);
+    }
+  }
+  // Layer 3: a few bright tip highlights.
+  for (let i = 0; i < 4; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
-    const len = 1 + Math.floor(rng() * 2);
-    ctx.fillStyle = rng() < 0.55
-      ? 'rgba(20,55,20,0.30)'
-      : 'rgba(180,230,140,0.22)';
-    ctx.fillRect(x, y, 1, len);
+    ctx.fillStyle = 'rgba(220,250,180,0.6)';
+    ctx.fillRect(x, y, 1, 1);
   }
 }
 
@@ -304,6 +351,317 @@ function drawLongGrassTex(ctx, size, rng) {
   }
 }
 
+// === POI decoration "statues" ===
+// Greyscale stone sculptures placed next to / behind chests to give each POI
+// category visual personality. All 16x16, transparent background.
+// Palette: HI #c8c8c8 / MID #9a9a9a / DARK #6a6a6a / SHADOW #3a3a3a.
+const STONE_HI = '#c8c8c8', STONE_MID = '#9a9a9a', STONE_DK = '#6a6a6a', STONE_SH = '#3a3a3a';
+const STONE_BASE = '#5a5a5a';
+
+// Tiny rounded plinth at the bottom of most statues so they read as sculptures.
+function drawPlinth(ctx, y = 14) {
+  ctx.fillStyle = STONE_SH; ctx.fillRect(3, y + 1, 10, 1);
+  ctx.fillStyle = STONE_DK; ctx.fillRect(3, y, 10, 1);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(4, y - 1, 8, 1);
+}
+
+function drawSignpostStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // post
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 10);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 10);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 4, 1, 2);
+  // top plank, points right
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 8, 3);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 8, 1);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 5, 1, 1);
+  // lower plank, points left
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 9, 8, 3);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 9, 8, 1);
+  drawPlinth(ctx);
+}
+
+function drawChapelStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // walls
+  ctx.fillStyle = STONE_MID; ctx.fillRect(4, 8, 8, 6);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 6);
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(11, 8, 1, 6);
+  // door
+  ctx.fillStyle = STONE_SH;  ctx.fillRect(7, 11, 2, 3);
+  // pitched roof
+  ctx.fillStyle = STONE_DK;
+  ctx.fillRect(3, 7, 10, 1);
+  ctx.fillRect(4, 6, 8, 1);
+  ctx.fillRect(5, 5, 6, 1);
+  ctx.fillRect(6, 4, 4, 1);
+  ctx.fillRect(7, 3, 2, 1);
+  ctx.fillStyle = STONE_MID;
+  ctx.fillRect(4, 6, 8, 1);
+  ctx.fillRect(5, 5, 4, 1);
+  // cross
+  ctx.fillStyle = STONE_HI; ctx.fillRect(7, 0, 2, 3); ctx.fillRect(6, 1, 4, 1);
+  drawPlinth(ctx);
+}
+
+function drawBookStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // lectern column
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 10, 2, 4);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 10, 1, 4);
+  // open book (two leaves)
+  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 6, 6, 4); ctx.fillRect(8, 6, 6, 4);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 6, 1); ctx.fillRect(8, 6, 6, 1);
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 6, 2, 4);  // spine
+  // page lines
+  ctx.fillStyle = STONE_SH;
+  ctx.fillRect(3, 7, 4, 1); ctx.fillRect(3, 9, 3, 1);
+  ctx.fillRect(9, 7, 4, 1); ctx.fillRect(9, 9, 3, 1);
+  drawPlinth(ctx);
+}
+
+function drawStockpotStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // pot body
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(3, 7, 10, 6);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 10, 1);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 4);
+  // rim
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 12, 1);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 12, 1);
+  // handles
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(1, 8, 1, 2); ctx.fillRect(14, 8, 1, 2);
+  // sculpted "steam" curl
+  ctx.fillStyle = STONE_MID;
+  ctx.fillRect(7, 3, 1, 1); ctx.fillRect(8, 2, 1, 1); ctx.fillRect(6, 2, 1, 1);
+  drawPlinth(ctx);
+}
+
+// Apothecary potion-bottle statue (replaces mortar/pestle).
+function drawPotionStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // round flask body
+  ctx.fillStyle = STONE_DK;
+  ctx.fillRect(4, 7, 8, 6);
+  ctx.fillRect(5, 6, 6, 1); ctx.fillRect(5, 13, 6, 1);
+  ctx.fillStyle = STONE_MID;
+  ctx.fillRect(4, 7, 1, 5); ctx.fillRect(5, 6, 5, 1);
+  ctx.fillStyle = STONE_HI;
+  ctx.fillRect(5, 7, 1, 3);
+  // neck
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 3);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 3);
+  // stopper / cork (lighter highlight on top)
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 2, 4, 2);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(6, 3, 4, 1);
+  // little carved "spark" of brew on top
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 0, 2, 1);
+  drawPlinth(ctx);
+}
+
+function drawWheatSheafStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // sheaf stalks
+  ctx.fillStyle = STONE_DK;
+  ctx.fillRect(4, 9, 1, 5); ctx.fillRect(6, 8, 1, 6); ctx.fillRect(8, 8, 1, 6);
+  ctx.fillRect(10, 9, 1, 5); ctx.fillRect(12, 10, 1, 4);
+  ctx.fillStyle = STONE_MID;
+  ctx.fillRect(6, 8, 1, 1); ctx.fillRect(8, 8, 1, 1);
+  // heads
+  ctx.fillStyle = STONE_HI;
+  ctx.fillRect(4, 7, 1, 2); ctx.fillRect(6, 6, 1, 2);
+  ctx.fillRect(8, 6, 1, 2); ctx.fillRect(10, 7, 1, 2); ctx.fillRect(12, 8, 1, 2);
+  // bound tie
+  ctx.fillStyle = STONE_SH;  ctx.fillRect(4, 12, 9, 1);
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(4, 11, 9, 1);
+  drawPlinth(ctx);
+}
+
+function drawBouquetStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // stems
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 9, 1, 5); ctx.fillRect(8, 9, 1, 5);
+  // wrap
+  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 12, 6, 2);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(5, 12, 6, 1);
+  // sculpted flower blobs — all stone
+  ctx.fillStyle = STONE_DK;
+  ctx.fillRect(4, 6, 2, 2); ctx.fillRect(7, 4, 2, 2);
+  ctx.fillRect(10, 6, 2, 2); ctx.fillRect(6, 7, 2, 2); ctx.fillRect(9, 8, 2, 2);
+  ctx.fillStyle = STONE_HI;
+  ctx.fillRect(4, 6, 1, 1); ctx.fillRect(7, 4, 1, 1);
+  ctx.fillRect(10, 6, 1, 1); ctx.fillRect(6, 7, 1, 1); ctx.fillRect(9, 8, 1, 1);
+  drawPlinth(ctx);
+}
+
+function drawMarketStallStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // awning posts
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 1, 9); ctx.fillRect(13, 5, 1, 9);
+  // awning — striped via two stone shades
+  for (let x = 2; x < 14; x++) {
+    ctx.fillStyle = (x % 2) ? STONE_MID : STONE_HI;
+    ctx.fillRect(x, 3, 1, 2);
+  }
+  // counter
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 10, 12, 2);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 10, 12, 1);
+  // sculpted barrel + fruit
+  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 3, 3);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 7, 1, 3);
+  ctx.fillStyle = STONE_DK;
+  ctx.fillRect(8, 8, 2, 2); ctx.fillRect(11, 8, 2, 2);
+  ctx.fillStyle = STONE_HI;
+  ctx.fillRect(8, 8, 1, 1); ctx.fillRect(11, 8, 1, 1);
+  drawPlinth(ctx);
+}
+
+function drawFlowerTuftStatue(ctx, s) {
+  ctx.clearRect(0, 0, s, s);
+  // a small carved flower-on-stem on a plinth
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 8, 2, 6);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 8, 1, 6);
+  // bloom
+  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 4, 6, 4);
+  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 4, 6, 1); ctx.fillRect(5, 4, 1, 4);
+  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 5, 2, 2);
+  drawPlinth(ctx);
+}
+
+// === Procedural decorative flora ===
+// Tiny non-interactable sprites drawn on transparent 16×16 canvases. Variants
+// per kind: flower (4 colors), pebble (3 cluster shapes), mushroom (2 sizes).
+function drawFlora(ctx, kind, variant) {
+  ctx.clearRect(0, 0, 16, 16);
+  if (kind === 'flower') {
+    const palettes = [
+      { petal: '#ff9ec3', center: '#ffe46b' },   // pink
+      { petal: '#fff', center: '#ffd93b' },      // white
+      { petal: '#a5c1ff', center: '#ffd93b' },   // blue
+      { petal: '#ffd57a', center: '#c25400' },   // orange
+    ];
+    const p = palettes[variant % palettes.length];
+    // stem
+    ctx.fillStyle = '#2e5a2e';
+    ctx.fillRect(8, 9, 1, 5);
+    // 4 petals around center
+    ctx.fillStyle = p.petal;
+    ctx.fillRect(7, 5, 3, 2);   // top
+    ctx.fillRect(7, 8, 3, 2);   // bottom
+    ctx.fillRect(5, 6, 2, 3);   // left
+    ctx.fillRect(10, 6, 2, 3);  // right
+    // center
+    ctx.fillStyle = p.center;
+    ctx.fillRect(8, 7, 1, 1);
+  } else if (kind === 'pebble') {
+    // 2-3 stones grouped near the cell center, slightly varied per variant.
+    const sets = [
+      [[7,9,2,2],[10,11,2,1]],
+      [[6,10,3,2],[10,10,1,2],[11,11,1,1]],
+      [[8,11,2,1],[6,12,2,1]],
+    ];
+    const set = sets[variant % sets.length];
+    for (const [x, y, w, h] of set) {
+      ctx.fillStyle = '#000a';
+      ctx.fillRect(x, y + 1, w, 1);   // shadow
+      ctx.fillStyle = '#7d736b';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#bcb5a7';
+      ctx.fillRect(x, y, w, 1);       // highlight
+    }
+  } else if (kind === 'mushroom') {
+    // Red-cap mushroom, 2 sizes.
+    const big = variant === 0;
+    const cx = 8, cy = big ? 9 : 10;
+    // stem
+    ctx.fillStyle = '#f5e8c6';
+    ctx.fillRect(cx, cy, big ? 2 : 1, big ? 3 : 2);
+    // cap
+    ctx.fillStyle = '#b8242c';
+    if (big) {
+      ctx.fillRect(cx - 2, cy - 2, 5, 2);
+      ctx.fillRect(cx - 1, cy - 3, 3, 1);
+    } else {
+      ctx.fillRect(cx - 1, cy - 1, 3, 1);
+      ctx.fillRect(cx, cy - 2, 1, 1);
+    }
+    // white spots
+    ctx.fillStyle = '#fff';
+    if (big) { ctx.fillRect(cx - 1, cy - 2, 1, 1); ctx.fillRect(cx + 1, cy - 1, 1, 1); }
+    else { ctx.fillRect(cx, cy - 1, 1, 1); }
+  }
+}
+function makeFloraTextures(scene) {
+  const SPECS = { flower: 4, pebble: 3, mushroom: 2 };
+  for (const [kind, n] of Object.entries(SPECS)) {
+    for (let v = 0; v < n; v++) {
+      const key = `flora_${kind}_${v}`;
+      if (scene.textures.exists(key)) continue;
+      const tex = scene.textures.createCanvas(key, 16, 16);
+      drawFlora(tex.getContext(), kind, v);
+      tex.refresh();
+    }
+  }
+}
+
+// === Crop-affinity plaque ===
+// One small wooden sign per polygon, baked once per crop type. 24×24 with a
+// 14×14 dark border, lighter wood interior, and the crop's PRODUCE icon
+// (col 7 of Crops.png) drawn at the center.
+function makePlaqueTextures(scene) {
+  for (const crop of Object.keys(CROP_ROW)) {
+    const key = `plaque_${crop}`;
+    if (scene.textures.exists(key)) continue;
+    // Stone shrine plaque — medium-grey stone with the crop's NAME carved in.
+    // Low-contrast dark-grey text + 1px highlight below = debossed emboss.
+    const PW = 40, PH = 24;
+    const tex = scene.textures.createCanvas(key, PW, PH);
+    const ctx = tex.getContext();
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(2, PH - 2, PW - 4, 2);
+    // stone base / stub
+    ctx.fillStyle = '#52514c';
+    ctx.fillRect(PW / 2 - 5, PH - 4, 10, 3);
+    // stone body
+    ctx.fillStyle = '#6f6e69';
+    ctx.fillRect(1, 1, PW - 2, PH - 6);
+    // subtle deterministic stone noise
+    for (let i = 0; i < 28; i++) {
+      const px = 2 + ((i * 13) % (PW - 4));
+      const py = 2 + ((i * 7) % (PH - 8));
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
+      ctx.fillRect(px, py, 1, 1);
+    }
+    // top highlight + bottom shadow lines on the stone face
+    ctx.fillStyle = '#8e8c86'; ctx.fillRect(1, 1, PW - 2, 1);
+    ctx.fillStyle = '#3e3d39'; ctx.fillRect(1, PH - 7, PW - 2, 1);
+    // outer dark outline
+    ctx.fillStyle = '#2a2926';
+    ctx.fillRect(0, 0, PW, 1);
+    ctx.fillRect(0, 0, 1, PH - 5);
+    ctx.fillRect(PW - 1, 0, 1, PH - 5);
+    // Carved name — all caps, fit to width.
+    const name = (CROP_NAMES[crop] || crop).toUpperCase();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let size = 9;
+    ctx.font = `bold ${size}px monospace`;
+    while (size > 5 && ctx.measureText(name).width > PW - 6) {
+      size -= 1;
+      ctx.font = `bold ${size}px monospace`;
+    }
+    const ccx = PW / 2, ccy = (PH - 5) / 2 + 1;
+    // emboss: pale highlight 1px below
+    ctx.fillStyle = 'rgba(220,215,205,0.55)';
+    ctx.fillText(name, ccx, ccy + 1);
+    // dark carved text on top
+    ctx.fillStyle = '#3a3833';
+    ctx.fillText(name, ccx, ccy);
+    tex.refresh();
+  }
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     for (let v = 0; v < spec.variants; v++) {
@@ -452,6 +810,25 @@ const CATEGORY_LOOT = {
   farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
   lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
 };
+// Per-category statue decorations placed in the cell IMMEDIATELY RIGHT of the chest
+// (origin 0.5, 1 — anchored at the ground). Bigger so they read at a glance.
+const STATUE_DX = CELL_PX;  // one cell to the right of chest
+const POI_DECOR = {
+  food:     [{ key: 'statue_stockpot', dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  commerce: [{ key: 'statue_signpost', dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  civic:    [{ key: 'statue_book',     dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  health:   [{ key: 'statue_potion',   dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  park:     [{ key: 'statue_flower',   dx: STATUE_DX, dy: -2, scale: 2.0 }],
+  flora:    [{ key: 'statue_bouquet',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  farm:     [{ key: 'statue_wheat',    dx: STATUE_DX, dy: -2, scale: 2.2 }],
+};
+const POI_DECOR_BY_CLASS = {
+  place_of_worship: [{ key: 'statue_chapel', dx: STATUE_DX, dy: -2, scale: 2.4 }],
+  shop:             [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  supermarket:      [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
+  convenience:      [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
+};
+
 // Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
 const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
@@ -641,6 +1018,9 @@ class MapScene extends Phaser.Scene {
       ctx.putImageData(data, 0, 0);
       this.textures.remove('crops');
       this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
+      // Now that 'crops' has transparent backgrounds, bake plaque textures (which
+      // composite the produce icon onto a wooden sign).
+      makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     if (window.TileMap) {
@@ -736,10 +1116,32 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
+    // Per-polygon flora (flowers / pebbles / mushrooms). Plaque textures are
+    // baked in the 'crops' post-load handler in preload, since they composite
+    // the produce icon onto a wooden sign.
+    makeFloraTextures(this);
     // Long-grass wild-debris sprite. 16x16 so it scales the same as crop frames.
     if (!this.textures.exists('longgrass')) {
       const tex = this.textures.createCanvas('longgrass', 16, 16);
       drawLongGrassTex(tex.getContext(), 16, seededRand(31337));
+      tex.refresh();
+    }
+    // POI "statue" decoration textures — greyscale sculptures shown beside chests.
+    const STATUE_DRAWERS = {
+      statue_signpost: drawSignpostStatue,
+      statue_chapel:   drawChapelStatue,
+      statue_book:     drawBookStatue,
+      statue_stockpot: drawStockpotStatue,
+      statue_potion:   drawPotionStatue,
+      statue_wheat:    drawWheatSheafStatue,
+      statue_bouquet:  drawBouquetStatue,
+      statue_stall:    drawMarketStallStatue,
+      statue_flower:   drawFlowerTuftStatue,
+    };
+    for (const [key, fn] of Object.entries(STATUE_DRAWERS)) {
+      if (this.textures.exists(key)) continue;
+      const tex = this.textures.createCanvas(key, 16, 16);
+      fn(tex.getContext(), 16, seededRand(key.length * 911));
       tex.refresh();
     }
 
@@ -781,10 +1183,25 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
+    // Road-letter pool: low-alpha embossed letters laid out one-per-cell along named streets.
+    this.letterContainer = this.add.container(0, 0);
+    this.letterPool = [];
+    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+      const t = this.add.text(0, 0, '', {
+        font: 'bold 18px serif', color: '#1a1612',
+        stroke: '#1a1612', strokeThickness: 1.5,
+      }).setOrigin(0.5, 0.5).setAlpha(0.30).setDepth(0).setVisible(false);
+      // Soft bright-bottom shadow → "carved into the cobble" effect.
+      t.setShadow(1, 1, 'rgba(255,240,210,0.55)', 0, false, true);
+      this.letterContainer.add(t);
+      this.letterPool.push(t);
+    }
+
     this.objectPool = [];
     this.plantedPool = [];
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
+    this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -795,6 +1212,7 @@ class MapScene extends Phaser.Scene {
     this.noiseContainer.setMask(mask);
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
+    this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
@@ -1055,12 +1473,14 @@ class MapScene extends Phaser.Scene {
     if (k.D.isDown) vx += 1;
     if (k.W.isDown) vy -= 1;
     if (k.S.isDown) vy += 1;
-    // Arrow keys: 10x speed for fast debug travel.
+    // Arrow keys: DEBUG_SPEED_MUL × speed for fast debug travel (gated on DEBUG).
     let speedMul = 1;
-    if (k.LEFT.isDown)  { vx -= 1; speedMul = 10; }
-    if (k.RIGHT.isDown) { vx += 1; speedMul = 10; }
-    if (k.UP.isDown)    { vy -= 1; speedMul = 10; }
-    if (k.DOWN.isDown)  { vy += 1; speedMul = 10; }
+    if (DEBUG) {
+      if (k.LEFT.isDown)  { vx -= 1; speedMul = DEBUG_SPEED_MUL; }
+      if (k.RIGHT.isDown) { vx += 1; speedMul = DEBUG_SPEED_MUL; }
+      if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
+      if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
+    }
     const moving = vx || vy;
     if (moving) {
       const n = Math.hypot(vx, vy);
@@ -1226,6 +1646,7 @@ class MapScene extends Phaser.Scene {
     let terrainIdx = 0;
     let cobbleIdx = 0;
     let noiseIdx = 0;
+    let letterIdx = 0;
     // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
     // 15-16 contain art. Each road tier picks ONE frame so the same road class
     // reads visually consistent across cells; different tiers look distinct.
@@ -1365,6 +1786,31 @@ class MapScene extends Phaser.Scene {
               .setVisible(true);
           } else {
             ns.setVisible(false);
+          }
+        }
+
+        // Embossed road-name letter — one per road/path cell, low-alpha "carved" look.
+        {
+          const lt = this.letterPool[letterIdx++];
+          if (!isTilled && (isRoad(type) || type === 8 /* PATH */)) {
+            // Look up letter for this cell from its owning tile.
+            const wcxL = pc.cx + ox + pc.tx * this.cellsPerTile;
+            const wcyL = pc.cy + oy + pc.ty * this.cellsPerTile;
+            const tx2 = Math.floor(wcxL / this.cellsPerTile);
+            const ty2 = Math.floor(wcyL / this.cellsPerTile);
+            const ix2 = Math.floor(wcxL - tx2 * this.cellsPerTile);
+            const iy2 = Math.floor(wcyL - ty2 * this.cellsPerTile);
+            const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+            const info = entry && entry.roadLetters && entry.roadLetters[`${ix2}_${iy2}`];
+            if (info) {
+              // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
+              lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+                .setRotation(0).setVisible(true);
+            } else {
+              lt.setVisible(false);
+            }
+          } else {
+            lt.setVisible(false);
           }
         }
 
@@ -1548,7 +1994,53 @@ class MapScene extends Phaser.Scene {
         s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
         s.setAlpha(opened ? 0.45 : 1);
         s.setTint(opened ? 0x404040 : 0xffffff);
+      } else if (o.kind === 'plaque') {
+        const key = `plaque_${o.crop}`;
+        if (this.textures.exists(key)) {
+          if (s.texture.key !== key) s.setTexture(key);
+          // Anchor at the bottom of the post so it reads as planted in the ground.
+          s.setOrigin(0.5, 0.95).setScale(1.6).setPosition(Math.round(sx), Math.round(sy));
+          s.setAlpha(1).setTint(0xffffff);
+        } else {
+          s.setVisible(false);
+        }
+      } else if (o.kind === 'flora') {
+        const key = `flora_${o.deco}_${o.variant ?? 0}`;
+        if (this.textures.exists(key)) {
+          if (s.texture.key !== key) s.setTexture(key);
+          s.setOrigin(0.5, 0.8).setScale(1.8).setPosition(Math.round(sx), Math.round(sy));
+          s.setAlpha(1).setTint(0xffffff);
+        } else {
+          s.setVisible(false);
+        }
       }
+    });
+
+    // POI decoration "statues" — one or two greyscale sculptures per chest,
+    // sourced from POI_DECOR (by category) or POI_DECOR_BY_CLASS (override).
+    // Drawn AFTER chests so beside-statues read in front; behind-statues have
+    // negative dy so they appear above the chest.
+    const decorList = [];
+    for (const item of filteredObj) {
+      const { o, dx, dy } = item;
+      if (o.kind !== 'chest') continue;
+      const cls = o.poiClass;
+      const cat = POI_CATEGORY[cls];
+      const decor = POI_DECOR_BY_CLASS[cls] || POI_DECOR[cat];
+      if (!decor) continue;
+      for (const d of decor) decorList.push({ o, dx, dy, d });
+    }
+    this.renderPool(this.decorPool, this.objectsContainer, decorList, (s, item) => {
+      const { o, dx, dy, d } = item;
+      const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX + d.dx;
+      const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX + d.dy;
+      if (s.texture.key !== d.key) s.setTexture(d.key);
+      s.setOrigin(0.5, 1).setScale(d.scale).setPosition(Math.round(sx), Math.round(sy));
+      const opened = this.save.opened.includes(o.id);
+      // Softer contrast — tint the bright pixels down so statues don't fight high-contrast
+      // backgrounds (e.g. bright park grass + dark shrub debris).
+      s.setAlpha(opened ? 0.45 : 0.85);
+      s.setTint(opened ? 0x808080 : 0xd6cfc2);
     });
 
     // POI name labels above chests (named POIs only). Reuse a parallel text pool.
@@ -1673,12 +2165,11 @@ class MapScene extends Phaser.Scene {
     // the X straddles the cell containing the treasure, and an exact tap on a
     // small 12 px sprite is hard on mobile. Player must be within REACH_OBJECT_M.
     {
-      const TREASURE_TAP_M = 7.5;
       const found = new Set(this.save.foundTreasures || []);
       const tryClaim = (tr) => {
         if (!tr || found.has(tr.id)) return false;
-        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= TREASURE_TAP_M) return false;
-        if (Math.hypot(tr.x - pWorldX, tr.y - pWorldY) > 18) { this.flash('too far', sx, sy); return 'far'; }
+        if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
+        if (distM2(tr.x, tr.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return 'far'; }
         this.save.foundTreasures = [...found, tr.id];
         const t = pickTreasure();
         if (t.kind === 'money') {
@@ -1709,7 +2200,7 @@ class MapScene extends Phaser.Scene {
       if (!entry.creatures) continue;
       for (const c of entry.creatures) {
         if (this.save.caught.includes(c.id)) continue;
-        if (Math.hypot(c.x - wm.x, c.y - wm.y) < 4) {
+        if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
           this.catchCreature(c, sx, sy);
           return;
         }
@@ -1721,8 +2212,8 @@ class MapScene extends Phaser.Scene {
       if (!entry.wildplants) continue;
       for (const wp of entry.wildplants) {
         if (pickedSet.has(wp.id)) continue;
-        if (Math.hypot(wp.x - wm.x, wp.y - wm.y) < 4) {
-          if (Math.hypot(wp.x - pWorldX, wp.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
+        if (distM2(wp.x, wp.y, wm.x, wm.y) < REACH_WILDPLANT_M * REACH_WILDPLANT_M) {
+          if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return; }
           this.save.picked = [...pickedSet, wp.id];
           this.addToInv(wp.crop, 1); // produce only — debris is just the item itself, no bonus seed
           let bonus = '';
@@ -1745,9 +2236,9 @@ class MapScene extends Phaser.Scene {
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
       for (const o of entry.objects) {
-        const r = o.kind === 'house' ? 6 : 3.5;
-        if (Math.hypot(o.x - wm.x, o.y - wm.y) >= r) continue;
-        if (Math.hypot(o.x - pWorldX, o.y - pWorldY) > 18) {
+        const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
+        if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
+        if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
           this.flash('too far', sx, sy); return;
         }
         if (o.kind === 'chest') {
@@ -1762,7 +2253,7 @@ class MapScene extends Phaser.Scene {
           const tier = SEED_TIER[loot.id] || 1;
           const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
           const lootLabel = `${CHEST_ICON} → ${lootIcon} ×${loot.n}`;
-          this.flashLoot(niceName ? `${lootLabel}\n${niceName}` : lootLabel, color);
+          this.flashLoot(niceName ? `${lootLabel}\n${niceName}` : lootLabel, color, 1.25);
           return;
         }
         if (o.kind === 'tree') {
@@ -1896,13 +2387,16 @@ class MapScene extends Phaser.Scene {
         this.save.planted.splice(plantedIdx, 1);
         this.tilledSet.delete(cellKey);
         this.save.tilled = [...this.tilledSet];
-        const yieldN = 1 + Math.floor(Math.random() * 3);
+        let yieldN = 1 + Math.floor(Math.random() * 3);
+        // Crop-affinity bonus: +1 if this cell was planted inside a matching plaque polygon.
+        if (p.affinity) yieldN += 1;
         this.addToInv(p.crop, yieldN);
         const gotSeed = Math.random() < 0.25;
         if (gotSeed) this.addToInv(`${p.crop}_seed`, 1);
         persistSave(this.save);
         const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0');
+        const aff = p.affinity ? ' ✦' : '';
+        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}${aff}`, '#a7ffb0');
         return;
       }
       if (!p.watered_t) {
@@ -1942,7 +2436,18 @@ class MapScene extends Phaser.Scene {
         this.flash('out of seeds', sx, sy);
         return;
       }
-      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
+      // Crop-affinity bonus: if a plaque within its radius has the same crop, mark
+      // the planted entry so harvest can apply a +1 yield bonus.
+      let affinity = false;
+      for (const e of WorldGen.tileCache.values()) {
+        if (!e.objects) continue;
+        for (const o of e.objects) {
+          if (o.kind !== 'plaque' || o.crop !== item.grows) continue;
+          if (Math.hypot(o.x - cwmx, o.y - cwmy) <= (o.radius ?? 30)) { affinity = true; break; }
+        }
+        if (affinity) break;
+      }
+      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0, affinity });
       sel.count -= 1;
       if (sel.count <= 0) {
         this.save.inv.splice(this.save.selSlot, 1);
@@ -2007,17 +2512,19 @@ class MapScene extends Phaser.Scene {
   // Bigger, longer-dwelling pop for loot pickups (chest opens, treasure X, harvest, debris).
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
-  flashLoot(text, color = '#ffe066') {
+  // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
+  flashLoot(text, color = '#ffe066', dwellMul = 1) {
     const x = this.viewCenterX, y = this.viewCenterY - 40;
     const t = this.add.text(x, y, text, {
       font: 'bold 22px monospace', color, backgroundColor: '#000c',
       stroke: '#000', strokeThickness: 3,
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
-    // Pop in (140ms), hold (1.3s), drift up + fade (700ms). Total ≈ 2.1s.
+    // Pop in (140ms), hold (1.44s * dwellMul), drift up + fade (700ms * dwellMul).
     this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
-    this.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 700, delay: 1440, ease: 'Sine.In',
-      onComplete: () => t.destroy() });
+    this.tweens.add({ targets: t, y: y - 50, alpha: 0,
+      duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
+      ease: 'Sine.In', onComplete: () => t.destroy() });
   }
 
   updateHUD() {

@@ -307,6 +307,41 @@
   };
   const DEBRIS_MIN = 0.05;
   const DEBRIS_MAX = 0.30;
+  // Salt for the rare-nut RNG stream in forests — independent of the shrub stream
+  // that shares the same polygon key. (Was `0xdeadbeef`.)
+  const NUT_RNG_SALT = 0xdeadbeef;
+
+  // Each tillable-biome polygon picks a favored crop (stable per polygon). A small
+  // wooden plaque sprite sits at the centroid showing that crop. Planting the
+  // matching crop within the polygon (≈ within plaque radius) yields a bonus.
+  // Pools intentionally biased: farmland favors root/grain; grass favors berries;
+  // park favors leafy/floral.
+  const AFFINITY_CROPS = {
+    [T.FARMLAND]:   ['potato', 'nut', 'coffee'],
+    [T.GRASS]:      ['rainberry', 'pairy', 'sunflower'],
+    [T.PARK]:       ['potato', 'shrub', 'rainberry'],
+    [T.GOLF]:       ['rainberry', 'pairy', 'sunflower'],
+    [T.PITCH]:      ['rainberry', 'pairy'],
+    [T.PLAYGROUND]: ['sunflower', 'pairy'],
+    [T.ORCHARD]:    ['nut', 'pairy', 'rainberry'],
+  };
+
+  // Per-biome decorative items (purely visual, non-interactable). Stored as
+  // { kind: 'flora', x, y, deco: '<kind>', variant: 0..N } and rendered by app.js
+  // using procedurally-generated 16x16 textures.
+  const FLORA_BY_TYPE = {
+    [T.GRASS]:      { deco: 'flower',   density: 0.10 },
+    [T.PARK]:       { deco: 'flower',   density: 0.14 },
+    [T.GOLF]:       { deco: 'flower',   density: 0.10 },
+    [T.PITCH]:      { deco: 'flower',   density: 0.08 },
+    [T.PLAYGROUND]: { deco: 'flower',   density: 0.10 },
+    [T.WETLAND]:    { deco: 'flower',   density: 0.10 },
+    [T.FOREST]:     { deco: 'mushroom', density: 0.08 },
+    [T.ORCHARD]:    { deco: 'mushroom', density: 0.10 },
+    [T.SAND]:       { deco: 'pebble',   density: 0.10 },
+    [T.ROCK]:       { deco: 'pebble',   density: 0.12 },
+  };
+  const FLORA_VARIANTS = { flower: 4, pebble: 3, mushroom: 2 };
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -317,6 +352,35 @@
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
     const rng = makeRng(tx * 73856093 ^ ty * 19349663);
+
+    // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
+    // very low density. Snapped to the local cell grid like debris, but stored
+    // separately so it never gets picked up.
+    function spawnFlora(rings, deco, polyKey, density) {
+      const prng = makeRng(polyKey ^ 0xc0ffee);
+      const variants = FLORA_VARIANTS[deco] || 1;
+      const bb = bboxOf(rings);
+      const stepMvt = 5 / mvtToM;
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          const localIX = Math.floor(xx * mvtToCell);
+          const localIY = Math.floor(yy * mvtToCell);
+          if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
+          if (prng() < density) {
+            const cx = tileOriginMx + (localIX + 0.5) * (1 / mvtToCell) * mvtToM;
+            const cy = tileOriginMy + (localIY + 0.5) * (1 / mvtToCell) * mvtToM;
+            objects.push({
+              kind: 'flora',
+              x: cx, y: cy,
+              deco,
+              variant: Math.floor(prng() * variants),
+              _ix: localIX, _iy: localIY,  // for post-pass biome filter
+            });
+          }
+        }
+      }
+    }
 
     // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
     // density seed = polygon centroid → stable across reloads.
@@ -376,20 +440,48 @@
               paintPolygon(grid, w, h, [ring], tier, mvtToCell);
               const c = ringCentroid(ring);
               const m = toMeters(c.x, c.y);
-              objects.push({ kind: 'house', x: m.x, y: m.y, area: areaM2 });
+              // Snap house sprite to the 5m cell centre so a row of houses lines up cleanly.
+              const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
+              const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2 });
             }
           } else {
             if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
 
+            // Per-polygon debris/decor/plaque all share one centroid-derived key
+            // so a given polygon looks the same across reloads.
+            const c0 = ringCentroid(f.geom[0]);
+            const polyKey = ((Math.round(c0.x) * 73856093) ^ (Math.round(c0.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
+
             // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
-            // Density is stable per polygon — assigned once from a centroid-hash seed.
             const debrisCrop = DEBRIS_CROP[t];
             if (debrisCrop) {
-              const c = ringCentroid(f.geom[0]);
-              const polyKey = ((Math.round(c.x) * 73856093) ^ (Math.round(c.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
               spawnDebris(f.geom, debrisCrop, polyKey);
-              // Forests also get uncommon wild nuts (in addition to shrubs).
-              if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ 0xdeadbeef, 0.005, 0.03);
+              // Extra rare nut sprinkle on forest polygons. XOR with a fixed salt so the
+              // nut and shrub debris share the same polygon key but use independent RNG streams.
+              if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ NUT_RNG_SALT, 0.005, 0.03);
+            }
+
+            // Per-polygon FLORA (purely decorative drops: flowers / pebbles / mushrooms).
+            const florax = FLORA_BY_TYPE[t];
+            if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.density);
+
+            // Per-polygon CROP AFFINITY plaque (only on big enough tillable areas).
+            const affinityPool = AFFINITY_CROPS[t];
+            if (affinityPool) {
+              const polyAreaM2 = Math.abs(ringSignedArea(f.geom[0])) * mvtToM * mvtToM;
+              if (polyAreaM2 >= 200) {
+                const prng = makeRng(polyKey ^ 0xa771ed);
+                const crop = affinityPool[Math.floor(prng() * affinityPool.length)];
+                const m = toMeters(c0.x, c0.y);
+                const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
+                const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                // Approximate radius from polygon area, capped — used at plant-time
+                // to test whether a tilled cell falls "inside" this plaque's polygon.
+                const radius = Math.min(60, Math.sqrt(polyAreaM2 / Math.PI));
+                objects.push({ kind: 'plaque', x: cx, y: cy, crop, radius,
+                  id: `pl_${Math.round(cx)}_${Math.round(cy)}` });
+              }
             }
 
             // Scattered Maple Trees on wood/forest landcover.
@@ -404,7 +496,10 @@
                     const jy = yy + (rng() - 0.5) * stepMvt;
                     if (pointInRings(f.geom, jx, jy)) {
                       const m = toMeters(jx, jy);
-                      objects.push({ kind: 'tree', x: m.x, y: m.y, variant: 1 + Math.floor(rng() * 4) });
+                      // Snap tree to cell centre too — keeps the forest from looking jittery.
+                      const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
+                      const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                      objects.push({ kind: 'tree', x: cx, y: cy, variant: 1 + Math.floor(rng() * 4) });
                     }
                   }
                 }
@@ -435,12 +530,16 @@
             // low-tier street furniture: heavy T1 seed drops
             'bus','fuel','lodging','gate',
           ]);
+          // Snap POI-derived features to the 5m absolute cell centre so the X /
+          // chest sprite always sits squarely in a tile (not floating between two).
+          const snap = (v) => (Math.floor(v / CELL_M) + 0.5) * CELL_M;
           if (cls === 'parking') {
             // Parking lots → guaranteed treasure X (no chest).
             for (const ring of f.geom) {
               const p = ring[0];
               const m = toMeters(p.x, p.y);
-              parkingTreasures.push({ x: m.x, y: m.y, id: `t_park_${Math.round(m.x)}_${Math.round(m.y)}` });
+              const cx = snap(m.x), cy = snap(m.y);
+              parkingTreasures.push({ x: cx, y: cy, id: `t_park_${Math.round(cx)}_${Math.round(cy)}` });
             }
             continue;
           }
@@ -448,8 +547,9 @@
           for (const ring of f.geom) {
             const p = ring[0];
             const m = toMeters(p.x, p.y);
-            const id = `c_${Math.round(m.x)}_${Math.round(m.y)}`;
-            objects.push({ kind: 'chest', x: m.x, y: m.y, id,
+            const cx = snap(m.x), cy = snap(m.y);
+            const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
+            objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
           }
         }
@@ -460,15 +560,81 @@
     // Drop any debris whose final cell type isn't a spawn-eligible biome.
     // residential, park, forest, grass, sand, farmland, rock + new subtype splits (15..22 are all ground tiles)
     const DEBRIS_OK = new Set([5, 6, 1, 0, 2, 4, 10, 15, 16, 17, 18, 19, 20, 21, 22]);
+    // Cells with a chest already claim the visual space — no shrubs/rockfruit on them.
+    const chestCellKeys = new Set();
+    for (const o of objects) {
+      if (o.kind !== 'chest') continue;
+      const ix = Math.floor(((o.x - tileOriginMx) / mvtToM) * mvtToCell);
+      const iy = Math.floor(((o.y - tileOriginMy) / mvtToM) * mvtToCell);
+      if (ix >= 0 && iy >= 0 && ix < w && iy < h) chestCellKeys.add(`${ix}_${iy}`);
+    }
     const filtered = [];
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
-      if (DEBRIS_OK.has(t)) {
+      if (DEBRIS_OK.has(t) && !chestCellKeys.has(`${wp._ix}_${wp._iy}`)) {
         delete wp._ix; delete wp._iy;
         filtered.push(wp);
       }
     }
-    return { grid, objects, wildplants: filtered, parkingTreasures };
+    // Same post-pass for decorative flora — drop any whose cell is now road/water/building.
+    for (let i = objects.length - 1; i >= 0; i--) {
+      const o = objects[i];
+      if (o.kind !== 'flora') continue;
+      const ct = grid[o._iy * w + o._ix];
+      if (!DEBRIS_OK.has(ct)) { objects.splice(i, 1); continue; }
+      delete o._ix; delete o._iy;
+    }
+    // Road-name letters: walk each transportation_name line at ~1 cell per step and assign the
+    // next character of the name to whatever cell we're in. Last writer wins on overlap (good
+    // enough; intersections are noisy by nature). Skip whitespace so spaces don't blank cells.
+    // Stored as { "ix_iy": { char, angle } }.
+    const roadLetters = {};
+    const tnLayer = layersByName['transportation_name'];
+    const ROAD_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
+    if (tnLayer) {
+      for (const f of tnLayer.features) {
+        if (f.type !== 2) continue;
+        const name = f.tags?.name;
+        if (!name) continue;
+        // All-caps, single-space collapse — spaces are part of the sequence so a multi-word
+        // name reads with its gaps (one cell per character including ' ').
+        const letters = name.toUpperCase().replace(/\s+/g, ' ');
+        if (!letters.length) continue;
+        for (const line of f.geom) {
+          if (line.length < 2) continue;
+          let letterIdx = 0;
+          // Step ~1 cell along the polyline.
+          const stepMvt = CELL_M / mvtToM;
+          let curX = line[0].x, curY = line[0].y;
+          for (let i = 1; i < line.length; i++) {
+            const ax = line[i - 1].x, ay = line[i - 1].y;
+            const bx = line[i].x,     by = line[i].y;
+            const segDx = bx - ax, segDy = by - ay;
+            const segLen = Math.hypot(segDx, segDy);
+            if (segLen < 1e-6) continue;
+            // Local direction in radians (note: MVT y grows downward → that matches screen y).
+            const ang = Math.atan2(segDy, segDx);
+            // March along this segment.
+            let remaining = segLen - Math.hypot(curX - ax, curY - ay);
+            const ux = segDx / segLen, uy = segDy / segLen;
+            while (remaining >= 0 && letterIdx < letters.length * 4) {
+              const ix = Math.floor(curX * mvtToCell);
+              const iy = Math.floor(curY * mvtToCell);
+              if (ix >= 0 && iy >= 0 && ix < w && iy < h && ROAD_TYPES.has(grid[iy * w + ix])) {
+                roadLetters[`${ix}_${iy}`] = { char: letters[letterIdx % letters.length], angle: ang };
+                letterIdx++;
+              }
+              curX += ux * stepMvt;
+              curY += uy * stepMvt;
+              remaining -= stepMvt;
+            }
+            // Snap to vertex start of next segment to avoid drift.
+            curX = bx; curY = by;
+          }
+        }
+      }
+    }
+    return { grid, objects, wildplants: filtered, parkingTreasures, roadLetters };
   }
 
   function tileEdgeMeters(lat) {
@@ -488,11 +654,12 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, objects, wildplants, parkingTreasures } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, objects, wildplants, parkingTreasures, roadLetters } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       entry.grid = grid;
       entry.objects = objects;
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
+      entry.roadLetters = roadLetters || {};
       entry.layers = layers;
       entry.status = 'ready';
       entry.fromCache = fromCache;
