@@ -17,14 +17,18 @@
     }
     #frame {
       position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
     }
+    /* Fixed 390×844 native size; we scale the whole game (canvas + overlays)
+       with a CSS transform from JS so it fits any viewport while keeping a
+       single coordinate system internally. Overlay positions like the money
+       badge stay correct under the scale. */
     #game {
       width: 390px; height: 844px;
-      max-width: 100vw; max-height: 100vh;
       background: #000;
       box-shadow: 0 0 24px #000a;
-      position: relative;
+      position: absolute; top: 0; left: 0;
+      transform-origin: top left;
     }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
@@ -82,6 +86,24 @@
     </div>
   </div>
   <script>
+    // Fit the fixed 390×844 game box into the viewport using CSS scale.
+    // Uses visualViewport when available (iOS Safari's URL bar / dynamic toolbar).
+    function fitGame() {
+      const W = 390, H = 844;
+      const vw = (window.visualViewport?.width)  ?? window.innerWidth;
+      const vh = (window.visualViewport?.height) ?? window.innerHeight;
+      const s = Math.min(vw / W, vh / H);
+      const g = document.getElementById('game');
+      if (!g) return;
+      g.style.transform = `scale(${s})`;
+      g.style.left = Math.max(0, (vw - W * s) / 2) + 'px';
+      g.style.top  = Math.max(0, (vh - H * s) / 2) + 'px';
+    }
+    window.addEventListener('resize', fitGame);
+    window.addEventListener('orientationchange', fitGame);
+    window.visualViewport?.addEventListener('resize', fitGame);
+    fitGame();
+
     // Close menu on outside click / world tap.
     document.addEventListener('pointerdown', (e) => {
       const m = document.getElementById('menu');
