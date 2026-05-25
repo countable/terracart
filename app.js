@@ -318,6 +318,19 @@ const CATEGORY_LOOT = {
 };
 const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
 
+// Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
+// 10% one uncommon seed, 5% one rare seed.
+function pickTreasure(rng) {
+  const r = (rng ?? Math.random)();
+  const seedsOfTier = (t) => Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === t);
+  const pickFrom = (pool) => pool[Math.floor((rng ?? Math.random)() * pool.length)];
+  if (r < 0.05) return { kind: 'seed', id: pickFrom(seedsOfTier(3)), n: 1 };
+  if (r < 0.15) return { kind: 'seed', id: pickFrom(seedsOfTier(2)), n: 1 };
+  // 85% — coin flip between common seed and $1.
+  if ((rng ?? Math.random)() < 0.5) return { kind: 'money', amount: 1 };
+  return { kind: 'seed', id: pickFrom(seedsOfTier(1)), n: 1 };
+}
+
 function pickLoot(rng, poiClass) {
   const cat = POI_CATEGORY[poiClass];
   const cfg = (cat && CATEGORY_LOOT[cat]) || DEFAULT_LOOT;
@@ -330,17 +343,10 @@ function pickLoot(rng, poiClass) {
   return { id, n: TIER_YIELD[tier] };
 }
 
-// Wild plants / debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
-// Terrain class → spawn config.
-//   0=grass, 1=forest, 2=sand, 5=residential, 6=park, 10=rock
-const WILD_BIOME = {
-  5:  { crop: 'rockfruit',  min: 6, max: 12 }, // residential — common debris (treasure chance)
-  6:  { crop: 'shrub',      min: 4, max: 8 },  // park        — common
-  1:  { crop: 'shrub',      min: 3, max: 6 },  // forest      — common
-  0:  { crop: 'sunflower',  min: 0, max: 2 },  // grass       — rare
-  2:  { crop: 'fireflower', min: 0, max: 2 },  // sand        — rare
-  10: { crop: 'iceflower',  min: 0, max: 2 },  // rock        — rare
-};
+// Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
+// Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
+//   residential → rockfruit (with surprise treasure)
+//   park / forest → shrub
 // Surprise treasure: when picking a wild ${key}, ${chance} chance to also get a ${bonus}.
 const WILD_TREASURE = {
   rockfruit: { chance: 0.1, bonus: 'gemfruit' },
@@ -457,7 +463,7 @@ class MapScene extends Phaser.Scene {
   create() {
     this.save = Object.assign(
       {
-        caught: [], planted: [], opened: [], tilled: [], picked: [],
+        caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [],
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
@@ -788,35 +794,36 @@ class MapScene extends Phaser.Scene {
         }
       }
     };
-    // A few chickens per tile — sparse enough that spotting one feels like a find.
-    const chickenN = 1 + Math.floor(rng() * 3);   // 1..3 per tile
-    for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 6]), i, 'chicken');
+    // Spawn chickens on any soft ground (grass / farmland / park / residential lawn).
+    // Each MVT tile is ~1.5km across — the 55m viewport is only ~0.1% of a tile —
+    // so we need hundreds per tile for any to actually be visible.
+    const chickenN = 150 + Math.floor(rng() * 100);   // 150..250 per tile
+    for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
     const cowN = Math.floor(rng() * 3);   // 0..2 cows, only in farmland
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([4]), i, 'cow');
     entry.creatures = creatures;
 
-    // Wild plants — biome-specific, seeded per tile. Skip ones already picked.
-    const wildplants = [];
-    const picked = new Set(this.save.picked || []);
-    const placeWild = (crop, classOK, idx) => {
-      for (let attempt = 0; attempt < 12; attempt++) {
+    // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
+    // (set by rasterizeTile). Picked-state filtering happens at render/interact time
+    // via this.save.picked.
+    entry.wildplants = entry.wildplants || [];
+
+    // Treasure mark — 1/200 tiles get a subtle X (deterministic per tile).
+    // Stored on entry.treasure = { x, y, id } or null. Found state lives in save.foundTreasures.
+    entry.treasure = null;
+    if (rng() < 1 / 200) {
+      for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        if (entry.grid[cy * N + cx] !== classOK) continue;
+        const t = entry.grid[cy * N + cx];
+        // Place on any walkable ground (skip water + buildings).
+        if (t === 3 || t === 9 || t === 11 || t === 12) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-        const id = `wild_${crop}_${tx}_${ty}_${idx}`;
-        if (picked.has(id)) return;
-        wildplants.push({ x: wmx, y: wmy, crop, id });
-        return;
+        entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
+        break;
       }
-    };
-    for (const cls of Object.keys(WILD_BIOME)) {
-      const { crop, min, max } = WILD_BIOME[cls];
-      const n = min + Math.floor(rng() * (max - min + 1));
-      for (let i = 0; i < n; i++) placeWild(crop, Number(cls), i);
     }
-    entry.wildplants = wildplants;
   }
 
   // === Tick ===
@@ -900,9 +907,57 @@ class MapScene extends Phaser.Scene {
 
     // All farming actions (till/water/plant/harvest) are tap-driven now — no walk-over auto-actions.
 
+    this.wanderCreatures();
     this.drawCells();
     this.drawObjects();
     this.updateHUD();
+  }
+
+  // Chickens wander ~1 cell every 5s in a random direction; cows stay put.
+  // Per-creature state lives on the creature object: _startX/Y, _targetX/Y,
+  // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
+  wanderCreatures() {
+    const now = performance.now();
+    const STEP_MS = 5000;
+    const STEP_M = this.cellM;   // 1 cell per step
+    // Only sim chickens near the player (slightly beyond viewport). Off-screen
+    // chickens stay frozen at their last position — cheap and invisible.
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    // Viewport corner is VIEW_CELLS/2 * √2 cells away; add a generous margin so
+    // a chicken just entering the viewport is already mid-step.
+    const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
+    const RANGE_SQ = RANGE_M * RANGE_M;
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.creatures) continue;
+      for (const c of entry.creatures) {
+        if (c.kind !== 'chicken') continue;
+        if (this.save.caught.includes(c.id)) continue;
+        const ddx = c.x - px, ddy = c.y - py;
+        if (ddx * ddx + ddy * ddy > RANGE_SQ) continue;
+        if (c._nextChooseT == null || now >= c._nextChooseT) {
+          if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
+          // Bias back toward home if we've drifted far so chickens stay near
+          // their spawn cluster rather than wandering off forever.
+          const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
+          let angle;
+          if (Math.hypot(dxh, dyh) > 3 * this.cellM) {
+            angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
+          } else {
+            angle = Math.random() * Math.PI * 2;
+          }
+          c._startX = c.x; c._startY = c.y;
+          c._targetX = c.x + Math.cos(angle) * STEP_M;
+          c._targetY = c.y + Math.sin(angle) * STEP_M;
+          c._stepT0 = now;
+          c._nextChooseT = now + STEP_MS;
+          c._faceFlip = (c._targetX - c._startX) < 0;
+        }
+        const u = Math.min(1, (now - c._stepT0) / STEP_MS);
+        c.x = c._startX + (c._targetX - c._startX) * u;
+        c.y = c._startY + (c._targetY - c._startY) * u;
+      }
+    }
   }
 
   // Walk outward in a ring (up to 6 cells) from the given world-cell coords and return
@@ -1114,6 +1169,24 @@ class MapScene extends Phaser.Scene {
       g.lineBetween(x, this.viewTop, x, this.viewTop + this.viewSize);
       g.lineBetween(this.viewLeft, y, this.viewLeft + this.viewSize, y);
     }
+
+    // Treasure marks — subtle X on the ground (unfound only).
+    const pWorldX = this.startWorldM.x + this.playerM.x;
+    const pWorldY = this.startWorldM.y + this.playerM.y;
+    const halfM = (VIEW_CELLS / 2 + 1) * this.cellM;
+    const found = new Set(this.save.foundTreasures || []);
+    g.lineStyle(2, 0x2a1d10, 0.55);
+    for (const entry of WorldGen.tileCache.values()) {
+      const tr = entry.treasure;
+      if (!tr || found.has(tr.id)) continue;
+      const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+      if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+      const cx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
+      const cy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
+      const s = 6;
+      g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
+      g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
+    }
   }
 
   worldMetersToScreen(wmx, wmy) {
@@ -1230,6 +1303,7 @@ class MapScene extends Phaser.Scene {
       } else {
         if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
         s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
+        s.setFlipX(!!c._faceFlip);
       }
     });
   }
@@ -1259,6 +1333,30 @@ class MapScene extends Phaser.Scene {
     const pWorldX = this.startWorldM.x + this.playerM.x;
     const pWorldY = this.startWorldM.y + this.playerM.y;
 
+    // 0) Treasure mark within 4m — give ultralow-tier loot, mark found.
+    {
+      const found = new Set(this.save.foundTreasures || []);
+      for (const entry of WorldGen.tileCache.values()) {
+        const tr = entry.treasure;
+        if (!tr || found.has(tr.id)) continue;
+        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= 4) continue;
+        if (Math.hypot(tr.x - pWorldX, tr.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
+        this.save.foundTreasures = [...found, tr.id];
+        const t = pickTreasure();
+        if (t.kind === 'money') {
+          this.save.money = (this.save.money || 0) + t.amount;
+          this.flash(`X → $${t.amount}`, sx, sy);
+          if (this.updateMoneyDOM) this.updateMoneyDOM();
+        } else {
+          this.addToInv(t.id, t.n);
+          const tierLbl = SEED_TIER[t.id] === 3 ? 'rare' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
+          this.flash(`X → ${t.id.replace(/_seed$/, '')} (${tierLbl})`, sx, sy);
+        }
+        persistSave(this.save);
+        return;
+      }
+    }
+
     // 1) Catch a creature within 4m
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.creatures) continue;
@@ -1281,7 +1379,13 @@ class MapScene extends Phaser.Scene {
           this.save.picked = [...pickedSet, wp.id];
           this.addToInv(wp.crop, 1); // produce
           let bonus = '';
-          if (Math.random() < 0.25) { this.addToInv(`${wp.crop}_seed`, 1); bonus = ' +seed'; }
+          if (Math.random() < 0.25) { this.addToInv(`${wp.crop}_seed`, 1); bonus += ' +seed'; }
+          // Surprise treasure: e.g. picking a rockfruit sometimes also yields a gemfruit.
+          const treasure = WILD_TREASURE[wp.crop];
+          if (treasure && Math.random() < treasure.chance) {
+            this.addToInv(treasure.bonus, 1);
+            bonus += ` ✨${treasure.bonus}`;
+          }
           persistSave(this.save);
           this.flash(`picked ${wp.crop}${bonus}`, sx, sy);
           return;
