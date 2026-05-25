@@ -18,11 +18,24 @@
     FARMLAND: 4,
     RESIDENTIAL: 5,
     PARK: 6,
-    ROAD: 7,
+    ROAD: 7,             // minor / service / street (default small road)
     PATH: 8,
-    BUILDING: 9,
+    BUILDING: 9,         // small/default — houses, sheds
     ROCK: 10,
+    BUILDING_MED: 11,    // shops / mid-rise
+    BUILDING_LARGE: 12,  // schools / civic / industrial
+    ROAD_LG: 13,         // motorway / trunk / primary
+    ROAD_MD: 14,         // secondary / tertiary
   };
+  // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
+  // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
+  // schools/malls/civic in LARGE.
+  function buildingTier(areaM2, renderHeight) {
+    const h = +renderHeight || 0;
+    if (areaM2 >= 1500 || h >= 15) return T.BUILDING_LARGE;
+    if (areaM2 >= 350  || h >= 10) return T.BUILDING_MED;
+    return T.BUILDING;
+  }
 
   // --- Mercator helpers ---
   function lonLatToWorldPx(lon, lat, z) {
@@ -62,7 +75,9 @@
   function classifyLine(layer, tags) {
     if (layer !== 'transportation') return null;
     const c = tags.class || '';
-    if (['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service', 'street'].includes(c)) return T.ROAD;
+    if (['motorway', 'trunk', 'primary'].includes(c)) return T.ROAD_LG;
+    if (['secondary', 'tertiary'].includes(c)) return T.ROAD_MD;
+    if (['minor', 'service', 'street'].includes(c)) return T.ROAD;
     if (['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps'].includes(c)) return T.PATH;
     return T.ROAD;
   }
@@ -80,7 +95,8 @@
   const PRIO = {
     [T.GRASS]: 0, [T.PARK]: 1, [T.FOREST]: 2, [T.SAND]: 2, [T.ROCK]: 2,
     [T.FARMLAND]: 3, [T.RESIDENTIAL]: 4, [T.WATER]: 5,
-    [T.PATH]: 6, [T.ROAD]: 7, [T.BUILDING]: 8,
+    [T.PATH]: 6, [T.ROAD]: 7, [T.ROAD_MD]: 7.1, [T.ROAD_LG]: 7.2,
+    [T.BUILDING]: 8, [T.BUILDING_MED]: 8, [T.BUILDING_LARGE]: 8,
   };
 
   // --- Rasterization helpers ---
@@ -278,20 +294,23 @@
       if (!layer) continue;
       for (const f of layer.features) {
         if (f.type === 3) { // polygon
-          const t = classifyPolygon(name, f.tags);
-          if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+          let t = classifyPolygon(name, f.tags);
 
-          // Object placements derived from polygons:
+          // Building polygons get tiered by area + render_height so schools/malls/civic read
+          // as a different color from single-family houses. Painted ring-by-ring.
           if (name === 'building') {
-            // Each ring (likely outer in single-poly buildings) → one house.
             for (const ring of f.geom) {
               if (ring.length < 3) continue;
-              const c = ringCentroid(ring);
-              const m = toMeters(c.x, c.y);
               const areaM2 = Math.abs(ringSignedArea(ring)) * mvtToM * mvtToM;
               if (areaM2 < 8) continue;
+              const tier = buildingTier(areaM2, f.tags.render_height);
+              paintPolygon(grid, w, h, [ring], tier, mvtToCell);
+              const c = ringCentroid(ring);
+              const m = toMeters(c.x, c.y);
               objects.push({ kind: 'house', x: m.x, y: m.y, area: areaM2 });
             }
+          } else if (t != null) {
+            paintPolygon(grid, w, h, f.geom, t, mvtToCell);
           } else if (name === 'landcover') {
             const cls = f.tags.class || f.tags.subclass;
             if (cls === 'wood' || cls === 'forest') {

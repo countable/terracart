@@ -11,7 +11,10 @@ CORE
 
 WORLD GENERATION
  - each MVT tile is rasterized once into a 315x315 grid of 5m cells (one terrain class per cell)
- - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path, building, rock
+ - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path,
+   building (small house), rock, building_med (shop / mid-rise), building_large (school / civic / industrial)
+ - building tier picked from polygon area + render_height: small (<350m² & <10m), med (350+m² or 10+m),
+   large (1500+m² or 15+m). All tiers still place a single house sprite at the polygon centroid.
  - flat color is drawn first, then a terrain sprite from Tileset Spring.png is overlaid where a frame is mapped
    (grass, forest, sand, farmland, park — interior frames only; see tilemap.js FRAMES)
  - auto-tile lookup so edges/corners pick the right frame instead of always the interior
@@ -24,7 +27,11 @@ CHESTS (POI-driven, drop existing inventory items only)
  - useful POIs (shops, civic, parks, healthcare classes — see worldgen.js USEFUL set) spawn a single
    generic chest sprite (Objects/chest.png, 16x16, 2 frames closed/open). No themed subkinds.
  - tap chest within 4m + within 18m of player to open
- - chest gives 1-2 of a random seed from the inventory item table
+ - chest tier is picked weighted: T1 common 60% (10 seeds), T2 uncommon 30% (5), T3 rare 10% (2),
+   then a random seed within that tier is chosen. Tier mapping:
+     T1: rainberry, pairy, nut, turnip, shrub
+     T2: gemfruit, rockfruit, coffee, tree
+     T3: iceflower, fireflower, sunflower
  - opened chest stays open and dimmed; opened state persists
  - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Elementary School")
  - density: ~75 chests per tile (one per useful POI)
@@ -33,7 +40,7 @@ INVENTORY
  - infinite list, scrolled in pages of 5 slots with ◀ ▶ buttons (page count shown)
  - tap a slot to select; selection persists
  - inventory contains seeds and harvested produce — tools (hoe, watering can, net, feed) are implicit, always available
- - starter seeds - stack of 10 potato seeds
+ - starter seeds - stack of 10 rainberry seeds
  - harvesting adds produce of the crop (count badge); sometimes also drops a bonus seed
  - chest drops are seeds only; existing stacks increment
 
@@ -69,7 +76,9 @@ FARMING LOOP
    In-world stages: col 0 (sprout) → col 4 (harvestable). Inventory icons: col 7 = produce, col 8 = seed.
  - crops (row in Crops.png): rainberry (0), pairy (1), gemfruit (2), nut (3), rockfruit (4),
    coffee (5), turnip (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
- - shrub also spawns wild in forest cells (no tilling required) [TODO]
+ - wild plants spawn deterministically per tile in matching biome cells (no tilling needed).
+   Tap within 4m + 18m of player to pick → +1 produce, 25% bonus seed. Picked state persists in save.picked.
+   Biome map: forest→shrub (3-6/tile), park→turnip (4-8), grass→sunflower (0-2), sand→fireflower (0-2), rock→iceflower (0-2)
 
 HUD (debug)
  - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)

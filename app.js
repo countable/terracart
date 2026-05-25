@@ -27,9 +27,11 @@ const COLORS = {
   10: 0x7d736b, // rock
   11: 0x6e5037, // building_med — shop / mid-rise (deeper brown)
   12: 0x5a5d63, // building_large — civic / school / industrial (slate gray)
+  13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
+  14: 0x3f3f3f, // road_md (secondary/tertiary)
 };
-// Tillable = soil-ish ground. Water, roads, paths, and any building tier are not.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 11, 12]);
+// Tillable = soil-ish ground. Water, roads (any tier), paths, and any building tier are not.
+const NON_TILLABLE = new Set([3, 7, 8, 9, 11, 12, 13, 14]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
 // Terrain classes that get no sprite from TileMap — we overlay a procedural
@@ -848,7 +850,8 @@ class MapScene extends Phaser.Scene {
       const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
       if (!entry || !entry.grid) continue;
       const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
-      if (t !== 7 && t !== 9) return COLORS[t] ?? null;
+      // Skip roads (any tier) and buildings — those are themselves overlays.
+      if (t !== 7 && t !== 13 && t !== 14 && t !== 9 && t !== 11 && t !== 12) return COLORS[t] ?? null;
     }
     return null;
   }
@@ -870,12 +873,17 @@ class MapScene extends Phaser.Scene {
     let cobbleIdx = 0;
     let noiseIdx = 0;
     // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
-    // 15-16 contain art — the rest are empty or partial pieces of a circular
-    // composition. Use the densest cells for ROAD and the smaller singles for PATH.
-    const ROAD_FRAMES = [0, 1, 2, 5, 6];          // dense cobble clusters → roads
-    const PATH_FRAMES = [3, 4, 7, 8];             // smaller single pebbles → trails
-    const ROAD = 7;
+    // 15-16 contain art. Each road tier picks ONE frame so the same road class
+    // reads visually consistent across cells; different tiers look distinct.
+    //   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
+    //   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
+    //   - ROAD (minor/service/street):      frame 1 — small cluster
+    //   - PATH:                             frame 3 — single small pebble
+    const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
+    const PATH_FRAME = 3;
+    const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
     const PATH = 8;
+    const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
     // Pre-compute a ring of cell types (VIEW_CELLS+2) so edge cells can read their
     // out-of-viewport neighbors when deciding which corners to round.
     const RING = VIEW_CELLS + 2;
@@ -894,7 +902,7 @@ class MapScene extends Phaser.Scene {
     }
     const T = (c, r) => types[(r + 1) * RING + (c + 1)];   // c,r in 0..VIEW_CELLS-1
     // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-    const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10]);   // water, residential, road, path, building, rock
+    const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14]);   // water, residential, all roads, path, all buildings, rock
     const CORNER_R = 6;
     for (let row = 0; row < VIEW_CELLS; row++) {
       for (let col = 0; col < VIEW_CELLS; col++) {
@@ -904,7 +912,7 @@ class MapScene extends Phaser.Scene {
         // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
         // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
         let color = COLORS[type] ?? 0x5fa84a;
-        if (type === ROAD) {
+        if (isRoad(type)) {
           const wcx = pc.cx + ox + pc.tx * this.cellsPerTile;
           const wcy = pc.cy + oy + pc.ty * this.cellsPerTile;
           color = this.neighborNonRoadColor(wcx, wcy) ?? color;
@@ -992,11 +1000,11 @@ class MapScene extends Phaser.Scene {
         // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for PATH.
         {
           const cs = this.cobblePool[cobbleIdx++];
-          const frames = (type === ROAD) ? ROAD_FRAMES
-                        : (type === PATH) ? PATH_FRAMES : null;
-          if (frames && !isTilled) {
-            const h = (absCellIX * 73856093) ^ (absCellIY * 19349663);
-            const frame = frames[Math.abs(h) % frames.length];
+          // Single frame per type — no per-cell randomization, so a road of one
+          // class reads as one consistent surface across all its cells.
+          const frame = isRoad(type) ? ROAD_FRAME[type]
+                       : (type === PATH ? PATH_FRAME : null);
+          if (frame != null && !isTilled) {
             cs.setFrame(frame)
               .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
               .setVisible(true);
@@ -1282,9 +1290,10 @@ class MapScene extends Phaser.Scene {
     const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
     const cellKey = `${cellIX}_${cellIY}`;
     const cell = this.cellAt(cwmx, cwmy);
-    if (!isTillable(cell.type)) return;
 
     // 1) Auto-harvest first (so we don't water a ready crop pointlessly).
+    // NOTE: don't gate on isTillable() here — a planted crop must always be harvestable / waterable,
+    // even if the cell now classifies as non-tillable (e.g. a building tier introduced after planting).
     const plantedIdx = this.save.planted.findIndex(p =>
       Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
     if (plantedIdx >= 0) {
@@ -1323,6 +1332,7 @@ class MapScene extends Phaser.Scene {
     }
 
     // 3) Auto-till empty tillable ground (silent — no flash to avoid spam)
+    if (!isTillable(cell.type)) return;
     if (!this.tilledSet.has(cellKey)) {
       this.tilledSet.add(cellKey);
       this.save.tilled = [...this.tilledSet];
