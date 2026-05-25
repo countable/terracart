@@ -228,33 +228,38 @@ const CATEGORY_LOOT = {
   farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
   lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
 };
-// Per-category statue decorations placed in the cell IMMEDIATELY RIGHT of the chest
-// (origin 0.5, 1 — anchored at the ground). Bigger so they read at a glance.
-const STATUE_DX = CELL_PX;  // one cell to the right of chest
-// Each POI chest may sit on a 3×3 concrete pad with the category's statue
-// embossed at 20% on each cell. lowtier (bus stops, intersections, fuel,
-// lodging, gates) — the most common ones — get NO pad, just a bare chest.
-const POI_PAD_BY_CATEGORY = {
-  food:  'pad_statue_stockpot',
-  civic: 'pad_statue_book',
-  health:'pad_statue_potion',
-  park:  'pad_statue_flower',
-  flora: 'pad_statue_bouquet',
-  farm:  'pad_statue_wheat',
-  commerce: 'pad_statue_signpost',
-};
+// === POI pad SHAPE mapping ===
+// The pad SHAPE itself conveys POI type — no statues anymore. The chest sits
+// in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
+//   square2  → sports pitches  (chest in corner, pad extends right + down)
+//   cross    → chapels + medical facilities  (+ shape, chest centered)
+//   triangle → schools / colleges  (stepped pyramid, chest middle-row centre)
+//   square3  → default for parks / food / farm / commerce / flora
+//   null     → lowtier (bus stops, intersections, fuel, etc) — bare chest
 const POI_PAD_BY_CLASS = {
-  place_of_worship: 'pad_statue_chapel',
-  shop:             'pad_statue_stall',
-  supermarket:      'pad_statue_stall',
-  convenience:      'pad_statue_stall',
-  grocery:          'pad_statue_stall',
+  place_of_worship: 'cross',
+  pharmacy:         'cross',
+  hospital:         'cross',
+  dentist:          'cross',
+  school:           'triangle',
+  college:          'triangle',
+  pitch:            'square2',
+  playground:       'line3v',   // vertical 1×3 strip
 };
-function padKeyForPoi(poiClass) {
+const POI_PAD_BY_CATEGORY = {
+  food:     'line3h',   // horizontal 1×3 strip (market counter / shop front)
+  commerce: 'line3h',
+  civic:    'square3',   // school/college overridden above
+  health:   'cross',
+  park:     'square3',   // pitch + playground overridden above
+  flora:    'square3',
+  farm:     'square3',
+};
+function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
   if (POI_PAD_BY_CLASS[poiClass]) return POI_PAD_BY_CLASS[poiClass];
   const cat = POI_CATEGORY[poiClass];
-  if (cat === 'lowtier') return null;   // bus/sign/intersection/fuel/etc.
+  if (cat === 'lowtier') return null;
   return POI_PAD_BY_CATEGORY[cat] || null;
 }
 
@@ -324,7 +329,30 @@ function loadSave() {
   try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
   catch { return {}; }
 }
-function persistSave(s) { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
+// Save is called from many hot code paths (every till/water/harvest/pickup/
+// movement-quantize). On mobile, synchronous localStorage writes are slow and
+// burn battery. Coalesce calls within a short window into a single write,
+// flushing immediately when the page is hidden/closing so nothing is lost.
+let _saveTimer = null;
+let _pendingSave = null;
+const SAVE_DEBOUNCE_MS = 500;
+function flushSave() {
+  if (_pendingSave) {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
+    _pendingSave = null;
+  }
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+}
+function persistSave(s) {
+  _pendingSave = s;
+  if (_saveTimer) return;
+  _saveTimer = setTimeout(() => { _saveTimer = null; flushSave(); }, SAVE_DEBOUNCE_MS);
+}
+// Don't lose pending writes when the tab is backgrounded or closed.
+window.addEventListener('pagehide', flushSave);
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushSave();
+});
 
 // Crops (Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
@@ -557,30 +585,10 @@ class MapScene extends Phaser.Scene {
       drawLongGrassTex(tex.getContext(), 16, seededRand(31337));
       tex.refresh();
     }
-    // POI "statue" decoration textures — greyscale sculptures shown beside chests.
-    const STATUE_DRAWERS = {
-      statue_signpost: drawSignpostStatue,
-      statue_chapel:   drawChapelStatue,
-      statue_book:     drawBookStatue,
-      statue_stockpot: drawStockpotStatue,
-      statue_potion:   drawPotionStatue,
-      statue_wheat:    drawWheatSheafStatue,
-      statue_bouquet:  drawBouquetStatue,
-      statue_stall:    drawMarketStallStatue,
-      statue_flower:   drawFlowerTuftStatue,
-    };
-    for (const [key, fn] of Object.entries(STATUE_DRAWERS)) {
-      if (this.textures.exists(key)) continue;
-      const tex = this.textures.createCanvas(key, 16, 16);
-      fn(tex.getContext(), 16, seededRand(key.length * 911));
-      tex.refresh();
-    }
-    // 96×96 "concrete pad" textures for each statue (and a plain one).
-    // Built once at startup — chests look up the pad by their resolved statue key.
-    makePadTexture(this, 'pad_plain', null);
-    for (const key of Object.keys(STATUE_DRAWERS)) {
-      makePadTexture(this, `pad_${key}`, key);
-    }
+    // Shape-based concrete pads under POI chests. One texture per unique shape
+    // (square3 / square2 / cross / triangle); the POI's class picks the shape
+    // (see padShapeForPoi below). No statues — the pad SHAPE conveys POI type.
+    makeAllPadShapes(this);
 
     // Layers
     this.cellGfx = this.add.graphics();
@@ -592,6 +600,8 @@ class MapScene extends Phaser.Scene {
     this.padContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
     this.creaturesContainer = this.add.container(0, 0);
+    // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
+    this.tierGfx = this.add.graphics();
 
     // Pre-create terrain sprite pool (one per visible cell) to avoid allocation churn.
     this.terrainPool = [];
@@ -655,6 +665,7 @@ class MapScene extends Phaser.Scene {
     this.padContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
+    this.tierGfx.setMask(mask);
 
     const frame = this.add.graphics();
     frame.lineStyle(2, 0x000000, 0.6)
@@ -1383,11 +1394,19 @@ class MapScene extends Phaser.Scene {
     const pWorldY = this.startWorldM.y + this.playerM.y;
     const objList = [], creatureList = [], plantedList = [];
     const pickedSet = new Set(this.save.picked || []);
+    // Cross-tile POI dedupe — MVT often duplicates the same named POI across adjacent tile
+    // borders. Key by name + ~30m-rounded coords so duplicates ≈14m apart collapse to one.
+    const seenChestKey = new Set();
     for (const entry of WorldGen.tileCache.values()) {
       if (entry.objects) {
         for (const o of entry.objects) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          if (o.kind === 'chest' && o.name) {
+            const k = `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
+            if (seenChestKey.has(k)) continue;
+            seenChestKey.add(k);
+          }
           // Picked flowers stay gone — skip rendering them.
           if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
           objList.push({ o, dx, dy });
@@ -1418,7 +1437,14 @@ class MapScene extends Phaser.Scene {
     }
 
     // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
-    const filteredObj = objList.filter(({ o }) => !o.chopped);
+    // Hide objects that are temporarily gone:
+    //  - chopped trees
+    //  - opened chests (the chest, its pad, label, and tier diamond all vanish
+    //    until the chest refills — keyed by save.opened including o.id)
+    const openedSet = new Set(this.save.opened);
+    const filteredObj = objList.filter(({ o }) =>
+      !o.chopped && !(o.kind === 'chest' && openedSet.has(o.id))
+    );
     filteredObj.sort((a, b) => a.dy - b.dy);
     this.renderPool(this.objectPool, this.objectsContainer, filteredObj, (s, item) => {
       const { o, dx, dy } = item;
@@ -1433,14 +1459,12 @@ class MapScene extends Phaser.Scene {
         s.setFrame(Phaser.Math.Clamp(o.variant || 2, 0, 4));
         s.setOrigin(0.5, 0.95).setScale(0.85).setPosition(Math.round(sx), Math.round(sy));
       } else if (o.kind === 'chest') {
+        // Only unopened chests reach this branch — opened ones are filtered out
+        // above (filteredObj) until they refill.
         if (s.texture.key !== 'chest') s.setTexture('chest');
-        const opened = this.save.opened.includes(o.id);
-        // chest.png frames 0/1 are nearly identical, so make 'opened' obvious
-        // with a strong dark tint + reduced alpha.
-        s.setFrame(opened ? 1 : 0);
+        s.setFrame(0);
         s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
-        s.setAlpha(opened ? 0.45 : 1);
-        s.setTint(opened ? 0x404040 : 0xffffff);
+        s.setAlpha(1).setTint(0xffffff);
       } else if (o.kind === 'flora') {
         const key = `flora_${o.deco}_${o.variant ?? 0}`;
         if (this.textures.exists(key)) {
@@ -1453,28 +1477,34 @@ class MapScene extends Phaser.Scene {
       }
     });
 
-    // POI concrete pads — a 3×3 (96×96 px) rounded slab centered under each
-    // chest with the category's statue embossed on each cell at 20% alpha.
-    // lowtier POIs (bus stops, intersections, etc.) skip the pad entirely.
+    // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.
+    // The chest sits in the shape's designated cell; the pad image is anchored
+    // so that cell's centre lines up with the chest's ground point.
+    // lowtier POIs (bus stops/intersections/fuel/etc.) skip the pad entirely.
+    // Pads persist even when the chest is opened — only the chest itself disappears.
     const padList = [];
-    for (const item of filteredObj) {
+    for (const item of objList) {
       const { o, dx, dy } = item;
       if (o.kind !== 'chest') continue;
-      const key = padKeyForPoi(o.poiClass);
-      if (!key) continue;
-      padList.push({ o, dx, dy, key });
+      const shapeKey = padShapeKeyForPoi(o.poiClass);
+      if (!shapeKey) continue;
+      const shape = PAD_SHAPES[shapeKey];
+      if (!shape) continue;
+      padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
     }
     this.renderPool(this.decorPool, this.padContainer, padList, (s, item) => {
-      const { o, dx, dy, key } = item;
+      const { o, dx, dy, texKey, shape } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
-      if (s.texture.key !== key) s.setTexture(key);
-      // Pad anchors at the chest's GROUND point (sx, sy) — chest origin is
-      // (0.5, 0.9) so the pad should center on (sx, sy - small offset). Use
-      // origin (0.5, 0.5) and offset y up by half-cell so 3×3 wraps the chest.
-      s.setOrigin(0.5, 0.5).setScale(1).setPosition(Math.round(sx), Math.round(sy - CELL_PX * 0.5));
-      const opened = this.save.opened.includes(o.id);
-      s.setAlpha(opened ? 0.55 : 0.92);
+      if (s.texture.key !== texKey) s.setTexture(texKey);
+      // Origin = the chest cell's centre within the pad image, so that the
+      // pad's chest cell sits exactly at the chest's ground point (sx, sy).
+      const [cc, cr] = shape.chest;
+      s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
+       .setScale(1)
+       .setPosition(Math.round(sx), Math.round(sy));
+      // Pads only render for unopened chests (filtered above).
+      s.setAlpha(0.92);
       s.setTint(0xffffff);
     });
 
@@ -1484,7 +1514,8 @@ class MapScene extends Phaser.Scene {
     // padding so they read as secondary descriptors.
     const LABEL_BG    = 'rgba(70,70,70,0.85)';
     const LABEL_INK   = '#ffffff';
-    const chestLabels = filteredObj.filter(({ o }) =>
+    // Labels persist even on opened chests so the player can still read what the place is.
+    const chestLabels = objList.filter(({ o }) =>
       o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
     let li = 0;
     for (const item of chestLabels) {
@@ -1515,32 +1546,39 @@ class MapScene extends Phaser.Scene {
       tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
       tx.setColor(LABEL_INK);
       tx.setBackgroundColor(LABEL_BG);
-      tx.setAlpha(this.save.opened.includes(o.id) ? 0.45 : 1);
+      tx.setAlpha(openedSet.has(o.id) ? 0.55 : 1);
       li++;
     }
     for (; li < this.chestLabelPool.length; li++) this.chestLabelPool[li].setVisible(false);
 
-    // Chest tier indicators: small colored diamond above each visible chest.
-    // Drawn via cellGfx (shares the viewport mask so it clips correctly).
+    // Chest tier indicators: chunky bordered diamond above each unopened chest.
+    // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
+    // labels, and pads — never gets occluded.
     const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest');
-    const g = this.cellGfx;
+    const g = this.tierGfx;
+    g.clear();
     for (const item of chestObjs) {
       const { o, dx, dy } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       const tier = chestTier(o.poiClass);
       const color = CHEST_TIER_COLOR[tier] || 0xc0c0c0;
-      const opened = this.save.opened.includes(o.id);
-      const alpha = opened ? 0.35 : 1;
-      // Diamond above the chest (between sprite and label), rotated square ~5px half-extent.
-      const cx = Math.round(sx);
-      const cy = Math.round(sy - 26);
-      const r = 5;
-      g.lineStyle(1, 0x000000, alpha * 0.8);
-      g.fillStyle(color, alpha);
+      const cx = Math.round(sx - 1);
+      const cy = Math.round(sy - 18);
+      const r = 6;     // 20% smaller (was 8)
+      // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
+      g.fillStyle(0x000000, 0.55);
+      g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
+      g.fillStyle(0x000000, 0.55);
+      g.fillTriangle(cx, cy - (r + 2), cx - (r + 2), cy, cx, cy + (r + 2));
+      // 2) Filled coloured diamond — re-set fillStyle before each fillTriangle to
+      // dodge a Phaser quirk where the state can be reset between calls.
+      g.fillStyle(color, 1);
       g.fillTriangle(cx, cy - r, cx + r, cy, cx, cy + r);
+      g.fillStyle(color, 1);
       g.fillTriangle(cx, cy - r, cx - r, cy, cx, cy + r);
-      // Outline
+      // 3) Crisp black outline
+      g.lineStyle(2, 0x000000, 1);
       g.beginPath();
       g.moveTo(cx, cy - r); g.lineTo(cx + r, cy);
       g.lineTo(cx, cy + r); g.lineTo(cx - r, cy);
@@ -1706,9 +1744,17 @@ class MapScene extends Phaser.Scene {
     }
 
     // 1b) World objects: chest open, tree chop, house flavor
+    // Use the same cross-tile chest dedupe as render so a "ghost" duplicate at the
+    // border can't claim the tap.
+    const seenTapChestKey = new Set();
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
       for (const o of entry.objects) {
+        if (o.kind === 'chest' && o.name) {
+          const k = `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`;
+          if (seenTapChestKey.has(k)) continue;
+          seenTapChestKey.add(k);
+        }
         const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
         if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
         if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
@@ -1721,12 +1767,12 @@ class MapScene extends Phaser.Scene {
           this.save.opened.push(o.id);
           persistSave(this.save);
           const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
-          const niceName = rusticifyName(o.name);
+          const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
           // Tier-coloured loot pop (rare = magenta, uncommon = cyan, common = gold).
           const tier = SEED_TIER[loot.id] || 1;
           const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
-          const lootLabel = `${CHEST_ICON} → ${lootIcon} ×${loot.n}`;
-          this.flashLoot(niceName ? `${lootLabel}\n${niceName}` : lootLabel, color, 1.25);
+          // Show the ITEM obtained, not the POI label.
+          this.flashLoot(`${lootIcon} ${lootName} ×${loot.n}`, color, 1.25);
           return;
         }
         if (o.kind === 'tree') {
@@ -1971,13 +2017,17 @@ class MapScene extends Phaser.Scene {
   teleportNextPoi() {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
+    // Stable per-chest key that collapses name-duplicates across adjacent MVT tile borders.
+    const chestKey = (o) => o.name
+      ? `${o.name}|${Math.round(o.x / 30)}|${Math.round(o.y / 30)}`
+      : o.id;
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
       for (const entry of WorldGen.tileCache.values()) {
         if (!entry.objects) continue;
         for (const o of entry.objects) {
           if (o.kind !== 'chest' || o.name !== this._poiTpFirst) continue;
-          this._poiTpVisited.add(o.id);
+          this._poiTpVisited.add(chestKey(o));
           this.playerM.x = o.x - this.startWorldM.x;
           this.playerM.y = o.y - this.startWorldM.y + 4;
           this.flash(`→ ${rusticifyName(o.name)} (${o.poiClass})`, this.viewCenterX, this.viewCenterY - 40);
@@ -1985,16 +2035,20 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // Otherwise: find the nearest unvisited decorated chest.
-    let best = null, bestD = Infinity;
+    // Find the nearest unvisited decorated chest, deduped by key.
+    let best = null, bestD = Infinity, bestKey = null;
+    const seenKey = new Set();
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
       for (const o of entry.objects) {
         if (o.kind !== 'chest' || !o.poiClass) continue;
-        if (!padKeyForPoi(o.poiClass)) continue;
-        if (this._poiTpVisited.has(o.id)) continue;
+        if (!padShapeKeyForPoi(o.poiClass)) continue;
+        const k = chestKey(o);
+        if (seenKey.has(k)) continue;
+        seenKey.add(k);
+        if (this._poiTpVisited.has(k)) continue;
         const d = Math.hypot(o.x - px, o.y - py);
-        if (d < bestD) { bestD = d; best = o; }
+        if (d < bestD) { bestD = d; best = o; bestKey = k; }
       }
     }
     if (!best) {
@@ -2003,7 +2057,7 @@ class MapScene extends Phaser.Scene {
       this.flash('cycle reset — press space again', this.viewCenterX, this.viewCenterY - 40);
       return;
     }
-    this._poiTpVisited.add(best.id);
+    this._poiTpVisited.add(bestKey);
     this.playerM.x = best.x - this.startWorldM.x;
     this.playerM.y = best.y - this.startWorldM.y + 4;
     const label = best.name ? rusticifyName(best.name) : best.poiClass;
@@ -2040,34 +2094,61 @@ class MapScene extends Phaser.Scene {
   }
 
   updateHUD() {
+    // Money badge always shown.
+    if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
+    // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
+    // exception case (desktop/wasd, denied permission, still acquiring).
+    const gpsLive = this.gpsAvailable && this.gpsM;
+    if (gpsLive) {
+      this.hud.textContent = '';
+      return;
+    }
+    const gps = this.gpsAvailable ? 'waiting' : 'wasd';
     const pc = this.playerToWorldCell();
     const lat = START_LAT + (-this.playerM.y) / 111320;
     const lon = START_LON + this.playerM.x / (111320 * Math.cos(START_LAT * Math.PI / 180));
     const loaded = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-    const gps = this.gpsAvailable ? (this.gpsM ? 'live' : 'waiting') : 'wasd';
     this.hud.textContent =
       `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
-    if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
   }
 
   shopInteract(sx, sy) {
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
-      // SELL one of the selected stack — unchanged, no confirmation.
+      // SELL one of the selected stack — confirm first so an accidental
+      // house tap can't silently dump a high-value item.
       const price = PRICES[sel.id] ?? 1;
       const item = ITEM_BY_ID[sel.id];
-      sel.count = (sel.count ?? 1) - 1;
-      this.save.money = (this.save.money ?? 0) + price;
-      if (sel.count <= 0) {
-        this.save.inv.splice(this.save.selSlot, 1);
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
-      }
-      persistSave(this.save);
-      this.buildInventoryDOM();
-      this.flash(`sold ${item?.icon || ''} +$${price}`, sx, sy);
+      const slotIdx = this.save.selSlot;
+      this.showOfferModal({
+        title: 'Sell to the shopkeep?',
+        get: `+$${price}`,
+        cost: `1× ${item?.icon || ''} ${item?.name || sel.id}`,
+        canAfford: true,
+        acceptLabel: 'Sell',
+        onAccept: () => {
+          // Re-resolve the stack: the selected slot might have shifted since
+          // we opened the modal (e.g. another tap).
+          const cur = this.save.inv[slotIdx];
+          if (!cur || cur.id !== sel.id || (cur.count ?? 0) <= 0) {
+            this.flash('gone', sx, sy);
+            return;
+          }
+          cur.count -= 1;
+          this.save.money = (this.save.money ?? 0) + price;
+          if (cur.count <= 0) {
+            this.save.inv.splice(slotIdx, 1);
+            if (this.save.selSlot >= this.save.inv.length) {
+              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+            }
+          }
+          persistSave(this.save);
+          this.buildInventoryDOM();
+          if (this.updateMoneyDOM) this.updateMoneyDOM();
+          this.flashLoot(`🪙 +$${price} ${item?.icon || ''}`, '#ffe066');
+        },
+      });
       return;
     }
     // BUY — empty slot: generate an offer and present a confirmation modal.
@@ -2145,7 +2226,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
-  showOfferModal({ title, get, cost, canAfford, onAccept }) {
+  showOfferModal({ title, get, cost, canAfford, onAccept, acceptLabel = 'Buy' }) {
     // Remove any existing modal first (only one at a time).
     document.getElementById('offer-modal')?.remove();
     const wrap = document.createElement('div');
@@ -2175,7 +2256,7 @@ class MapScene extends Phaser.Scene {
       if (primary && !canAfford) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
       return b;
     };
-    const yes = mkBtn('Buy', true);
+    const yes = mkBtn(acceptLabel, true);
     const no = mkBtn('Cancel', false);
     yes.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
     no.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
