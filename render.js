@@ -369,15 +369,11 @@ Render.drawCells = function drawCells(scene) {
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
       // Vertical bars start below the top bar so corners are never double-painted
       // (double 50% alpha at the same pixel makes corners darker / look rounded).
-      const BH = 4, BV = 2;
-      const hasTop   = !isB(T(col, row - 1));
-      const hasLeft  = !isB(T(col - 1, row));
-      const hasRight = !isB(T(col + 1, row));
-      const vOff = hasTop ? BH : 0;
+      const B = 1;  // top / left / right border: 1 px
       g.fillStyle(0x000000, 0.5);
-      if (hasTop)   g.fillRect(sx,                sy,        CELL_PX, BH);
-      if (hasLeft)  g.fillRect(sx,                sy + vOff, BV, CELL_PX - vOff);
-      if (hasRight) g.fillRect(sx + CELL_PX - BV, sy + vOff, BV, CELL_PX - vOff);
+      if (!isB(T(col, row - 1))) g.fillRect(sx,               sy, CELL_PX, B);
+      if (!isB(T(col - 1, row))) g.fillRect(sx,               sy, B, CELL_PX);
+      if (!isB(T(col + 1, row))) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
     }
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
