@@ -311,21 +311,6 @@
   // that shares the same polygon key. (Was `0xdeadbeef`.)
   const NUT_RNG_SALT = 0xdeadbeef;
 
-  // Each tillable-biome polygon picks a favored crop (stable per polygon). A small
-  // wooden plaque sprite sits at the centroid showing that crop. Planting the
-  // matching crop within the polygon (≈ within plaque radius) yields a bonus.
-  // Pools intentionally biased: farmland favors root/grain; grass favors berries;
-  // park favors leafy/floral.
-  const AFFINITY_CROPS = {
-    [T.FARMLAND]:   ['potato', 'nut', 'coffee'],
-    [T.GRASS]:      ['rainberry', 'pairy', 'sunflower'],
-    [T.PARK]:       ['potato', 'shrub', 'rainberry'],
-    [T.GOLF]:       ['rainberry', 'pairy', 'sunflower'],
-    [T.PITCH]:      ['rainberry', 'pairy'],
-    [T.PLAYGROUND]: ['sunflower', 'pairy'],
-    [T.ORCHARD]:    ['nut', 'pairy', 'rainberry'],
-  };
-
   // Per-biome decorative items (purely visual, non-interactable). Stored as
   // { kind: 'flora', x, y, deco: '<kind>', variant: 0..N } and rendered by app.js
   // using procedurally-generated 16x16 textures.
@@ -448,7 +433,7 @@
           } else {
             if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
 
-            // Per-polygon debris/decor/plaque all share one centroid-derived key
+            // Per-polygon debris/decor share one centroid-derived key
             // so a given polygon looks the same across reloads.
             const c0 = ringCentroid(f.geom[0]);
             const polyKey = ((Math.round(c0.x) * 73856093) ^ (Math.round(c0.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
@@ -456,7 +441,20 @@
             // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
             const debrisCrop = DEBRIS_CROP[t];
             if (debrisCrop) {
-              spawnDebris(f.geom, debrisCrop, polyKey);
+              // Long grass is a special harvestable: only ~25% of grass polygons grow it
+              // (and at a much lower density when they do). Other debris always spawns.
+              let skip = false;
+              if (debrisCrop === 'longgrass') {
+                // Stable per-polygon coin flip from the polyKey hash.
+                if ((((polyKey ^ 0x9e3779b1) >>> 0) % 1000) / 1000 >= 0.25) skip = true;
+              }
+              if (!skip) {
+                if (debrisCrop === 'longgrass') {
+                  spawnDebris(f.geom, debrisCrop, polyKey, 0.04, 0.18);
+                } else {
+                  spawnDebris(f.geom, debrisCrop, polyKey);
+                }
+              }
               // Extra rare nut sprinkle on forest polygons. XOR with a fixed salt so the
               // nut and shrub debris share the same polygon key but use independent RNG streams.
               if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ NUT_RNG_SALT, 0.005, 0.03);
@@ -465,24 +463,6 @@
             // Per-polygon FLORA (purely decorative drops: flowers / pebbles / mushrooms).
             const florax = FLORA_BY_TYPE[t];
             if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.density);
-
-            // Per-polygon CROP AFFINITY plaque (only on big enough tillable areas).
-            const affinityPool = AFFINITY_CROPS[t];
-            if (affinityPool) {
-              const polyAreaM2 = Math.abs(ringSignedArea(f.geom[0])) * mvtToM * mvtToM;
-              if (polyAreaM2 >= 200) {
-                const prng = makeRng(polyKey ^ 0xa771ed);
-                const crop = affinityPool[Math.floor(prng() * affinityPool.length)];
-                const m = toMeters(c0.x, c0.y);
-                const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
-                const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
-                // Approximate radius from polygon area, capped — used at plant-time
-                // to test whether a tilled cell falls "inside" this plaque's polygon.
-                const radius = Math.min(60, Math.sqrt(polyAreaM2 / Math.PI));
-                objects.push({ kind: 'plaque', x: cx, y: cy, crop, radius,
-                  id: `pl_${Math.round(cx)}_${Math.round(cy)}` });
-              }
-            }
 
             // Scattered Maple Trees on wood/forest landcover.
             if (name === 'landcover') {

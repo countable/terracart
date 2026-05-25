@@ -60,591 +60,31 @@ const COLORS = {
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 
-// Terrain classes that get no sprite from TileMap — we overlay a procedural
-// biome-suited texture so they don't read as flat color slabs. (Road is excluded
-// since cobblestones already break up its surface.) Keys: 'biome${type}_${v}'.
-const BIOME_TEX = {
-  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
-  1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
-  2:  { variants: 2, draw: drawSandTex },         // sand: fine grain
-  3:  { variants: 2, draw: drawWaterTex },        // water: ripples
-  4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
-  5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
-  6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
-  8:  { variants: 2, draw: drawPathTex },         // path: pebble grain (sparse cobble sprite layered on top)
-  9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
-  10: { variants: 2, draw: drawRockTex },         // rock: cracks
-  // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
-  15: { variants: 2, draw: drawGrassTex },        // SCHOOL — mown schoolyard
-  18: { variants: 2, draw: drawGrassTex },        // PLAYGROUND — grass + mulch underfoot
-  19: { variants: 2, draw: drawGrassTex },        // PITCH — sports turf
-  21: { variants: 2, draw: drawGrassTex },        // GOLF — fairway/rough
-};
 
-// Tilled soil is per-cell state (not a terrain class). Painted as a yellow-brown
-// base color with a procedural furrow texture, replacing the previous SAND sprite.
-const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
-const TILLED_VARIANTS = 2;
-
-// Tiny deterministic RNG factory so each texture variant looks stable across reloads.
-function seededRand(seed) {
-  let s = (seed >>> 0) || 1;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
-}
-
-function drawGrassTex(ctx, size, rng) {
-  // Visible grass blades — tall(ish) curving strokes in mixed greens on transparent bg.
-  ctx.clearRect(0, 0, size, size);
-  ctx.lineWidth = 1;
-  // Layer 1: low scatter of dark roots (2-3px columns) for grounding.
-  for (let i = 0; i < 10; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * (size - 3));
-    ctx.fillStyle = 'rgba(15,45,15,0.55)';
-    ctx.fillRect(x, y + 2, 1, 2);
-  }
-  // Layer 2: actual blade strokes — 3-5px tall, slight horizontal jitter to feel curved.
-  const bladeCount = 18 + Math.floor(rng() * 6);
-  for (let i = 0; i < bladeCount; i++) {
-    const baseX = Math.floor(rng() * size);
-    const baseY = Math.floor(rng() * (size - 2)) + 2;
-    const height = 3 + Math.floor(rng() * 3);              // 3..5 px tall
-    const lean = rng() < 0.5 ? -1 : 1;                       // ±1 px lean at the tip
-    const dark = rng() < 0.5;
-    const color = dark
-      ? 'rgba(25,70,25,0.75)'   // darker green
-      : 'rgba(140,210,90,0.65)'; // lighter green
-    ctx.fillStyle = color;
-    for (let dy = 0; dy < height; dy++) {
-      const y = baseY - dy;
-      if (y < 0) break;
-      // Tip leans gradually.
-      const xoff = Math.round((dy / height) * lean);
-      const px = (baseX + xoff + size) % size;
-      ctx.fillRect(px, y, 1, 1);
-    }
-  }
-  // Layer 3: a few bright tip highlights.
-  for (let i = 0; i < 4; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = 'rgba(220,250,180,0.6)';
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-function drawForestTex(ctx, size, rng) {
-  // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
-  ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 14; i++) {
-    const x = rng() * size;
-    const y = rng() * size;
-    const r = 1.5 + rng() * 1.5;
-    ctx.fillStyle = 'rgba(0,30,0,0.35)';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  }
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = 'rgba(160,210,130,0.25)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
-}
-
-function drawSandTex(ctx, size, rng) {
-  // Very fine grain — many low-alpha dots, mostly warm.
-  ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 36; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.6
-      ? 'rgba(120,90,40,0.18)'
-      : 'rgba(255,240,200,0.18)';
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-function drawFarmlandTex(ctx, size, rng) {
-  // Tidy parallel furrow rows — horizontal alternating shade bands.
-  ctx.clearRect(0, 0, size, size);
-  const rowH = 4;
-  for (let y = 0; y < size; y += rowH) {
-    ctx.fillStyle = 'rgba(60,35,10,0.22)';
-    ctx.fillRect(0, y, size, 1);
-    ctx.fillStyle = 'rgba(255,230,180,0.10)';
-    ctx.fillRect(0, y + 1, size, 1);
-  }
-  for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
-}
-
-function drawParkTex(ctx, size, rng) {
-  // Park = grass + occasional tiny flower.
-  drawGrassTex(ctx, size, rng);
-  for (let i = 0; i < 3; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    const colors = ['rgba(255,180,200,0.7)', 'rgba(255,240,120,0.7)', 'rgba(220,180,255,0.7)'];
-    ctx.fillStyle = colors[Math.floor(rng() * colors.length)];
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-function drawTilledTex(ctx, size, rng) {
-  // Yellow-brown ploughed soil — clear horizontal furrows + grain.
-  ctx.clearRect(0, 0, size, size);
-  // Wider row spacing reads as distinct furrows instead of dense stripes.
-  const rowH = 8;
-  for (let y = 2; y < size; y += rowH) {
-    // furrow shadow (single sharp dark line)
-    ctx.fillStyle = 'rgba(60,35,10,0.55)';
-    ctx.fillRect(0, y, size, 1);
-    // soft highlight a couple pixels below — gap between shadow + highlight
-    // makes each furrow read as its own ridge instead of a fat 2px stripe.
-    ctx.fillStyle = 'rgba(255,225,160,0.16)';
-    ctx.fillRect(0, y + 3, size, 1);
-  }
-  // sparse clods so the texture isn't too noisy between furrows
-  for (let i = 0; i < 8; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5
-      ? 'rgba(70,45,15,0.35)'
-      : 'rgba(255,220,150,0.22)';
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-function drawWaterTex(ctx, size, rng) {
-  // Faint horizontal ripple highlights on transparent bg.
-  ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 1;
-  const rows = 4;
-  for (let r = 0; r < rows; r++) {
-    const baseY = (r + 0.5) * (size / rows) + (rng() - 0.5) * 2;
-    const amp = 0.8 + rng() * 0.6;
-    const phase = rng() * Math.PI * 2;
-    ctx.beginPath();
-    for (let x = 0; x <= size; x++) {
-      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * amp;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  // a few darker dots for depth
-  ctx.fillStyle = 'rgba(0,0,40,0.18)';
-  for (let i = 0; i < 6; i++) {
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
-}
-
-function drawResidentialTex(ctx, size, rng) {
-  // Concrete — subtle, infrequent aggregate flecks on transparent bg.
-  ctx.clearRect(0, 0, size, size);
-  // Sparse fine grain across the whole cell.
-  for (let i = 0; i < 14; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5
-      ? 'rgba(0,0,0,0.18)'
-      : 'rgba(255,255,255,0.10)';
-    ctx.fillRect(x, y, 1, 1);
-  }
-  // A couple of tiny embedded stones (2px chips).
-  for (let i = 0; i < 3; i++) {
-    const x = 2 + Math.floor(rng() * (size - 4));
-    const y = 2 + Math.floor(rng() * (size - 4));
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(x, y, 2, 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-function drawPathTex(ctx, size, rng) {
-  // Scattered pebbles — small darker and lighter dots.
-  ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 18; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    const dark = rng() < 0.6;
-    ctx.fillStyle = dark ? 'rgba(40,25,10,0.4)' : 'rgba(255,240,210,0.25)';
-    const w = rng() < 0.3 ? 2 : 1;
-    ctx.fillRect(x, y, w, w);
-  }
-}
-
-function drawBuildingTex(ctx, size, rng) {
-  // Small rounded cobbles packed across the cell.
-  ctx.clearRect(0, 0, size, size);
-  // Rough staggered grid of cobble centers with jitter so they read as packed stones.
-  const step = 6;
-  for (let row = 0; row * step < size + step; row++) {
-    const offset = (row % 2) * (step / 2);
-    for (let col = 0; col * step < size + step; col++) {
-      const cx = col * step + offset + (rng() - 0.5) * 1.5;
-      const cy = row * step + step / 2 + (rng() - 0.5) * 1.5;
-      const r = 2 + rng() * 0.6;
-      // dark outline
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      // light highlight on upper-left
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath(); ctx.arc(cx - 0.6, cy - 0.6, r - 1.2, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-}
-
-function drawRockTex(ctx, size, rng) {
-  // A few jagged dark cracks plus a couple highlights.
-  ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = 1;
-  const cracks = 2 + Math.floor(rng() * 2);
-  for (let c = 0; c < cracks; c++) {
-    let x = rng() * size;
-    let y = rng() * size;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    const segs = 3 + Math.floor(rng() * 3);
-    for (let i = 0; i < segs; i++) {
-      x += (rng() - 0.5) * (size / 2);
-      y += (rng() - 0.5) * (size / 2);
-      ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
-  }
-}
-
-// Procedurally drawn long-grass sprite (16x16, transparent background).
-// A small tuft of vertical blades — varies in colour and curl per blade.
-function drawLongGrassTex(ctx, size, rng) {
-  ctx.clearRect(0, 0, size, size);
-  const cy = size - 1;
-  const blades = 6 + Math.floor(rng() * 3);
-  for (let i = 0; i < blades; i++) {
-    const baseX = 2 + Math.floor(rng() * (size - 4));
-    const h = 6 + Math.floor(rng() * 6);     // 6..11 px tall
-    const lean = (rng() - 0.5) * 3;          // tip horizontal offset
-    const shade = 90 + Math.floor(rng() * 60);
-    ctx.strokeStyle = `rgb(${Math.floor(shade * 0.4)},${shade + 30},${Math.floor(shade * 0.45)})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(baseX + 0.5, cy + 0.5);
-    ctx.quadraticCurveTo(baseX + lean * 0.5, cy - h * 0.5, baseX + lean, cy - h);
-    ctx.stroke();
-  }
-  // A couple of seed-tips for character.
-  ctx.fillStyle = '#d8c873';
-  for (let i = 0; i < 2; i++) {
-    const x = 3 + Math.floor(rng() * (size - 6));
-    const y = 2 + Math.floor(rng() * 4);
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
-
-// === POI decoration "statues" ===
-// Greyscale stone sculptures placed next to / behind chests to give each POI
-// category visual personality. All 16x16, transparent background.
-// Palette: HI #c8c8c8 / MID #9a9a9a / DARK #6a6a6a / SHADOW #3a3a3a.
-const STONE_HI = '#c8c8c8', STONE_MID = '#9a9a9a', STONE_DK = '#6a6a6a', STONE_SH = '#3a3a3a';
-const STONE_BASE = '#5a5a5a';
-
-// Tiny rounded plinth at the bottom of most statues so they read as sculptures.
-function drawPlinth(ctx, y = 14) {
-  ctx.fillStyle = STONE_SH; ctx.fillRect(3, y + 1, 10, 1);
-  ctx.fillStyle = STONE_DK; ctx.fillRect(3, y, 10, 1);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(4, y - 1, 8, 1);
-}
-
-function drawSignpostStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // post
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 10);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 10);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 4, 1, 2);
-  // top plank, points right
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 8, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 8, 1);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 5, 1, 1);
-  // lower plank, points left
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 9, 8, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 9, 8, 1);
-  drawPlinth(ctx);
-}
-
-function drawChapelStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // walls
-  ctx.fillStyle = STONE_MID; ctx.fillRect(4, 8, 8, 6);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 6);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(11, 8, 1, 6);
-  // door
-  ctx.fillStyle = STONE_SH;  ctx.fillRect(7, 11, 2, 3);
-  // pitched roof
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(3, 7, 10, 1);
-  ctx.fillRect(4, 6, 8, 1);
-  ctx.fillRect(5, 5, 6, 1);
-  ctx.fillRect(6, 4, 4, 1);
-  ctx.fillRect(7, 3, 2, 1);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(4, 6, 8, 1);
-  ctx.fillRect(5, 5, 4, 1);
-  // cross
-  ctx.fillStyle = STONE_HI; ctx.fillRect(7, 0, 2, 3); ctx.fillRect(6, 1, 4, 1);
-  drawPlinth(ctx);
-}
-
-function drawBookStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // lectern column
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 10, 2, 4);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 10, 1, 4);
-  // open book (two leaves)
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 6, 6, 4); ctx.fillRect(8, 6, 6, 4);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 6, 1); ctx.fillRect(8, 6, 6, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 6, 2, 4);  // spine
-  // page lines
-  ctx.fillStyle = STONE_SH;
-  ctx.fillRect(3, 7, 4, 1); ctx.fillRect(3, 9, 3, 1);
-  ctx.fillRect(9, 7, 4, 1); ctx.fillRect(9, 9, 3, 1);
-  drawPlinth(ctx);
-}
-
-function drawStockpotStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // pot body
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(3, 7, 10, 6);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 10, 1);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(4, 8, 1, 4);
-  // rim
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(2, 6, 12, 1);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 5, 12, 1);
-  // handles
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(1, 8, 1, 2); ctx.fillRect(14, 8, 1, 2);
-  // sculpted "steam" curl
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(7, 3, 1, 1); ctx.fillRect(8, 2, 1, 1); ctx.fillRect(6, 2, 1, 1);
-  drawPlinth(ctx);
-}
-
-// Apothecary potion-bottle statue (replaces mortar/pestle).
-function drawPotionStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // round flask body
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 7, 8, 6);
-  ctx.fillRect(5, 6, 6, 1); ctx.fillRect(5, 13, 6, 1);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(4, 7, 1, 5); ctx.fillRect(5, 6, 5, 1);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(5, 7, 1, 3);
-  // neck
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 4, 2, 3);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 4, 1, 3);
-  // stopper / cork (lighter highlight on top)
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 2, 4, 2);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(6, 3, 4, 1);
-  // little carved "spark" of brew on top
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(7, 0, 2, 1);
-  drawPlinth(ctx);
-}
-
-function drawWheatSheafStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // sheaf stalks
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 9, 1, 5); ctx.fillRect(6, 8, 1, 6); ctx.fillRect(8, 8, 1, 6);
-  ctx.fillRect(10, 9, 1, 5); ctx.fillRect(12, 10, 1, 4);
-  ctx.fillStyle = STONE_MID;
-  ctx.fillRect(6, 8, 1, 1); ctx.fillRect(8, 8, 1, 1);
-  // heads
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(4, 7, 1, 2); ctx.fillRect(6, 6, 1, 2);
-  ctx.fillRect(8, 6, 1, 2); ctx.fillRect(10, 7, 1, 2); ctx.fillRect(12, 8, 1, 2);
-  // bound tie
-  ctx.fillStyle = STONE_SH;  ctx.fillRect(4, 12, 9, 1);
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(4, 11, 9, 1);
-  drawPlinth(ctx);
-}
-
-function drawBouquetStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // stems
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 9, 1, 5); ctx.fillRect(8, 9, 1, 5);
-  // wrap
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 12, 6, 2);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(5, 12, 6, 1);
-  // sculpted flower blobs — all stone
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(4, 6, 2, 2); ctx.fillRect(7, 4, 2, 2);
-  ctx.fillRect(10, 6, 2, 2); ctx.fillRect(6, 7, 2, 2); ctx.fillRect(9, 8, 2, 2);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(4, 6, 1, 1); ctx.fillRect(7, 4, 1, 1);
-  ctx.fillRect(10, 6, 1, 1); ctx.fillRect(6, 7, 1, 1); ctx.fillRect(9, 8, 1, 1);
-  drawPlinth(ctx);
-}
-
-function drawMarketStallStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // awning posts
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 5, 1, 9); ctx.fillRect(13, 5, 1, 9);
-  // awning — striped via two stone shades
-  for (let x = 2; x < 14; x++) {
-    ctx.fillStyle = (x % 2) ? STONE_MID : STONE_HI;
-    ctx.fillRect(x, 3, 1, 2);
-  }
-  // counter
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(2, 10, 12, 2);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(2, 10, 12, 1);
-  // sculpted barrel + fruit
-  ctx.fillStyle = STONE_MID; ctx.fillRect(3, 7, 3, 3);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(3, 7, 1, 3);
-  ctx.fillStyle = STONE_DK;
-  ctx.fillRect(8, 8, 2, 2); ctx.fillRect(11, 8, 2, 2);
-  ctx.fillStyle = STONE_HI;
-  ctx.fillRect(8, 8, 1, 1); ctx.fillRect(11, 8, 1, 1);
-  drawPlinth(ctx);
-}
-
-function drawFlowerTuftStatue(ctx, s) {
-  ctx.clearRect(0, 0, s, s);
-  // a small carved flower-on-stem on a plinth
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(7, 8, 2, 6);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(7, 8, 1, 6);
-  // bloom
-  ctx.fillStyle = STONE_DK;  ctx.fillRect(5, 4, 6, 4);
-  ctx.fillStyle = STONE_MID; ctx.fillRect(5, 4, 6, 1); ctx.fillRect(5, 4, 1, 4);
-  ctx.fillStyle = STONE_HI;  ctx.fillRect(6, 5, 2, 2);
-  drawPlinth(ctx);
-}
-
-// === Procedural decorative flora ===
-// Tiny non-interactable sprites drawn on transparent 16×16 canvases. Variants
-// per kind: flower (4 colors), pebble (3 cluster shapes), mushroom (2 sizes).
-function drawFlora(ctx, kind, variant) {
-  ctx.clearRect(0, 0, 16, 16);
-  if (kind === 'flower') {
-    const palettes = [
-      { petal: '#ff9ec3', center: '#ffe46b' },   // pink
-      { petal: '#fff', center: '#ffd93b' },      // white
-      { petal: '#a5c1ff', center: '#ffd93b' },   // blue
-      { petal: '#ffd57a', center: '#c25400' },   // orange
-    ];
-    const p = palettes[variant % palettes.length];
-    // stem
-    ctx.fillStyle = '#2e5a2e';
-    ctx.fillRect(8, 9, 1, 5);
-    // 4 petals around center
-    ctx.fillStyle = p.petal;
-    ctx.fillRect(7, 5, 3, 2);   // top
-    ctx.fillRect(7, 8, 3, 2);   // bottom
-    ctx.fillRect(5, 6, 2, 3);   // left
-    ctx.fillRect(10, 6, 2, 3);  // right
-    // center
-    ctx.fillStyle = p.center;
-    ctx.fillRect(8, 7, 1, 1);
-  } else if (kind === 'pebble') {
-    // 2-3 stones grouped near the cell center, slightly varied per variant.
-    const sets = [
-      [[7,9,2,2],[10,11,2,1]],
-      [[6,10,3,2],[10,10,1,2],[11,11,1,1]],
-      [[8,11,2,1],[6,12,2,1]],
-    ];
-    const set = sets[variant % sets.length];
-    for (const [x, y, w, h] of set) {
-      ctx.fillStyle = '#000a';
-      ctx.fillRect(x, y + 1, w, 1);   // shadow
-      ctx.fillStyle = '#7d736b';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#bcb5a7';
-      ctx.fillRect(x, y, w, 1);       // highlight
-    }
-  } else if (kind === 'mushroom') {
-    // Red-cap mushroom, 2 sizes.
-    const big = variant === 0;
-    const cx = 8, cy = big ? 9 : 10;
-    // stem
-    ctx.fillStyle = '#f5e8c6';
-    ctx.fillRect(cx, cy, big ? 2 : 1, big ? 3 : 2);
-    // cap
-    ctx.fillStyle = '#b8242c';
-    if (big) {
-      ctx.fillRect(cx - 2, cy - 2, 5, 2);
-      ctx.fillRect(cx - 1, cy - 3, 3, 1);
-    } else {
-      ctx.fillRect(cx - 1, cy - 1, 3, 1);
-      ctx.fillRect(cx, cy - 2, 1, 1);
-    }
-    // white spots
-    ctx.fillStyle = '#fff';
-    if (big) { ctx.fillRect(cx - 1, cy - 2, 1, 1); ctx.fillRect(cx + 1, cy - 1, 1, 1); }
-    else { ctx.fillRect(cx, cy - 1, 1, 1); }
-  }
-}
-function makeFloraTextures(scene) {
-  const SPECS = { flower: 4, pebble: 3, mushroom: 2 };
-  for (const [kind, n] of Object.entries(SPECS)) {
-    for (let v = 0; v < n; v++) {
-      const key = `flora_${kind}_${v}`;
-      if (scene.textures.exists(key)) continue;
-      const tex = scene.textures.createCanvas(key, 16, 16);
-      drawFlora(tex.getContext(), kind, v);
-      tex.refresh();
-    }
-  }
-}
-
-// === Crop-affinity plaque ===
-// One small wooden sign per polygon, baked once per crop type. 24×24 with a
-// 14×14 dark border, lighter wood interior, and the crop's PRODUCE icon
-// (col 7 of Crops.png) drawn at the center.
+// === Crop-affinity plaque (per-crop wooden sign baked once) ===
+// Kept in app.js (not textures.js) because it depends on CROP_ROW + PRODUCE_COL.
 function makePlaqueTextures(scene) {
-  // Wooden yard-sign plaque: a small board on top of a short post planted in the
-  // ground. The crop's produce icon is shrunk and desaturated so it reads as a
-  // label on the board rather than a piece of fruit floating in the world.
   for (const crop of Object.keys(CROP_ROW)) {
     const key = `plaque_${crop}`;
     if (scene.textures.exists(key)) continue;
     const PW = 26, PH = 22;
     const tex = scene.textures.createCanvas(key, PW, PH);
     const ctx = tex.getContext();
-
-    // Board geometry: 22 wide x 12 tall at top. Post: 2 wide x ~5 tall below.
     const BW = 22, BH = 12;
     const BX = (PW - BW) / 2, BY = 2;
     const PX = PW / 2 - 1, PY_TOP = BY + BH, PY_H = 5;
-
     // ground shadow at base of post
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(PX - 3, PY_TOP + PY_H - 1, 8, 2);
-
-    // short post — dark wood with a one-pixel highlight on the left edge
-    ctx.fillStyle = '#3a2410';
-    ctx.fillRect(PX, PY_TOP, 2, PY_H);
-    ctx.fillStyle = '#5a3a1c';
-    ctx.fillRect(PX, PY_TOP, 1, PY_H);
-
-    // board: dark outline → wood body → grain highlight + shadow
-    ctx.fillStyle = '#3a2410';
-    ctx.fillRect(BX, BY, BW, BH);
-    ctx.fillStyle = '#a07043';
-    ctx.fillRect(BX + 1, BY + 1, BW - 2, BH - 2);
-    ctx.fillStyle = '#caa170';
-    ctx.fillRect(BX + 1, BY + 1, BW - 2, 1);
-    ctx.fillStyle = '#6b4824';
-    ctx.fillRect(BX + 1, BY + BH - 2, BW - 2, 1);
-
-    // bake the crop icon — small (10×10) and desaturated so it sits inside the board.
+    // short post
+    ctx.fillStyle = '#3a2410'; ctx.fillRect(PX, PY_TOP, 2, PY_H);
+    ctx.fillStyle = '#5a3a1c'; ctx.fillRect(PX, PY_TOP, 1, PY_H);
+    // board
+    ctx.fillStyle = '#3a2410'; ctx.fillRect(BX, BY, BW, BH);
+    ctx.fillStyle = '#a07043'; ctx.fillRect(BX + 1, BY + 1, BW - 2, BH - 2);
+    ctx.fillStyle = '#caa170'; ctx.fillRect(BX + 1, BY + 1, BW - 2, 1);
+    ctx.fillStyle = '#6b4824'; ctx.fillRect(BX + 1, BY + BH - 2, BW - 2, 1);
+    // bake crop icon — small, desaturated, label-style
     const cropsImg = scene.textures.get('crops')?.getSourceImage();
     if (cropsImg) {
       const row = CROP_ROW[crop];
@@ -656,26 +96,6 @@ function makePlaqueTextures(scene) {
       ctx.drawImage(cropsImg, PRODUCE_COL * 16, row * 16, 16, 16, ix, iy, ICON, ICON);
       ctx.restore();
     }
-    tex.refresh();
-  }
-}
-
-function makeBiomeTextures(scene, size) {
-  for (const [type, spec] of Object.entries(BIOME_TEX)) {
-    for (let v = 0; v < spec.variants; v++) {
-      const key = `biome${type}_${v}`;
-      if (scene.textures.exists(key)) continue;
-      const tex = scene.textures.createCanvas(key, size, size);
-      const ctx = tex.getContext();
-      spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + v + 1));
-      tex.refresh();
-    }
-  }
-  for (let v = 0; v < TILLED_VARIANTS; v++) {
-    const key = `tilled_${v}`;
-    if (scene.textures.exists(key)) continue;
-    const tex = scene.textures.createCanvas(key, size, size);
-    drawTilledTex(tex.getContext(), size, seededRand(7919 + v));
     tex.refresh();
   }
 }
@@ -716,25 +136,6 @@ const RUSTIC_WORDS = {
   pet: 'Beast', pets: 'Beast',
   cleaners: 'Laundress', cleaning: 'Laundress', laundry: 'Laundress',
   salon: 'Barber', hair: 'Barber', spa: 'Bathhouse',
-  fitness: 'Forge', gym: 'Sparring Yard',
-  beauty: 'Cosmetician', cosmetics: 'Cosmetician',
-  jewelry: 'Goldsmith', jewellery: 'Goldsmith', jewellers: 'Goldsmith',
-  sport: 'Sporting', sports: 'Sporting',
-  electronics: 'Tinkerer', hardware: 'Smithy',
-  bank: 'Counting House', credit: 'Counting House',
-  hotel: 'Inn', motel: 'Inn',
-  tattoo: 'Ink-Maker', mobile: 'Crystal', cellular: 'Crystal',
-  // Religious / civic
-  memorial: 'Shrine', graveyard: 'Boneyard', cemetery: 'Boneyard',
-  church: 'Chapel',
-  // Generic descriptors
-  general: 'Common', community: 'Folk', county: 'Shire', city: 'Town',
-  // Parks & parking (whole-word so "Park" and "Parking" stay distinct)
-  park: 'Meadow', parks: 'Meadows',
-  parking: 'Stables', parkade: 'Stables', lot: 'Stableyard',
-  // Streets / bus stops
-  road: 'Lane', rd: 'Lane', street: 'Way', drive: 'Way',
-  boulevard: 'Way', blvd: 'Way', highway: 'Highroad', hwy: 'Highroad',
   exchange: 'Crossroads', access: '',
   recreation: 'Greens', enterprise: 'Guildhouse',
   // Other
@@ -1016,9 +417,6 @@ class MapScene extends Phaser.Scene {
       ctx.putImageData(data, 0, 0);
       this.textures.remove('crops');
       this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
-      // Now that 'crops' has transparent backgrounds, bake plaque textures (which
-      // composite the produce icon onto a wooden sign).
-      makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     if (window.TileMap) {
@@ -1992,16 +1390,6 @@ class MapScene extends Phaser.Scene {
         s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
         s.setAlpha(opened ? 0.45 : 1);
         s.setTint(opened ? 0x404040 : 0xffffff);
-      } else if (o.kind === 'plaque') {
-        const key = `plaque_${o.crop}`;
-        if (this.textures.exists(key)) {
-          if (s.texture.key !== key) s.setTexture(key);
-          // Anchor at the bottom of the post so it reads as planted in the ground.
-          s.setOrigin(0.5, 0.95).setScale(1.6).setPosition(Math.round(sx), Math.round(sy));
-          s.setAlpha(1).setTint(0xffffff);
-        } else {
-          s.setVisible(false);
-        }
       } else if (o.kind === 'flora') {
         const key = `flora_${o.deco}_${o.variant ?? 0}`;
         if (this.textures.exists(key)) {
@@ -2386,15 +1774,12 @@ class MapScene extends Phaser.Scene {
         this.tilledSet.delete(cellKey);
         this.save.tilled = [...this.tilledSet];
         let yieldN = 1 + Math.floor(Math.random() * 3);
-        // Crop-affinity bonus: +1 if this cell was planted inside a matching plaque polygon.
-        if (p.affinity) yieldN += 1;
         this.addToInv(p.crop, yieldN);
         const gotSeed = Math.random() < 0.25;
         if (gotSeed) this.addToInv(`${p.crop}_seed`, 1);
         persistSave(this.save);
         const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-        const aff = p.affinity ? ' ✦' : '';
-        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}${aff}`, '#a7ffb0');
+        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0');
         return;
       }
       if (!p.watered_t) {
@@ -2422,30 +1807,24 @@ class MapScene extends Phaser.Scene {
       return;
     }
 
-    // 2c) Tap tilled empty cell with a seed selected → plant.
+    // 2c) Tap tilled empty cell:
+    //   - with a seed selected → plant
+    //   - with nothing / non-seed selected → un-till (revert to underlying terrain)
     if (this.tilledSet.has(cellKey)) {
       const sel = this.save.inv[this.save.selSlot];
       const item = sel ? ITEM_BY_ID[sel.id] : null;
       if (!item || item.kind !== 'seed') {
-        this.flash('select a seed', sx, sy);
+        this.tilledSet.delete(cellKey);
+        this.save.tilled = [...this.tilledSet];
+        persistSave(this.save);
+        this.flash('un-tilled', sx, sy);
         return;
       }
       if ((sel.count ?? 0) <= 0) {
         this.flash('out of seeds', sx, sy);
         return;
       }
-      // Crop-affinity bonus: if a plaque within its radius has the same crop, mark
-      // the planted entry so harvest can apply a +1 yield bonus.
-      let affinity = false;
-      for (const e of WorldGen.tileCache.values()) {
-        if (!e.objects) continue;
-        for (const o of e.objects) {
-          if (o.kind !== 'plaque' || o.crop !== item.grows) continue;
-          if (Math.hypot(o.x - cwmx, o.y - cwmy) <= (o.radius ?? 30)) { affinity = true; break; }
-        }
-        if (affinity) break;
-      }
-      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0, affinity });
+      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
       sel.count -= 1;
       if (sel.count <= 0) {
         this.save.inv.splice(this.save.selSlot, 1);
