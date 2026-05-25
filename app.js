@@ -1513,7 +1513,9 @@ class MapScene extends Phaser.Scene {
         iconUrl = "Objects/Spring Crops.png";
         iconBgSize = "448px 256px";  // 224×128 displayed 2x
         iconRow = ov.row;
-        if (item.kind === 'seed')         iconCol = 0;
+        // Inventory seedbag = col 7 (closed brown bag w/ crop label). Col 0 is
+        // the tiny in-world seed sprite (used for stage 0 in the world, not in UI).
+        if (item.kind === 'seed')         iconCol = 7;
         else if (item.kind === 'produce') iconCol = 8;
       } else if (item && item.kind === 'seed')                            { iconCol = 8; iconRow = 15; }
       else if (item && item.kind === 'produce' && cropRow != null)        { iconCol = PRODUCE_COL; iconRow = cropRow; }
