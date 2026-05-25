@@ -307,16 +307,24 @@ const POI_CATEGORY = {
   // food: drops PRODUCE (harvested crops) instead of seeds
   restaurant: 'food', cafe: 'food', fast_food: 'food', grocery: 'food',
   butcher: 'food', ice_cream: 'food', bakery: 'food',
+  supermarket: 'food', convenience: 'food',
   // commerce: common-weighted seed drops
   alcohol_shop: 'commerce', beer: 'commerce', shop: 'commerce',
+  // florist / garden_centre: rare-weighted FLOWER seeds (uses 'flora' category)
+  florist: 'flora', garden_centre: 'flora',
+  // farm: rare-weighted seed drops, any tier
+  farm: 'farm',
   // civic/educational: rare-weighted seed drops
   school: 'civic', college: 'civic', library: 'civic',
   town_hall: 'civic', place_of_worship: 'civic',
-  attraction: 'civic', museum: 'civic',
+  attraction: 'civic', museum: 'civic', memorial: 'civic',
+  books: 'civic', pet: 'civic',
   // healthcare: mid-weighted seed drops
   pharmacy: 'health', hospital: 'health', dentist: 'health',
   // parks: T2-leaning seed drops
   park: 'park', garden: 'park', playground: 'park', pitch: 'park',
+  // fountain: special — drops nothing useful; treat as common-seed for now
+  fountain: 'park',
 };
 const CATEGORY_LOOT = {
   food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
@@ -324,7 +332,11 @@ const CATEGORY_LOOT = {
   civic:    { drops: 'seed',    weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
   health:   { drops: 'seed',    weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
   park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
+  flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
+  farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
 };
+// Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
+const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
 const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
 
 // Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
@@ -346,10 +358,15 @@ function pickLoot(rng, poiClass) {
   const r = (rng ?? Math.random)();
   let tier = 1, acc = 0;
   for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
-  const seedsInTier = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
-  const seedId = seedsInTier[Math.floor((rng ?? Math.random)() * seedsInTier.length)];
+  let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
+  if (cfg.onlyFlowers) {
+    const flowers = pool.filter(s => FLOWER_SEEDS.has(s));
+    if (flowers.length) pool = flowers;
+  }
+  const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
   const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
-  return { id, n: TIER_YIELD[tier] };
+  const n = TIER_YIELD[tier] + (cfg.bonus || 0);
+  return { id, n };
 }
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
@@ -413,11 +430,32 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST.
-const PRICES = {};
-for (const c of Object.keys(CROP_ROW)) {
-  PRICES[`${c}_seed`] = 5;
-  PRICES[c] = 12;
-}
+// Prices are tuned to how easy each item is to obtain.
+// Produce range: wild-debris commons at $1, rarest T3 flower at $500.
+// Seeds: cheap-to-mid by tier (also paid when buying from the shop).
+// Animals: chicken very common (high yield), cow rare.
+const PRICES = {
+  // ── Seeds ────────────────────────────────────────────────
+  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3, shrub_seed: 2,
+  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12, tree_seed: 15,
+  iceflower_seed: 30, fireflower_seed: 40, sunflower_seed: 50,
+  // ── Produce (sell value) ─────────────────────────────────
+  rockfruit: 1,    // wild debris in every residential tile — the floor
+  shrub: 2,        // wild debris in parks/forests
+  nut: 4,
+  potato: 5,
+  rainberry: 6,
+  pairy: 8,
+  gemfruit: 25,    // T2 + occasional rockfruit bonus
+  coffee: 40,      // T2, no wild source
+  tree: 50,        // T2, no wild source, slow grower
+  iceflower: 150,  // T3 rare
+  fireflower: 300, // T3 rare
+  sunflower: 500,  // rarest — ceiling
+  // ── Animals ──────────────────────────────────────────────
+  chicken: 4,      // 150–250/tile, yields 4 per catch
+  cow: 40,         // ~15–30/tile, yields 1 per catch
+};
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
 
@@ -827,6 +865,15 @@ class MapScene extends Phaser.Scene {
       const id = `cow_start_${tx}_${ty}`;
       if (!this.save.caught.includes(id)) {
         creatures.push({ x: sx + 8, y: sy, kind: 'cow', id });
+      }
+    }
+    // Merge in any creatures the player has released back into the world for this tile.
+    // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
+    if (this.save.released) {
+      for (const r of this.save.released) {
+        if (r.tx !== tx || r.ty !== ty) continue;
+        if (this.save.caught.includes(r.id)) continue;
+        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id });
       }
     }
     entry.creatures = creatures;
@@ -1428,13 +1475,16 @@ class MapScene extends Phaser.Scene {
     // so the reachable area is symmetric around what the user perceives as "the player".
     const pWorldY = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
 
-    // 0) Treasure mark within 4m — give ultralow-tier loot, mark found.
+    // 0) Treasure mark — tap within ~1.5 cells of the X opens it. Generous since
+    // the X straddles the cell containing the treasure, and an exact tap on a
+    // small 12 px sprite is hard on mobile. Player must be within REACH_OBJECT_M.
     {
+      const TREASURE_TAP_M = 7.5;
       const found = new Set(this.save.foundTreasures || []);
       for (const entry of WorldGen.tileCache.values()) {
         const tr = entry.treasure;
         if (!tr || found.has(tr.id)) continue;
-        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= 4) continue;
+        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= TREASURE_TAP_M) continue;
         if (Math.hypot(tr.x - pWorldX, tr.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
         this.save.foundTreasures = [...found, tr.id];
         const t = pickTreasure();
@@ -1529,6 +1579,35 @@ class MapScene extends Phaser.Scene {
       this.flash('too far', sx, sy); return;
     }
     const cellKey = `${cellIX}_${cellIY}`;
+
+    // 2-pre) If an animal is selected in inventory, releasing it places the creature here.
+    // (Works on any cell — animals can walk anywhere, including roads/buildings.)
+    {
+      const sel = this.save.inv[this.save.selSlot];
+      const item = sel ? ITEM_BY_ID[sel.id] : null;
+      if (item && item.kind === 'animal' && (sel.count ?? 0) > 0) {
+        const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random()*1e6)}`;
+        // Figure out which tile this cell falls in.
+        const tx = Math.floor(cwmx / this.tileEdgeM);
+        const ty = Math.floor(cwmy / this.tileEdgeM);
+        this.save.released = this.save.released || [];
+        this.save.released.push({ x: cwmx, y: cwmy, kind: item.id, id, tx, ty });
+        // Live-insert into the loaded tile so it shows immediately.
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        if (entry && entry.creatures) entry.creatures.push({ x: cwmx, y: cwmy, kind: item.id, id });
+        sel.count -= 1;
+        if (sel.count <= 0) {
+          this.save.inv.splice(this.save.selSlot, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flash(`released ${item.icon || ''} ${item.id}`, sx, sy);
+        return;
+      }
+    }
 
     // 2a) Tap on a planted crop → harvest if mature, else advance (if 1h elapsed), else water.
     const plantedIdx = this.save.planted.findIndex(p =>
