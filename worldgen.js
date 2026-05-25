@@ -736,33 +736,69 @@
       nut:       new Set([1]),                  // forest only
       // rockfruit + anything else → GROUND fallback
     };
-    // Cells with a chest already claim the visual space — no shrubs/rockfruit on them.
-    const chestCellKeys = new Set();
-    for (const o of objects) {
-      if (o.kind !== 'chest') continue;
-      const ix = Math.floor(((o.x - tileOriginMx) / mvtToM) * mvtToCell);
-      const iy = Math.floor(((o.y - tileOriginMy) / mvtToM) * mvtToCell);
-      if (ix >= 0 && iy >= 0 && ix < w && iy < h) chestCellKeys.add(`${ix}_${iy}`);
+    // Unified occupancy pass — at most one interactable / decorative object
+    // per cell. Strict priority: chest > house > tree > wildplant > flora.
+    // The first one to claim a cell wins; everything else in that cell is
+    // dropped so we never have shrubs hiding under chests or pads.
+    const occupiedCells = new Set();
+    const cellKeyOfWorld = (x, y) => {
+      const ix = Math.floor(((x - tileOriginMx) / mvtToM) * mvtToCell);
+      const iy = Math.floor(((y - tileOriginMy) / mvtToM) * mvtToCell);
+      if (ix < 0 || iy < 0 || ix >= w || iy >= h) return null;
+      return `${ix}_${iy}`;
+    };
+
+    // 1) High-priority objects first (chest > house > tree). These never get
+    //    displaced — they claim their cells and everything else (wildplants,
+    //    flora) must avoid those cells.
+    const STRUCT_PRIO = { chest: 3, house: 2, tree: 1 };
+    const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
+    structs.sort((a, b) => (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0));
+    const keptStructs = [];
+    for (const o of structs) {
+      const k = cellKeyOfWorld(o.x, o.y);
+      if (k != null && occupiedCells.has(k)) continue;
+      if (k != null) occupiedCells.add(k);
+      keptStructs.push(o);
     }
+
+    // 2) Wildplants — biome-appropriate cells only, never on a structure cell.
     const filtered = [];
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
       const allowed = CROP_ALLOWED[wp.crop] || GROUND;
-      if (allowed.has(t) && !chestCellKeys.has(`${wp._ix}_${wp._iy}`)) {
+      const cellKey = `${wp._ix}_${wp._iy}`;
+      if (allowed.has(t) && !occupiedCells.has(cellKey)) {
+        occupiedCells.add(cellKey);
         delete wp._ix; delete wp._iy;
         filtered.push(wp);
       }
     }
-    // Decorative flora is grass/park flowers — never on residential/commercial/industrial cement.
-    for (let i = objects.length - 1; i >= 0; i--) {
-      const o = objects[i];
-      if (o.kind !== 'flora') continue;
+
+    // 3) Flora — lowest priority. Must sit on grass/park/forest/sand/rock/
+    //    farmland AND on a cell that isn't already claimed.
+    const florae = objects.filter(o => o.kind === 'flora');
+    const keptFlora = [];
+    const FLORA_OK = new Set([2, 4, 10, ...FOREST_PARK_GRASS]);
+    for (const o of florae) {
       const ct = grid[o._iy * w + o._ix];
-      if (!FOREST_PARK_GRASS.has(ct) && !(new Set([2,4,10])).has(ct)) {
-        objects.splice(i, 1); continue;
-      }
+      const cellKey = `${o._ix}_${o._iy}`;
+      if (!FLORA_OK.has(ct)) continue;
+      if (occupiedCells.has(cellKey)) continue;
+      occupiedCells.add(cellKey);
       delete o._ix; delete o._iy;
+      keptFlora.push(o);
     }
+
+    // Rebuild objects = kept structures + kept flora (preserve everything else
+    // like plaques if they sneak in via future code — anything not in our
+    // priority maps just passes through, but currently nothing else exists).
+    const otherKinds = objects.filter(o =>
+      STRUCT_PRIO[o.kind] == null && o.kind !== 'flora');
+    objects.length = 0;
+    for (const o of keptStructs) objects.push(o);
+    for (const o of keptFlora)   objects.push(o);
+    for (const o of otherKinds)  objects.push(o);
     // Road-name letters: walk each transportation_name line at ~1 cell per step and assign the
     // next character of the name to whatever cell we're in. Last writer wins on overlap (good
     // enough; intersections are noisy by nature). Skip whitespace so spaces don't blank cells.
