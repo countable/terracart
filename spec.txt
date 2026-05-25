@@ -12,7 +12,12 @@ CORE
 WORLD GENERATION
  - each MVT tile is rasterized once into a 315x315 grid of 5m cells (one terrain class per cell)
  - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path,
-   building (small house), rock, building_med (shop / mid-rise), building_large (school / civic / industrial)
+   building (small house), rock, building_med (shop / mid-rise), building_large (school / civic / industrial),
+   plus subtype splits — each fits one of three base biomes:
+     ROCKY: residential, commercial (retail/hospital), industrial
+     FOREST: forest, orchard, wetland
+     GRASSLAND: grass, park, school (school/college/university grounds), pitch (sports field), playground, golf, farmland, allotments (lumped into farmland)
+   Each subtype has its own colour so the world reads varied while remaining cohesive.
  - building tier picked from polygon area + render_height: small (<350m² & <10m), med (350+m² or 10+m),
    large (1500+m² or 15+m). All tiers still place a single house sprite at the polygon centroid.
  - flat color is drawn first, then a terrain sprite from Tileset Spring.png is overlaid where a frame is mapped
@@ -31,13 +36,20 @@ CHESTS (POI-driven, drop existing inventory items only)
    Tier mapping: T1 rainberry/pairy/nut/potato/shrub, T2 gemfruit/rockfruit/coffee/tree,
    T3 iceflower/fireflower/sunflower.
    POI categories (weights T1/T2/T3):
-     food (restaurant/cafe/fast_food/grocery/butcher/ice_cream/bakery) → drops PRODUCE, 60/30/10
+     food (restaurant/cafe/fast_food/grocery/butcher/ice_cream/bakery/supermarket/convenience) → drops PRODUCE, 60/30/10
      commerce (alcohol_shop/beer/shop) → seeds, 70/25/5
-     civic (school/college/library/town_hall/place_of_worship/attraction/museum) → seeds, 30/40/30
+     flora (florist/garden_centre) → FLOWER seeds only, 10/30/60
+     farm (farm) → seeds, 40/40/20, with +1 bonus on every roll
+     civic (school/college/library/town_hall/place_of_worship/attraction/museum/memorial/books/pet) → seeds, 30/40/30
      health (pharmacy/hospital/dentist) → seeds, 50/30/20
-     park (park/garden/playground/pitch) → seeds, 40/40/20
+     park (park/garden/playground/pitch/fountain) → seeds, 40/40/20
  - opened chest stays open and dimmed; opened state persists
- - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Elementary School")
+ - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Hedge School")
+   AND rendered as a small text label above the chest sprite (dimmed when opened)
+ - names are RUSTICIFIED at display time via rusticifyName() — whole-word substitutions
+   replace modern words with medieval/farm equivalents (Hospital→Apothecary, School→Hedge School,
+   Coffee→Roastery, Centre→Hall, etc.). Bus-stop "X at Y" becomes "X & Y". Business suffixes
+   (Inc./Ltd./LLC) are stripped. Results cached by original name.
  - density: ~75 chests per tile (one per useful POI)
 
 INVENTORY
@@ -54,18 +66,33 @@ INTERACTION
      1) catch creature within 4m of tap
      2) pick wild plant within 4m of tap
      3) open chest / shop / tree-flavor for world objects within reach
-     4) tap planted cell: harvest if mature; advance stage if watered ≥1h; water if dry
-     5) tap tilled empty cell with a seed selected → plant
-     6) tap untilled tillable cell → till it
-     7) tap non-tillable terrain → flavor name (water / building / etc.)
+     4) RELEASE animal: if an inventory animal (chicken/cow) is selected, tap places it on the cell
+        (works on any cell — animals can stand anywhere). Released creatures persist in save.released.
+     5) tap planted cell: harvest if mature; advance stage if watered ≥1h; water if dry
+     6) tap tilled empty cell with a seed selected → plant
+     7) tap untilled tillable cell → till it
+     8) tap non-tillable terrain → flavor name (water / building / etc.)
+ - tap NEVER stacks actions — each tap performs exactly one branch and bails. The auto-till
+   fallthrough refuses to till any cell occupied by a wildplant / planted crop / placed rock /
+   object (so a near-miss next to a debris doesn't silently till underneath).
  - tap player → treated as a world tap at the player's current cell (interacts with the cell under the player)
- - flash text fades upward over 0.9s
+ - flash text fades upward over 0.9s for routine actions
+ - LOOT POPS: chest opens, treasure-X claims, harvests, debris pickups, and creature catches use a
+   larger pop (bold 22px, pop-in + 1.4s hold + slow fade ≈ 2.1s total). Tier-coloured for chests/X:
+   common = gold, uncommon = cyan, rare = magenta; harvest = green; treasure-bonus = magenta
 
 ECONOMY (TODO — buying & selling)
  - buildings are shops / houses
  - POIs are chests that give a random seed every hour.
  - currency = coins; persisted in save.coins
- - buy stock = each shop sells just one item. tapping once shows it. tap to confirm buy or cancel.
+ - buy stock = each shop sells just one item. tap a house to open an OFFER MODAL:
+     "<item> for <cost>?  [Buy] [Cancel]"
+   Cost is generated:
+     1/3 of the time → 2× the item's PRICE in dollars
+     2/3 of the time → BARTER — trader wants 1× of a random inventory item the player holds whose
+       PRICE is ≥ 150% of the item's value. If no such item is held, falls back to the cash offer.
+   Successful buys use the loud loot-pop (flashLoot) just like a chest/X claim.
+ - selling is unchanged: with a stack selected, tapping a house sells one immediately.
 
 FARMING LOOP
  - all farming actions are tap-driven (tools are implicit). Walking has no effect on cells.
@@ -82,9 +109,27 @@ FARMING LOOP
    In-world stages: col 0 (sprout) → col 4 (harvestable). Inventory icons: col 7 = produce, col 8 = seed.
  - crops (row in Crops.png): rainberry (0), pairy (1), gemfruit (2), nut (3), rockfruit (4),
    coffee (5), potato (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
- - wild plants spawn deterministically per tile in matching biome cells (no tilling needed).
-   Tap within 4m + 18m of player to pick → +1 produce, 25% bonus seed. Picked state persists in save.picked.
-   Biome map: forest→shrub (3-6/tile), park→potato (4-8), grass→sunflower (0-2), sand→fireflower (0-2), rock→iceflower (0-2)
+
+DEBRIS (wild pickups on the map)
+ - per-polygon system: every residential, park, and forest polygon gets a stable density in
+   [5%, 30%] (seeded by polygon centroid) and is sprinkled with debris of one crop:
+     residential → rockfruit
+     park        → shrub
+     forest      → shrub
+ - each debris is centered in its 5m game cell (snapped to the absolute grid, no jitter)
+ - tap a debris within 4m + within 18m of player to pick up (+1 produce — debris drops no bonus seed)
+ - SURPRISE TREASURE: picking a rockfruit has a 10% chance to also drop a gemfruit
+ - picked items persist in save.picked (stable id per-cell)
+
+TREASURE MARKS
+ - 1/200 tiles get a subtle X on the ground (skip water/building cells, seeded per tile)
+ - PARKING POIs: every parking POI also spawns a guaranteed treasure-X at its point
+ - tap within ~7.5m + within 18m of player to claim:
+     85% common tier — 50/50 between $1 and a single common seed
+     10% one uncommon seed
+      5% one rare seed
+ - found state persists in save.foundTreasures
+ - low-tier chest POIs (bus_stop / fuel / lodging / gate) drop seeds at weights 90/8/2 (heavy T1)
 
 HUD (debug)
  - top-left: lat, lon, GPS state (wasd|waiting|live)

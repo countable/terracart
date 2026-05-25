@@ -26,6 +26,16 @@
     BUILDING_LARGE: 12,  // schools / civic / industrial
     ROAD_LG: 13,         // motorway / trunk / primary
     ROAD_MD: 14,         // secondary / tertiary
+    // Subtype splits — each fits into one of three base biomes (rocky/forest/grassland)
+    // but has its own colour so the world reads varied.
+    SCHOOL: 15,          // ROCKY  — school/college grounds
+    COMMERCIAL: 16,      // ROCKY  — retail/commercial/hospital
+    INDUSTRIAL: 17,      // ROCKY  — industrial / utility
+    PLAYGROUND: 18,      // GRASSLAND — playground surfaces
+    PITCH: 19,           // GRASSLAND — sports field (split off PARK)
+    WETLAND: 20,         // GRASSLAND — marshy area
+    GOLF: 21,            // GRASSLAND — golf course
+    ORCHARD: 22,         // FOREST — fruit trees
   };
   // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
   // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
@@ -53,19 +63,32 @@
   function classifyPolygon(layer, tags) {
     if (layer === 'water') return T.WATER;
     if (layer === 'landcover') {
-      const c = tags.class || tags.subclass;
+      const c = tags.class;
+      const sub = tags.subclass;
       if (c === 'wood' || c === 'forest') return T.FOREST;
-      if (c === 'grass' || c === 'meadow') return T.GRASS;
       if (c === 'sand' || c === 'beach') return T.SAND;
       if (c === 'rock' || c === 'scree') return T.ROCK;
-      if (c === 'farmland') return T.FARMLAND;
+      if (c === 'wetland') return T.WETLAND;
+      if (c === 'farmland') return sub === 'orchard' ? T.ORCHARD : T.FARMLAND;
+      if (c === 'grass') {
+        if (sub === 'park' || sub === 'garden') return T.PARK;
+        if (sub === 'golf_course') return T.GOLF;
+        if (sub === 'allotments') return T.FARMLAND;   // community gardens
+        return T.GRASS;
+      }
+      if (c === 'meadow') return T.GRASS;
       return T.GRASS;
     }
     if (layer === 'landuse') {
       const c = tags.class;
-      if (c === 'residential' || c === 'commercial' || c === 'industrial') return T.RESIDENTIAL;
+      if (c === 'residential') return T.RESIDENTIAL;
+      if (c === 'commercial' || c === 'retail' || c === 'hospital') return T.COMMERCIAL;
+      if (c === 'industrial') return T.INDUSTRIAL;
+      if (c === 'school' || c === 'college' || c === 'university') return T.SCHOOL;
       if (c === 'farmland' || c === 'farmyard') return T.FARMLAND;
-      if (c === 'cemetery' || c === 'pitch' || c === 'park' || c === 'garden') return T.PARK;
+      if (c === 'pitch') return T.PITCH;
+      if (c === 'playground') return T.PLAYGROUND;
+      if (c === 'cemetery' || c === 'park' || c === 'garden') return T.PARK;
       return T.RESIDENTIAL;
     }
     if (layer === 'park') return T.PARK;
@@ -94,7 +117,12 @@
   // Precedence: higher wins on conflict
   const PRIO = {
     [T.GRASS]: 0, [T.PARK]: 1, [T.FOREST]: 2, [T.SAND]: 2, [T.ROCK]: 2,
-    [T.FARMLAND]: 3, [T.RESIDENTIAL]: 4, [T.WATER]: 5,
+    [T.GOLF]: 1.5, [T.PITCH]: 1.5, [T.PLAYGROUND]: 1.5,
+    [T.SCHOOL]: 1.5,  // grassland-biome subtype, so it wins over generic grass but loses to residential/farmland
+    [T.ORCHARD]: 2, [T.WETLAND]: 2,
+    [T.FARMLAND]: 3,
+    [T.RESIDENTIAL]: 4, [T.COMMERCIAL]: 4, [T.INDUSTRIAL]: 4,
+    [T.WATER]: 5,
     [T.PATH]: 6, [T.ROAD]: 7, [T.ROAD_MD]: 7.1, [T.ROAD_LG]: 7.2,
     [T.BUILDING]: 8, [T.BUILDING_MED]: 8, [T.BUILDING_LARGE]: 8,
   };
@@ -269,13 +297,54 @@
     return { minX, minY, maxX, maxY };
   }
 
+  // Map terrain type → wild "debris" crop spawned in polygons of that type.
+  // Each polygon gets its own stable density in [DEBRIS_MIN, DEBRIS_MAX].
+  const DEBRIS_CROP = {
+    5:  'rockfruit', // RESIDENTIAL
+    6:  'shrub',     // PARK
+    1:  'shrub',     // FOREST
+    0:  'longgrass', // GRASS (open grassland)
+  };
+  const DEBRIS_MIN = 0.05;
+  const DEBRIS_MAX = 0.30;
+
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
     const mvtToCell = cellsPerEdge / TILE_EXTENT;
     const mvtToM = tileEdgeM / TILE_EXTENT;
     const objects = [];
+    const wildplants = [];
+    const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
     const rng = makeRng(tx * 73856093 ^ ty * 19349663);
+
+    // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
+    // density seed = polygon centroid → stable across reloads.
+    // Each debris snaps to the CENTER of its 5m game cell (no jitter), and is keyed
+    // by the cell's absolute (cellIX, cellIY) so the same cell is always the same id.
+    function spawnDebris(rings, crop, polyKey, dMin = DEBRIS_MIN, dMax = DEBRIS_MAX) {
+      const prng = makeRng(polyKey);
+      const density = dMin + prng() * (dMax - dMin);
+      const bb = bboxOf(rings);
+      const stepMvt = 5 / mvtToM; // one candidate per game-cell-width
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          // Snap to this tile's local cell grid (no absolute-cells drift).
+          const localIX = Math.floor(xx * mvtToCell);
+          const localIY = Math.floor(yy * mvtToCell);
+          if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
+          // Absolute world meters for game positioning — at the local cell center.
+          const cx = tileOriginMx + (localIX + 0.5) * (1 / mvtToCell) * mvtToM;
+          const cy = tileOriginMy + (localIY + 0.5) * (1 / mvtToCell) * mvtToM;
+          if (prng() < density) {
+            // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
+            wildplants.push({ x: cx, y: cy, crop, _ix: localIX, _iy: localIY,
+              id: `wp_${tx}_${ty}_${localIX}_${localIY}` });
+          }
+        }
+      }
+    }
 
     // mvt(x,y) within this tile -> ABSOLUTE world meters (anchor: tile(0,0) NW corner at z14).
     const tileOriginMx = tx * tileEdgeM;
@@ -309,20 +378,34 @@
               const m = toMeters(c.x, c.y);
               objects.push({ kind: 'house', x: m.x, y: m.y, area: areaM2 });
             }
-          } else if (t != null) {
-            paintPolygon(grid, w, h, f.geom, t, mvtToCell);
-          } else if (name === 'landcover') {
-            const cls = f.tags.class || f.tags.subclass;
-            if (cls === 'wood' || cls === 'forest') {
-              const bb = bboxOf(f.geom);
-              const stepMvt = 8 / mvtToM; // ~one candidate per 8m
-              for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                  const jx = xx + (rng() - 0.5) * stepMvt;
-                  const jy = yy + (rng() - 0.5) * stepMvt;
-                  if (pointInRings(f.geom, jx, jy)) {
-                    const m = toMeters(jx, jy);
-                    objects.push({ kind: 'tree', x: m.x, y: m.y, variant: 1 + Math.floor(rng() * 4) });
+          } else {
+            if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+
+            // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
+            // Density is stable per polygon — assigned once from a centroid-hash seed.
+            const debrisCrop = DEBRIS_CROP[t];
+            if (debrisCrop) {
+              const c = ringCentroid(f.geom[0]);
+              const polyKey = ((Math.round(c.x) * 73856093) ^ (Math.round(c.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
+              spawnDebris(f.geom, debrisCrop, polyKey);
+              // Forests also get uncommon wild nuts (in addition to shrubs).
+              if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ 0xdeadbeef, 0.005, 0.03);
+            }
+
+            // Scattered Maple Trees on wood/forest landcover.
+            if (name === 'landcover') {
+              const cls = f.tags.class || f.tags.subclass;
+              if (cls === 'wood' || cls === 'forest') {
+                const bb = bboxOf(f.geom);
+                const stepMvt = 8 / mvtToM; // ~one candidate per 8m
+                for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+                  for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+                    const jx = xx + (rng() - 0.5) * stepMvt;
+                    const jy = yy + (rng() - 0.5) * stepMvt;
+                    if (pointInRings(f.geom, jx, jy)) {
+                      const m = toMeters(jx, jy);
+                      objects.push({ kind: 'tree', x: m.x, y: m.y, variant: 1 + Math.floor(rng() * 4) });
+                    }
                   }
                 }
               }
@@ -335,16 +418,32 @@
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell);
         } else if (f.type === 1 && name === 'poi') {
           // POI points → a generic chest (single sprite, no themed subkinds).
-          // Only spawn for "useful" POI classes (shops, civic, parks, healthcare).
+          // Only spawn for "useful" POI classes.  Parking POIs are diverted to treasure marks instead.
           const cls = f.tags.class || '';
           const USEFUL = new Set([
+            // food / commerce (chest drops PRODUCE for food; SEEDS for commerce)
             'restaurant','cafe','fast_food','grocery','butcher','ice_cream',
             'alcohol_shop','beer','bakery','shop',
-            'attraction','museum','library','town_hall',
+            'supermarket','convenience','farm',
+            // specialty shops — themed loot via shopCategory()
+            'florist','garden_centre','books','pet','fountain',
+            // civic / attractions
+            'attraction','museum','library','town_hall','memorial',
             'pharmacy','hospital','dentist',
             'place_of_worship','school','college',
             'park','garden','playground','pitch',
+            // low-tier street furniture: heavy T1 seed drops
+            'bus','fuel','lodging','gate',
           ]);
+          if (cls === 'parking') {
+            // Parking lots → guaranteed treasure X (no chest).
+            for (const ring of f.geom) {
+              const p = ring[0];
+              const m = toMeters(p.x, p.y);
+              parkingTreasures.push({ x: m.x, y: m.y, id: `t_park_${Math.round(m.x)}_${Math.round(m.y)}` });
+            }
+            continue;
+          }
           if (!USEFUL.has(cls)) continue;
           for (const ring of f.geom) {
             const p = ring[0];
@@ -356,7 +455,20 @@
         }
       }
     }
-    return { grid, objects };
+    // Post-pass: roads/paths/water/buildings are painted AFTER landuse in this loop, so a
+    // residential polygon may have had rockfruit dropped into a cell that later became road.
+    // Drop any debris whose final cell type isn't a spawn-eligible biome.
+    // residential, park, forest, grass, sand, farmland, rock + new subtype splits (15..22 are all ground tiles)
+    const DEBRIS_OK = new Set([5, 6, 1, 0, 2, 4, 10, 15, 16, 17, 18, 19, 20, 21, 22]);
+    const filtered = [];
+    for (const wp of wildplants) {
+      const t = grid[wp._iy * w + wp._ix];
+      if (DEBRIS_OK.has(t)) {
+        delete wp._ix; delete wp._iy;
+        filtered.push(wp);
+      }
+    }
+    return { grid, objects, wildplants: filtered, parkingTreasures };
   }
 
   function tileEdgeMeters(lat) {
@@ -376,9 +488,11 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, objects } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, objects, wildplants, parkingTreasures } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       entry.grid = grid;
       entry.objects = objects;
+      entry.wildplants = wildplants;
+      entry.parkingTreasures = parkingTreasures || [];
       entry.layers = layers;
       entry.status = 'ready';
       entry.fromCache = fromCache;

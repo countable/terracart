@@ -275,6 +275,33 @@ function drawRockTex(ctx, size, rng) {
   }
 }
 
+// Procedurally drawn long-grass sprite (16x16, transparent background).
+// A small tuft of vertical blades — varies in colour and curl per blade.
+function drawLongGrassTex(ctx, size, rng) {
+  ctx.clearRect(0, 0, size, size);
+  const cy = size - 1;
+  const blades = 6 + Math.floor(rng() * 3);
+  for (let i = 0; i < blades; i++) {
+    const baseX = 2 + Math.floor(rng() * (size - 4));
+    const h = 6 + Math.floor(rng() * 6);     // 6..11 px tall
+    const lean = (rng() - 0.5) * 3;          // tip horizontal offset
+    const shade = 90 + Math.floor(rng() * 60);
+    ctx.strokeStyle = `rgb(${Math.floor(shade * 0.4)},${shade + 30},${Math.floor(shade * 0.45)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(baseX + 0.5, cy + 0.5);
+    ctx.quadraticCurveTo(baseX + lean * 0.5, cy - h * 0.5, baseX + lean, cy - h);
+    ctx.stroke();
+  }
+  // A couple of seed-tips for character.
+  ctx.fillStyle = '#d8c873';
+  for (let i = 0; i < 2; i++) {
+    const x = 3 + Math.floor(rng() * (size - 6));
+    const y = 2 + Math.floor(rng() * 4);
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     for (let v = 0; v < spec.variants; v++) {
@@ -297,6 +324,90 @@ function makeBiomeTextures(scene, size) {
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
 const CHEST_ICON = '📦';
+
+// === Rustic name transform ===
+// Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
+// Empty string = strip the word.
+const RUSTIC_WORDS = {
+  // Healthcare
+  hospital: 'Apothecary', pharmacy: 'Apothecary', pharmasave: 'Apothecary',
+  clinic: 'Healer Hut', medical: 'Healer', dental: 'Tooth-Drawer',
+  dentist: 'Tooth-Drawer', doctor: 'Healer', optical: 'Spectacles',
+  optician: 'Spectacle-Maker', vision: 'Spectacles',
+  // Education / civic
+  school: 'Hedge School', elementary: '', secondary: 'Apprentice',
+  college: 'Loremaster', university: 'Loremaster',
+  library: 'Scriptorium', museum: 'Curiosity',
+  // Food & drink
+  bakery: 'Bakehouse', butcher: 'Butchery', butchers: 'Butchery',
+  market: 'Market', supermarket: 'Marketplace',
+  grocer: 'Grocer', grocery: 'Grocer', cafe: 'Tea House',
+  coffee: 'Roastery', starbucks: 'Black Bean',
+  restaurant: 'Tavern', diner: 'Tavern', pizza: 'Hearth',
+  burger: 'Mutton', burgers: 'Mutton', noodle: 'Stew Pot',
+  noodles: 'Stew Pot', bistro: 'Tavern', bar: 'Alehouse',
+  pub: 'Alehouse', wine: 'Vintner', liquor: 'Spirits',
+  brewery: 'Brewhouse', bbq: 'Spit-Roast', steakhouse: 'Spit-Roast',
+  seafood: 'Fishmonger', fish: 'Fishmonger', meats: 'Butchery',
+  produce: 'Grocer', organic: 'Wholesome', natural: 'Wild',
+  // Shops
+  store: 'Shoppe', shop: 'Shoppe', mart: 'Stall',
+  centre: 'Hall', center: 'Hall', plaza: 'Square', mall: 'Bazaar',
+  florist: 'Flowerstall', flowers: 'Blossoms', flower: 'Blossom',
+  books: 'Tomes', bookstore: 'Scrivener',
+  pet: 'Beast', pets: 'Beast',
+  cleaners: 'Laundress', cleaning: 'Laundress', laundry: 'Laundress',
+  salon: 'Barber', hair: 'Barber', spa: 'Bathhouse',
+  fitness: 'Forge', gym: 'Sparring Yard',
+  beauty: 'Cosmetician', cosmetics: 'Cosmetician',
+  jewelry: 'Goldsmith', jewellery: 'Goldsmith', jewellers: 'Goldsmith',
+  sport: 'Sporting', sports: 'Sporting',
+  electronics: 'Tinkerer', hardware: 'Smithy',
+  bank: 'Counting House', credit: 'Counting House',
+  hotel: 'Inn', motel: 'Inn',
+  tattoo: 'Ink-Maker', mobile: 'Crystal', cellular: 'Crystal',
+  // Religious / civic
+  memorial: 'Shrine', graveyard: 'Boneyard', cemetery: 'Boneyard',
+  church: 'Chapel',
+  // Generic descriptors
+  general: 'Common', community: 'Folk', county: 'Shire', city: 'Town',
+  // Parks & parking (whole-word so "Park" and "Parking" stay distinct)
+  park: 'Meadow', parks: 'Meadows',
+  parking: 'Stables', parkade: 'Stables', lot: 'Stableyard',
+  // Streets / bus stops
+  road: 'Lane', rd: 'Lane', street: 'Way', drive: 'Way',
+  boulevard: 'Way', blvd: 'Way', highway: 'Highroad', hwy: 'Highroad',
+  exchange: 'Crossroads', access: '',
+  recreation: 'Greens', enterprise: 'Guildhouse',
+  // Other
+  petro: 'Forge', foods: 'Provisions', food: 'Provisions',
+  scene: 'Sights', service: 'Servants', station: 'Outpost',
+  fast: 'Swift', express: 'Swift',
+};
+const RUSTIC_CACHE = new Map();
+function rusticifyName(name) {
+  if (!name) return name;
+  const cached = RUSTIC_CACHE.get(name);
+  if (cached !== undefined) return cached;
+  let out = name
+    // Strip business suffixes.
+    .replace(/[ ,]+(Inc\.?|Ltd\.?|LLC|Corp\.?|Co\.?)\b/gi, '')
+    // "X at Y" intersections → "X & Y"
+    .replace(/\s+at\s+/gi, ' & ');
+  out = out.replace(/\b([A-Za-z']+)\b/g, (m) => {
+    const lower = m.toLowerCase();
+    if (lower in RUSTIC_WORDS) {
+      const repl = RUSTIC_WORDS[lower];
+      if (repl === '') return '';
+      // Preserve case of original first letter.
+      return m[0] === m[0].toUpperCase() ? repl : repl.toLowerCase();
+    }
+    return m;
+  });
+  out = out.replace(/\s{2,}/g, ' ').trim();
+  RUSTIC_CACHE.set(name, out);
+  return out;
+}
 const SEED_TIER = {
   rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, potato_seed: 1, shrub_seed: 1,
   gemfruit_seed: 2, rockfruit_seed: 2, coffee_seed: 2, tree_seed: 2,
@@ -326,6 +437,8 @@ const POI_CATEGORY = {
   park: 'park', garden: 'park', playground: 'park', pitch: 'park',
   // fountain: special — drops nothing useful; treat as common-seed for now
   fountain: 'park',
+  // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
+  bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
 };
 const CATEGORY_LOOT = {
   food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
@@ -335,6 +448,7 @@ const CATEGORY_LOOT = {
   park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
   flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
   farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
+  lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]] },
 };
 // Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
@@ -366,7 +480,7 @@ function pickLoot(rng, poiClass) {
   }
   const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
   const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
-  const n = TIER_YIELD[tier] + (cfg.bonus || 0);
+  const n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
   return { id, n };
 }
 
@@ -407,6 +521,8 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
+  // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
+  longgrass: { sheet: 'longgrass', custom: true },
 };
 
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
@@ -425,6 +541,8 @@ const ITEMS = [
   // Caught creatures stack in the inventory.
   { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
   { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
+  // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
+  { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
@@ -455,7 +573,9 @@ const PRICES = {
   sunflower: 500,  // rarest — ceiling
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile, yields 4 per catch
-  cow: 40,         // ~15–30/tile, yields 1 per catch
+  cow: 200,        // ~15–30/tile, yields 1 per catch — premium catch, rare drop
+  // ── Wild-only ────────────────────────────────────────────
+  longgrass: 1,    // ubiquitous in grasslands — floor price
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
@@ -596,6 +716,12 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
+    // Long-grass wild-debris sprite. 16x16 so it scales the same as crop frames.
+    if (!this.textures.exists('longgrass')) {
+      const tex = this.textures.createCanvas('longgrass', 16, 16);
+      drawLongGrassTex(tex.getContext(), 16, seededRand(31337));
+      tex.refresh();
+    }
 
     // Layers
     this.cellGfx = this.add.graphics();
@@ -862,16 +988,7 @@ class MapScene extends Phaser.Scene {
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
-    // Force a guaranteed cow ~8m east of the player's start so the player can
-    // always see one in the opening view.
-    const sx = this.startWorldM.x, sy = this.startWorldM.y;
-    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
-    if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
-      const id = `cow_start_${tx}_${ty}`;
-      if (!this.save.caught.includes(id)) {
-        creatures.push({ x: sx + 8, y: sy, kind: 'cow', id });
-      }
-    }
+    // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
     if (this.save.released) {
@@ -891,7 +1008,10 @@ class MapScene extends Phaser.Scene {
     // Treasure mark — 1/200 tiles get a subtle X (deterministic per tile).
     // Stored on entry.treasure = { x, y, id } or null. Found state lives in save.foundTreasures.
     entry.treasure = null;
-    if (rng() < 1 / 200) {
+    // Force a guaranteed X ~10m north of the player's start.
+    if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
+      entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
+    } else if (rng() < 1 / 200) {
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -1313,16 +1433,19 @@ class MapScene extends Phaser.Scene {
     const halfM = (VIEW_CELLS / 2 + 1) * this.cellM;
     const found = new Set(this.save.foundTreasures || []);
     g.lineStyle(2, 0x2a1d10, 0.55);
-    for (const entry of WorldGen.tileCache.values()) {
-      const tr = entry.treasure;
-      if (!tr || found.has(tr.id)) continue;
+    const drawX = (tr) => {
+      if (!tr || found.has(tr.id)) return;
       const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-      if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+      if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
       const cx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const cy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       const s = 6;
       g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
       g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
+    };
+    for (const entry of WorldGen.tileCache.values()) {
+      drawX(entry.treasure);
+      if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
     }
   }
 
@@ -1424,7 +1547,7 @@ class MapScene extends Phaser.Scene {
         this.objectsContainer.add(tx);
         this.chestLabelPool.push(tx);
       }
-      tx.setText(o.name).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
+      tx.setText(rusticifyName(o.name)).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
       tx.setAlpha(this.save.opened.includes(o.id) ? 0.45 : 1);
       li++;
     }
@@ -1436,7 +1559,10 @@ class MapScene extends Phaser.Scene {
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
       const ov = CROP_SPRITE[p.crop];
-      if (ov && ov.sheet === 'springcrops') {
+      if (ov && ov.custom) {
+        // Single-frame procedural texture (e.g. longgrass).
+        if (s.texture.key !== ov.sheet) s.setTexture(ov.sheet);
+      } else if (ov && ov.sheet === 'springcrops') {
         // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
         const frame = ov.row * SPRING_CROPS_COLS + stage;
         if (s.texture.key !== 'springcrops') s.setTexture('springcrops');
@@ -1501,24 +1627,32 @@ class MapScene extends Phaser.Scene {
     {
       const TREASURE_TAP_M = 7.5;
       const found = new Set(this.save.foundTreasures || []);
-      for (const entry of WorldGen.tileCache.values()) {
-        const tr = entry.treasure;
-        if (!tr || found.has(tr.id)) continue;
-        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= TREASURE_TAP_M) continue;
-        if (Math.hypot(tr.x - pWorldX, tr.y - pWorldY) > 18) { this.flash('too far', sx, sy); return; }
+      const tryClaim = (tr) => {
+        if (!tr || found.has(tr.id)) return false;
+        if (Math.hypot(tr.x - wm.x, tr.y - wm.y) >= TREASURE_TAP_M) return false;
+        if (Math.hypot(tr.x - pWorldX, tr.y - pWorldY) > 18) { this.flash('too far', sx, sy); return 'far'; }
         this.save.foundTreasures = [...found, tr.id];
         const t = pickTreasure();
         if (t.kind === 'money') {
           this.save.money = (this.save.money || 0) + t.amount;
-          this.flash(`X → $${t.amount}`, sx, sy);
+          this.flashLoot(`✕ → $${t.amount}`, '#ffd96b');
           if (this.updateMoneyDOM) this.updateMoneyDOM();
         } else {
           this.addToInv(t.id, t.n);
-          const tierLbl = SEED_TIER[t.id] === 3 ? 'rare' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
-          this.flash(`X → ${t.id.replace(/_seed$/, '')} (${tierLbl})`, sx, sy);
+          const tierLbl = SEED_TIER[t.id] === 3 ? 'RARE!' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
+          const tierColor = SEED_TIER[t.id] === 3 ? '#ff8aff' : SEED_TIER[t.id] === 2 ? '#7adcff' : '#ffe066';
+          this.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} 🌱 (${tierLbl})`, tierColor);
         }
         persistSave(this.save);
-        return;
+        return true;
+      };
+      for (const entry of WorldGen.tileCache.values()) {
+        const r1 = tryClaim(entry.treasure);
+        if (r1 === true || r1 === 'far') return;
+        if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) {
+          const r = tryClaim(tr);
+          if (r === true || r === 'far') return;
+        }
       }
     }
 
@@ -1551,7 +1685,10 @@ class MapScene extends Phaser.Scene {
             bonus = ` ✨${treasure.bonus}`;
           }
           persistSave(this.save);
-          this.flash(`picked ${wp.crop}${bonus}`, sx, sy);
+          // Treasure bonus → use the splashier flash; ordinary pickup uses a small flash.
+          const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
+          if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff');
+          else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`);
           return;
         }
       }
@@ -1572,8 +1709,12 @@ class MapScene extends Phaser.Scene {
           this.save.opened.push(o.id);
           persistSave(this.save);
           const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
-          const label = o.name ? `${CHEST_ICON} → ${lootIcon}×${loot.n}  ${o.name}` : `${CHEST_ICON} → ${lootIcon}×${loot.n}`;
-          this.flash(label, sx, sy);
+          const niceName = rusticifyName(o.name);
+          // Tier-coloured loot pop (rare = magenta, uncommon = cyan, common = gold).
+          const tier = SEED_TIER[loot.id] || 1;
+          const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
+          const lootLabel = `${CHEST_ICON} → ${lootIcon} ×${loot.n}`;
+          this.flashLoot(niceName ? `${lootLabel}\n${niceName}` : lootLabel, color);
           return;
         }
         if (o.kind === 'tree') {
@@ -1709,9 +1850,11 @@ class MapScene extends Phaser.Scene {
         this.save.tilled = [...this.tilledSet];
         const yieldN = 1 + Math.floor(Math.random() * 3);
         this.addToInv(p.crop, yieldN);
-        if (Math.random() < 0.25) this.addToInv(`${p.crop}_seed`, 1);
+        const gotSeed = Math.random() < 0.25;
+        if (gotSeed) this.addToInv(`${p.crop}_seed`, 1);
         persistSave(this.save);
-        this.flash(`harvested ${p.crop}×${yieldN}`, sx, sy);
+        const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
+        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0');
         return;
       }
       if (!p.watered_t) {
@@ -1766,6 +1909,17 @@ class MapScene extends Phaser.Scene {
     }
 
     // 2d) Tap untilled tillable cell → till it.
+    // Refuse to till when the cell is occupied by ANY interactable so we never silently
+    // wipe under the player's intent (e.g. they tapped near a debris but just missed pickup).
+    const cellHalfM = this.cellM / 2;
+    const occupied =
+      this.placedRockSet.has(cellKey) ||
+      this.save.planted.some(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM) ||
+      [...WorldGen.tileCache.values()].some(e =>
+        (e.wildplants || []).some(wp => Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) ||
+        (e.objects || []).some(o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM)
+      );
+    if (occupied) { this.flash('occupied', sx, sy); return; }
     this.tilledSet.add(cellKey);
     this.save.tilled = [...this.tilledSet];
     persistSave(this.save);
@@ -1788,7 +1942,7 @@ class MapScene extends Phaser.Scene {
     this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
-    this.flash(`+${yieldN} ${item?.icon || ''} ${c.kind}`, sx, sy);
+    this.flashLoot(`+${yieldN} ${item?.icon || ''} ${c.kind}`, '#a7ffb0');
   }
 
   flash(text, x, y) {
@@ -1800,6 +1954,22 @@ class MapScene extends Phaser.Scene {
       targets: t, y: y - 30, alpha: 0, duration: 900,
       onComplete: () => t.destroy(),
     });
+  }
+
+  // Bigger, longer-dwelling pop for loot pickups (chest opens, treasure X, harvest, debris).
+  // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
+  // so the eye doesn't have to chase it back to where the X used to be.
+  flashLoot(text, color = '#ffe066') {
+    const x = this.viewCenterX, y = this.viewCenterY - 40;
+    const t = this.add.text(x, y, text, {
+      font: 'bold 22px monospace', color, backgroundColor: '#000c',
+      stroke: '#000', strokeThickness: 3,
+      padding: { x: 10, y: 5 },
+    }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
+    // Pop in (140ms), hold (1.3s), drift up + fade (700ms). Total ≈ 2.1s.
+    this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
+    this.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 700, delay: 1440, ease: 'Sine.In',
+      onComplete: () => t.destroy() });
   }
 
   updateHUD() {
@@ -1817,7 +1987,7 @@ class MapScene extends Phaser.Scene {
   shopInteract(sx, sy) {
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
-      // SELL one of the selected stack.
+      // SELL one of the selected stack — unchanged, no confirmation.
       const price = PRICES[sel.id] ?? 1;
       const item = ITEM_BY_ID[sel.id];
       sel.count = (sel.count ?? 1) - 1;
@@ -1833,18 +2003,120 @@ class MapScene extends Phaser.Scene {
       this.flash(`sold ${item?.icon || ''} +$${price}`, sx, sy);
       return;
     }
-    // BUY — empty slot: get next seed from the rotation.
+    // BUY — empty slot: generate an offer and present a confirmation modal.
+    // Item on offer = next seed in the rotation. Cost can be money (1/3) or barter (2/3).
     const id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
-    const price = PRICES[id] ?? 0;
-    if ((this.save.money ?? 0) < price) {
-      this.flash(`need $${price}`, sx, sy);
+    const baseValue = PRICES[id] ?? 1;
+    const item = ITEM_BY_ID[id];
+    const offer = this.buildShopOffer(id, baseValue);
+    if (!offer) {
+      this.flash('no deal', sx, sy);
       return;
     }
-    this.save.money -= price;
-    this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
-    this.addToInv(id, 1);
-    const item = ITEM_BY_ID[id];
-    this.flash(`bought ${item?.icon || ''} -$${price}`, sx, sy);
+    this.showOfferModal({
+      title: 'A trader offers:',
+      get: `${item?.icon || ''} ${item?.name || id} ×1`,
+      cost: offer.label,
+      canAfford: offer.canAfford(),
+      onAccept: () => {
+        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
+        offer.consume();
+        this.addToInv(id, 1);
+        this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.updateMoneyDOM) this.updateMoneyDOM();
+        // Use the loud loot pop so a purchase reads as a real gain.
+        this.flashLoot(`🪙 ${item?.icon || ''} ${item?.name || id}\n${offer.shortGain}`, '#ffe066');
+      },
+    });
+  }
+
+  // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
+  // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item worth >= 1.5x value.
+  // If no qualifying barter exists, falls back to the cash offer.
+  buildShopOffer(id, baseValue) {
+    const wantMoney = Math.random() < 1/3;
+    const cashCost = Math.max(1, Math.ceil(baseValue * 2));
+    const cashOffer = {
+      kind: 'money',
+      label: `$${cashCost}`,
+      shortGain: `−$${cashCost}`,
+      shortDenial: `need $${cashCost}`,
+      canAfford: () => (this.save.money ?? 0) >= cashCost,
+      consume: () => { this.save.money = (this.save.money ?? 0) - cashCost; },
+    };
+    if (wantMoney) return cashOffer;
+    // Barter — find a held stack worth ≥ 1.5 × baseValue, pick one at random.
+    const need = baseValue * 1.5;
+    const candidates = (this.save.inv || []).filter(s => s && s.id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
+    if (!candidates.length) return cashOffer;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const pickItem = ITEM_BY_ID[pick.id];
+    return {
+      kind: 'item',
+      label: `1× ${pickItem?.icon || ''} ${pickItem?.name || pick.id}`,
+      shortGain: `−1 ${pickItem?.icon || ''}`,
+      shortDenial: `no ${pickItem?.name || pick.id}`,
+      canAfford: () => {
+        const cur = (this.save.inv || []).find(s => s && s.id === pick.id);
+        return !!cur && (cur.count ?? 0) >= 1;
+      },
+      consume: () => {
+        const idx = this.save.inv.findIndex(s => s && s.id === pick.id);
+        if (idx < 0) return;
+        const cur = this.save.inv[idx];
+        cur.count -= 1;
+        if (cur.count <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+      },
+    };
+  }
+
+  // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
+  showOfferModal({ title, get, cost, canAfford, onAccept }) {
+    // Remove any existing modal first (only one at a time).
+    document.getElementById('offer-modal')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'offer-modal';
+    wrap.style.cssText =
+      'position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;' +
+      'background:#0008;pointer-events:auto;';
+    const box = document.createElement('div');
+    box.style.cssText =
+      'min-width:230px;max-width:320px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
+      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    box.innerHTML =
+      `<div style="opacity:.75;font-size:11px;margin-bottom:6px">${title}</div>` +
+      `<div style="font-size:18px;font-weight:700;margin:4px 0;color:#ffe066">${get}</div>` +
+      `<div style="opacity:.85;margin:8px 0 4px">for</div>` +
+      `<div style="font-size:16px;font-weight:700;margin:4px 0 12px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">${cost}</div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:4px;';
+    const mkBtn = (label, primary) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText =
+        `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        (primary
+          ? 'background:#c8a64a;color:#1a1612;border:0;'
+          : 'background:transparent;color:#ddd;border:2px solid #444;');
+      if (primary && !canAfford) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
+      return b;
+    };
+    const yes = mkBtn('Buy', true);
+    const no = mkBtn('Cancel', false);
+    yes.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
+    no.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+    row.appendChild(no); row.appendChild(yes);
+    box.appendChild(row);
+    wrap.appendChild(box);
+    (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
   addToInv(id, n = 1, silent = false) {
