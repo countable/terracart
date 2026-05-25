@@ -46,6 +46,13 @@ function consumeSelected(save) {
 }
 
 const TAP_HANDLERS = [
+  // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
+  { name: 'work-progress', try: (ctx) => {
+    if (!ctx.scene._workProgress) return false;
+    ctx.scene.cancelWorkProgress();
+    return true;
+  }},
+
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
@@ -190,11 +197,15 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'tree') {
-        scene.flash('a sturdy maple', sx, sy);
+        scene.startWorkProgress(o.x, o.y, () => {
+          o.chopped = true;
+          scene.addToInv('tree', 1 + Math.floor(Math.random() * 2));
+          scene.flash('🌲 chopped', sx, sy);
+        });
         return true;
       }
       if (o.kind === 'house' || o.kind === 'tower') {
-        scene.shopInteract(sx, sy);
+        scene.shopInteract(sx, sy, o);
         return true;
       }
     }
@@ -279,23 +290,25 @@ const TAP_HANDLERS = [
 
   // 2-rock) Tap a natural rock cell → break it.
   { name: 'rock', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey } = ctx;
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     if (cell.type !== 10) return false;
     if (scene.brokenRockSet.has(cellKey)) {
       scene.flash('rubble', sx, sy);
       return true;
     }
-    scene.brokenRockSet.add(cellKey);
-    save.brokenRocks = [...scene.brokenRockSet];
-    const r = Math.random();
-    let msg = '💥 broken';
-    if (r < 0.005)        { scene.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
-    else if (r < 0.015)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
-    else if (r < 0.035)   { scene.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
-    else if (r < 0.105)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
-    else if (r < 0.555)   { scene.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
-    ctx.dirty = true;
-    scene.flash(msg, sx, sy);
+    scene.startWorkProgress(cwmx, cwmy, () => {
+      scene.brokenRockSet.add(cellKey);
+      save.brokenRocks = [...scene.brokenRockSet];
+      const r = Math.random();
+      let msg = '💥 broken';
+      if (r < 0.005)        { scene.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
+      else if (r < 0.015)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
+      else if (r < 0.035)   { scene.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
+      else if (r < 0.105)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
+      else if (r < 0.555)   { scene.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
+      persistSave(save);
+      scene.flash(msg, sx, sy);
+    });
     return true;
   }},
 

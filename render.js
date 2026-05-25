@@ -523,10 +523,10 @@ Render.drawObjects = function drawObjects(scene) {
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
   const openedSet = new Set(scene.save.opened);
-  // (Trees aren't currently choppable — no `o.chopped` flag is ever set. Filter only
-  // opened chests so their sprite + tier diamond disappear.)
+  // Trees set o.chopped = true in-memory when the chop progress wheel completes.
   const filteredObj = objList.filter(({ o }) =>
-    !(o.kind === 'chest' && openedSet.has(o.id))
+    !(o.kind === 'chest' && openedSet.has(o.id)) &&
+    !(o.kind === 'tree'  && o.chopped)
   );
   filteredObj.sort((a, b) => a.dy - b.dy);
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),

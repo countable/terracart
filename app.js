@@ -37,7 +37,7 @@ const COLORS = {
   2: 0xd9c98a,  // sand
   3: 0x3a78c2,  // water
   4: 0xc7a85b,  // farmland
-  5: 0x8a8472,  // residential
+  5: 0xada695,  // residential
   6: 0x7fbf63,  // park
   7: 0x444444,  // road
   8: 0x9a7a4a,  // path
@@ -262,6 +262,28 @@ class MapScene extends Phaser.Scene {
       drawLongGrassTex(tex.getContext(), 16, seededRand(31337));
       tex.refresh();
     }
+    // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
+    // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
+    // exact same image. Run after makeFloraTextures + sheet loads so all source images
+    // are ready. Key = item id; value = a data URL of the chosen representative frame.
+    window.ITEM_DATA_URLS = window.ITEM_DATA_URLS || {};
+    const bakeSheetFrame = (key, frameIdx, frameW, frameH) => {
+      const src = this.textures.get(key)?.getSourceImage();
+      if (!src) return null;
+      const c = document.createElement('canvas');
+      c.width = frameW; c.height = frameH;
+      const cx = c.getContext('2d');
+      const cols = Math.max(1, Math.floor(src.width / frameW));
+      const fx = (frameIdx % cols) * frameW;
+      const fy = Math.floor(frameIdx / cols) * frameH;
+      cx.drawImage(src, fx, fy, frameW, frameH, 0, 0, frameW, frameH);
+      return c.toDataURL();
+    };
+    const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
+    window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
+    window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 32, 32);
+    window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
+    window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). No statues — the pad SHAPE conveys POI type.
@@ -344,6 +366,10 @@ class MapScene extends Phaser.Scene {
     this.objectsContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.tierGfx.setMask(mask);
+
+    // Work-progress wheel — drawn above all world objects, not masked.
+    this._workProgressGfx = this.add.graphics().setDepth(95);
+    this._workProgress = null;
 
     const frame = this.add.graphics();
     frame.lineStyle(2, 0x000000, 0.6)
@@ -717,6 +743,7 @@ class MapScene extends Phaser.Scene {
     this.wanderCreatures();
     this.drawCells();
     this.drawObjects();
+    this._drawWorkProgress();
     this.updateHUD();
   }
 
@@ -737,6 +764,41 @@ class MapScene extends Phaser.Scene {
       mutated = true;
     }
     if (mutated) persistSave(this.save);
+  }
+
+  // --- Work-progress wheel (rock-break / tree-chop) ---
+  startWorkProgress(worldX, worldY, onComplete) {
+    this._workProgress = { worldX, worldY, onComplete, startT: performance.now() };
+  }
+  cancelWorkProgress() {
+    this._workProgress = null;
+    this._workProgressGfx?.clear();
+  }
+  _drawWorkProgress() {
+    const wp = this._workProgress;
+    if (!wp) return;
+    const elapsed = performance.now() - wp.startT;
+    if (elapsed >= 3000) {
+      const cb = wp.onComplete;
+      this.cancelWorkProgress();
+      cb();
+      return;
+    }
+    const progress = elapsed / 3000;
+    const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
+    const cx = Math.round(screen.x);
+    const cy = Math.round(screen.y) - 14;
+    const R = 9;
+    const g = this._workProgressGfx;
+    g.clear();
+    g.fillStyle(0x000000, 0.55);
+    g.fillCircle(cx, cy, R + 1);
+    if (progress > 0) {
+      g.lineStyle(3, 0xffffff, 0.9);
+      g.beginPath();
+      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
+      g.strokePath();
+    }
   }
 
   // Chickens and cows wander ~1 cell every 5s in a random direction.
@@ -1003,10 +1065,42 @@ class MapScene extends Phaser.Scene {
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
   }
 
-  shopInteract(sx, sy) {
+  shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal')) return;
+    // Per-building deal rate-limit. Bigger buildings handle more daily traffic:
+    //   house (small)      → 2 deals/hr
+    //   fort  (mid-tier)   → 10 deals/hr
+    //   castle / tower     → 25 deals/hr
+    // Counted per house.id over a rolling 1-hour window.
+    const dealCap = !house ? Infinity
+      : house.kind === 'tower' ? 25
+      : (house.tier === 12 /* BUILDING_LARGE */) ? 25
+      : (house.tier === 11 /* BUILDING_MED   */) ? 10
+      : 2;
+    if (house && house.id && dealCap !== Infinity) {
+      this.save.shopDeals = this.save.shopDeals || {};
+      const now = Date.now();
+      const hourAgo = now - 60 * 60 * 1000;
+      const list = (this.save.shopDeals[house.id] || []).filter(t => t > hourAgo);
+      this.save.shopDeals[house.id] = list;
+      if (list.length >= dealCap) {
+        const oldest = Math.min(...list);
+        const waitMin = Math.max(1, Math.ceil((oldest + 60 * 60 * 1000 - now) / 60000));
+        const kindLabel = (house.kind === 'tower' || house.tier === 12) ? 'castle'
+                        : (house.tier === 11) ? 'fort' : 'house';
+        this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
+        return;
+      }
+    }
+    // Record a deal against this house — called from inside the accept path.
+    const recordDeal = () => {
+      if (!house || !house.id || dealCap === Infinity) return;
+      this.save.shopDeals = this.save.shopDeals || {};
+      const list = this.save.shopDeals[house.id] = this.save.shopDeals[house.id] || [];
+      list.push(Date.now());
+    };
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
@@ -1034,6 +1128,7 @@ class MapScene extends Phaser.Scene {
               this.save.selSlot = Math.max(0, this.save.inv.length - 1);
             }
           }
+          recordDeal();
           persistSave(this.save);
           this.buildInventoryDOM();
           if (this.updateMoneyDOM) this.updateMoneyDOM();
@@ -1044,8 +1139,22 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // BUY — empty slot: generate an offer and present a confirmation modal.
-    // Item on offer = next seed in the rotation. Cost can be money (1/3) or barter (2/3).
-    const id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
+    // Each house has a deterministic "shop kind" derived from its world
+    // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
+    // SEEDS from the rotating buyIndex. Same house always offers the same
+    // category, so the player learns "this house sells crops".
+    const houseSeed = house
+      ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
+      : 0;
+    const sellsProduce = houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
+    let id;
+    if (sellsProduce) {
+      // Cycle through produce, weighted toward the buyIndex so it still rotates.
+      const produceIds = Object.keys(CROP_ROW);
+      id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
+    } else {
+      id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
+    }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
     const offer = this.buildShopOffer(id, baseValue);
@@ -1063,6 +1172,7 @@ class MapScene extends Phaser.Scene {
         offer.consume();
         this.addToInv(id, 1);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
+        recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
@@ -1074,7 +1184,10 @@ class MapScene extends Phaser.Scene {
   }
 
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
-  // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item worth >= 1.5x value.
+  // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item.
+  // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
+  // qualify too — otherwise early-game players almost never see a barter, since
+  // wild rockfruit/shrub/longgrass at $1-2 fall below higher thresholds.
   // If no qualifying barter exists, falls back to the cash offer.
   buildShopOffer(id, baseValue) {
     const wantMoney = Math.random() < 1/3;
@@ -1088,8 +1201,8 @@ class MapScene extends Phaser.Scene {
       consume: () => { addMoney(this.save, -cashCost); },
     };
     if (wantMoney) return cashOffer;
-    // Barter — find a held stack worth ≥ 1.5 × baseValue, pick one at random.
-    const need = baseValue * 1.5;
+    // Barter — find a held stack worth ≥ 0.75 × baseValue, pick one at random.
+    const need = baseValue * 0.75;
     const candidates = (this.save.inv || []).filter(s => s && s.id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
     if (!candidates.length) return cashOffer;
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
@@ -1124,6 +1237,12 @@ class MapScene extends Phaser.Scene {
   iconSpanHTML(itemId, sizePx = 20) {
     const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(itemId) : null;
     if (!src) return '';
+    // Procedural longgrass texture — render its cached data URL inline.
+    if (src.sheet === 'longgrass' && window.LONGGRASS_DATA_URL) {
+      return `<span style="display:inline-block;vertical-align:middle;width:${sizePx}px;height:${sizePx}px;`
+        + `background-image:url('${window.LONGGRASS_DATA_URL}');`
+        + `background-size:${sizePx}px ${sizePx}px;image-rendering:pixelated;"></span>`;
+    }
     const sheetSize = src.sheet === 'springcrops'
       ? { cols: 14, srcW: 224, srcH: 128 }   // Spring Crops.png 14×8
       : { cols: 9,  srcW: 144, srcH: 256 };  // Crops.png 9×16
@@ -1242,7 +1361,17 @@ class MapScene extends Phaser.Scene {
         else if (item.kind === 'produce') iconCol = 8;
       } else if (item && item.kind === 'seed')                            { iconCol = 8; iconRow = 15; }
       else if (item && item.kind === 'produce' && cropRow != null)        { iconCol = PRODUCE_COL; iconRow = cropRow; }
-      if (iconCol != null) {
+      // Items whose map sprite isn't on Crops.png / Spring Crops.png (longgrass,
+      // chicken, cow, flowers) render via a cached data URL of the actual map frame.
+      const dataUrl = item && window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[item.id];
+      if (dataUrl) {
+        const icon = document.createElement('span');
+        icon.style.cssText =
+          "width:32px;height:32px;display:inline-block;" +
+          `background-image:url('${dataUrl}');` +
+          "background-size:32px 32px;image-rendering:pixelated;";
+        slot.appendChild(icon);
+      } else if (iconCol != null) {
         const icon = document.createElement('span');
         icon.style.cssText =
           "width:32px;height:32px;display:inline-block;" +
