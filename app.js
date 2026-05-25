@@ -26,9 +26,260 @@ const COLORS = {
   9: 0x8b4d3a,  // building
   10: 0x7d736b, // rock
 };
-// Anything that isn't water (3) or building (9) is tillable.
-const NON_TILLABLE = new Set([3, 9]);
+// Tillable = soil-ish ground. Water, roads, paths, and buildings are not.
+const NON_TILLABLE = new Set([3, 7, 8, 9]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
+
+// Terrain classes that get no sprite from TileMap — we overlay a procedural
+// biome-suited texture so they don't read as flat color slabs. (Road is excluded
+// since cobblestones already break up its surface.) Keys: 'biome${type}_${v}'.
+const BIOME_TEX = {
+  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
+  1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
+  2:  { variants: 2, draw: drawSandTex },         // sand: fine grain
+  3:  { variants: 2, draw: drawWaterTex },        // water: ripples
+  4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
+  5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
+  6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
+  8:  { variants: 2, draw: drawPathTex },         // path: pebbles
+  9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
+  10: { variants: 2, draw: drawRockTex },         // rock: cracks
+};
+
+// Tilled soil is per-cell state (not a terrain class). Painted as a yellow-brown
+// base color with a procedural furrow texture, replacing the previous SAND sprite.
+const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
+const TILLED_VARIANTS = 2;
+
+// Tiny deterministic RNG factory so each texture variant looks stable across reloads.
+function seededRand(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
+function drawGrassTex(ctx, size, rng) {
+  // Short blade strokes — mix of darker and lighter green on transparent.
+  ctx.clearRect(0, 0, size, size);
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 28; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const len = 1 + Math.floor(rng() * 2);
+    ctx.fillStyle = rng() < 0.55
+      ? 'rgba(20,55,20,0.30)'
+      : 'rgba(180,230,140,0.22)';
+    ctx.fillRect(x, y, 1, len);
+  }
+}
+
+function drawForestTex(ctx, size, rng) {
+  // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 14; i++) {
+    const x = rng() * size;
+    const y = rng() * size;
+    const r = 1.5 + rng() * 1.5;
+    ctx.fillStyle = 'rgba(0,30,0,0.35)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = 'rgba(160,210,130,0.25)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawSandTex(ctx, size, rng) {
+  // Very fine grain — many low-alpha dots, mostly warm.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 36; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.6
+      ? 'rgba(120,90,40,0.18)'
+      : 'rgba(255,240,200,0.18)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawFarmlandTex(ctx, size, rng) {
+  // Tidy parallel furrow rows — horizontal alternating shade bands.
+  ctx.clearRect(0, 0, size, size);
+  const rowH = 4;
+  for (let y = 0; y < size; y += rowH) {
+    ctx.fillStyle = 'rgba(60,35,10,0.22)';
+    ctx.fillRect(0, y, size, 1);
+    ctx.fillStyle = 'rgba(255,230,180,0.10)';
+    ctx.fillRect(0, y + 1, size, 1);
+  }
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawParkTex(ctx, size, rng) {
+  // Park = grass + occasional tiny flower.
+  drawGrassTex(ctx, size, rng);
+  for (let i = 0; i < 3; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const colors = ['rgba(255,180,200,0.7)', 'rgba(255,240,120,0.7)', 'rgba(220,180,255,0.7)'];
+    ctx.fillStyle = colors[Math.floor(rng() * colors.length)];
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawTilledTex(ctx, size, rng) {
+  // Yellow-brown ploughed soil — clear horizontal furrows + grain.
+  ctx.clearRect(0, 0, size, size);
+  const rowH = 5;
+  for (let y = 1; y < size; y += rowH) {
+    // furrow shadow
+    ctx.fillStyle = 'rgba(70,40,10,0.45)';
+    ctx.fillRect(0, y, size, 1);
+    // furrow highlight just below
+    ctx.fillStyle = 'rgba(255,225,160,0.20)';
+    ctx.fillRect(0, y + 1, size, 1);
+  }
+  // clods of soil
+  for (let i = 0; i < 12; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5
+      ? 'rgba(70,45,15,0.35)'
+      : 'rgba(255,220,150,0.22)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawWaterTex(ctx, size, rng) {
+  // Faint horizontal ripple highlights on transparent bg.
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  const rows = 4;
+  for (let r = 0; r < rows; r++) {
+    const baseY = (r + 0.5) * (size / rows) + (rng() - 0.5) * 2;
+    const amp = 0.8 + rng() * 0.6;
+    const phase = rng() * Math.PI * 2;
+    ctx.beginPath();
+    for (let x = 0; x <= size; x++) {
+      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * amp;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // a few darker dots for depth
+  ctx.fillStyle = 'rgba(0,0,40,0.18)';
+  for (let i = 0; i < 6; i++) {
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawResidentialTex(ctx, size, rng) {
+  // Concrete — subtle, infrequent aggregate flecks on transparent bg.
+  ctx.clearRect(0, 0, size, size);
+  // Sparse fine grain across the whole cell.
+  for (let i = 0; i < 14; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5
+      ? 'rgba(0,0,0,0.18)'
+      : 'rgba(255,255,255,0.10)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // A couple of tiny embedded stones (2px chips).
+  for (let i = 0; i < 3; i++) {
+    const x = 2 + Math.floor(rng() * (size - 4));
+    const y = 2 + Math.floor(rng() * (size - 4));
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(x, y, 2, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawPathTex(ctx, size, rng) {
+  // Scattered pebbles — small darker and lighter dots.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 18; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const dark = rng() < 0.6;
+    ctx.fillStyle = dark ? 'rgba(40,25,10,0.4)' : 'rgba(255,240,210,0.25)';
+    const w = rng() < 0.3 ? 2 : 1;
+    ctx.fillRect(x, y, w, w);
+  }
+}
+
+function drawBuildingTex(ctx, size, rng) {
+  // Small rounded cobbles packed across the cell.
+  ctx.clearRect(0, 0, size, size);
+  // Rough staggered grid of cobble centers with jitter so they read as packed stones.
+  const step = 6;
+  for (let row = 0; row * step < size + step; row++) {
+    const offset = (row % 2) * (step / 2);
+    for (let col = 0; col * step < size + step; col++) {
+      const cx = col * step + offset + (rng() - 0.5) * 1.5;
+      const cy = row * step + step / 2 + (rng() - 0.5) * 1.5;
+      const r = 2 + rng() * 0.6;
+      // dark outline
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      // light highlight on upper-left
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath(); ctx.arc(cx - 0.6, cy - 0.6, r - 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawRockTex(ctx, size, rng) {
+  // A few jagged dark cracks plus a couple highlights.
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1;
+  const cracks = 2 + Math.floor(rng() * 2);
+  for (let c = 0; c < cracks; c++) {
+    let x = rng() * size;
+    let y = rng() * size;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    const segs = 3 + Math.floor(rng() * 3);
+    for (let i = 0; i < segs; i++) {
+      x += (rng() - 0.5) * (size / 2);
+      y += (rng() - 0.5) * (size / 2);
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  for (let i = 0; i < 4; i++) {
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
+  }
+}
+
+function makeBiomeTextures(scene, size) {
+  for (const [type, spec] of Object.entries(BIOME_TEX)) {
+    for (let v = 0; v < spec.variants; v++) {
+      const key = `biome${type}_${v}`;
+      if (scene.textures.exists(key)) continue;
+      const tex = scene.textures.createCanvas(key, size, size);
+      const ctx = tex.getContext();
+      spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + v + 1));
+      tex.refresh();
+    }
+  }
+  for (let v = 0; v < TILLED_VARIANTS; v++) {
+    const key = `tilled_${v}`;
+    if (scene.textures.exists(key)) continue;
+    const tex = scene.textures.createCanvas(key, size, size);
+    drawTilledTex(tex.getContext(), size, seededRand(7919 + v));
+    tex.refresh();
+  }
+}
 
 // All chests drop a random existing inventory item (seeds + tools).
 // Subkind (carried from POI class in worldgen) is kept as flavor only — same loot table for now.
@@ -39,26 +290,36 @@ function pickLoot(rng) {
   return { id, n };
 }
 
-const SAVE_KEY = 'terracart.save.v1';
+const SAVE_KEY = 'terracart.save.v3';
 function loadSave() {
   try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
   catch { return {}; }
 }
 function persistSave(s) { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
 
-// Per spec: inventory holds seeds (infinite starters) and produce (harvested crops).
-// Tools (hoe, watering can) are IMPLICIT — handled automatically by walking over cells.
+// Inventory holds seeds (kind 'seed', icon = col 7 of the crop's row in Spring Crops.png)
+// and harvested produce (kind 'produce', icon = col 8). Tools are implicit.
 const ITEMS = [
-  { id: 'carrot_seed', name: 'Carrot Seed', kind: 'seed', grows: 'carrot', icon: '🌱' },
-  { id: 'tomato_seed', name: 'Tomato Seed', kind: 'seed', grows: 'tomato', icon: '🌱' },
-  { id: 'corn_seed',   name: 'Corn Seed',   kind: 'seed', grows: 'corn',   icon: '🌱' },
-  { id: 'carrot',      name: 'Carrot',      kind: 'produce', icon: '🥕' },
-  { id: 'tomato',      name: 'Tomato',      kind: 'produce', icon: '🍅' },
-  { id: 'corn',        name: 'Corn',        kind: 'produce', icon: '🌽' },
+  // Seeds — seedbox sprite at col 7 of the crop's row.
+  { id: 'potato_seed', name: 'Potato Seed', kind: 'seed', grows: 'potato', icon: '🥔' },
+  { id: 'onion_seed',  name: 'Onion Seed',  kind: 'seed', grows: 'onion',  icon: '🧅' },
+  { id: 'berry_seed',  name: 'Berry Seed',  kind: 'seed', grows: 'berry',  icon: '🍓' },
+  { id: 'cress_seed',  name: 'Cress Seed',  kind: 'seed', grows: 'cress',  icon: '🌿' },
+  // Harvested produce — sprite at col 8 of the crop's row.
+  { id: 'potato', name: 'Potato', kind: 'produce', crop: 'potato', icon: '🥔' },
+  { id: 'onion',  name: 'Onion',  kind: 'produce', crop: 'onion',  icon: '🧅' },
+  { id: 'berry',  name: 'Berry',  kind: 'produce', crop: 'berry',  icon: '🍓' },
+  { id: 'cress',  name: 'Cress',  kind: 'produce', crop: 'cress',  icon: '🌿' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-// Chests drop random seeds.
+// Chests drop only seeds.
 const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
+// Spring Crops sheet row per crop. In-world growth: cols 0..5 (0 = freshly seeded, 5 = mature).
+// Inventory icons: col 7 = seedbox, col 8 = harvested produce.
+const CROP_ROW = { berry: 1, cress: 3, onion: 5, potato: 7 };
+const MAX_GROWTH_STAGE = 5; // cols 0..5 inclusive: 6 stages, 5 waterings to mature
+const SEEDBOX_COL = 7;
+const PRODUCE_COL = 8;
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -68,19 +329,31 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('walk', 'Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('trees','Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house', 'Objects/House.png');
+    // House.png is a tileset (two houses + detail bits). Register a single
+    // "front" frame for the right-hand cabin so we only render that.
+    this.load.once('filecomplete-image-house', () => {
+      this.textures.get('house').add('front', 0, 148, 3, 72, 95);
+    });
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 16, frameHeight: 16 });
+    // Spring Crops sheet: 14 cols x 8 rows of 16x16 cells.
+    // Each crop occupies one of rows 1/3/5/7. Cols 7..10 are the growth stages
+    // (col 7 = seedbox/just-planted, col 10 = mature). Cols 11..13 are quality variants.
     this.load.spritesheet('crops',   'Objects/Spring Crops.png',     { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
+    if (window.TileMap) {
+      this.load.spritesheet(TileMap.KEY, TileMap.PATH, { frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H });
+    }
   }
 
   create() {
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [],
-        // inv is array of {id, count?} (no count = infinite, e.g. starter seeds)
+        // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
-          { id: 'carrot_seed' }, { id: 'tomato_seed' }, { id: 'corn_seed' },
+          { id: 'potato_seed', count: 10 },
         ],
         selSlot: 0,
         invPage: 0,
@@ -122,11 +395,69 @@ class MapScene extends Phaser.Scene {
     this.gpsLocked = false;
     this.gpsAvailable = false;
 
+    // One-time migration: older saves used pWorldX/cellM for cell indices, which
+    // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
+    // snap planted positions to the unified basis so they line up visually.
+    if (!this.save.coordSchema || this.save.coordSchema < 2) {
+      const remapped = new Set();
+      for (const key of this.tilledSet) {
+        const [ox, oy] = key.split('_').map(Number);
+        const cwmx = (ox + 0.5) * this.cellM;
+        const cwmy = (oy + 0.5) * this.cellM;
+        const { cellIX, cellIY } = this.worldMetersToAbsCell(cwmx, cwmy);
+        remapped.add(`${cellIX}_${cellIY}`);
+      }
+      this.tilledSet = remapped;
+      this.save.tilled = [...remapped];
+      for (const p of (this.save.planted || [])) {
+        const { cellIX, cellIY } = this.worldMetersToAbsCell(p.x, p.y);
+        const c = this.absCellCenterMeters(cellIX, cellIY);
+        p.x = c.x; p.y = c.y;
+      }
+      this.save.coordSchema = 2;
+      persistSave(this.save);
+    }
+
+    // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
+    makeBiomeTextures(this, CELL_PX);
+
     // Layers
     this.cellGfx = this.add.graphics();
+    this.noiseContainer = this.add.container(0, 0);
+    this.terrainContainer = this.add.container(0, 0);
+    this.cobbleContainer = this.add.container(0, 0);
     this.plantedContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
     this.creaturesContainer = this.add.container(0, 0);
+
+    // Pre-create terrain sprite pool (one per visible cell) to avoid allocation churn.
+    this.terrainPool = [];
+    if (window.TileMap) {
+      for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+        const s = this.add.image(0, 0, TileMap.KEY, 0).setOrigin(0, 0)
+          .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+        this.terrainContainer.add(s);
+        this.terrainPool.push(s);
+      }
+    }
+
+    // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
+    this.noisePool = [];
+    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+      const s = this.add.image(0, 0, 'biome5_0').setOrigin(0, 0)
+        .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+      this.noiseContainer.add(s);
+      this.noisePool.push(s);
+    }
+
+    // Cobblestone overlay pool for ROAD cells (one decorative stone centered per cell).
+    this.cobblePool = [];
+    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+      const s = this.add.image(0, 0, 'cobble', 0).setOrigin(0.5, 0.5)
+        .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+      this.cobbleContainer.add(s);
+      this.cobblePool.push(s);
+    }
 
     this.objectPool = [];
     this.plantedPool = [];
@@ -138,6 +469,9 @@ class MapScene extends Phaser.Scene {
     maskG.fillRect(this.viewLeft, this.viewTop, this.viewSize, this.viewSize);
     const mask = maskG.createGeometryMask();
     this.cellGfx.setMask(mask);
+    this.noiseContainer.setMask(mask);
+    this.terrainContainer.setMask(mask);
+    this.cobbleContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
@@ -234,6 +568,36 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, cx, cy };
   }
 
+  // Convert world-meters to an absolute cell index using the SAME tile-pixel basis
+  // as playerToWorldCell / drawCells (avoids the half-cell drift you get from
+  // pWorldX/cellM, since cellsPerTile is a rounded integer).
+  worldMetersToAbsCell(wmx, wmy) {
+    const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
+    const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
+    const cellPxSize = 256 / this.cellsPerTile;
+    return {
+      cellIX: Math.floor(wx / cellPxSize),
+      cellIY: Math.floor(wy / cellPxSize),
+    };
+  }
+  // Inverse: meters of a cell's center for a given absolute cell index.
+  absCellCenterMeters(cellIX, cellIY) {
+    const cellPxSize = 256 / this.cellsPerTile;
+    const wx = (cellIX + 0.5) * cellPxSize;
+    const wy = (cellIY + 0.5) * cellPxSize;
+    return {
+      x: this.startWorldM.x + (wx - this.originPx.x) * this.mPerPx,
+      y: this.startWorldM.y + (wy - this.originPx.y) * this.mPerPx,
+    };
+  }
+  playerAbsCell() {
+    const pc = this.playerToWorldCell();
+    return {
+      cellIX: pc.tx * this.cellsPerTile + Math.floor(pc.cx),
+      cellIY: pc.ty * this.cellsPerTile + Math.floor(pc.cy),
+    };
+  }
+
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     const needed = new Set();
@@ -310,10 +674,7 @@ class MapScene extends Phaser.Scene {
     }
 
     // Walking auto-progression: when the player enters a new cell, run state transitions.
-    const pWorldX = this.startWorldM.x + this.playerM.x;
-    const pWorldY = this.startWorldM.y + this.playerM.y;
-    const cellIX = Math.floor(pWorldX / this.cellM);
-    const cellIY = Math.floor(pWorldY / this.cellM);
+    const { cellIX, cellIY } = this.playerAbsCell();
     const cellKey = `${cellIX}_${cellIY}`;
     if (cellKey !== this._lastPlayerCellKey) {
       this._lastPlayerCellKey = cellKey;
@@ -325,6 +686,28 @@ class MapScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  // Walk outward in a ring (up to 6 cells) from the given world-cell coords and return
+  // the COLOR of the first non-road, non-building cell found. Returns null if none found.
+  neighborNonRoadColor(wcx, wcy) {
+    const offsets = [
+      [1,0],[-1,0],[0,1],[0,-1],
+      [2,0],[-2,0],[0,2],[0,-2],[1,1],[1,-1],[-1,1],[-1,-1],
+      [3,0],[-3,0],[0,3],[0,-3],
+    ];
+    for (const [dx, dy] of offsets) {
+      const ncx = wcx + dx, ncy = wcy + dy;
+      const tx = Math.floor(ncx / this.cellsPerTile);
+      const ty = Math.floor(ncy / this.cellsPerTile);
+      const ix = Math.floor(ncx - tx * this.cellsPerTile);
+      const iy = Math.floor(ncy - ty * this.cellsPerTile);
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      if (!entry || !entry.grid) continue;
+      const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
+      if (t !== 7 && t !== 9) return COLORS[t] ?? null;
+    }
+    return null;
+  }
+
   // === Drawing ===
   drawCells() {
     const g = this.cellGfx;
@@ -333,42 +716,158 @@ class MapScene extends Phaser.Scene {
     const pc = this.playerToWorldCell();
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
+    // Player's absolute cell index in the unified tile-pixel basis. All per-cell
+    // state lookups (tilled, watered) must derive from this same basis or they'll
+    // drift relative to the rendered cell positions.
+    const baseCellIX = pc.tx * this.cellsPerTile + Math.floor(pc.cx);
+    const baseCellIY = pc.ty * this.cellsPerTile + Math.floor(pc.cy);
+    let terrainIdx = 0;
+    let cobbleIdx = 0;
+    let noiseIdx = 0;
+    const COBBLE_FRAMES = [0, 1, 2, 5, 6];   // single-stone variants in Road copiar.png
+    const ROAD = 7;
+    // Pre-compute a ring of cell types (VIEW_CELLS+2) so edge cells can read their
+    // out-of-viewport neighbors when deciding which corners to round.
+    const RING = VIEW_CELLS + 2;
+    const types = new Int8Array(RING * RING);
+    for (let r = 0; r < RING; r++) {
+      for (let c = 0; c < RING; c++) {
+        const wcx = pc.cx + (c - 1 - half) + pc.tx * this.cellsPerTile;
+        const wcy = pc.cy + (r - 1 - half) + pc.ty * this.cellsPerTile;
+        const tx2 = Math.floor(wcx / this.cellsPerTile);
+        const ty2 = Math.floor(wcy / this.cellsPerTile);
+        const ix2 = Math.floor(wcx - tx2 * this.cellsPerTile);
+        const iy2 = Math.floor(wcy - ty2 * this.cellsPerTile);
+        const e2 = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * this.cellsPerTile + ix2] || 0) : 0;
+      }
+    }
+    const T = (c, r) => types[(r + 1) * RING + (c + 1)];   // c,r in 0..VIEW_CELLS-1
+    // Flat-only types (no tileset art) get rounded corners at zone boundaries.
+    const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10]);   // water, residential, road, path, building, rock
+    const CORNER_R = 6;
     for (let row = 0; row < VIEW_CELLS; row++) {
       for (let col = 0; col < VIEW_CELLS; col++) {
         const ox = col - half;
         const oy = row - half;
-        const wcx = pc.cx + ox + pc.tx * this.cellsPerTile;
-        const wcy = pc.cy + oy + pc.ty * this.cellsPerTile;
-        const tx = Math.floor(wcx / this.cellsPerTile);
-        const ty = Math.floor(wcy / this.cellsPerTile);
-        const ix = Math.floor(wcx - tx * this.cellsPerTile);
-        const iy = Math.floor(wcy - ty * this.cellsPerTile);
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
-        let type = 0;
-        if (entry && entry.grid) type = entry.grid[iy * this.cellsPerTile + ix] || 0;
-        const color = COLORS[type] ?? 0x5fa84a;
-        const sx = this.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2;
-        const sy = this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2;
-        g.fillStyle(color, 1);
-        g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
+        const type = T(col, row);
+        // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
+        // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
+        let color = COLORS[type] ?? 0x5fa84a;
+        if (type === ROAD) {
+          const wcx = pc.cx + ox + pc.tx * this.cellsPerTile;
+          const wcy = pc.cy + oy + pc.ty * this.cellsPerTile;
+          color = this.neighborNonRoadColor(wcx, wcy) ?? color;
+        }
+        const sx = Math.round(this.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
 
-        // Tilled overlay (brown tint)
-        const wcMx = (wcx | 0) * (this.cellsPerTile === 0 ? 1 : 1); // noop guard
-        const absCellIX = Math.floor((this.startWorldM.x + this.playerM.x + (ox - fracX) * this.cellM) / this.cellM);
-        const absCellIY = Math.floor((this.startWorldM.y + this.playerM.y + (oy - fracY) * this.cellM) / this.cellM);
-        const cmx = (absCellIX + 0.5) * this.cellM;
-        const cmy = (absCellIY + 0.5) * this.cellM;
-        const tilledKey = `${Math.round(cmx)}_${Math.round(cmy)}`;
-        if (this.tilledSet && this.tilledSet.has(tilledKey)) {
-          g.fillStyle(0x5a3a1f, 0.45);
+        // Per-corner rounding: a corner rounds only when both orthogonal neighbors AND the
+        // diagonal are a different type (avoids notches between two already-square zones).
+        // Sprite-art zones cover the full 32×32 box, so we skip rounding there entirely.
+        let tl = 0, tr = 0, bl = 0, br = 0;
+        if (FLAT_ROUNDABLE.has(type)) {
+          const tn = T(col, row - 1), ts_ = T(col, row + 1);
+          const tw = T(col - 1, row), te = T(col + 1, row);
+          const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
+          const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
+          if (tn !== type && tw !== type && tnw !== type) tl = CORNER_R;
+          if (tn !== type && te !== type && tne !== type) tr = CORNER_R;
+          if (ts_ !== type && tw !== type && tsw !== type) bl = CORNER_R;
+          if (ts_ !== type && te !== type && tse !== type) br = CORNER_R;
+          // Paint diagonal-neighbor color in each rounded corner first so the pixels
+          // revealed outside the curve are the correct adjacent-zone colour.
+          if (tl) { g.fillStyle(COLORS[tnw] ?? 0x5fa84a, 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
+          if (tr) { g.fillStyle(COLORS[tne] ?? 0x5fa84a, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
+          if (bl) { g.fillStyle(COLORS[tsw] ?? 0x5fa84a, 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+          if (br) { g.fillStyle(COLORS[tse] ?? 0x5fa84a, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        }
+        g.fillStyle(color, 1);
+        if (tl || tr || bl || br) {
+          g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
+        } else {
+          g.fillRect(sx, sy, CELL_PX, CELL_PX);
+        }
+
+        // Tilled check — use the same tile-pixel basis as cell rendering.
+        const absCellIX = baseCellIX + ox;
+        const absCellIY = baseCellIY + oy;
+        const tilledKey = `${absCellIX}_${absCellIY}`;
+        const isTilled = this.tilledSet && this.tilledSet.has(tilledKey);
+        let isWatered = false;
+        if (isTilled) {
+          const c = this.absCellCenterMeters(absCellIX, absCellIY);
+          for (const pp of this.save.planted) {
+            if (pp.watered_t && Math.abs(pp.x - c.x) < 0.1 && Math.abs(pp.y - c.y) < 0.1) {
+              isWatered = true; break;
+            }
+          }
+        }
+
+        // All ground art is procedural now — keep the legacy tile-sprite pool hidden.
+        if (this.terrainPool.length) {
+          this.terrainPool[terrainIdx++].setVisible(false);
+        }
+
+        // Repaint base color for tilled cells (yellow-brown soil, replaces underlying terrain color).
+        if (isTilled) {
+          g.fillStyle(TILLED_COLOR, 1);
+          if (tl || tr || bl || br) {
+            g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
+          } else {
+            g.fillRect(sx, sy, CELL_PX, CELL_PX);
+          }
+        }
+
+        // Procedural texture overlay for every ground cell.
+        {
+          const ns = this.noisePool[noiseIdx++];
+          const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
+          let texKey = null;
+          if (isTilled) {
+            texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+          } else {
+            const spec = BIOME_TEX[type];
+            if (spec) texKey = `biome${type}_${Math.abs(h) % spec.variants}`;
+          }
+          if (texKey) {
+            ns.setTexture(texKey)
+              .setPosition(Math.round(sx), Math.round(sy))
+              .setVisible(true);
+          } else {
+            ns.setVisible(false);
+          }
+        }
+
+        // Cobblestone overlay for ROAD cells (decorative stone centered in cell)
+        {
+          const cs = this.cobblePool[cobbleIdx++];
+          if (type === ROAD && !isTilled) {
+            // Hash the absolute cell coords so each road cell gets a stable stone variant.
+            const h = (absCellIX * 73856093) ^ (absCellIY * 19349663);
+            const frame = COBBLE_FRAMES[Math.abs(h) % COBBLE_FRAMES.length];
+            cs.setFrame(frame)
+              .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+              .setVisible(true);
+          } else {
+            cs.setVisible(false);
+          }
+        }
+
+        // Subtle darker tint for watered tilled cells (just enough to read as damp soil).
+        if (isWatered) {
+          g.fillStyle(0x000000, 0.22);
           g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
         }
       }
     }
-    // Grid lines slide with the same fractional offset as the cells.
+    // Grid lines align with cell edges. Cells are positioned at
+    //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
+    //   left edge = sx - CELL_PX/2 = viewLeft + CELL_PX/2 + (j - fracX) * CELL_PX
+    // so grid lines need the same +CELL_PX/2 offset.
     g.lineStyle(1, 0x000000, 0.08);
-    const xShift = -fracX * CELL_PX;
-    const yShift = -fracY * CELL_PX;
+    const xShift = -fracX * CELL_PX + CELL_PX / 2;
+    const yShift = -fracY * CELL_PX + CELL_PX / 2;
     for (let i = -1; i <= VIEW_CELLS + 1; i++) {
       const x = Math.round(this.viewLeft + i * CELL_PX + xShift);
       const y = Math.round(this.viewTop  + i * CELL_PX + yShift);
@@ -430,8 +929,9 @@ class MapScene extends Phaser.Scene {
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
       if (o.kind === 'house') {
-        if (s.texture.key !== 'house') s.setTexture('house');
-        s.setOrigin(0.5, 0.85).setScale(0.5).setPosition(Math.round(sx), Math.round(sy));
+        if (s.texture.key !== 'house') s.setTexture('house', 'front');
+        else if (s.frame.name !== 'front') s.setFrame('front');
+        s.setOrigin(0.5, 0.9).setScale(0.6).setPosition(Math.round(sx), Math.round(sy));
       } else if (o.kind === 'tree') {
         if (s.texture.key !== 'trees') s.setTexture('trees');
         s.setFrame(Phaser.Math.Clamp(o.variant || 2, 0, 4));
@@ -449,15 +949,14 @@ class MapScene extends Phaser.Scene {
       const { p, dx, dy } = item;
       const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
       const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
-      const elapsedMs = Date.now() - p.t;
-      const stages = 3;
-      const stageMs = 20 * 1000;
-      const stage = Math.min(stages - 1, Math.floor(elapsedMs / stageMs));
-      const cropRow = ({ carrot: 0, tomato: 1, corn: 2 })[p.crop] ?? 0;
-      const frame = cropRow * 14 + stage;
+      const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
+      const row = CROP_ROW[p.crop] ?? 1;
+      // In-world growth uses cols 0..5 of the crop's row.
+      const frame = row * 14 + stage;
       if (s.texture.key !== 'crops') s.setTexture('crops');
       s.setFrame(frame);
-      s.setOrigin(0.5, 0.7).setScale(1.6).setPosition(Math.round(sx), Math.round(sy));
+      // 16x16 frame, scale 2 = 32x32 display, anchored near the bottom of the cell.
+      s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
     });
 
     this.renderPool(this.creaturePool, this.creaturesContainer, creatureList, (s, item) => {
@@ -556,9 +1055,9 @@ class MapScene extends Phaser.Scene {
       this.flash('select a seed', sx, sy);
       return;
     }
-    const cwmx = Math.floor(wm.x / this.cellM) * this.cellM + this.cellM / 2;
-    const cwmy = Math.floor(wm.y / this.cellM) * this.cellM + this.cellM / 2;
-    const cellKey = `${Math.round(cwmx)}_${Math.round(cwmy)}`;
+    const { cellIX, cellIY } = this.worldMetersToAbsCell(wm.x, wm.y);
+    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
+    const cellKey = `${cellIX}_${cellIY}`;
     if (!this.tilledSet.has(cellKey)) {
       this.flash('walk over to till first', sx, sy);
       return;
@@ -567,8 +1066,20 @@ class MapScene extends Phaser.Scene {
       this.flash('already planted', sx, sy);
       return;
     }
-    this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, t: Date.now(), watered_t: 0 });
+    if ((sel.count ?? 0) <= 0) {
+      this.flash('out of seeds', sx, sy);
+      return;
+    }
+    this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
+    sel.count -= 1;
+    if (sel.count <= 0) {
+      this.save.inv.splice(this.save.selSlot, 1);
+      if (this.save.selSlot >= this.save.inv.length) {
+        this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+      }
+    }
     persistSave(this.save);
+    this.buildInventoryDOM();
     this.flash(`planted ${item.grows}`, sx, sy);
   }
   cellAt(wmx, wmy) {
@@ -587,10 +1098,9 @@ class MapScene extends Phaser.Scene {
   }
 
   onPlayerEnterCell(cellIX, cellIY) {
-    // Identify the cell center in world meters.
-    const cwmx = (cellIX + 0.5) * this.cellM;
-    const cwmy = (cellIY + 0.5) * this.cellM;
-    const cellKey = `${Math.round(cwmx)}_${Math.round(cwmy)}`;
+    // Identify the cell center in world meters (using the tile-pixel cell basis).
+    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
+    const cellKey = `${cellIX}_${cellIY}`;
     const cell = this.cellAt(cwmx, cwmy);
     if (!isTillable(cell.type)) return;
 
@@ -599,27 +1109,31 @@ class MapScene extends Phaser.Scene {
       Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
     if (plantedIdx >= 0) {
       const p = this.save.planted[plantedIdx];
-      const stages = 3;
-      const stageMs = p.watered_t ? (20 * 1000 / stages) : (40 * 1000 / stages);
-      const fullMs = stageMs * stages;
-      const elapsed = Date.now() - p.t;
-      if (elapsed >= fullMs) {
+      const stageHoldMs = 60 * 60 * 1000; // 1h between watering and stage advance
+      const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
+
+      // 1a) If watered and 1h has elapsed, advance one stage and become dry again.
+      if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
+        p.stage = (p.stage ?? 0) + 1;
+        p.watered_t = 0;
+        persistSave(this.save);
+      }
+
+      // 1b) Mature → harvest. Produce always; bonus seed sometimes.
+      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
         this.save.planted.splice(plantedIdx, 1);
         this.tilledSet.delete(cellKey);
         this.save.tilled = [...this.tilledSet];
         const yieldN = 1 + Math.floor(Math.random() * 3);
-        this.addToInv(p.crop, yieldN);
+        this.addToInv(p.crop, yieldN); // produce
+        if (Math.random() < 0.25) this.addToInv(`${p.crop}_seed`, 1); // bonus seed
         persistSave(this.save);
-        const icon = ITEM_BY_ID[p.crop]?.icon || '🌾';
-        const ssx = this.viewCenterX, ssy = this.viewCenterY - 20;
-        this.flash(`harvested ${icon}×${yieldN}`, ssx, ssy);
+        this.flash(`harvested ${p.crop}×${yieldN}`, this.viewCenterX, this.viewCenterY - 20);
         return;
-      } else if (!p.watered_t) {
-        // 2) Auto-water
-        const unwateredMs = 40 * 1000, wateredMs = 20 * 1000;
-        const remaining = Math.max(0, unwateredMs - elapsed);
-        const newRemaining = remaining * (wateredMs / unwateredMs);
-        p.t = Date.now() - (wateredMs - newRemaining);
+      }
+
+      // 1c) Dry → water it (visual darken; stage advances after 1h on a later visit).
+      if (!p.watered_t) {
         p.watered_t = Date.now();
         persistSave(this.save);
         this.flash('💧 watered', this.viewCenterX, this.viewCenterY - 20);
@@ -702,8 +1216,23 @@ class MapScene extends Phaser.Scene {
       const slot = document.createElement('button');
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-      slot.textContent = item ? item.icon : '·';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
+      // Inventory icon: seeds use col 7 (seedbox), produce uses col 8, both at the crop's row.
+      const cropKey = item && (item.grows || item.crop);
+      const cropRow = cropKey != null ? CROP_ROW[cropKey] : null;
+      if (item && cropRow != null && (item.kind === 'seed' || item.kind === 'produce')) {
+        const col = item.kind === 'seed' ? SEEDBOX_COL : PRODUCE_COL;
+        const icon = document.createElement('span');
+        icon.style.cssText =
+          "width:32px;height:32px;display:inline-block;" +
+          "background-image:url('Objects/Spring Crops.png');" +
+          "background-size:448px 256px;" +
+          `background-position:-${col * 32}px -${cropRow * 32}px;` +
+          "image-rendering:pixelated;";
+        slot.appendChild(icon);
+      } else {
+        slot.textContent = item ? item.icon : '·';
+      }
       if (entry && entry.count != null) {
         const badge = document.createElement('span');
         badge.textContent = entry.count;
@@ -745,7 +1274,7 @@ class MapScene extends Phaser.Scene {
   }
 }
 
-const game = new Phaser.Game({
+const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: W, height: H,

@@ -1,6 +1,5 @@
 terracart — Pokémon-Go-style farm game on real map data.
-Source of truth: this file. Features below are implemented unless marked [TODO]/[DEFERRED].
-
+Source of truth: this file. Features below are implemented [x] or todo [ ]
 CORE
  - mobile web (desktop too), 390x844 viewport centered in browser
  - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache
@@ -13,16 +12,13 @@ CORE
 WORLD GENERATION
  - each MVT tile is rasterized once into a 315x315 grid of 5m cells (one terrain class per cell)
  - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path, building, rock
- - cell colors are flat placeholders for now ([TODO] real tile art from Tileset Spring.png with auto-tile lookup)
+ - flat color is drawn first, then a terrain sprite from Tileset Spring.png is overlaid where a frame is mapped
+   (grass, forest, sand, farmland, park — interior frames only; see tilemap.js FRAMES)
+ - auto-tile lookup so edges/corners pick the right frame instead of always the interior
+ - terrain frames for water, residential, road, path, building, rock (currently flat color only)
  - building polygons → house sprite at centroid
  - forest landcover polygons → scattered Maple Tree sprites (seeded per tile)
  - POI points → chest sprite at the POI location (see CHESTS below)
-
-CREATURES
- - chickens (Chicken Red) spawn seeded-per-tile in grass/farmland/park cells, 4-9 per tile
- - cows (Female Cow Brown) spawn 0-2 per tile in farmland only
- - tap creature within 4m to catch; caught state persists in localStorage; caught count in HUD
- - [DEFERRED] variant chickens (Baby Yellow, Blonde Green) and Male Cow as rare/uncommon spawns
 
 CHESTS (POI-driven, drop existing inventory items only)
  - POI classes mapped to chest sprite (uses Objects/chest.png, 16x16, 2 frames closed/open):
@@ -41,41 +37,43 @@ CHESTS (POI-driven, drop existing inventory items only)
 INVENTORY
  - infinite list, scrolled in pages of 5 slots with ◀ ▶ buttons (page count shown)
  - tap a slot to select; selection persists
- - inventory contains SEEDS only — tools (hoe, watering can, net, feed) are implicit, always available
- - starter seeds (all infinite): 🥕 Carrot, 🍅 Tomato, 🌽 Corn
- - looted seeds (harvested crops, chest drops) add to inventory with a count badge; existing stacks increment
- - count is null/absent = infinite (starter seeds never deplete)
+ - inventory contains seeds and harvested produce — tools (hoe, watering can, net, feed) are implicit, always available
+ - starter seeds - stack of 10 potato seeds
+ - harvesting adds produce of the crop (count badge); sometimes also drops a bonus seed
+ - chest drops are seeds only; existing stacks increment
 
 INTERACTION
  - tapping is reserved for: PLANTING seeds, and (future) BUYING / SELLING at shops
  - all other state changes happen via player intersection (walking over a cell)
  - tap inside the 11x11 viewport (priority order):
-     1) creature within 4m → catch
-     2) world object within ~4m: chest→open+loot, tree→flavor, house→POI name
-     3) tillable cell within 15m with seed selected → plant (cell must already be tilled by walking)
+     1) plant tilled cell
+     2) sell selected item to shop
+     3) buy from shop
+     4) show the name of what was tapped
  - tap player → toggle GPS lock (yellow tint when locked)
  - flash text fades upward over 0.9s
 
 ECONOMY (TODO — buying & selling)
- - shop POIs (food/herb/potion/rare/lore chest classes) become MARKETS:
-     tap shop → modal lets player BUY items (consumable inventory) or SELL produce for coins
+ - buildings are shops / houses
+ - POIs are chests that give a random seed every hour.
  - currency = coins; persisted in save.coins
- - sell prices = base + small randomness per shop class (e.g. food shops pay 2x for carrots)
- - buy stock = small rotating set of items (seeds, future tools)
- - one-time loot drop (current chest behavior) stays available for non-shop POI types
- - NOT YET IMPLEMENTED — current chests give random seed on tap; replace when economy is added
+ - buy stock = each shop sells just one item. tapping once shows it. tap to confirm buy or cancel.
 
 FARMING LOOP
  - the ONLY manual farming action is PLANTING. tools are implicit; other state changes happen
    automatically as the player walks over the cell.
      1) walk over untilled tillable cell → AUTO-TILL (visual: brown tint)
      2) tap tilled cell with a seed selected → PLANT
-     3) walk over planted-but-dry cell → AUTO-WATER (halves remaining growth time)
-     4) walk over fully-grown crop → AUTO-HARVEST → +1-3 produce of that crop
+     3) walk over planted-but-dry cell → AUTO-WATER -> go to next plant stage in 1h, darkent tint tile
+     4) walk over fully-grown crop → AUTO-HARVEST → +1-3 produce of that crop. destroy plant. sometimes get a seed.
  - any tillable cell (non-water, non-building) can be tilled
- - crop grows over 3 stages: 40s unwatered, 20s watered
- - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .watered_t, .crop, .t)
- - tilled cells render with a brown tint overlay until planted
+ - crop grows over 6 visual stages: 1h between watering and stage advance (5 waterings to mature)
+ - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .crop, .stage, .watered_t)
+ - tilled cells render with a brown tint overlay; darker when the crop has been watered
+ - planted crops render from Objects/Spring Crops.png. Each crop = one 16x16 row.
+   In-world stages: col 0 (freshly seeded) → col 5 (mature, harvestable).
+   Inventory icons: col 7 = seedbox (seeds), col 8 = harvested produce.
+ - crops are berry (row 1), cress (row 3), onion (row 5), potato (row 7) — rows in 0-indexed 16x16 grid
 
 HUD (debug)
  - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)
