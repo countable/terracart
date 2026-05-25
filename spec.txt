@@ -5,7 +5,7 @@ CORE
  - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache
  - Phaser 3.87 renders the world
  - Geolocation API for navigation, WASD as fallback (works on localhost / desktop)
- - tap player to lock position (drift protection); tap again to unlock + snap back to GPS
+ - device compass (deviceorientation) drives the facing-arrow indicator; WASD moves fall back to last move-direction
  - camera shows 11x11 cells, 5m each (55m viewport). player fixed at center, world pans
  - graceful network disconnect: 'reconnecting' banner; cached tiles still served from IDB
 
@@ -49,14 +49,16 @@ INVENTORY
  - chest drops are seeds only; existing stacks increment
 
 INTERACTION
- - tapping is reserved for: PLANTING seeds, and (future) BUYING / SELLING at shops
- - all other state changes happen via player intersection (walking over a cell)
- - tap inside the 11x11 viewport (priority order):
-     1) plant tilled cell
-     2) sell selected item to shop
-     3) buy from shop
-     4) show the name of what was tapped
- - tap player → toggle GPS lock (yellow tint when locked)
+ - EVERYTHING is tap-driven. Walking does not change cell state.
+ - tap inside the 11x11 viewport (priority order, all within 15m of player):
+     1) catch creature within 4m of tap
+     2) pick wild plant within 4m of tap
+     3) open chest / shop / tree-flavor for world objects within reach
+     4) tap planted cell: harvest if mature; advance stage if watered ≥1h; water if dry
+     5) tap tilled empty cell with a seed selected → plant
+     6) tap untilled tillable cell → till it
+     7) tap non-tillable terrain → flavor name (water / building / etc.)
+ - tap player → treated as a world tap at the player's current cell (interacts with the cell under the player)
  - flash text fades upward over 0.9s
 
 ECONOMY (TODO — buying & selling)
@@ -66,12 +68,12 @@ ECONOMY (TODO — buying & selling)
  - buy stock = each shop sells just one item. tapping once shows it. tap to confirm buy or cancel.
 
 FARMING LOOP
- - the ONLY manual farming action is PLANTING. tools are implicit; other state changes happen
-   automatically as the player walks over the cell.
-     1) walk over untilled tillable cell → AUTO-TILL (visual: brown tint)
-     2) tap tilled cell with a seed selected → PLANT
-     3) walk over planted-but-dry cell → AUTO-WATER -> go to next plant stage in 1h, darkent tint tile
-     4) walk over fully-grown crop → AUTO-HARVEST → +1-3 produce of that crop. destroy plant. sometimes get a seed.
+ - all farming actions are tap-driven (tools are implicit). Walking has no effect on cells.
+     1) tap untilled tillable cell → TILL (visual: brown tint)
+     2) tap tilled empty cell with a seed selected → PLANT (decrements seed count)
+     3) tap planted-but-dry cell → WATER (darkens tint; stage advances 1h later)
+     4) tap watered cell after 1h → ADVANCE one stage (cell becomes dry again)
+     5) tap mature crop → HARVEST → +1-3 produce of that crop. destroy plant. sometimes get a bonus seed.
  - any tillable cell (non-water, non-building) can be tilled
  - crop grows over 5 visual stages: 1h between watering and stage advance (4 waterings to mature)
  - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .crop, .stage, .watered_t)
@@ -85,7 +87,7 @@ FARMING LOOP
    Biome map: forest→shrub (3-6/tile), park→potato (4-8), grass→sunflower (0-2), sand→fireflower (0-2), rock→iceflower (0-2)
 
 HUD (debug)
- - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)
+ - top-left: lat, lon, GPS state (wasd|waiting|live)
  - line 2: current MVT tile coords, loaded tile count, caught creatures, planted plot count
  - useful for testing; not styled for production
 

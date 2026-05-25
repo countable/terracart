@@ -330,14 +330,20 @@ function pickLoot(rng, poiClass) {
   return { id, n: TIER_YIELD[tier] };
 }
 
-// Wild plants grow in specific biomes (no tilling needed). Terrain class → spawn config.
-//   0=grass, 1=forest, 2=sand, 6=park, 10=rock
+// Wild plants / debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
+// Terrain class → spawn config.
+//   0=grass, 1=forest, 2=sand, 5=residential, 6=park, 10=rock
 const WILD_BIOME = {
-  1:  { crop: 'shrub',      min: 3, max: 6 },  // forest — common
-  6:  { crop: 'potato',     min: 4, max: 8 },  // park   — common
-  0:  { crop: 'sunflower',  min: 0, max: 2 },  // grass  — rare
-  2:  { crop: 'fireflower', min: 0, max: 2 },  // sand   — rare
-  10: { crop: 'iceflower',  min: 0, max: 2 },  // rock   — rare
+  5:  { crop: 'rockfruit',  min: 6, max: 12 }, // residential — common debris (treasure chance)
+  6:  { crop: 'shrub',      min: 4, max: 8 },  // park        — common
+  1:  { crop: 'shrub',      min: 3, max: 6 },  // forest      — common
+  0:  { crop: 'sunflower',  min: 0, max: 2 },  // grass       — rare
+  2:  { crop: 'fireflower', min: 0, max: 2 },  // sand        — rare
+  10: { crop: 'iceflower',  min: 0, max: 2 },  // rock        — rare
+};
+// Surprise treasure: when picking a wild ${key}, ${chance} chance to also get a ${bonus}.
+const WILD_TREASURE = {
+  rockfruit: { chance: 0.1, bonus: 'gemfruit' },
 };
 
 const SAVE_KEY = 'terracart.save.v4';
@@ -383,6 +389,9 @@ const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
     id: c, name: CROP_NAMES[c], kind: 'produce', crop: c, icon: '🌾',
   })),
+  // Caught creatures stack in the inventory.
+  { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
+  { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
@@ -495,7 +504,6 @@ class MapScene extends Phaser.Scene {
     this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement
     this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
     this.gpsM = null;
-    this.gpsLocked = false;
     this.gpsAvailable = false;
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
@@ -590,18 +598,16 @@ class MapScene extends Phaser.Scene {
     this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
 
     // Player sprite
+    // Player sprite — not interactive so taps on it fall through to the world
+    // handler (which then treats the tap as if it were the cell under the player).
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
       .setScale(1.5)
       .play('idle-anim')
-      .setMask(mask)
-      .setInteractive({ useHandCursor: true });
-    this.player.on('pointerdown', (pointer, lx, ly, event) => {
-      event.stopPropagation();
-      this.toggleGpsLock();
-    });
-    // Facing direction indicator: small dot offset from the player in the
-    // direction of last movement (WASD or GPS easing). Sits above the player.
+      .setMask(mask);
+    // Facing direction indicator — arrow rendered via Graphics, pointed in the
+    // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
+    this.compassDeg = null; // degrees clockwise from north, or null if no sensor
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -631,8 +637,9 @@ class MapScene extends Phaser.Scene {
     window.addEventListener('offline', () => this.showBanner(true));
     window.addEventListener('online', () => this.showBanner(false));
 
-    // GPS watch (best-effort)
+    // GPS watch + device compass (best-effort)
     this.startGps();
+    this.startCompass();
   }
 
   // === GPS ===
@@ -647,17 +654,16 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * 111320;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          if (!this.gpsLocked) {
-            // Ease toward the new GPS fix instead of snapping; also update facing.
-            this._ease = {
-              fromX: this.playerM.x, fromY: this.playerM.y,
-              toX: this.gpsM.x, toY: this.gpsM.y,
-              t0: performance.now(), dur: 300,
-            };
-            if (prev) {
-              const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
-              if (ddx || ddy) this.facing = { x: ddx, y: ddy };
-            }
+          // Ease toward the new GPS fix instead of snapping.
+          this._ease = {
+            fromX: this.playerM.x, fromY: this.playerM.y,
+            toX: this.gpsM.x, toY: this.gpsM.y,
+            t0: performance.now(), dur: 300,
+          };
+          if (prev) {
+            const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
+            // Only use movement as facing fallback when there's no compass.
+            if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
           }
         },
         err => { console.warn('GPS error', err.message); this.gpsAvailable = false; },
@@ -665,17 +671,35 @@ class MapScene extends Phaser.Scene {
       );
     } catch { this.gpsAvailable = false; }
   }
-  toggleGpsLock() {
-    this.gpsLocked = !this.gpsLocked;
-    if (!this.gpsLocked && this.gpsM) {
-      this._ease = {
-        fromX: this.playerM.x, fromY: this.playerM.y,
-        toX: this.gpsM.x, toY: this.gpsM.y,
-        t0: performance.now(), dur: 300,
-      };
+  // Device compass: prefer absolute-orientation events (Android), fall back to
+  // webkitCompassHeading (iOS). Stores degrees clockwise from north in this.compassDeg.
+  startCompass() {
+    const onOrient = (e) => {
+      let deg = null;
+      if (typeof e.webkitCompassHeading === 'number') {
+        deg = e.webkitCompassHeading; // iOS: already CW from north
+      } else if (e.absolute && typeof e.alpha === 'number') {
+        deg = (360 - e.alpha) % 360;  // alpha is CCW from north; flip
+      } else if (typeof e.alpha === 'number' && this.compassDeg == null) {
+        deg = (360 - e.alpha) % 360;  // best-effort non-absolute fallback
+      }
+      if (deg != null && !Number.isNaN(deg)) {
+        const rad = deg * Math.PI / 180;
+        this.compassDeg = deg;
+        this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
+      }
+    };
+    const attach = () => {
+      window.addEventListener('deviceorientationabsolute', onOrient, true);
+      window.addEventListener('deviceorientation', onOrient, true);
+    };
+    // iOS 13+ requires explicit permission. If the API is gated, request it.
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
+    } else {
+      attach();
     }
-    this.player.setTint(this.gpsLocked ? 0xffe080 : 0xffffff);
-    this.flash(this.gpsLocked ? 'GPS locked' : 'GPS unlocked', this.viewCenterX, this.viewCenterY - 30);
   }
 
   // === Tiles ===
@@ -764,7 +788,8 @@ class MapScene extends Phaser.Scene {
         }
       }
     };
-    const chickenN = 4 + Math.floor(rng() * 6);
+    // A few chickens per tile — sparse enough that spotting one feels like a find.
+    const chickenN = 1 + Math.floor(rng() * 3);   // 1..3 per tile
     for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 6]), i, 'chicken');
     const cowN = Math.floor(rng() * 3);   // 0..2 cows, only in farmland
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([4]), i, 'cow');
@@ -810,15 +835,16 @@ class MapScene extends Phaser.Scene {
     if (k.UP.isDown)    { vy -= 1; speedMul = 10; }
     if (k.DOWN.isDown)  { vy += 1; speedMul = 10; }
     const moving = vx || vy;
-    if (moving && (this.gpsLocked || !this.gpsM)) {
+    if (moving) {
       const n = Math.hypot(vx, vy);
       this.playerM.x += (vx / n) * WALK_M_S * speedMul * dt;
       this.playerM.y += (vy / n) * WALK_M_S * speedMul * dt;
-      this.facing = { x: vx, y: vy };
+      // Only let WASD drive facing when there's no compass heading available.
+      if (this.compassDeg == null) this.facing = { x: vx, y: vy };
       if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
       if (vx < 0) this.player.setFlipX(true);
       else if (vx > 0) this.player.setFlipX(false);
-    } else if (this._ease && !this.gpsLocked) {
+    } else if (this._ease) {
       // Ease playerM toward last GPS fix (easeOutCubic, 300ms).
       const u = Math.min(1, (performance.now() - this._ease.t0) / this._ease.dur);
       const e = 1 - Math.pow(1 - u, 3);
@@ -838,17 +864,32 @@ class MapScene extends Phaser.Scene {
       this.player.play('idle-anim');
     }
 
-    // Facing-direction indicator: small white dot offset from the player.
+    // Facing-direction indicator: yellow triangle arrow at the player's head,
+    // pointing in the compass heading (or last movement, as fallback).
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
       const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
-      const cx = this.viewCenterX + fx * 16;
-      const cy = this.viewCenterY - 2 + fy * 16;
-      this.facingGfx.fillStyle(0x000000, 0.5);
-      this.facingGfx.fillCircle(cx, cy, 3);
-      this.facingGfx.fillStyle(0xffffff, 0.95);
-      this.facingGfx.fillCircle(cx, cy, 2);
+      // perpendicular for the base of the triangle
+      const px = -fy, py = fx;
+      const tip = 22; // distance from player center to arrow tip
+      const base = 14; // distance from player center to arrow base midpoint
+      const halfW = 6; // half-width of the base
+      const cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      const tx = cx + fx * tip, ty = cy + fy * tip;
+      const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
+      const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
+      // dark outline
+      this.facingGfx.lineStyle(2, 0x000000, 0.85);
+      this.facingGfx.beginPath();
+      this.facingGfx.moveTo(tx, ty);
+      this.facingGfx.lineTo(blx, bly);
+      this.facingGfx.lineTo(brx, bry);
+      this.facingGfx.closePath();
+      this.facingGfx.strokePath();
+      // bright yellow fill
+      this.facingGfx.fillStyle(0xffd24a, 1);
+      this.facingGfx.fillTriangle(tx, ty, blx, bly, brx, bry);
     }
 
     if (!this._lastCheckM ||
@@ -857,13 +898,7 @@ class MapScene extends Phaser.Scene {
       this.ensureTilesAround().catch(() => {});
     }
 
-    // Walking auto-progression: when the player enters a new cell, run state transitions.
-    const { cellIX, cellIY } = this.playerAbsCell();
-    const cellKey = `${cellIX}_${cellIY}`;
-    if (cellKey !== this._lastPlayerCellKey) {
-      this._lastPlayerCellKey = cellKey;
-      this.onPlayerEnterCell(cellIX, cellIY);
-    }
+    // All farming actions (till/water/plant/harvest) are tap-driven now — no walk-over auto-actions.
 
     this.drawCells();
     this.drawObjects();
@@ -1154,9 +1189,12 @@ class MapScene extends Phaser.Scene {
       } else if (o.kind === 'chest') {
         if (s.texture.key !== 'chest') s.setTexture('chest');
         const opened = this.save.opened.includes(o.id);
+        // chest.png frames 0/1 are nearly identical, so make 'opened' obvious
+        // with a strong dark tint + reduced alpha.
         s.setFrame(opened ? 1 : 0);
         s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
-        s.setAlpha(opened ? 0.55 : 1);
+        s.setAlpha(opened ? 0.45 : 1);
+        s.setTint(opened ? 0x404040 : 0xffffff);
       }
     });
 
@@ -1281,11 +1319,49 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // 2) Plant a seed (only manual farming action — till/water/harvest are automated by walking).
-    const sel = this.save.inv[this.save.selSlot];
-    const item = sel ? ITEM_BY_ID[sel.id] : null;
+    // 2) Cell interactions — tap drives till / plant / water / harvest.
     if (Math.hypot(wm.x - pWorldX, wm.y - pWorldY) > 15) { this.flash('too far', sx, sy); return; }
     const cell = this.cellAt(wm.x, wm.y);
+    if (!cell.loaded) { this.flash('loading…', sx, sy); return; }
+    const { cellIX, cellIY } = this.worldMetersToAbsCell(wm.x, wm.y);
+    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
+    const cellKey = `${cellIX}_${cellIY}`;
+
+    // 2a) Tap on a planted crop → harvest if mature, else advance (if 1h elapsed), else water.
+    const plantedIdx = this.save.planted.findIndex(p =>
+      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
+    if (plantedIdx >= 0) {
+      const p = this.save.planted[plantedIdx];
+      const stageHoldMs = 60 * 60 * 1000; // 1h between watering and stage advance
+      const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
+      if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
+        p.stage = (p.stage ?? 0) + 1;
+        p.watered_t = 0;
+        persistSave(this.save);
+      }
+      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
+        this.save.planted.splice(plantedIdx, 1);
+        this.tilledSet.delete(cellKey);
+        this.save.tilled = [...this.tilledSet];
+        const yieldN = 1 + Math.floor(Math.random() * 3);
+        this.addToInv(p.crop, yieldN);
+        if (Math.random() < 0.25) this.addToInv(`${p.crop}_seed`, 1);
+        persistSave(this.save);
+        this.flash(`harvested ${p.crop}×${yieldN}`, sx, sy);
+        return;
+      }
+      if (!p.watered_t) {
+        p.watered_t = Date.now();
+        persistSave(this.save);
+        this.flash('💧 watered', sx, sy);
+        return;
+      }
+      const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
+      this.flash(`growing… ${minsLeft}m`, sx, sy);
+      return;
+    }
+
+    // 2b) Tap non-tillable terrain → flavor.
     if (!isTillable(cell.type)) {
       const flavor = cell.type === 3 ? 'water'
                    : (cell.type === 9 || cell.type === 11 || cell.type === 12) ? 'building'
@@ -1293,36 +1369,38 @@ class MapScene extends Phaser.Scene {
       this.flash(flavor, sx, sy);
       return;
     }
-    if (!item || item.kind !== 'seed') {
-      this.flash('select a seed', sx, sy);
-      return;
-    }
-    const { cellIX, cellIY } = this.worldMetersToAbsCell(wm.x, wm.y);
-    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
-    const cellKey = `${cellIX}_${cellIY}`;
-    if (!this.tilledSet.has(cellKey)) {
-      this.flash('walk over to till first', sx, sy);
-      return;
-    }
-    if (this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
-      this.flash('already planted', sx, sy);
-      return;
-    }
-    if ((sel.count ?? 0) <= 0) {
-      this.flash('out of seeds', sx, sy);
-      return;
-    }
-    this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
-    sel.count -= 1;
-    if (sel.count <= 0) {
-      this.save.inv.splice(this.save.selSlot, 1);
-      if (this.save.selSlot >= this.save.inv.length) {
-        this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+
+    // 2c) Tap tilled empty cell with a seed selected → plant.
+    if (this.tilledSet.has(cellKey)) {
+      const sel = this.save.inv[this.save.selSlot];
+      const item = sel ? ITEM_BY_ID[sel.id] : null;
+      if (!item || item.kind !== 'seed') {
+        this.flash('select a seed', sx, sy);
+        return;
       }
+      if ((sel.count ?? 0) <= 0) {
+        this.flash('out of seeds', sx, sy);
+        return;
+      }
+      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
+      sel.count -= 1;
+      if (sel.count <= 0) {
+        this.save.inv.splice(this.save.selSlot, 1);
+        if (this.save.selSlot >= this.save.inv.length) {
+          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        }
+      }
+      persistSave(this.save);
+      this.buildInventoryDOM();
+      this.flash(`planted ${item.grows}`, sx, sy);
+      return;
     }
+
+    // 2d) Tap untilled tillable cell → till it.
+    this.tilledSet.add(cellKey);
+    this.save.tilled = [...this.tilledSet];
     persistSave(this.save);
-    this.buildInventoryDOM();
-    this.flash(`planted ${item.grows}`, sx, sy);
+    this.flash('tilled', sx, sy);
   }
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
@@ -1335,68 +1413,11 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, ix, iy, loaded, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
   }
   catchCreature(c, sx, sy) {
-    this.save.caught.push(c.id);
+    this.save.caught.push(c.id);   // keep so the creature doesn't respawn
+    this.addToInv(c.kind, 1);      // stack into inventory (icon comes from ITEMS)
     persistSave(this.save);
-    this.flash(`caught ${c.kind}!`, sx, sy);
-  }
-
-  onPlayerEnterCell(cellIX, cellIY) {
-    // Identify the cell center in world meters (using the tile-pixel cell basis).
-    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
-    const cellKey = `${cellIX}_${cellIY}`;
-    const cell = this.cellAt(cwmx, cwmy);
-
-    // 1) Auto-harvest first (so we don't water a ready crop pointlessly).
-    // NOTE: don't gate on isTillable() here — a planted crop must always be harvestable / waterable,
-    // even if the cell now classifies as non-tillable (e.g. a building tier introduced after planting).
-    const plantedIdx = this.save.planted.findIndex(p =>
-      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
-    if (plantedIdx >= 0) {
-      const p = this.save.planted[plantedIdx];
-      const stageHoldMs = 60 * 60 * 1000; // 1h between watering and stage advance
-      const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
-
-      // 1a) If watered and 1h has elapsed, advance one stage and become dry again.
-      if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
-        p.stage = (p.stage ?? 0) + 1;
-        p.watered_t = 0;
-        persistSave(this.save);
-      }
-
-      // 1b) Mature → harvest. Produce always; bonus seed sometimes.
-      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
-        this.save.planted.splice(plantedIdx, 1);
-        this.tilledSet.delete(cellKey);
-        this.save.tilled = [...this.tilledSet];
-        const yieldN = 1 + Math.floor(Math.random() * 3);
-        this.addToInv(p.crop, yieldN); // produce
-        if (Math.random() < 0.25) this.addToInv(`${p.crop}_seed`, 1); // bonus seed
-        persistSave(this.save);
-        this.flash(`harvested ${p.crop}×${yieldN}`, this.viewCenterX, this.viewCenterY - 20);
-        return;
-      }
-
-      // 1c) Dry → water it (visual darken; stage advances after 1h on a later visit).
-      if (!p.watered_t) {
-        p.watered_t = Date.now();
-        persistSave(this.save);
-        this.flash('💧 watered', this.viewCenterX, this.viewCenterY - 20);
-        return;
-      }
-      return;
-    }
-
-    // 3) Auto-till empty tillable ground (silent — no flash to avoid spam).
-    // Skip when the underlying tile hasn't streamed in yet — otherwise a GPS jump
-    // onto an unloaded building cell falls back to "grass" and gets wrongly tilled,
-    // leaving the house rendered as soil once the real tile data arrives.
-    if (!cell.loaded) return;
-    if (!isTillable(cell.type)) return;
-    if (!this.tilledSet.has(cellKey)) {
-      this.tilledSet.add(cellKey);
-      this.save.tilled = [...this.tilledSet];
-      persistSave(this.save);
-    }
+    const item = ITEM_BY_ID[c.kind];
+    this.flash(`+1 ${item?.icon || ''} ${c.kind}`, sx, sy);
   }
 
   flash(text, x, y) {
@@ -1415,7 +1436,7 @@ class MapScene extends Phaser.Scene {
     const lat = START_LAT + (-this.playerM.y) / 111320;
     const lon = START_LON + this.playerM.x / (111320 * Math.cos(START_LAT * Math.PI / 180));
     const loaded = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-    const gps = this.gpsAvailable ? (this.gpsLocked ? 'LOCKED' : (this.gpsM ? 'live' : 'waiting')) : 'wasd';
+    const gps = this.gpsAvailable ? (this.gpsM ? 'live' : 'waiting') : 'wasd';
     this.hud.textContent =
       `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
