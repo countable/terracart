@@ -43,7 +43,15 @@ CHESTS (POI-driven, drop existing inventory items only)
      civic (school/college/library/town_hall/place_of_worship/attraction/museum/memorial/books/pet) → seeds, 30/40/30
      health (pharmacy/hospital/dentist) → seeds, 50/30/20
      park (park/garden/playground/pitch/fountain) → seeds, 40/40/20
+     lowtier (bus/fuel/lodging/gate — street-furniture POIs) → seeds, 90/8/2,
+       REDUCED yields: T1=3, T2=2, T3=1 (vs. normal 10/5/2)
  - opened chest stays open and dimmed; opened state persists
+ - chest TIER (1-4) drawn as a small colored diamond above the chest sprite:
+     T1 bronze (lowtier — bus/fuel/lodging/gate)
+     T2 silver (commerce, park)
+     T3 gold   (food, health, civic, farm)
+     T4 cyan-diamond (flora — florists/garden centres, rarest)
+   Diamond dims with the chest when opened.
  - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Hedge School")
    AND rendered as a small text label above the chest sprite (dimmed when opened)
  - names are RUSTICIFIED at display time via rusticifyName() — whole-word substitutions

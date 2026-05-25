@@ -149,17 +149,19 @@ function drawParkTex(ctx, size, rng) {
 function drawTilledTex(ctx, size, rng) {
   // Yellow-brown ploughed soil — clear horizontal furrows + grain.
   ctx.clearRect(0, 0, size, size);
-  const rowH = 5;
-  for (let y = 1; y < size; y += rowH) {
-    // furrow shadow
-    ctx.fillStyle = 'rgba(70,40,10,0.45)';
+  // Wider row spacing reads as distinct furrows instead of dense stripes.
+  const rowH = 8;
+  for (let y = 2; y < size; y += rowH) {
+    // furrow shadow (single sharp dark line)
+    ctx.fillStyle = 'rgba(60,35,10,0.55)';
     ctx.fillRect(0, y, size, 1);
-    // furrow highlight just below
-    ctx.fillStyle = 'rgba(255,225,160,0.20)';
-    ctx.fillRect(0, y + 1, size, 1);
+    // soft highlight a couple pixels below — gap between shadow + highlight
+    // makes each furrow read as its own ridge instead of a fat 2px stripe.
+    ctx.fillStyle = 'rgba(255,225,160,0.16)';
+    ctx.fillRect(0, y + 3, size, 1);
   }
-  // clods of soil
-  for (let i = 0; i < 12; i++) {
+  // sparse clods so the texture isn't too noisy between furrows
+  for (let i = 0; i < 8; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
     ctx.fillStyle = rng() < 0.5
@@ -448,11 +450,29 @@ const CATEGORY_LOOT = {
   park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
   flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
   farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
-  lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]] },
+  lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
 };
 // Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
 const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
+
+// Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
+const CHEST_TIER_BY_CATEGORY = {
+  lowtier: 1,
+  commerce: 2, park: 2,
+  food: 3, health: 3, civic: 3, farm: 3,
+  flora: 4,
+};
+const CHEST_TIER_COLOR = {
+  1: 0xb87333, // bronze
+  2: 0xc0c0c0, // silver
+  3: 0xffd700, // gold
+  4: 0xb9f2ff, // diamond (pale cyan)
+};
+function chestTier(poiClass) {
+  const cat = POI_CATEGORY[poiClass];
+  return (cat && CHEST_TIER_BY_CATEGORY[cat]) || 2;
+}
 
 // Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
 // 10% one uncommon seed, 5% one rare seed.
@@ -1552,6 +1572,34 @@ class MapScene extends Phaser.Scene {
       li++;
     }
     for (; li < this.chestLabelPool.length; li++) this.chestLabelPool[li].setVisible(false);
+
+    // Chest tier indicators: small colored diamond above each visible chest.
+    // Drawn via cellGfx (shares the viewport mask so it clips correctly).
+    const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest');
+    const g = this.cellGfx;
+    for (const item of chestObjs) {
+      const { o, dx, dy } = item;
+      const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
+      const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
+      const tier = chestTier(o.poiClass);
+      const color = CHEST_TIER_COLOR[tier] || 0xc0c0c0;
+      const opened = this.save.opened.includes(o.id);
+      const alpha = opened ? 0.35 : 1;
+      // Diamond above the chest (between sprite and label), rotated square ~5px half-extent.
+      const cx = Math.round(sx);
+      const cy = Math.round(sy - 26);
+      const r = 5;
+      g.lineStyle(1, 0x000000, alpha * 0.8);
+      g.fillStyle(color, alpha);
+      g.fillTriangle(cx, cy - r, cx + r, cy, cx, cy + r);
+      g.fillTriangle(cx, cy - r, cx - r, cy, cx, cy + r);
+      // Outline
+      g.beginPath();
+      g.moveTo(cx, cy - r); g.lineTo(cx + r, cy);
+      g.lineTo(cx, cy + r); g.lineTo(cx - r, cy);
+      g.closePath();
+      g.strokePath();
+    }
 
     this.renderPool(this.plantedPool, this.plantedContainer, plantedList, (s, item) => {
       const { p, dx, dy } = item;
