@@ -544,3 +544,106 @@ function makePadTexture(scene, padKey, statueKey) {
   }
   tex.refresh();
 }
+
+// === Shape-based concrete pads ===
+// PAD_SHAPES define occupancy on a cell grid + the chest's cell. Each shape
+// becomes one texture keyed `pad_<shape>`. Cells are CELL_PX (32 px) and the
+// outline only strokes the OUTER boundary of the shape (edges not shared with
+// another cell), so an L / + / triangle reads as one continuous slab.
+//
+// Coordinate convention: [col, row] with col=x, row=y. (0,0) = top-left.
+const PAD_CELL = 32;
+const PAD_SHAPES = {
+  // 3x3 square, chest centered. Used as the default for park/food/farm/etc.
+  square3: {
+    cells: [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]],
+    chest: [1, 1],
+  },
+  // 2x2 square, chest in TOP-LEFT corner. Used for pitches/sports fields.
+  square2: {
+    cells: [[0,0],[1,0],[0,1],[1,1]],
+    chest: [0, 0],
+  },
+  // Greek cross (+ shape), chest centered. Used for chapels and medical.
+  cross: {
+    cells:        [[1,0],[0,1],[1,1],[2,1],[1,2]],
+    chest: [1, 1],
+  },
+  // Stepped triangle, 5 wide × 3 tall, point on top. Chest in middle row centre.
+  //   .  .  O  .  .
+  //   .  O  O  O  .
+  //   O  O  O  O  O
+  triangle: {
+    cells: [           [2,0],
+                  [1,1],[2,1],[3,1],
+            [0,2],[1,2],[2,2],[3,2],[4,2]],
+    chest: [2, 1],
+  },
+  // 1×3 horizontal strip, chest centered. Used for food / commerce — reads
+  // as a market counter / shop frontage.
+  line3h: {
+    cells: [[0,0],[1,0],[2,0]],
+    chest: [1, 0],
+  },
+  // 1×3 vertical strip, chest centered. Used for playgrounds.
+  line3v: {
+    cells: [[0,0],[0,1],[0,2]],
+    chest: [0, 1],
+  },
+};
+// Pre-compute bounding box for each shape (cols × rows).
+for (const s of Object.values(PAD_SHAPES)) {
+  s.cols = Math.max(...s.cells.map(c => c[0])) + 1;
+  s.rows = Math.max(...s.cells.map(c => c[1])) + 1;
+}
+
+// Build a texture for one shape. Each cell is PAD_CELL × PAD_CELL pixels;
+// the texture's full bounds are cols×rows cells. Only the outer perimeter
+// is stroked.
+function makePadShapeTexture(scene, shapeKey) {
+  const key = `pad_${shapeKey}`;
+  if (scene.textures.exists(key)) return;
+  const shape = PAD_SHAPES[shapeKey];
+  if (!shape) return;
+  const W = shape.cols * PAD_CELL, H = shape.rows * PAD_CELL;
+  const tex = scene.textures.createCanvas(key, W, H);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, H);
+  const occ = new Set(shape.cells.map(c => `${c[0]},${c[1]}`));
+  // Body fill — slightly mottled by overlaying a darker bottom band.
+  ctx.fillStyle = '#b2b2b2';
+  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL, PAD_CELL, PAD_CELL);
+  // Per-cell subtle shading: a light top edge + dark bottom edge gives the
+  // slabs a faint "beveled flagstone" feel without losing the unified outline.
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL, PAD_CELL, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL + PAD_CELL - 2, PAD_CELL, 2);
+  // Faint grout lines between adjacent cells so you can read the tile count.
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const [c, r] of shape.cells) {
+    const x0 = c * PAD_CELL, y0 = r * PAD_CELL;
+    if (occ.has(`${c + 1},${r}`)) { ctx.moveTo(x0 + PAD_CELL, y0 + 1); ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL - 1); }
+    if (occ.has(`${c},${r + 1}`)) { ctx.moveTo(x0 + 1, y0 + PAD_CELL); ctx.lineTo(x0 + PAD_CELL - 1, y0 + PAD_CELL); }
+  }
+  ctx.stroke();
+  // Outer perimeter outline (darker, slightly thicker).
+  ctx.strokeStyle = '#6e6e6e';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const [c, r] of shape.cells) {
+    const x0 = c * PAD_CELL, y0 = r * PAD_CELL;
+    if (!occ.has(`${c},${r - 1}`)) { ctx.moveTo(x0, y0);                ctx.lineTo(x0 + PAD_CELL, y0); }
+    if (!occ.has(`${c + 1},${r}`)) { ctx.moveTo(x0 + PAD_CELL, y0);      ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL); }
+    if (!occ.has(`${c},${r + 1}`)) { ctx.moveTo(x0, y0 + PAD_CELL);      ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL); }
+    if (!occ.has(`${c - 1},${r}`)) { ctx.moveTo(x0, y0);                ctx.lineTo(x0, y0 + PAD_CELL); }
+  }
+  ctx.stroke();
+  tex.refresh();
+}
+
+function makeAllPadShapes(scene) {
+  for (const k of Object.keys(PAD_SHAPES)) makePadShapeTexture(scene, k);
+}
