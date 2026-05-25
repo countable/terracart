@@ -413,11 +413,13 @@ function drawFlowerTuftStatue(ctx, s) {
 function drawFlora(ctx, kind, variant) {
   ctx.clearRect(0, 0, 16, 16);
   if (kind === 'flower') {
+    // Color per polygon (not per cell). Saturated primaries so a field of flowers
+    // reads as a single distinct color.
     const palettes = [
-      { petal: '#ff9ec3', center: '#ffe46b' },
-      { petal: '#fff', center: '#ffd93b' },
-      { petal: '#a5c1ff', center: '#ffd93b' },
-      { petal: '#ffd57a', center: '#c25400' },
+      { petal: '#ffe14a', center: '#c25400' },   // yellow
+      { petal: '#e23a3a', center: '#ffe46b' },   // red
+      { petal: '#4a82ff', center: '#ffe46b' },   // blue
+      { petal: '#b15cff', center: '#ffe46b' },   // purple
     ];
     const p = palettes[variant % palettes.length];
     ctx.fillStyle = '#2e5a2e';
@@ -464,7 +466,7 @@ function drawFlora(ctx, kind, variant) {
 }
 
 function makeFloraTextures(scene) {
-  const SPECS = { flower: 4, pebble: 3, mushroom: 2 };
+  const SPECS = { flower: 4 };
   for (const [kind, n] of Object.entries(SPECS)) {
     for (let v = 0; v < n; v++) {
       const key = `flora_${kind}_${v}`;
@@ -494,4 +496,51 @@ function makeBiomeTextures(scene, size) {
     drawTilledTex(tex.getContext(), size, seededRand(7919 + v));
     tex.refresh();
   }
+}
+
+// === POI concrete pad ===
+// Build a 96×96 (3×3 game-cells, 32px each) "concrete slab" texture: rounded-
+// rect grey base with a gentle darker outline, and the chosen statue embossed
+// on each of the 9 cells at 20% alpha. Drawn under POI chests.
+// Pass statueKey = null for a plain pad (no statue).
+function makePadTexture(scene, padKey, statueKey) {
+  if (scene.textures.exists(padKey)) return;
+  const W = 96;
+  const tex = scene.textures.createCanvas(padKey, W, W);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, W);
+  // Rounded-rect slab (2px inset so the stroke isn't clipped).
+  const m = 2, r = 8;
+  ctx.beginPath();
+  ctx.moveTo(m + r, m);
+  ctx.lineTo(W - m - r, m);
+  ctx.quadraticCurveTo(W - m, m, W - m, m + r);
+  ctx.lineTo(W - m, W - m - r);
+  ctx.quadraticCurveTo(W - m, W - m, W - m - r, W - m);
+  ctx.lineTo(m + r, W - m);
+  ctx.quadraticCurveTo(m, W - m, m, W - m - r);
+  ctx.lineTo(m, m + r);
+  ctx.quadraticCurveTo(m, m, m + r, m);
+  ctx.closePath();
+  ctx.fillStyle = '#b2b2b2';
+  ctx.fill();
+  ctx.strokeStyle = '#7a7a7a';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Emboss statue on each 32×32 cell at 20% alpha.
+  if (statueKey && scene.textures.exists(statueKey)) {
+    const src = scene.textures.get(statueKey).getSourceImage();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 0.20;
+    const cellPx = 32, inset = 4;
+    for (let r2 = 0; r2 < 3; r2++) {
+      for (let c2 = 0; c2 < 3; c2++) {
+        ctx.drawImage(src,
+          c2 * cellPx + inset, r2 * cellPx + inset,
+          cellPx - inset * 2, cellPx - inset * 2);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  tex.refresh();
 }

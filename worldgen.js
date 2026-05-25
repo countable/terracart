@@ -303,10 +303,16 @@
     5:  'rockfruit', // RESIDENTIAL
     6:  'shrub',     // PARK
     1:  'shrub',     // FOREST
-    0:  'longgrass', // GRASS (open grassland)
+    // longgrass is spawned independently for the whole grassland family below — it isn't
+    // wired through DEBRIS_CROP because PARK already grows shrubs, and we want each
+    // grassland polygon to get its own seeded longgrass density in [0%, 15%].
   };
   const DEBRIS_MIN = 0.05;
   const DEBRIS_MAX = 0.30;
+  // Polygon classes that may grow tufts of harvestable long grass.
+  const LONGGRASS_TYPES = new Set([0, 6, 15, 18, 19, 21]); // GRASS, PARK, SCHOOL, PLAYGROUND, PITCH, GOLF
+  const LONGGRASS_MAX_DENSITY = 0.15;
+  const LONGGRASS_RNG_SALT = 0x5a17b105;
   // Salt for the rare-nut RNG stream in forests — independent of the shrub stream
   // that shares the same polygon key. (Was `0xdeadbeef`.)
   const NUT_RNG_SALT = 0xdeadbeef;
@@ -314,19 +320,17 @@
   // Per-biome decorative items (purely visual, non-interactable). Stored as
   // { kind: 'flora', x, y, deco: '<kind>', variant: 0..N } and rendered by app.js
   // using procedurally-generated 16x16 textures.
+  // dMin/dMax is the per-polygon density range — each polygon rolls its own
+  // density inside this range (so some grass fields are barren, others bloom).
   const FLORA_BY_TYPE = {
-    [T.GRASS]:      { deco: 'flower',   density: 0.10 },
-    [T.PARK]:       { deco: 'flower',   density: 0.14 },
-    [T.GOLF]:       { deco: 'flower',   density: 0.10 },
-    [T.PITCH]:      { deco: 'flower',   density: 0.08 },
-    [T.PLAYGROUND]: { deco: 'flower',   density: 0.10 },
-    [T.WETLAND]:    { deco: 'flower',   density: 0.10 },
-    [T.FOREST]:     { deco: 'mushroom', density: 0.08 },
-    [T.ORCHARD]:    { deco: 'mushroom', density: 0.10 },
-    [T.SAND]:       { deco: 'pebble',   density: 0.10 },
-    [T.ROCK]:       { deco: 'pebble',   density: 0.12 },
+    [T.GRASS]:      { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.PARK]:       { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.GOLF]:       { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.PITCH]:      { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.PLAYGROUND]: { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.WETLAND]:    { deco: 'flower', dMin: 0.0, dMax: 0.05 },
   };
-  const FLORA_VARIANTS = { flower: 4, pebble: 3, mushroom: 2 };
+  const FLORA_VARIANTS = { flower: 4 };
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -341,9 +345,16 @@
     // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
     // very low density. Snapped to the local cell grid like debris, but stored
     // separately so it never gets picked up.
-    function spawnFlora(rings, deco, polyKey, density) {
+    function spawnFlora(rings, deco, polyKey, dMin, dMax) {
       const prng = makeRng(polyKey ^ 0xc0ffee);
       const variants = FLORA_VARIANTS[deco] || 1;
+      // Per-polygon density inside the [dMin, dMax] range — some fields are
+      // barren, some are dense. Density of 0 means we skip this polygon entirely.
+      const density = dMin + prng() * (dMax - dMin);
+      if (density <= 0.0001) return;
+      // Flowers pick ONE color per polygon (so a whole field reads as e.g. all
+      // yellow or all red). Pebbles/mushrooms vary per-item for organic look.
+      const polyVariant = Math.floor(prng() * variants);
       const bb = bboxOf(rings);
       const stepMvt = 5 / mvtToM;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
@@ -355,11 +366,14 @@
           if (prng() < density) {
             const cx = tileOriginMx + (localIX + 0.5) * (1 / mvtToCell) * mvtToM;
             const cy = tileOriginMy + (localIY + 0.5) * (1 / mvtToCell) * mvtToM;
+            const variant = (deco === 'flower') ? polyVariant : Math.floor(prng() * variants);
+            // Stable id keyed on tile + local cell so save.picked persists across reloads.
             objects.push({
               kind: 'flora',
               x: cx, y: cy,
               deco,
-              variant: Math.floor(prng() * variants),
+              variant,
+              id: `fl_${tx}_${ty}_${localIX}_${localIY}`,
               _ix: localIX, _iy: localIY,  // for post-pass biome filter
             });
           }
@@ -441,28 +455,25 @@
             // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
             const debrisCrop = DEBRIS_CROP[t];
             if (debrisCrop) {
-              // Long grass is a special harvestable: only ~25% of grass polygons grow it
-              // (and at a much lower density when they do). Other debris always spawns.
-              let skip = false;
-              if (debrisCrop === 'longgrass') {
-                // Stable per-polygon coin flip from the polyKey hash.
-                if ((((polyKey ^ 0x9e3779b1) >>> 0) % 1000) / 1000 >= 0.25) skip = true;
-              }
-              if (!skip) {
-                if (debrisCrop === 'longgrass') {
-                  spawnDebris(f.geom, debrisCrop, polyKey, 0.04, 0.18);
-                } else {
-                  spawnDebris(f.geom, debrisCrop, polyKey);
-                }
-              }
+              spawnDebris(f.geom, debrisCrop, polyKey);
               // Extra rare nut sprinkle on forest polygons. XOR with a fixed salt so the
               // nut and shrub debris share the same polygon key but use independent RNG streams.
               if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ NUT_RNG_SALT, 0.005, 0.03);
             }
 
+            // Long grass — additive spawn across the whole grassland family. Each polygon's
+            // density is a stable random value in [0%, 15%] (seeded by polyKey), so most
+            // polygons grow at least a tuft or two, big meadows visibly cluster, and the
+            // unlucky ones with near-0% density grow nothing — natural per-area variation.
+            if (LONGGRASS_TYPES.has(t)) {
+              const seed = (polyKey ^ LONGGRASS_RNG_SALT) >>> 0;
+              const density = ((seed % 1000) / 1000) * LONGGRASS_MAX_DENSITY;
+              if (density > 0) spawnDebris(f.geom, 'longgrass', seed, density, density);
+            }
+
             // Per-polygon FLORA (purely decorative drops: flowers / pebbles / mushrooms).
             const florax = FLORA_BY_TYPE[t];
-            if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.density);
+            if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.dMin, florax.dMax);
 
             // Scattered Maple Trees on wood/forest landcover.
             if (name === 'landcover') {

@@ -212,21 +212,32 @@ const CATEGORY_LOOT = {
 // Per-category statue decorations placed in the cell IMMEDIATELY RIGHT of the chest
 // (origin 0.5, 1 — anchored at the ground). Bigger so they read at a glance.
 const STATUE_DX = CELL_PX;  // one cell to the right of chest
-const POI_DECOR = {
-  food:     [{ key: 'statue_stockpot', dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  commerce: [{ key: 'statue_signpost', dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  civic:    [{ key: 'statue_book',     dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  health:   [{ key: 'statue_potion',   dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  park:     [{ key: 'statue_flower',   dx: STATUE_DX, dy: -2, scale: 2.0 }],
-  flora:    [{ key: 'statue_bouquet',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  farm:     [{ key: 'statue_wheat',    dx: STATUE_DX, dy: -2, scale: 2.2 }],
+// Each POI chest may sit on a 3×3 concrete pad with the category's statue
+// embossed at 20% on each cell. lowtier (bus stops, intersections, fuel,
+// lodging, gates) — the most common ones — get NO pad, just a bare chest.
+const POI_PAD_BY_CATEGORY = {
+  food:  'pad_statue_stockpot',
+  civic: 'pad_statue_book',
+  health:'pad_statue_potion',
+  park:  'pad_statue_flower',
+  flora: 'pad_statue_bouquet',
+  farm:  'pad_statue_wheat',
+  commerce: 'pad_statue_signpost',
 };
-const POI_DECOR_BY_CLASS = {
-  place_of_worship: [{ key: 'statue_chapel', dx: STATUE_DX, dy: -2, scale: 2.4 }],
-  shop:             [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  supermarket:      [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
-  convenience:      [{ key: 'statue_stall',  dx: STATUE_DX, dy: -2, scale: 2.2 }],
+const POI_PAD_BY_CLASS = {
+  place_of_worship: 'pad_statue_chapel',
+  shop:             'pad_statue_stall',
+  supermarket:      'pad_statue_stall',
+  convenience:      'pad_statue_stall',
+  grocery:          'pad_statue_stall',
 };
+function padKeyForPoi(poiClass) {
+  if (!poiClass) return null;
+  if (POI_PAD_BY_CLASS[poiClass]) return POI_PAD_BY_CLASS[poiClass];
+  const cat = POI_CATEGORY[poiClass];
+  if (cat === 'lowtier') return null;   // bus/sign/intersection/fuel/etc.
+  return POI_PAD_BY_CATEGORY[cat] || null;
+}
 
 // Flowers are the T3 crops by tier mapping. Used by 'flora' category restriction.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
@@ -339,6 +350,8 @@ const ITEMS = [
   { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
+  // Wild flower pickups (per-polygon color but stacks as a single item).
+  { id: 'flowers', name: 'Flowers', kind: 'produce', icon: '🌼' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
@@ -372,6 +385,7 @@ const PRICES = {
   cow: 200,        // ~15–30/tile, yields 1 per catch — premium catch, rare drop
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,    // ubiquitous in grasslands — floor price
+  flowers: 2,      // wild flower pickups — slightly above longgrass
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
@@ -541,6 +555,12 @@ class MapScene extends Phaser.Scene {
       const tex = this.textures.createCanvas(key, 16, 16);
       fn(tex.getContext(), 16, seededRand(key.length * 911));
       tex.refresh();
+    }
+    // 96×96 "concrete pad" textures for each statue (and a plain one).
+    // Built once at startup — chests look up the pad by their resolved statue key.
+    makePadTexture(this, 'pad_plain', null);
+    for (const key of Object.keys(STATUE_DRAWERS)) {
+      makePadTexture(this, `pad_${key}`, key);
     }
 
     // Layers
@@ -1344,6 +1364,8 @@ class MapScene extends Phaser.Scene {
         for (const o of entry.objects) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          // Picked flowers stay gone — skip rendering them.
+          if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
           objList.push({ o, dx, dy });
         }
       }
@@ -1407,31 +1429,29 @@ class MapScene extends Phaser.Scene {
       }
     });
 
-    // POI decoration "statues" — one or two greyscale sculptures per chest,
-    // sourced from POI_DECOR (by category) or POI_DECOR_BY_CLASS (override).
-    // Drawn AFTER chests so beside-statues read in front; behind-statues have
-    // negative dy so they appear above the chest.
-    const decorList = [];
+    // POI concrete pads — a 3×3 (96×96 px) rounded slab centered under each
+    // chest with the category's statue embossed on each cell at 20% alpha.
+    // lowtier POIs (bus stops, intersections, etc.) skip the pad entirely.
+    const padList = [];
     for (const item of filteredObj) {
       const { o, dx, dy } = item;
       if (o.kind !== 'chest') continue;
-      const cls = o.poiClass;
-      const cat = POI_CATEGORY[cls];
-      const decor = POI_DECOR_BY_CLASS[cls] || POI_DECOR[cat];
-      if (!decor) continue;
-      for (const d of decor) decorList.push({ o, dx, dy, d });
+      const key = padKeyForPoi(o.poiClass);
+      if (!key) continue;
+      padList.push({ o, dx, dy, key });
     }
-    this.renderPool(this.decorPool, this.objectsContainer, decorList, (s, item) => {
-      const { o, dx, dy, d } = item;
-      const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX + d.dx;
-      const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX + d.dy;
-      if (s.texture.key !== d.key) s.setTexture(d.key);
-      s.setOrigin(0.5, 1).setScale(d.scale).setPosition(Math.round(sx), Math.round(sy));
+    this.renderPool(this.decorPool, this.padContainer, padList, (s, item) => {
+      const { o, dx, dy, key } = item;
+      const sx = this.viewCenterX + (dx / this.cellM) * CELL_PX;
+      const sy = this.viewCenterY + (dy / this.cellM) * CELL_PX;
+      if (s.texture.key !== key) s.setTexture(key);
+      // Pad anchors at the chest's GROUND point (sx, sy) — chest origin is
+      // (0.5, 0.9) so the pad should center on (sx, sy - small offset). Use
+      // origin (0.5, 0.5) and offset y up by half-cell so 3×3 wraps the chest.
+      s.setOrigin(0.5, 0.5).setScale(1).setPosition(Math.round(sx), Math.round(sy - CELL_PX * 0.5));
       const opened = this.save.opened.includes(o.id);
-      // Softer contrast — tint the bright pixels down so statues don't fight high-contrast
-      // backgrounds (e.g. bright park grass + dark shrub debris).
-      s.setAlpha(opened ? 0.45 : 0.85);
-      s.setTint(opened ? 0x808080 : 0xd6cfc2);
+      s.setAlpha(opened ? 0.55 : 0.92);
+      s.setTint(0xffffff);
     });
 
     // POI name labels above chests (named POIs only). Reuse a parallel text pool.
@@ -1623,6 +1643,24 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // 1a') Pick a polygon flower within 4m → +1 flowers.
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.objects) continue;
+      for (const o of entry.objects) {
+        if (o.kind !== 'flora' || o.deco !== 'flower') continue;
+        if (pickedSet.has(o.id)) continue;
+        if (distM2(o.x, o.y, wm.x, wm.y) >= REACH_WILDPLANT_M * REACH_WILDPLANT_M) continue;
+        if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
+          this.flash('too far', sx, sy); return;
+        }
+        this.save.picked = [...pickedSet, o.id];
+        this.addToInv('flowers', 1);
+        persistSave(this.save);
+        this.flashLoot(`+1 🌼 flowers`);
+        return;
+      }
+    }
+
     // 1b) World objects: chest open, tree chop, house flavor
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.objects) continue;
@@ -1847,12 +1885,15 @@ class MapScene extends Phaser.Scene {
     // Refuse to till when the cell is occupied by ANY interactable so we never silently
     // wipe under the player's intent (e.g. they tapped near a debris but just missed pickup).
     const cellHalfM = this.cellM / 2;
+    const pickedAll = new Set(this.save.picked || []);
     const occupied =
       this.placedRockSet.has(cellKey) ||
       this.save.planted.some(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM) ||
       [...WorldGen.tileCache.values()].some(e =>
-        (e.wildplants || []).some(wp => Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) ||
-        (e.objects || []).some(o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM)
+        (e.wildplants || []).some(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) ||
+        // Decorative flora (flowers/pebbles/mushrooms) is non-blocking — flowers
+        // get picked into inventory before tilling would even fire.
+        (e.objects || []).some(o => o.kind !== 'flora' && Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM)
       );
     if (occupied) { this.flash('occupied', sx, sy); return; }
     this.tilledSet.add(cellKey);
