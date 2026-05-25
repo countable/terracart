@@ -143,6 +143,25 @@ const RUSTIC_WORDS = {
   scene: 'Sights', service: 'Servants', station: 'Outpost',
   fast: 'Swift', express: 'Swift',
 };
+// Fallback labels for POIs missing a `name` tag in OSM. Shown in italics-style
+// brackets so they read as a generic descriptor rather than an actual name.
+const POI_CLASS_FALLBACK = {
+  pitch:            'Practice Field',
+  playground:       'Children\'s Yard',
+  gate:             'Gate',
+  place_of_worship: 'Chapel',
+  garden:           'Garden',
+  park:             'Meadow',
+  attraction:       'Curiosity',
+  museum:           'Curio Hall',
+  school:           'Hedge School',
+  lodging:          'Inn',
+  bus:              'Stagecoach Stop',
+  beer:             'Alehouse',
+  grocery:          'Grocer',
+  restaurant:       'Tavern',
+};
+
 const RUSTIC_CACHE = new Map();
 function rusticifyName(name) {
   if (!name) return name;
@@ -603,16 +622,17 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
-    // Road-letter pool: low-alpha embossed letters laid out one-per-cell along named streets.
+    // Road-letter pool: small light letters with a soft drop shadow, laid out one
+    // per cell along named streets. Lighter than the cobble background so they
+    // read like worn paint markings rather than carved-in lettering.
     this.letterContainer = this.add.container(0, 0);
     this.letterPool = [];
     for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 18px serif', color: '#1a1612',
-        stroke: '#1a1612', strokeThickness: 1.5,
-      }).setOrigin(0.5, 0.5).setAlpha(0.30).setDepth(0).setVisible(false);
-      // Soft bright-bottom shadow → "carved into the cobble" effect.
-      t.setShadow(1, 1, 'rgba(255,240,210,0.55)', 0, false, true);
+        font: 'bold 13px serif', color: '#efe6d6',
+      }).setOrigin(0.5, 0.5).setAlpha(0.85).setDepth(0).setVisible(false);
+      // Drop shadow: lower-right offset, dark + slightly blurred.
+      t.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, false, true);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -671,6 +691,11 @@ class MapScene extends Phaser.Scene {
       LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
       RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
     });
+    // Debug: SPACE teleports to the next-nearest decorated POI chest.
+    // First press goes to Windermere Park, subsequent presses cycle by distance.
+    this._poiTpVisited = new Set();
+    this._poiTpFirst = 'Windermere Park';
+    this.input.keyboard.on('keydown-SPACE', () => this.teleportNextPoi());
 
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
@@ -1455,7 +1480,15 @@ class MapScene extends Phaser.Scene {
     });
 
     // POI name labels above chests (named POIs only). Reuse a parallel text pool.
-    const chestLabels = filteredObj.filter(({ o }) => o.kind === 'chest' && o.name);
+    // On cement (residential/commercial/industrial/building) cells the label adopts
+    // the cement palette so it reads as carved-into-the-pad rather than a black tag.
+    const CEMENT_TYPES = new Set([5, 9, 11, 12, 16, 17]);
+    const CEMENT_BG_STYLE   = 'rgba(138,132,114,0.92)'; // matches COLORS[5] = 0x8a8472
+    const CEMENT_INK_STYLE  = '#3f3b32';                 // dark aggregate fleck colour
+    const DEFAULT_BG_STYLE  = '#000a';
+    const DEFAULT_INK_STYLE = '#ffffff';
+    const chestLabels = filteredObj.filter(({ o }) =>
+      o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
     let li = 0;
     for (const item of chestLabels) {
       const { o, dx, dy } = item;
@@ -1464,13 +1497,25 @@ class MapScene extends Phaser.Scene {
       let tx = this.chestLabelPool[li];
       if (!tx) {
         tx = this.add.text(0, 0, '', {
-          font: '9px monospace', color: '#fff', backgroundColor: '#000a',
+          font: '9px monospace',
+          color: DEFAULT_INK_STYLE, backgroundColor: DEFAULT_BG_STYLE,
           padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1).setDepth(50);
         this.objectsContainer.add(tx);
         this.chestLabelPool.push(tx);
       }
-      tx.setText(rusticifyName(o.name)).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
+      const cellType = this.cellAt(o.x, o.y).type;
+      const onCement = CEMENT_TYPES.has(cellType);
+      // Named POIs get their rusticified name; unnamed POIs fall back to a
+      // class-based descriptor in brackets (e.g. "(Chapel)", "(Practice Field)").
+      const label = o.name
+        ? rusticifyName(o.name)
+        : `(${POI_CLASS_FALLBACK[o.poiClass]})`;
+      tx.setText(label).setPosition(Math.round(sx), Math.round(sy - 36)).setVisible(true);
+      // Phaser Text doesn't repaint background/color unless we set style. Use setColor
+      // and setBackgroundColor for live restyles without recreating the object.
+      tx.setColor(onCement ? CEMENT_INK_STYLE : DEFAULT_INK_STYLE);
+      tx.setBackgroundColor(onCement ? CEMENT_BG_STYLE : DEFAULT_BG_STYLE);
       tx.setAlpha(this.save.opened.includes(o.id) ? 0.45 : 1);
       li++;
     }
@@ -1919,6 +1964,51 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
     this.flashLoot(`+${yieldN} ${item?.icon || ''} ${c.kind}`, '#a7ffb0');
+  }
+
+  // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
+  // walking outward by distance. First press preferentially seeks the named
+  // POI in `_poiTpFirst` if it's loaded.
+  teleportNextPoi() {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    // First press: try to find the named seed POI (e.g. Windermere Park).
+    if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
+      for (const entry of WorldGen.tileCache.values()) {
+        if (!entry.objects) continue;
+        for (const o of entry.objects) {
+          if (o.kind !== 'chest' || o.name !== this._poiTpFirst) continue;
+          this._poiTpVisited.add(o.id);
+          this.playerM.x = o.x - this.startWorldM.x;
+          this.playerM.y = o.y - this.startWorldM.y + 4;
+          this.flash(`→ ${rusticifyName(o.name)} (${o.poiClass})`, this.viewCenterX, this.viewCenterY - 40);
+          return;
+        }
+      }
+    }
+    // Otherwise: find the nearest unvisited decorated chest.
+    let best = null, bestD = Infinity;
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.objects) continue;
+      for (const o of entry.objects) {
+        if (o.kind !== 'chest' || !o.poiClass) continue;
+        if (!padKeyForPoi(o.poiClass)) continue;
+        if (this._poiTpVisited.has(o.id)) continue;
+        const d = Math.hypot(o.x - px, o.y - py);
+        if (d < bestD) { bestD = d; best = o; }
+      }
+    }
+    if (!best) {
+      // Out of decorated chests within loaded tiles — reset cycle.
+      this._poiTpVisited.clear();
+      this.flash('cycle reset — press space again', this.viewCenterX, this.viewCenterY - 40);
+      return;
+    }
+    this._poiTpVisited.add(best.id);
+    this.playerM.x = best.x - this.startWorldM.x;
+    this.playerM.y = best.y - this.startWorldM.y + 4;
+    const label = best.name ? rusticifyName(best.name) : best.poiClass;
+    this.flash(`→ ${label} (${best.poiClass}, ${Math.round(bestD)}m)`, this.viewCenterX, this.viewCenterY - 40);
   }
 
   flash(text, x, y) {
