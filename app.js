@@ -1194,6 +1194,19 @@ class MapScene extends Phaser.Scene {
       const dyM = (oy - fracY + 0.5) * this.cellM - this.feetOffsetM;
       return dxM * dxM + dyM * dyM <= R2;
     };
+    // Darken every cell OUTSIDE the reach area so the player's eye lands on
+    // what's actionable. Done before the outline so the white border sits on
+    // top of the dim band, not under it.
+    g.fillStyle(0x000000, 0.22);
+    for (let row = 0; row < VIEW_CELLS; row++) {
+      for (let col = 0; col < VIEW_CELLS; col++) {
+        if (isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
+        const sx = Math.round(this.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
+    }
     g.lineStyle(3, 0xffffff, 0.5);
     for (let row = 0; row < VIEW_CELLS; row++) {
       for (let col = 0; col < VIEW_CELLS; col++) {
