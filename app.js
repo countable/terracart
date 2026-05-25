@@ -41,7 +41,7 @@ const BIOME_TEX = {
   4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
-  8:  { variants: 2, draw: drawPathTex },         // path: pebbles
+  8:  { variants: 2, draw: drawPathTex },         // path: pebble grain (sparse cobble sprite layered on top)
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
 };
@@ -283,43 +283,58 @@ function makeBiomeTextures(scene, size) {
 
 // All chests drop a random existing inventory item (seeds + tools).
 // Subkind (carried from POI class in worldgen) is kept as flavor only — same loot table for now.
-const CHEST_ICON = { food: '🍱', rare: '💎', potion: '🧪', lore: '📜', herb: '🌿' };
+const CHEST_ICON = '📦';
 function pickLoot(rng) {
   const id = LOOTABLE_IDS[Math.floor((rng ?? Math.random)() * LOOTABLE_IDS.length)];
   const n = 1 + Math.floor((rng ?? Math.random)() * 2);
   return { id, n };
 }
 
-const SAVE_KEY = 'terracart.save.v3';
+const SAVE_KEY = 'terracart.save.v4';
 function loadSave() {
   try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
   catch { return {}; }
 }
 function persistSave(s) { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
 
-// Inventory holds seeds (kind 'seed', icon = col 7 of the crop's row in Spring Crops.png)
-// and harvested produce (kind 'produce', icon = col 8). Tools are implicit.
+// Crops (Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
+// Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
+// Inventory icons: col 7 = produce, col 8 = seed.
+const CROP_ROW = {
+  rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
+  turnip: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
+};
+const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
+const PRODUCE_COL = 7;
+const SEEDBOX_COL = 8;
+const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
+
+// Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
+const CROP_NAMES = {
+  rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
+  rockfruit: 'Rockfruit', coffee: 'Coffee', turnip: 'Turnip', iceflower: 'Iceflower',
+  fireflower: 'Fireflower', sunflower: 'Sunflower', tree: 'Tree', shrub: 'Shrub',
+};
 const ITEMS = [
-  // Seeds — seedbox sprite at col 7 of the crop's row.
-  { id: 'potato_seed', name: 'Potato Seed', kind: 'seed', grows: 'potato', icon: '🥔' },
-  { id: 'onion_seed',  name: 'Onion Seed',  kind: 'seed', grows: 'onion',  icon: '🧅' },
-  { id: 'berry_seed',  name: 'Berry Seed',  kind: 'seed', grows: 'berry',  icon: '🍓' },
-  { id: 'cress_seed',  name: 'Cress Seed',  kind: 'seed', grows: 'cress',  icon: '🌿' },
-  // Harvested produce — sprite at col 8 of the crop's row.
-  { id: 'potato', name: 'Potato', kind: 'produce', crop: 'potato', icon: '🥔' },
-  { id: 'onion',  name: 'Onion',  kind: 'produce', crop: 'onion',  icon: '🧅' },
-  { id: 'berry',  name: 'Berry',  kind: 'produce', crop: 'berry',  icon: '🍓' },
-  { id: 'cress',  name: 'Cress',  kind: 'produce', crop: 'cress',  icon: '🌿' },
+  ...Object.keys(CROP_ROW).map(c => ({
+    id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c, icon: '🌱',
+  })),
+  ...Object.keys(CROP_ROW).map(c => ({
+    id: c, name: CROP_NAMES[c], kind: 'produce', crop: c, icon: '🌾',
+  })),
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
 const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
-// Spring Crops sheet row per crop. In-world growth: cols 0..5 (0 = freshly seeded, 5 = mature).
-// Inventory icons: col 7 = seedbox, col 8 = harvested produce.
-const CROP_ROW = { berry: 1, cress: 3, onion: 5, potato: 7 };
-const MAX_GROWTH_STAGE = 5; // cols 0..5 inclusive: 6 stages, 5 waterings to mature
-const SEEDBOX_COL = 7;
-const PRODUCE_COL = 8;
+// Shop: tap a house with a selected item to sell it, or with an empty selection
+// to buy the next seed in BUY_LIST.
+const PRICES = {};
+for (const c of Object.keys(CROP_ROW)) {
+  PRICES[`${c}_seed`] = 5;
+  PRICES[c] = 12;
+}
+const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
+const STARTING_MONEY = 25;
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -336,11 +351,30 @@ class MapScene extends Phaser.Scene {
     });
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 16, frameHeight: 16 });
-    // Spring Crops sheet: 14 cols x 8 rows of 16x16 cells.
-    // Each crop occupies one of rows 1/3/5/7. Cols 7..10 are the growth stages
-    // (col 7 = seedbox/just-planted, col 10 = mature). Cols 11..13 are quality variants.
-    this.load.spritesheet('crops',   'Objects/Spring Crops.png',     { frameWidth: 16, frameHeight: 16 });
+    // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
+    // Frames: 0 = closed, 1 = open.
+    this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
+    // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
+    // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
+    this.load.spritesheet('crops',   'Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
+    // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
+    this.load.once('filecomplete-spritesheet-crops', () => {
+      const tex = this.textures.get('crops');
+      const src = tex.getSourceImage();
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < data.data.length; i += 4) {
+        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
+          data.data[i+3] = 0;
+        }
+      }
+      ctx.putImageData(data, 0, 0);
+      this.textures.remove('crops');
+      this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
+    });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     if (window.TileMap) {
       this.load.spritesheet(TileMap.KEY, TileMap.PATH, { frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H });
@@ -351,6 +385,7 @@ class MapScene extends Phaser.Scene {
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [],
+        money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements count.
         inv: [
           { id: 'potato_seed', count: 10 },
@@ -362,6 +397,8 @@ class MapScene extends Phaser.Scene {
     );
     this.save.opened = this.save.opened || [];
     this.save.tilled = this.save.tilled || [];
+    if (this.save.money == null) this.save.money = STARTING_MONEY;
+    if (this.save.buyIndex == null) this.save.buyIndex = 0;
     this.tilledSet = new Set(this.save.tilled);
     // Migrate older save (inv as string array, or stash object)
     if (this.save.inv && typeof this.save.inv[0] === 'string') {
@@ -391,6 +428,8 @@ class MapScene extends Phaser.Scene {
     };
 
     this.playerM = { x: 0, y: 0 };
+    this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement
+    this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
     this.gpsM = null;
     this.gpsLocked = false;
     this.gpsAvailable = false;
@@ -496,6 +535,9 @@ class MapScene extends Phaser.Scene {
       event.stopPropagation();
       this.toggleGpsLock();
     });
+    // Facing direction indicator: small dot offset from the player in the
+    // direction of last movement (WASD or GPS easing). Sits above the player.
+    this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -514,6 +556,7 @@ class MapScene extends Phaser.Scene {
 
     // HUD + banner + inventory
     this.hud = document.getElementById('hud');
+    this.moneyEl = document.getElementById('money');
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
 
@@ -538,8 +581,20 @@ class MapScene extends Phaser.Scene {
           const { latitude, longitude } = pos.coords;
           const dxM = (longitude - START_LON) * 111320 * Math.cos(START_LAT * Math.PI / 180);
           const dyM = -(latitude - START_LAT) * 111320;
+          const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          if (!this.gpsLocked) this.playerM = { ...this.gpsM };
+          if (!this.gpsLocked) {
+            // Ease toward the new GPS fix instead of snapping; also update facing.
+            this._ease = {
+              fromX: this.playerM.x, fromY: this.playerM.y,
+              toX: this.gpsM.x, toY: this.gpsM.y,
+              t0: performance.now(), dur: 300,
+            };
+            if (prev) {
+              const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
+              if (ddx || ddy) this.facing = { x: ddx, y: ddy };
+            }
+          }
         },
         err => { console.warn('GPS error', err.message); this.gpsAvailable = false; },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
@@ -548,7 +603,13 @@ class MapScene extends Phaser.Scene {
   }
   toggleGpsLock() {
     this.gpsLocked = !this.gpsLocked;
-    if (!this.gpsLocked && this.gpsM) this.playerM = { ...this.gpsM };
+    if (!this.gpsLocked && this.gpsM) {
+      this._ease = {
+        fromX: this.playerM.x, fromY: this.playerM.y,
+        toX: this.gpsM.x, toY: this.gpsM.y,
+        t0: performance.now(), dur: 300,
+      };
+    }
     this.player.setTint(this.gpsLocked ? 0xffe080 : 0xffffff);
     this.flash(this.gpsLocked ? 'GPS locked' : 'GPS unlocked', this.viewCenterX, this.viewCenterY - 30);
   }
@@ -651,20 +712,56 @@ class MapScene extends Phaser.Scene {
     const dt = dtMs / 1000;
     let vx = 0, vy = 0;
     const k = this.keys;
-    if (k.A.isDown || k.LEFT.isDown) vx -= 1;
-    if (k.D.isDown || k.RIGHT.isDown) vx += 1;
-    if (k.W.isDown || k.UP.isDown) vy -= 1;
-    if (k.S.isDown || k.DOWN.isDown) vy += 1;
+    if (k.A.isDown) vx -= 1;
+    if (k.D.isDown) vx += 1;
+    if (k.W.isDown) vy -= 1;
+    if (k.S.isDown) vy += 1;
+    // Arrow keys: 10x speed for fast debug travel.
+    let speedMul = 1;
+    if (k.LEFT.isDown)  { vx -= 1; speedMul = 10; }
+    if (k.RIGHT.isDown) { vx += 1; speedMul = 10; }
+    if (k.UP.isDown)    { vy -= 1; speedMul = 10; }
+    if (k.DOWN.isDown)  { vy += 1; speedMul = 10; }
     const moving = vx || vy;
     if (moving && (this.gpsLocked || !this.gpsM)) {
       const n = Math.hypot(vx, vy);
-      this.playerM.x += (vx / n) * WALK_M_S * dt;
-      this.playerM.y += (vy / n) * WALK_M_S * dt;
+      this.playerM.x += (vx / n) * WALK_M_S * speedMul * dt;
+      this.playerM.y += (vy / n) * WALK_M_S * speedMul * dt;
+      this.facing = { x: vx, y: vy };
       if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
       if (vx < 0) this.player.setFlipX(true);
       else if (vx > 0) this.player.setFlipX(false);
+    } else if (this._ease && !this.gpsLocked) {
+      // Ease playerM toward last GPS fix (easeOutCubic, 300ms).
+      const u = Math.min(1, (performance.now() - this._ease.t0) / this._ease.dur);
+      const e = 1 - Math.pow(1 - u, 3);
+      this.playerM.x = this._ease.fromX + (this._ease.toX - this._ease.fromX) * e;
+      this.playerM.y = this._ease.fromY + (this._ease.toY - this._ease.fromY) * e;
+      const easeDx = this._ease.toX - this._ease.fromX;
+      const easeDy = this._ease.toY - this._ease.fromY;
+      if (u < 1 && (easeDx || easeDy)) {
+        if (easeDx < -0.001) this.player.setFlipX(true);
+        else if (easeDx > 0.001) this.player.setFlipX(false);
+        if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
+      } else if (u >= 1) {
+        this._ease = null;
+        if (this.player.anims.currentAnim?.key !== 'idle-anim') this.player.play('idle-anim');
+      }
     } else if (this.player.anims.currentAnim?.key !== 'idle-anim') {
       this.player.play('idle-anim');
+    }
+
+    // Facing-direction indicator: small white dot offset from the player.
+    this.facingGfx.clear();
+    const fmag = Math.hypot(this.facing.x, this.facing.y);
+    if (fmag > 0.001) {
+      const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
+      const cx = this.viewCenterX + fx * 16;
+      const cy = this.viewCenterY - 2 + fy * 16;
+      this.facingGfx.fillStyle(0x000000, 0.5);
+      this.facingGfx.fillCircle(cx, cy, 3);
+      this.facingGfx.fillStyle(0xffffff, 0.95);
+      this.facingGfx.fillCircle(cx, cy, 2);
     }
 
     if (!this._lastCheckM ||
@@ -724,8 +821,13 @@ class MapScene extends Phaser.Scene {
     let terrainIdx = 0;
     let cobbleIdx = 0;
     let noiseIdx = 0;
-    const COBBLE_FRAMES = [0, 1, 2, 5, 6];   // single-stone variants in Road copiar.png
+    // Road copiar.png is a 5x4 grid of 16×16 frames. Row 0 = small single pebbles,
+    // row 3 = dense multi-stone cobbles. Use sparse singles for narrow PATH cells
+    // and dense clusters for wide ROAD cells so the two read distinctly.
+    const PATH_FRAMES = [0, 1, 2, 3, 4];          // small single pebbles → trails
+    const ROAD_FRAMES = [15, 16, 17, 18, 19];     // dense cobble cells → roads
     const ROAD = 7;
+    const PATH = 8;
     // Pre-compute a ring of cell types (VIEW_CELLS+2) so edge cells can read their
     // out-of-viewport neighbors when deciding which corners to round.
     const RING = VIEW_CELLS + 2;
@@ -839,13 +941,14 @@ class MapScene extends Phaser.Scene {
           }
         }
 
-        // Cobblestone overlay for ROAD cells (decorative stone centered in cell)
+        // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for PATH.
         {
           const cs = this.cobblePool[cobbleIdx++];
-          if (type === ROAD && !isTilled) {
-            // Hash the absolute cell coords so each road cell gets a stable stone variant.
+          const frames = (type === ROAD) ? ROAD_FRAMES
+                        : (type === PATH) ? PATH_FRAMES : null;
+          if (frames && !isTilled) {
             const h = (absCellIX * 73856093) ^ (absCellIY * 19349663);
-            const frame = COBBLE_FRAMES[Math.abs(h) % COBBLE_FRAMES.length];
+            const frame = frames[Math.abs(h) % frames.length];
             cs.setFrame(frame)
               .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
               .setVisible(true);
@@ -952,7 +1055,7 @@ class MapScene extends Phaser.Scene {
       const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
       const row = CROP_ROW[p.crop] ?? 1;
       // In-world growth uses cols 0..5 of the crop's row.
-      const frame = row * 14 + stage;
+      const frame = row * CROPS_SHEET_COLS + stage;
       if (s.texture.key !== 'crops') s.setTexture('crops');
       s.setFrame(frame);
       // 16x16 frame, scale 2 = 32x32 display, anchored near the bottom of the cell.
@@ -1024,9 +1127,8 @@ class MapScene extends Phaser.Scene {
           this.addToInv(loot.id, loot.n);
           this.save.opened.push(o.id);
           persistSave(this.save);
-          const icon = CHEST_ICON[o.subkind] || '🎁';
           const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
-          const label = o.name ? `${icon} → ${lootIcon}×${loot.n}  ${o.name}` : `${icon} → ${lootIcon}×${loot.n}`;
+          const label = o.name ? `${CHEST_ICON} → ${lootIcon}×${loot.n}  ${o.name}` : `${CHEST_ICON} → ${lootIcon}×${loot.n}`;
           this.flash(label, sx, sy);
           return;
         }
@@ -1036,7 +1138,7 @@ class MapScene extends Phaser.Scene {
           return;
         }
         if (o.kind === 'house') {
-          this.flash(o.name || 'a cozy house', sx, sy);
+          this.shopInteract(sx, sy);
           return;
         }
       }
@@ -1170,6 +1272,40 @@ class MapScene extends Phaser.Scene {
     this.hud.textContent =
       `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
+    if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
+  }
+
+  shopInteract(sx, sy) {
+    const sel = this.save.inv[this.save.selSlot];
+    if (sel && sel.id) {
+      // SELL one of the selected stack.
+      const price = PRICES[sel.id] ?? 1;
+      const item = ITEM_BY_ID[sel.id];
+      sel.count = (sel.count ?? 1) - 1;
+      this.save.money = (this.save.money ?? 0) + price;
+      if (sel.count <= 0) {
+        this.save.inv.splice(this.save.selSlot, 1);
+        if (this.save.selSlot >= this.save.inv.length) {
+          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        }
+      }
+      persistSave(this.save);
+      this.buildInventoryDOM();
+      this.flash(`sold ${item?.icon || ''} +$${price}`, sx, sy);
+      return;
+    }
+    // BUY — empty slot: get next seed from the rotation.
+    const id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
+    const price = PRICES[id] ?? 0;
+    if ((this.save.money ?? 0) < price) {
+      this.flash(`need $${price}`, sx, sy);
+      return;
+    }
+    this.save.money -= price;
+    this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
+    this.addToInv(id, 1);
+    const item = ITEM_BY_ID[id];
+    this.flash(`bought ${item?.icon || ''} -$${price}`, sx, sy);
   }
 
   addToInv(id, n = 1, silent = false) {
@@ -1191,7 +1327,7 @@ class MapScene extends Phaser.Scene {
     bar = document.createElement('div');
     bar.id = 'inv';
     bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
-    if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = 0;
+    if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
     if (this.save.invPage == null) this.save.invPage = 0;
     const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
     if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
@@ -1217,16 +1353,17 @@ class MapScene extends Phaser.Scene {
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon: seeds use col 7 (seedbox), produce uses col 8, both at the crop's row.
+      // Inventory icon: seeds use col 8, produce uses col 7, both at the crop's row in Crops.png.
       const cropKey = item && (item.grows || item.crop);
       const cropRow = cropKey != null ? CROP_ROW[cropKey] : null;
       if (item && cropRow != null && (item.kind === 'seed' || item.kind === 'produce')) {
         const col = item.kind === 'seed' ? SEEDBOX_COL : PRODUCE_COL;
+        // Source 144x256; display 16x16 cells at 32x32 → 2x scale → bg-size 288x512.
         const icon = document.createElement('span');
         icon.style.cssText =
           "width:32px;height:32px;display:inline-block;" +
-          "background-image:url('Objects/Spring Crops.png');" +
-          "background-size:448px 256px;" +
+          "background-image:url('Objects/Crops.png');" +
+          "background-size:288px 512px;" +
           `background-position:-${col * 32}px -${cropRow * 32}px;` +
           "image-rendering:pixelated;";
         slot.appendChild(icon);
@@ -1239,13 +1376,12 @@ class MapScene extends Phaser.Scene {
         badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
         slot.appendChild(badge);
       }
-      if (entry) {
-        slot.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.save.selSlot = i; persistSave(this.save);
-          this.refreshInventoryHighlight();
-        });
-      }
+      slot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.save.selSlot = i;
+        persistSave(this.save);
+        this.refreshInventoryHighlight();
+      });
       bar.appendChild(slot);
     }
     bar.appendChild(makeBtn('▶', () => {

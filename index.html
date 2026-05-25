@@ -36,12 +36,20 @@
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace;
     }
+    #money {
+      position: absolute; top: 8px; right: 10px;
+      background: #000a; color: #ffd96b; padding: 4px 10px;
+      border: 2px solid #c8a64a; border-radius: 8px;
+      font: 700 16px ui-monospace, monospace;
+      pointer-events: none; z-index: 7;
+    }
   </style>
 </head>
 <body>
   <div id="frame">
     <div id="game">
       <div id="banner">reconnecting…</div>
+      <div id="money">$0</div>
       <div id="hud"></div>
     </div>
   </div>

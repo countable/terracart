@@ -21,17 +21,12 @@ WORLD GENERATION
  - POI points → chest sprite at the POI location (see CHESTS below)
 
 CHESTS (POI-driven, drop existing inventory items only)
- - POI classes mapped to chest sprite (uses Objects/chest.png, 16x16, 2 frames closed/open):
-     restaurant/cafe/fast_food/grocery/butcher/ice_cream/alcohol_shop/beer/bakery/shop → "food" chest
-     park/garden/playground/pitch → "herb" chest
-     pharmacy/hospital/dentist → "potion" chest
-     attraction/museum/library/town_hall → "rare" chest
-     place_of_worship/school/college → "lore" chest
-   (Subkind is flavor only — same loot table.)
+ - useful POIs (shops, civic, parks, healthcare classes — see worldgen.js USEFUL set) spawn a single
+   generic chest sprite (Objects/chest.png, 16x16, 2 frames closed/open). No themed subkinds.
  - tap chest within 4m + within 18m of player to open
- - chest gives 1-2 of a random EXISTING inventory item (seeds + tools); no new resource types
+ - chest gives 1-2 of a random seed from the inventory item table
  - opened chest stays open and dimmed; opened state persists
- - real POI name shown in flash text (e.g. "🍱 → 🥕×2  Casorso Elementary School")
+ - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Elementary School")
  - density: ~75 chests per tile (one per useful POI)
 
 INVENTORY
@@ -67,13 +62,14 @@ FARMING LOOP
      3) walk over planted-but-dry cell → AUTO-WATER -> go to next plant stage in 1h, darkent tint tile
      4) walk over fully-grown crop → AUTO-HARVEST → +1-3 produce of that crop. destroy plant. sometimes get a seed.
  - any tillable cell (non-water, non-building) can be tilled
- - crop grows over 6 visual stages: 1h between watering and stage advance (5 waterings to mature)
+ - crop grows over 5 visual stages: 1h between watering and stage advance (4 waterings to mature)
  - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .crop, .stage, .watered_t)
  - tilled cells render with a brown tint overlay; darker when the crop has been watered
- - planted crops render from Objects/Spring Crops.png. Each crop = one 16x16 row.
-   In-world stages: col 0 (freshly seeded) → col 5 (mature, harvestable).
-   Inventory icons: col 7 = seedbox (seeds), col 8 = harvested produce.
- - crops are berry (row 1), cress (row 3), onion (row 5), potato (row 7) — rows in 0-indexed 16x16 grid
+ - planted crops render from Objects/Crops.png (9 cols x 16 rows of 16x16 cells). Each crop = one row.
+   In-world stages: col 0 (sprout) → col 4 (harvestable). Inventory icons: col 7 = produce, col 8 = seed.
+ - crops (row in Crops.png): rainberry (0), pairy (1), gemfruit (2), nut (3), rockfruit (4),
+   coffee (5), turnip (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
+ - shrub also spawns wild in forest cells (no tilling required) [TODO]
 
 HUD (debug)
  - top-left: lat, lon, GPS state (wasd|waiting|live|LOCKED)

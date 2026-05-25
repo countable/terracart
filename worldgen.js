@@ -315,21 +315,23 @@
           const wCells = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell);
         } else if (f.type === 1 && name === 'poi') {
-          // POI points: themed pickup (chest/herb) keyed by POI class.
+          // POI points → a generic chest (single sprite, no themed subkinds).
+          // Only spawn for "useful" POI classes (shops, civic, parks, healthcare).
           const cls = f.tags.class || '';
-          let chestType = null;
-          if (['restaurant', 'cafe', 'fast_food', 'grocery', 'butcher', 'ice_cream',
-               'alcohol_shop', 'beer', 'bakery', 'shop'].includes(cls)) chestType = 'food';
-          else if (['attraction', 'museum', 'library', 'town_hall'].includes(cls)) chestType = 'rare';
-          else if (['pharmacy', 'hospital', 'dentist'].includes(cls)) chestType = 'potion';
-          else if (['place_of_worship', 'school', 'college'].includes(cls)) chestType = 'lore';
-          else if (['park', 'garden', 'playground', 'pitch'].includes(cls)) chestType = 'herb';
-          if (!chestType) continue;
+          const USEFUL = new Set([
+            'restaurant','cafe','fast_food','grocery','butcher','ice_cream',
+            'alcohol_shop','beer','bakery','shop',
+            'attraction','museum','library','town_hall',
+            'pharmacy','hospital','dentist',
+            'place_of_worship','school','college',
+            'park','garden','playground','pitch',
+          ]);
+          if (!USEFUL.has(cls)) continue;
           for (const ring of f.geom) {
             const p = ring[0];
             const m = toMeters(p.x, p.y);
             const id = `c_${Math.round(m.x)}_${Math.round(m.y)}`;
-            objects.push({ kind: 'chest', subkind: chestType, x: m.x, y: m.y, id,
+            objects.push({ kind: 'chest', x: m.x, y: m.y, id,
               poiClass: cls, name: f.tags.name || '' });
           }
         }
