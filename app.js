@@ -609,55 +609,53 @@ function makeFloraTextures(scene) {
 // 14×14 dark border, lighter wood interior, and the crop's PRODUCE icon
 // (col 7 of Crops.png) drawn at the center.
 function makePlaqueTextures(scene) {
+  // Wooden yard-sign plaque: a small board on top of a short post planted in the
+  // ground. The crop's produce icon is shrunk and desaturated so it reads as a
+  // label on the board rather than a piece of fruit floating in the world.
   for (const crop of Object.keys(CROP_ROW)) {
     const key = `plaque_${crop}`;
     if (scene.textures.exists(key)) continue;
-    // Stone shrine plaque — medium-grey stone with the crop's NAME carved in.
-    // Low-contrast dark-grey text + 1px highlight below = debossed emboss.
-    const PW = 40, PH = 24;
+    const PW = 26, PH = 28;
     const tex = scene.textures.createCanvas(key, PW, PH);
     const ctx = tex.getContext();
-    // ground shadow
+
+    // Board geometry: 22 wide x 12 tall at top. Post: 2 wide x 10 tall below.
+    const BW = 22, BH = 12;
+    const BX = (PW - BW) / 2, BY = 2;
+    const PX = PW / 2 - 1, PY_TOP = BY + BH, PY_H = 10;
+
+    // ground shadow at base of post
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    ctx.fillRect(2, PH - 2, PW - 4, 2);
-    // stone base / stub
-    ctx.fillStyle = '#52514c';
-    ctx.fillRect(PW / 2 - 5, PH - 4, 10, 3);
-    // stone body
-    ctx.fillStyle = '#6f6e69';
-    ctx.fillRect(1, 1, PW - 2, PH - 6);
-    // subtle deterministic stone noise
-    for (let i = 0; i < 28; i++) {
-      const px = 2 + ((i * 13) % (PW - 4));
-      const py = 2 + ((i * 7) % (PH - 8));
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
-      ctx.fillRect(px, py, 1, 1);
+    ctx.fillRect(PX - 3, PY_TOP + PY_H - 1, 8, 2);
+
+    // short post — dark wood with a one-pixel highlight on the left edge
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(PX, PY_TOP, 2, PY_H);
+    ctx.fillStyle = '#5a3a1c';
+    ctx.fillRect(PX, PY_TOP, 1, PY_H);
+
+    // board: dark outline → wood body → grain highlight + shadow
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(BX, BY, BW, BH);
+    ctx.fillStyle = '#a07043';
+    ctx.fillRect(BX + 1, BY + 1, BW - 2, BH - 2);
+    ctx.fillStyle = '#caa170';
+    ctx.fillRect(BX + 1, BY + 1, BW - 2, 1);
+    ctx.fillStyle = '#6b4824';
+    ctx.fillRect(BX + 1, BY + BH - 2, BW - 2, 1);
+
+    // bake the crop icon — small (10×10) and desaturated so it sits inside the board.
+    const cropsImg = scene.textures.get('crops')?.getSourceImage();
+    if (cropsImg) {
+      const row = CROP_ROW[crop];
+      ctx.save();
+      ctx.filter = 'grayscale(70%) brightness(0.95)';
+      const ICON = 10;
+      const ix = BX + (BW - ICON) / 2;
+      const iy = BY + (BH - ICON) / 2;
+      ctx.drawImage(cropsImg, PRODUCE_COL * 16, row * 16, 16, 16, ix, iy, ICON, ICON);
+      ctx.restore();
     }
-    // top highlight + bottom shadow lines on the stone face
-    ctx.fillStyle = '#8e8c86'; ctx.fillRect(1, 1, PW - 2, 1);
-    ctx.fillStyle = '#3e3d39'; ctx.fillRect(1, PH - 7, PW - 2, 1);
-    // outer dark outline
-    ctx.fillStyle = '#2a2926';
-    ctx.fillRect(0, 0, PW, 1);
-    ctx.fillRect(0, 0, 1, PH - 5);
-    ctx.fillRect(PW - 1, 0, 1, PH - 5);
-    // Carved name — all caps, fit to width.
-    const name = (CROP_NAMES[crop] || crop).toUpperCase();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    let size = 9;
-    ctx.font = `bold ${size}px monospace`;
-    while (size > 5 && ctx.measureText(name).width > PW - 6) {
-      size -= 1;
-      ctx.font = `bold ${size}px monospace`;
-    }
-    const ccx = PW / 2, ccy = (PH - 5) / 2 + 1;
-    // emboss: pale highlight 1px below
-    ctx.fillStyle = 'rgba(220,215,205,0.55)';
-    ctx.fillText(name, ccx, ccy + 1);
-    // dark carved text on top
-    ctx.fillStyle = '#3a3833';
-    ctx.fillText(name, ccx, ccy);
     tex.refresh();
   }
 }
