@@ -180,14 +180,20 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
-    // Migrate older save (inv as string array, or stash object)
+    // Migrate older save (inv as string array, or stash object).
+    let needsMigrationPersist = false;
     if (this.save.inv && typeof this.save.inv[0] === 'string') {
-      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id }));
+      // Items must have a numeric count — otherwise later sel.count -= 1 yields NaN
+      // and stacks become uncountable + un-spliceable.
+      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
+      needsMigrationPersist = true;
     }
     if (this.save.stash) {
       for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
       delete this.save.stash;
+      needsMigrationPersist = true;
     }
+    if (needsMigrationPersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
@@ -754,8 +760,9 @@ class MapScene extends Phaser.Scene {
           // their spawn cluster rather than wandering off forever.
           const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
           const homeBias = Math.hypot(dxh, dyh) > 3 * this.cellM;
-          // Try up to 6 angles to find one whose destination isn't a placed
-          // rockfruit "fence" — so chickens visibly avoid player-built walls.
+          // Try up to 6 angles to find one whose destination isn't blocked:
+          // placed rockfruit fences AND any building footprint (small/med/large).
+          // Animals path around walls and houses both.
           let tx = c.x, ty = c.y, angle = 0;
           for (let attempt = 0; attempt < 6; attempt++) {
             angle = homeBias
@@ -765,7 +772,10 @@ class MapScene extends Phaser.Scene {
             ty = c.y + Math.sin(angle) * STEP_M;
             const cellIX = Math.floor(tx / this.cellM);
             const cellIY = Math.floor(ty / this.cellM);
-            if (!this.placedRockSet || !this.placedRockSet.has(`${cellIX}_${cellIY}`)) break;
+            if (this.placedRockSet && this.placedRockSet.has(`${cellIX}_${cellIY}`)) continue;
+            const dest = this.cellAt(tx, ty);
+            if (dest.loaded && (dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
+            break;
           }
           c._startX = c.x; c._startY = c.y;
           c._targetX = tx; c._targetY = ty;
@@ -840,12 +850,15 @@ class MapScene extends Phaser.Scene {
       for (let c = 0; c < RING; c++) {
         const wcx = pc.cx + (c - 1 - half) + pc.tx * this.cellsPerTile;
         const wcy = pc.cy + (r - 1 - half) + pc.ty * this.cellsPerTile;
-        const tx2 = Math.floor(wcx / this.cellsPerTile);
-        const ty2 = Math.floor(wcy / this.cellsPerTile);
-        const ix2 = Math.floor(wcx - tx2 * this.cellsPerTile);
-        const iy2 = Math.floor(wcy - ty2 * this.cellsPerTile);
+        const N = this.cellsPerTile;
+        const tx2 = Math.floor(wcx / N);
+        const ty2 = Math.floor(wcy / N);
+        // Integer-modulo for the local cell index — guard against FP drift that can
+        // produce ix==N (out-of-bounds → silent grass fallback) at exact tile seams.
+        const ix2 = ((Math.floor(wcx) % N) + N) % N;
+        const iy2 = ((Math.floor(wcy) % N) + N) % N;
         const e2 = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
-        types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * this.cellsPerTile + ix2] || 0) : 0;
+        types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
       }
     }
     const T = (c, r) => types[(r + 1) * RING + (c + 1)];   // c,r in 0..VIEW_CELLS-1
@@ -910,12 +923,18 @@ class MapScene extends Phaser.Scene {
         let isTilled = this.tilledSet && this.tilledSet.has(tilledKey);
         // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
         // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
-        // silently drop it so the house renders correctly again.
+        // silently drop it — UNLESS a planted crop still references this cell. Removing
+        // the tilled flag from under a live plant produces an "occupied: crop" orphan.
         if (isTilled && !isTillable(type)) {
-          this.tilledSet.delete(tilledKey);
-          this.save.tilled = [...this.tilledSet];
-          persistSave(this.save);
-          isTilled = false;
+          const cc = this.absCellCenterMeters(absCellIX, absCellIY);
+          const hasPlant = this.save.planted.some(pp =>
+            Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
+          if (!hasPlant) {
+            this.tilledSet.delete(tilledKey);
+            this.save.tilled = [...this.tilledSet];
+            persistSave(this.save);
+            isTilled = false;
+          }
         }
         let isWatered = false;
         if (isTilled) {
@@ -1174,8 +1193,10 @@ class MapScene extends Phaser.Scene {
     //  - opened chests (the chest, its pad, label, and tier diamond all vanish
     //    until the chest refills — keyed by save.opened including o.id)
     const openedSet = new Set(this.save.opened);
+    // (Trees aren't currently choppable — no `o.chopped` flag is ever set. Filter only
+    // opened chests so their sprite + tier diamond disappear.)
     const filteredObj = objList.filter(({ o }) =>
-      !o.chopped && !(o.kind === 'chest' && openedSet.has(o.id))
+      !(o.kind === 'chest' && openedSet.has(o.id))
     );
     filteredObj.sort((a, b) => a.dy - b.dy);
     this.renderPool(this.objectPool, this.objectsContainer, filteredObj, (s, item) => {
@@ -1235,7 +1256,8 @@ class MapScene extends Phaser.Scene {
       s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
        .setScale(1)
        .setPosition(Math.round(sx), Math.round(sy));
-      // Pads only render for unopened chests (filtered above).
+      // Pads persist even when the chest is opened — only the chest sprite + tier
+      // diamond disappear. The pad always renders (objList includes opened chests).
       s.setAlpha(0.92);
       s.setTint(0xffffff);
     });
@@ -1327,8 +1349,11 @@ class MapScene extends Phaser.Scene {
       const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
       const ov = CROP_SPRITE[p.crop];
       if (ov && ov.custom) {
-        // Single-frame procedural texture (e.g. longgrass).
+        // Single-frame procedural texture (e.g. longgrass). Always force frame 0 —
+        // a pool slot reused from another crop type may carry a stale frame index
+        // that doesn't exist in the single-frame texture.
         if (s.texture.key !== ov.sheet) s.setTexture(ov.sheet);
+        s.setFrame(0);
       } else if (ov && ov.sheet === 'springcrops') {
         // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
         const frame = ov.row * SPRING_CROPS_COLS + stage;
@@ -1373,403 +1398,10 @@ class MapScene extends Phaser.Scene {
       s.setVisible(true);
       configure(s, item);
       i++;
-    }
-    for (; i < pool.length; i++) pool[i].setVisible(false);
-  }
-
   // === Interaction ===
-  handleWorldTap(sx, sy) {
-    if (sx < this.viewLeft || sx > this.viewLeft + this.viewSize ||
-        sy < this.viewTop  || sy > this.viewTop  + this.viewSize) return;
-
-    const wm = this.screenToWorldMeters(sx, sy);
-    const pWorldX = this.startWorldM.x + this.playerM.x;
-    // Reach is measured from the character's visible feet, not the sprite center,
-    // so the reachable area is symmetric around what the user perceives as "the player".
-    const pWorldY = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
-
-    // 0) Treasure mark — tap within ~1.5 cells of the X opens it. Generous since
-    // the X straddles the cell containing the treasure, and an exact tap on a
-    // small 12 px sprite is hard on mobile. Player must be within REACH_OBJECT_M.
-    {
-      const found = new Set(this.save.foundTreasures || []);
-      const tryClaim = (tr) => {
-        if (!tr || found.has(tr.id)) return false;
-        if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
-        if (distM2(tr.x, tr.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return 'far'; }
-        this.save.foundTreasures = [...found, tr.id];
-        const t = pickTreasure();
-        if (t.kind === 'money') {
-          this.save.money = (this.save.money || 0) + t.amount;
-          this.flashLoot(`✕ → $${t.amount}`, '#ffd96b');
-          if (this.updateMoneyDOM) this.updateMoneyDOM();
-        } else {
-          this.addToInv(t.id, t.n);
-          const tierLbl = SEED_TIER[t.id] === 3 ? 'RARE!' : SEED_TIER[t.id] === 2 ? 'uncommon' : 'common';
-          const tierColor = SEED_TIER[t.id] === 3 ? '#ff8aff' : SEED_TIER[t.id] === 2 ? '#7adcff' : '#ffe066';
-          this.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} 🌱 (${tierLbl})`, tierColor, 1, t.id);
-        }
-        persistSave(this.save);
-        return true;
-      };
-      for (const entry of WorldGen.tileCache.values()) {
-        const r1 = tryClaim(entry.treasure);
-        if (r1 === true || r1 === 'far') return;
-        if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) {
-          const r = tryClaim(tr);
-          if (r === true || r === 'far') return;
-        }
-      }
-    }
-
-    // 1) Catch a creature within 4m
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.creatures) continue;
-      for (const c of entry.creatures) {
-        if (this.save.caught.includes(c.id)) continue;
-        if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
-          this.catchCreature(c, sx, sy);
-          return;
-        }
-      }
-    }
-    // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
-    // Picking the nearest (not the first-iterated) fixes a bug where taps that
-    // landed between two stacked plants would grab the one above — plant sprites
-    // render with origin (0.5, 0.85), so the visible art extends ~4m above the
-    // world cell. A tap on the visible top of plant A is geometrically close to
-    // plant B's world cell one row up; nearest-match resolves it correctly.
-    const pickedSet = new Set(this.save.picked || []);
-    {
-      let bestWp = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-      for (const entry of WorldGen.tileCache.values()) {
-        if (!entry.wildplants) continue;
-        for (const wp of entry.wildplants) {
-          if (pickedSet.has(wp.id)) continue;
-          const d2 = distM2(wp.x, wp.y, wm.x, wm.y);
-          if (d2 < bestD2) { bestD2 = d2; bestWp = wp; }
-        }
-      }
-      if (bestWp) {
-        const wp = bestWp;
-        if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { this.flash('too far', sx, sy); return; }
-        this.save.picked = [...pickedSet, wp.id];
-        this.addToInv(wp.crop, 1); // produce only — debris is just the item itself, no bonus seed
-        let bonus = '';
-        // Surprise treasure: e.g. picking a rockfruit sometimes also yields a gemfruit.
-        const treasure = WILD_TREASURE[wp.crop];
-        if (treasure && Math.random() < treasure.chance) {
-          this.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${treasure.bonus}`;
-        }
-        persistSave(this.save);
-        // Treasure bonus → use the splashier flash; ordinary pickup uses a small flash.
-        const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
-        if (bonus) this.flashLoot(`${cropIcon} ${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
-        else this.flashLoot(`+1 ${cropIcon} ${wp.crop}`, undefined, 1, wp.crop);
-        return;
-      }
-    }
-    // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
-    {
-      let bestF = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-      for (const entry of WorldGen.tileCache.values()) {
-        if (!entry.objects) continue;
-        for (const o of entry.objects) {
-          if (o.kind !== 'flora' || o.deco !== 'flower') continue;
-          if (pickedSet.has(o.id)) continue;
-          const d2 = distM2(o.x, o.y, wm.x, wm.y);
-          if (d2 < bestD2) { bestD2 = d2; bestF = o; }
-        }
-      }
-      if (bestF) {
-        const o = bestF;
-        if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
-          this.flash('too far', sx, sy); return;
-        }
-        this.save.picked = [...pickedSet, o.id];
-        this.addToInv('flowers', 1);
-        persistSave(this.save);
-        this.flashLoot(`+1 🌼 flowers`);
-        return;
-      }
-    }
-
-    // 1b) World objects: chest open, tree chop, house flavor.
-    // Same distance-based dedupe as drawObjects so a ghost duplicate can't claim the tap.
-    const TAP_DEDUPE_R2 = 40 * 40;
-    const seenTapByIdent = new Map();
-    const isDupTapChest = (o) => {
-      const ident = o.name || o.poiClass;
-      if (!ident) return false;
-      let list = seenTapByIdent.get(ident);
-      if (list) {
-        for (const p of list) {
-          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < TAP_DEDUPE_R2) return true;
-        }
-      } else {
-        list = [];
-        seenTapByIdent.set(ident, list);
-      }
-      list.push({ x: o.x, y: o.y });
-      return false;
-    };
-    for (const entry of WorldGen.tileCache.values()) {
-      if (!entry.objects) continue;
-      for (const o of entry.objects) {
-        if (o.kind === 'chest' && isDupTapChest(o)) continue;
-        const r = o.kind === 'house' ? REACH_HOUSE_M : REACH_OBJECT_M;
-        if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
-        if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
-          this.flash('too far', sx, sy); return;
-        }
-        if (o.kind === 'chest') {
-          if (this.save.opened.includes(o.id)) { this.flash('already looted', sx, sy); return; }
-          const loot = pickLoot(undefined, o.poiClass);
-          this.addToInv(loot.id, loot.n);
-          this.save.opened.push(o.id);
-          persistSave(this.save);
-          const lootIcon = ITEM_BY_ID[loot.id]?.icon || '?';
-          const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
-          // Tier-coloured loot pop (rare = magenta, uncommon = cyan, common = gold).
-          const tier = SEED_TIER[loot.id] || 1;
-          const color = tier === 3 ? '#ff8aff' : tier === 2 ? '#7adcff' : '#ffe066';
-          // Show the ITEM obtained, not the POI label.
-          this.flashLoot(`${lootIcon} ${lootName} ×${loot.n}`, color, 1.25, loot.id);
-          return;
-        }
-        if (o.kind === 'tree') {
-          // Spec: tap to interact. Trees are decorative for now — flavor only.
-          this.flash('a sturdy maple', sx, sy);
-          return;
-        }
-        if (o.kind === 'house') {
-          this.shopInteract(sx, sy);
-          return;
-        }
-      }
-    }
-    // 2) Cell interactions — tap drives till / plant / water / harvest.
-    // Reach is tested against the affected CELL'S CENTER (not the raw tap
-    // point) so the outline drawn in drawCells matches exactly: any cell whose
-    // centre is within REACH_CELL_M of the feet is actionable, full stop.
-    const cell = this.cellAt(wm.x, wm.y);
-    if (!cell.loaded) { this.flash('loading…', sx, sy); return; }
-    const { cellIX, cellIY } = this.worldMetersToAbsCell(wm.x, wm.y);
-    const { x: cwmx, y: cwmy } = this.absCellCenterMeters(cellIX, cellIY);
-    if (Math.hypot(cwmx - pWorldX, cwmy - pWorldY) > this.REACH_CELL_M) {
-      this.flash('too far', sx, sy); return;
-    }
-    const cellKey = `${cellIX}_${cellIY}`;
-
-    // 2-pre) If an animal is selected in inventory, releasing it places the creature here.
-    // (Works on any cell — animals can walk anywhere, including roads/buildings.)
-    {
-      const sel = this.save.inv[this.save.selSlot];
-      const item = sel ? ITEM_BY_ID[sel.id] : null;
-      if (item && item.kind === 'animal' && (sel.count ?? 0) > 0) {
-        const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random()*1e6)}`;
-        // Figure out which tile this cell falls in.
-        const tx = Math.floor(cwmx / this.tileEdgeM);
-        const ty = Math.floor(cwmy / this.tileEdgeM);
-        this.save.released = this.save.released || [];
-        this.save.released.push({ x: cwmx, y: cwmy, kind: item.id, id, tx, ty });
-        // Live-insert into the loaded tile so it shows immediately.
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
-        if (entry && entry.creatures) entry.creatures.push({ x: cwmx, y: cwmy, kind: item.id, id });
-        sel.count -= 1;
-        if (sel.count <= 0) {
-          this.save.inv.splice(this.save.selSlot, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        this.flash(`released ${item.icon || ''} ${item.id}`, sx, sy);
-        return;
-      }
-    }
-
-    // 2-placed-rock) Tap a player-placed rockfruit stone → pick it back up
-    // (chickens use them as fences; mining them just returns the rockfruit).
-    if (this.placedRockSet.has(cellKey)) {
-      this.placedRockSet.delete(cellKey);
-      this.save.placedRocks = [...this.placedRockSet];
-      this.addToInv('rockfruit', 1);
-      persistSave(this.save);
-      this.flash('⛏ rockfruit', sx, sy);
-      return;
-    }
-
-    // 2-place-rock) With rockfruit selected, tap an empty tillable cell to drop
-    // a stone (blocks chickens, can be mined back later).
-    {
-      const sel = this.save.inv[this.save.selSlot];
-      const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-      if (selItem && selItem.id === 'rockfruit' && (sel.count ?? 0) > 0 &&
-          isTillable(cell.type) && !this.tilledSet.has(cellKey) &&
-          !this.save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1)) {
-        this.placedRockSet.add(cellKey);
-        this.save.placedRocks = [...this.placedRockSet];
-        sel.count -= 1;
-        if (sel.count <= 0) {
-          this.save.inv.splice(this.save.selSlot, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        this.flash('🪨 placed', sx, sy);
-        return;
-      }
-    }
-
-    // 2-rock) Tap a natural rock cell → break it (one-shot, persisted). Loot table:
-    //   ~45% rockfruit_seed (common, the "floor" reward)
-    //     7% $5
-    //     2% gemfruit_seed (rare)
-    //     1% $25 (rare)
-    //   0.5% gemfruit produce (very rare)
-    //   ~45% nothing — just rubble
-    if (cell.type === 10) {
-      if (this.brokenRockSet.has(cellKey)) {
-        this.flash('rubble', sx, sy);
-        return;
-      }
-      this.brokenRockSet.add(cellKey);
-      this.save.brokenRocks = [...this.brokenRockSet];
-      const r = Math.random();
-      let msg = '💥 broken';
-      if (r < 0.005)        { this.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.015)   { this.save.money = (this.save.money || 0) + 25; this.updateMoneyDOM?.(); msg = '💥 → $25'; }
-      else if (r < 0.035)   { this.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
-      else if (r < 0.105)   { this.save.money = (this.save.money || 0) + 5;  this.updateMoneyDOM?.(); msg = '💥 → $5'; }
-      else if (r < 0.555)   { this.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
-      // else: nothing
-      persistSave(this.save);
-      this.flash(msg, sx, sy);
-      return;
-    }
-
-    // 2a) Tap on a planted crop → harvest if mature, else advance (if 1h elapsed), else water.
-    const plantedIdx = this.save.planted.findIndex(p =>
-      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
-    if (plantedIdx >= 0) {
-      const p = this.save.planted[plantedIdx];
-      const stageHoldMs = 60 * 60 * 1000; // 1h between watering and stage advance
-      const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
-      if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
-        p.stage = (p.stage ?? 0) + 1;
-        p.watered_t = 0;
-        persistSave(this.save);
-      }
-      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
-        this.save.planted.splice(plantedIdx, 1);
-        this.tilledSet.delete(cellKey);
-        this.save.tilled = [...this.tilledSet];
-        let yieldN = 1 + Math.floor(Math.random() * 3);
-        this.addToInv(p.crop, yieldN);
-        const gotSeed = Math.random() < 0.25;
-        if (gotSeed) this.addToInv(`${p.crop}_seed`, 1);
-        persistSave(this.save);
-        const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-        this.flashLoot(`🌾 ${cropIcon} ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
-        return;
-      }
-      if (!p.watered_t) {
-        p.watered_t = Date.now();
-        persistSave(this.save);
-        this.flash('💧 watered', sx, sy);
-        return;
-      }
-      const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
-      this.flash(`growing… ${minsLeft}m`, sx, sy);
-      return;
-    }
-
-    // 2b) Tap non-tillable terrain → flavor.
-    if (!isTillable(cell.type)) {
-      const t = cell.type;
-      const flavor = t === 3  ? 'water'
-                   : (t === 9 || t === 11 || t === 12) ? 'building'
-                   : t === 13 ? 'highway'
-                   : t === 14 ? 'avenue'
-                   : t === 7  ? 'road'
-                   : t === 8  ? 'path'
-                   : '·';
-      this.flash(flavor, sx, sy);
-      return;
-    }
-
-    // 2c) Tap tilled empty cell:
-    //   - with a seed selected → plant
-    //   - with nothing / non-seed selected → un-till (revert to underlying terrain)
-    if (this.tilledSet.has(cellKey)) {
-      const sel = this.save.inv[this.save.selSlot];
-      const item = sel ? ITEM_BY_ID[sel.id] : null;
-      if (!item || item.kind !== 'seed') {
-        this.tilledSet.delete(cellKey);
-        this.save.tilled = [...this.tilledSet];
-        persistSave(this.save);
-        this.flash('un-tilled', sx, sy);
-        return;
-      }
-      if ((sel.count ?? 0) <= 0) {
-        this.flash('out of seeds', sx, sy);
-        return;
-      }
-      this.save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
-      sel.count -= 1;
-      if (sel.count <= 0) {
-        this.save.inv.splice(this.save.selSlot, 1);
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
-      }
-      persistSave(this.save);
-      this.buildInventoryDOM();
-      this.flash(`planted ${item.grows}`, sx, sy);
-      return;
-    }
-
-    // 2d) Tap untilled tillable cell → till it.
-    // Refuse to till when the cell is occupied by ANY interactable so we never silently
-    // wipe under the player's intent. Identify the blocker so the flash message can name
-    // what's actually there (helpful when the visual is subtle).
-    const cellHalfM = this.cellM / 2;
-    const pickedAll = new Set(this.save.picked || []);
-    let blocker = null;
-    if (this.placedRockSet.has(cellKey)) blocker = 'rock';
-    if (!blocker) {
-      const pp = this.save.planted.find(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
-      if (pp) blocker = pp.crop || 'crop';
-    }
-    if (!blocker) {
-      const openedSet = new Set(this.save.opened || []);
-      for (const e of WorldGen.tileCache.values()) {
-        const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
-        if (wp) { blocker = wp.crop || 'plant'; break; }
-        const oo = (e.objects || []).find(o =>
-          o.kind !== 'flora' &&
-          // Looted chests are visual zombies (still in objects[] but the chest sprite is gone) —
-          // they don't block tilling. Same for chopped trees.
-          !(o.kind === 'chest' && openedSet.has(o.id)) &&
-          !(o.kind === 'tree' && o.chopped) &&
-          Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
-        if (oo) {
-          blocker = oo.kind === 'house' ? 'house' :
-                    oo.kind === 'tree'  ? 'tree'  :
-                    oo.kind === 'chest' ? (oo.name ? rusticifyName(oo.name) : 'chest') :
-                    oo.kind;
-          break;
-        }
-      }
-    }
-    if (blocker) { this.flash(`occupied: ${blocker}`, sx, sy); return; }
-    this.tilledSet.add(cellKey);
-    this.save.tilled = [...this.tilledSet];
+  // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
+  // this method just forwards to it.
+  handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
     persistSave(this.save);
     this.flash('tilled', sx, sy);
   }
@@ -1785,6 +1417,12 @@ class MapScene extends Phaser.Scene {
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
+    // If this was a player-released creature, also trim it from save.released so the
+    // array doesn't grow unbounded across many release-and-recatch cycles.
+    if (this.save.released) {
+      const ri = this.save.released.findIndex(r => r.id === c.id);
+      if (ri >= 0) this.save.released.splice(ri, 1);
+    }
     // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 1.
     const yieldN = c.kind === 'chicken' ? 4 : 1;
     this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
@@ -1940,31 +1578,32 @@ class MapScene extends Phaser.Scene {
   }
 
   shopInteract(sx, sy) {
+    // Single-modal guard: if a confirmation modal is already open, ignore the tap so
+    // rapid double-taps can't stack two modals or stale closures.
+    if (document.getElementById('offer-modal')) return;
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
       // house tap can't silently dump a high-value item.
       const price = PRICES[sel.id] ?? 1;
       const item = ITEM_BY_ID[sel.id];
-      const slotIdx = this.save.selSlot;
+      const sellId = sel.id;
       this.showOfferModal({
         title: 'Sell to the shopkeep?',
         get: `+$${price}`,
-        cost: `1× ${item?.icon || ''} ${item?.name || sel.id}`,
+        cost: `1× ${item?.icon || ''} ${item?.name || sellId}`,
         canAfford: true,
         acceptLabel: 'Sell',
         onAccept: () => {
-          // Re-resolve the stack: the selected slot might have shifted since
-          // we opened the modal (e.g. another tap).
-          const cur = this.save.inv[slotIdx];
-          if (!cur || cur.id !== sel.id || (cur.count ?? 0) <= 0) {
-            this.flash('gone', sx, sy);
-            return;
-          }
+          // Re-find by id (not index) — the slot may have shifted, but as long as
+          // SOME stack of this id still exists we can fulfil the sale.
+          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
+          if (idx < 0) { this.flash('gone', sx, sy); return; }
+          const cur = this.save.inv[idx];
           cur.count -= 1;
           this.save.money = (this.save.money ?? 0) + price;
           if (cur.count <= 0) {
-            this.save.inv.splice(slotIdx, 1);
+            this.save.inv.splice(idx, 1);
             if (this.save.selSlot >= this.save.inv.length) {
               this.save.selSlot = Math.max(0, this.save.inv.length - 1);
             }
