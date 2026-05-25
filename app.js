@@ -417,6 +417,8 @@ class MapScene extends Phaser.Scene {
       ctx.putImageData(data, 0, 0);
       this.textures.remove('crops');
       this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
+      // Now that the alpha-keyed 'crops' image is available, bake per-crop plaque textures.
+      makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     if (window.TileMap) {
@@ -547,6 +549,8 @@ class MapScene extends Phaser.Scene {
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
     this.plantedContainer = this.add.container(0, 0);
+    // Pads (3x3 concrete slabs under POI chests) draw under objects.
+    this.padContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
     this.creaturesContainer = this.add.container(0, 0);
 
@@ -610,6 +614,7 @@ class MapScene extends Phaser.Scene {
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
+    this.padContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
 
