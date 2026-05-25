@@ -29,6 +29,15 @@ const COLORS = {
   12: 0x5a5d63, // building_large — civic / school / industrial (slate gray)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
+  // --- Subtype splits — each tile fits into one of three base biomes ---
+  15: 0x7eb55a, // SCHOOL       (GRASSLAND) — schoolyard green, slightly mown
+  16: 0x7a7a82, // COMMERCIAL   (ROCKY)     — cool slate
+  17: 0x5a5a5e, // INDUSTRIAL   (ROCKY)     — dark slate
+  18: 0xa39065, // PLAYGROUND   (GRASSLAND) — mulchy tan
+  19: 0x6fa850, // PITCH        (GRASSLAND) — vivid sports-field green
+  20: 0x365a3a, // WETLAND      (FOREST)    — dim swampy green
+  21: 0x88c460, // GOLF         (GRASSLAND) — bright emerald
+  22: 0x4a7a32, // ORCHARD      (FOREST)    — olive
 };
 // Tillable = soil-ish ground. Water, roads (any tier), paths, and any building tier are not.
 const NON_TILLABLE = new Set([3, 7, 8, 9, 11, 12, 13, 14]);
@@ -806,8 +815,9 @@ class MapScene extends Phaser.Scene {
     // so we need hundreds per tile for any to actually be visible.
     const chickenN = 150 + Math.floor(rng() * 100);   // 150..250 per tile
     for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
-    const cowN = Math.floor(rng() * 3);   // 0..2 cows, only in farmland
-    for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([4]), i, 'cow');
+    // Cows: same soft ground as chickens, but ~10x rarer.
+    const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
+    for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
     entry.creatures = creatures;
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
@@ -920,7 +930,7 @@ class MapScene extends Phaser.Scene {
     this.updateHUD();
   }
 
-  // Chickens wander ~1 cell every 5s in a random direction; cows stay put.
+  // Chickens and cows wander ~1 cell every 5s in a random direction.
   // Per-creature state lives on the creature object: _startX/Y, _targetX/Y,
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
@@ -938,7 +948,7 @@ class MapScene extends Phaser.Scene {
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.creatures) continue;
       for (const c of entry.creatures) {
-        if (c.kind !== 'chicken') continue;
+        if (c.kind !== 'chicken' && c.kind !== 'cow') continue;
         if (this.save.caught.includes(c.id)) continue;
         const ddx = c.x - px, ddy = c.y - py;
         if (ddx * ddx + ddy * ddy > RANGE_SQ) continue;
@@ -1163,26 +1173,34 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // Reach indicator — subtle white outline on each cell whose center sits
-    // within REACH_CELL_M of the character's visible feet. Symmetric around
-    // (viewCenterX, viewCenterY + feetOffsetPx) which matches the sprite feet.
-    const feetPxY = (this.feetOffsetM / this.cellM) * CELL_PX;
-    g.lineStyle(1, 0xffffff, 0.35);
+    // Reach indicator — subtle white outline tracing only the outer edge of the
+    // reachable area (cells whose centre is within REACH_CELL_M of the character's
+    // visible feet). For each reachable cell, draw only the sides whose neighbour
+    // is NOT reachable. Result is the staircase silhouette of the reach region.
+    const R2 = this.REACH_CELL_M * this.REACH_CELL_M;
+    const isReach = (col, row) => {
+      const ox = col - half, oy = row - half;
+      const dxM = (ox - fracX + 0.5) * this.cellM;
+      const dyM = (oy - fracY + 0.5) * this.cellM - this.feetOffsetM;
+      return dxM * dxM + dyM * dyM <= R2;
+    };
+    g.lineStyle(1, 0xffffff, 0.45);
     for (let row = 0; row < VIEW_CELLS; row++) {
       for (let col = 0; col < VIEW_CELLS; col++) {
-        const ox = col - half;
-        const oy = row - half;
-        const dxM = (ox - fracX + 0.5) * this.cellM;
-        const dyM = (oy - fracY + 0.5) * this.cellM - this.feetOffsetM;
-        if (dxM * dxM + dyM * dyM > this.REACH_CELL_M * this.REACH_CELL_M) continue;
+        if (!isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
         const sx = Math.round(this.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
         const sy = Math.round(this.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-        g.strokeRect(sx + 0.5, sy + 0.5, CELL_PX - 1, CELL_PX - 1);
+        const top = !isReach(col, row - 1);
+        const bot = !isReach(col, row + 1);
+        const lft = !isReach(col - 1, row);
+        const rgt = !isReach(col + 1, row);
+        if (top) g.lineBetween(sx, sy, sx + CELL_PX, sy);
+        if (bot) g.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
+        if (lft) g.lineBetween(sx, sy, sx, sy + CELL_PX);
+        if (rgt) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
       }
     }
-    // Silence the unused-variable lint by referencing feetPxY (kept as a hint
-    // for any future visual marker at the feet centre).
-    void feetPxY;
 
     // Grid lines align with cell edges. Cells are positioned at
     //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
@@ -1328,6 +1346,7 @@ class MapScene extends Phaser.Scene {
       if (c.kind === 'cow') {
         if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
         s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
+        s.setFlipX(!!c._faceFlip);
       } else {
         if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
         s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
@@ -1547,10 +1566,12 @@ class MapScene extends Phaser.Scene {
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
-    this.addToInv(c.kind, 1);      // stack into inventory (icon comes from ITEMS)
+    // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 6 (milk + beef) and are rarer.
+    const yieldN = c.kind === 'chicken' ? 4 : c.kind === 'cow' ? 6 : 1;
+    this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
-    this.flash(`+1 ${item?.icon || ''} ${c.kind}`, sx, sy);
+    this.flash(`+${yieldN} ${item?.icon || ''} ${c.kind}`, sx, sy);
   }
 
   flash(text, x, y) {
