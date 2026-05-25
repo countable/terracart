@@ -6,6 +6,13 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
+  <meta name="theme-color" content="#111" />
+  <!-- iOS PWA: launch fullscreen with a dark status bar when added to home screen. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Terracart" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <title>map-game prototype</title>
   <style>
     html, body {
@@ -13,6 +20,9 @@
       background: #111; color: #ddd;
       font-family: system-ui, sans-serif;
       overflow: hidden;
+      /* Block iOS Safari's elastic rubber-band overscroll on fast swipes —
+         touch-action: none alone doesn't suppress it. */
+      overscroll-behavior: none;
       touch-action: none;
     }
     #frame {
@@ -119,13 +129,45 @@
       }
       location.reload();
     });
+
+    // ───────────────────────────────────────────────────────────────
+    // Mobile error surfacing — DevTools isn't reachable on phones, so
+    // any uncaught JS error is flashed to #banner instead of dying silently.
+    function showError(msg) {
+      const b = document.getElementById('banner');
+      if (!b) return;
+      b.textContent = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
+      b.style.display = 'block';
+      clearTimeout(showError._t);
+      showError._t = setTimeout(() => { b.style.display = 'none'; }, 6000);
+    }
+    window.addEventListener('error', (e) => {
+      showError(`⚠ ${e.message || 'script error'}`);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const r = e.reason;
+      showError(`⚠ ${(r && (r.message || r.toString())) || 'promise rejection'}`);
+    });
+
+    // ───────────────────────────────────────────────────────────────
+    // Service worker — caches MVT tiles + the app shell so the game
+    // works offline once a region has been visited, and reloads are
+    // fast on cellular. Only registered when the page is served over
+    // http(s) (file:// has no SW support).
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => {
+          console.warn('SW registration failed:', err);
+        });
+      });
+    }
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="worldgen.js?v=28"></script>
-  <script src="tilemap.js?v=28"></script>
-  <script src="crops.js?v=28"></script>
-  <script src="textures.js?v=28"></script>
-  <script src="app.js?v=28"></script>
+  <script src="worldgen.js?v=49"></script>
+  <script src="tilemap.js?v=49"></script>
+  <script src="crops.js?v=49"></script>
+  <script src="textures.js?v=49"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>
