@@ -66,6 +66,17 @@ const COLORS = {
 // Rock (10) is non-tillable too — taps break the rock instead (see handleWorldTap).
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
+// Building interior cells — small house, fort, civic slab. Used for the
+// "rest inside to recover energy" loop (slow, opt-in regen while indoors).
+const BUILDING_TYPES = new Set([9, 11, 12]);
+// Indoor resting fills the full energy bar in this many seconds while the
+// player stands on a building cell. Slower than active food, fast enough to
+// matter — sitting for ~5 minutes recovers from empty.
+const INDOOR_FULL_REST_S = 300;
+// Time-since-tab-close that grants the FULL energy bar back. Closing the tab
+// or backgrounding the app for an hour returns at 100% energy; shorter rests
+// are pro-rated linearly.
+const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
 
 
 // === Crop-affinity plaque (per-crop wooden sign baked once) ===
@@ -216,6 +227,17 @@ class MapScene extends Phaser.Scene {
     if (!Number.isFinite(this.save.energy)) this.save.energy = maxE;
     // Clamp current to whatever the new max allows.
     this.save.energy = Math.min(maxE, Math.max(0, this.save.energy));
+    // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
+    // treated as "the player was resting" — pro-rated 100% per hour, capped at
+    // maxEnergy. Skipped in test mode so the harness's deterministic energy
+    // values aren't bumped on every harness reload.
+    if (this.save.lastSeenAt && !window.__TEST_MODE) {
+      this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+    }
+    this.save.lastSeenAt = Date.now();
+    // Float accumulator for indoor resting — fractions of an energy point
+    // accrue here between integer-pip bumps to save.energy.
+    this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
     // Soft cap on unbounded "history" save fields. A heavy player who walks
@@ -545,7 +567,19 @@ class MapScene extends Phaser.Scene {
           try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
           this.gpsWatchId = null;
         }
+        // Snapshot the moment we paused. Phaser stops calling update() while
+        // hidden, so the per-frame heartbeat freezes — anchor lastSeenAt here
+        // so the next visible-transition (or page reload) measures from now.
+        this.save.lastSeenAt = Date.now();
+        persistSave(this.save);
       } else {
+        // Foregrounded after a background nap. Pro-rate energy restoration
+        // by the gap, just like a fresh page load would do in create().
+        if (this.save.lastSeenAt && !window.__TEST_MODE) {
+          this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+        }
+        this.save.lastSeenAt = Date.now();
+        persistSave(this.save);
         if (this.game && this.game.isPaused) this.game.resume();
         if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
         // Wake lock is auto-released on hide; re-acquire on return.
@@ -837,6 +871,35 @@ class MapScene extends Phaser.Scene {
       }
     } else if (this.player.anims.currentAnim?.key !== 'idle-anim') {
       this.player.play('idle-anim');
+    }
+
+    // Heartbeat the "last seen" timestamp every frame. In-memory only — the
+    // save object is mutated by reference, so the next persistSave (or the
+    // pagehide flush in save.js) carries it. This bounds offline-rest drift
+    // to at most one frame if the tab dies without firing visibilitychange.
+    this.save.lastSeenAt = Date.now();
+
+    // Indoor resting: standing on a building cell slowly fills the bar.
+    // Float accumulator avoids per-frame integer churn — we only bump
+    // save.energy + refresh the DOM when a whole pip has accrued. Test mode
+    // skips this so deterministic test runs don't see energy creep.
+    if (!window.__TEST_MODE) {
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
+      const here = this.cellAt(pWX, pWY);
+      const indoors = here.loaded && BUILDING_TYPES.has(here.type);
+      const maxE = this.getMaxEnergy();
+      if (indoors && (this.save.energy ?? 0) < maxE) {
+        this._restAccrueE += maxE * (dt / INDOOR_FULL_REST_S);
+        const pip = Math.floor(this._restAccrueE);
+        if (pip > 0) {
+          this._restAccrueE -= pip;
+          this.save.energy = Math.min(maxE, (this.save.energy ?? 0) + pip);
+          if (this.updateEnergyDOM) this.updateEnergyDOM();
+        }
+      } else {
+        this._restAccrueE = 0;
+      }
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -1343,6 +1406,20 @@ class MapScene extends Phaser.Scene {
       ? maxEnergyFromArmor(this.save.armor) : null;
     if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
     return this.save.maxEnergy ?? STARTING_ENERGY;
+  }
+
+  // Convert a wall-time gap (since the previous lastSeenAt) into energy and
+  // restore it. Called from create() and the visibilitychange handler so the
+  // same formula serves both "tab was closed" and "tab was backgrounded".
+  applyOfflineRest(gapMs) {
+    if (!(gapMs > 0)) return;
+    const maxE = this.getMaxEnergy();
+    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
+    if (restored <= 0) return;
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.min(maxE, before + restored);
+    const gained = this.save.energy - before;
+    if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
   }
 
   updateEnergyDOM() {
