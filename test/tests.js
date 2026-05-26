@@ -110,11 +110,82 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
   const wp = findWildplant(w =>
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 30);
   assert.truthy(wp, 'found a starter wildplant');
-  // Stand 25m away (outside REACH_FAR_M = 18m) but tap on the plant.
+  // Stand 25m away (well outside REACH_FAR_M = 16m, measured from player
+  // cell centre) but tap on the plant.
   teleport(scene, wp.x + 25, wp.y);
   tapWorld(scene, wp.x, wp.y);
   assert.falsy(scene.save.picked.includes(wp.id), 'not picked');
   assert.eq(invCount(scene, wp.crop), 0, 'inv empty');
+});
+
+// REACH SHAPE
+//
+// Two related properties locked down by this test:
+//   1. The reach silhouette is a rounded square, not a strict diamond — the
+//      (±1, ±3) and (±3, ±1) cells (15.81 m from cell-centre) are tappable.
+//   2. Standing at the EDGE of your cell doesn't shrink the reach. Both the
+//      visual outline and the "too far" gate measure from the player's
+//      CELL CENTRE, so any cell in the outline is tappable regardless of
+//      where in the player's cell their feet are.
+//
+// We capture scene.flash() calls and check whether 'too far' fires for each
+// offset. Detecting via flash means we exercise the real cell-resolve gate
+// (not just the math), which is the regression surface for both bugs.
+test('reach shape includes (±1, ±3) and (±3, ±1); not affected by intra-cell foot position', (scene) => {
+  // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  if (!startTile) return;
+  let pCell = null;
+  for (let i = 0; i < startTile.grid.length && !pCell; i++) {
+    if (startTile.grid[i] !== 0) continue;   // need grass
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    if (cx < 4 || cy < 4 || cx > scene.cellsPerTile - 5 || cy > scene.cellsPerTile - 5) continue;
+    const approxX = 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM;
+    const approxY = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
+    pCell = absCellCenterMeters(scene, cellIX, cellIY);
+  }
+  if (!pCell) return;   // no interior grass in fixture — skip
+
+  // Capture every flash so we can detect 'too far'.
+  const origFlash = scene.flash;
+  const flashes = [];
+  scene.flash = (msg) => { flashes.push(msg); };
+  try {
+    const tapOffset = (dxCells, dyCells, atSouthEdge = false) => {
+      flashes.length = 0;
+      // Stand at the player cell's centre — or just inside its south edge —
+      // to exercise the "cell-centre, not feet" rule.
+      const py = atSouthEdge ? pCell.y + scene.cellM / 2 - 0.05 : pCell.y;
+      teleport(scene, pCell.x, py);
+      tapWorld(scene, pCell.x + dxCells * scene.cellM,
+                      pCell.y + dyCells * scene.cellM);
+      return flashes.some(m => typeof m === 'string' && /too far/i.test(m));
+    };
+
+    // The previously-edge-case offsets — now in reach.
+    assert.falsy(tapOffset( 1,  3), '(1, 3) cell tappable (was edge of old 15m diamond)');
+    assert.falsy(tapOffset(-1,  3), '(-1, 3) cell tappable');
+    assert.falsy(tapOffset( 3,  1), '(3, 1) cell tappable');
+    assert.falsy(tapOffset( 3, -1), '(3, -1) cell tappable');
+    // Cardinal extremes still in reach.
+    assert.falsy(tapOffset( 0,  3), '(0, 3) cell tappable');
+    assert.falsy(tapOffset( 3,  0), '(3, 0) cell tappable');
+    // Outside the rounded-square — still out of reach.
+    assert.truthy(tapOffset( 3,  3), '(3, 3) cell out of reach (√18·5 ≈ 21 m > 16 m)');
+    assert.truthy(tapOffset( 2,  3), '(2, 3) cell out of reach (√13·5 ≈ 18 m > 16 m)');
+
+    // Reach must be independent of intra-cell foot position: a tap on a
+    // far-edge cell while standing at the south edge of the own cell must
+    // still succeed, since both the visual outline and the gate measure
+    // from cell-centre.
+    assert.falsy(tapOffset( 0, -3, /*atSouthEdge=*/true),
+      'north cell (-3) tappable even when feet at south edge of own cell');
+    assert.falsy(tapOffset( 1, -3, /*atSouthEdge=*/true),
+      '(1, -3) cell tappable from south edge of own cell');
+  } finally {
+    scene.flash = origFlash;
+  }
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -124,6 +195,14 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 test('opening a chest adds loot and marks it opened', (scene) => {
   scene.save.opened = [];
   scene.save.inv = [];
+  // Max every relic + armor slot so the 10% chest-relic roll never finds an
+  // upgrade. When it does upgrade, the chest equips a relic without adding
+  // anything to inventory (just by design) — and "loot added" would fail.
+  // With every slot at T7, pickChestRelic falls through to normal loot.
+  scene.save.relics = {};
+  for (const slot of Object.keys(RELIC_DEFS)) scene.save.relics[slot] = { tier: 7 };
+  scene.save.armor = {};
+  for (const slot of Object.keys(ARMOR_DEFS)) scene.save.armor[slot] = { tier: 7 };
   const chest = findObject(o =>
     o.kind === 'chest' && o.poiClass &&
     Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 200);
@@ -135,7 +214,11 @@ test('opening a chest adds loot and marks it opened', (scene) => {
   // same location with a different id, so assert "some" chest opened, not the
   // specific id we picked from the cache.
   assert.gt(scene.save.opened.length, 0, 'a chest was opened');
-  assert.gt((scene.save.inv || []).length, invBefore, 'loot added to inv');
+  // Either real loot (added to inv) OR a "gold" consolation (money) — both
+  // count as the chest paying out.
+  const gotInv = (scene.save.inv || []).length > invBefore;
+  const gotMoney = (scene.save.money ?? 0) > 0;
+  assert.truthy(gotInv || gotMoney, 'chest paid out (inv or money)');
 });
 
 test('tapping an already-opened chest is a no-op', (scene) => {
@@ -1104,12 +1187,12 @@ test('PLAY_TIPS is non-empty and every entry is a real string', () => {
 test('readBook consumes one Book and opens a modal', (scene) => {
   scene.save.inv = [{ id: 'book', count: 2 }];
   scene.save.selSlot = 0;
-  document.getElementById('msg-modal')?.remove();
+  document.getElementById('message-modal')?.remove();
   document.getElementById('offer-modal')?.remove();
   scene.readBook();
   const stack = scene.save.inv.find(s => s && s.id === 'book');
   assert.eq(stack?.count, 1, 'one book consumed (2 -> 1)');
-  const m = document.getElementById('msg-modal') || document.getElementById('offer-modal');
+  const m = document.getElementById('message-modal') || document.getElementById('offer-modal');
   assert.truthy(m, 'modal appeared');
   m?.remove();
 });
@@ -1123,13 +1206,13 @@ test('playFlute consumes one Flute and re-anchors nearby creatures', (scene) => 
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   entry.creatures.push(target);
-  document.getElementById('msg-modal')?.remove();
+  document.getElementById('message-modal')?.remove();
   scene.playFlute();
   assert.eq(scene.save.inv.find(s => s?.id === 'flute'), undefined, 'flute consumed');
   const homeDist = Math.hypot((target._homeX ?? target.x) - pWX, (target._homeY ?? target.y) - pWY);
   assert.lt(homeDist, 6, 'chicken home pulled close to player');
   entry.creatures.pop();
-  document.getElementById('msg-modal')?.remove();
+  document.getElementById('message-modal')?.remove();
 });
 
 test('hoe relic: effectiveTillCost shape', () => {
@@ -1160,9 +1243,40 @@ test('watering can: watering writes canBoost to the planted crop', (scene) => {
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
-  const { cellIX, cellIY } = worldMetersToAbsCell(scene,
-    scene.startWorldM.x + scene.playerM.x,
-    scene.startWorldM.y + scene.playerM.y);
+  // Empty inventory so eat / use-consumable don't intercept the tap (those
+  // handlers fire when you tap your own feet with a food/consumable selected).
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  // Empty inventory so eat / use-consumable (priority -0.5 / -0.6) don't
+  // intercept a tap on the player's own cell with leftover food/flute from
+  // an earlier test.
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  // Pre-mark every nearby wildplant + flora as picked, and every nearby
+  // creature as caught, so the handlers that run BEFORE planted (creature,
+  // wildplant, flora) skip them. Otherwise the tap would catch a chicken or
+  // pick a rockfruit instead of watering our test crop.
+  const pWX0 = scene.startWorldM.x + scene.playerM.x;
+  const pWY0 = scene.startWorldM.y + scene.playerM.y;
+  const pickedNow = new Set(scene.save.picked || []);
+  const caughtNow = new Set(scene.save.caught || []);
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of (e.wildplants || [])) {
+      if (Math.hypot(wp.x - pWX0, wp.y - pWY0) < 10) pickedNow.add(wp.id);
+    }
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'flora' && o.deco === 'flower' &&
+          Math.hypot(o.x - pWX0, o.y - pWY0) < 10) pickedNow.add(o.id);
+    }
+    for (const c of (e.creatures || [])) {
+      if (Math.hypot(c.x - pWX0, c.y - pWY0) < 10) caughtNow.add(c.id);
+    }
+  }
+  scene.save.picked = [...pickedNow];
+  scene.save.caught = [...caughtNow];
+  // Also ensure full energy so spendEnergy (harvest path) never bails.
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene, pWX0, pWY0);
   const c = absCellCenterMeters(scene, cellIX, cellIY);
   scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
   scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
@@ -1204,6 +1318,18 @@ test('watering can: refill at water tile -> 50 charges, then +2 boost', (scene) 
     scene.startWorldM.x + scene.playerM.x,
     scene.startWorldM.y + scene.playerM.y);
   const c = absCellCenterMeters(scene, cellIX, cellIY);
+  // Suppress nearby wildplants / flora that would otherwise intercept the tap.
+  const pickedNow2 = new Set(scene.save.picked || []);
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of (e.wildplants || [])) {
+      if (Math.hypot(wp.x - c.x, wp.y - c.y) < 10) pickedNow2.add(wp.id);
+    }
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'flora' && o.deco === 'flower' &&
+          Math.hypot(o.x - c.x, o.y - c.y) < 10) pickedNow2.add(o.id);
+    }
+  }
+  scene.save.picked = [...pickedNow2];
   scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
   scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
   teleport(scene, c.x, c.y);

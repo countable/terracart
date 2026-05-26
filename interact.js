@@ -126,12 +126,12 @@ const TAP_HANDLERS = [
 
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!tr || found.has(tr.id)) return false;
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
-      if (distM2(tr.x, tr.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(tr.x, tr.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
       save.foundTreasures = [...found, tr.id];
       const t = pickTreasure();
       if (t.kind === 'money') {
@@ -178,7 +178,7 @@ const TAP_HANDLERS = [
 
   // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
   { name: 'wildplant', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
     let bestWp = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
     WorldGen.forEachItem('wildplants', (wp) => {
@@ -188,7 +188,7 @@ const TAP_HANDLERS = [
     });
     if (bestWp) {
       const wp = bestWp;
-      if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(wp.x, wp.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
       //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
@@ -237,7 +237,7 @@ const TAP_HANDLERS = [
     });
     if (bestF) {
       const o = bestF;
-      if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(o.x, o.y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
       save.picked = [...pickedSet, o.id];
       scene.addToInv('flowers', 1);
       ctx.dirty = true;
@@ -249,7 +249,7 @@ const TAP_HANDLERS = [
 
   // 1b) World objects: chest open, tree flavor, house shop.
   { name: 'object', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
     const openedSetTap = new Set(save.opened);
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
@@ -280,7 +280,7 @@ const TAP_HANDLERS = [
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       const r = (o.kind === 'house' || o.kind === 'tower') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
-      if (distM2(o.x, o.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) {
+      if (distM2(o.x, o.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) {
         scene.flash('too far', sx, sy); return 'far';
       }
       if (o.kind === 'chest') {
@@ -371,9 +371,10 @@ const TAP_HANDLERS = [
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
     const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
-    const playerCell = worldMetersToAbsCell(scene, pWorldX, pWorldY);
-    const playerCellCentre = absCellCenterMeters(scene, playerCell.cellIX, playerCell.cellIY);
-    if (Math.hypot(cwmx - playerCellCentre.x, cwmy - playerCellCentre.y) > scene.REACH_CELL_M) {
+    // Use the dispatcher-supplied body-cell centre (ctx.pCellCx / pCellCy),
+    // which is computed from the player BODY world position. The visual reach
+    // outline in render.js is also body-centred, so the two stay in sync.
+    if (Math.hypot(cwmx - ctx.pCellCx, cwmy - ctx.pCellCy) > scene.REACH_CELL_M) {
       scene.flash('too far', sx, sy); return true;
     }
     ctx.cell = cell;
@@ -667,7 +668,22 @@ function interactTap(scene, sx, sy) {
   // Reach is measured from the character's visible feet, not the sprite center,
   // so the reachable area is symmetric around what the user perceives as "the player".
   const pWorldY = scene.startWorldM.y + scene.playerM.y + scene.feetOffsetM;
-  const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY, sx, sy, dirty: false };
+  // Player's CELL centre — the basis the visual reach outline in render.js
+  // uses (the viewport is centred on the player BODY sprite). All
+  // REACH_FAR_M / REACH_CELL_M "too far" gates measure distance from this,
+  // not from the player's feet. Two things would break otherwise:
+  //   • Body vs feet: feetOffsetM (~3.75 m) puts the feet in the cell SOUTH
+  //     of the body's cell, so a feet-based gate would be one cell off
+  //     from the visual outline — the "too far in valid zones" bug.
+  //   • Intra-cell drift: standing at any edge of the body cell would
+  //     shrink the gate asymmetrically vs. the visual.
+  // worldMetersToAbsCell here intentionally takes the BODY world position,
+  // not pWorldY (which includes feetOffsetM).
+  const pBodyY = scene.startWorldM.y + scene.playerM.y;
+  const pCell = worldMetersToAbsCell(scene, pWorldX, pBodyY);
+  const pCellCentre = absCellCenterMeters(scene, pCell.cellIX, pCell.cellIY);
+  const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY,
+                pCellCx: pCellCentre.x, pCellCy: pCellCentre.y, sx, sy, dirty: false };
   for (const h of TAP_HANDLERS) {
     const consumed = h.try(ctx);
     if (consumed === true || consumed === 'far') break;
