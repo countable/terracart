@@ -38,6 +38,10 @@ const CROP_SPRITE = {
   // Mushroom uses the Fantasy Mushroom sheet ('mushroom_world' key in
   // assets.js, 32×32 frames). Single-frame render — pick frame 0 in render.js.
   mushroom: { sheet: 'mushroom_world', custom: true },
+  // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
+  // sets ._variant from a stable hash of its cell coords so the same cell
+  // always renders the same shell, and the beach reads as a varied mix.
+  shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -84,6 +88,9 @@ const MINERAL_ICON_SHEET = {
   meat:         { sheet: 'icon_meat',    frame: 0 },
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
+  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
+  // sheet; frame 0 is the canonical cowrie used for the inventory icon.
+  shell:        { sheet: 'shell_sheet', frame: 0 },
 };
 
 function inventoryIconSource(itemId) {
@@ -132,10 +139,13 @@ const PRODUCE_EMOJI = {
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
 const BASE_TIER = {
-  // Crops (same tier for seed & produce; the seed id uses the suffix)
-  rainberry: 1, pairy: 1, nut: 1, potato: 1, shrub: 1, rockfruit: 1,
-  gemfruit: 2, coffee: 2, tree: 2,
-  iceflower: 3, fireflower: 3, sunflower: 3,
+  // Crops (same tier for seed & produce; the seed id uses the suffix).
+  // Spread across all four chest tiers — nut/shrub step up to T2,
+  // coffee/tree to T3, and the trio of flowers anchor the T4 (epic) tier.
+  rainberry: 1, pairy: 1, potato: 1, rockfruit: 1,
+  nut: 2, shrub: 2, gemfruit: 2,
+  coffee: 3, tree: 3,
+  iceflower: 4, fireflower: 4, sunflower: 4,
   // Wild produce / animal output
   longgrass: 1, flowers: 1, mushroom: 1,
   egg: 1, milk: 2,
@@ -204,6 +214,14 @@ const ITEMS = [
   { id: 'meat',         name: 'Meat',         kind: 'mineral', icon: '🥩' },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'mineral', icon: '🐇' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'mineral', icon: '🪶' },
+  // Beach pickup — shells spawn as wildplant debris on sand cells
+  // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
+  // shell_sheet, hashed off the spawn cell coord.
+  { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell', icon: '🐚' },
+  // Scarecrow — placeable on tillable cells. Wild crows and deer steer
+  // around it (4-cell aversion radius in wanderCreatures). Stack of N can
+  // be deployed across the farm.
+  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable', icon: '🪦' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom', icon: '🍄' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
@@ -271,6 +289,8 @@ const PRICES = {
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  shell: 6,        // beach pickup — small collectible
+
   // ── Animal produce (longgrass-feeding output) ────────────
   egg:  4,
   milk: 18,
