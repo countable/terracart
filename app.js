@@ -415,6 +415,11 @@ class MapScene extends Phaser.Scene {
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this.compassDeg = null; // degrees clockwise from north, or null if no sensor
+    // Footprint trail — small 50% grey dots dropped as the player moves, each
+    // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
+    this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
+    this.footprints = [];               // [{ x, y, alpha }, …] in world meters
+    this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -791,6 +796,31 @@ class MapScene extends Phaser.Scene {
       // bright yellow fill
       this.facingGfx.fillStyle(0xffd24a, 1);
       this.facingGfx.fillTriangle(tx, ty, blx, bly, brx, bry);
+    }
+
+    // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
+    // and drop a fresh one at the player's previous spot. With 0.9^N falloff,
+    // ~5 dots stay visible (alpha < 0.05 → dropped).
+    {
+      const lp = this._lastFootprintM;
+      const dx = this.playerM.x - lp.x, dy = this.playerM.y - lp.y;
+      if (dx * dx + dy * dy >= 2 * 2) {
+        for (const fp of this.footprints) fp.alpha *= 0.9;
+        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.5 });
+        // Cap at 5 so the trail stays short — the 10%/step fade alone would
+        // keep ~22 dots alive before they drop below visibility.
+        if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
+        this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+      }
+      this.footprintGfx.clear();
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
+      for (const fp of this.footprints) {
+        const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 6;
+        this.footprintGfx.fillStyle(0x808080, fp.alpha);
+        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 2);
+      }
     }
 
     // Pairy chest-compass indicator. Active for 5 minutes after eating a pairy
