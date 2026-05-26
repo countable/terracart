@@ -58,7 +58,6 @@
     <table id="deals"></table>
   </section>
 
-  <script src="phaser.js"></script>
   <script src="mvt.js"></script>
   <script src="coords.js"></script>
   <script src="worldgen.js"></script>
@@ -118,8 +117,13 @@
       for (const w of (entry.wildplants || [])) {
         wildByCrop[w.crop] = (wildByCrop[w.crop] || 0) + 1;
       }
+      // Treasure marks placed on parking polygons (entry.parkingTreasures) plus
+      // the per-tile random/start-tile treasure (added by app.js's spawnInTile,
+      // not by worldgen — so it's null here. We don't bother spawning it just
+      // for the count.)
+      const parkingTreasures = (entry.parkingTreasures || []).length;
       const creatures = estimateCreatureCounts(tx, ty);
-      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco, houseByTier, creatures };
+      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco, houseByTier, parkingTreasures, creatures };
     }
 
     function renderTileStats(stats, tx, ty, entry) {
@@ -139,11 +143,16 @@
         const catLine = Object.keys(stats.chestsByCategory).sort().map(c => `${c}: ${stats.chestsByCategory[c]}`).join('<br>');
         rows.push(`<tr><th>↳ chests by category</th><td>${catLine}</td></tr>`);
       }
+      const wildTotal = Object.values(stats.wildByCrop).reduce((a, b) => a + b, 0);
+      if (wildTotal) rows.push(`<tr><th>wildplants total</th><td>${wildTotal}</td></tr>`);
       for (const c of Object.keys(stats.wildByCrop).sort()) {
-        rows.push(`<tr><th>wild ${c}</th><td>${stats.wildByCrop[c]}</td></tr>`);
+        rows.push(`<tr><th>↳ wild ${c}</th><td>${stats.wildByCrop[c]}</td></tr>`);
       }
       for (const d of Object.keys(stats.floraByDeco).sort()) {
         rows.push(`<tr><th>flora ${d}</th><td>${stats.floraByDeco[d]}</td></tr>`);
+      }
+      if (stats.parkingTreasures) {
+        rows.push(`<tr><th>parking treasures</th><td>${stats.parkingTreasures}</td></tr>`);
       }
       for (const k of Object.keys(stats.creatures).sort()) {
         rows.push(`<tr><th>${k}</th><td>${stats.creatures[k]} <span class="muted">(est. spawn target)</span></td></tr>`);
@@ -247,24 +256,25 @@
       const name = (typeof gearName === 'function') ? gearName(o.kind, o.slot, o.tier) : `${o.slot} T${o.tier}`;
       return `<span class="pill">${o.kind}</span> ${name} <span class="muted">for $${o.price}</span>`;
     }
-    function fmtDeal(d) {
+    function fmtItemOffer(d) {
       const item = ITEM_BY_ID[d.gain];
       const gain = `${item?.icon || ''} ${item?.name || d.gain}`;
       if (d.type === 'cash') return `${gain} <span class="muted">for</span> $${d.cost}`;
       const cost = ITEM_BY_ID[d.cost];
       return `${gain} <span class="muted">for</span> 1× ${cost?.icon || ''} ${cost?.name || d.cost}`;
     }
+    function variantPill(label) {
+      return `<span class="pill">${label}</span>`;
+    }
 
-    function simulateHouseDeal(houseTier) {
-      const inv = [{ id: 'potato_seed', count: 10 }];
-      const isCastle = (houseTier === 12);
-      if (isCastle) {
-        const o = simulateRelicOffer({}, {});
-        return o ? fmtRelic(o) : '<span class="muted">no offer</span>';
-      }
+    // Roll one offer for a regular shop (small or fort). Returns
+    //   { variant: 'relic' | 'cash' | 'barter', html: '…' }
+    // mirroring the branches in app.js presentBuyerOffer + buildShopOffer.
+    function rollRegularShopDeal() {
+      const inv = [{ id: 'potato_seed', count: 10 }];   // fresh-player inventory
       if (Math.random() < 0.10) {
         const o = simulateRelicOffer({}, {});
-        if (o) return fmtRelic(o) + ' <span class="muted">(10% relic)</span>';
+        if (o) return { variant: 'relic', html: fmtRelic(o) };
       }
       const sellsProduce = Math.random() < 0.3;
       let id;
@@ -275,21 +285,51 @@
         id = BUY_LIST[Math.floor(Math.random() * BUY_LIST.length)];
       }
       const d = simulateShopOffer(id, PRICES[id] ?? 1, inv);
-      return fmtDeal(d);
+      const tag = d.type === 'cash' ? 'cash' : 'barter';
+      const prefix = sellsProduce ? 'produce' : 'seed';
+      return { variant: `${prefix}/${tag}`, html: fmtItemOffer(d) };
     }
 
     function renderDeals() {
-      const rows = [['<tr><th>house tier</th><th>10 deals</th></tr>'].join('')];
-      const HOUSE_TIERS = [
-        ['Small house (BUILDING)', 9],
-        ['Fort / med (BUILDING_MED)', 11],
-        ['Castle / tower (BUILDING_LARGE)', 12],
+      const rows = [['<tr><th>shop variant</th><th>10 rolls</th></tr>'].join('')];
+
+      const fmtRow = (label, samples) => {
+        const lines = samples.map(s => `${variantPill(s.variant)} ${s.html}`);
+        rows.push(`<tr><th>${label}</th><td>${lines.join('<br>')}</td></tr>`);
+      };
+
+      // Starter shop — deterministic. Always wood pick at $30, then wood axe.
+      const starterPickPrice = 30;
+      const starterAxePrice = (typeof gearPrice === 'function') ? gearPrice('relic', 'axe', 1) : 30;
+      const starterPick = { kind: 'relic', slot: 'pick', tier: 1, price: starterPickPrice };
+      const starterAxe  = { kind: 'relic', slot: 'axe',  tier: 1, price: starterAxePrice };
+      const starterRows = [
+        { variant: 'starter', html: fmtRelic(starterPick) + ' <span class="muted">(stock #1)</span>' },
+        { variant: 'starter', html: fmtRelic(starterAxe)  + ' <span class="muted">(stock #2, after pick bought)</span>' },
       ];
-      for (const [label, tier] of HOUSE_TIERS) {
-        const samples = [];
-        for (let i = 0; i < 10; i++) samples.push(simulateHouseDeal(tier));
-        rows.push(`<tr><th>${label}</th><td>${samples.join('<br>')}</td></tr>`);
+      fmtRow('Starter shop <span class="muted">(deterministic)</span>', starterRows);
+
+      // Regular small house & fort use identical offer logic, just different
+      // deal/hr caps. Show both for clarity, but the variant distribution
+      // should match in the long run.
+      const smallSamples = [];
+      for (let i = 0; i < 10; i++) smallSamples.push(rollRegularShopDeal());
+      fmtRow('Small house (BUILDING) <span class="muted">– 1 deal/hr</span>', smallSamples);
+
+      const fortSamples = [];
+      for (let i = 0; i < 10; i++) fortSamples.push(rollRegularShopDeal());
+      fmtRow('Fort (BUILDING_MED) <span class="muted">– 5 deals/hr</span>', fortSamples);
+
+      // Castle / tower — relics only, unlimited deals, with re-roll cost.
+      const castleSamples = [];
+      for (let i = 0; i < 10; i++) {
+        const o = simulateRelicOffer({}, {});
+        castleSamples.push(o
+          ? { variant: 'relic', html: fmtRelic(o) }
+          : { variant: '—', html: '<span class="muted">no offer</span>' });
       }
+      fmtRow('Castle / tower (BUILDING_LARGE) <span class="muted">– unlimited, relics only</span>', castleSamples);
+
       document.getElementById('deals').innerHTML = rows.join('');
     }
 
