@@ -57,6 +57,13 @@
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
+    #energy {
+      position: absolute; top: 8px; right: 88px;
+      background: #000a; color: #a7ffb0; padding: 4px 10px;
+      border: 2px solid #4a8c4a; border-radius: 8px;
+      font: 700 14px ui-monospace, monospace;
+      pointer-events: none; z-index: 7;
+    }
     #menu { position: absolute; top: 8px; left: 8px; z-index: 8; }
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
@@ -86,10 +93,12 @@
     <div id="game">
       <div id="banner">reconnecting…</div>
       <div id="money">$0</div>
+      <div id="energy">⚡100/100</div>
       <div id="hud"></div>
       <details id="menu">
         <summary>☰</summary>
         <div class="items">
+          <button id="stats-relics">Stats &amp; Relics</button>
           <button class="danger" id="reset-save">Reset save</button>
         </div>
       </details>
@@ -119,6 +128,11 @@
       const m = document.getElementById('menu');
       if (m && m.open && !m.contains(e.target)) m.open = false;
     }, true);
+    document.getElementById('stats-relics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
     document.getElementById('reset-save').addEventListener('click', (e) => {
       e.stopPropagation();
       if (!confirm('Wipe all saved progress (inventory, planted crops, opened chests)?')) return;
@@ -164,17 +178,17 @@
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="coords.js?v=81"></script>
-  <script src="worldgen.js?v=81"></script>
-  <script src="tilemap.js?v=81"></script>
-  <script src="crops.js?v=81"></script>
-  <script src="textures.js?v=81"></script>
-  <script src="save.js?v=81"></script>
-  <script src="items.js?v=81"></script>
-  <script src="loot.js?v=81"></script>
-  <script src="interact.js?v=81"></script>
-  <script src="render.js?v=81"></script>
-  <script src="assets.js?v=81"></script>
-  <script src="app.js?v=81"></script>
+  <script src="coords.js?v=84"></script>
+  <script src="worldgen.js?v=84"></script>
+  <script src="tilemap.js?v=84"></script>
+  <script src="crops.js?v=84"></script>
+  <script src="textures.js?v=84"></script>
+  <script src="save.js?v=84"></script>
+  <script src="items.js?v=84"></script>
+  <script src="loot.js?v=84"></script>
+  <script src="interact.js?v=84"></script>
+  <script src="render.js?v=84"></script>
+  <script src="assets.js?v=84"></script>
+  <script src="app.js?v=84"></script>
 </body>
 </html>

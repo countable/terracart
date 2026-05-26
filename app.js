@@ -155,6 +155,25 @@ class MapScene extends Phaser.Scene {
     if (window.TileMap) {
       this.load.spritesheet(TileMap.KEY, TileMap.PATH, { frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H });
     }
+    // Relic / armor icons — one per (kind, slot, tier). Per-tier art lives under
+    // Weapons and Armor/<tier>/; the ring + amulet share a single sprite-sheet
+    // image under Extras/ (tier shown via a coloured badge in the UI).
+    if (typeof RELIC_DEFS !== 'undefined') {
+      for (const slot of Object.keys(RELIC_DEFS)) {
+        for (const t of MATERIAL_TIERS) {
+          const key = gearIconKey('relic', slot, t.tier);
+          const path = gearAssetPath('relic', slot, t.tier);
+          if (key && path) this.load.image(key, path);
+        }
+      }
+      for (const slot of Object.keys(ARMOR_DEFS)) {
+        for (const t of MATERIAL_TIERS) {
+          const key = gearIconKey('armor', slot, t.tier);
+          const path = gearAssetPath('armor', slot, t.tier);
+          if (key && path) this.load.image(key, path);
+        }
+      }
+    }
   }
 
   create() {
@@ -180,6 +199,21 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
+    // Stats / equipment migration — adds energy + relic/armor slots to older saves.
+    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null };
+    if (this.save.relics.axe === undefined) this.save.relics.axe = null;   // older saves
+    // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
+    this.save.shopOffers = this.save.shopOffers || {};
+    // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
+    // starterStock tracks which of those two items have been bought.
+    this.save.starterStock = this.save.starterStock || { pick: true, axe: true };
+    this.save.armor  = this.save.armor  || { helmet: null, chest: null, legs: null, boots: null };
+    const maxE = (typeof maxEnergyFromArmor === 'function')
+      ? maxEnergyFromArmor(this.save.armor) : (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+    if (this.save.maxEnergy == null) this.save.maxEnergy = maxE;
+    if (this.save.energy == null)    this.save.energy = this.save.maxEnergy;
+    // Transient runtime state — not persisted.
+    this.pairyCompass = null;   // { targetId, x, y, until } when active
     // Migrate older save (inv as string array, or stash object).
     let needsMigrationPersist = false;
     if (this.save.inv && typeof this.save.inv[0] === 'string') {
@@ -724,6 +758,44 @@ class MapScene extends Phaser.Scene {
       this.facingGfx.fillTriangle(tx, ty, blx, bly, brx, bry);
     }
 
+    // Pairy chest-compass indicator. Active for 5 minutes after eating a pairy
+    // (see eatSelected). Renders a magenta arrow at the viewport edge pointing
+    // toward the nearest undiscovered chest, blinking at 1 Hz. Cleared once
+    // the chest is opened (target appears in save.opened) or the timer expires.
+    if (this.pairyCompass) {
+      const opened = new Set(this.save.opened || []);
+      const expired = Date.now() >= this.pairyCompass.until;
+      const claimed = opened.has(this.pairyCompass.targetId);
+      if (expired || claimed) {
+        this.pairyCompass = null;
+      } else {
+        const pWX = this.startWorldM.x + this.playerM.x;
+        const pWY = this.startWorldM.y + this.playerM.y;
+        const dxM = this.pairyCompass.x - pWX, dyM = this.pairyCompass.y - pWY;
+        const mag = Math.hypot(dxM, dyM);
+        if (mag > 0.001 && Math.floor(Date.now() / 500) % 2 === 0) {
+          const ux = dxM / mag, uy = dyM / mag;
+          const dist = Math.min(this.viewSize / 2 - 18, 140);
+          const cx = this.viewCenterX, cy = this.viewCenterY;
+          const tipX = cx + ux * dist, tipY = cy + uy * dist;
+          // Perpendicular for triangle base.
+          const pxN = -uy, pyN = ux;
+          const back = 14, halfW = 7;
+          const blx2 = tipX - ux * back + pxN * halfW, bly2 = tipY - uy * back + pyN * halfW;
+          const brx2 = tipX - ux * back - pxN * halfW, bry2 = tipY - uy * back - pyN * halfW;
+          this.facingGfx.lineStyle(2, 0x000000, 0.8);
+          this.facingGfx.beginPath();
+          this.facingGfx.moveTo(tipX, tipY);
+          this.facingGfx.lineTo(blx2, bly2);
+          this.facingGfx.lineTo(brx2, bry2);
+          this.facingGfx.closePath();
+          this.facingGfx.strokePath();
+          this.facingGfx.fillStyle(0xc77dff, 1);
+          this.facingGfx.fillTriangle(tipX, tipY, blx2, bly2, brx2, bry2);
+        }
+      }
+    }
+
     if (!this._lastCheckM ||
         Math.hypot(this.playerM.x - this._lastCheckM.x, this.playerM.y - this._lastCheckM.y) > 20) {
       this._lastCheckM = { ...this.playerM };
@@ -1004,7 +1076,7 @@ class MapScene extends Phaser.Scene {
   // so the eye doesn't have to chase it back to where the X used to be.
   // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
   flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null) {
-    const x = this.viewCenterX, y = this.viewCenterY - 40;
+    const x = this.viewCenterX, y = this.viewCenterY - 90;
     // Resolve an inline sprite for the loot item. When present, we reserve room
     // INSIDE the text bg via left-padding so the icon sits over the dark label
     // (rather than floating outside its left edge).
@@ -1048,6 +1120,7 @@ class MapScene extends Phaser.Scene {
   updateHUD() {
     // Money badge always shown.
     if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
+    this.updateEnergyDOM();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
     const gpsLive = this.gpsAvailable && this.gpsM;
@@ -1065,20 +1138,192 @@ class MapScene extends Phaser.Scene {
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
   }
 
+  updateEnergyDOM() {
+    const el = document.getElementById('energy');
+    if (!el) return;
+    const cur = Math.max(0, this.save.energy ?? 0);
+    const max = this.save.maxEnergy ?? STARTING_ENERGY;
+    const pct = max > 0 ? cur / max : 0;
+    const color = pct > 0.5 ? '#a7ffb0' : (pct > 0.25 ? '#ffe066' : '#ff8a7a');
+    el.style.color = color;
+    el.style.borderColor = pct > 0.25 ? '#4a8c4a' : '#a04040';
+    el.textContent = `⚡${cur}/${max}`;
+  }
+
+  // Spend energy if the player has enough, returning true on success.
+  // Callers (interact.js handlers) refuse the action when this returns false.
+  spendEnergy(cost, sx, sy) {
+    if (cost <= 0) return true;
+    if ((this.save.energy ?? 0) < cost) {
+      if (sx != null && sy != null) this.flash('too tired', sx, sy);
+      return false;
+    }
+    this.save.energy = Math.max(0, (this.save.energy ?? 0) - cost);
+    this.updateEnergyDOM();
+    return true;
+  }
+
+  // Eat one of the selected food stack (consumes 1, restores FOOD_ENERGY[id]).
+  // Returns true if eaten, false if not edible / nothing selected.
+  // Side-effects: pairy → arm chest compass for 5 min; rainberry → water all crops within 20m.
+  eatSelected() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || (sel.count ?? 0) <= 0) return false;
+    const restore = FOOD_ENERGY[sel.id];
+    if (restore == null) return false;
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.min(this.save.maxEnergy ?? STARTING_ENERGY, before + restore);
+    const gained = this.save.energy - before;
+    consumeSelected(this.save);
+    // Special effects.
+    let extra = '';
+    if (sel.id === 'pairy') {
+      const target = this.findNearestUnopenedChest();
+      if (target) {
+        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
+          until: Date.now() + 5 * 60 * 1000 };
+        extra = `\n🧭 chest compass: 5 min`;
+      } else {
+        extra = `\n🧭 no chests nearby`;
+      }
+    } else if (sel.id === 'rainberry') {
+      const watered = this.waterCropsWithin(20);
+      extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+    }
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.updateEnergyDOM();
+    const item = ITEM_BY_ID[sel.id];
+    this.showMessageModal({
+      title: 'You eat the ' + (item?.name || sel.id),
+      body: `⚡ +${gained} energy${extra}`,
+    });
+    return true;
+  }
+
+  // Find the nearest chest the player hasn't opened. Used by the pairy compass.
+  findNearestUnopenedChest() {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const opened = new Set(this.save.opened || []);
+    let best = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'chest') continue;
+        if (opened.has(o.id)) continue;
+        const dx = o.x - pWX, dy = o.y - pWY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { best = o; bestD2 = d2; }
+      }
+    }
+    return best;
+  }
+
+  // Water every planted crop within ${radius} meters of the player. Returns count.
+  // Sets watered_t = now on cells that aren't already watered or at MAX_GROWTH_STAGE.
+  waterCropsWithin(radius) {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const r2 = radius * radius;
+    let n = 0;
+    for (const p of (this.save.planted || [])) {
+      const dx = p.x - pWX, dy = p.y - pWY;
+      if (dx * dx + dy * dy > r2) continue;
+      if ((p.stage ?? 0) >= (typeof MAX_GROWTH_STAGE !== 'undefined' ? MAX_GROWTH_STAGE : 4)) continue;
+      if (p.watered_t) continue;
+      p.watered_t = Date.now();
+      n++;
+    }
+    return n;
+  }
+
+  // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
+  showMessageModal({ title, body, okLabel = 'OK' }) {
+    document.getElementById('offer-modal')?.remove();
+    document.getElementById('message-modal')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'message-modal';
+    wrap.style.cssText =
+      'position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;' +
+      'background:#0008;pointer-events:auto;';
+    const box = document.createElement('div');
+    box.style.cssText =
+      'min-width:230px;max-width:320px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
+      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    const safeBody = String(body).replace(/\n/g, '<br>');
+    box.innerHTML =
+      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
+      `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    const btn = document.createElement('button');
+    btn.textContent = okLabel;
+    btn.style.cssText = 'padding:8px 14px;border-radius:6px;background:#c8a64a;color:#1a1612;border:0;font:700 13px ui-monospace,monospace;cursor:pointer;';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+    box.appendChild(btn);
+    wrap.appendChild(box);
+    (document.getElementById('game') || document.body).appendChild(wrap);
+  }
+
+  // Stats / Relics menu — shows energy and every equipped relic / armor slot.
+  showStatsModal() {
+    document.getElementById('stats-modal')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'stats-modal';
+    wrap.style.cssText =
+      'position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;' +
+      'background:#0008;pointer-events:auto;';
+    const box = document.createElement('div');
+    box.style.cssText =
+      'min-width:260px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
+      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;';
+    const cur = this.save.energy ?? 0, max = this.save.maxEnergy ?? STARTING_ENERGY;
+    const slotRow = (kind, slot) => {
+      const eq = (kind === 'relic' ? this.save.relics : this.save.armor)?.[slot];
+      const def = gearDef(kind, slot);
+      const label = def?.name || slot;
+      if (!eq) {
+        return `<div style="display:flex;justify-content:space-between;padding:2px 0;opacity:.55"><span>${label}</span><span style="font-size:11px">— empty —</span></div>`;
+      }
+      const path = gearAssetPath(kind, slot, eq.tier);
+      const t = TIER_BY_NUM[eq.tier];
+      const iconHtml = path ? `<img src="${path}" style="width:20px;height:20px;image-rendering:pixelated;vertical-align:middle">` : '';
+      return `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${label}</span><span>${iconHtml} ${t?.name || ''} (T${eq.tier})</span></div>`;
+    };
+    box.innerHTML =
+      `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
+      `<div style="text-align:center;margin-bottom:10px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
+      `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
+      Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
+      `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
+      Object.keys(ARMOR_DEFS).map(s => slotRow('armor', s)).join('');
+    const btn = document.createElement('button');
+    btn.textContent = 'Close';
+    btn.style.cssText = 'margin-top:12px;padding:8px 14px;border-radius:6px;background:#c8a64a;color:#1a1612;border:0;font:700 13px ui-monospace,monospace;cursor:pointer;width:100%';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+    box.appendChild(btn);
+    wrap.appendChild(box);
+    (document.getElementById('game') || document.body).appendChild(wrap);
+  }
+
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal')) return;
     // Per-building deal rate-limit. Bigger buildings handle more daily traffic:
-    //   house (small)      → 2 deals/hr
-    //   fort  (mid-tier)   → 10 deals/hr
-    //   castle / tower     → 25 deals/hr
+    //   house (small)      → 1  deal/hr
+    //   fort  (mid-tier)   → 5  deals/hr
+    //   castle / tower     → unlimited (they sell relics only — see below)
     // Counted per house.id over a rolling 1-hour window.
+    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    // Starter shop has uncapped traffic while either tool is still in stock —
+    // we'd otherwise lock the only source of pick/axe behind a 1-deal/hr cap.
+    const isStarter = !!house && this.isStarterShop(house) && !!this.starterShopOffer();
     const dealCap = !house ? Infinity
-      : house.kind === 'tower' ? 25
-      : (house.tier === 12 /* BUILDING_LARGE */) ? 25
-      : (house.tier === 11 /* BUILDING_MED   */) ? 10
-      : 2;
+      : isCastle ? Infinity
+      : isStarter ? Infinity
+      : (house.tier === 11 /* BUILDING_MED */) ? 5
+      : 1;
     if (house && house.id && dealCap !== Infinity) {
       this.save.shopDeals = this.save.shopDeals || {};
       const now = Date.now();
@@ -1139,6 +1384,25 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // BUY — empty slot: generate an offer and present a confirmation modal.
+    // Three special tracks come BEFORE the regular seed/produce rotation:
+    //   (a) Starter shop  — the nearest building to spawn always has a wood
+    //       pickaxe AND wood axe in stock until each is bought (so players
+    //       can clear rocks/trees without hunting for a relic).
+    //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
+    //   (c) Regular house — 10% chance to swap the normal offer for a relic.
+    if (house && this.isStarterShop(house) && this.starterShopOffer()) {
+      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house);
+      return;
+    }
+    if (isCastle) {
+      const offer = this.peekOrBuildRelicOffer(house);
+      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house); return; }
+      // (very rare) every slot is at max tier — fall through to regular offer.
+    }
+    if (Math.random() < 0.10) {
+      const relicOffer = this.peekOrBuildRelicOffer(house);
+      if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house); return; }
+    }
     // Each house has a deterministic "shop kind" derived from its world
     // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
     // SEEDS from the rotating buyIndex. Same house always offers the same
@@ -1183,12 +1447,194 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // The "starter shop" is the building closest to the player's spawn. It's
+  // guaranteed to stock a wood pickaxe + wood axe so the player can always
+  // unlock rock/tree clearing without random-shopping. We pick it once and
+  // memoize in save.starterShopId so reloads + roaming keep the same shop.
+  isStarterShop(house) {
+    if (!house || !house.id) return false;
+    if (this.save.starterShopId == null) {
+      const nearestId = this.findStarterHouseId();
+      if (nearestId) this.save.starterShopId = nearestId;
+    }
+    return this.save.starterShopId === house.id;
+  }
+
+  // Find the house nearest startWorldM among all loaded objects. Returns the
+  // house id, or null if no house is loaded yet.
+  findStarterHouseId() {
+    let bestId = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house') continue;
+        if (!o.id) continue;
+        const dx = o.x - this.startWorldM.x, dy = o.y - this.startWorldM.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
+      }
+    }
+    return bestId;
+  }
+
+  // Return the next starter-shop offer (wood pick, then wood axe), or null
+  // when both have been bought.
+  starterShopOffer() {
+    const stk = this.save.starterStock || {};
+    const want = stk.pick ? 'pick' : (stk.axe ? 'axe' : null);
+    if (!want) return null;
+    return {
+      kind: 'relic', slot: want, tier: 1,
+      price: gearPrice('relic', want, 1),
+      starter: true,
+    };
+  }
+
+  // Read the persisted offer for this house if set, else build a new one and
+  // persist. Persisting means the same offer "stays on display" until the
+  // player either buys it, rerolls it, or (for non-castle shops) leaves and
+  // the cap resets it. Castle offers persist forever and rotate on purchase.
+  peekOrBuildRelicOffer(house) {
+    const id = house?.id;
+    if (id && this.save.shopOffers[id]) return this.save.shopOffers[id];
+    const off = this.buildRelicOffer();
+    if (off && id) {
+      off.rerollCount = 0;
+      this.save.shopOffers[id] = off;
+    }
+    return off;
+  }
+
+  // Pick a random relic OR armor piece the player can actually use — meaning
+  // their current slot is empty or holds a strictly lower tier. Returns null
+  // if no upgrade is possible (caller falls through to the usual seed offer).
+  // Tier is biased low so most offers are wood/copper; rare materials are rare.
+  buildRelicOffer() {
+    const candidates = [];
+    // Pick all (kind, slot) combos where the player can upgrade.
+    const consider = (kind, slot, currentTier) => {
+      for (const t of MATERIAL_TIERS) {
+        if (t.tier <= currentTier) continue;     // never offer same-or-lower
+        candidates.push({ kind, slot, tier: t.tier });
+      }
+    };
+    for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
+    for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
+    if (!candidates.length) return null;
+    // Bias toward low tiers: weight ∝ 1 / 2^(tier-1). Tier 1 weight 1, t2 0.5, t3 0.25, …
+    const weighted = candidates.map(c => ({ c, w: 1 / Math.pow(2, c.tier - 1) }));
+    const total = weighted.reduce((a, b) => a + b.w, 0);
+    let r = Math.random() * total;
+    let pick = weighted[weighted.length - 1].c;
+    for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
+    const price = Math.max(1, Math.ceil(gearPrice(pick.kind, pick.slot, pick.tier) * (1.2 + Math.random() * 1.8)));
+    return { ...pick, price };
+  }
+
+  // Render a relic/armor offer with Buy / Re-roll / Cancel buttons. Re-rolls
+  // cost 5 × 2^(rerollCount) and stop when no other valid offers exist. The
+  // offer is persisted under save.shopOffers[house.id] so a subsequent tap on
+  // the same shop shows the same offer until it's bought.
+  presentRelicOffer(sx, sy, offer, recordDeal, house) {
+    document.getElementById('offer-modal')?.remove();
+    const def = gearDef(offer.kind, offer.slot);
+    const name = gearName(offer.kind, offer.slot, offer.tier);
+    const path = gearAssetPath(offer.kind, offer.slot, offer.tier);
+    const iconHtml = path
+      ? `<img src="${path}" style="width:24px;height:24px;image-rendering:pixelated;vertical-align:middle">`
+      : '';
+    const blurb = offer.kind === 'relic'
+      ? (def?.blurb || '')
+      : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
+    const canAfford = (this.save.money ?? 0) >= offer.price;
+    const rerollCost = 5 * Math.pow(2, offer.rerollCount || 0);
+    const rerollAfford = (this.save.money ?? 0) >= rerollCost && !offer.starter;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'offer-modal';
+    wrap.style.cssText =
+      'position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;' +
+      'background:#0008;pointer-events:auto;';
+    const box = document.createElement('div');
+    box.style.cssText =
+      'min-width:240px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
+      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    const title = offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:';
+    box.innerHTML =
+      `<div style="opacity:.75;font-size:11px;margin-bottom:6px">${title}</div>` +
+      `<div style="font-size:16px;font-weight:700;margin:4px 0;color:#ffe066">${iconHtml} ${name}</div>` +
+      `<div style="font-size:11px;opacity:.75;margin-bottom:6px">${blurb}</div>` +
+      `<div style="opacity:.85;margin:6px 0 4px">for</div>` +
+      `<div style="font-size:16px;font-weight:700;margin:4px 0 10px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">$${offer.price}</div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
+    const mkBtn = (label, primary, disabled) => {
+      const b = document.createElement('button');
+      b.innerHTML = label;
+      b.style.cssText =
+        `padding:8px 12px;border-radius:6px;font:700 12px ui-monospace,monospace;cursor:pointer;` +
+        (primary
+          ? 'background:#c8a64a;color:#1a1612;border:0;'
+          : 'background:transparent;color:#ddd;border:2px solid #444;');
+      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
+      return b;
+    };
+    const cancel = mkBtn('Cancel', false, false);
+    const reroll = offer.starter ? null : mkBtn(`Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`, false, !rerollAfford);
+    const buy = mkBtn(canAfford ? 'Buy' : '✗', true, !canAfford);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    buy.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if ((this.save.money ?? 0) < offer.price) { this.flash(`need $${offer.price}`, sx, sy); return; }
+      addMoney(this.save, -offer.price);
+      if (offer.kind === 'relic') {
+        this.save.relics[offer.slot] = { tier: offer.tier };
+      } else {
+        this.save.armor[offer.slot] = { tier: offer.tier };
+        const newMax = maxEnergyFromArmor(this.save.armor);
+        const bump = Math.max(0, newMax - (this.save.maxEnergy ?? STARTING_ENERGY));
+        this.save.maxEnergy = newMax;
+        this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+      }
+      // Starter stock: mark the slot as bought so the shop rotates to the next item.
+      if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
+      // Clear the persisted offer so the next tap generates a fresh one.
+      if (house && house.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+      recordDeal();
+      persistSave(this.save);
+      this.updateHUD();
+      this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
+      wrap.remove();
+    });
+    if (reroll) reroll.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
+      const next = this.buildRelicOffer();
+      if (!next) { this.flash('nothing else in stock', sx, sy); return; }
+      addMoney(this.save, -rerollCost);
+      next.rerollCount = (offer.rerollCount || 0) + 1;
+      if (house && house.id) this.save.shopOffers[house.id] = next;
+      persistSave(this.save);
+      this.updateHUD();
+      wrap.remove();
+      this.presentRelicOffer(sx, sy, next, recordDeal, house);
+    });
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+    row.appendChild(cancel);
+    if (reroll) row.appendChild(reroll);
+    row.appendChild(buy);
+    box.appendChild(row);
+    wrap.appendChild(box);
+    (document.getElementById('game') || document.body).appendChild(wrap);
+  }
+
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
   // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item.
   // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
   // qualify too — otherwise early-game players almost never see a barter, since
   // wild rockfruit/shrub/longgrass at $1-2 fall below higher thresholds.
-  // If no qualifying barter exists, falls back to the cash offer.
+  // If the player owns NO qualifying barter item, the trader still names what
+  // they want; the modal just disables the accept button (shows "✗"). This way
+  // the player learns "this trader wants rockfruit" and can come back with it.
   buildShopOffer(id, baseValue) {
     const wantMoney = Math.random() < 1/3;
     const cashCost = Math.max(1, Math.ceil(baseValue * (1.2 + Math.random() * 1.8)));
@@ -1204,7 +1650,24 @@ class MapScene extends Phaser.Scene {
     // Barter — find a held stack worth ≥ 0.75 × baseValue, pick one at random.
     const need = baseValue * 0.75;
     const candidates = (this.save.inv || []).filter(s => s && s.id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
-    if (!candidates.length) return cashOffer;
+    if (!candidates.length) {
+      // Player owns nothing qualifying — name a deterministic-but-varied want
+      // so the offer text reads like a real ask. Pick any item priced ≥ need;
+      // anchor by buyIndex so the same shop tap is stable until the player
+      // earns enough buyIndex turns elsewhere to rotate it.
+      const wishlist = Object.keys(PRICES).filter(k => PRICES[k] >= need && ITEM_BY_ID[k]);
+      const wish = wishlist[(this.save.buyIndex ?? 0) % wishlist.length] || cashOffer;
+      if (wish === cashOffer) return cashOffer;
+      const wishItem = ITEM_BY_ID[wish];
+      return {
+        kind: 'item',
+        label: `1× ${this.iconSpanHTML(wish)} ${wishItem?.name || wish}`,
+        shortGain: `−1 ${wishItem?.icon || ''}`,
+        shortDenial: `no ${wishItem?.name || wish}`,
+        canAfford: () => false,
+        consume: () => {},   // never called (canAfford is false)
+      };
+    }
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
     const pickItem = ITEM_BY_ID[pick.id];
     return {
@@ -1234,26 +1697,53 @@ class MapScene extends Phaser.Scene {
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
   // Inline HTML <span> showing the same Crops.png / Spring Crops.png cell the
   // inventory bar uses. Returns '' if the item has no sprite (fall back to text).
-  iconSpanHTML(itemId, sizePx = 20) {
+  // Canonical icon renderer — single source of truth used by BOTH inventory
+  // slots and modal cost text. Resolves an itemId to a styled <span>:
+  //   1. ITEM_DATA_URLS cache  (longgrass / chicken / cow / flowers — map-sprite snapshots)
+  //   2. inventoryIconSource() (Crops.png / Spring Crops.png lookup)
+  //   3. fallback to the item.icon emoji
+  // `style` ('inline' or 'block') controls vertical-align + display so the
+  // same function works inside text (modal cost) and as a standalone tile
+  // (inventory slot). Returns either an HTMLElement (style='block') or an
+  // HTML string (style='inline') — the caller picks based on context.
+  renderItemIcon(itemId, sizePx, style = 'inline') {
+    const item = ITEM_BY_ID[itemId];
+    const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId];
     const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(itemId) : null;
-    if (!src) return '';
-    // Procedural longgrass texture — render its cached data URL inline.
-    if (src.sheet === 'longgrass' && window.LONGGRASS_DATA_URL) {
-      return `<span style="display:inline-block;vertical-align:middle;width:${sizePx}px;height:${sizePx}px;`
-        + `background-image:url('${window.LONGGRASS_DATA_URL}');`
-        + `background-size:${sizePx}px ${sizePx}px;image-rendering:pixelated;"></span>`;
+    const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
+      + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
+    let css = null;
+    if (dataUrl) {
+      css = base + `background-image:url('${dataUrl}');background-size:${sizePx}px ${sizePx}px;`;
+    } else if (src) {
+      const sheetSize = src.sheet === 'springcrops'
+        ? { cols: 14, srcW: 224, srcH: 128 }
+        : { cols: 9,  srcW: 144, srcH: 256 };
+      const col = src.frame % sheetSize.cols;
+      const row = Math.floor(src.frame / sheetSize.cols);
+      const url = src.sheet === 'springcrops' ? 'Objects/Spring Crops.png' : 'Objects/Crops.png';
+      const scale = sizePx / 16;
+      css = base + `background-image:url('${url}');`
+        + `background-size:${sheetSize.srcW * scale}px ${sheetSize.srcH * scale}px;`
+        + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
     }
-    const sheetSize = src.sheet === 'springcrops'
-      ? { cols: 14, srcW: 224, srcH: 128 }   // Spring Crops.png 14×8
-      : { cols: 9,  srcW: 144, srcH: 256 };  // Crops.png 9×16
-    const col = src.frame % sheetSize.cols;
-    const row = Math.floor(src.frame / sheetSize.cols);
-    const url = src.sheet === 'springcrops' ? 'Objects/Spring Crops.png' : 'Objects/Crops.png';
-    const scale = sizePx / 16;
-    const bgW = sheetSize.srcW * scale, bgH = sheetSize.srcH * scale;
-    return `<span style="display:inline-block;vertical-align:middle;width:${sizePx}px;height:${sizePx}px;`
-      + `background-image:url('${url}');background-size:${bgW}px ${bgH}px;`
-      + `background-position:-${col * sizePx}px -${row * sizePx}px;image-rendering:pixelated;"></span>`;
+    if (style === 'block') {
+      const el = document.createElement('span');
+      if (css) {
+        el.style.cssText = css;
+      } else {
+        el.textContent = item?.icon || '·';
+        el.style.cssText = `display:inline-block;font-size:${Math.round(sizePx * 0.9)}px;line-height:${sizePx}px;`;
+      }
+      return el;
+    }
+    // Inline string form (used inside modal cost/get text).
+    if (css) return `<span style="${css}"></span>`;
+    return item?.icon || '?';
+  }
+
+  iconSpanHTML(itemId, sizePx = 20) {
+    return this.renderItemIcon(itemId, sizePx, 'inline');
   }
 
   showOfferModal({ title, get, cost, canAfford, onAccept, acceptLabel = 'Buy' }) {
@@ -1286,7 +1776,9 @@ class MapScene extends Phaser.Scene {
       if (primary && !canAfford) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
       return b;
     };
-    const yes = mkBtn(acceptLabel, true);
+    // When the player can't afford the asked item, swap the Yes label for ✗
+    // so the modal still names the want, but the button reads as a refusal.
+    const yes = mkBtn(canAfford ? acceptLabel : '✗', true);
     const no = mkBtn('Cancel', false);
     yes.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
     no.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
@@ -1342,46 +1834,14 @@ class MapScene extends Phaser.Scene {
       slot.dataset.slot = i;
       slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
       slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon. Crops listed in CROP_SPRITE come from Spring Crops.png
-      // (col 0 = seed, col 8 = produce, per-crop row). Everything else falls back
-      // to Crops.png: seeds use the generic seedbag (col 8 row 15), produce uses
-      // per-crop col 7 row = CROP_ROW[crop].
-      const cropKey = item && (item.grows || item.crop);
-      const cropRow = cropKey != null ? CROP_ROW[cropKey] : null;
-      const ov = cropKey != null ? CROP_SPRITE[cropKey] : null;
-      let iconUrl = "Objects/Crops.png", iconBgSize = "288px 512px";
-      let iconCol = null, iconRow = null;
-      if (item && ov && ov.sheet === 'springcrops') {
-        iconUrl = "Objects/Spring Crops.png";
-        iconBgSize = "448px 256px";  // 224×128 displayed 2x
-        iconRow = ov.row;
-        // Inventory seedbag = col 7 (closed brown bag w/ crop label). Col 0 is
-        // the tiny in-world seed sprite (used for stage 0 in the world, not in UI).
-        if (item.kind === 'seed')         iconCol = 7;
-        else if (item.kind === 'produce') iconCol = 8;
-      } else if (item && item.kind === 'seed')                            { iconCol = 8; iconRow = 15; }
-      else if (item && item.kind === 'produce' && cropRow != null)        { iconCol = PRODUCE_COL; iconRow = cropRow; }
-      // Items whose map sprite isn't on Crops.png / Spring Crops.png (longgrass,
-      // chicken, cow, flowers) render via a cached data URL of the actual map frame.
-      const dataUrl = item && window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[item.id];
-      if (dataUrl) {
-        const icon = document.createElement('span');
-        icon.style.cssText =
-          "width:32px;height:32px;display:inline-block;" +
-          `background-image:url('${dataUrl}');` +
-          "background-size:32px 32px;image-rendering:pixelated;";
-        slot.appendChild(icon);
-      } else if (iconCol != null) {
-        const icon = document.createElement('span');
-        icon.style.cssText =
-          "width:32px;height:32px;display:inline-block;" +
-          `background-image:url('${iconUrl}');` +
-          `background-size:${iconBgSize};` +
-          `background-position:-${iconCol * 32}px -${iconRow * 32}px;` +
-          "image-rendering:pixelated;";
-        slot.appendChild(icon);
+      // Inventory icon — routed through renderItemIcon so modals stay perfectly
+      // in sync. The generic seedbag fallback for seeds-without-Spring-Crops-art
+      // and the ITEM_DATA_URLS path (longgrass/chicken/cow/flowers) both live
+      // inside renderItemIcon now.
+      if (item) {
+        slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
       } else {
-        slot.textContent = item ? item.icon : '·';
+        slot.textContent = '·';
       }
       if (entry && entry.count != null) {
         const badge = document.createElement('span');
