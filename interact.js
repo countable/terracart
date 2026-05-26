@@ -184,6 +184,39 @@ const TAP_HANDLERS = [
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });
     if (!target) return false;
+    // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
+    // relic equipped (sword / bow / staff — hunting is hunting); crow /
+    // butterfly require the Bug Net. Drops are a fixed loot id, not the
+    // kind name, so we handle inventory + caught tracking inline instead of
+    // routing through scene.catchCreature (which is wired for the
+    // favourite-food chicken/cow yield logic). Bug Net tier discounts catch
+    // energy: 5 → max(1, 5 - tier).
+    const NEW_DROP = { deer: 'meat', rabbit: 'rabbit_pelt', crow: 'crow_feather', butterfly: 'butterfly' };
+    if (NEW_DROP[target.kind]) {
+      const isFlying = target.kind === 'crow' || target.kind === 'butterfly';
+      if (isFlying && !save.relics?.bugnet) {
+        scene.flash('need a bug net', sx, sy);
+        return true;
+      }
+      if (target.kind === 'deer') {
+        const r = save.relics || {};
+        const hasWeapon = !!(r.sword || r.bow || r.staff);
+        if (!hasWeapon) { scene.flash('need a weapon', sx, sy); return true; }
+      }
+      const baseCost = ENERGY_COST?.catch ?? 0;
+      const bugnetTier = save.relics?.bugnet?.tier || 0;
+      const energyCost = Math.max(1, baseCost - bugnetTier);
+      if (!scene.spendEnergy(energyCost, sx, sy)) return true;
+      save.caught.push(target.id);
+      save.caughtKinds = save.caughtKinds || {};
+      save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
+      const dropId = NEW_DROP[target.kind];
+      scene.addToInv(dropId, 1);
+      ctx.dirty = true;
+      const item = ITEM_BY_ID[dropId];
+      scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+      return true;
+    }
     const sel = getSelectedSlot(save);
     const wantFood = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
@@ -406,6 +439,43 @@ const TAP_HANDLERS = [
         scene.shopInteract(sx, sy, o);
         return true;
       }
+      if (o.kind === 'fruittree') {
+        const pickedSet = new Set(save.picked || []);
+        if (pickedSet.has(o.id)) {
+          scene.flash('not ripe yet', sx, sy);
+          return true;
+        }
+        save.picked = [...pickedSet, o.id];
+        scene.addToInv(o.species, 1 + Math.floor(Math.random() * 2));
+        ctx.dirty = true;
+        const item = ITEM_BY_ID[o.species];
+        scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
+        return true;
+      }
+      if (o.kind === 'mineralrock') {
+        // brokenRockSet is normally keyed by cell-key (numeric "IX_IY") for
+        // natural rock cells. Mineral rock ids look like "mr_..." so collisions
+        // with cell-keys are essentially impossible — reuse the same set.
+        if (scene.brokenRockSet.has(o.id)) { scene.flash('spent', sx, sy); return true; }
+        const pickTier = save.relics?.pick?.tier || 0;
+        if (pickTier < o.requiredTier) {
+          scene.flash(`need T${o.requiredTier} pickaxe`, sx, sy);
+          return true;
+        }
+        const cost = 10 + (o.requiredTier - 1) * 4;
+        if (!scene.spendEnergy(cost, sx, sy)) return true;
+        const durMs = (3 + (o.requiredTier - 1) * 1) * 1000;
+        scene.startWorkProgress(o.x, o.y, () => {
+          scene.brokenRockSet.add(o.id);
+          save.brokenRocks = [...scene.brokenRockSet];
+          scene.addToInv('coal', 1 + Math.floor(Math.random() * 3));
+          const gem = o.requiredTier >= 5 ? 'emerald' : (o.requiredTier >= 3 ? 'ruby' : 'sapphire');
+          scene.addToInv(gem, 1 + Math.floor(Math.random() * (o.requiredTier > 4 ? 2 : 1)));
+          persistSave(save);
+          scene.flash(`💎 ${gem}`, sx, sy);
+        }, durMs);
+        return true;
+      }
     }
     return false;
   }},
@@ -625,6 +695,39 @@ const TAP_HANDLERS = [
     save.canCharges = 50;
     ctx.dirty = true;
     scene.flash('🪣 can refilled (50 charges)', sx, sy);
+    return true;
+  }},
+
+  // 2a-fish) Fishing: tap a water cell (type 3) with a Fishing Rod relic equipped.
+  // Triggers a 5s work-progress, then drops a random fish weighted by rarity
+  // (modified by rod tier — higher tier → more chance of rare fish). Placed
+  // BEFORE flavor so the water-tap doesn't get eaten by the 'water' label.
+  { name: 'fishing', try: (ctx) => {
+    const { scene, save, sx, sy, cell } = ctx;
+    if (cell.type !== 3) return false;
+    if (!save.relics?.rod) {
+      scene.flash('need a fishing rod', sx, sy);
+      return true;
+    }
+    if (!scene.spendEnergy(5, sx, sy)) return true;
+    scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
+      const tier = save.relics?.rod?.tier || 1;
+      const fish = [
+        { id: 'minnow',     w: Math.max(0.5, 10 - tier * 1.0) },
+        { id: 'bass',       w: 3 + tier * 0.5 },
+        { id: 'trout',      w: 1 + tier * 0.5 },
+        { id: 'salmon',     w: 0.3 + tier * 0.3 },
+        { id: 'goldenfish', w: 0.05 + tier * 0.15 },
+      ];
+      const total = fish.reduce((a, b) => a + b.w, 0);
+      let r = Math.random() * total;
+      let pick = fish[0];
+      for (const f of fish) { r -= f.w; if (r <= 0) { pick = f; break; } }
+      scene.addToInv(pick.id, 1);
+      persistSave(save);
+      const item = ITEM_BY_ID[pick.id];
+      scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
+    }, 5000);
     return true;
   }},
 

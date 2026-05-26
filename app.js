@@ -198,6 +198,8 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.staff === undefined) this.save.relics.staff = null;
     if (this.save.relics.can === undefined)   this.save.relics.can = null;
     if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
+    if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
+    if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
@@ -245,6 +247,26 @@ class MapScene extends Phaser.Scene {
       for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
       delete this.save.stash;
       needsMigrationPersist = true;
+    }
+    // Rename: venison → meat. Folds any existing 'venison' inv stacks into
+    // the new 'meat' stack so older saves don't lose hunting loot when the
+    // dog favourite-food rework dropped the venison item id.
+    if (Array.isArray(this.save.inv)) {
+      const merged = [];
+      let meatCount = 0;
+      for (const s of this.save.inv) {
+        if (!s) continue;
+        if (s.id === 'venison') {
+          meatCount += (s.count ?? 0);
+          needsMigrationPersist = true;
+        } else if (s.id === 'meat') {
+          meatCount += (s.count ?? 0);
+        } else {
+          merged.push(s);
+        }
+      }
+      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
+      this.save.inv = merged;
     }
     if (needsMigrationPersist) persistSave(this.save);
 
@@ -474,6 +496,14 @@ class MapScene extends Phaser.Scene {
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
 
+    // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
+    // with a synthetic 5×5 grid of biome plots containing every native
+    // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
+    // circuits on the cached tile and skips the network fetch.
+    if (typeof Sandbox !== 'undefined' && Sandbox.detect()) {
+      Sandbox.install(this);
+    }
+
     // Boot tile load
     this.ensureTilesAround().catch(e => console.error(e));
 
@@ -557,6 +587,10 @@ class MapScene extends Phaser.Scene {
 
   // === GPS ===
   startGps() {
+    // Sandbox mode parks the player at a synthetic biome-grid plot and uses
+    // keyboard / joystick movement only — GPS would snap them away to their
+    // real-world coords on first fix.
+    if (this._sandboxMode) return;
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
     try {

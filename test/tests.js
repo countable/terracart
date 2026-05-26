@@ -419,6 +419,10 @@ test('REG #2: live scene inventory items all have numeric count', (scene) => {
 
 // #5 — Auto-advance must NOT fall through to harvest in the same tap.
 test('REG #5: watered crop ready to mature advances but does NOT harvest in one tap', (scene) => {
+  // An earlier wildplant pickup test may have started a work-progress (e.g.
+  // picking a rockfruit/shrub triggers startWorkProgress) that never resolves
+  // in test mode. The 'work-progress' tap-handler would then swallow our tap.
+  if (scene._workProgress) scene.cancelWorkProgress();
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
@@ -437,11 +441,18 @@ test('REG #5: watered crop ready to mature advances but does NOT harvest in one 
     const approxY = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
     const c = absCellCenterMeters(scene, cellIX, cellIY);
-    // Also ensure no wildplant on this cell — wildplant pickup runs before the
-    // planted-cell branch in handleWorldTap.
+    // Also ensure no wildplant AND no object on this cell — both the wildplant
+    // and object handlers run before planted. A fruittree / mineralrock / chest
+    // on the cell would intercept the tap.
     let blocked = false;
     for (const wp of startTile.wildplants || []) {
       if (Math.abs(wp.x - c.x) < scene.cellM/2 && Math.abs(wp.y - c.y) < scene.cellM/2) { blocked = true; break; }
+    }
+    if (!blocked) {
+      for (const o of startTile.objects || []) {
+        if (o.kind === 'flora') continue;
+        if (Math.abs(o.x - c.x) < scene.cellM/2 && Math.abs(o.y - c.y) < scene.cellM/2) { blocked = true; break; }
+      }
     }
     if (!blocked) target = { x: c.x, y: c.y, cellIX, cellIY };
   }
@@ -1500,4 +1511,235 @@ test('rock loot table buckets produce coal + gems at expected rates', () => {
   assert.gt(tally.coal, 100, 'coal dropped many times (>= 100 in 5000)');
   assert.gt(tally.sapphire, 0, 'sapphire dropped at least once');
   assert.gt(tally.ruby, 0, 'ruby dropped at least once');
+});
+
+// ============================================================================
+// Wilderness features: items, mushrooms, fruit trees, mineral rocks, fishing,
+// crow/butterfly bug-net gate, deer/rabbit drops, lowtier-chest box sprite.
+// ============================================================================
+
+test('new items registered: mushrooms, fruits, fauna drops, fish', () => {
+  for (const id of ['mushroom', 'apple', 'cherry', 'peach', 'banana', 'orange',
+                    'mango', 'coconut', 'apricot',
+                    'meat', 'rabbit_pelt', 'crow_feather', 'butterfly',
+                    'minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
+    assert.truthy(ITEM_BY_ID[id], id + ' exists');
+    assert.gt(PRICES[id], 0, id + ' has price > 0');
+  }
+});
+
+test('new relic defs registered', () => {
+  assert.truthy(RELIC_DEFS.bugnet, 'bugnet relic def exists');
+  assert.truthy(RELIC_DEFS.rod, 'rod relic def exists');
+});
+
+test('mushroom wildplant pickup adds 1 mushroom to inv', (scene) => {
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.picked = [];
+  const wp = findWildplant(w => w.crop === 'mushroom');
+  if (!wp) return;
+  teleport(scene, wp.x, wp.y);
+  tapWorld(scene, wp.x, wp.y);
+  assert.gt(invCount(scene, 'mushroom'), 0, 'mushroom added to inv');
+  assert.truthy(scene.save.picked.includes(wp.id), 'wp.id in picked');
+});
+
+test('fruittree tap with no save.picked entry harvests fruit', (scene) => {
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.picked = [];
+  const tree = findObject(o => o.kind === 'fruittree');
+  if (!tree) return;
+  teleport(scene, tree.x, tree.y);
+  tapWorld(scene, tree.x, tree.y);
+  assert.gt(invCount(scene, tree.species), 0, tree.species + ' added to inv');
+  assert.truthy(scene.save.picked.includes(tree.id), 'tree.id marked picked');
+});
+
+test('fruittree second tap flashes not-ripe', (scene) => {
+  const tree = findObject(o => o.kind === 'fruittree');
+  if (!tree) return;
+  scene.save.picked = [tree.id];
+  scene.save.inv = []; scene.save.selSlot = 0;
+  teleport(scene, tree.x, tree.y);
+  tapWorld(scene, tree.x, tree.y);
+  assert.eq(invCount(scene, tree.species), 0, 'no fruit added on second tap');
+});
+
+test('mineralrock without pickaxe flashes need-pickaxe', (scene) => {
+  const mr = findObject(o => o.kind === 'mineralrock');
+  if (!mr) return;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = null;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
+  scene.brokenRockSet = new Set(scene.save.brokenRocks);
+  teleport(scene, mr.x, mr.y);
+  tapWorld(scene, mr.x, mr.y);
+  assert.falsy(scene.brokenRockSet.has(mr.id), 'rock not broken without pick');
+});
+
+test('mineralrock with sufficient pick tier starts work and drops loot', (scene) => {
+  const mr = findObject(o => o.kind === 'mineralrock' && o.requiredTier <= 3);
+  if (!mr) return;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 7 };
+  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
+  scene.brokenRockSet = new Set(scene.save.brokenRocks);
+  if (scene._workProgress) scene.cancelWorkProgress();
+  teleport(scene, mr.x, mr.y);
+  const origStart = scene.startWorkProgress.bind(scene);
+  scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
+  try { tapWorld(scene, mr.x, mr.y); } finally { scene.startWorkProgress = origStart; }
+  assert.truthy(scene.brokenRockSet.has(mr.id), 'rock id added to brokenRockSet');
+  assert.gt(invCount(scene, 'coal'), 0, 'coal dropped');
+  const gemTotal = invCount(scene, 'sapphire') + invCount(scene, 'ruby') + invCount(scene, 'emerald');
+  assert.gt(gemTotal, 0, 'a gem dropped');
+});
+
+test('fishing handler: tap water without rod flashes need-rod', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.rod = null;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  let water = null;
+  for (const [key, e] of WorldGen.tileCache.entries()) {
+    if (!e.grid) continue;
+    const N = e.cellsPerEdge;
+    for (let i = 0; i < e.grid.length && !water; i++) {
+      if (e.grid[i] === 3) {
+        const ix = i % N, iy = Math.floor(i / N);
+        const parts = key.split('/');
+        water = {
+          x: (+parts[1]) * e.tileEdgeM + (ix + 0.5) * scene.cellM,
+          y: (+parts[2]) * e.tileEdgeM + (iy + 0.5) * scene.cellM,
+        };
+      }
+    }
+    if (water) break;
+  }
+  if (!water) return;
+  scene.save.relics.can = null;
+  teleport(scene, water.x, water.y);
+  tapWorld(scene, water.x, water.y);
+  for (const id of ['minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
+    assert.eq(invCount(scene, id), 0, 'no ' + id + ' without rod');
+  }
+});
+
+test('fishing handler: with rod equipped catches a fish', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.rod = { tier: 7 };
+  scene.save.relics.can = null;
+  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  // Earlier "watering can refill" test plants a potato directly on the same
+  // water cell — the planted handler would then intercept this tap before
+  // fishing fires. Clear it.
+  scene.save.planted = [];
+  let water = null;
+  for (const [key, e] of WorldGen.tileCache.entries()) {
+    if (!e.grid) continue;
+    const N = e.cellsPerEdge;
+    for (let i = 0; i < e.grid.length && !water; i++) {
+      if (e.grid[i] === 3) {
+        const ix = i % N, iy = Math.floor(i / N);
+        const parts = key.split('/');
+        water = {
+          x: (+parts[1]) * e.tileEdgeM + (ix + 0.5) * scene.cellM,
+          y: (+parts[2]) * e.tileEdgeM + (iy + 0.5) * scene.cellM,
+        };
+      }
+    }
+    if (water) break;
+  }
+  if (!water) return;
+  if (scene._workProgress) scene.cancelWorkProgress();
+  teleport(scene, water.x, water.y);
+  const origStart = scene.startWorkProgress.bind(scene);
+  scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
+  try { tapWorld(scene, water.x, water.y); } finally { scene.startWorkProgress = origStart; }
+  const fishTotal = ['minnow','bass','trout','salmon','goldenfish']
+    .reduce((s, id) => s + invCount(scene, id), 0);
+  assert.gt(fishTotal, 0, 'a fish was caught');
+});
+
+test('crow catch without bugnet flashes need-bug-net', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.bugnet = null;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.energy = 100;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow_' + Date.now() };
+  entry.creatures.push(crow);
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught without bugnet');
+    assert.eq(invCount(scene, 'crow_feather'), 0, 'no crow_feather');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('crow catch WITH bugnet equipped drops a crow_feather', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.bugnet = { tier: 1 };
+  scene.save.caught = scene.save.caught || [];
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.energy = 100;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow2_' + Date.now() };
+  entry.creatures.push(crow);
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.truthy(scene.save.caught.includes(crow.id), 'crow caught');
+    assert.eq(invCount(scene, 'crow_feather'), 1, '1 crow_feather added');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('deer hunt: requires a weapon relic, drops meat', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.energy = 100;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const deer = { x: pWX, y: pWY, kind: 'deer', id: 'test_deer_' + Date.now() };
+  entry.creatures.push(deer);
+  // No weapon → refused.
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null };
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.falsy(scene.save.caught.includes(deer.id), 'no catch without weapon');
+    assert.eq(invCount(scene, 'meat'), 0, 'no meat without weapon');
+    // Any weapon works — wood sword.
+    scene.save.relics.sword = { tier: 1 };
+    tapWorld(scene, pWX, pWY);
+    assert.truthy(scene.save.caught.includes(deer.id), 'deer caught with weapon');
+    assert.eq(invCount(scene, 'meat'), 1, '1 meat added');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('lowtier (chestTier 1) chest renders box sprite key', (scene) => {
+  const c = findObject(o => o.kind === 'chest' && chestTier(o.poiClass) === 1);
+  if (!c) return;
+  scene.update(0, 16);
+  const { x: ssx, y: ssy } = worldToScreen(scene, c.x, c.y);
+  const slot = scene.objectPool.find(s => s.visible &&
+    Math.abs(s.x - Math.round(ssx)) < 2 && Math.abs(s.y - Math.round(ssy)) < 2);
+  if (!slot) return;
+  assert.eq(slot.texture.key, 'box', 'lowtier chest uses box sprite');
 });

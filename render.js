@@ -471,6 +471,11 @@ Render.drawCells = function drawCells(scene) {
 };
 
 Render.drawObjects = function drawObjects(scene) {
+  // Resolve the starter shop id as soon as any tile with houses has loaded,
+  // so the yellow tint can apply on first render (rather than waiting for the
+  // player to actually tap a house). Cheap once memoized — early-out is the
+  // null check inside ensureStarterShopId.
+  if (!scene.save.starterShopId && scene.ensureStarterShopId) scene.ensureStarterShopId();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -577,12 +582,58 @@ Render.drawObjects = function drawObjects(scene) {
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
   // hides — used for flora variants that haven't baked yet.
+  // Lowtier chests (chestTier === 1) render the `box` sprite instead of the
+  // chest sprite. The save.opened filter above already removes opened chests
+  // from objList, so this branch only ever sees unopened ones.
+  const _chestIsBox = (o) => {
+    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+    return tier === 1;
+  };
+  // Cheap deterministic hash on a string id — used for mineralrock column pick.
+  const _idHash = (id) => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h;
+  };
+  const MINERALROCK_COLS = 11;
   const RENDER_SPEC = {
     house:  { key: 'house', frame: 'front', origin: [0.5, 0.9],  scale: 0.6 },
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0 },
     tree:   { key: 'trees', frame: (o) => Phaser.Math.Clamp(o.variant || 2, 0, 4),
               origin: [0.5, 0.95], scale: 0.85 },
-    chest:  { key: 'chest', frame: 0,        origin: [0.5, 0.9],  scale: 2.0 },
+    chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
+              // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
+              // We only see unopened chests here, so frame 0 in both cases.
+              frame: 0, origin: [0.5, 0.9], scale: 2.0 },
+    fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
+              origin: [0.5, 0.95], scale: 0.85,
+              after: (s, o) => {
+                // Dim picked fruit trees so the player can see they haven't
+                // re-ripened yet. Picked state lives in save.picked keyed by id.
+                const picked = scene.save.picked && scene.save.picked.includes(o.id);
+                s.setAlpha(picked ? 0.55 : 1);
+              } },
+    mineralrock: { key: 'mineralrock',
+              // Sheet: 11 cols × 17 rows = 187 frames. Row picked by tier
+              // (T1=row 0 … T7=row 12, step 2 so adjacent tiers look distinct),
+              // col deterministic on id-hash so each rock stays visually stable.
+              frame: (o) => {
+                const row = Math.min(16, ((o.requiredTier || 1) - 1) * 2);
+                const col = _idHash(o.id || '') % MINERALROCK_COLS;
+                return row * MINERALROCK_COLS + col;
+              },
+              origin: [0.5, 0.9], scale: 1.6,
+              after: (s, o) => {
+                // Already-broken rocks (tracked by absolute-cell key in
+                // brokenRockSet, same pattern as natural rocks in drawCells)
+                // tint dark + half alpha so they read as "spent".
+                const cellIX = Math.round((o.x - scene.startWorldM.x) / scene.cellM - 0.5);
+                const cellIY = Math.round((o.y - scene.startWorldM.y) / scene.cellM - 0.5);
+                const key = cellKeyFromAbsCell(cellIX, cellIY);
+                const broken = scene.brokenRockSet && scene.brokenRockSet.has(key);
+                s.setAlpha(broken ? 0.5 : 1);
+                s.setTint(broken ? 0x555555 : 0xffffff);
+              } },
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
               origin: [0.5, 0.8],  scale: 1.8 },
   };
@@ -601,16 +652,26 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Specialty-shop houses tint: blacksmiths sooty grey, markets red.
     // Traders share the default tint but pick up a label like the others.
+    // The starter shop (nearest spawn — guaranteed wood pick + axe in stock)
+    // gets a warm yellow tint that overrides any specialty type so the
+    // player can spot it from a tile away.
     let tint = 0xffffff;
     if (o.kind === 'house') {
-      const st = WorldGen.shopType(o);
-      if (st === 'blacksmith') tint = 0x807068;
-      else if (st === 'market') tint = 0xff6a6a;
+      if (scene.save.starterShopId && scene.save.starterShopId === o.id) {
+        tint = 0xffe066;
+      } else {
+        const st = WorldGen.shopType(o);
+        if (st === 'blacksmith') tint = 0x807068;
+        else if (st === 'market') tint = 0xff6a6a;
+      }
     }
     s.setOrigin(spec.origin[0], spec.origin[1])
      .setScale(spec.scale)
      .setPosition(Math.round(sx), Math.round(sy))
      .setAlpha(1).setTint(tint);
+    // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
+    // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
+    if (typeof spec.after === 'function') spec.after(s, o);
   });
 
   // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.
@@ -849,6 +910,28 @@ Render.drawObjects = function drawObjects(scene) {
         s.setTexture(c.kind, 0);
       }
       s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'deer') {
+      if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
+      s.setFrame(0);
+      s.setOrigin(0.5, 0.9).setScale(1.2).setPosition(Math.round(sx), Math.round(sy));
+      s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'rabbit') {
+      if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
+      s.setFrame(0);
+      s.setOrigin(0.5, 0.9).setScale(0.9).setPosition(Math.round(sx), Math.round(sy));
+      s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'crow') {
+      if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
+      s.setFrame(0);
+      // Flying — float 14 px above the ground tile.
+      s.setOrigin(0.5, 0.9).setScale(0.9).setPosition(Math.round(sx), Math.round(sy) - 14);
+      s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'butterfly') {
+      if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
+      // Simple animated cycle — 7-frame sheet, ~100 ms/frame.
+      s.setFrame(Math.floor(performance.now() / 100) % 7);
+      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
