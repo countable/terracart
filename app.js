@@ -963,7 +963,20 @@ class MapScene extends Phaser.Scene {
       if (this.save.caught.includes(c.id)) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
-      if (c._nextChooseT == null || now >= c._nextChooseT) {
+      if (c._nextChooseT == null) {
+        // First time we sim this creature — DESYNC from the cohort by picking
+        // an initial expiry uniformly in [now, now + STEP_MS). Without this,
+        // every creature spawned at game load (null _nextChooseT) hits its
+        // first choose on the same frame and then re-chooses in lockstep
+        // every STEP_MS, producing a ~1-2s freeze every 5s once many tiles
+        // are loaded. Stepping state is pinned so the lerp at the bottom of
+        // the loop sees valid values until the staggered timer fires.
+        c._nextChooseT = now + Math.random() * STEP_MS;
+        c._startX = c.x; c._startY = c.y;
+        c._targetX = c.x; c._targetY = c.y;
+        c._stepT0 = now;
+      }
+      if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
         // Bias back toward home if we've drifted far so chickens stay near
         // their spawn cluster rather than wandering off forever.
