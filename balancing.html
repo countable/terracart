@@ -59,13 +59,32 @@
   </section>
 
   <section>
-    <h2>Unified rarity (rarity.js) — 20 pulls per context</h2>
+    <h2>Unified rarity (rarity.js) — interactive</h2>
     <p class="muted">
-      Drives every chest / shop / treasure / trader once migrations land. Uses the same
-      <code>pickReward(contextKey, save, rng)</code> function. Distribution columns show class
-      mix and tier histogram across 200 rolls per context. ✨ marks pulls that triggered a jackpot.
+      Pick a context and a "player owns up to tier" baseline, then re-roll a 10-item
+      pull set. Percents are computed live across 1000 invisible rolls so you can
+      feel the curve. ✨ marks a pulls that triggered a jackpot.
     </p>
-    <table id="rarity-samples"></table>
+    <div class="controls" style="margin-bottom:8px;">
+      <label style="font-size:12px;color:#888;">Context:
+        <select id="rar-ctx" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;"></select>
+      </label>
+      <label style="font-size:12px;color:#888;margin-left:8px;">Player owns relics up to:
+        <select id="rar-owned" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
+          <option value="0">T0 (none)</option>
+          <option value="1">T1 wood</option>
+          <option value="2">T2 copper</option>
+          <option value="3">T3 iron</option>
+          <option value="4">T4 gold</option>
+          <option value="5">T5 platinum</option>
+          <option value="6">T6 crimson</option>
+          <option value="7">T7 frost</option>
+        </select>
+      </label>
+      <button id="rar-roll" style="margin-left:8px;">Roll 10</button>
+    </div>
+    <table id="rar-header"></table>
+    <table id="rar-rolls" style="margin-top:10px;"></table>
     <h2 style="margin-top:18px;">Class × tier population</h2>
     <p class="muted">What each class can roll into. Empty cells fall back to nearest lower tier on a jackpot.</p>
     <table id="rarity-population"></table>
@@ -395,7 +414,8 @@
     function rerollLootAndDeals() {
       renderTreasures();
       renderDeals();
-      renderRarity();
+      renderRarityHeader();
+      renderRarityRolls();
       renderRarityPopulation();
     }
 
@@ -421,40 +441,100 @@
       return JSON.stringify(r);
     }
 
-    function renderRarity() {
-      const SAMPLES_SHOW = 20;
-      const SAMPLES_DIST = 200;
-      const ctxKeys = Object.keys(LOOT_CONTEXTS);
-      const rows = [['<tr><th>context</th><th>20 pulls (✨ = jackpot)</th><th>class mix</th><th>tier hist</th><th>jackpot %</th></tr>'].join('')];
-      const save = { relics: {}, armor: {} };
-      for (const key of ctxKeys) {
-        const lines = [];
-        for (let i = 0; i < SAMPLES_SHOW; i++) lines.push(formatReward(pickReward(key, save)));
-        // 200-pull distribution
-        const clsTally = {};
-        const tierTally = {};
-        let jackpotN = 0;
-        for (let i = 0; i < SAMPLES_DIST; i++) {
-          const r = pickReward(key, save);
-          if (!r) continue;
-          const cls = r.kind === 'item' ? r.cls : (r.kind === 'relic' ? 'relic' : 'gold');
-          clsTally[cls] = (clsTally[cls] || 0) + 1;
-          if (r.tier != null) tierTally[r.tier] = (tierTally[r.tier] || 0) + 1;
-          if (r.jackpot) jackpotN++;
+    // Populate the context dropdown once on first run. Keyed by id so we
+    // remember the player's selection across re-rolls.
+    function initRarityControls() {
+      const sel = document.getElementById('rar-ctx');
+      if (sel && !sel.options.length) {
+        for (const key of Object.keys(LOOT_CONTEXTS)) {
+          const opt = document.createElement('option');
+          opt.value = key; opt.textContent = key;
+          sel.appendChild(opt);
         }
-        const clsMix = Object.keys(clsTally).sort()
-          .map(c => `${c}: ${(clsTally[c] / SAMPLES_DIST * 100).toFixed(0)}%`).join('<br>');
-        const tierHist = Object.keys(tierTally).sort((a, b) => +a - +b)
-          .map(t => `T${t}: ${(tierTally[t] / SAMPLES_DIST * 100).toFixed(0)}%`).join('<br>');
-        rows.push(
-          `<tr><th>${key}</th>` +
-          `<td>${lines.join('<br>')}</td>` +
-          `<td>${clsMix}</td>` +
-          `<td>${tierHist}</td>` +
-          `<td>${(jackpotN / SAMPLES_DIST * 100).toFixed(1)}%</td></tr>`
-        );
+        sel.value = 'chest:civic';
       }
-      document.getElementById('rarity-samples').innerHTML = rows.join('');
+      // Wire the control re-renders here once — subsequent calls are no-ops.
+      if (!sel._wired) {
+        sel._wired = true;
+        sel.addEventListener('change', () => { renderRarityHeader(); renderRarityRolls(); });
+        document.getElementById('rar-owned').addEventListener('change', () => { renderRarityHeader(); renderRarityRolls(); });
+        document.getElementById('rar-roll').addEventListener('click', () => { renderRarityRolls(); });
+      }
+    }
+
+    // Construct a fake save where every relic + armor slot is at the chosen
+    // owned tier. Lets us watch how the walk-up ladder reacts to progress.
+    function fakeSaveFromControls() {
+      const owned = +document.getElementById('rar-owned').value || 0;
+      const relics = {}, armor = {};
+      if (owned > 0) {
+        if (typeof RELIC_DEFS !== 'undefined') {
+          for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: owned };
+        }
+        if (typeof ARMOR_DEFS !== 'undefined') {
+          for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: owned };
+        }
+      }
+      // Pretend the player has hit every gating milestone so the chest-relic
+      // path isn't filtered by chestRelicAllowedTiers.
+      return { relics, armor, harvested: { sunflower: 1, fireflower: 1, iceflower: 1 },
+               caughtKinds: { cow: 1 } };
+    }
+
+    // Header: show class bias, boostP, maxTier, relicCap, and a 1000-sample
+    // distribution (class mix, tier histogram, jackpot rate).
+    function renderRarityHeader() {
+      initRarityControls();
+      const key = document.getElementById('rar-ctx').value;
+      const ctx = LOOT_CONTEXTS[key];
+      if (!ctx) return;
+      const save = fakeSaveFromControls();
+      // 1000-pull sample for the distribution columns.
+      const N = 1000;
+      const clsTally = {}, tierTally = {};
+      let jackpot1 = 0, jackpot2 = 0;
+      for (let i = 0; i < N; i++) {
+        const r = pickReward(key, save);
+        if (!r) continue;
+        const cls = r.kind === 'item' ? r.cls : (r.kind === 'relic' ? 'relic' : 'gold');
+        clsTally[cls] = (clsTally[cls] || 0) + 1;
+        if (r.tier != null) tierTally[r.tier] = (tierTally[r.tier] || 0) + 1;
+        if (r.jackpot >= 1) jackpot1++;
+        if (r.jackpot >= 2) jackpot2++;
+      }
+      const fmtBias = Object.entries(ctx.classBias)
+        .sort((a, b) => b[1] - a[1])
+        .map(([c, w]) => `${c}: ${(w * 100).toFixed(1)}%`).join('<br>');
+      const clsMix = Object.keys(clsTally).sort((a, b) => clsTally[b] - clsTally[a])
+        .map(c => `${c}: ${(clsTally[c] / N * 100).toFixed(1)}%`).join('<br>');
+      const tierHist = Object.keys(tierTally).sort((a, b) => +a - +b)
+        .map(t => `T${t}: ${(tierTally[t] / N * 100).toFixed(1)}%`).join('<br>');
+      const rows = [
+        '<tr><th>config</th><th>1000-pull actual</th></tr>',
+        `<tr><th>classBias<br><span class="muted">(declared)</span></th>` +
+        `<td><span class="muted">measured →</span><br>${clsMix}<br><br>` +
+        `<span class="muted">declared →</span><br>${fmtBias}</td></tr>`,
+        `<tr><th>boostP / maxTier / relicCap</th>` +
+        `<td>boostP ${ctx.boostP} &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}</td></tr>`,
+        `<tr><th>tier histogram</th><td>${tierHist}</td></tr>`,
+        `<tr><th>jackpot rate</th>` +
+        `<td>+1 or more: ${(jackpot1 / N * 100).toFixed(1)}%<br>` +
+        `+2 or more (fanfare): ${(jackpot2 / N * 100).toFixed(1)}%</td></tr>`,
+      ];
+      document.getElementById('rar-header').innerHTML = rows.join('');
+    }
+
+    // The 10 sample rolls. Clicking Roll 10 (or changing controls) refreshes.
+    function renderRarityRolls() {
+      initRarityControls();
+      const key = document.getElementById('rar-ctx').value;
+      const save = fakeSaveFromControls();
+      const rows = ['<tr><th style="width:40px;">#</th><th>pull</th></tr>'];
+      for (let i = 1; i <= 10; i++) {
+        const r = pickReward(key, save);
+        rows.push(`<tr><th>${i}</th><td>${formatReward(r)}</td></tr>`);
+      }
+      document.getElementById('rar-rolls').innerHTML = rows.join('');
     }
 
     // Population table: which item ids occupy each (class, tier) cell.
