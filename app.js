@@ -398,6 +398,7 @@ class MapScene extends Phaser.Scene {
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
+    this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
 
     // Viewport mask clips everything inside the 11x11 area.
@@ -638,11 +639,12 @@ class MapScene extends Phaser.Scene {
       // Time-constant low-pass: alpha = dt / (TAU + dt). Devices fire at very
       // different rates (~60 Hz Android, ~10 Hz iOS), so a fixed per-event
       // alpha gives wildly different convergence speeds. TAU is the response
-      // time constant (~63% of the way to a new reading) in milliseconds.
+      // time constant (~63% of the way to a new reading) in milliseconds —
+      // small enough to feel realtime while still absorbing per-event jitter.
       const now = performance.now();
       const dt = this._lastOrientT ? (now - this._lastOrientT) : 16;
       this._lastOrientT = now;
-      const TAU = 120;
+      const TAU = 40;
       const alpha = dt / (TAU + dt);
       const rad = deg * Math.PI / 180;
       const fx = Math.sin(rad), fy = -Math.cos(rad);   // unit vector in screen coords
@@ -1588,6 +1590,23 @@ class MapScene extends Phaser.Scene {
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
+  // Sell-price bonus for selling items at a specialty shop. Each shop pays
+  // extra for its own kind of goods:
+  //   blacksmith → +100% on gems (sapphire / ruby / emerald)
+  //   market     → +50%  on produce items
+  //   trader     → +25%  on any sale (their thing is trade, not gold)
+  shopSellBonus(shopType, itemId) {
+    if (!shopType) return 1;
+    if (shopType === 'blacksmith') {
+      return (itemId === 'sapphire' || itemId === 'ruby' || itemId === 'emerald') ? 2.0 : 1;
+    }
+    if (shopType === 'market') {
+      return (ITEM_BY_ID[itemId]?.kind === 'produce') ? 1.5 : 1;
+    }
+    if (shopType === 'trader') return 1.25;
+    return 1;
+  }
+
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
@@ -1628,13 +1647,17 @@ class MapScene extends Phaser.Scene {
       const list = this.save.shopDeals[house.id] = this.save.shopDeals[house.id] || [];
       list.push(Date.now());
     };
+    const shopType = WorldGen.shopType(house);
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
       // house tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
+      // Specialty shops pay a bonus on their associated goods: markets on
+      // produce, blacksmiths on gems, traders on anything (their thing IS trade).
       const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const shopMul = this.shopSellBonus(shopType, sel.id);
+      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul * shopMul));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       this.showOfferModal({
@@ -1668,12 +1691,13 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // BUY — empty slot: generate an offer and present a confirmation modal.
-    // Three special tracks come BEFORE the regular seed/produce rotation:
+    // Special tracks come BEFORE the regular seed/produce rotation:
     //   (a) Starter shop  — the nearest building to spawn always has a wood
     //       pickaxe AND wood axe in stock until each is bought (so players
     //       can clear rocks/trees without hunting for a relic).
     //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (c) Regular house — 10% chance to swap the normal offer for a relic.
+    //   (c) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
+    //   (d) Regular house  — 10% chance to swap the normal offer for a relic.
     if (house && this.isStarterShop(house) && this.starterShopOffer()) {
       this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false);
       return;
@@ -1687,18 +1711,27 @@ class MapScene extends Phaser.Scene {
       this.flash('castle has nothing better to sell', sx, sy);
       return;
     }
-    if (Math.random() < 0.10) {
+    if (WorldGen.isBlacksmithHouse(house)) {
+      const offer = this.peekOrBuildRelicOffer(house);
+      if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
+      this.flash('smith has nothing better to forge', sx, sy);
+      return;
+    }
+    // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
+    if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each house has a deterministic "shop kind" derived from its world
     // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
     // SEEDS from the rotating buyIndex. Same house always offers the same
-    // category, so the player learns "this house sells crops".
+    // category, so the player learns "this house sells crops". Markets force
+    // produce regardless of the position-derived flag.
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
-    const sellsProduce = houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
+    const sellsProduce = (shopType === 'market')
+      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
     let id;
     if (sellsProduce) {
       // Cycle through produce, weighted toward the buyIndex so it still rotates.
@@ -1709,7 +1742,8 @@ class MapScene extends Phaser.Scene {
     }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
-    const offer = this.buildShopOffer(id, baseValue);
+    // Traders never want cash — they only deal in barter (non-gold items).
+    const offer = this.buildShopOffer(id, baseValue, shopType === 'trader');
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -1949,6 +1983,71 @@ class MapScene extends Phaser.Scene {
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
+  // Blacksmiths (houses with an address ending in 9) forge a relic for
+  // exactly 5 of a gem they pick. Gem type is deterministic per house so a
+  // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
+  // so it's stable until bought. Reuses the generic showOfferModal — same UI
+  // as cash/barter trades, just with a gem cost.
+  presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
+    const GEMS = ['sapphire', 'ruby', 'emerald'];
+    const seed = ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0);
+    const gemId = GEMS[(seed * 2654435761 >>> 0) % GEMS.length];
+    const gemItem = ITEM_BY_ID[gemId];
+    const GEM_COST = 5;
+    const name = gearName(offer.kind, offer.slot, offer.tier);
+    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
+    const heldCount = () =>
+      ((this.save.inv || []).find(s => s && s.id === gemId)?.count) ?? 0;
+    this.showOfferModal({
+      title: 'The blacksmith will forge:',
+      get: `${iconHtml} ${name}`,
+      cost: `${GEM_COST}× ${this.iconSpanHTML(gemId)} ${gemItem?.name || gemId}`,
+      canAfford: heldCount() >= GEM_COST,
+      acceptLabel: 'Trade',
+      onAccept: () => {
+        // Re-check tier and gem count — the inv can shift between modal open and accept.
+        const curTier = offer.kind === 'relic'
+          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
+          : (this.save.armor?.[offer.slot]?.tier ?? 0);
+        if (offer.tier <= curTier) {
+          this.flash('already own better', sx, sy);
+          if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+          return;
+        }
+        if (heldCount() < GEM_COST) { this.flash(`need ${GEM_COST} ${gemItem?.name || gemId}`, sx, sy); return; }
+        let left = GEM_COST;
+        for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
+          const s = this.save.inv[i];
+          if (!s || s.id !== gemId) continue;
+          const take = Math.min(left, s.count ?? 0);
+          s.count -= take; left -= take;
+          if ((s.count ?? 0) <= 0) {
+            this.save.inv.splice(i, 1);
+            if (this.save.selSlot >= this.save.inv.length) {
+              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+            }
+          }
+        }
+        if (offer.kind === 'relic') {
+          this.save.relics[offer.slot] = { tier: offer.tier };
+        } else {
+          this.save.armor[offer.slot] = { tier: offer.tier };
+          const newMax = maxEnergyFromArmor(this.save.armor);
+          const bump = Math.max(0, newMax - this.getMaxEnergy());
+          this.save.maxEnergy = newMax;
+          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+        }
+        this.markRelicsDirty();
+        if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+        recordDeal();
+        persistSave(this.save);
+        this.updateHUD();
+        this.buildInventoryDOM();
+        this.flashLoot(`🪙 ${name}\n−${GEM_COST} ${gemItem?.icon || ''}`, '#ffe066', 1.25);
+      },
+    });
+  }
+
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
   // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item.
   // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
@@ -1957,8 +2056,8 @@ class MapScene extends Phaser.Scene {
   // If the player owns NO qualifying barter item, the trader still names what
   // they want; the modal just disables the accept button (shows "✗"). This way
   // the player learns "this trader wants rockfruit" and can come back with it.
-  buildShopOffer(id, baseValue) {
-    const wantMoney = Math.random() < 1/3;
+  buildShopOffer(id, baseValue, forceBarter = false) {
+    const wantMoney = !forceBarter && Math.random() < 1/3;
     // Bow / Staff relics shrink the markup. Without either, the range stays
     // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
     const { lo, hi } = (typeof buyMarkupRange === 'function')
