@@ -297,6 +297,10 @@
     // The chain never 'misses' — every step does something, which lets the
     // chest's tier be reached reliably while still providing variance.
     let tier = 1, bracket = 0;
+    // Track qty bumps that the picker rolled but couldn't apply — bracket
+    // already at 3, or the class is single-stack so the bump never converts
+    // to actual qty. Each wasted bump pays out small consolation coins.
+    let wastedQtyBumps = 0;
     const chainSteps = ctx.chainSteps ?? 0;
     const luck = ringLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
@@ -304,11 +308,13 @@
       const goQty = rng() < qtyP;
       if (!goQty && tier < chainCap) tier += 1;
       else if (bracket < 3) bracket += 1;
+      else wastedQtyBumps += 1;        // both axes maxed
     }
     // Amulet: per-tier extra bracket roll (folded in here rather than a
     // post-multiply, so it stops doubling unbounded).
     if (!isRelic && rng() < amuletBracketChance(save)) {
-      bracket = Math.min(3, bracket + 1);
+      if (bracket < 3) bracket += 1;
+      else wastedQtyBumps += 1;
     }
 
     // 3) Jackpot. Geometric chain rooted at jackpotEntryP × jackpotContinueP.
@@ -320,16 +326,26 @@
       jackpotSteps = 1;
       while (rng() < RARITY_TUNING.jackpotContinueP && jackpotSteps < 7) jackpotSteps++;
     }
-    const tierBefore = tier;
     for (let i = 0; i < jackpotSteps; i++) {
       // For relics, qty is meaningless — force tier-up. Otherwise 50/50.
       const goTier = isRelic || rng() < 0.5;
       if (goTier && tier < finalCap) tier++;
       else if (!goTier && bracket < 3) bracket++;
-      // (Both axes at cap → the boost just sparkles for free; rare.)
+      else if (!goTier) wastedQtyBumps += 1;  // wanted qty, bracket capped
+      // (a goTier step that hits finalCap is "wasted tier" — no coins for
+      // that; tier-up restrictions are a feature of the chest cap, not a
+      // qty restriction.)
     }
     const jackpotApplied = jackpotSteps;
-    void tierBefore;   // retained for potential debugging; reading it is free.
+
+    // Consolation gold for wasted qty bumps. Formula: $5 × wastedBumps × tier
+    // (so a T1 wasted bump = $5, T4 wasted = $20). Capped against a per-pull
+    // ceiling so freak jackpots don't dispense huge amounts of cash.
+    const consolationFor = (rewardTier) => {
+      if (wastedQtyBumps <= 0) return 0;
+      const per = 5 * Math.max(1, rewardTier || 1);
+      return Math.min(wastedQtyBumps * per, 100);
+    };
 
     // 4) Resolve to a concrete item / relic / gold.
     if (cls === 'relic') {
@@ -340,21 +356,30 @@
       // that produced tier=2 still offers a T1 (wood) relic. Floor at 1 and
       // re-clamp against relicCap.
       const relicTier = Math.max(1, Math.min(finalCap, tier - 1));
-      return reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
+      // Every chain qty-step on a relic class was "wasted" (relic has no
+      // qty axis). Roll those into consolation alongside the qty-cap waste.
+      wastedQtyBumps += bracket;
+      const out = reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
+      if (out) out.consolation = consolationFor(relicTier);
+      return out;
     }
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
     // Quantity from chain+jackpot qty BUMPS. Each bump adds 1..N to the
     // stack where N is tierQtyPerBump[itemTier]. A T1 seed bump adds 1..5,
     // a T4 seed bump adds exactly 1 — high-tier items refuse to pack.
-    // Single-stack classes (animal, consumable, relic) ignore bumps.
+    // Single-stack classes (animal, consumable, relic) ignore bumps; their
+    // accumulated bracket converts to wasted-qty-bumps for consolation gold.
     const itemTier = _ITEM_BY_ID[id]?.baseTier ?? tier;
     let qty = 1;
-    if (!(RARITY_TUNING.singleStackClasses || []).includes(cls)) {
+    if ((RARITY_TUNING.singleStackClasses || []).includes(cls)) {
+      wastedQtyBumps += bracket;          // bracket is dead for these classes
+    } else {
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;
       for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
     }
-    return { kind: 'item', id, qty, tier, cls, jackpot: jackpotApplied };
+    return { kind: 'item', id, qty, tier, cls, jackpot: jackpotApplied,
+             consolation: consolationFor(itemTier) };
   }
 
   global.RARITY_TUNING       = RARITY_TUNING;

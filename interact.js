@@ -160,6 +160,14 @@ const TAP_HANDLERS = [
         scene.flashLoot(`✕ → $${reward.amount}`, '#ffd96b');
         if (scene.updateMoneyDOM) scene.updateMoneyDOM();
       }
+      // Consolation coins for any qty bumps the picker couldn't apply
+      // (bracket at cap or single-stack class). Small gold trickle alongside
+      // the main loot — never replaces it.
+      if (reward && reward.consolation > 0) {
+        addMoney(save, reward.consolation);
+        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+        scene.flash(`+$${reward.consolation}`, sx, sy + 16);
+      }
       ctx.dirty = true;
       return true;
     };
