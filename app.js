@@ -1977,7 +1977,7 @@ class MapScene extends Phaser.Scene {
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    bar.style.cssText = 'position:absolute;bottom:calc(48px + var(--bottom-clip, 0px));left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
+    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
     if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
     if (this.save.invPage == null) this.save.invPage = 0;
     const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
@@ -2068,7 +2068,7 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:absolute;bottom:calc(30px + var(--bottom-clip, 0px));left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     game.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
