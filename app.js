@@ -1125,6 +1125,7 @@ class MapScene extends Phaser.Scene {
     // Money badge always shown.
     if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
     this.updateEnergyDOM();
+    this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
     const gpsLive = this.gpsAvailable && this.gpsM;
@@ -1805,6 +1806,31 @@ class MapScene extends Phaser.Scene {
   // CSS-clip via background-image instead of an unclipped <img> — otherwise
   // the entire sheet gets crushed into the icon box ("ring looks like a
   // whole spritesheet", "armor shows 2 suits").
+  // Row of obtained-relic icons, anchored top-right just below the
+  // money/energy badges. Rebuilds only when the relics signature changes,
+  // so calling from updateHUD every frame stays cheap.
+  updateRelicRow() {
+    const game = document.getElementById('game');
+    if (!game) return;
+    const relics = this.save.relics || {};
+    const order = ['pick','axe','sword','bow','staff','ring','amulet'];
+    const sig = order.map(s => `${s}:${relics[s]?.tier ?? 0}`).join(',');
+    if (this._relicRowSig === sig) return;
+    this._relicRowSig = sig;
+    document.getElementById('relic-row')?.remove();
+    const owned = order.filter(s => relics[s]);
+    if (!owned.length) return;
+    const row = document.createElement('div');
+    row.id = 'relic-row';
+    row.style.cssText = 'position:absolute;top:42px;right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
+    for (const slot of owned) {
+      const wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-block;line-height:0;';
+      wrap.innerHTML = this.gearIconHTML('relic', slot, relics[slot].tier, 20);
+      row.appendChild(wrap);
+    }
+    game.appendChild(row);
+  }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
     if (!path) return '';
