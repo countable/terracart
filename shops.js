@@ -26,10 +26,14 @@
   // Per-type config — adding a new shop type means one entry here, plus
   // wiring into shopInteract() for buy-side behaviour. Render.js and the
   // sell-bonus dispatch read this table directly.
+  //   label: prefix on the signage ("Market XXVI")
+  //   tint:  multiplied into the house sprite, null = no tint
+  //   ink:   lettering colour painted on the shop's wood sign — picked to
+  //          read on the SHOP_INK_BG dark-wood background (see render.js)
   const SHOP_CONFIG = {
-    blacksmith: { label: 'Blacksmith', tint: 0x807068 },
-    market:     { label: 'Market',     tint: 0xff6a6a },
-    trader:     { label: 'Trader',     tint: null     },
+    blacksmith: { label: 'Blacksmith', tint: 0x807068, ink: '#d8d8d8' },  // steel
+    market:     { label: 'Market',     tint: 0xff6a6a, ink: '#ff7a6a' },  // red
+    trader:     { label: 'Trader',     tint: null,     ink: '#ffe066' },  // gold
   };
 
   function shopType(house) {
@@ -45,6 +49,13 @@
   function shopTint(house) {
     const t = shopType(house);
     return t ? SHOP_CONFIG[t].tint : null;
+  }
+
+  // Lettering colour for the shop's wood-signage label. Picked to read on
+  // SHOP_INK_BG (warm dark wood — see the label block in render.js).
+  function shopInk(house) {
+    const t = shopType(house);
+    return t ? SHOP_CONFIG[t].ink : null;
   }
 
   function shopLabel(house) {
@@ -80,7 +91,7 @@
 
   global.Shops = {
     GEM_IDS, isGem,
-    shopType, shopLabel, shopTint, shopSellBonus,
+    shopType, shopLabel, shopTint, shopInk, shopSellBonus,
     toRoman,
   };
 })(window);

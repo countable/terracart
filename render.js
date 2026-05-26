@@ -690,7 +690,14 @@ Render.drawObjects = function drawObjects(scene) {
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
 
   // Specialty-shop labels above small-house shops (markets / blacksmiths /
-  // traders). Same stone-tablet styling as chest labels, smaller font.
+  // traders). Painted-wood signage — warm brown plank, deep-wood stroke
+  // around each glyph, and a hard drop-shadow below the lettering so the
+  // sign reads as carved/painted (NOT the glowing cyan rune tablets used
+  // for POI chests). Lettering colour comes from Shops.shopInk so each
+  // shop type's signage matches its house tint at a glance.
+  const SHOP_INK_BG    = 'rgb(96,64,40)';            // warm dark wood plank
+  const SHOP_STROKE    = '#2a1408';                  // near-black wood shadow around glyphs
+  const SHOP_DROP      = 'rgba(0,0,0,0.65)';         // hard drop shadow under the sign
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && Shops.shopLabel(o));
   let sli = 0;
   for (const item of shopHouses) {
@@ -701,17 +708,22 @@ Render.drawObjects = function drawObjects(scene) {
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
         font: 'bold 9px monospace',
-        color: LABEL_INK, backgroundColor: LABEL_BG,
-        padding: { x: 3, y: 2 },
-        stroke: LABEL_STROKE, strokeThickness: 2,
+        backgroundColor: SHOP_INK_BG,
+        padding: { x: 4, y: 2 },
+        stroke: SHOP_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(50);
-      tx.setShadow(0, 0, LABEL_GLOW, 6, true, true);
+      // Drop-shadow offset down-right with no blur so the sign reads as a
+      // hung wooden plank, not a glowing rune. shadowFill=true paints the
+      // shadow onto the glyph fill (and the wider stroke extends the
+      // silhouette so the shadow visually sits behind the whole letter).
+      tx.setShadow(1, 2, SHOP_DROP, 0, true, true);
       scene.objectsContainer.add(tx);
       scene.shopLabelPool.push(tx);
     }
     // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
     // height*0.6*0.9 above sy. Anchor the label just above that.
     tx.setText(Shops.shopLabel(o))
+      .setColor(Shops.shopInk(o))
       .setPosition(Math.round(sx), Math.round(sy - 26))
       .setVisible(true);
     sli++;
