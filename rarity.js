@@ -61,7 +61,9 @@
     // chest where Frost (T7 relic) is reachable, and only via jackpot or
     // the walk-up ladder.
     chestTierMod: {
-      1: { boostP: 0.30, chainMax: 2, maxTier: 4, relicCap: 1 },
+      // T1 chests never offer relics — they're the floor-tier "small treats"
+      // chest. Relics start showing up at T2 (wood-only).
+      1: { boostP: 0.30, chainMax: 2, maxTier: 4, relicCap: 0 },
       2: { boostP: 0.55, chainMax: 3, maxTier: 5, relicCap: 2 },
       3: { boostP: 0.70, chainMax: 5, maxTier: 7, relicCap: 4 },
       4: { boostP: 0.85, chainMax: 6, maxTier: 7, relicCap: 7, relicChainMax: 6 },
@@ -97,14 +99,17 @@
     // below) supplies boostP / chainMax / maxTier / relicCap. Call sites:
     //   pickReward('chest:' + biome, save, rng, { tier: chestTier(poiClass) })
     // The picker merges the biome row with the tier mod at pick time.
-    'chest:lowtier':    { classBias: { seed:0.43, produce:0.36, mineral:0.10, consumable:0.10, animal:0.005, relic:0.005 } },
-    'chest:commerce':   { classBias: { seed:0.32, produce:0.32, mineral:0.10, consumable:0.10, animal:0.01,  relic:0.15  } },
-    'chest:food':       { classBias: { produce:0.55, seed:0.20, mineral:0.05, consumable:0.05, animal:0.00,  relic:0.15  } },
-    'chest:civic':      { classBias: { seed:0.22, produce:0.10, mineral:0.15, consumable:0.21, animal:0.02,  relic:0.30  } },
-    'chest:health':     { classBias: { mineral:0.30, produce:0.20, consumable:0.20, seed:0.10, animal:0.00,  relic:0.20  } },
-    'chest:park':       { classBias: { seed:0.32, produce:0.22, animal:0.02, mineral:0.12, consumable:0.12, relic:0.20  } },
-    'chest:farm':       { classBias: { seed:0.32, produce:0.32, animal:0.10, mineral:0.08, consumable:0.08, relic:0.10  } },
-    'chest:flora':      { classBias: { seed:0.35, produce:0.20, mineral:0.00, consumable:0.10, animal:0.00,  relic:0.35  } },
+    // Relic share is roughly half what it used to be — relics were turning
+    // up too often across the board. They're still strongly weighted on the
+    // civic / flora biomes (museums + florists are the magical-item spots).
+    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.07, animal:0.005 } },
+    'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.07 } },
+    'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.08 } },
+    'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.20 } },
+    'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.12 } },
+    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.10 } },
+    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.05 } },
+    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.20 } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     'shop:plain':       { classBias: { seed:0.35, produce:0.35, animal:0.10, mineral:0.10, consumable:0.10 },
