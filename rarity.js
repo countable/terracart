@@ -32,7 +32,7 @@
     //   P(4-step chain)  = entryP × cont³    ~0.25%
     jackpotEntryP:       0.16,
     jackpotContinueP:    0.25,
-    tierVsQtySplit:      0.5,    // during boost chain, P(go tier) vs P(go qty)
+    chainQtyP:           0.33,   // per chain step, P(qty-up) vs (1-chainQtyP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+qty. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
     // Quantity model: each qty BUMP (from the chain or jackpot) adds
     // 1..tierQtyPerBump[itemTier] to the stack. A T1 seed with 2 bumps can
@@ -60,28 +60,23 @@
     // chest where Frost (T7 relic) is reachable, and only via jackpot or
     // the walk-up ladder.
     chestTierMod: {
-      // chainMax = chest tier across the board. The chain climbs to the
-      // chest's own tier but never beyond — only the jackpot pushes higher.
-      // That keeps the 'item tier ≤ chest tier' rate near 90% (matched by
-      // the 8% jackpot tier-side rate at jackpotEntryP=0.16).
+      // The chain is deterministic per chest tier: chainSteps unconditional
+      // boost steps, each tier-up if below chainCap, else qty-up. That puts
+      // every chest at its own tier 100% of the time (before jackpot), so
+      // T2 chests don't leak T1 items like coal × 1. Jackpot is the only
+      // path above the chest tier (~8% tier-side, ~8% qty-side per pull).
       //
       // T1 chests never offer relics — they're the floor-tier 'small treats'
-      // chest. boostP=0 means the chain doesn't even run; only jackpot
-      // produces variance, giving ≈8% T2 upgrade + ≈8% qty boost.
-      // For T2-T4, boostP is tuned so the chain reaches chest tier on
-      // average (boostP / (1-boostP) ≈ 2 × (chestTier-1) for E[tier bumps]).
-      1: { boostP: 0,     chainMax: 1, maxTier: 4, relicCap: 0 },
-      2: { boostP: 0.67,  chainMax: 2, maxTier: 5, relicCap: 2 },
-      3: { boostP: 0.80,  chainMax: 3, maxTier: 7, relicCap: 4 },
-      4: { boostP: 0.857, chainMax: 4, maxTier: 7, relicCap: 7, relicChainMax: 4 },
+      // chest. chainSteps=0 means tier stays at T1; only jackpot produces
+      // variance.
+      1: { chainSteps: 0, chainMax: 1, maxTier: 4, relicCap: 0 },
+      2: { chainSteps: 1, chainMax: 2, maxTier: 5, relicCap: 2 },
+      3: { chainSteps: 2, chainMax: 3, maxTier: 7, relicCap: 4 },
+      4: { chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, relicChainMax: 4 },
     },
-    // Per-class boost-rate multiplier. The boost chain rolls each step at
-    // (ctx.boostP * mul + ringLuck); a class with mul < 1 climbs less
-    // aggressively, so most rolls stay near tier 1. Used to keep coal the
-    // overwhelmingly-common mineral drop without removing gems from the pool.
-    classChainBoostMul: {
-      mineral: 0.45,   // most mineral rolls stay at T1 = coal; gems are rare jackpots
-    },
+    // (classChainBoostMul removed — chain is deterministic and applies the
+    // same 33/67 qty-vs-tier split to every class. Mineral no longer gets a
+    // special damper; coal only shows up in T1 chests now.)
     walkUpStepP:         0.5,    // walk-up ladder: P(climb vs cash-out)
   };
 
@@ -121,22 +116,26 @@
     'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.20 } },
 
     // ── Shops, by specialty ─────────────────────────────────────
+    // Shops use the same deterministic chain. chainSteps maps to the
+    // 'level' of the shop: plain/market/trader = mid (1-2 steps), forts
+    // and blacksmiths a bit higher, castle highest (relic-only).
     'shop:plain':       { classBias: { seed:0.35, produce:0.35, animal:0.10, mineral:0.10, consumable:0.10 },
-                          boostP: 0.50, maxTier: 3, relicCap: 0 },
+                          chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0 },
     'shop:market':      { classBias: { produce:0.65, seed:0.20, animal:0.10, consumable:0.05 },
-                          boostP: 0.55, maxTier: 3, relicCap: 0 },
+                          chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0 },
     'shop:blacksmith':  { classBias: { mineral:0.40, relic:0.55, consumable:0.05 },
-                          boostP: 0.65, maxTier: 6, relicCap: 5 },
+                          chainSteps: 2, chainMax: 3, maxTier: 6, relicCap: 5 },
     'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, consumable:0.10, relic:0.05 },
-                          boostP: 0.60, maxTier: 4, relicCap: 3 },
+                          chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3 },
     'shop:fort':        { classBias: { seed:0.25, produce:0.25, mineral:0.15, consumable:0.15, animal:0.10, relic:0.10 },
-                          boostP: 0.65, maxTier: 4, relicCap: 3 },
+                          chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3 },
     'shop:castle':      { classBias: { relic: 1.00 },
-                          boostP: 0.70, maxTier: 7, relicCap: 7 },
+                          chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7 },
 
     // ── Floating treasure mark ──────────────────────────────────
+    // Small fixed reward — no chain (always rolls T1) plus jackpot.
     'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, consumable:0.15 },
-                          boostP: 0.20, maxTier: 2, relicCap: 0 },
+                          chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
   };
 
   // ────────────────────────────────────────────────────────────────
@@ -284,14 +283,6 @@
     // bumping tier and bumping qty bracket. Relic class always tier-ups
     // (quantity is meaningless for relics). Chain stops when boost fails
     // OR both tier and bracket sit at their caps.
-    const luck = ringLuck(save);
-    const classMul = (RARITY_TUNING.classChainBoostMul && RARITY_TUNING.classChainBoostMul[cls]) ?? 1;
-    const boostP = Math.min(0.95, ((ctx.boostP ?? 0.5) * classMul) + luck);
-    // The chain has its own ceiling (chainMax / relicChainMax) that may be
-    // BELOW the absolute final ceiling (maxTier / relicCap). Anything above
-    // chainMax is only reachable via the jackpot step (or, for relics, via
-    // the walk-up ladder). On chest:t4 this is how 'Frost is jackpot/walkup
-    // only' is encoded — chainMax=6, maxTier=7.
     const isRelic = cls === 'relic';
     const finalCap = isRelic
       ? Math.min(ctx.relicCap ?? 7, 7)
@@ -299,21 +290,23 @@
     const chainCap = isRelic
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
+    // Deterministic chain. The context declares how many boost steps fire
+    // (chainSteps). Each step:
+    //   • 33% chance: qty-up (bracket++ if below cap, else nothing).
+    //   • 67% chance: tier-up if below chainCap, else qty-up (fallback).
+    // The chain never 'misses' — every step does something, which lets the
+    // chest's tier be reached reliably while still providing variance.
     let tier = 1, bracket = 0;
-    let safety = 64;
-    while (rng() < boostP && safety-- > 0) {
-      const goTier = isRelic || rng() < RARITY_TUNING.tierVsQtySplit;
-      if (goTier) {
-        tier += 1;
-        if (tier > chainCap) { tier = chainCap; bracket += 1; }
-      } else {
-        bracket += 1;
-      }
-      if (bracket > 3) bracket = 3;
-      if (tier >= chainCap && bracket >= 3) break;
+    const chainSteps = ctx.chainSteps ?? 0;
+    const luck = ringLuck(save);
+    const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
+    for (let i = 0; i < chainSteps; i++) {
+      const goQty = rng() < qtyP;
+      if (!goQty && tier < chainCap) tier += 1;
+      else if (bracket < 3) bracket += 1;
     }
-    // Amulet: per-tier extra bracket roll (folded into the chain rather than
-    // a post-multiply, so it stops doubling unbounded).
+    // Amulet: per-tier extra bracket roll (folded in here rather than a
+    // post-multiply, so it stops doubling unbounded).
     if (!isRelic && rng() < amuletBracketChance(save)) {
       bracket = Math.min(3, bracket + 1);
     }
@@ -343,7 +336,11 @@
       const slots = Object.keys(_RELIC_DEFS);
       if (!slots.length) return null;
       const slot = slots[Math.floor(rng() * slots.length)];
-      return reconcileRelicOffer({ slot, tier, jackpot: jackpotApplied }, save, rng);
+      // Relics deduct one tier off whatever the chain rolled — a T2 chest
+      // that produced tier=2 still offers a T1 (wood) relic. Floor at 1 and
+      // re-clamp against relicCap.
+      const relicTier = Math.max(1, Math.min(finalCap, tier - 1));
+      return reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
     }
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
