@@ -137,7 +137,7 @@ const TAP_HANDLERS = [
       if (t.kind === 'money') {
         addMoney(save, t.amount);
         scene.flashLoot(`✕ → $${t.amount}`, '#ffd96b');
-        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+        scene.updateMoneyDOM();
       } else {
         scene.addToInv(t.id, t.n);
         const ti = tierInfo(t.id);
@@ -364,7 +364,7 @@ const TAP_HANDLERS = [
             addMoney(save, reward.amount);
             save.opened.push(o.id);
             ctx.dirty = true;
-            if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+            scene.updateMoneyDOM();
             const name = (typeof gearName === 'function')
               ? gearName('relic', reward.slot, reward.tier)
               : `${reward.slot} T${reward.tier}`;
@@ -546,9 +546,9 @@ const TAP_HANDLERS = [
       else if (r < 0.008)   { scene.addToInv('ruby', 1);              msg = '💥 → ✨ ruby'; }
       else if (r < 0.025)   { scene.addToInv('sapphire', 1);          msg = '💥 → ✨ sapphire'; }
       else if (r < 0.030)   { scene.addToInv('gemfruit', 1);          msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.040)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
+      else if (r < 0.040)   { addMoney(save, 25); scene.updateMoneyDOM(); msg = '💥 → $25'; }
       else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
-      else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
+      else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM(); msg = '💥 → $5'; }
       else if (r < 0.430)   { scene.addToInv('coal', 1 + Math.floor(Math.random() * 2)); msg = '💥 → coal'; }
       else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rockfruit seed'; }
       persistSave(save);
@@ -564,9 +564,8 @@ const TAP_HANDLERS = [
       Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
-    const stageHoldMs = 60 * 60 * 1000;
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
-    if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
+    if (p.watered_t && sinceWater >= STAGE_HOLD_MS && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       ctx.dirty = true;
@@ -611,7 +610,7 @@ const TAP_HANDLERS = [
       scene.flash(p.canBoost ? `💧 watered +${p.canBoost}` : '💧 watered', sx, sy);
       return true;
     }
-    const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
+    const minsLeft = Math.max(1, Math.ceil((STAGE_HOLD_MS - sinceWater) / 60000));
     scene.flash(`growing… ${minsLeft}m`, sx, sy);
     return true;
   }},
@@ -682,11 +681,13 @@ const TAP_HANDLERS = [
       if (pp) blocker = pp.crop || 'crop';
     }
     if (!blocker) {
+      // Hoist the opened/chopped lookups OUT of the tileCache loop — the old
+      // code rebuilt both Sets on every tile, allocating ~N sets per till tap.
       const openedSet = new Set(save.opened || []);
+      const choppedSet = new Set(save.chopped || []);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = wp.crop || 'plant'; break; }
-        const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
           o.kind !== 'flora' &&
           !(o.kind === 'chest' && openedSet.has(o.id)) &&

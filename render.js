@@ -31,7 +31,6 @@
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   crops.js     — (crop frame layouts via items.js)
 //   textures.js  — BIOME_TEX, TILLED_COLOR, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
@@ -808,7 +807,7 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = 60 * 60 * 1000;
+  // STAGE_HOLD_MS lives in items.js — one source of truth across interact + render.
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);

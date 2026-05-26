@@ -296,9 +296,6 @@ function drawLongGrassTex(ctx, size, rng) {
   }
 }
 
-// (Previous greyscale "statue" sprites + plinth helper were superseded by the
-// shape-based concrete pads below — they're no longer drawn anywhere.)
-
 // === Procedural decorative flora ===
 // Tiny non-interactable sprites drawn on transparent 16×16 canvases.
 function drawFlora(ctx, kind, variant) {

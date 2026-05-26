@@ -21,6 +21,10 @@ const CROP_ROW = {
   potato: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
 };
 const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
+// Watering → advance-stage cooldown. Read by both the interact pipeline
+// ("is this crop ready to step?") and the render pipeline (countdown timer
+// on each planted cell). One source of truth so the two stay in sync.
+const STAGE_HOLD_MS = 60 * 60 * 1000;
 const PRODUCE_COL = 7;
 const SEEDBOX_COL = 8;
 const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide

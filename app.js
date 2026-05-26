@@ -200,15 +200,13 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
-    // Stats / equipment migration — adds energy + relic/armor slots to older saves.
-    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
-                                              sword: null, bow: null, staff: null };
-    if (this.save.relics.axe === undefined)   this.save.relics.axe = null;   // older saves
-    if (this.save.relics.sword === undefined) this.save.relics.sword = null;
-    if (this.save.relics.bow === undefined)   this.save.relics.bow = null;
-    if (this.save.relics.staff === undefined) this.save.relics.staff = null;
-    if (this.save.relics.can === undefined)   this.save.relics.can = null;
-    if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
+    // Relic / armor slot init — same spread-merge pattern as armor below, so a
+    // save written before a new slot existed still gets the key (without the
+    // merge a fresh tier-1 equip would land in `undefined` and the slot row
+    // would render as "—" forever).
+    this.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                         sword: null, bow: null, staff: null, can: null, hoe: null,
+                         ...(this.save.relics || {}) };
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
@@ -255,20 +253,6 @@ class MapScene extends Phaser.Scene {
     }
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
-    // Migrate older save (inv as string array, or stash object).
-    let needsMigrationPersist = false;
-    if (this.save.inv && typeof this.save.inv[0] === 'string') {
-      // Items must have a numeric count — otherwise later sel.count -= 1 yields NaN
-      // and stacks become uncountable + un-spliceable.
-      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
-      needsMigrationPersist = true;
-    }
-    if (this.save.stash) {
-      for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
-      delete this.save.stash;
-      needsMigrationPersist = true;
-    }
-    if (needsMigrationPersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
@@ -1034,7 +1018,6 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    const STAGE_HOLD_MS = 60 * 60 * 1000;
     const now = Date.now();
     let mutated = false;
     for (const p of this.save.planted || []) {
@@ -1422,6 +1405,13 @@ class MapScene extends Phaser.Scene {
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
   }
 
+  // Cheap money-only HUD refresh. Callers that just changed save.money can
+  // hit this instead of the full updateHUD() (which also re-paints energy
+  // and the relic row).
+  updateMoneyDOM() {
+    if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
+  }
+
   updateEnergyDOM() {
     const el = document.getElementById('energy');
     if (!el) return;
@@ -1707,107 +1697,96 @@ class MapScene extends Phaser.Scene {
       const list = this.save.shopDeals[house.id] = this.save.shopDeals[house.id] || [];
       list.push(Date.now());
     };
+    // Dispatcher: pick the right modal flow for the tap. SELL when an item
+    // is selected; otherwise the buy path varies by shop kind. Special tracks
+    // (starter / castle / blacksmith) come BEFORE the regular seed/produce
+    // rotation; market and trader are flags on the same generic flow.
     const shopType = Shops.shopType(house);
     const sel = this.save.inv[this.save.selSlot];
-    if (sel && sel.id) {
-      // SELL one of the selected stack — confirm first so an accidental
-      // house tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
-      // Specialty shops pay a bonus on their associated goods: markets on
-      // produce, blacksmiths on gems, traders on anything (their thing IS trade).
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const shopMul = Shops.shopSellBonus(shopType, sel.id);
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul * shopMul));
-      const item = ITEM_BY_ID[sel.id];
-      const sellId = sel.id;
-      this.showOfferModal({
-        title: 'Sell to the shopkeep?',
-        get: `+$${price}`,
-        cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
-        canAfford: true,
-        acceptLabel: 'Sell',
-        onAccept: () => {
-          // Re-find by id (not index) — the slot may have shifted, but as long as
-          // SOME stack of this id still exists we can fulfil the sale.
-          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('gone', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          cur.count -= 1;
-          addMoney(this.save, price);
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
-          }
-          recordDeal();
-          persistSave(this.save);
-          this.buildInventoryDOM();
-          if (this.updateMoneyDOM) this.updateMoneyDOM();
-          // Sprite shows the sold item — drop the item-icon emoji from the text.
-          this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
-        },
-      });
-      return;
-    }
-    // BUY — empty slot: generate an offer and present a confirmation modal.
-    // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Starter shop  — the nearest building to spawn always has a wood
-    //       pickaxe AND wood axe in stock until each is bought (so players
-    //       can clear rocks/trees without hunting for a relic).
-    //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (c) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
-    //   (d) Regular house  — 10% chance to swap the normal offer for a relic.
+    if (sel && sel.id) { this.presentSellOffer(sx, sy, house, sel, shopType, recordDeal); return; }
     if (house && this.isStarterShop(house) && this.starterShopOffer()) {
-      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false);
-      return;
+      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false); return;
     }
     if (isCastle) {
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
-      // Every relic + armor slot is at max tier. Castles only deal in relics,
-      // so there's nothing left to sell — say so explicitly rather than
-      // silently swapping the player onto potato seeds.
-      this.flash('castle has nothing better to sell', sx, sy);
-      return;
+      // Every relic + armor slot is at max tier. Say so explicitly rather
+      // than silently swapping the player onto potato seeds.
+      this.flash('castle has nothing better to sell', sx, sy); return;
     }
     if (shopType === 'blacksmith') {
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      this.flash('smith has nothing better to forge', sx, sy);
-      return;
+      this.flash('smith has nothing better to forge', sx, sy); return;
     }
-    // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
+    // Plain houses get a 10% chance to swap into a relic offer; markets and
+    // traders skip the swap (their shop kind is dedicated).
     if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
-    // Each house has a deterministic "shop kind" derived from its world
-    // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
-    // SEEDS from the rotating buyIndex. Same house always offers the same
-    // category, so the player learns "this house sells crops". Markets force
-    // produce regardless of the position-derived flag.
+    this.presentBuyOffer(sx, sy, house, shopType, recordDeal);
+  }
+
+  // Sell one of the selected stack. Confirms first so an accidental house tap
+  // can't silently dump a high-value item. The sword relic scales the cut
+  // from half (no sword) up to full base value at tier 7; specialty shops
+  // stack a bonus on their associated goods (markets on produce, blacksmiths
+  // on gems, traders on anything).
+  presentSellOffer(sx, sy, house, sel, shopType, recordDeal) {
+    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
+    const shopMul = Shops.shopSellBonus(shopType, sel.id);
+    const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul * shopMul));
+    const item = ITEM_BY_ID[sel.id];
+    const sellId = sel.id;
+    this.showOfferModal({
+      title: 'Sell to the shopkeep?',
+      get: `+$${price}`,
+      cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
+      canAfford: true,
+      acceptLabel: 'Sell',
+      onAccept: () => {
+        // Re-find by id (not index) — the slot may have shifted, but as long
+        // as SOME stack of this id still exists we can fulfil the sale.
+        const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
+        if (idx < 0) { this.flash('gone', sx, sy); return; }
+        const cur = this.save.inv[idx];
+        cur.count -= 1;
+        addMoney(this.save, price);
+        if (cur.count <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.updateMoneyDOM();
+        // Sprite shows the sold item — drop the item-icon emoji from the text.
+        this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
+      },
+    });
+  }
+
+  // Buy from a regular / market / trader house. The house's position-derived
+  // shop kind picks produce vs seeds; market forces produce regardless,
+  // trader forces a barter offer (no cash deals).
+  presentBuyOffer(sx, sy, house, shopType, recordDeal) {
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
     const sellsProduce = (shopType === 'market')
       || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
-    let id;
-    if (sellsProduce) {
-      // Cycle through produce, weighted toward the buyIndex so it still rotates.
-      const produceIds = Object.keys(CROP_ROW);
-      id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
-    } else {
-      id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
-    }
+    const id = sellsProduce
+      // Cycle through produce, weighted toward buyIndex so it still rotates.
+      ? Object.keys(CROP_ROW)[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % Object.keys(CROP_ROW).length]
+      : BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
     // Traders never want cash — they only deal in barter (non-gold items).
     const offer = this.buildShopOffer(id, baseValue, shopType === 'trader');
-    if (!offer) {
-      this.flash('no deal', sx, sy);
-      return;
-    }
+    if (!offer) { this.flash('no deal', sx, sy); return; }
     this.showOfferModal({
       title: 'A trader offers:',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
@@ -1821,9 +1800,9 @@ class MapScene extends Phaser.Scene {
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        if (this.updateMoneyDOM) this.updateMoneyDOM();
-        // Use the loud loot pop so a purchase reads as a real gain.
-        // Sprite shows the bought item — drop the item-icon emoji.
+        this.updateMoneyDOM();
+        // Loud loot pop so a purchase reads as a real gain. Sprite shows the
+        // bought item — drop the item-icon emoji.
         this.flashLoot(`🪙 ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
