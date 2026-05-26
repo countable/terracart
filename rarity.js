@@ -50,6 +50,13 @@
       flora:      [[1, 1], [1, 2], [2, 3], [3, 5]],
     },
     qtyBracketsDefault:  [[1, 1], [2, 3], [4, 5], [6, 10]],
+    // Per-class boost-rate multiplier. The boost chain rolls each step at
+    // (ctx.boostP * mul + ringLuck); a class with mul < 1 climbs less
+    // aggressively, so most rolls stay near tier 1. Used to keep coal the
+    // overwhelmingly-common mineral drop without removing gems from the pool.
+    classChainBoostMul: {
+      mineral: 0.45,   // most mineral rolls stay at T1 = coal; gems are rare jackpots
+    },
     walkUpStepP:         0.5,    // walk-up ladder: P(climb vs cash-out)
   };
 
@@ -240,7 +247,8 @@
     // (quantity is meaningless for relics). Chain stops when boost fails
     // OR both tier and bracket sit at their caps.
     const luck = ringLuck(save);
-    const boostP = Math.min(0.95, (ctx.boostP ?? 0.5) + luck);
+    const classMul = (RARITY_TUNING.classChainBoostMul && RARITY_TUNING.classChainBoostMul[cls]) ?? 1;
+    const boostP = Math.min(0.95, ((ctx.boostP ?? 0.5) * classMul) + luck);
     const tierCap = cls === 'relic'
       ? Math.min(ctx.relicCap ?? 7, 7)
       : Math.min(ctx.maxTier ?? 7, CLASS_MAX_TIER[cls] || 1);
