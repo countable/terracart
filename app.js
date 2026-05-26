@@ -246,12 +246,7 @@ class MapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    // Raise the viewport ~10% of canvas-height above centre so the bottom of
-    // the map doesn't collide with the inventory bar on tall phones. Was -40
-    // (just enough for the bar in the dev canvas), but real devices with a
-    // bottom address bar / home indicator squeeze the inventory upward and it
-    // overlapped the map. -124 ≈ 14.7% of H=844, comfortably clear.
-    this.viewCenterY = H / 2 - 124;
+    this.viewCenterY = H / 2 - 60;            // raise to leave room for inventory bar (extra 20px so the map's bottom edge doesn't kiss the bar on small iPhones)
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
@@ -488,14 +483,27 @@ class MapScene extends Phaser.Scene {
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
     // Joystick mode also skips GPS so the two don't fight over playerM.
+    // Compass + GPS are gated behind the safety-splash button click (the
+    // genuine user gesture iOS requires for DeviceOrientationEvent
+    // permission) — see #safety-dismiss in index.html, which sets
+    // window.__compassPerm and calls scene.startSensors(). If the modal
+    // was dismissed BEFORE this scene finished loading, do it now.
     if (!window.__TEST_MODE) {
-      if (!this.save.joystick) this.startGps();
-      this.startCompass();
       this.setupLifecycle();
+      if (window.__compassPerm) this.startSensors();
     }
     if (this.save.joystick) this.buildJoystick();
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
+  }
+
+  // Called from the safety-splash button click (or from create() if the
+  // modal was already dismissed when the scene loaded). Idempotent: safe
+  // to call repeatedly. The compass listener attach is gated on
+  // window.__compassPerm because iOS gives us nothing without 'granted'.
+  startSensors() {
+    if (window.__compassPerm === 'granted') this._attachCompass();
+    if (!this.save.joystick && this.gpsWatchId == null) this.startGps();
   }
 
   // === Power / lifecycle ===
@@ -583,16 +591,23 @@ class MapScene extends Phaser.Scene {
   //     we subtract screen.orientation.angle so north stays north.
   //  3. Exponential-moving-average low-pass — raw readings jitter ±5–10°.
   //     Smooth toward the new reading via the shorter arc on the 360° circle.
-  startCompass() {
+  //
+  // Permission is requested in index.html on the safety-splash button click
+  // (the only iOS-honoured user gesture in our boot flow); this method just
+  // attaches listeners. Idempotent — bails out if called twice.
+  _attachCompass() {
+    if (this._compassAttached) return;
+    this._compassAttached = true;
     let sawAbsolute = false;
     const onOrient = (e) => {
       let deg = null;
       let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: tilt-compensated and CW from true north. Skip uncalibrated
-        // readings (accuracy < 0, often -1 after pickup) so a wild heading
-        // doesn't lock in before the magnetometer settles.
-        if (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy < 0) return;
+        // iOS: tilt-compensated and CW from true north. We previously gated
+        // on webkitCompassAccuracy < 0 to skip uncalibrated readings, but
+        // iOS persistently reports -1 indoors / near anything magnetic and
+        // the gate was making the compass appear stuck. Smoothing absorbs
+        // the extra noise; let the readings through.
         deg = e.webkitCompassHeading;
         absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
@@ -609,41 +624,37 @@ class MapScene extends Phaser.Scene {
       // north correctly. screen.orientation.angle ∈ {0,90,180,270}.
       const screenAngle = (window.screen?.orientation?.angle) ?? 0;
       deg = (deg - screenAngle + 360) % 360;
-      // EMA smoothing on the shorter arc — handles the 359°→1° wraparound
-      // by choosing whichever direction is < 180° away.
-      const SMOOTH = 0.25;   // 25 % weight to the new reading
-      const prev = this.compassDeg;
-      let next;
-      if (prev == null) {
-        next = deg;
+      // Smooth the HEADING UNIT VECTOR, not the degrees — avoids the
+      // wraparound special-case entirely and is symmetric in all directions
+      // (smoothing degrees subtly biases towards 180° because of how the
+      // shortest-arc fold interacts with averaged drift).
+      //
+      // Time-constant low-pass: alpha = dt / (TAU + dt). Devices fire at very
+      // different rates (~60 Hz Android, ~10 Hz iOS), so a fixed per-event
+      // alpha gives wildly different convergence speeds. TAU is the response
+      // time constant (~63% of the way to a new reading) in milliseconds.
+      const now = performance.now();
+      const dt = this._lastOrientT ? (now - this._lastOrientT) : 16;
+      this._lastOrientT = now;
+      const TAU = 120;
+      const alpha = dt / (TAU + dt);
+      const rad = deg * Math.PI / 180;
+      const fx = Math.sin(rad), fy = -Math.cos(rad);   // unit vector in screen coords
+      if (!this._facingSmooth) {
+        this._facingSmooth = { x: fx, y: fy };
       } else {
-        let delta = deg - prev;
-        if (delta > 180) delta -= 360;
-        else if (delta < -180) delta += 360;
-        next = (prev + delta * SMOOTH + 360) % 360;
+        this._facingSmooth.x += (fx - this._facingSmooth.x) * alpha;
+        this._facingSmooth.y += (fy - this._facingSmooth.y) * alpha;
       }
-      this.compassDeg = next;
-      const rad = next * Math.PI / 180;
-      this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
+      // Re-normalise so the magnitude stays 1 (EMA of two points on a circle
+      // produces a chord; without renormalising the smoothed vector shrinks
+      // toward 0 during fast rotation).
+      const m = Math.hypot(this._facingSmooth.x, this._facingSmooth.y) || 1;
+      this.facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
+      this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
     };
-    const attach = () => {
-      window.addEventListener('deviceorientationabsolute', onOrient, true);
-      window.addEventListener('deviceorientation', onOrient, true);
-    };
-    // iOS 13+: DeviceOrientationEvent.requestPermission() MUST originate in a
-    // user gesture (tap/click) or it silently rejects. Defer the prompt to
-    // the player's first tap on the game — without this gate the listener
-    // never attaches on iPhone and the "compass" is really just GPS bearing.
-    const DOE = window.DeviceOrientationEvent;
-    if (DOE && typeof DOE.requestPermission === 'function') {
-      const onFirstTap = () => {
-        window.removeEventListener('pointerdown', onFirstTap, true);
-        DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
-      };
-      window.addEventListener('pointerdown', onFirstTap, true);
-    } else {
-      attach();
-    }
+    window.addEventListener('deviceorientationabsolute', onOrient, true);
+    window.addEventListener('deviceorientation', onOrient, true);
   }
 
   // === Tiles ===
@@ -778,9 +789,12 @@ class MapScene extends Phaser.Scene {
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
     // Soft joystick contribution (when enabled). Vec is already in [-1, 1].
+    // Joystick is for testing on mobile — boost to 4× walk speed so a tester
+    // can cover ground quickly without endless thumb-pushing.
     if (this.save.joystick && this.joystickVec) {
       vx += this.joystickVec.x;
       vy += this.joystickVec.y;
+      if (this.joystickVec.x || this.joystickVec.y) speedMul = 4;
     }
     const moving = vx || vy;
     if (moving) {
@@ -854,7 +868,7 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
-        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.5 });
+        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.65 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
         // keep ~22 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
@@ -865,9 +879,13 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 6;
-        this.footprintGfx.fillStyle(0x808080, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 2);
+        // +22 lands the dot at the sprite's feet (sprite scale 1.5 × 32 = 48,
+        // origin (.5,.5) so feet are at sprite_y + 24). Earlier +6 buried the
+        // first dots inside the sprite body where they were unreadable; now
+        // they sit on the grass just below the sprite.
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 22;
+        this.footprintGfx.fillStyle(0x000000, fp.alpha);
+        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 4);
       }
     }
 
@@ -1007,7 +1025,20 @@ class MapScene extends Phaser.Scene {
       if (this.save.caught.includes(c.id)) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
-      if (c._nextChooseT == null || now >= c._nextChooseT) {
+      if (c._nextChooseT == null) {
+        // First time we sim this creature — DESYNC from the cohort by picking
+        // an initial expiry uniformly in [now, now + STEP_MS). Without this,
+        // every creature spawned at game load (null _nextChooseT) hits its
+        // first choose on the same frame and then re-chooses in lockstep
+        // every STEP_MS, producing a ~1-2s freeze every 5s once many tiles
+        // are loaded. Stepping state is pinned so the lerp at the bottom of
+        // the loop sees valid values until the staggered timer fires.
+        c._nextChooseT = now + Math.random() * STEP_MS;
+        c._startX = c.x; c._startY = c.y;
+        c._targetX = c.x; c._targetY = c.y;
+        c._stepT0 = now;
+      }
+      if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
         // Bias back toward home if we've drifted far so chickens stay near
         // their spawn cluster rather than wandering off forever.
@@ -2366,4 +2397,9 @@ const game = window.__game = new Phaser.Game({
   pixelArt: true,
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
+  // No audio in this game — disable both backends so Phaser uses the
+  // NoAudioSoundManager and never creates an AudioContext. Without this the
+  // browser logs a "failed to start the audio device" warning on iOS/Android
+  // because Web Audio can't start before the first user gesture.
+  audio: { noAudio: true, disableWebAudio: true },
 });
