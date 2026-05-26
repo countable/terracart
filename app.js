@@ -1977,7 +1977,12 @@ class MapScene extends Phaser.Scene {
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    bar.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
+    // position:fixed anchors to the visual viewport, so the bar stays at the
+    // bottom of the screen regardless of #game's CSS scale or any iOS Safari /
+    // Firefox Mobile URL-bar chrome. Appended to <body> because a position:
+    // fixed element inside a transformed parent (#game uses transform:scale)
+    // takes the transformed parent as its containing block — defeats the point.
+    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
     if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
     if (this.save.invPage == null) this.save.invPage = 0;
     const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
@@ -2059,17 +2064,18 @@ class MapScene extends Phaser.Scene {
     pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffd866;font:700 11px ui-monospace,monospace;margin-left:4px;';
     bar.appendChild(pageLbl);
 
-    game.appendChild(bar);
+    document.body.appendChild(bar);
 
     // Name strip just below the bar — always shows the currently selected
     // item's name (across pages), so the player isn't guessing what's
-    // selected when scrolled to a different page.
+    // selected when scrolled to a different page. Also position:fixed for the
+    // same reason as the bar above.
     let nameLbl = document.getElementById('inv-name');
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
-    game.appendChild(nameLbl);
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
   }

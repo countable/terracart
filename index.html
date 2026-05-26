@@ -46,7 +46,8 @@
       font-size: 12px; display: none; z-index: 10;
     }
     #hud {
-      position: absolute; bottom: 8px; left: 8px; right: 8px;
+      position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      left: 8px; right: 8px;
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace;
     }
@@ -94,7 +95,6 @@
       <div id="banner">reconnecting…</div>
       <div id="money">$0</div>
       <div id="energy">⚡100/100</div>
-      <div id="hud"></div>
       <details id="menu">
         <summary>☰</summary>
         <div class="items">
@@ -104,6 +104,11 @@
       </details>
     </div>
   </div>
+  <!-- HUD lives OUTSIDE #game so position:fixed actually anchors to the
+       viewport — fixed descendants of a transformed parent use the parent
+       as their containing block, which would put it back inside #game's
+       clipped zone. Same reason buildInventoryDOM appends to <body>. -->
+  <div id="hud"></div>
   <script>
     // Fit the fixed 390×844 game box into the viewport using CSS scale.
     // Scales to visualViewport (the actually-visible area, URL bar excluded)
@@ -181,17 +186,17 @@
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="coords.js?v=99"></script>
-  <script src="worldgen.js?v=99"></script>
-  <script src="tilemap.js?v=99"></script>
-  <script src="crops.js?v=99"></script>
-  <script src="textures.js?v=99"></script>
-  <script src="save.js?v=99"></script>
-  <script src="items.js?v=99"></script>
-  <script src="loot.js?v=99"></script>
-  <script src="interact.js?v=99"></script>
-  <script src="render.js?v=99"></script>
-  <script src="assets.js?v=99"></script>
-  <script src="app.js?v=99"></script>
+  <script src="coords.js?v=100"></script>
+  <script src="worldgen.js?v=100"></script>
+  <script src="tilemap.js?v=100"></script>
+  <script src="crops.js?v=100"></script>
+  <script src="textures.js?v=100"></script>
+  <script src="save.js?v=100"></script>
+  <script src="items.js?v=100"></script>
+  <script src="loot.js?v=100"></script>
+  <script src="interact.js?v=100"></script>
+  <script src="render.js?v=100"></script>
+  <script src="assets.js?v=100"></script>
+  <script src="app.js?v=100"></script>
 </body>
 </html>
