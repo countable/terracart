@@ -46,7 +46,8 @@
       font-size: 12px; display: none; z-index: 10;
     }
     #hud {
-      position: absolute; bottom: 8px; left: 8px; right: 8px;
+      position: absolute; bottom: calc(8px + var(--bottom-clip, 0px));
+      left: 8px; right: 8px;
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace;
     }
@@ -107,8 +108,12 @@
   <script>
     // Fit the fixed 390×844 game box into the viewport using CSS scale.
     // Uses innerWidth/innerHeight (layout viewport) rather than visualViewport
-    // so iPhone Safari fills the screen width even when the URL bar is showing
-    // — the bottom of #game tucks behind the URL bar until it auto-collapses.
+    // so iPhone Safari fills the screen width even when the URL bar is showing.
+    // The bottom of #game then tucks behind the URL bar — we expose how much
+    // is hidden as --bottom-clip (in INTERNAL game pixels) so bottom-anchored
+    // overlays (HUD, inventory bar, item-name strip) can lift themselves up
+    // and stay visible. When the URL bar auto-collapses, visualViewport.resize
+    // fires fitGame again and the var snaps back to 0.
     function fitGame() {
       const W = 390, H = 844;
       const vw = window.innerWidth;
@@ -119,6 +124,9 @@
       g.style.transform = `scale(${s})`;
       g.style.left = Math.max(0, (vw - W * s) / 2) + 'px';
       g.style.top  = Math.max(0, (vh - H * s) / 2) + 'px';
+      const visibleVh = window.visualViewport?.height ?? vh;
+      const clippedDisplay = Math.max(0, H * s - visibleVh);
+      g.style.setProperty('--bottom-clip', `${clippedDisplay / s}px`);
     }
     window.addEventListener('resize', fitGame);
     window.addEventListener('orientationchange', fitGame);
@@ -191,6 +199,6 @@
   <script src="interact.js?v=95"></script>
   <script src="render.js?v=95"></script>
   <script src="assets.js?v=95"></script>
-  <script src="app.js?v=96"></script>
+  <script src="app.js?v=97"></script>
 </body>
 </html>
