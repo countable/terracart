@@ -599,14 +599,9 @@ Render.drawObjects = function drawObjects(scene) {
       const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== f) s.setFrame(f);
     }
-    // Specialty-shop houses tint: blacksmiths sooty grey, markets red.
-    // Traders share the default tint but pick up a label like the others.
-    let tint = 0xffffff;
-    if (o.kind === 'house') {
-      const st = WorldGen.shopType(o);
-      if (st === 'blacksmith') tint = 0x807068;
-      else if (st === 'market') tint = 0xff6a6a;
-    }
+    // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
+    // table lives in shops.js so adding a new shop type is one-file work.
+    const tint = (o.kind === 'house' && Shops.shopTint(o)) || 0xffffff;
     s.setOrigin(spec.origin[0], spec.origin[1])
      .setScale(spec.scale)
      .setPosition(Math.round(sx), Math.round(sy))
@@ -696,7 +691,7 @@ Render.drawObjects = function drawObjects(scene) {
 
   // Specialty-shop labels above small-house shops (markets / blacksmiths /
   // traders). Same stone-tablet styling as chest labels, smaller font.
-  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && WorldGen.shopLabel(o));
+  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && Shops.shopLabel(o));
   let sli = 0;
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
@@ -716,7 +711,7 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
     // height*0.6*0.9 above sy. Anchor the label just above that.
-    tx.setText(WorldGen.shopLabel(o))
+    tx.setText(Shops.shopLabel(o))
       .setPosition(Math.round(sx), Math.round(sy - 26))
       .setVisible(true);
     sli++;

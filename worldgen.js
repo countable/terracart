@@ -1077,49 +1077,13 @@
   // Specialty shop type for small houses, derived from the synthetic street
   // address. Forts (BUILDING_MED) and civic slabs are excluded — only the
   // small residential tier gets address-based specialties.
-  //   address ends in 9     → blacksmith (gem → relic trade)
-  //   address ends in 2 / 6 → market    (produce-only stock)
-  //   address ends in 1 / 8 → trader    (barter only, no cash deals)
-  function shopType(house) {
-    if (!house || house.kind !== 'house' || house.tier !== T.BUILDING) return null;
-    const d = (house.address ?? 0) % 10;
-    if (d === 9) return 'blacksmith';
-    if (d === 2 || d === 6) return 'market';
-    if (d === 1 || d === 8) return 'trader';
-    return null;
-  }
-  function isBlacksmithHouse(house) { return shopType(house) === 'blacksmith'; }
-  function isMarketHouse(house)     { return shopType(house) === 'market'; }
-  function isTraderHouse(house)     { return shopType(house) === 'trader'; }
-
-  // Roman numeral renderer — used to write house addresses as labels above
-  // specialty shops ("Market XXVI", "Blacksmith IX"). Clamped at 1..3999.
-  function toRoman(n) {
-    n = Math.max(1, Math.min(3999, n | 0));
-    const v = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-    const s = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
-    let out = '';
-    for (let i = 0; i < v.length; i++) {
-      while (n >= v[i]) { out += s[i]; n -= v[i]; }
-    }
-    return out;
-  }
-
-  // Shop sprite label, e.g. "Market XXVI". Returns null for non-shop houses.
-  function shopLabel(house) {
-    const t = shopType(house);
-    if (!t) return null;
-    const name = t === 'blacksmith' ? 'Blacksmith' : t === 'market' ? 'Market' : 'Trader';
-    // Use address+1 so "house number 0" doesn't render as an empty roman numeral.
-    return `${name} ${toRoman((house.address ?? 0) + 1)}`;
-  }
+  // The specialty-shop taxonomy + label + tint + sell-bonus all live in
+  // shops.js; the only thing worldgen owns here is the address field itself.
 
   global.WorldGen = {
     Z, CELL_M, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem,
-    shopType, isBlacksmithHouse, isMarketHouse, isTraderHouse,
-    toRoman, shopLabel,
   };
 })(window);
