@@ -73,7 +73,7 @@
     // Starting-tile statistics.
     // ────────────────────────────────────────────────────────────────
     async function loadStartTile() {
-      const { tx, ty } = WorldGen.tileXYForLonLat(START_LON, START_LAT);
+      const { x: tx, y: ty } = WorldGen.tileXYForLonLat(START_LON, START_LAT);
       const entry = await WorldGen.loadTile(tx, ty, START_LAT);
       if (entry.status === 'loading') await entry.promise;
       return { entry, tx, ty };
