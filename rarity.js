@@ -34,26 +34,17 @@
     jackpotContinueP:    0.25,
     tierVsQtySplit:      0.5,    // during boost chain, P(go tier) vs P(go qty)
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
-    // Per-class quantity brackets. Index 0..3 = brackets returned by the
-    // boost chain after the tier-driven demotion (see qtyDemotePerTier
-    // below). Falls back to qtyBracketsDefault for any class without an
-    // override. Trimmed from earlier values — chests were too generous.
-    qtyBracketsByClass: {
-      seed:       [[1, 1], [2, 4], [3, 6], [5, 10]],
-      produce:    [[1, 1], [1, 3], [2, 4], [3, 6]],
-      mineral:    [[1, 1], [1, 2], [1, 2], [2, 3]],
-      // Consumables (flute/book) are always single — they're tap-to-use items,
-      // not stackable resources.
-      consumable: [[1, 1], [1, 1], [1, 1], [1, 1]],
-      animal:     [[1, 1], [1, 1], [1, 1], [1, 1]],
-      flora:      [[1, 1], [1, 2], [2, 3], [3, 5]],
-    },
-    qtyBracketsDefault:  [[1, 1], [1, 3], [3, 5], [5, 8]],
-    // Tier-driven bracket demotion. Higher-tier items always come in smaller
-    // stacks than their lower-tier siblings: a chest that "would have given"
-    // 10 potato seeds at T1 gives 5 gemfruit seeds at T2 and just 1 iceflower
-    // seed at T3. effectiveBracket = max(0, rolledBracket - (tier-1) * 2).
-    qtyDemotePerTier:    2,
+    // Quantity model: each qty BUMP (from the chain or jackpot) adds
+    // 1..tierQtyPerBump[itemTier] to the stack. A T1 seed with 2 bumps can
+    // land at 10 (two random(1..5) rolls + 1 base); a T4 seed with 2 bumps
+    // tops out at 3 (two random(1..1) rolls + 1 base). Index by item tier.
+    // Index 0 is unused; tiers 1..7.
+    tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
+    // Classes that are inherently single-stack — relic (no qty), animal (one
+    // live catch at a time), consumable (tap-to-use). qty always 1 regardless
+    // of bumps for these. flora maps to the produce 'flowers' item via picker
+    // routing, but we treat it as a small-qty class.
+    singleStackClasses: ['relic', 'animal', 'consumable'],
     // Chest tier 1..4 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
@@ -153,6 +144,7 @@
   // through `globalThis` (which exposes the global lexical scope in modern
   // browsers) with a defensive bare-name fallback.
   const _ITEMS      = (typeof ITEMS      !== 'undefined') ? ITEMS      : [];
+  const _ITEM_BY_ID = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID : {};
   const _RELIC_DEFS = (typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS : {};
   const _gearPrice  = (typeof gearPrice  !== 'undefined') ? gearPrice  : null;
 
@@ -350,16 +342,16 @@
     }
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
-    // Tier-driven bracket demotion. Higher-tier items always come in smaller
-    // stacks than their lower-tier siblings: a chest that "would have given"
-    // 10 potato seeds at T1 gives ~3 gemfruit seeds at T2 and 1 iceflower
-    // seed at T3. Default demotePerTier=2, clamped at bracket 0.
-    const demote = (tier - 1) * (RARITY_TUNING.qtyDemotePerTier ?? 0);
-    const effBracket = Math.max(0, bracket - demote);
-    const brackets = (RARITY_TUNING.qtyBracketsByClass && RARITY_TUNING.qtyBracketsByClass[cls])
-      || RARITY_TUNING.qtyBracketsDefault;
-    const [lo, hi] = brackets[Math.min(effBracket, brackets.length - 1)];
-    const qty = lo + Math.floor(rng() * (hi - lo + 1));
+    // Quantity from chain+jackpot qty BUMPS. Each bump adds 1..N to the
+    // stack where N is tierQtyPerBump[itemTier]. A T1 seed bump adds 1..5,
+    // a T4 seed bump adds exactly 1 — high-tier items refuse to pack.
+    // Single-stack classes (animal, consumable, relic) ignore bumps.
+    const itemTier = _ITEM_BY_ID[id]?.baseTier ?? tier;
+    let qty = 1;
+    if (!(RARITY_TUNING.singleStackClasses || []).includes(cls)) {
+      const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;
+      for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
+    }
     return { kind: 'item', id, qty, tier, cls, jackpot: jackpotApplied };
   }
 
