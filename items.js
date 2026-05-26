@@ -141,8 +141,8 @@ const PRODUCE_EMOJI = {
 const BASE_TIER = {
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
-  rainberry: 1, potato: 1, rockfruit: 1,
-  pairy: 2, nut: 2, shrub: 2, tree: 2,
+  potato: 1, rockfruit: 1,
+  rainberry: 2, pairy: 2, nut: 2, shrub: 2, tree: 2,
   coffee: 3, gemfruit: 3,
   iceflower: 4, fireflower: 4, sunflower: 4,
   // Wild produce / animal output

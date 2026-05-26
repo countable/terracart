@@ -60,15 +60,20 @@
     // chest where Frost (T7 relic) is reachable, and only via jackpot or
     // the walk-up ladder.
     chestTierMod: {
+      // chainMax = chest tier across the board. The chain climbs to the
+      // chest's own tier but never beyond — only the jackpot pushes higher.
+      // That keeps the 'item tier ≤ chest tier' rate near 90% (matched by
+      // the 8% jackpot tier-side rate at jackpotEntryP=0.16).
+      //
       // T1 chests never offer relics — they're the floor-tier 'small treats'
-      // chest. Relics start showing up at T2 (wood-only). boostP=0 means
-      // the chain never runs at T1 — the only path to T2 or a bigger qty
-      // stack is the jackpot, which fires at jackpotEntryP × 50% per axis
-      // (≈8% T2 upgrade, ≈8% qty boost).
-      1: { boostP: 0,    chainMax: 1, maxTier: 4, relicCap: 0 },
-      2: { boostP: 0.55, chainMax: 3, maxTier: 5, relicCap: 2 },
-      3: { boostP: 0.70, chainMax: 5, maxTier: 7, relicCap: 4 },
-      4: { boostP: 0.85, chainMax: 6, maxTier: 7, relicCap: 7, relicChainMax: 6 },
+      // chest. boostP=0 means the chain doesn't even run; only jackpot
+      // produces variance, giving ≈8% T2 upgrade + ≈8% qty boost.
+      // For T2-T4, boostP is tuned so the chain reaches chest tier on
+      // average (boostP / (1-boostP) ≈ 2 × (chestTier-1) for E[tier bumps]).
+      1: { boostP: 0,     chainMax: 1, maxTier: 4, relicCap: 0 },
+      2: { boostP: 0.67,  chainMax: 2, maxTier: 5, relicCap: 2 },
+      3: { boostP: 0.80,  chainMax: 3, maxTier: 7, relicCap: 4 },
+      4: { boostP: 0.857, chainMax: 4, maxTier: 7, relicCap: 7, relicChainMax: 4 },
     },
     // Per-class boost-rate multiplier. The boost chain rolls each step at
     // (ctx.boostP * mul + ringLuck); a class with mul < 1 climbs less
