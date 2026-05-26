@@ -90,6 +90,27 @@
     }
     #menu .items button:hover { background: #fff2; }
     #menu .items button.danger { color: #ff8a7a; }
+    /* Safety / sensor-permission splash shown on every load. The button
+       click is the genuine user gesture we need to satisfy iOS's
+       DeviceOrientationEvent.requestPermission() AND start GPS. */
+    #safety {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0, 0, 0, 0.78);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #safety .box {
+      max-width: 320px; background: #1a1612; color: #fff;
+      border: 2px solid #c8a64a; border-radius: 12px;
+      padding: 22px 20px; text-align: center;
+      font: 14px ui-monospace, monospace; line-height: 1.45;
+    }
+    #safety p { margin: 0 0 18px; }
+    #safety button {
+      background: #c8a64a; color: #1a1612; border: 0;
+      padding: 12px 22px; border-radius: 8px;
+      font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -114,6 +135,12 @@
     </div>
   </details>
   <div id="hud"></div>
+  <div id="safety">
+    <div class="box">
+      <p>Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
+      <button id="safety-dismiss">Get my location</button>
+    </div>
+  </div>
   <script>
     // Fit the fixed 390×844 game box into the viewport using CSS scale.
     // On portrait viewports (phones) scale by WIDTH so the map fills edge-to-
@@ -154,6 +181,28 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.toggleJoystick) window.__scene.toggleJoystick();
+    });
+    // Safety splash dismiss → also our sensor-permission gesture. iOS
+    // requires DeviceOrientationEvent.requestPermission() to be called
+    // synchronously from within a user-gesture handler — so we do it
+    // here, inline in the click. The promise resolution can be async; the
+    // call itself just has to originate inside the click stack.
+    document.getElementById('safety-dismiss').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === 'function') {
+        try {
+          window.__compassPerm = await DOE.requestPermission();   // 'granted' | 'denied'
+        } catch (err) {
+          window.__compassPerm = 'error';
+        }
+      } else {
+        window.__compassPerm = 'granted';  // Android / desktop: no prompt needed
+      }
+      document.getElementById('safety')?.remove();
+      // Start sensors now if the scene already finished loading; otherwise
+      // the scene's create() will see window.__compassPerm and start them.
+      window.__scene?.startSensors?.();
     });
     document.getElementById('reset-save').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -210,6 +259,6 @@
   <script src="interact.js?v=113"></script>
   <script src="render.js?v=111"></script>
   <script src="assets.js?v=111"></script>
-  <script src="app.js?v=119"></script>
+  <script src="app.js?v=120"></script>
 </body>
 </html>

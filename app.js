@@ -483,14 +483,27 @@ class MapScene extends Phaser.Scene {
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
     // Joystick mode also skips GPS so the two don't fight over playerM.
+    // Compass + GPS are gated behind the safety-splash button click (the
+    // genuine user gesture iOS requires for DeviceOrientationEvent
+    // permission) — see #safety-dismiss in index.html, which sets
+    // window.__compassPerm and calls scene.startSensors(). If the modal
+    // was dismissed BEFORE this scene finished loading, do it now.
     if (!window.__TEST_MODE) {
-      if (!this.save.joystick) this.startGps();
-      this.startCompass();
       this.setupLifecycle();
+      if (window.__compassPerm) this.startSensors();
     }
     if (this.save.joystick) this.buildJoystick();
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
+  }
+
+  // Called from the safety-splash button click (or from create() if the
+  // modal was already dismissed when the scene loaded). Idempotent: safe
+  // to call repeatedly. The compass listener attach is gated on
+  // window.__compassPerm because iOS gives us nothing without 'granted'.
+  startSensors() {
+    if (window.__compassPerm === 'granted') this._attachCompass();
+    if (!this.save.joystick && this.gpsWatchId == null) this.startGps();
   }
 
   // === Power / lifecycle ===
@@ -578,7 +591,13 @@ class MapScene extends Phaser.Scene {
   //     we subtract screen.orientation.angle so north stays north.
   //  3. Exponential-moving-average low-pass — raw readings jitter ±5–10°.
   //     Smooth toward the new reading via the shorter arc on the 360° circle.
-  startCompass() {
+  //
+  // Permission is requested in index.html on the safety-splash button click
+  // (the only iOS-honoured user gesture in our boot flow); this method just
+  // attaches listeners. Idempotent — bails out if called twice.
+  _attachCompass() {
+    if (this._compassAttached) return;
+    this._compassAttached = true;
     let sawAbsolute = false;
     const onOrient = (e) => {
       let deg = null;
@@ -634,24 +653,8 @@ class MapScene extends Phaser.Scene {
       this.facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
       this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
     };
-    const attach = () => {
-      window.addEventListener('deviceorientationabsolute', onOrient, true);
-      window.addEventListener('deviceorientation', onOrient, true);
-    };
-    // iOS 13+: DeviceOrientationEvent.requestPermission() MUST originate in a
-    // user gesture (tap/click) or it silently rejects. Defer the prompt to
-    // the player's first tap on the game — without this gate the listener
-    // never attaches on iPhone and the "compass" is really just GPS bearing.
-    const DOE = window.DeviceOrientationEvent;
-    if (DOE && typeof DOE.requestPermission === 'function') {
-      const onFirstTap = () => {
-        window.removeEventListener('pointerdown', onFirstTap, true);
-        DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
-      };
-      window.addEventListener('pointerdown', onFirstTap, true);
-    } else {
-      attach();
-    }
+    window.addEventListener('deviceorientationabsolute', onOrient, true);
+    window.addEventListener('deviceorientation', onOrient, true);
   }
 
   // === Tiles ===
