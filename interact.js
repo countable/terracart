@@ -259,15 +259,17 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2-placed-rock) Tap a player-placed rockfruit stone → pick it back up.
+  // 2-placed-rock) Tap a player-placed rockfruit stone → pick it back up (with progress wheel).
   { name: 'pickup-rock', try: (ctx) => {
-    const { scene, save, sx, sy, cellKey } = ctx;
+    const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
     if (!scene.placedRockSet.has(cellKey)) return false;
-    scene.placedRockSet.delete(cellKey);
-    save.placedRocks = [...scene.placedRockSet];
-    scene.addToInv('rockfruit', 1);
-    ctx.dirty = true;
-    scene.flash('⛏ rockfruit', sx, sy);
+    scene.startWorkProgress(cwmx, cwmy, () => {
+      scene.placedRockSet.delete(cellKey);
+      save.placedRocks = [...scene.placedRockSet];
+      scene.addToInv('rockfruit', 1);
+      persistSave(save);
+      scene.flash('⛏ rockfruit', sx, sy);
+    });
     return true;
   }},
 
