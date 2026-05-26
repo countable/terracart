@@ -599,10 +599,18 @@ Render.drawObjects = function drawObjects(scene) {
       const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== f) s.setFrame(f);
     }
+    // Specialty-shop houses tint: blacksmiths sooty grey, markets red.
+    // Traders share the default tint but pick up a label like the others.
+    let tint = 0xffffff;
+    if (o.kind === 'house') {
+      const st = WorldGen.shopType(o);
+      if (st === 'blacksmith') tint = 0x807068;
+      else if (st === 'market') tint = 0xff6a6a;
+    }
     s.setOrigin(spec.origin[0], spec.origin[1])
      .setScale(spec.scale)
      .setPosition(Math.round(sx), Math.round(sy))
-     .setAlpha(1).setTint(0xffffff);
+     .setAlpha(1).setTint(tint);
   });
 
   // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.
@@ -690,6 +698,35 @@ Render.drawObjects = function drawObjects(scene) {
     li++;
   }
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
+
+  // Specialty-shop labels above small-house shops (markets / blacksmiths /
+  // traders). Same stone-tablet styling as chest labels, smaller font.
+  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && WorldGen.shopLabel(o));
+  let sli = 0;
+  for (const item of shopHouses) {
+    const { o, dx, dy } = item;
+    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    let tx = scene.shopLabelPool[sli];
+    if (!tx) {
+      tx = scene.add.text(0, 0, '', {
+        font: 'bold 9px monospace',
+        color: LABEL_INK, backgroundColor: LABEL_BG,
+        padding: { x: 3, y: 2 },
+        stroke: LABEL_STROKE, strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(50);
+      tx.setShadow(0, 0, LABEL_GLOW, 6, true, true);
+      scene.objectsContainer.add(tx);
+      scene.shopLabelPool.push(tx);
+    }
+    // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
+    // height*0.6*0.9 above sy. Anchor the label just above that.
+    tx.setText(WorldGen.shopLabel(o))
+      .setPosition(Math.round(sx), Math.round(sy - 26))
+      .setVisible(true);
+    sli++;
+  }
+  for (; sli < scene.shopLabelPool.length; sli++) scene.shopLabelPool[sli].setVisible(false);
 
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
