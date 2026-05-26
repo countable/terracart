@@ -210,9 +210,12 @@ const ITEMS = [
   // the animal, not these.
   // ('butterfly' lives above as the live-animal entry — there is no
   // separate butterfly product; the insect itself is the drop.)
-  { id: 'meat',         name: 'Meat',         kind: 'mineral', icon: '🥩' },
-  { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'mineral', icon: '🐇' },
-  { id: 'crow_feather', name: 'Crow Feather', kind: 'mineral', icon: '🪶' },
+  // Animal byproducts — kind: 'produce' alongside egg / milk. Sit in the
+  // produce pool of the rarity picker, not the mineral pool (which is
+  // reserved for coal / gemstones).
+  { id: 'meat',         name: 'Meat',         kind: 'produce', icon: '🥩' },
+  { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce', icon: '🐇' },
+  { id: 'crow_feather', name: 'Crow Feather', kind: 'produce', icon: '🪶' },
   // Beach pickup — shells spawn as wildplant debris on sand cells
   // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
   // shell_sheet, hashed off the spawn cell coord.
