@@ -2127,14 +2127,19 @@ class MapScene extends Phaser.Scene {
     };
     if (wantMoney) return cashOffer;
     // Barter — find a held stack worth ≥ 0.75 × baseValue, pick one at random.
+    // Exclude `id` itself from both the candidate pool and the wishlist
+    // fallback: a trader who tries to swap a rockfruit FOR a rockfruit reads
+    // like a bug regardless of stack sizes ("trade me an X for an X?").
     const need = baseValue * 0.75;
-    const candidates = (this.save.inv || []).filter(s => s && s.id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
+    const candidates = (this.save.inv || []).filter(s =>
+      s && s.id && s.id !== id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
     if (!candidates.length) {
       // Player owns nothing qualifying — name a deterministic-but-varied want
       // so the offer text reads like a real ask. Pick any item priced ≥ need;
       // anchor by buyIndex so the same shop tap is stable until the player
       // earns enough buyIndex turns elsewhere to rotate it.
-      const wishlist = Object.keys(PRICES).filter(k => PRICES[k] >= need && ITEM_BY_ID[k]);
+      const wishlist = Object.keys(PRICES).filter(k =>
+        k !== id && PRICES[k] >= need && ITEM_BY_ID[k]);
       const wish = wishlist[(this.save.buyIndex ?? 0) % wishlist.length] || cashOffer;
       if (wish === cashOffer) return cashOffer;
       const wishItem = ITEM_BY_ID[wish];
@@ -2435,53 +2440,45 @@ class MapScene extends Phaser.Scene {
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
+  // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE
+  // stack and that stack is capped at stackCapForBags(bags relic) — 9 with
+  // no bag, 249 at tier 7. Excess is rejected (no ground drops in this game)
+  // and the player sees a 'bag full' flash. Returns the count actually
+  // accepted so callers can adjust their narration if they care.
   addToInv(id, n = 1, silent = false) {
     const item = ITEM_BY_ID[id];
-    if (!item || n <= 0) return;
-    // Per-stack cap is gated by the Bags relic tier (no bag = 9, T7 = 249).
-    // Overflow spills into additional stacks of the same id rather than being
-    // lost — same as Minecraft / Stardew. There's no slot cap to refuse on.
+    if (!item || n <= 0) return 0;
     const cap = (typeof stackCapForBags === 'function')
       ? stackCapForBags(this.save.relics?.bags) : 9;
-    let remaining = n;
-    // Did at least one existing stack of this id sit at the cap when we
-    // arrived? If so we'll show a "bag full" nudge once the spill is done —
-    // even if there was room (different existing stack) so the player still
-    // learns the cap is in play. Triggers only when a NEW stack had to be
-    // created OR an existing same-id stack was already at the ceiling.
-    let triggeredFull = false;
-    for (const s of this.save.inv) {
+    // Find the single canonical stack for this id. If duplicate stacks slipped
+    // in via a legacy save (the old addToInv path could create them), fold
+    // them into one here so the no-duplicate invariant self-heals.
+    let stack = null;
+    for (let i = this.save.inv.length - 1; i >= 0; i--) {
+      const s = this.save.inv[i];
       if (!s || s.id !== id) continue;
-      if ((s.count || 0) >= cap) { triggeredFull = true; break; }
+      if (!stack) { stack = s; continue; }
+      stack.count = (stack.count || 0) + (s.count || 0);
+      this.save.inv.splice(i, 1);
     }
-    // Fill every existing stack of this id (in order) up to the cap first.
-    for (const s of this.save.inv) {
-      if (remaining <= 0) break;
-      if (!s || s.id !== id) continue;
-      const room = Math.max(0, cap - (s.count || 0));
-      if (room <= 0) continue;
-      const take = Math.min(room, remaining);
-      s.count = (s.count || 0) + take;
-      remaining -= take;
+    if (!stack) {
+      stack = { id, count: 0 };
+      this.save.inv.push(stack);
     }
-    // Anything left starts a new stack (and possibly more if remaining > cap).
-    if (remaining > 0) triggeredFull = true;
-    while (remaining > 0) {
-      const take = Math.min(cap, remaining);
-      this.save.inv.push({ id, count: take });
-      remaining -= take;
-    }
+    const room = Math.max(0, cap - (stack.count || 0));
+    const accepted = Math.min(room, n);
+    stack.count = (stack.count || 0) + accepted;
+    const rejected = n - accepted;
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
     }
-    if (triggeredFull && !silent && typeof this.flash === 'function' && this.add) {
-      // Defer to the next tick so we don't race a flashLoot the caller fires
-      // immediately after this addToInv (e.g. chest-open does addToInv then
-      // flashLoot back-to-back; two add.text in the same synchronous chain
-      // exhausts Phaser's text canvas pool in test mode). Also keeps the
-      // nudge visually below the loot pop. Coalesce repeat triggers within a
-      // single frame so a bulk pickup only fires one 'bag full'.
+    // Flash whenever anything was rejected — that's the player attempting to
+    // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the
+    // caller fires right after addToInv (back-to-back add.text in the same
+    // synchronous chain exhausts Phaser's text-canvas pool under the harness).
+    // Coalesced so a bulk drop fires once.
+    if (rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
       if (!this._bagFullPending) {
         this._bagFullPending = true;
         setTimeout(() => {
@@ -2492,6 +2489,7 @@ class MapScene extends Phaser.Scene {
         }, 0);
       }
     }
+    return accepted;
   }
   buildInventoryDOM() {
     const PAGE = 5;
