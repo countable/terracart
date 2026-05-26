@@ -641,14 +641,13 @@ Render.drawObjects = function drawObjects(scene) {
   // white text on a translucent grey bg, with a soft black drop shadow on
   // the text. Fallback labels (unnamed POIs) render smaller, with tighter
   // padding so they read as secondary descriptors.
-  // "Stone tablet" look: dark cool-grey slab with chiselled cyan text. The
-  // pinkish pad behind it still grounds the label visually; the tablet floats
-  // a half-tone above it so the writing reads as engraved stone rather than
-  // painted-on cardboard.
-  const LABEL_BG       = 'rgb(60,58,68)';          // dark slate-blue stone
-  const LABEL_INK      = '#7cc8ff';                // vivid sky-cyan glyph
-  const LABEL_STROKE   = '#0a1828';                // near-black blue, chisel shadow
-  const LABEL_GLOW     = 'rgba(120,200,255,1)';    // bright cyan halo
+  // Light stone tablet with vivid saturated blue writing. Clean and flat —
+  // no glow, no chisel stroke — just bright royal blue on pale stone for
+  // maximum legibility. ~5:1 contrast on the chosen tone (WCAG AA).
+  const LABEL_BG       = 'rgb(202,206,212)';       // pale cool stone
+  const LABEL_INK      = '#1a3fbf';                // vivid royal blue
+  const LABEL_STROKE   = null;                     // no chisel highlight
+  const LABEL_GLOW     = null;                     // no halo
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -663,13 +662,9 @@ Render.drawObjects = function drawObjects(scene) {
         font: 'bold 10px monospace',
         color: LABEL_INK, backgroundColor: LABEL_BG,
         padding: { x: 4, y: 3 },
-        stroke: LABEL_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(50);
-      // Cyan glow halo + a deeper inner chisel: zero-offset shadowBlur on the
-      // fill makes the glyphs radiate light, while the dark stroke gives the
-      // engraved-in-stone look at the glyph edges. Together they read as a
-      // rune carved into a stone tablet.
-      tx.setShadow(0, 0, LABEL_GLOW, 6, true, true);
+      // Glow + stroke intentionally NOT applied — flat solid blue on stone
+      // reads cleaner than the earlier chisel-and-halo variant.
       scene.objectsContainer.add(tx);
       scene.chestLabelPool.push(tx);
     }

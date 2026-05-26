@@ -246,7 +246,12 @@ class MapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    this.viewCenterY = H / 2 - 40;            // raise to leave room for inventory bar
+    // Raise the viewport ~10% of canvas-height above centre so the bottom of
+    // the map doesn't collide with the inventory bar on tall phones. Was -40
+    // (just enough for the bar in the dev canvas), but real devices with a
+    // bottom address bar / home indicator squeeze the inventory upward and it
+    // overlapped the map. -124 ≈ 14.7% of H=844, comfortably clear.
+    this.viewCenterY = H / 2 - 124;
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
