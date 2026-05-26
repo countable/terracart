@@ -246,7 +246,7 @@ class MapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    this.viewCenterY = H / 2 - 40;            // raise to leave room for inventory bar
+    this.viewCenterY = H / 2 - 60;            // raise to leave room for inventory bar (extra 20px so the map's bottom edge doesn't kiss the bar on small iPhones)
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
