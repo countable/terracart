@@ -63,6 +63,7 @@
   <script src="worldgen.js"></script>
   <script src="crops.js"></script>
   <script src="items.js"></script>
+  <script src="shops.js"></script>
   <script src="loot.js"></script>
   <script>
     // Same anchor coords as app.js. Diverging from app.js → tile mismatch.
@@ -81,23 +82,39 @@
 
     // spawnInTile lives on the scene; reproduce just enough to estimate counts.
     // Same RNG seed + caught-set assumption (none caught) as app.js spawnInTile.
+    // KEEP IN SYNC with MapScene.spawnInTile — each rng() pull below mirrors
+    // an N-rolled-then-placed line there. Drift will silently miscount.
     function estimateCreatureCounts(tx, ty) {
       const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
-      // First two rng() pulls go to chickenN / cowN in app.js spawnInTile,
-      // before any tryPlace attempts. We don't need post-placement rng draws
-      // because we only count, not place.
+      // RNG draws happen in the order app.js spawnInTile calls them: each N
+      // pull happens first, then per-creature tryPlace consumes additional
+      // draws we ignore here (we just want target counts). Skip-draws aren't
+      // needed because we never inspect the rng after these reads.
       const chickenN = 75 + Math.floor(rng() * 50);
-      const cowN = 15 + Math.floor(rng() * 16);
-      return { chicken: chickenN, cow: cowN };
+      const cowN     = 15 + Math.floor(rng() * 16);
+      const catN     = 15 + Math.floor(rng() * 16);
+      const dogN     = 15 + Math.floor(rng() * 16);
+      // Wilderness fauna (deer / rabbit / crow / butterfly) have catch + drop
+      // wiring but no spawn site in app.js or worldgen.js yet — surfaced as 0
+      // so the missing spawn shows up in the dashboard rather than hiding.
+      return { chicken: chickenN, cow: cowN, cat: catN, dog: dogN,
+               deer: 0, rabbit: 0, crow: 0, butterfly: 0 };
     }
 
     function countTile(entry, tx, ty) {
-      const objKinds = {};
+      // Seed every kind we *expect* to track with 0 so the report always tells
+      // us "feature present but no source polygon here" vs. silent absence.
+      const objKinds = { chest: 0, house: 0, tower: 0, tree: 0, flora: 0,
+                         fruittree: 0, mineralrock: 0 };
       const chestsByTier = {};
       const chestsByCategory = {};
-      const wildByCrop = {};
+      const wildByCrop = { mushroom: 0 };
       const floraByDeco = {};
-      const houseByTier = {};
+      const houseByTier = { 9: 0, 11: 0, 12: 0 };
+      // Specialty-shop tally — derived from house.address by Shops.shopType.
+      // Only the small-residential tier (T.BUILDING = 9) is eligible; forts
+      // and civic slabs always return null.
+      const houseSpecialty = { blacksmith: 0, market: 0, trader: 0, plain: 0 };
 
       for (const o of (entry.objects || [])) {
         objKinds[o.kind] = (objKinds[o.kind] || 0) + 1;
@@ -112,6 +129,10 @@
         }
         if (o.kind === 'house' && o.tier != null) {
           houseByTier[o.tier] = (houseByTier[o.tier] || 0) + 1;
+          // Only small-tier houses pull a specialty; forts/civic come back null.
+          const sType = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+          if (sType) houseSpecialty[sType]++;
+          else if (o.tier === WorldGen.T.BUILDING) houseSpecialty.plain++;
         }
       }
       for (const w of (entry.wildplants || [])) {
@@ -123,7 +144,8 @@
       // for the count.)
       const parkingTreasures = (entry.parkingTreasures || []).length;
       const creatures = estimateCreatureCounts(tx, ty);
-      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco, houseByTier, parkingTreasures, creatures };
+      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco,
+               houseByTier, houseSpecialty, parkingTreasures, creatures };
     }
 
     function renderTileStats(stats, tx, ty, entry) {
@@ -131,11 +153,30 @@
       const rows = [];
       rows.push(`<tr><th>tile</th><td>${tx} / ${ty}, ${entry.cellsPerEdge}×${entry.cellsPerEdge} cells, ${entry.tileEdgeM?.toFixed?.(0)}m edge</td></tr>`);
       for (const k of Object.keys(stats.objKinds).sort()) {
-        rows.push(`<tr><th>${k}</th><td>${stats.objKinds[k]}</td></tr>`);
+        const n = stats.objKinds[k];
+        const cls = n === 0 ? ' class="muted"' : '';
+        rows.push(`<tr${cls}><th>${k}</th><td>${n}</td></tr>`);
       }
       if (Object.keys(stats.houseByTier).length) {
-        const breakdown = Object.keys(stats.houseByTier).sort().map(t => `${HOUSE_TIER_LABEL[t] || t}: ${stats.houseByTier[t]}`).join('<br>');
+        const breakdown = Object.keys(stats.houseByTier).sort().map(t => {
+          const n = stats.houseByTier[t];
+          const cls = n === 0 ? ' class="muted"' : '';
+          return `<span${cls}>${HOUSE_TIER_LABEL[t] || t}: ${n}</span>`;
+        }).join('<br>');
         rows.push(`<tr><th>↳ houses by tier</th><td>${breakdown}</td></tr>`);
+      }
+      // Specialty shop breakdown — derived from house.address by Shops.shopType.
+      // 'plain' is the residual: small houses with no specialty (just dwellings).
+      if (stats.houseSpecialty) {
+        const order = ['blacksmith', 'market', 'trader', 'plain'];
+        const tot = order.reduce((a, k) => a + (stats.houseSpecialty[k] || 0), 0);
+        const line = order.map(k => {
+          const n = stats.houseSpecialty[k] || 0;
+          const pct = tot ? ((n / tot) * 100).toFixed(1) : '0.0';
+          const cls = n === 0 ? ' class="muted"' : '';
+          return `<span${cls}>${k}: ${n} <span class="muted">(${pct}%)</span></span>`;
+        }).join('<br>');
+        rows.push(`<tr><th>↳ small-house specialties</th><td>${line}</td></tr>`);
       }
       if (Object.keys(stats.chestsByTier).length) {
         const tierLine = Object.keys(stats.chestsByTier).sort().map(t => `T${t}: ${stats.chestsByTier[t]}`).join(' &middot; ');
@@ -146,7 +187,9 @@
       const wildTotal = Object.values(stats.wildByCrop).reduce((a, b) => a + b, 0);
       if (wildTotal) rows.push(`<tr><th>wildplants total</th><td>${wildTotal}</td></tr>`);
       for (const c of Object.keys(stats.wildByCrop).sort()) {
-        rows.push(`<tr><th>↳ wild ${c}</th><td>${stats.wildByCrop[c]}</td></tr>`);
+        const n = stats.wildByCrop[c];
+        const cls = n === 0 ? ' class="muted"' : '';
+        rows.push(`<tr${cls}><th>↳ wild ${c}</th><td>${n}</td></tr>`);
       }
       for (const d of Object.keys(stats.floraByDeco).sort()) {
         rows.push(`<tr><th>flora ${d}</th><td>${stats.floraByDeco[d]}</td></tr>`);
@@ -155,7 +198,10 @@
         rows.push(`<tr><th>parking treasures</th><td>${stats.parkingTreasures}</td></tr>`);
       }
       for (const k of Object.keys(stats.creatures).sort()) {
-        rows.push(`<tr><th>${k}</th><td>${stats.creatures[k]} <span class="muted">(est. spawn target)</span></td></tr>`);
+        const n = stats.creatures[k];
+        const cls = n === 0 ? ' class="muted"' : '';
+        const note = n === 0 ? ' — no spawn site wired up' : '';
+        rows.push(`<tr${cls}><th>${k}</th><td>${n} <span class="muted">(est. spawn target${note})</span></td></tr>`);
       }
       document.getElementById('tile-stats').innerHTML = rows.join('');
     }
