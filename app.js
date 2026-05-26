@@ -2374,4 +2374,9 @@ const game = window.__game = new Phaser.Game({
   pixelArt: true,
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
+  // No audio in this game — disable both backends so Phaser uses the
+  // NoAudioSoundManager and never creates an AudioContext. Without this the
+  // browser logs a "failed to start the audio device" warning on iOS/Android
+  // because Web Audio can't start before the first user gesture.
+  audio: { noAudio: true, disableWebAudio: true },
 });
