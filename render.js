@@ -516,6 +516,19 @@ Render.drawObjects = function drawObjects(scene) {
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
   }
+  // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
+  // so the player can see what's there. The cell terrain is already rendered as rock
+  // (type 10) by drawCells; this adds the visual icon on top.
+  if (scene.placedRockSet) {
+    for (const key of scene.placedRockSet) {
+      const [ixStr, iyStr] = key.split('_');
+      const absIX = parseInt(ixStr, 10), absIY = parseInt(iyStr, 10);
+      const { x, y } = absCellCenterMeters(scene, absIX, absIY);
+      const dx = x - pWorldX, dy = y - pWorldY;
+      if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+      plantedList.push({ p: { x, y, crop: 'rockfruit', _placedRock: true }, dx, dy });
+    }
+  }
 
   // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
   // Hide objects that are temporarily gone:
@@ -677,6 +690,15 @@ Render.drawObjects = function drawObjects(scene) {
     const { p, dx, dy } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
+    // rather than the in-world growth art. Stage clamping is skipped.
+    if (p._placedRock) {
+      const frame = (CROP_ROW['rockfruit'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
+      if (s.texture.key !== 'crops') s.setTexture('crops');
+      s.setFrame(frame);
+      s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      return;
+    }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
     const ov = CROP_SPRITE[p.crop];
     if (ov && ov.custom) {
