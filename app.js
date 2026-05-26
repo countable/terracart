@@ -11,7 +11,7 @@ const START_LAT = 49.85438;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
-const W = 390, H = 844;
+const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 
 // --- Debug ---
 // Arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -23,9 +23,13 @@ const REACH_CREATURE_M  = 4;
 const REACH_WILDPLANT_M = 4;
 const REACH_OBJECT_M    = 3.5; // chest / tree
 const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
-// Outer "too far" gate from the player. Matches the visual reach outline drawn by
-// drawCells (15m, scene.REACH_CELL_M) so anything outside the boundary is unreachable.
-const REACH_FAR_M       = 15;
+// Outer "too far" gate. Matches the visual reach outline drawn by drawCells
+// (scene.REACH_CELL_M). Distance is measured from the player's CELL CENTRE
+// (not their feet) — same basis as the visual — so any cell shown inside the
+// reach outline is tappable, regardless of where in the cell the player stands.
+// 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
+// reach silhouette is a rounded square rather than a strict 3-cell diamond.
+const REACH_FAR_M       = 16;
 const REACH_TREASURE_M  = 7.5; // treasure mark
 
 // Compare-only squared distance — avoids sqrt.
@@ -49,8 +53,8 @@ const COLORS = {
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
   15: 0x7eb55a, // SCHOOL       (GRASSLAND) — schoolyard green, slightly mown
-  16: 0x7a7a82, // COMMERCIAL   (ROCKY)     — cool slate
-  17: 0x5a5a5e, // INDUSTRIAL   (ROCKY)     — dark slate
+  16: 0xc4a5b0, // COMMERCIAL   (ROCKY)     — warm pink-tan, brightness ≈ residential
+  17: 0xaa8d99, // INDUSTRIAL   (ROCKY)     — same hue, ~15% darker
   18: 0xa39065, // PLAYGROUND   (GRASSLAND) — mulchy tan
   19: 0x6fa850, // PITCH        (GRASSLAND) — vivid sports-field green
   20: 0x365a3a, // WETLAND      (FOREST)    — dim swampy green
@@ -188,16 +192,41 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.sword === undefined) this.save.relics.sword = null;
     if (this.save.relics.bow === undefined)   this.save.relics.bow = null;
     if (this.save.relics.staff === undefined) this.save.relics.staff = null;
+    if (this.save.relics.can === undefined)   this.save.relics.can = null;
+    if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
     // starterStock tracks which of those two items have been bought.
     this.save.starterStock = this.save.starterStock || { pick: true, axe: true };
-    this.save.armor  = this.save.armor  || { helmet: null, chest: null, legs: null, boots: null };
+    // Backfill armor slots (spread, not || , so a save missing one slot key
+    // still gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
+    this.save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(this.save.armor || {}) };
+    this.save.starterStock = { pick: true, axe: true, ...(this.save.starterStock || {}) };
+    // Always re-derive maxEnergy from the equipped armor — never trust a stale
+    // saved value (older saves may have had a lower maxEnergy than the current
+    // armor set warrants, which would silently cap energy below the real ceiling).
     const maxE = (typeof maxEnergyFromArmor === 'function')
       ? maxEnergyFromArmor(this.save.armor) : (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
-    if (this.save.maxEnergy == null) this.save.maxEnergy = maxE;
-    if (this.save.energy == null)    this.save.energy = this.save.maxEnergy;
+    this.save.maxEnergy = maxE;
+    if (!Number.isFinite(this.save.energy)) this.save.energy = maxE;
+    // Clamp current to whatever the new max allows.
+    this.save.energy = Math.min(maxE, Math.max(0, this.save.energy));
+    // Mark relics dirty so the first updateRelicRow call actually rebuilds.
+    this._relicsGen = 1;
+    // Soft cap on unbounded "history" save fields. A heavy player who walks
+    // for hours can balloon these to MBs and silently break localStorage
+    // writes (quota exceeded). Keeping the MOST RECENT N entries means the
+    // oldest opened chests / picked plants / treasures may eventually
+    // respawn if the player walks back, but the alternative is a totally
+    // broken save once quota hits.
+    const HISTORY_CAP = 5000;
+    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'placedRocks', 'chopped']) {
+      const arr = this.save[k];
+      if (Array.isArray(arr) && arr.length > HISTORY_CAP) {
+        this.save[k] = arr.slice(arr.length - HISTORY_CAP);
+      }
+    }
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     // Migrate older save (inv as string array, or stash object).
@@ -233,7 +262,7 @@ class MapScene extends Phaser.Scene {
     // the reachable area is symmetric around the visible character, not the
     // sprite's geometric center. ~3.75m at the default CELL_PX/cellM.
     this.feetOffsetM = (24 / CELL_PX) * this.cellM;
-    this.REACH_CELL_M = 15;   // cell taps: till / plant / water / harvest
+    this.REACH_CELL_M = 16;   // cell taps: till / plant / water / harvest. 16m = √(5²+15²)+ε includes (±1,±3) / (±3,±1) cells.
     this.REACH_OBJECT_M = 18; // object taps: chests, trees, houses, treasure
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
@@ -704,7 +733,11 @@ class MapScene extends Phaser.Scene {
     // Treasure mark — 1/200 tiles get a subtle X (deterministic per tile).
     // Stored on entry.treasure = { x, y, id } or null. Found state lives in save.foundTreasures.
     entry.treasure = null;
-    // Force a guaranteed X ~10m north of the player's start.
+    // Force a guaranteed X ~10m north of the player's start (whichever tile
+    // contains the spawn). All four locals here were previously undefined and
+    // every tile load threw "sx is not defined" — see the tile-fetch warnings.
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const sx = this.startWorldM.x, sy = this.startWorldM.y;
     if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
       entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
     } else if (rng() < 1 / 200) {
@@ -808,7 +841,13 @@ class MapScene extends Phaser.Scene {
     {
       const lp = this._lastFootprintM;
       const dx = this.playerM.x - lp.x, dy = this.playerM.y - lp.y;
-      if (dx * dx + dy * dy >= 2 * 2) {
+      // First GPS fix can jump hundreds of meters from playerM=(0,0); skip the
+      // single huge step so the inaugural footprint isn't dropped at world
+      // origin. 200m = ~13 cells, well outside any normal walking gait.
+      const tooFar = dx * dx + dy * dy > 200 * 200;
+      if (tooFar) {
+        this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+      } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
         this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.5 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
@@ -979,8 +1018,11 @@ class MapScene extends Phaser.Scene {
             : Math.random() * Math.PI * 2;
           tx = c.x + Math.cos(angle) * STEP_M;
           ty = c.y + Math.sin(angle) * STEP_M;
-          const cellIX = Math.floor(tx / this.cellM);
-          const cellIY = Math.floor(ty / this.cellM);
+          // Use the same tile-pixel basis (worldMetersToAbsCell) the rest of the
+          // game keys placedRockSet by — `Math.floor(tx / this.cellM)` is a
+          // different basis at non-equator latitudes (cellM != cellPxSize*mPerPx)
+          // and let creatures walk straight through placed rocks.
+          const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
           // Block on water (3) and any building tier (9/11/12).
@@ -1008,8 +1050,21 @@ class MapScene extends Phaser.Scene {
   // ran along one side of the road and grass along the other. Mode of a
   // symmetric radius-3 sample keeps the whole road segment one consistent tint.
   neighborNonRoadColor(wcx, wcy) {
+    // Memoise the per-cell result. Terrain is static after a tile loads, so
+    // the mode of a 7×7 sample never changes for a given (wcx, wcy). Without
+    // this, every road cell did ~48 `tileCache.get(string-key)` lookups +
+    // a Map allocation EVERY FRAME — measurable cause of tap-input lag once
+    // a viewport had ≥20 road cells. Cache is unbounded by design but each
+    // entry is small and only ever-rendered road cells are populated.
+    if (!this._neighborColorCache) this._neighborColorCache = new Map();
+    const key = wcx * 100000 + wcy;
+    const hit = this._neighborColorCache.get(key);
+    if (hit !== undefined) return hit;
     const R = 3;
-    const counts = new Map();   // terrain type → count
+    // Flat counts array beats Map for ~20-element domains; saves the per-call
+    // Map allocation and avoids string keys.
+    const counts = new Int16Array(32);
+    let bestT = -1, bestN = 0;
     for (let dy = -R; dy <= R; dy++) {
       for (let dx = -R; dx <= R; dx++) {
         if (dx === 0 && dy === 0) continue;
@@ -1023,14 +1078,16 @@ class MapScene extends Phaser.Scene {
         const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
         // Skip roads (any tier), path, and buildings — those are overlays.
         if (t === 7 || t === 8 || t === 13 || t === 14 || t === 9 || t === 11 || t === 12) continue;
-        counts.set(t, (counts.get(t) || 0) + 1);
+        const c = ++counts[t];
+        if (c > bestN) { bestN = c; bestT = t; }
       }
     }
-    let bestT = -1, bestN = 0;
-    for (const [t, n] of counts) {
-      if (n > bestN) { bestN = n; bestT = t; }
-    }
-    return bestT === -1 ? null : (COLORS[bestT] ?? null);
+    const color = bestT === -1 ? null : (COLORS[bestT] ?? null);
+    // Don't memoise a "no neighbour found" — the surrounding tiles may load
+    // moments later and we'd be stuck with a bad result. Only cache once we
+    // sampled at least one valid neighbour.
+    if (bestN > 0) this._neighborColorCache.set(key, color);
+    return color;
   }
 
   // === Drawing ===
@@ -1060,6 +1117,11 @@ class MapScene extends Phaser.Scene {
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
+    // Track catches by kind so loot.js chestRelicAllowedTiers can unlock the
+    // cow-gated Platinum tier. (Previously read but never written — Platinum
+    // was unreachable.)
+    this.save.caughtKinds = this.save.caughtKinds || {};
+    this.save.caughtKinds[c.kind] = (this.save.caughtKinds[c.kind] || 0) + 1;
     // If this was a player-released creature, also trim it from save.released so the
     // array doesn't grow unbounded across many release-and-recatch cycles.
     if (this.save.released) {
@@ -1068,7 +1130,8 @@ class MapScene extends Phaser.Scene {
     }
     // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 1.
     const yieldN = c.kind === 'chicken' ? 4 : 1;
-    this.addToInv(c.kind, yieldN); // stack into inventory (icon comes from ITEMS)
+    // addToInv already persists; passing silent=true to avoid a double write.
+    this.addToInv(c.kind, yieldN, true);
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
     // Animals have no Crops.png sprite, so the emoji icon stays as a fallback.
@@ -1220,11 +1283,21 @@ class MapScene extends Phaser.Scene {
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
   }
 
+  // Always derive the cap from currently-equipped armor (rather than reading
+  // a stale save.maxEnergy that may pre-date the latest armor change). All
+  // energy reads/writes funnel through this so the UI and the writer agree.
+  getMaxEnergy() {
+    const fromArmor = (typeof maxEnergyFromArmor === 'function')
+      ? maxEnergyFromArmor(this.save.armor) : null;
+    if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
+    return this.save.maxEnergy ?? STARTING_ENERGY;
+  }
+
   updateEnergyDOM() {
     const el = document.getElementById('energy');
     if (!el) return;
     const cur = Math.max(0, this.save.energy ?? 0);
-    const max = this.save.maxEnergy ?? STARTING_ENERGY;
+    const max = this.getMaxEnergy();
     const pct = max > 0 ? cur / max : 0;
     const color = pct > 0.5 ? '#a7ffb0' : (pct > 0.25 ? '#ffe066' : '#ff8a7a');
     el.style.color = color;
@@ -1248,13 +1321,91 @@ class MapScene extends Phaser.Scene {
   // Eat one of the selected food stack (consumes 1, restores FOOD_ENERGY[id]).
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects: pairy → arm chest compass for 5 min; rainberry → water all crops within 20m.
+  // === Consumables ============================================
+  // Play a flute (consumed): every wandering chicken / cow within 30m has its
+  // home position re-anchored to ~5m from the player so they wander toward you
+  // over the next few seconds. Doesn't teleport — that would feel cheesy.
+  playFlute() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'flute' || (sel.count ?? 0) <= 0) return false;
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    let lured = 0;
+    for (const entry of WorldGen.tileCache.values()) {
+      if (!entry.creatures) continue;
+      for (const c of entry.creatures) {
+        if (this.save.caught.includes(c.id)) continue;
+        if (c.kind !== 'chicken' && c.kind !== 'cow') continue;
+        const d = Math.hypot(c.x - pWX, c.y - pWY);
+        if (d > 30) continue;
+        // Re-anchor the wander home toward the player. The wanderer's next
+        // step picks a direction biased back toward _homeX/_homeY when it
+        // drifts beyond ~3 cells, so this pulls them in over a few ticks.
+        const ang = Math.atan2(pWY - c.y, pWX - c.x);
+        const r = 3;   // place home 3m from player
+        c._homeX = pWX + Math.cos(ang) * r;
+        c._homeY = pWY + Math.sin(ang) * r;
+        c._nextChooseT = 0;   // force a fresh step now
+        lured++;
+      }
+    }
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.showMessageModal({
+      title: '🪈 You play the flute',
+      body: lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer.` : 'Nothing stirs nearby.',
+    });
+    return true;
+  }
+
+  // Read a book (consumed): pick a random tip from PLAY_TIPS, OR — 50% of the
+  // time when an unopened chest exists within ~250 paces — reveal directional
+  // hint to the nearest one ("about 47 paces northwest"). Either way it's
+  // never useless: even repeat-readers learn something or get a hint.
+  readBook() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
+    let body;
+    let title = '📖 You crack open the book';
+    // Try the directional-hint branch first (coin flip).
+    if (Math.random() < 0.5) {
+      const chest = this.findNearestUnopenedChest();
+      if (chest) {
+        const pWX = this.startWorldM.x + this.playerM.x;
+        const pWY = this.startWorldM.y + this.playerM.y;
+        const dxM = chest.x - pWX, dyM = chest.y - pWY;
+        const distM = Math.hypot(dxM, dyM);
+        if (distM <= 250) {
+          // ~1 pace = 0.75m, so paces ≈ distM / 0.75.
+          const paces = Math.max(1, Math.round(distM / 0.75));
+          const ang = (Math.atan2(dyM, dxM) * 180 / Math.PI + 450) % 360;   // 0=N, CW
+          const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+          const dir = dirs[Math.round(ang / 45) % 8];
+          const placeName = chest.name ? rusticifyName(chest.name) : 'a chest';
+          body = `"${placeName} lies about ${paces} paces ${dir}."`;
+        }
+      }
+    }
+    if (!body) {
+      // Generic tip from the pool.
+      const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
+      body = `"${tip}"`;
+    }
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.showMessageModal({ title, body });
+    return true;
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const restore = FOOD_ENERGY[sel.id];
     if (restore == null) return false;
     const before = this.save.energy ?? 0;
-    this.save.energy = Math.min(this.save.maxEnergy ?? STARTING_ENERGY, before + restore);
+    this.save.energy = Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
     consumeSelected(this.save);
     // Special effects.
@@ -1358,7 +1509,7 @@ class MapScene extends Phaser.Scene {
     box.style.cssText =
       'min-width:260px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
       'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;';
-    const cur = this.save.energy ?? 0, max = this.save.maxEnergy ?? STARTING_ENERGY;
+    const cur = this.save.energy ?? 0, max = this.getMaxEnergy();
     const slotRow = (kind, slot) => {
       const eq = (kind === 'relic' ? this.save.relics : this.save.armor)?.[slot];
       const def = gearDef(kind, slot);
@@ -1711,10 +1862,11 @@ class MapScene extends Phaser.Scene {
       } else {
         this.save.armor[offer.slot] = { tier: offer.tier };
         const newMax = maxEnergyFromArmor(this.save.armor);
-        const bump = Math.max(0, newMax - (this.save.maxEnergy ?? STARTING_ENERGY));
+        const bump = Math.max(0, newMax - this.getMaxEnergy());
         this.save.maxEnergy = newMax;
         this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
       }
+      this.markRelicsDirty();
       // Starter stock: mark the slot as bought so the shop rotates to the next item.
       if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
       // Clear the persisted offer so the next tap generates a fresh one.
@@ -1978,12 +2130,16 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('pointercancel', release);
     pad.addEventListener('lostpointercapture', reset);
   }
+  // Bump _relicsGen at every site that writes save.relics / save.armor so the
+  // per-frame row rebuild can early-out by comparing a counter instead of
+  // recomputing a join-string of every slot every frame.
+  markRelicsDirty() { this._relicsGen = (this._relicsGen || 0) + 1; }
   updateRelicRow() {
+    const gen = this._relicsGen || 0;
+    if (this._relicRowGen === gen) return;
+    this._relicRowGen = gen;
     const relics = this.save.relics || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];
-    const sig = order.map(s => `${s}:${relics[s]?.tier ?? 0}`).join(',');
-    if (this._relicRowSig === sig) return;
-    this._relicRowSig = sig;
     document.getElementById('relic-row')?.remove();
     const owned = order.filter(s => relics[s]);
     if (!owned.length) return;
@@ -2069,7 +2225,7 @@ class MapScene extends Phaser.Scene {
     }
   }
   buildInventoryDOM() {
-    const PAGE = 6;
+    const PAGE = 5;
     const game = document.getElementById('game');
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
@@ -2180,7 +2336,7 @@ class MapScene extends Phaser.Scene {
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    const PAGE = 6;
+    const PAGE = 5;
     const startIdx = this.save.invPage * PAGE;
     [...bar.querySelectorAll('button[data-slot]')].forEach(el => {
       const i = +el.dataset.slot;

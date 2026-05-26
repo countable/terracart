@@ -454,9 +454,19 @@ Render.drawCells = function drawCells(scene) {
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
-  for (const entry of WorldGen.tileCache.values()) {
-    drawX(entry.treasure);
-    if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
+  // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
+  // already culls by viewport, but iterating all cached tiles every frame
+  // gets expensive once a session has visited many tiles.
+  {
+    const tpc = scene.playerToWorldCell();
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tpc.tx + dtx}/${tpc.ty + dty}`);
+        if (!entry) continue;
+        drawX(entry.treasure);
+        if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
+      }
+    }
   }
 };
 
@@ -487,32 +497,45 @@ Render.drawObjects = function drawObjects(scene) {
     list.push({ x: o.x, y: o.y });
     return false;
   };
-  for (const entry of WorldGen.tileCache.values()) {
-    if (entry.objects) {
-      for (const o of entry.objects) {
-        const dx = o.x - pWorldX, dy = o.y - pWorldY;
-        if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-        if (o.kind === 'chest' && isDupChest(o)) continue;
-        // Picked flowers stay gone — skip rendering them.
-        if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
-        objList.push({ o, dx, dy });
+  // Iterate only the player's 3×3 tile neighbourhood instead of every entry
+  // in WorldGen.tileCache. The cache grows unboundedly as the player walks —
+  // a long-running session can hold 50+ visited tiles with ~50k objects each,
+  // so iterating-all here was a per-frame O(visited-items) cost (this caused
+  // the random hangs the user reported). 9 tiles strictly cover the 11-cell
+  // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
+  // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
+  const caughtSet = new Set(scene.save.caught);
+  const pc = scene.playerToWorldCell();
+  for (let dty = -1; dty <= 1; dty++) {
+    for (let dtx = -1; dtx <= 1; dtx++) {
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+      if (!entry) continue;   // tile not loaded yet
+      if (entry.objects) {
+        for (const o of entry.objects) {
+          const dx = o.x - pWorldX, dy = o.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          if (o.kind === 'chest' && isDupChest(o)) continue;
+          // Picked flowers stay gone — skip rendering them.
+          if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
+          objList.push({ o, dx, dy });
+        }
       }
-    }
-    if (entry.creatures) {
-      for (const c of entry.creatures) {
-        if (scene.save.caught.includes(c.id)) continue;
-        const dx = c.x - pWorldX, dy = c.y - pWorldY;
-        if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-        creatureList.push({ c, dx, dy });
+      if (entry.creatures) {
+        for (const c of entry.creatures) {
+          if (caughtSet.has(c.id)) continue;
+          const dx = c.x - pWorldX, dy = c.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          creatureList.push({ c, dx, dy });
+        }
       }
-    }
-    // Wild plants render as planted crops at the mature stage (col 4).
-    if (entry.wildplants) {
-      for (const wp of entry.wildplants) {
-        if (pickedSet.has(wp.id)) continue;
-        const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
-        if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
+      // Wild plants render as planted crops at the mature stage (col 4).
+      if (entry.wildplants) {
+        for (const wp of entry.wildplants) {
+          if (pickedSet.has(wp.id)) continue;
+          const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
+        }
       }
     }
   }
@@ -541,10 +564,13 @@ Render.drawObjects = function drawObjects(scene) {
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
   const openedSet = new Set(scene.save.opened);
-  // Trees set o.chopped = true in-memory when the chop progress wheel completes.
+  // Trees flag o.chopped = true in-memory when the chop progress wheel completes
+  // (cheap), AND now also persist into save.chopped so a tile re-rasterize
+  // doesn't regrow them. Check both — save.chopped is the source of truth.
+  const choppedSet = new Set(scene.save.chopped || []);
   const filteredObj = objList.filter(({ o }) =>
     !(o.kind === 'chest' && openedSet.has(o.id)) &&
-    !(o.kind === 'tree'  && o.chopped)
+    !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id)))
   );
   filteredObj.sort((a, b) => a.dy - b.dy);
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
@@ -615,8 +641,14 @@ Render.drawObjects = function drawObjects(scene) {
   // white text on a translucent grey bg, with a soft black drop shadow on
   // the text. Fallback labels (unnamed POIs) render smaller, with tighter
   // padding so they read as secondary descriptors.
-  const LABEL_BG    = 'rgb(70,70,70)';   // full opacity — pad labels read crisply on any terrain
-  const LABEL_INK   = '#5ab9ff';
+  // "Stone tablet" look: dark cool-grey slab with chiselled cyan text. The
+  // pinkish pad behind it still grounds the label visually; the tablet floats
+  // a half-tone above it so the writing reads as engraved stone rather than
+  // painted-on cardboard.
+  const LABEL_BG       = 'rgb(60,58,68)';          // dark slate-blue stone
+  const LABEL_INK      = '#7cc8ff';                // vivid sky-cyan glyph
+  const LABEL_STROKE   = '#0a1828';                // near-black blue, chisel shadow
+  const LABEL_GLOW     = 'rgba(120,200,255,1)';    // bright cyan halo
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -628,12 +660,16 @@ Render.drawObjects = function drawObjects(scene) {
     let tx = scene.chestLabelPool[li];
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
-        font: '10px monospace',
+        font: 'bold 10px monospace',
         color: LABEL_INK, backgroundColor: LABEL_BG,
-        padding: { x: 3, y: 2 },
+        padding: { x: 4, y: 3 },
+        stroke: LABEL_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(50);
-      // Soft black drop shadow on the text glyphs themselves.
-      tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, false, true);
+      // Cyan glow halo + a deeper inner chisel: zero-offset shadowBlur on the
+      // fill makes the glyphs radiate light, while the dark stroke gives the
+      // engraved-in-stone look at the glyph edges. Together they read as a
+      // rune carved into a stone tablet.
+      tx.setShadow(0, 0, LABEL_GLOW, 6, true, true);
       scene.objectsContainer.add(tx);
       scene.chestLabelPool.push(tx);
     }
@@ -741,11 +777,13 @@ Render.drawObjects = function drawObjects(scene) {
   for (const { p, dx, dy } of timerList) {
     let t = scene.plantedTimerPool[ti];
     if (!t) {
+      // Origin (1,1) anchors the badge at its bottom-right — set once at pool
+      // creation rather than every frame (it doesn't vary by item).
       t = scene.add.text(0, 0, '', {
         font: 'bold 9px ui-monospace, monospace',
         color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 2, y: 1 },
-      }).setDepth(60);
+      }).setOrigin(1, 1).setDepth(60);
       scene.plantedContainer.add(t);
       scene.plantedTimerPool.push(t);
     }
@@ -753,10 +791,9 @@ Render.drawObjects = function drawObjects(scene) {
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     const remaining = STAGE_HOLD_MS - (now - p.watered_t);
     const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
-    // Bottom-right of the tile (origin 1,1 anchors at the badge's bottom-right).
-    // Inset 1px on both edges so the badge sits just inside the cell border.
+    // Bottom-right of the tile, inset 1px so the badge sits just inside the
+    // cell border (origin (1,1) was set at pool creation).
     t.setText(label)
-     .setOrigin(1, 1)
      .setPosition(Math.round(sx + CELL_PX / 2 - 1), Math.round(sy + CELL_PX / 2 - 1))
      .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
      .setVisible(true);

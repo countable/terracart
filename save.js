@@ -27,8 +27,15 @@ const SAVE_DEBOUNCE_MS = 500;
 
 function flushSave() {
   if (_pendingSave) {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
-    _pendingSave = null;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
+      _pendingSave = null;
+    } catch (e) {
+      // QuotaExceededError (~5MB), private-mode disabled, etc. Keep _pendingSave
+      // around so a later persistSave call can retry; surface to console so the
+      // failure isn't completely silent.
+      console.warn('flushSave failed:', e?.message || e);
+    }
   }
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
 }

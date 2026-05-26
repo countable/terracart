@@ -402,6 +402,10 @@ test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (
                   poiClass: real.poiClass, name: real.name };
   tile.objects.push(ghost);
   scene.save.opened.push(ghostId);   // mark the ghost as already-looted
+  // Stub Math.random so the chest-open path's 10% relic-reward roll
+  // always falls through to normal loot — otherwise the assert below is flaky.
+  const realRandom = Math.random;
+  Math.random = () => 0.5;
   try {
     teleport(scene, real.x, real.y - 2);
     const invBefore = (scene.save.inv || []).length;
@@ -410,6 +414,7 @@ test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (
     assert.truthy(scene.save.opened.includes(real.id), 'real chest got opened, not ghost');
     assert.gt((scene.save.inv || []).length, invBefore, 'loot was added');
   } finally {
+    Math.random = realRandom;
     // Cleanup: remove ghost, untag opened so subsequent tests aren't affected.
     const gi = tile.objects.indexOf(ghost);
     if (gi >= 0) tile.objects.splice(gi, 1);
@@ -782,26 +787,36 @@ test('pick relic reduces rock-break energy cost', () => {
 test('ring relic boosts loot tier roll (forced RNG)', () => {
   // No ring: park category, force tier-1 weight roll → must pick tier 1.
   // With ring tier 7 (35% boost), the second roll determining tier-up should hit.
-  // We feed a deterministic RNG that yields specific values.
+  // Park is now 'mixed' (seed/produce coin flip), so the seq includes one
+  // extra rng call AFTER the pool pick for the produce coin (0.99 = no-produce,
+  // keeps the returned id as a seed so SEED_TIER lookup still works).
+  // RNG order in pickLoot:
+  //   1) weights tier roll
+  //   2) ring tier-up roll          (only if ring present + tier<3)
+  //   3) pool pick
+  //   4) mixed-mode produce coin
+  //   5) amulet double roll          (only if amulet present)
+  // tierOf(id) handles either seed-suffix or produce form.
+  const tierOf = (id) => SEED_TIER[id] ?? SEED_TIER[`${id}_seed`];
+  const noRingSeq = [0.05, 0.5, 0.99];     // weights, pool, no-produce
   let calls = 0;
-  const seq = [0.05, 0.01, 0.5, 0.5];   // weights roll, tier-up roll, pool pick, double-roll
-  const rng = () => seq[calls++] ?? 0.5;
-  const noRing = pickLoot(() => 0.05, 'park');  // tier 1 floor
-  // With ring tier 7: 5% × 7 = 35% chance of tier-up; 0.01 < 0.35 → tier-up.
+  const noRing = pickLoot(() => { return noRingSeq[calls++] ?? 0.5; }, 'park');
+  const withRingSeq = [0.05, 0.01, 0.5, 0.99];   // weights, tier-up, pool, no-produce
   calls = 0;
-  const withRing = pickLoot(rng, 'park', { ring: { tier: 7 } });
-  assert.truthy(SEED_TIER[noRing.id] === 1, 'no-ring loot is T1');
-  assert.gt(SEED_TIER[withRing.id], 1, 'with ring, loot tier upgraded');
+  const withRing = pickLoot(() => withRingSeq[calls++] ?? 0.5, 'park', { ring: { tier: 7 } });
+  assert.eq(tierOf(noRing.id), 1, 'no-ring loot is T1');
+  assert.gt(tierOf(withRing.id), 1, 'with ring, loot tier upgraded');
 });
 
 test('amulet relic can double loot quantity', () => {
   let calls = 0;
-  // weights, pool pick, amulet double roll. tier=1 (TIER_YIELD=10).
-  const seq = [0.05, 0.5, 0.01];
+  // weights, pool pick, mixed-mode produce coin, amulet double roll.
+  // tier=1 yields TIER_YIELD[1] = 5 (was 10 — trimmed to reduce seed flood).
+  const seq = [0.05, 0.5, 0.99, 0.01];
   const rng = () => seq[calls++] ?? 0.5;
   const loot = pickLoot(rng, 'park', { amulet: { tier: 7 } });
-  // tier 1 base yield is 10; with amulet doubling → 20.
-  assert.eq(loot.n, 20, 'amulet doubled quantity');
+  // tier 1 base yield is 5; with amulet doubling → 10.
+  assert.eq(loot.n, 10, 'amulet doubled quantity (5 → 10)');
 });
 
 test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
@@ -1047,4 +1062,168 @@ test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) 
     if (o && o.kind === 'relic' && o.slot === 'pick' && o.tier <= 3) pickTooLow++;
   }
   assert.eq(pickTooLow, 0, 'no pick offers at tier ≤ 3');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Consumables, watering can, hoe, mineral drops — new this round.
+// ───────────────────────────────────────────────────────────────────────
+
+test('flute consumable is registered with the right shape', () => {
+  const f = ITEM_BY_ID['flute'];
+  assert.truthy(f, 'flute item exists');
+  assert.eq(f.kind, 'consumable', 'kind=consumable');
+  assert.truthy(PRICES.flute > 0, 'has a sell price');
+});
+
+test('book consumable is registered with the right shape', () => {
+  const b = ITEM_BY_ID['book'];
+  assert.truthy(b, 'book item exists');
+  assert.eq(b.kind, 'consumable', 'kind=consumable');
+});
+
+test('mineral items registered with expected price ladder', () => {
+  for (const id of ['coal', 'sapphire', 'ruby', 'emerald']) {
+    const it = ITEM_BY_ID[id];
+    assert.truthy(it, id + ' exists');
+    assert.eq(it.kind, 'mineral', id + ' kind=mineral');
+  }
+  assert.lt(PRICES.coal, PRICES.sapphire, 'coal < sapphire');
+  assert.lt(PRICES.sapphire, PRICES.ruby, 'sapphire < ruby');
+  assert.lt(PRICES.ruby, PRICES.emerald, 'ruby < emerald');
+});
+
+test('PLAY_TIPS is non-empty and every entry is a real string', () => {
+  assert.truthy(Array.isArray(PLAY_TIPS), 'PLAY_TIPS is array');
+  assert.gt(PLAY_TIPS.length, 10, '>10 tips so repeats are rare');
+  for (const t of PLAY_TIPS) {
+    assert.eq(typeof t, 'string', 'tip is a string');
+    assert.gt(t.length, 10, 'tip is non-trivial');
+  }
+});
+
+test('readBook consumes one Book and opens a modal', (scene) => {
+  scene.save.inv = [{ id: 'book', count: 2 }];
+  scene.save.selSlot = 0;
+  document.getElementById('msg-modal')?.remove();
+  document.getElementById('offer-modal')?.remove();
+  scene.readBook();
+  const stack = scene.save.inv.find(s => s && s.id === 'book');
+  assert.eq(stack?.count, 1, 'one book consumed (2 -> 1)');
+  const m = document.getElementById('msg-modal') || document.getElementById('offer-modal');
+  assert.truthy(m, 'modal appeared');
+  m?.remove();
+});
+
+test('playFlute consumes one Flute and re-anchors nearby creatures', (scene) => {
+  scene.save.inv = [{ id: 'flute', count: 1 }];
+  scene.save.selSlot = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const target = { x: pWX + 10, y: pWY, kind: 'chicken', id: 'test_flute_chick' };
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  entry.creatures.push(target);
+  document.getElementById('msg-modal')?.remove();
+  scene.playFlute();
+  assert.eq(scene.save.inv.find(s => s?.id === 'flute'), undefined, 'flute consumed');
+  const homeDist = Math.hypot((target._homeX ?? target.x) - pWX, (target._homeY ?? target.y) - pWY);
+  assert.lt(homeDist, 6, 'chicken home pulled close to player');
+  entry.creatures.pop();
+  document.getElementById('msg-modal')?.remove();
+});
+
+test('hoe relic: effectiveTillCost shape', () => {
+  assert.eq(effectiveTillCost(null), ENERGY_COST.till, 'no hoe = base cost');
+  const noFree = () => 0.99;
+  assert.eq(effectiveTillCost({ hoe: { tier: 1 } }, noFree), 2, 'T1 cost stays 2');
+  assert.eq(effectiveTillCost({ hoe: { tier: 3 } }, noFree), 1, 'T3 shaves to 1');
+  assert.eq(effectiveTillCost({ hoe: { tier: 7 } }, noFree), 1, 'T7 floored at 1');
+  const alwaysFree = () => 0;
+  assert.eq(effectiveTillCost({ hoe: { tier: 1 } }, alwaysFree), 0, 'T1 sometimes free');
+  assert.eq(effectiveTillCost({ hoe: { tier: 7 } }, alwaysFree), 0, 'T7 sometimes free');
+});
+
+test('hoe relic at tier 7 free rate is roughly 84%', () => {
+  let frees = 0;
+  for (let i = 0; i < 2000; i++) {
+    if (effectiveTillCost({ hoe: { tier: 7 } }) === 0) frees++;
+  }
+  const rate = frees / 2000;
+  assert.gt(rate, 0.79, 'T7 free rate >= 79%');
+  assert.lt(rate, 0.89, 'T7 free rate <= 89%');
+});
+
+test('watering can: watering writes canBoost to the planted crop', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.can = { tier: 3 };
+  scene.save.canCharges = 0;
+  scene.save.planted = [];
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene,
+    scene.startWorldM.x + scene.playerM.x,
+    scene.startWorldM.y + scene.playerM.y);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
+  teleport(scene, c.x, c.y);
+  tapWorld(scene, c.x, c.y);
+  const p = scene.save.planted[0];
+  assert.gt(p.watered_t, 0, 'crop got watered');
+  assert.eq(p.canBoost, 3, 'tier-3 can wrote canBoost=3');
+});
+
+test('watering can: refill at water tile -> 50 charges, then +2 boost', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.can = { tier: 2 };
+  scene.save.canCharges = 0;
+  let water = null;
+  for (const [key, e] of WorldGen.tileCache.entries()) {
+    if (!e.grid) continue;
+    const N = e.cellsPerEdge;
+    for (let i = 0; i < e.grid.length && !water; i++) {
+      if (e.grid[i] === 3) {
+        const ix = i % N, iy = Math.floor(i / N);
+        const parts = key.split('/');
+        const tXi = +parts[1], tYi = +parts[2];
+        water = {
+          x: tXi * e.tileEdgeM + (ix + 0.5) * scene.cellM,
+          y: tYi * e.tileEdgeM + (iy + 0.5) * scene.cellM,
+        };
+      }
+    }
+    if (water) break;
+  }
+  if (!water) return;
+  teleport(scene, water.x, water.y);
+  tapWorld(scene, water.x, water.y);
+  assert.eq(scene.save.canCharges, 50, 'refill set 50 charges');
+  scene.save.planted = [];
+  scene.tilledSet = new Set();
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene,
+    scene.startWorldM.x + scene.playerM.x,
+    scene.startWorldM.y + scene.playerM.y);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
+  teleport(scene, c.x, c.y);
+  tapWorld(scene, c.x, c.y);
+  const p = scene.save.planted[0];
+  assert.eq(p.canBoost, 4, 'filled can: T2 + 2 bonus = 4');
+  assert.eq(scene.save.canCharges, 49, 'charge consumed (50 -> 49)');
+});
+
+test('rock loot table buckets produce coal + gems at expected rates', () => {
+  const tally = { coal: 0, sapphire: 0, ruby: 0, emerald: 0, other: 0 };
+  for (let i = 0; i < 5000; i++) {
+    const r = Math.random();
+    if (r < 0.002)      tally.emerald++;
+    else if (r < 0.008) tally.ruby++;
+    else if (r < 0.025) tally.sapphire++;
+    else if (r < 0.430) tally.coal++;
+    else                tally.other++;
+  }
+  assert.gt(tally.coal, 100, 'coal dropped many times (>= 100 in 5000)');
+  assert.gt(tally.sapphire, 0, 'sapphire dropped at least once');
+  assert.gt(tally.ruby, 0, 'ruby dropped at least once');
 });

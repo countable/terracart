@@ -97,6 +97,17 @@ const ITEMS = [
   { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce', icon: '🌼' },
+  // Consumables — used on yourself (tap your own feet with one selected).
+  // Flute: lures wandering chickens + cows within 30m toward you.
+  // Book:  reveals a play tip or a directional hint to a nearby chest.
+  { id: 'flute', name: 'Flute', kind: 'consumable', icon: '🪈' },
+  { id: 'book',  name: 'Book',  kind: 'consumable', icon: '📖' },
+  // Rock-break loot. Coal is common + low value, gems are rare + high value.
+  // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
+  { id: 'coal',     name: 'Coal',     kind: 'mineral', icon: '⚫' },
+  { id: 'sapphire', name: 'Sapphire', kind: 'mineral', icon: '🔵' },
+  { id: 'ruby',     name: 'Ruby',     kind: 'mineral', icon: '🔴' },
+  { id: 'emerald',  name: 'Emerald',  kind: 'mineral', icon: '🟢' },
 ];
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
@@ -129,6 +140,15 @@ const PRICES = {
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  // ── Consumables ──────────────────────────────────────────
+  // Bought from shops occasionally; small sell value if you hoard them.
+  flute: 12,
+  book:  20,
+  // ── Rock-break minerals ──────────────────────────────────
+  coal:      3,
+  sapphire:  30,
+  ruby:      80,
+  emerald:  200,
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
@@ -138,6 +158,46 @@ const STARTING_MONEY = 25;
 // below). Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low.
+// === Book of Tips ============================================
+// Non-obvious play tips revealed when the player uses a Book consumable.
+// The Book handler in interact.js mixes ~50% of these with ~50% directional
+// chest hints (computed live from the nearest unopened chest).
+const PLAY_TIPS = [
+  // Shop / trade
+  'Select an empty inventory slot, then tap a house to trade or buy.',
+  'Houses have different deals — some sell produce, others seeds.',
+  'Castles always sell relics (and never run out of stock).',
+  'Forts handle up to 5 deals per hour. Houses just 1.',
+  'A trader who wants an item you don\'t own marks the deal with an ✗.',
+  // Relic effects
+  'A Sword raises your sell prices — up to 100% at Frost tier.',
+  'Bow or Staff drops the markup traders charge you — best tier wins.',
+  'Equip a Pickaxe to break rocks, an Axe to chop trees.',
+  'A Ring nudges chest loot up a tier when it triggers.',
+  'An Amulet sometimes doubles the loot quantity from chests.',
+  'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
+  // Progression / gating
+  'Harvest a sunflower to unlock Gold relics from chests and shops.',
+  'Catch a cow to unlock Platinum.',
+  'Harvest a fireflower for Crimson; iceflower for Frost.',
+  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
+  // Energy / food
+  'Rainberry waters every crop within 20m when you eat it.',
+  'Pairy points the way to the nearest undiscovered chest for 5 minutes.',
+  'Sunflower stew restores +150 energy — the biggest meal in the world.',
+  // Farming
+  'Crops auto-advance after 60 min if watered, even while you\'re away.',
+  'Tilling refuses a cell holding a wildplant, rock, or building.',
+  'Tap a tilled empty cell with no seed selected to un-till it.',
+  // World / map
+  'Treasure X marks favour residential cells. Look there first.',
+  'Wild rockfruit grows in residential streets; shrubs in parks and woods.',
+  'Long grass only grows on plain grassland — never under trees.',
+  // Combat / discovery
+  'Hold rockfruit and tap an empty tile to drop a stone fence.',
+  'Tap an animal you released to catch it again.',
+];
+
 const STARTING_ENERGY = 100;
 const FOOD_ENERGY = {
   longgrass:  2,
@@ -200,6 +260,17 @@ const RELIC_DEFS = {
              effectKey: 'buyPrice',      blurb: 'better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'better buy prices' },
+  // Watering can — when equipped, every watering tap on a crop "improves" it.
+  // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
+  // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
+  // Boost is consumed at harvest: every quality-tier raises the extra-seed
+  // chance by 10% (base 25%) and adds +floor(qual/3) to the produce yield.
+  can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
+             effectKey: 'wateringQuality', blurb: 'higher-quality watered crops' },
+  // Hoe — reduces the energy cost of tilling. Each tier shaves 1/3 of the cost
+  // (floored at 1) AND adds a per-tier chance of spending zero energy at all.
+  hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
+             effectKey: 'tillSpeed',     blurb: 'cheaper tilling, sometimes free' },
 };
 const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
@@ -254,6 +325,18 @@ function effectivePickCost(relics) {
   const eq = relics?.pick;
   if (!eq) return ENERGY_COST.rockBreak;
   return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
+}
+// Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
+// floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
+// + 1 energy when not free (avg ~0.16 per till). `rng` is injected so tests
+// can hold the roll fixed.
+function effectiveTillCost(relics, rng) {
+  const eq = relics?.hoe;
+  const base = ENERGY_COST.till;
+  if (!eq) return base;
+  const random = rng || Math.random;
+  if (random() < eq.tier * 0.12) return 0;
+  return Math.max(1, base - Math.floor(eq.tier / 3));
 }
 // Tool work-wheel duration. Bare hands take 10s; a wood tool of the right
 // kind (slot='pick' / 'axe') brings it to 3s, and each tier shaves another

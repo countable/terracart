@@ -47,10 +47,49 @@ function consumeSelected(save, n = 1) {
 
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
+  // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
+  // the progress wheel can't be re-dispatched a frame later and immediately
+  // cancel it (a real risk on double-tap or held-pointer interactions).
   { name: 'work-progress', try: (ctx) => {
-    if (!ctx.scene._workProgress) return false;
+    const wp = ctx.scene._workProgress;
+    if (!wp) return false;
+    if (performance.now() - (wp.startT || 0) < 150) return true;   // swallow, don't cancel
     ctx.scene.cancelWorkProgress();
     return true;
+  }},
+
+  // -0.6) Flute / Book — tap your own feet (≤1.5m) with one selected to use it.
+  // These run BEFORE eat so the same "tap self with selected item" gesture
+  // routes to the right consumable based on the item id.
+  { name: 'use-consumable', try: (ctx) => {
+    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const dx = wm.x - pWorldX, dy = wm.y - pWorldY;
+    if (dx * dx + dy * dy > 1.5 * 1.5) return false;
+    const sel = getSelectedSlot(save);
+    if (!sel || (sel.count ?? 0) <= 0) return false;
+    if (sel.id === 'flute') {
+      scene.showOfferModal({
+        title: 'Play the flute?',
+        get: '🪈 lure nearby creatures',
+        cost: `1× 🪈 Flute`,
+        canAfford: true,
+        acceptLabel: 'Play',
+        onAccept: () => scene.playFlute(),
+      });
+      return true;
+    }
+    if (sel.id === 'book') {
+      scene.showOfferModal({
+        title: 'Read the book?',
+        get: '📖 a tip from the elders',
+        cost: `1× 📖 Book`,
+        canAfford: true,
+        acceptLabel: 'Read',
+        onAccept: () => scene.readBook(),
+      });
+      return true;
+    }
+    return false;
   }},
 
   // -0.5) Eat — tap the player's own feet (within 1.5m) with a food selected.
@@ -64,11 +103,16 @@ const TAP_HANDLERS = [
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const restore = (typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
     if (restore == null) return false;
+    const item = ITEM_BY_ID[sel.id];
+    // Items with a more-specific cell action take priority over eat — seeds go
+    // to plant, rockfruit to place-rock, etc. Without this gate the player
+    // couldn't till/plant the cell directly under their feet while holding
+    // food, because eat would intercept the tap.
+    if (item && (item.kind === 'seed' || item.id === 'rockfruit')) return false;
     // Don't let a stray tap consume food at full energy for zero gain.
     const curE = save.energy ?? 0;
     const maxE = save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
     if (curE >= maxE) { scene.flash('not hungry', sx, sy); return true; }
-    const item = ITEM_BY_ID[sel.id];
     scene.showOfferModal({
       title: 'Eat this?',
       get: `⚡ +${restore} energy`,
@@ -117,18 +161,19 @@ const TAP_HANDLERS = [
   // 1) Catch a creature within 4m of tap.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    return WorldGen.forEachItem('creatures', (c) => {
+    // First pass: find the closest in-range uncaught creature. Two-pass so the
+    // energy gate doesn't short-circuit iteration mid-scan (used to silently
+    // skip the next creature if the first failed the energy check).
+    let target = null, bestD2 = REACH_CREATURE_M * REACH_CREATURE_M;
+    WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
-      if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
-        // Spend catch-energy BEFORE the catch so a tired player can't grab a
-        // chicken for free. spendEnergy returns true on success / false-with-flash.
-        if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
-        // catchCreature mutates + persists itself; consume the tap without
-        // setting ctx.dirty (would double-flush via the dispatcher's final persistSave).
-        scene.catchCreature(c, sx, sy);
-        return true;
-      }
-    }) || false;
+      const d2 = distM2(c.x, c.y, wm.x, wm.y);
+      if (d2 < bestD2) { bestD2 = d2; target = c; }
+    });
+    if (!target) return false;
+    if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
+    scene.catchCreature(target, sx, sy);
+    return true;
   }},
 
   // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
@@ -151,7 +196,11 @@ const TAP_HANDLERS = [
       // Both: 3s with the matching relic, 10s bare-handed. Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
-        save.picked = [...new Set(save.picked || []), wp.id];
+        // Re-check picked at callback time. The work wheel runs async — if a
+        // save reload or some other path already marked this wp.id as picked
+        // between handler start and callback fire, awarding again would dupe.
+        if ((save.picked || []).includes(wp.id)) return;
+        save.picked = [...(save.picked || []), wp.id];
         scene.addToInv(wp.crop, 1);
         let bonus = '';
         const treasure = WILD_TREASURE[wp.crop];
@@ -248,6 +297,7 @@ const TAP_HANDLERS = [
             : null;
           if (reward?.kind === 'relic') {
             save.relics[reward.slot] = { tier: reward.tier };
+            scene.markRelicsDirty?.();
             save.opened.push(o.id);
             ctx.dirty = true;
             const name = (typeof gearName === 'function')
@@ -279,13 +329,21 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'tree') {
-        if (o.chopped) { scene.flash('stump', sx, sy); return true; }
+        // Chopped flag is persisted into save.chopped so a tile re-rasterize
+        // (e.g. cache eviction after a long walk) doesn't regrow the stump.
+        // We skip chopped trees entirely so they don't block 'till' on their
+        // cell — let the next handler claim the tap instead of consuming it
+        // with a 'stump' flash that the player can't act on.
+        if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
         if (!save.relics?.axe) { scene.flash('need an axe', sx, sy); return true; }
         const durMs = (typeof toolDurationMs === 'function')
           ? toolDurationMs(save.relics, 'axe') : 3000;
         scene.startWorkProgress(o.x, o.y, () => {
           o.chopped = true;
+          save.chopped = save.chopped || [];
+          if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
           scene.addToInv('tree', 1 + Math.floor(Math.random() * 2));
+          persistSave(save);
           scene.flash('🌲 chopped', sx, sy);
         }, durMs);
         return true;
@@ -427,11 +485,17 @@ const TAP_HANDLERS = [
       save.brokenRocks = [...scene.brokenRockSet];
       const r = Math.random();
       let msg = '💥 broken';
-      if (r < 0.005)        { scene.addToInv('gemfruit', 1);        msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.015)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
-      else if (r < 0.035)   { scene.addToInv('gemfruit_seed', 1);   msg = '💥 → gemfruit seed'; }
-      else if (r < 0.105)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
-      else if (r < 0.555)   { scene.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
+      // Cumulative probability table — rarer rewards come first so each
+      // bucket adds its own slice. ~30% of rocks now drop coal/gems.
+      if (r < 0.002)        { scene.addToInv('emerald', 1);          msg = '💥 → ✨ emerald'; }
+      else if (r < 0.008)   { scene.addToInv('ruby', 1);              msg = '💥 → ✨ ruby'; }
+      else if (r < 0.025)   { scene.addToInv('sapphire', 1);          msg = '💥 → ✨ sapphire'; }
+      else if (r < 0.030)   { scene.addToInv('gemfruit', 1);          msg = '💥 → ✨ gemfruit'; }
+      else if (r < 0.040)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
+      else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
+      else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
+      else if (r < 0.430)   { scene.addToInv('coal', 1 + Math.floor(Math.random() * 2)); msg = '💥 → coal'; }
+      else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rockfruit seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
     }, durMs);
@@ -459,9 +523,13 @@ const TAP_HANDLERS = [
       save.planted.splice(plantedIdx, 1);
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
-      const yieldN = 1 + Math.floor(Math.random() * 3);
+      // Watering-can quality bonus stored on the plant when it was watered.
+      // Each quality tier raises the extra-seed chance by 10% (base 25%) and
+      // adds +floor(qual/3) to the produce yield.
+      const qual = p.canBoost || 0;
+      const yieldN = 1 + Math.floor(Math.random() * 3) + Math.floor(qual / 3);
       scene.addToInv(p.crop, yieldN);
-      const gotSeed = Math.random() < 0.25;
+      const gotSeed = Math.random() < (0.25 + qual * 0.10);
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
       // Track harvest milestones — gates which relic tiers can drop from chests
       // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See loot.js
@@ -476,12 +544,32 @@ const TAP_HANDLERS = [
     }
     if (!p.watered_t) {
       p.watered_t = Date.now();
+      // Watering Can quality: bonus = can.tier + (charges > 0 ? 2 : 0).
+      // Charges from refilling at a water tile (see the 'can-refill' handler).
+      const can = save.relics?.can;
+      if (can?.tier) {
+        const filled = (save.canCharges ?? 0) > 0;
+        p.canBoost = can.tier + (filled ? 2 : 0);
+        if (filled) save.canCharges -= 1;
+      }
       ctx.dirty = true;
-      scene.flash('💧 watered', sx, sy);
+      scene.flash(p.canBoost ? `💧 watered +${p.canBoost}` : '💧 watered', sx, sy);
       return true;
     }
     const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
     scene.flash(`growing… ${minsLeft}m`, sx, sy);
+    return true;
+  }},
+
+  // 2a') Refill the watering can from any WATER tile (type 3). Sets a charge
+  // bank that gives +2 tiers of quality bonus on the next 50 watering events.
+  { name: 'can-refill', try: (ctx) => {
+    const { scene, save, sx, sy, cell } = ctx;
+    if (cell.type !== 3) return false;          // not water
+    if (!save.relics?.can) return false;         // no can equipped
+    save.canCharges = 50;
+    ctx.dirty = true;
+    scene.flash('🪣 can refilled (50 charges)', sx, sy);
     return true;
   }},
 
@@ -543,10 +631,11 @@ const TAP_HANDLERS = [
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = wp.crop || 'plant'; break; }
+        const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
           o.kind !== 'flora' &&
           !(o.kind === 'chest' && openedSet.has(o.id)) &&
-          !(o.kind === 'tree' && o.chopped) &&
+          !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) {
           blocker = oo.kind === 'house' ? 'house' :
@@ -558,7 +647,10 @@ const TAP_HANDLERS = [
       }
     }
     if (blocker) { scene.flash(`occupied: ${blocker}`, sx, sy); return true; }
-    if (!scene.spendEnergy(ENERGY_COST?.till ?? 0, sx, sy)) return true;
+    // Hoe relic discounts (and sometimes zeroes out) the till cost.
+    const tillCost = (typeof effectiveTillCost === 'function')
+      ? effectiveTillCost(save.relics) : (ENERGY_COST?.till ?? 0);
+    if (!scene.spendEnergy(tillCost, sx, sy)) return true;
     scene.tilledSet.add(cellKey);
     save.tilled = [...scene.tilledSet];
     ctx.dirty = true;
