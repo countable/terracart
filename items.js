@@ -46,14 +46,44 @@ const CROP_SPRITE = {
 //   Spring Crops.png: 14 cols x 8 rows. Inventory: col 7 = seed bag, col 8 = produce.
 //   Crops.png: 9 cols x 16 rows. Inventory: col 8 row 15 = generic seedbag,
 //     col 7 row CROP_ROW[crop] = produce.
-// Mineral / gem inventory icons that live OUTSIDE the crops sheet. Frame
-// indexes point into the corresponding texture loaded by assets.js. Pulled
-// out as its own table so adding a gem stays one line.
+// Inventory icons that live OUTSIDE the crops sheet. Each entry points at
+// a sheet key (resolved to a real .png path by the SHEETS table in
+// app.js' renderItemIcon) plus a frame index. One line per item; the
+// renderer handles the rest. Used by trader / shop / inventory modals.
 const MINERAL_ICON_SHEET = {
   coal:     { sheet: 'coal_icon', frame: 0 },
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
   emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Animal produce — Chicken Egg.png / Small Cow Milk.png are 32×16 each.
+  egg:      { sheet: 'icon_egg',  frame: 0 },
+  milk:     { sheet: 'icon_milk', frame: 0 },
+  // Orchard fruit — Food Icons/<species>.png, 32×16 each (frame 0 = the
+  // whole fruit, frame 1 a slice / cooked variant).
+  apple:    { sheet: 'icon_apple',   frame: 0 },
+  cherry:   { sheet: 'icon_cherry',  frame: 0 },
+  peach:    { sheet: 'icon_peach',   frame: 0 },
+  banana:   { sheet: 'icon_banana',  frame: 0 },
+  orange:   { sheet: 'icon_orange',  frame: 0 },
+  mango:    { sheet: 'icon_mango',   frame: 0 },
+  coconut:  { sheet: 'icon_coconut', frame: 0 },
+  apricot:  { sheet: 'icon_apricot', frame: 0 },
+  // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
+  // No standalone minnow art; reuse the smallmouth-bass icon for it.
+  minnow:     { sheet: 'icon_minnow',     frame: 0 },
+  bass:       { sheet: 'icon_bass',       frame: 0 },
+  trout:      { sheet: 'icon_trout',      frame: 0 },
+  salmon:     { sheet: 'icon_salmon',     frame: 0 },
+  goldenfish: { sheet: 'icon_goldenfish', frame: 0 },
+  // Consumables — flutes/books are 32×32 / 240×64 multi-frame sheets;
+  // frame 0 is the basic variant.
+  flute:      { sheet: 'icon_flute',  frame: 0 },
+  book:       { sheet: 'icon_book',   frame: 0 },
+  // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
+  // variants, crow_feather uses the chicken-feather sheet's first frame.
+  meat:         { sheet: 'icon_meat',    frame: 0 },
+  rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
+  crow_feather: { sheet: 'icon_feather', frame: 0 },
 };
 
 function inventoryIconSource(itemId) {
@@ -176,12 +206,15 @@ const ITEMS = [
   { id: 'crow_feather', name: 'Crow Feather', kind: 'mineral', icon: '🪶' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom', icon: '🍄' },
-  // Fish (caught by Fishing Rod on water tiles)
-  { id: 'minnow',     name: 'Minnow',     kind: 'produce', crop: 'minnow',     icon: '🐟' },
-  { id: 'bass',       name: 'Bass',       kind: 'produce', crop: 'bass',       icon: '🐠' },
-  { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      icon: '🐟' },
-  { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     icon: '🍣' },
-  { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', icon: '✨' },
+  // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
+  // share within the (produce, tier) pool so chest loot reads as mostly crops
+  // and fruit, with fish as an occasional aquatic surprise rather than the
+  // dominant produce drop at higher tiers.
+  { id: 'minnow',     name: 'Minnow',     kind: 'produce', crop: 'minnow',     icon: '🐟', dropWeight: 0.4 },
+  { id: 'bass',       name: 'Bass',       kind: 'produce', crop: 'bass',       icon: '🐠', dropWeight: 0.4 },
+  { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      icon: '🐟', dropWeight: 0.4 },
+  { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     icon: '🍣', dropWeight: 0.4 },
+  { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', icon: '✨', dropWeight: 0.4 },
   // Fruit from fruit trees in orchard tiles
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple',   icon: '🍎' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry',  icon: '🍒' },
@@ -360,12 +393,23 @@ const ENERGY_COST = {
 // so the player has to deliberately grow a crop (not just collect debris)
 // before they can catch livestock. ITEM_BY_ID lookup so the catch flash can
 // show the readable name.
+// Per-animal accepted "favourite" food list. First entry is the canonical
+// preferred food (used in hint flashes like "needs milk"); any subsequent
+// entry also accepts. Code that asks for the singular favourite should
+// read ANIMAL_FOOD[kind][0]; code that asks "is this food OK?" should call
+// animalLikesFood(kind, id) below.
 const ANIMAL_FOOD = {
-  chicken: 'rainberry',  // berries to peck
-  cow:     'pairy',      // pears to munch
-  cat:     'milk',       // saucer of milk
-  dog:     'meat',       // raw meat — hunt deer with a weapon relic
+  chicken: ['rainberry'],  // berries to peck
+  cow:     ['pairy'],      // pears to munch
+  // Cats love milk AND any kind of fish.
+  cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
+  dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
 };
+function animalLikesFood(kind, foodId) {
+  const list = ANIMAL_FOOD[kind];
+  if (!list) return false;
+  return list.includes(foodId);
+}
 
 // === Relics / armor catalogs ===
 // Material tier 1..7 mirrors the Icons/RPG icons folders. Higher tier = stronger

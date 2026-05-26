@@ -26,7 +26,30 @@
     jackpotP:            0.5,    // P(another +1 tier in jackpot chain)
     tierVsQtySplit:      0.5,    // during boost chain, P(go tier) vs P(go qty)
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
-    qtyBrackets:         [[1, 1], [2, 3], [4, 5], [6, 10]],
+    // Per-class quantity brackets. Index 0..3 = brackets returned by the
+    // boost chain; bracket 0 fires when the chain made zero qty-bumps,
+    // bracket 3 when it maxed out. Falls back to QTY_BRACKETS_DEFAULT for
+    // any class without its own override.
+    //
+    // Tuning intent:
+    //   seed       — players bulk-plant, so big numbers are welcome
+    //   produce    — moderate; fruit can show up in plates
+    //   mineral    — keep tight, "8× sapphire" reads as a bug
+    //   consumable — usually one; rare double on lucky chains
+    //   animal     — ALWAYS a single live catch
+    //   flora      — handful tops (decorative flowers)
+    qtyBracketsByClass: {
+      seed:       [[1, 2], [2, 5], [4, 8], [8, 15]],
+      produce:    [[1, 1], [2, 3], [3, 5], [4, 8]],
+      mineral:    [[1, 1], [1, 2], [1, 2], [2, 3]],
+      // Consumables (flute/book) are always single — they're tap-to-use items,
+      // not stackable resources. The boost chain's qty bumps quietly convert
+      // to tier upgrades via the class-bracket cap.
+      consumable: [[1, 1], [1, 1], [1, 1], [1, 1]],
+      animal:     [[1, 1], [1, 1], [1, 1], [1, 1]],
+      flora:      [[1, 1], [1, 2], [2, 3], [3, 5]],
+    },
+    qtyBracketsDefault:  [[1, 1], [2, 3], [4, 5], [6, 10]],
     walkUpStepP:         0.5,    // walk-up ladder: P(climb vs cash-out)
   };
 
@@ -43,19 +66,22 @@
   // ────────────────────────────────────────────────────────────────
   const LOOT_CONTEXTS = {
     // ── Chests, by POI category (mirrors loot.js POI_CATEGORY) ──
-    'chest:lowtier':    { classBias: { seed:0.42, produce:0.35, mineral:0.10, consumable:0.10, animal:0.02, relic:0.01 },
+    // Animal class is heavily suppressed in chests — finding a live cow in a
+    // bus-stop chest reads as nonsense. Farms are the only chest where
+    // animals are anywhere near plausible.
+    'chest:lowtier':    { classBias: { seed:0.43, produce:0.36, mineral:0.10, consumable:0.10, animal:0.005, relic:0.005 },
                           boostP: 0.25, maxTier: 2, relicCap: 1 },
-    'chest:commerce':   { classBias: { seed:0.30, produce:0.30, mineral:0.10, consumable:0.10, animal:0.05, relic:0.15 },
+    'chest:commerce':   { classBias: { seed:0.32, produce:0.32, mineral:0.10, consumable:0.10, animal:0.01, relic:0.15 },
                           boostP: 0.55, maxTier: 3, relicCap: 2 },
     'chest:food':       { classBias: { produce:0.55, seed:0.20, mineral:0.05, consumable:0.05, relic:0.15 },
                           boostP: 0.50, maxTier: 3, relicCap: 2 },
-    'chest:civic':      { classBias: { seed:0.20, produce:0.10, mineral:0.15, consumable:0.20, animal:0.05, relic:0.30 },
+    'chest:civic':      { classBias: { seed:0.22, produce:0.10, mineral:0.15, consumable:0.21, animal:0.02, relic:0.30 },
                           boostP: 0.75, maxTier: 5, relicCap: 4 },
     'chest:health':     { classBias: { mineral:0.30, produce:0.20, consumable:0.20, seed:0.10, relic:0.20 },
                           boostP: 0.70, maxTier: 4, relicCap: 3 },
-    'chest:park':       { classBias: { seed:0.30, produce:0.20, animal:0.10, mineral:0.10, consumable:0.10, relic:0.20 },
+    'chest:park':       { classBias: { seed:0.32, produce:0.22, animal:0.02, mineral:0.12, consumable:0.12, relic:0.20 },
                           boostP: 0.65, maxTier: 4, relicCap: 3 },
-    'chest:farm':       { classBias: { seed:0.30, produce:0.30, animal:0.20, mineral:0.05, consumable:0.05, relic:0.10 },
+    'chest:farm':       { classBias: { seed:0.32, produce:0.32, animal:0.10, mineral:0.08, consumable:0.08, relic:0.10 },
                           boostP: 0.70, maxTier: 5, relicCap: 4 },
     'chest:flora':      { classBias: { seed:0.35, produce:0.20, relic:0.35, consumable:0.10 },
                           boostP: 0.92, maxTier: 7, relicCap: 7 },
@@ -143,7 +169,20 @@
     let pool = byTier[tier];
     for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = byTier[t];
     if (!pool || !pool.length) return null;
-    return pool[Math.floor(rng() * pool.length)];
+    // Weighted pick by item.dropWeight (defaults to 1). Lets items like fish
+    // declare dropWeight: 0.4 in items.js to show up less often than their
+    // peers at the same tier without us re-tiering them.
+    let total = 0;
+    const weights = pool.map(id => {
+      const w = ITEM_BY_ID[id]?.dropWeight;
+      const v = (typeof w === 'number' && w > 0) ? w : 1;
+      total += v;
+      return v;
+    });
+    if (total <= 0) return pool[Math.floor(rng() * pool.length)];
+    let r = rng() * total;
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+    return pool[pool.length - 1];
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -240,7 +279,9 @@
     }
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
-    const [lo, hi] = RARITY_TUNING.qtyBrackets[bracket];
+    const brackets = (RARITY_TUNING.qtyBracketsByClass && RARITY_TUNING.qtyBracketsByClass[cls])
+      || RARITY_TUNING.qtyBracketsDefault;
+    const [lo, hi] = brackets[bracket];
     const qty = lo + Math.floor(rng() * (hi - lo + 1));
     return { kind: 'item', id, qty, tier, cls, jackpot: jackpotApplied };
   }
