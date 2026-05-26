@@ -154,8 +154,9 @@ test('reach shape includes (±1, ±3) and (±3, ±1); not affected by intra-cell
   try {
     const tapOffset = (dxCells, dyCells, atSouthEdge = false) => {
       flashes.length = 0;
-      // Stand at the player cell's centre — or just inside its south edge —
-      // to exercise the "cell-centre, not feet" rule.
+      // Stand at the player cell's body centre. The dispatcher uses the BODY
+      // position (pre feet-offset) to compute the player cell for reach gates,
+      // so no feet-offset compensation here.
       const py = atSouthEdge ? pCell.y + scene.cellM / 2 - 0.05 : pCell.y;
       teleport(scene, pCell.x, py);
       tapWorld(scene, pCell.x + dxCells * scene.cellM,
@@ -195,30 +196,24 @@ test('reach shape includes (±1, ±3) and (±3, ±1); not affected by intra-cell
 test('opening a chest adds loot and marks it opened', (scene) => {
   scene.save.opened = [];
   scene.save.inv = [];
-  // Max every relic + armor slot so the 10% chest-relic roll never finds an
-  // upgrade. When it does upgrade, the chest equips a relic without adding
-  // anything to inventory (just by design) — and "loot added" would fail.
-  // With every slot at T7, pickChestRelic falls through to normal loot.
-  scene.save.relics = {};
-  for (const slot of Object.keys(RELIC_DEFS)) scene.save.relics[slot] = { tier: 7 };
-  scene.save.armor = {};
-  for (const slot of Object.keys(ARMOR_DEFS)) scene.save.armor[slot] = { tier: 7 };
+  // Pin Math.random so the 10% chest-relic branch DOESN'T fire — relic-equip
+  // doesn't add to inv, which would make the "loot added" assertion flaky.
+  // Stubbed only for the duration of the tap so we don't pollute save state
+  // for later tests (which is why we no longer max out the relic slots here).
   const chest = findObject(o =>
     o.kind === 'chest' && o.poiClass &&
     Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 200);
   assert.truthy(chest, 'found a chest near start');
-  teleport(scene, chest.x, chest.y - 2);   // stand just south of chest
+  teleport(scene, chest.x, chest.y - 2);
   const invBefore = (scene.save.inv || []).length;
-  tapWorld(scene, chest.x, chest.y);
-  // interact.js dedupes overlapping POI chests and may open a sibling at the
-  // same location with a different id, so assert "some" chest opened, not the
-  // specific id we picked from the cache.
+  const moneyBefore = scene.save.money ?? 0;
+  const origRandom = Math.random;
+  Math.random = () => 0.99;   // > 0.10 → relic branch skipped
+  try { tapWorld(scene, chest.x, chest.y); } finally { Math.random = origRandom; }
   assert.gt(scene.save.opened.length, 0, 'a chest was opened');
-  // Either real loot (added to inv) OR a "gold" consolation (money) — both
-  // count as the chest paying out.
-  const gotInv = (scene.save.inv || []).length > invBefore;
-  const gotMoney = (scene.save.money ?? 0) > 0;
-  assert.truthy(gotInv || gotMoney, 'chest paid out (inv or money)');
+  // With Math.random pinned to 0.99 the relic branch is skipped, so the chest
+  // always drops normal item loot — inv must grow.
+  assert.gt((scene.save.inv || []).length, invBefore, 'loot added to inv');
 });
 
 test('tapping an already-opened chest is a no-op', (scene) => {
@@ -765,6 +760,9 @@ test('energy: tilling deducts 2 energy', (scene) => {
   scene.save.energy = 50;
   scene.save.tilled = []; scene.tilledSet = new Set();
   scene.save.planted = []; scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  // Strip any hoe relic from prior tests — effectiveTillCost would otherwise
+  // give a chance-of-free or reduced cost, breaking the "expected 48" math.
+  if (scene.save.relics) scene.save.relics.hoe = null;
   // Sweep a few cells near origin until we find a grass/farmland one.
   let target = null;
   for (let d = 0; d < 8 && !target; d++) {
@@ -786,6 +784,8 @@ test('energy: refuses till when too tired', (scene) => {
   scene.save.energy = 1;
   scene.save.tilled = []; scene.tilledSet = new Set();
   scene.save.planted = []; scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  // Strip any hoe relic — a free-roll would let tilling proceed with 0 energy.
+  if (scene.save.relics) scene.save.relics.hoe = null;
   let target = null;
   for (let d = 1; d < 8 && !target; d++) {
     for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
@@ -1243,15 +1243,32 @@ test('watering can: watering writes canBoost to the planted crop', (scene) => {
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
-  // Empty inventory so eat / use-consumable don't intercept the tap (those
-  // handlers fire when you tap your own feet with a food/consumable selected).
-  scene.save.inv = [];
-  scene.save.selSlot = 0;
   // Empty inventory so eat / use-consumable (priority -0.5 / -0.6) don't
-  // intercept a tap on the player's own cell with leftover food/flute from
-  // an earlier test.
+  // intercept the tap with leftover food/flute from a prior test.
   scene.save.inv = [];
   scene.save.selSlot = 0;
+  // Cancel any lingering work-progress from a prior test — the work-progress
+  // guard at priority -1 swallows every tap while a progress wheel is up,
+  // and a chop/rockbreak test earlier in the file may have left one open.
+  if (scene._workProgress) scene.cancelWorkProgress?.();
+  // Earlier tests may have teleported the player onto a building / water cell.
+  // Find a tillable cell anywhere in the start tile and stand on it so the
+  // planted handler (which doesn't strictly require tillable, but the test
+  // expects an ordinary ground cell) has a clean playing field.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  if (startTile && startTile.grid) {
+    const N = startTile.cellsPerEdge;
+    for (let i = 0; i < startTile.grid.length; i++) {
+      const t = startTile.grid[i];
+      if (isTillable(t)) {
+        const ix = i % N, iy = Math.floor(i / N);
+        const wx = 2754 * startTile.tileEdgeM + (ix + 0.5) * scene.cellM;
+        const wy = 5566 * startTile.tileEdgeM + (iy + 0.5) * scene.cellM;
+        teleport(scene, wx, wy);
+        break;
+      }
+    }
+  }
   // Pre-mark every nearby wildplant + flora as picked, and every nearby
   // creature as caught, so the handlers that run BEFORE planted (creature,
   // wildplant, flora) skip them. Otherwise the tap would catch a chicken or
