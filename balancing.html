@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Balancing — Terracart</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      background: #111; color: #ddd;
+      font: 13px ui-monospace, monospace;
+    }
+    body { padding: 18px; max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 18px; color: #ffd866; margin: 0 0 4px; }
+    h2 { font-size: 14px; color: #c8a64a; margin: 22px 0 6px; }
+    p { margin: 4px 0; color: #888; }
+    section { background: #1a1612; border: 1px solid #333; border-radius: 6px; padding: 12px 16px; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #2a2520; vertical-align: top; }
+    th { color: #888; font-weight: 700; width: 32%; white-space: nowrap; }
+    td { color: #ddd; }
+    .muted { color: #777; }
+    .pill { display: inline-block; background: #222; color: #ffd866; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px; }
+    .controls button {
+      background: #c8a64a; color: #1a1612; border: 0;
+      padding: 6px 12px; border-radius: 5px;
+      font: 700 12px ui-monospace, monospace; cursor: pointer;
+      margin-right: 6px;
+    }
+    .err { color: #ff8a7a; }
+    .ok  { color: #a7ffb0; }
+  </style>
+</head>
+<body>
+  <h1>Terracart — Balancing</h1>
+  <p>Snapshot of generated quantities, loot rolls, and shop offers. Reroll to see distributions.</p>
+  <div class="controls">
+    <button id="reroll-loot">Reroll loot + deals</button>
+    <button id="reload-tile">Reload tile</button>
+  </div>
+
+  <section>
+    <h2>Starting tile</h2>
+    <p id="tile-status" class="muted">loading…</p>
+    <table id="tile-stats"></table>
+  </section>
+
+  <section>
+    <h2>Chest treasures — 10 random pulls per category</h2>
+    <p class="muted">pickLoot() from loot.js. Each category samples one representative poiClass.</p>
+    <table id="treasures"></table>
+  </section>
+
+  <section>
+    <h2>Shop offers — 10 random per house tier</h2>
+    <p class="muted">Mirrors the pickup path in app.js: 10% chance of a relic offer at non-castle shops; castles only sell relics. Fresh-player save (no relics/armor, just 10 potato seeds).</p>
+    <table id="deals"></table>
+  </section>
+
+  <script src="phaser.js"></script>
+  <script src="mvt.js"></script>
+  <script src="coords.js"></script>
+  <script src="worldgen.js"></script>
+  <script src="crops.js"></script>
+  <script src="items.js"></script>
+  <script src="loot.js"></script>
+  <script>
+    // Same anchor coords as app.js. Diverging from app.js → tile mismatch.
+    const START_LAT = 49.85438;
+    const START_LON = -119.47870;
+
+    // ────────────────────────────────────────────────────────────────
+    // Starting-tile statistics.
+    // ────────────────────────────────────────────────────────────────
+    async function loadStartTile() {
+      const { tx, ty } = WorldGen.tileXYForLonLat(START_LON, START_LAT);
+      const entry = await WorldGen.loadTile(tx, ty, START_LAT);
+      if (entry.status === 'loading') await entry.promise;
+      return { entry, tx, ty };
+    }
+
+    // spawnInTile lives on the scene; reproduce just enough to estimate counts.
+    // Same RNG seed + caught-set assumption (none caught) as app.js spawnInTile.
+    function estimateCreatureCounts(tx, ty) {
+      const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
+      // First two rng() pulls go to chickenN / cowN in app.js spawnInTile,
+      // before any tryPlace attempts. We don't need post-placement rng draws
+      // because we only count, not place.
+      const chickenN = 75 + Math.floor(rng() * 50);
+      const cowN = 15 + Math.floor(rng() * 16);
+      return { chicken: chickenN, cow: cowN };
+    }
+
+    function countTile(entry, tx, ty) {
+      const objKinds = {};
+      const chestsByTier = {};
+      const chestsByCategory = {};
+      const wildByCrop = {};
+      const floraByDeco = {};
+      const houseByTier = {};
+
+      for (const o of (entry.objects || [])) {
+        objKinds[o.kind] = (objKinds[o.kind] || 0) + 1;
+        if (o.kind === 'chest') {
+          const t = chestTier(o.poiClass);
+          chestsByTier[t] = (chestsByTier[t] || 0) + 1;
+          const cat = POI_CATEGORY[o.poiClass] || '(unknown)';
+          chestsByCategory[cat] = (chestsByCategory[cat] || 0) + 1;
+        }
+        if (o.kind === 'flora') {
+          floraByDeco[o.deco] = (floraByDeco[o.deco] || 0) + 1;
+        }
+        if (o.kind === 'house' && o.tier != null) {
+          houseByTier[o.tier] = (houseByTier[o.tier] || 0) + 1;
+        }
+      }
+      for (const w of (entry.wildplants || [])) {
+        wildByCrop[w.crop] = (wildByCrop[w.crop] || 0) + 1;
+      }
+      const creatures = estimateCreatureCounts(tx, ty);
+      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco, houseByTier, creatures };
+    }
+
+    function renderTileStats(stats, tx, ty, entry) {
+      const HOUSE_TIER_LABEL = { 9: 'small (BUILDING)', 11: 'med/fort (BUILDING_MED)', 12: 'large/castle (BUILDING_LARGE)' };
+      const rows = [];
+      rows.push(`<tr><th>tile</th><td>${tx} / ${ty}, ${entry.cellsPerEdge}×${entry.cellsPerEdge} cells, ${entry.tileEdgeM?.toFixed?.(0)}m edge</td></tr>`);
+      for (const k of Object.keys(stats.objKinds).sort()) {
+        rows.push(`<tr><th>${k}</th><td>${stats.objKinds[k]}</td></tr>`);
+      }
+      if (Object.keys(stats.houseByTier).length) {
+        const breakdown = Object.keys(stats.houseByTier).sort().map(t => `${HOUSE_TIER_LABEL[t] || t}: ${stats.houseByTier[t]}`).join('<br>');
+        rows.push(`<tr><th>↳ houses by tier</th><td>${breakdown}</td></tr>`);
+      }
+      if (Object.keys(stats.chestsByTier).length) {
+        const tierLine = Object.keys(stats.chestsByTier).sort().map(t => `T${t}: ${stats.chestsByTier[t]}`).join(' &middot; ');
+        rows.push(`<tr><th>↳ chest tiers</th><td>${tierLine}</td></tr>`);
+        const catLine = Object.keys(stats.chestsByCategory).sort().map(c => `${c}: ${stats.chestsByCategory[c]}`).join('<br>');
+        rows.push(`<tr><th>↳ chests by category</th><td>${catLine}</td></tr>`);
+      }
+      for (const c of Object.keys(stats.wildByCrop).sort()) {
+        rows.push(`<tr><th>wild ${c}</th><td>${stats.wildByCrop[c]}</td></tr>`);
+      }
+      for (const d of Object.keys(stats.floraByDeco).sort()) {
+        rows.push(`<tr><th>flora ${d}</th><td>${stats.floraByDeco[d]}</td></tr>`);
+      }
+      for (const k of Object.keys(stats.creatures).sort()) {
+        rows.push(`<tr><th>${k}</th><td>${stats.creatures[k]} <span class="muted">(est. spawn target)</span></td></tr>`);
+      }
+      document.getElementById('tile-stats').innerHTML = rows.join('');
+    }
+
+    async function renderTile() {
+      const status = document.getElementById('tile-status');
+      try {
+        status.textContent = 'fetching MVT…';
+        const { entry, tx, ty } = await loadStartTile();
+        renderTileStats(countTile(entry, tx, ty), tx, ty, entry);
+        status.textContent = `loaded tile ${tx}/${ty}`;
+        status.className = 'ok';
+      } catch (e) {
+        status.textContent = 'tile fetch failed: ' + (e.message || e);
+        status.className = 'err';
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // Chest-treasure samples per category.
+    // ────────────────────────────────────────────────────────────────
+    const CATEGORY_REPS = [
+      ['lowtier', 'bus',        1],
+      ['commerce', 'shop',      1],
+      ['food', 'restaurant',    1],
+      ['park', 'park',          2],
+      ['civic', 'school',       3],
+      ['health', 'hospital',    3],
+      ['farm', 'farm',          3],
+      ['flora', 'florist',      4],
+    ];
+
+    function fmtItem(id, n) {
+      const item = ITEM_BY_ID[id];
+      const icon = item?.icon || '';
+      const name = item?.name || id;
+      return `${icon} <span class="muted">${name}</span> ×${n}`;
+    }
+
+    function renderTreasures() {
+      const rows = [['<tr><th>category</th><th>10 rolls</th></tr>'].join('')];
+      for (const [cat, poiClass, tier] of CATEGORY_REPS) {
+        const samples = [];
+        for (let i = 0; i < 10; i++) {
+          const s = pickLoot(undefined, poiClass, {});
+          samples.push(fmtItem(s.id, s.n));
+        }
+        rows.push(
+          `<tr><th>${cat} <span class="pill">T${tier}</span><br>` +
+          `<span class="muted">via ${poiClass}</span></th>` +
+          `<td>${samples.join('<br>')}</td></tr>`
+        );
+      }
+      document.getElementById('treasures').innerHTML = rows.join('');
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // Shop deals per house tier. Mirrors app.js: presentBuyerOffer +
+    // buildRelicOffer + buildShopOffer, simplified for a fresh-save state.
+    // ────────────────────────────────────────────────────────────────
+    function simulateRelicOffer(relics, armor) {
+      const candidates = [];
+      const consider = (kind, slot, currentTier) => {
+        for (const t of MATERIAL_TIERS) {
+          if (t.tier <= currentTier) continue;
+          candidates.push({ kind, slot, tier: t.tier });
+        }
+      };
+      for (const slot of Object.keys(RELIC_DEFS)) consider('relic', slot, relics?.[slot]?.tier ?? 0);
+      for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, armor?.[slot]?.tier ?? 0);
+      if (!candidates.length) return null;
+      const weighted = candidates.map(c => ({ c, w: 1 / Math.pow(2, c.tier - 1) }));
+      const total = weighted.reduce((a, b) => a + b.w, 0);
+      let r = Math.random() * total;
+      let pick = weighted[weighted.length - 1].c;
+      for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
+      const price = Math.max(1, Math.ceil(gearPrice(pick.kind, pick.slot, pick.tier) * (1.2 + Math.random() * 1.8)));
+      return { ...pick, price };
+    }
+
+    function simulateShopOffer(id, baseValue, inv) {
+      const wantMoney = Math.random() < 1 / 3;
+      const lo = 1.2, hi = 3.0;
+      const cashCost = Math.max(1, Math.ceil(baseValue * (lo + Math.random() * (hi - lo))));
+      if (wantMoney) return { type: 'cash', cost: cashCost, gain: id };
+      const need = baseValue * 0.75;
+      const candidates = (inv || []).filter(s => s && s.id && (PRICES[s.id] ?? 0) >= need);
+      if (!candidates.length) {
+        const wishlist = Object.keys(PRICES).filter(k => PRICES[k] >= need && ITEM_BY_ID[k]);
+        const wish = wishlist[Math.floor(Math.random() * wishlist.length)] || null;
+        return wish ? { type: 'barter', cost: wish, gain: id } : { type: 'cash', cost: cashCost, gain: id };
+      }
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      return { type: 'barter', cost: pick.id, gain: id };
+    }
+
+    function fmtRelic(o) {
+      const name = (typeof gearName === 'function') ? gearName(o.kind, o.slot, o.tier) : `${o.slot} T${o.tier}`;
+      return `<span class="pill">${o.kind}</span> ${name} <span class="muted">for $${o.price}</span>`;
+    }
+    function fmtDeal(d) {
+      const item = ITEM_BY_ID[d.gain];
+      const gain = `${item?.icon || ''} ${item?.name || d.gain}`;
+      if (d.type === 'cash') return `${gain} <span class="muted">for</span> $${d.cost}`;
+      const cost = ITEM_BY_ID[d.cost];
+      return `${gain} <span class="muted">for</span> 1× ${cost?.icon || ''} ${cost?.name || d.cost}`;
+    }
+
+    function simulateHouseDeal(houseTier) {
+      const inv = [{ id: 'potato_seed', count: 10 }];
+      const isCastle = (houseTier === 12);
+      if (isCastle) {
+        const o = simulateRelicOffer({}, {});
+        return o ? fmtRelic(o) : '<span class="muted">no offer</span>';
+      }
+      if (Math.random() < 0.10) {
+        const o = simulateRelicOffer({}, {});
+        if (o) return fmtRelic(o) + ' <span class="muted">(10% relic)</span>';
+      }
+      const sellsProduce = Math.random() < 0.3;
+      let id;
+      if (sellsProduce) {
+        const ids = Object.keys(CROP_ROW);
+        id = ids[Math.floor(Math.random() * ids.length)];
+      } else {
+        id = BUY_LIST[Math.floor(Math.random() * BUY_LIST.length)];
+      }
+      const d = simulateShopOffer(id, PRICES[id] ?? 1, inv);
+      return fmtDeal(d);
+    }
+
+    function renderDeals() {
+      const rows = [['<tr><th>house tier</th><th>10 deals</th></tr>'].join('')];
+      const HOUSE_TIERS = [
+        ['Small house (BUILDING)', 9],
+        ['Fort / med (BUILDING_MED)', 11],
+        ['Castle / tower (BUILDING_LARGE)', 12],
+      ];
+      for (const [label, tier] of HOUSE_TIERS) {
+        const samples = [];
+        for (let i = 0; i < 10; i++) samples.push(simulateHouseDeal(tier));
+        rows.push(`<tr><th>${label}</th><td>${samples.join('<br>')}</td></tr>`);
+      }
+      document.getElementById('deals').innerHTML = rows.join('');
+    }
+
+    function rerollLootAndDeals() {
+      renderTreasures();
+      renderDeals();
+    }
+
+    document.getElementById('reroll-loot').addEventListener('click', rerollLootAndDeals);
+    document.getElementById('reload-tile').addEventListener('click', renderTile);
+
+    renderTile();
+    rerollLootAndDeals();
+  </script>
+</body>
+</html>
