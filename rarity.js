@@ -23,7 +23,7 @@
   // ────────────────────────────────────────────────────────────────
   const RARITY_TUNING = {
     ringLuckPerTier:     0.01,   // T7 ring → +0.07 to boost probability
-    jackpotP:            0.40,   // P(another +1 tier in jackpot chain) — 0.5 made chests too jackpot-y
+    jackpotP:            0.25,   // P(another +1 tier in jackpot chain). Lower = jackpots feel more special; +1 fires ~25%, +2 fanfare ~6%, +3 ~1.6%, +6 ~0.025%
     tierVsQtySplit:      0.5,    // during boost chain, P(go tier) vs P(go qty)
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
     // Per-class quantity brackets. Index 0..3 = brackets returned by the
