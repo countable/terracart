@@ -584,10 +584,11 @@ class MapScene extends Phaser.Scene {
       let deg = null;
       let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: tilt-compensated and CW from true north. Skip uncalibrated
-        // readings (accuracy < 0, often -1 after pickup) so a wild heading
-        // doesn't lock in before the magnetometer settles.
-        if (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy < 0) return;
+        // iOS: tilt-compensated and CW from true north. We previously gated
+        // on webkitCompassAccuracy < 0 to skip uncalibrated readings, but
+        // iOS persistently reports -1 indoors / near anything magnetic and
+        // the gate was making the compass appear stuck. Smoothing absorbs
+        // the extra noise; let the readings through.
         deg = e.webkitCompassHeading;
         absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
@@ -616,7 +617,7 @@ class MapScene extends Phaser.Scene {
       const now = performance.now();
       const dt = this._lastOrientT ? (now - this._lastOrientT) : 16;
       this._lastOrientT = now;
-      const TAU = 200;
+      const TAU = 120;
       const alpha = dt / (TAU + dt);
       const rad = deg * Math.PI / 180;
       const fx = Math.sin(rad), fy = -Math.cos(rad);   // unit vector in screen coords
