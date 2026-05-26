@@ -85,8 +85,11 @@
                           boostP: 0.55, maxTier: 3, relicCap: 2 },
     'chest:t3':         { classBias: { seed:0.22, produce:0.18, mineral:0.18, consumable:0.15, animal:0.02,  relic:0.25 },
                           boostP: 0.70, maxTier: 5, relicCap: 4 },
+    // chest:t4 — the boost chain alone tops out at T6. T7 (Frost) only
+    // reaches the player via the jackpot path (1/2^6 = ~1.6%) or by the
+    // relic walk-up ladder when they already own T6 in that slot.
     'chest:t4':         { classBias: { seed:0.20, produce:0.15, mineral:0.15, consumable:0.10, animal:0.03,  relic:0.37 },
-                          boostP: 0.85, maxTier: 7, relicCap: 7 },
+                          boostP: 0.85, maxTier: 7, chainMax: 6, relicCap: 7, relicChainMax: 6 },
 
     // ── Shops, by specialty ─────────────────────────────────────
     'shop:plain':       { classBias: { seed:0.35, produce:0.35, animal:0.10, mineral:0.10, consumable:0.10 },
@@ -244,33 +247,44 @@
     const luck = ringLuck(save);
     const classMul = (RARITY_TUNING.classChainBoostMul && RARITY_TUNING.classChainBoostMul[cls]) ?? 1;
     const boostP = Math.min(0.95, ((ctx.boostP ?? 0.5) * classMul) + luck);
-    const tierCap = cls === 'relic'
+    // The chain has its own ceiling (chainMax / relicChainMax) that may be
+    // BELOW the absolute final ceiling (maxTier / relicCap). Anything above
+    // chainMax is only reachable via the jackpot step (or, for relics, via
+    // the walk-up ladder). On chest:t4 this is how 'Frost is jackpot/walkup
+    // only' is encoded — chainMax=6, maxTier=7.
+    const isRelic = cls === 'relic';
+    const finalCap = isRelic
       ? Math.min(ctx.relicCap ?? 7, 7)
       : Math.min(ctx.maxTier ?? 7, CLASS_MAX_TIER[cls] || 1);
+    const chainCap = isRelic
+      ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
+      : Math.min(ctx.chainMax ?? finalCap, finalCap);
     let tier = 1, bracket = 0;
     let safety = 64;
     while (rng() < boostP && safety-- > 0) {
-      const goTier = cls === 'relic' || rng() < RARITY_TUNING.tierVsQtySplit;
+      const goTier = isRelic || rng() < RARITY_TUNING.tierVsQtySplit;
       if (goTier) {
         tier += 1;
-        if (tier > tierCap) { tier = tierCap; bracket += 1; }
+        if (tier > chainCap) { tier = chainCap; bracket += 1; }
       } else {
         bracket += 1;
       }
       if (bracket > 3) bracket = 3;
-      if (tier >= tierCap && bracket >= 3) break;
+      if (tier >= chainCap && bracket >= 3) break;
     }
     // Amulet: per-tier extra bracket roll (folded into the chain rather than
     // a post-multiply, so it stops doubling unbounded).
-    if (cls !== 'relic' && rng() < amuletBracketChance(save)) {
+    if (!isRelic && rng() < amuletBracketChance(save)) {
       bracket = Math.min(3, bracket + 1);
     }
 
-    // 3) Jackpot. Independent 1/2^N chance of +N tiers, clamped to context cap.
+    // 3) Jackpot. Independent 1/2^N chance of +N tiers, clamped to the
+    // absolute (post-jackpot) cap, NOT chainMax. So Frost is reachable only
+    // via this branch on contexts where chainMax < maxTier.
     let jackpot = 0;
     while (rng() < RARITY_TUNING.jackpotP && jackpot < 7) jackpot++;
     const beforeJackpot = tier;
-    tier = Math.min(tierCap, tier + jackpot);
+    tier = Math.min(finalCap, tier + jackpot);
     const jackpotApplied = tier - beforeJackpot;
 
     // 4) Resolve to a concrete item / relic / gold.
