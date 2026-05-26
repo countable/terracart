@@ -353,7 +353,23 @@ const RELIC_DEFS = {
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
              effectKey: 'fishing',   blurb: 'catch fish from water' },
+  // Bags — raise the per-stack inventory cap. No bag = 9; each tier adds ~34,
+  // tier 7 = 249. Icon lives under Extras (single image, tier shown via badge).
+  bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
+             effectKey: 'stackCap',  blurb: 'carry more of each item' },
 };
+
+// Per-stack inventory cap as a function of the bag tier (0 = no bag).
+// Linear 9 → 249 across tiers 0..7 (matches user spec: start 9, max 249).
+const STACK_CAP_BASE = 9;
+const STACK_CAP_MAX  = 249;
+function stackCapForBags(bagsRelic) {
+  const t = bagsRelic?.tier || 0;
+  if (t <= 0) return STACK_CAP_BASE;
+  if (t >= 7) return STACK_CAP_MAX;
+  // 9, 43, 78, 112, 146, 181, 215, 249 across tiers 0..7.
+  return Math.round(STACK_CAP_BASE + (STACK_CAP_MAX - STACK_CAP_BASE) * (t / 7));
+}
 const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
   chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250, energyPerTier: 25 },
@@ -382,7 +398,7 @@ function gearAssetPath(kind, slot, tier) {
   if (!def || !t) return null;
   // Ring + amulet live under Extras (single icon, tier shown as a badge).
   // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
-  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet')) {
+  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet' || slot === 'bags')) {
     return `Icons/RPG icons/Extras/${def.icon}`;
   }
   return `Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;

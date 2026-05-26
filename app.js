@@ -211,6 +211,7 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
     if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
     if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
+    if (this.save.relics.bags === undefined)   this.save.relics.bags = null;
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
@@ -2436,10 +2437,29 @@ class MapScene extends Phaser.Scene {
 
   addToInv(id, n = 1, silent = false) {
     const item = ITEM_BY_ID[id];
-    if (!item) return;
-    const existing = this.save.inv.find(s => s && s.id === id);
-    if (existing) existing.count = (existing.count || 0) + n;
-    else this.save.inv.push({ id, count: n });
+    if (!item || n <= 0) return;
+    // Per-stack cap is gated by the Bags relic tier (no bag = 9, T7 = 249).
+    // Overflow spills into additional stacks of the same id rather than being
+    // lost — same as Minecraft / Stardew. There's no slot cap to refuse on.
+    const cap = (typeof stackCapForBags === 'function')
+      ? stackCapForBags(this.save.relics?.bags) : 9;
+    let remaining = n;
+    // Fill every existing stack of this id (in order) up to the cap first.
+    for (const s of this.save.inv) {
+      if (remaining <= 0) break;
+      if (!s || s.id !== id) continue;
+      const room = Math.max(0, cap - (s.count || 0));
+      if (room <= 0) continue;
+      const take = Math.min(room, remaining);
+      s.count = (s.count || 0) + take;
+      remaining -= take;
+    }
+    // Anything left starts a new stack (and possibly more if remaining > cap).
+    while (remaining > 0) {
+      const take = Math.min(cap, remaining);
+      this.save.inv.push({ id, count: take });
+      remaining -= take;
+    }
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
