@@ -93,6 +93,13 @@ const ITEMS = [
   // Caught creatures stack in the inventory.
   { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
   { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
+  { id: 'cat',     name: 'Cat',     kind: 'animal', icon: '🐱' },
+  { id: 'dog',     name: 'Dog',     kind: 'animal', icon: '🐶' },
+  // Animal produce — feed longgrass to a wild chicken / cow to swap the
+  // longgrass for an egg / milk. Repeatable until either you run out of
+  // longgrass or the animal is caught.
+  { id: 'egg',  name: 'Egg',  kind: 'produce', icon: '🥚' },
+  { id: 'milk', name: 'Milk', kind: 'produce', icon: '🥛' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
@@ -137,9 +144,14 @@ const PRICES = {
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile, yields 4 per catch
   cow: 200,        // ~15–30/tile, premium catch
+  cat: 150,        // ~15–30/tile, wants milk
+  dog: 150,        // ~15–30/tile, wants eggs
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  // ── Animal produce (longgrass-feeding output) ────────────
+  egg:  4,
+  milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
@@ -196,6 +208,13 @@ const PLAY_TIPS = [
   // Combat / discovery
   'Hold rockfruit and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
+  // Animal favourite foods — one tip per kind, so a Book read can reveal them.
+  'Chickens come running for a juicy rainberry. Hold one to catch one.',
+  'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
+  'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
+  'Dogs follow whoever has eggs in hand. Lead them home that way.',
+  'Feeding longgrass to a chicken or cow swaps it for an egg / milk.',
+  'Cats and dogs turn their nose up at long grass — wastes both.',
 ];
 
 const STARTING_ENERGY = 100;
@@ -215,6 +234,10 @@ const FOOD_ENERGY = {
   sunflower: 150,
   chicken:    30,
   cow:       120,
+  cat:        20,
+  dog:        20,
+  egg:        10,
+  milk:       40,
 };
 const ENERGY_COST = {
   till: 2,
@@ -225,6 +248,18 @@ const ENERGY_COST = {
   catch: 5,
   unTill: 0,
   pickup: 0,             // wildplants / flora — free
+};
+
+// Catching an animal requires holding its favourite food in the selected
+// inventory slot — one is consumed per catch. Both picks are T1 farm produce
+// so the player has to deliberately grow a crop (not just collect debris)
+// before they can catch livestock. ITEM_BY_ID lookup so the catch flash can
+// show the readable name.
+const ANIMAL_FOOD = {
+  chicken: 'rainberry',  // berries to peck
+  cow:     'pairy',      // pears to munch
+  cat:     'milk',       // saucer of milk
+  dog:     'egg',        // raw egg
 };
 
 // === Relics / armor catalogs ===

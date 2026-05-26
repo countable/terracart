@@ -804,6 +804,15 @@ Render.drawObjects = function drawObjects(scene) {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
       s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'cat' || c.kind === 'dog') {
+      // No animated sheet — static frame from the icons sheet. Stop any prior
+      // anim that the pooled sprite may have been carrying.
+      if (s.texture.key !== c.kind) {
+        s.anims?.stop();
+        s.setTexture(c.kind, 0);
+      }
+      s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      s.setFlipX(!!c._faceFlip);
     } else {
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
       s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));

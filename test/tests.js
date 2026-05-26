@@ -513,6 +513,105 @@ test('REG #9: catching a released animal removes it from save.released', (scene)
   assert.truthy(scene.save.caught.includes(id), 'id in caught');
 });
 
+// Animal catch via TAP requires the favourite food in the selected slot.
+test('catch handler refuses without favourite food, succeeds with it', (scene) => {
+  // Find any uncaught chicken anywhere in cache.
+  let target = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) {
+      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
+    }
+    if (target) break;
+  }
+  assert.truthy(target, 'found an uncaught chicken');
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  // No food → flash, no catch.
+  scene.save.inv = []; scene.save.selSlot = 0;
+  teleport(scene, target.x, target.y - 1);
+  tapWorld(scene, target.x, target.y);
+  assert.falsy(scene.save.caught.includes(target.id), 'no catch without rainberry');
+  // Holding rainberry → catches AND consumes one.
+  scene.save.inv = [{ id: 'rainberry', count: 3 }];
+  scene.save.selSlot = 0;
+  tapWorld(scene, target.x, target.y);
+  assert.truthy(scene.save.caught.includes(target.id), 'caught with rainberry');
+  const r = scene.save.inv.find(s => s && s.id === 'rainberry');
+  assert.eq(r ? r.count : 0, 2, 'one rainberry consumed');
+});
+
+// Wrong-food → yuck: animal NOT caught, food still consumed.
+test('feeding wrong food yields yuck and consumes the food', (scene) => {
+  let target = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) {
+      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
+    }
+    if (target) break;
+  }
+  if (!target) return;
+  // pairy is the cow's favourite — wrong for a chicken.
+  scene.save.inv = [{ id: 'pairy', count: 3 }];
+  scene.save.selSlot = 0;
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  teleport(scene, target.x, target.y - 1);
+  tapWorld(scene, target.x, target.y);
+  assert.falsy(scene.save.caught.includes(target.id), 'no catch on wrong food');
+  const p = scene.save.inv.find(s => s && s.id === 'pairy');
+  assert.eq(p ? p.count : 0, 2, 'wrong food still consumed (yuck)');
+});
+
+// Feeding longgrass to an animal swaps it for egg / milk and leaves the
+// animal in the world for repeat feeding.
+test('feeding longgrass to a chicken yields an egg without catching', (scene) => {
+  let target = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) {
+      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
+    }
+    if (target) break;
+  }
+  assert.truthy(target, 'found an uncaught chicken');
+  scene.save.inv = [{ id: 'longgrass', count: 2 }];
+  scene.save.selSlot = 0;
+  teleport(scene, target.x, target.y - 1);
+  tapWorld(scene, target.x, target.y);
+  // Longgrass consumed by 1.
+  const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
+  assert.eq(lg ? lg.count : 0, 1, 'one longgrass consumed');
+  // Egg added.
+  const eggStack = scene.save.inv.find(s => s && s.id === 'egg');
+  assert.truthy(eggStack && eggStack.count >= 1, 'egg added to inventory');
+  // Chicken NOT caught — still wandering for next feed.
+  assert.falsy(scene.save.caught.includes(target.id), 'chicken stays in world');
+});
+
+// Cat needs milk to catch. Longgrass on a cat = yuck, no produce.
+test('cat catch: milk works, longgrass yucks', (scene) => {
+  let target = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) {
+      if (c.kind === 'cat' && !scene.save.caught.includes(c.id)) { target = c; break; }
+    }
+    if (target) break;
+  }
+  if (!target) return;   // no cats loaded in this fixture — skip silently
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  // Longgrass → yuck (cats don't produce milk from grass).
+  scene.save.inv = [{ id: 'longgrass', count: 2 }];
+  scene.save.selSlot = 0;
+  teleport(scene, target.x, target.y - 1);
+  tapWorld(scene, target.x, target.y);
+  assert.falsy(scene.save.caught.includes(target.id), 'longgrass does not catch cat');
+  const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
+  assert.eq(lg ? lg.count : 0, 1, 'longgrass consumed (yuck)');
+  assert.falsy(scene.save.inv.some(s => s && s.id === 'milk'), 'NO milk produced from cat+longgrass');
+  // Milk catches.
+  scene.save.inv = [{ id: 'milk', count: 1 }];
+  scene.save.selSlot = 0;
+  tapWorld(scene, target.x, target.y);
+  assert.truthy(scene.save.caught.includes(target.id), 'cat caught with milk');
+});
+
 // #10 — Animal release is rejected on non-tillable terrain (water/road/building).
 test('REG #10: releasing on a road / water cell is refused', (scene) => {
   // Find a road cell with NO creature within ~6m (otherwise the catch branch

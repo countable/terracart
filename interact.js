@@ -158,12 +158,21 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // 1) Catch a creature within 4m of tap.
+  // 1) Tap a creature within 4m. The outcome depends on what's in the
+  // selected inventory slot:
+  //
+  //   FAVOURITE FOOD                 → catch (consumes 1, spends energy).
+  //                                    chicken→rainberry, cow→pairy,
+  //                                    cat→milk, dog→egg.
+  //   LONGGRASS on chicken/cow       → feed for produce: consume the
+  //                                    longgrass, gain 1 egg (chicken) or
+  //                                    milk (cow). Animal stays in world.
+  //   ANY OTHER FOOD on this animal  → YUCK: consume the food anyway, no
+  //                                    catch, no produce. (Cats/dogs
+  //                                    turn up their nose at longgrass.)
+  //   NOTHING / non-food selected    → flash a hint with the favourite.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    // First pass: find the closest in-range uncaught creature. Two-pass so the
-    // energy gate doesn't short-circuit iteration mid-scan (used to silently
-    // skip the next creature if the first failed the energy check).
     let target = null, bestD2 = REACH_CREATURE_M * REACH_CREATURE_M;
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
@@ -171,8 +180,43 @@ const TAP_HANDLERS = [
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });
     if (!target) return false;
-    if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
-    scene.catchCreature(target, sx, sy);
+    const sel = getSelectedSlot(save);
+    const wantFood = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
+    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
+    // 1. Favourite → catch.
+    if (sel && wantFood && sel.id === wantFood && (sel.count ?? 0) > 0) {
+      if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      scene.catchCreature(target, sx, sy);
+      return true;
+    }
+    // 2. Longgrass → produce (chicken/cow only).
+    if (sel && sel.id === 'longgrass' && (sel.count ?? 0) > 0) {
+      const yieldId = target.kind === 'chicken' ? 'egg'
+                    : target.kind === 'cow'     ? 'milk'
+                    : null;
+      if (yieldId) {
+        consumeSelected(save);
+        scene.addToInv(yieldId, 1);
+        scene.buildInventoryDOM();
+        scene.flashLoot(`+1 ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+        ctx.dirty = true;
+        return true;
+      }
+    }
+    // 3. Any other food → yuck. Wasted bite.
+    if (sel && isEdible && (sel.count ?? 0) > 0) {
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      const item = ITEM_BY_ID[sel.id];
+      scene.flashLoot(`🤢 yuck`, '#ff8a7a', 1, sel.id);
+      ctx.dirty = true;
+      return true;
+    }
+    // 4. Hint.
+    const wantName = wantFood ? (ITEM_BY_ID[wantFood]?.name || wantFood) : 'food';
+    scene.flash(`needs ${wantName}`, sx, sy);
     return true;
   }},
 
