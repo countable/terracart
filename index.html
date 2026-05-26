@@ -115,25 +115,39 @@
   </details>
   <div id="hud"></div>
   <script>
-    // Fit the fixed 390×844 game box into the viewport using CSS scale.
-    // On portrait viewports (phones) scale by WIDTH so the map fills edge-to-
-    // edge — accepting that some game height tucks behind the iOS Safari URL
-    // bar, since the HUD overlays (money/energy/inventory) live OUTSIDE #game
-    // and are position:fixed, so they stay pinned to the visual viewport
-    // regardless. Landscape / desktop fall back to min(scaleW, scaleH) so the
-    // whole 390×844 box stays on-screen with letterboxing.
+    // Fit the fixed 352×844 game box into the viewport using CSS scale.
+    // Portrait: scale by WIDTH so the map fills edge-to-edge horizontally —
+    // some game height tucks behind the iOS Safari URL bar, but the HUD
+    // overlays (money/energy/inventory) live OUTSIDE #game and are
+    // position:fixed, so they stay pinned to the visual viewport.
+    // Landscape: scaling by the full 844-tall box made the game tiny on phones
+    // (e.g. 844×390 → 19% width). Instead, scale so the 352×352 map area
+    // fills the viewport (leaving a slice at the bottom for the inventory
+    // bar), then translate the box so the MAP's centre sits at the frame's
+    // centre. Game chrome above / below the map overflows and is clipped by
+    // #frame, but the player only needs the map and the position:fixed HUD.
     function fitGame() {
       const W = 352, H = 844;
+      const MAP = 352;             // viewSize — square map area inside #game
+      const MAP_CY_IN_GAME = 362;  // viewCenterY — y of the map centre in game coords
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const sW = vw / W, sH = vh / H;
       const portrait = vw < vh;
-      const s = portrait ? sW : Math.min(sW, sH);
       const g = document.getElementById('game');
       if (!g) return;
-      g.style.transform = `scale(${s})`;
-      g.style.left = Math.max(0, (vw - W * s) / 2) + 'px';
-      g.style.top  = portrait ? '0px' : Math.max(0, (vh - H * s) / 2) + 'px';
+      if (portrait) {
+        const s = vw / W;
+        g.style.transform = `scale(${s})`;
+        g.style.left = '0px';
+        g.style.top  = '0px';
+      } else {
+        const reservedBottom = 60;   // inventory bar sits position:fixed near the screen bottom
+        const usableH = Math.max(1, vh - reservedBottom);
+        const s = Math.min(vw / MAP, usableH / MAP);
+        g.style.transform = `scale(${s})`;
+        g.style.left = (vw / 2 - (W / 2) * s) + 'px';
+        g.style.top  = (usableH / 2 - MAP_CY_IN_GAME * s) + 'px';
+      }
     }
     window.addEventListener('resize', fitGame);
     window.addEventListener('orientationchange', fitGame);
