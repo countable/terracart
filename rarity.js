@@ -46,6 +46,19 @@
     // 10 potato seeds at T1 gives 5 gemfruit seeds at T2 and just 1 iceflower
     // seed at T3. effectiveBracket = max(0, rolledBracket - (tier-1) * 2).
     qtyDemotePerTier:    2,
+    // Chest tier 1..4 modifiers. Applied on top of the biome's classBias to
+    // produce the effective context. Chest worldgen picks (biome, tier)
+    // independently — same biome can appear at different tiers, same tier
+    // across different biomes. See CHEST_TIER_BY_CATEGORY in loot.js for
+    // the current biome→tier mapping (still used by the renderer for the
+    // coloured diamond).
+    chestTierMod: {
+      1: { boostP: 0.30, maxTier: 2, relicCap: 1 },
+      2: { boostP: 0.55, maxTier: 3, relicCap: 2 },
+      3: { boostP: 0.70, maxTier: 5, relicCap: 4 },
+      // T4 chest — Frost (T7) is jackpot/walkup-only by design.
+      4: { boostP: 0.85, maxTier: 7, chainMax: 6, relicCap: 7, relicChainMax: 6 },
+    },
     // Per-class boost-rate multiplier. The boost chain rolls each step at
     // (ctx.boostP * mul + ringLuck); a class with mul < 1 climbs less
     // aggressively, so most rolls stay near tier 1. Used to keep coal the
@@ -68,28 +81,23 @@
   // re-normalise in weightedPick. Easier to author this way.
   // ────────────────────────────────────────────────────────────────
   const LOOT_CONTEXTS = {
-    // ── Chests, by visual tier 1..4 ─────────────────────────────
-    // We only ship 4 chest spritesheets (lowtier/uncommon/rare/epic via the
-    // coloured diamond), so the context table matches: one row per chest
-    // tier instead of one per POI category. loot.js' chestTier(poiClass)
-    // maps a POI to its tier (1..4); call sites do
-    //   pickReward('chest:t' + chestTier(poiClass), save).
-    //
-    // Animal class is heavily suppressed in chests — finding a live cow in a
-    // bus-stop chest reads as nonsense. Lower tiers also keep maxTier ≤ 2
-    // so the T3 flowers and gemstones stay reserved for mid+ chests
-    // (≈half the seed roster is unreachable from a T1 chest by design).
-    'chest:t1':         { classBias: { seed:0.40, produce:0.38, mineral:0.10, consumable:0.10, animal:0.01,  relic:0.01 },
-                          boostP: 0.30, maxTier: 2, relicCap: 1 },
-    'chest:t2':         { classBias: { seed:0.30, produce:0.30, mineral:0.12, consumable:0.12, animal:0.02,  relic:0.14 },
-                          boostP: 0.55, maxTier: 3, relicCap: 2 },
-    'chest:t3':         { classBias: { seed:0.22, produce:0.18, mineral:0.18, consumable:0.15, animal:0.02,  relic:0.25 },
-                          boostP: 0.70, maxTier: 5, relicCap: 4 },
-    // chest:t4 — the boost chain alone tops out at T6. T7 (Frost) only
-    // reaches the player via the jackpot path (1/2^6 = ~1.6%) or by the
-    // relic walk-up ladder when they already own T6 in that slot.
-    'chest:t4':         { classBias: { seed:0.20, produce:0.15, mineral:0.15, consumable:0.10, animal:0.03,  relic:0.37 },
-                          boostP: 0.85, maxTier: 7, chainMax: 6, relicCap: 7, relicChainMax: 6 },
+    // ── Chests: BIOME × TIER ─────────────────────────────────────
+    // A chest has TWO orthogonal axes:
+    //   - biome (POI category): drives the classBias — WHAT it contains
+    //   - tier 1..4 (one of the 4 chest spritesheets): drives the curve
+    //     — HOW MUCH and HOW RARE the contents are
+    // Biome rows declare classBias only; the tier modifier (CHEST_TIER_MOD
+    // below) supplies boostP / chainMax / maxTier / relicCap. Call sites:
+    //   pickReward('chest:' + biome, save, rng, { tier: chestTier(poiClass) })
+    // The picker merges the biome row with the tier mod at pick time.
+    'chest:lowtier':    { classBias: { seed:0.43, produce:0.36, mineral:0.10, consumable:0.10, animal:0.005, relic:0.005 } },
+    'chest:commerce':   { classBias: { seed:0.32, produce:0.32, mineral:0.10, consumable:0.10, animal:0.01,  relic:0.15  } },
+    'chest:food':       { classBias: { produce:0.55, seed:0.20, mineral:0.05, consumable:0.05, animal:0.00,  relic:0.15  } },
+    'chest:civic':      { classBias: { seed:0.22, produce:0.10, mineral:0.15, consumable:0.21, animal:0.02,  relic:0.30  } },
+    'chest:health':     { classBias: { mineral:0.30, produce:0.20, consumable:0.20, seed:0.10, animal:0.00,  relic:0.20  } },
+    'chest:park':       { classBias: { seed:0.32, produce:0.22, animal:0.02, mineral:0.12, consumable:0.12, relic:0.20  } },
+    'chest:farm':       { classBias: { seed:0.32, produce:0.32, animal:0.10, mineral:0.08, consumable:0.08, relic:0.10  } },
+    'chest:flora':      { classBias: { seed:0.35, produce:0.20, mineral:0.00, consumable:0.10, animal:0.00,  relic:0.35  } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     'shop:plain':       { classBias: { seed:0.35, produce:0.35, animal:0.10, mineral:0.10, consumable:0.10 },
@@ -227,10 +235,20 @@
   //   { kind: 'relic', slot, tier, jackpot }
   //   { kind: 'gold',  slot, tier, amount, jackpot }     ← from walk-up
   // ────────────────────────────────────────────────────────────────
-  function pickReward(contextKey, save, rng) {
+  function pickReward(contextKey, save, rng, opts) {
     rng = rng || Math.random;
-    const ctx = LOOT_CONTEXTS[contextKey];
-    if (!ctx) return null;
+    const baseCtx = LOOT_CONTEXTS[contextKey];
+    if (!baseCtx) return null;
+    // For chest contexts, merge in the per-tier modifier (default T2 if the
+    // caller didn't pass one). Non-chest contexts ignore opts.tier. This keeps
+    // biome × tier as two independent axes without exploding the table.
+    let ctx = baseCtx;
+    if (contextKey.startsWith('chest:')) {
+      const t = (opts && opts.tier) || 2;
+      const mod = (RARITY_TUNING.chestTierMod && RARITY_TUNING.chestTierMod[t])
+        || RARITY_TUNING.chestTierMod?.[2] || {};
+      ctx = { ...baseCtx, ...mod };
+    }
 
     // 1) Pick class. If the context's relicCap is 0, scrub the relic weight so
     // it can't be chosen at all (a market never offers a relic, no matter how

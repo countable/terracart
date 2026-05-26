@@ -69,6 +69,14 @@
       <label style="font-size:12px;color:#888;">Context:
         <select id="rar-ctx" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;"></select>
       </label>
+      <label style="font-size:12px;color:#888;margin-left:8px;" id="rar-chestT-label">Chest tier:
+        <select id="rar-chestT" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
+          <option value="1">T1 wooden</option>
+          <option value="2" selected>T2 uncommon</option>
+          <option value="3">T3 rare</option>
+          <option value="4">T4 epic</option>
+        </select>
+      </label>
       <label style="font-size:12px;color:#888;margin-left:8px;">Player owns relics up to:
         <select id="rar-owned" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
           <option value="0">T0 (none)</option>
@@ -456,10 +464,26 @@
       // Wire the control re-renders here once — subsequent calls are no-ops.
       if (!sel._wired) {
         sel._wired = true;
-        sel.addEventListener('change', () => { renderRarityHeader(); renderRarityRolls(); });
-        document.getElementById('rar-owned').addEventListener('change', () => { renderRarityHeader(); renderRarityRolls(); });
+        const refresh = () => { syncChestTierVisibility(); renderRarityHeader(); renderRarityRolls(); };
+        sel.addEventListener('change', refresh);
+        document.getElementById('rar-owned').addEventListener('change', refresh);
+        document.getElementById('rar-chestT').addEventListener('change', refresh);
         document.getElementById('rar-roll').addEventListener('click', () => { renderRarityRolls(); });
       }
+      syncChestTierVisibility();
+    }
+
+    // Chest-tier dropdown only applies to chest:* contexts. Hide otherwise.
+    function syncChestTierVisibility() {
+      const label = document.getElementById('rar-chestT-label');
+      const isChest = (document.getElementById('rar-ctx').value || '').startsWith('chest:');
+      if (label) label.style.display = isChest ? '' : 'none';
+    }
+
+    // Read the picker options off the controls in the same shape pickReward expects.
+    function pickerOptsFromControls() {
+      const isChest = (document.getElementById('rar-ctx').value || '').startsWith('chest:');
+      return isChest ? { tier: +document.getElementById('rar-chestT').value || 2 } : undefined;
     }
 
     // Construct a fake save where every relic + armor slot is at the chosen
@@ -489,12 +513,13 @@
       const ctx = LOOT_CONTEXTS[key];
       if (!ctx) return;
       const save = fakeSaveFromControls();
+      const opts = pickerOptsFromControls();
       // 1000-pull sample for the distribution columns.
       const N = 1000;
       const clsTally = {}, tierTally = {};
       let jackpot1 = 0, jackpot2 = 0;
       for (let i = 0; i < N; i++) {
-        const r = pickReward(key, save);
+        const r = pickReward(key, save, Math.random, opts);
         if (!r) continue;
         const cls = r.kind === 'item' ? r.cls : (r.kind === 'relic' ? 'relic' : 'gold');
         clsTally[cls] = (clsTally[cls] || 0) + 1;
@@ -529,9 +554,10 @@
       initRarityControls();
       const key = document.getElementById('rar-ctx').value;
       const save = fakeSaveFromControls();
+      const opts = pickerOptsFromControls();
       const rows = ['<tr><th style="width:40px;">#</th><th>pull</th></tr>'];
       for (let i = 1; i <= 10; i++) {
-        const r = pickReward(key, save);
+        const r = pickReward(key, save, Math.random, opts);
         rows.push(`<tr><th>${i}</th><td>${formatReward(r)}</td></tr>`);
       }
       document.getElementById('rar-rolls').innerHTML = rows.join('');
