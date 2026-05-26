@@ -615,7 +615,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the text. Fallback labels (unnamed POIs) render smaller, with tighter
   // padding so they read as secondary descriptors.
   const LABEL_BG    = 'rgb(70,70,70)';   // full opacity — pad labels read crisply on any terrain
-  const LABEL_INK   = '#ffffff';
+  const LABEL_INK   = '#5ab9ff';
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -645,7 +645,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Anchored just below the chest sprite (chest bottom ≈ sy + 3 after origin+scale).
     tx.setText(label).setPosition(Math.round(sx), Math.round(sy + 4)).setVisible(true);
     // Switch font size + padding live: fallback labels are smaller.
-    tx.setFontSize(isFallback ? 8 : 10);
+    tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
     tx.setColor(LABEL_INK);
     tx.setBackgroundColor(LABEL_BG);
@@ -752,10 +752,10 @@ Render.drawObjects = function drawObjects(scene) {
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     const remaining = STAGE_HOLD_MS - (now - p.watered_t);
     const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
-    // Top-left of the cell. Plant sprite is 32×32 with origin (0.5, 0.85) so
-    // its top is at sy - 32*0.85 ≈ sy - 27, left at sx - 16.
+    // Plant sprite top is at sy - 32*0.85 ≈ sy - 27; we offset by -22 so the
+    // badge tucks 5px into the sprite top rather than floating above it.
     t.setText(label)
-     .setPosition(Math.round(sx - CELL_PX / 2), Math.round(sy - 27))
+     .setPosition(Math.round(sx - CELL_PX / 2), Math.round(sy - 22))
      .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
      .setVisible(true);
     ti++;

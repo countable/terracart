@@ -106,11 +106,13 @@
   </div>
   <script>
     // Fit the fixed 390×844 game box into the viewport using CSS scale.
-    // Uses visualViewport when available (iOS Safari's URL bar / dynamic toolbar).
+    // Uses innerWidth/innerHeight (layout viewport) rather than visualViewport
+    // so iPhone Safari fills the screen width even when the URL bar is showing
+    // — the bottom of #game tucks behind the URL bar until it auto-collapses.
     function fitGame() {
       const W = 390, H = 844;
-      const vw = (window.visualViewport?.width)  ?? window.innerWidth;
-      const vh = (window.visualViewport?.height) ?? window.innerHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
       const s = Math.min(vw / W, vh / H);
       const g = document.getElementById('game');
       if (!g) return;
@@ -179,7 +181,7 @@
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
   <script src="coords.js?v=91"></script>
-  <script src="worldgen.js?v=91"></script>
+  <script src="worldgen.js?v=92"></script>
   <script src="tilemap.js?v=91"></script>
   <script src="crops.js?v=91"></script>
   <script src="textures.js?v=91"></script>
@@ -187,8 +189,8 @@
   <script src="items.js?v=91"></script>
   <script src="loot.js?v=91"></script>
   <script src="interact.js?v=92"></script>
-  <script src="render.js?v=91"></script>
+  <script src="render.js?v=92"></script>
   <script src="assets.js?v=91"></script>
-  <script src="app.js?v=92"></script>
+  <script src="app.js?v=93"></script>
 </body>
 </html>

@@ -551,7 +551,10 @@ class MapScene extends Phaser.Scene {
       let deg = null;
       let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: already CW from north, already true-absolute.
+        // iOS: tilt-compensated and CW from true north. Skip uncalibrated
+        // readings (accuracy < 0, often -1 after pickup) so a wild heading
+        // doesn't lock in before the magnetometer settles.
+        if (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy < 0) return;
         deg = e.webkitCompassHeading;
         absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
@@ -589,10 +592,17 @@ class MapScene extends Phaser.Scene {
       window.addEventListener('deviceorientationabsolute', onOrient, true);
       window.addEventListener('deviceorientation', onOrient, true);
     };
-    // iOS 13+ requires explicit permission. If the API is gated, request it.
+    // iOS 13+: DeviceOrientationEvent.requestPermission() MUST originate in a
+    // user gesture (tap/click) or it silently rejects. Defer the prompt to
+    // the player's first tap on the game — without this gate the listener
+    // never attaches on iPhone and the "compass" is really just GPS bearing.
     const DOE = window.DeviceOrientationEvent;
     if (DOE && typeof DOE.requestPermission === 'function') {
-      DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
+      const onFirstTap = () => {
+        window.removeEventListener('pointerdown', onFirstTap, true);
+        DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
+      };
+      window.addEventListener('pointerdown', onFirstTap, true);
     } else {
       attach();
     }
@@ -1158,6 +1168,7 @@ class MapScene extends Phaser.Scene {
     // Money badge always shown.
     if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
     this.updateEnergyDOM();
+    this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
     const gpsLive = this.gpsAvailable && this.gpsM;
@@ -1837,6 +1848,31 @@ class MapScene extends Phaser.Scene {
   // CSS-clip via background-image instead of an unclipped <img> — otherwise
   // the entire sheet gets crushed into the icon box ("ring looks like a
   // whole spritesheet", "armor shows 2 suits").
+  // Row of obtained-relic icons, anchored top-right just below the
+  // money/energy badges. Rebuilds only when the relics signature changes,
+  // so calling from updateHUD every frame stays cheap.
+  updateRelicRow() {
+    const game = document.getElementById('game');
+    if (!game) return;
+    const relics = this.save.relics || {};
+    const order = ['pick','axe','sword','bow','staff','ring','amulet'];
+    const sig = order.map(s => `${s}:${relics[s]?.tier ?? 0}`).join(',');
+    if (this._relicRowSig === sig) return;
+    this._relicRowSig = sig;
+    document.getElementById('relic-row')?.remove();
+    const owned = order.filter(s => relics[s]);
+    if (!owned.length) return;
+    const row = document.createElement('div');
+    row.id = 'relic-row';
+    row.style.cssText = 'position:absolute;top:42px;right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
+    for (const slot of owned) {
+      const wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-block;line-height:0;';
+      wrap.innerHTML = this.gearIconHTML('relic', slot, relics[slot].tier, 20);
+      row.appendChild(wrap);
+    }
+    game.appendChild(row);
+  }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
     if (!path) return '';
@@ -1996,6 +2032,17 @@ class MapScene extends Phaser.Scene {
     bar.appendChild(pageLbl);
 
     game.appendChild(bar);
+
+    // Name strip just below the bar — always shows the currently selected
+    // item's name (across pages), so the player isn't guessing what's
+    // selected when scrolled to a different page.
+    let nameLbl = document.getElementById('inv-name');
+    if (nameLbl) nameLbl.remove();
+    nameLbl = document.createElement('div');
+    nameLbl.id = 'inv-name';
+    nameLbl.style.cssText = 'position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    game.appendChild(nameLbl);
+
     this.refreshInventoryHighlight();
   }
   refreshInventoryHighlight() {
@@ -2009,6 +2056,12 @@ class MapScene extends Phaser.Scene {
       el.style.borderColor = isSel ? '#ffd866' : '#555';
       el.style.background  = isSel ? '#553a' : '#222a';
     });
+    const nameLbl = document.getElementById('inv-name');
+    if (nameLbl) {
+      const sel = this.save.inv[this.save.selSlot];
+      const it = sel && ITEM_BY_ID[sel.id];
+      nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
+    }
   }
 }
 

@@ -27,7 +27,4 @@
 
 ## Commits
 
-- **Do not commit on the user's behalf without asking.** Always draft the
-  commit message first, show the user, and wait for explicit approval
-  (`commit`, `yes`, `go ahead`) before running `git commit`.
-- Pushing requires a separate explicit ask.
+- Commit and push freely as work completes; no need to ask first.

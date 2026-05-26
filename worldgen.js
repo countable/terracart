@@ -771,7 +771,9 @@
     //   nut: forest only
     //   rockfruit / generic: any soft ground (residential/grass/park/farmland/rock/etc)
     // Anything else (road, building, water, path, cement) → drop.
-    const GROUND = new Set([5, 6, 1, 0, 2, 4, 10, 15, 16, 17, 18, 19, 20, 21, 22]);
+    // COMMERCIAL (16) / INDUSTRIAL (17) are the synthesized concrete pads — kept
+    // out of GROUND so debris doesn't end up sitting on a hospital/school slab.
+    const GROUND = new Set([5, 6, 1, 0, 2, 4, 10, 15, 18, 19, 20, 21, 22]);
     const FOREST_PARK_GRASS = new Set([1, 6, 0, 15, 18, 19, 20, 21]);
     const GRASSLAND_FAMILY  = new Set([0, 6, 15, 18, 19, 21]);
     const CROP_ALLOWED = {
