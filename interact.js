@@ -166,7 +166,11 @@ const TAP_HANDLERS = [
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
       if (reqRelic) {
-        const durMs = save.relics?.[reqRelic] ? 3000 : 10000;
+        // Duration scales with tool tier (10s bare → 3s wood → 0.5s frost),
+        // same curve for both pick and axe slots.
+        const durMs = (typeof toolDurationMs === 'function')
+          ? toolDurationMs(save.relics, reqRelic)
+          : (save.relics?.[reqRelic] ? 3000 : 10000);
         scene.startWorkProgress(wp.x, wp.y, award, durMs);
       } else {
         award();
@@ -232,6 +236,39 @@ const TAP_HANDLERS = [
       }
       if (o.kind === 'chest') {
         if (save.opened.includes(o.id)) { scene.flash('already looted', sx, sy); return true; }
+        // 10% chance to roll a relic reward instead of normal loot. The picker
+        // is biased by the chest's TIER (lowtier → wood, flora → frost) and
+        // gated by player harvests/cow catch. If the rolled slot/tier would be
+        // an upgrade → equip it. Otherwise → half its gold value as a
+        // consolation (player always gets something useful).
+        if (Math.random() < 0.10) {
+          const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+          const reward = (typeof pickChestRelic === 'function')
+            ? pickChestRelic(undefined, save, save.relics, chestT)
+            : null;
+          if (reward?.kind === 'relic') {
+            save.relics[reward.slot] = { tier: reward.tier };
+            save.opened.push(o.id);
+            ctx.dirty = true;
+            const name = (typeof gearName === 'function')
+              ? gearName('relic', reward.slot, reward.tier)
+              : `${reward.slot} T${reward.tier}`;
+            scene.flashLoot(`★ ${name}`, '#ffe066', 1.5);
+            return true;
+          }
+          if (reward?.kind === 'gold') {
+            addMoney(save, reward.amount);
+            save.opened.push(o.id);
+            ctx.dirty = true;
+            if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+            const name = (typeof gearName === 'function')
+              ? gearName('relic', reward.slot, reward.tier)
+              : `${reward.slot} T${reward.tier}`;
+            scene.flashLoot(`★ ${name} (own) → $${reward.amount}`, '#ffd96b', 1.4);
+            return true;
+          }
+          // reward is null (no allowed tiers — very early game) — fall through.
+        }
         const loot = pickLoot(undefined, o.poiClass, save.relics);
         scene.addToInv(loot.id, loot.n);
         save.opened.push(o.id);
@@ -244,11 +281,13 @@ const TAP_HANDLERS = [
       if (o.kind === 'tree') {
         if (o.chopped) { scene.flash('stump', sx, sy); return true; }
         if (!save.relics?.axe) { scene.flash('need an axe', sx, sy); return true; }
+        const durMs = (typeof toolDurationMs === 'function')
+          ? toolDurationMs(save.relics, 'axe') : 3000;
         scene.startWorkProgress(o.x, o.y, () => {
           o.chopped = true;
           scene.addToInv('tree', 1 + Math.floor(Math.random() * 2));
           scene.flash('🌲 chopped', sx, sy);
-        });
+        }, durMs);
         return true;
       }
       if (o.kind === 'house' || o.kind === 'tower') {
@@ -261,13 +300,22 @@ const TAP_HANDLERS = [
 
   // 2) Cell resolution — compute cell + bail early on unloaded / out-of-reach.
   // This handler also resolves and caches the cell info onto ctx for downstream handlers.
+  //
+  // Reach origin is the PLAYER'S CELL CENTRE (not their feet). Otherwise
+  // standing near the edge of your current cell would extend reach in one
+  // direction and shorten it the other — players reported sometimes seeing
+  // only 2 cells of reach in one direction. Cell-centre origin makes the
+  // reachable area depend only on which cell you're in, not where in it you
+  // stand, so the 3-cell cardinal reach is consistent everywhere.
   { name: 'cell-resolve', try: (ctx) => {
     const { scene, wm, pWorldX, pWorldY, sx, sy } = ctx;
     const cell = scene.cellAt(wm.x, wm.y);
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
     const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
-    if (Math.hypot(cwmx - pWorldX, cwmy - pWorldY) > scene.REACH_CELL_M) {
+    const playerCell = worldMetersToAbsCell(scene, pWorldX, pWorldY);
+    const playerCellCentre = absCellCenterMeters(scene, playerCell.cellIX, playerCell.cellIY);
+    if (Math.hypot(cwmx - playerCellCentre.x, cwmy - playerCellCentre.y) > scene.REACH_CELL_M) {
       scene.flash('too far', sx, sy); return true;
     }
     ctx.cell = cell;
@@ -365,13 +413,15 @@ const TAP_HANDLERS = [
       return true;
     }
     // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
-    // With a pick: 3s. Without: 10s. Energy cost is unchanged (pick tier
-    // already discounts via effectivePickCost).
-    const hasPick = !!save.relics?.pick;
+    // Bare hands: 10s · Wood: 3s · Copper: 2.25s · Iron: 1.5s · floor 0.5s.
+    // Energy cost is unchanged (pick tier already discounts via
+    // effectivePickCost).
     const cost = (typeof effectivePickCost === 'function')
       ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
     if (!scene.spendEnergy(cost, sx, sy)) return true;
-    const durMs = hasPick ? 3000 : 10000;
+    const durMs = (typeof pickDurationMs === 'function')
+      ? pickDurationMs(save.relics)
+      : (save.relics?.pick ? 3000 : 10000);
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.brokenRockSet.add(cellKey);
       save.brokenRocks = [...scene.brokenRockSet];
@@ -413,6 +463,11 @@ const TAP_HANDLERS = [
       scene.addToInv(p.crop, yieldN);
       const gotSeed = Math.random() < 0.25;
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
+      // Track harvest milestones — gates which relic tiers can drop from chests
+      // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See loot.js
+      // pickChestRelic / chestRelicAllowedTiers.
+      save.harvested = save.harvested || {};
+      save.harvested[p.crop] = (save.harvested[p.crop] || 0) + 1;
       ctx.dirty = true;
       const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
       // Sprite shows the crop — drop the wheat / cropIcon emojis from the text.

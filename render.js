@@ -113,14 +113,16 @@ Render.drawCells = function drawCells(scene) {
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
-  // Pre-compute a ring of cell types (VIEW_CELLS+2) so edge cells can read their
-  // out-of-viewport neighbors when deciding which corners to round.
-  const RING = VIEW_CELLS + 2;
+  // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
+  // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
+  // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
+  // rounding to read its diagonal neighbor.
+  const RING = VIEW_CELLS + 4;
   const types = new Int8Array(RING * RING);
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
-      const wcx = pc.cx + (c - 1 - half) + pc.tx * scene.cellsPerTile;
-      const wcy = pc.cy + (r - 1 - half) + pc.ty * scene.cellsPerTile;
+      const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
+      const wcy = pc.cy + (r - 2 - half) + pc.ty * scene.cellsPerTile;
       const N = scene.cellsPerTile;
       const tx2 = Math.floor(wcx / N);
       const ty2 = Math.floor(wcy / N);
@@ -132,12 +134,15 @@ Render.drawCells = function drawCells(scene) {
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
     }
   }
-  const T = (c, r) => types[(r + 1) * RING + (c + 1)];   // c,r in 0..VIEW_CELLS-1
+  const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
   const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14]);   // water, residential, all roads, path, all buildings, rock
   const CORNER_R = 6;
-  for (let row = 0; row < VIEW_CELLS; row++) {
-    for (let col = 0; col < VIEW_CELLS; col++) {
+  // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
+  // never sees a black bar at the viewport edge while sliding between cells.
+  // The mask clips the halo to the visible viewport.
+  for (let row = -1; row <= VIEW_CELLS; row++) {
+    for (let col = -1; col <= VIEW_CELLS; col++) {
       const ox = col - half;
       const oy = row - half;
       // Per-cell state override: placed rockfruit rocks render as ROCK (10),
@@ -319,8 +324,8 @@ Render.drawCells = function drawCells(scene) {
   // Houses get a 4px wall + 1px silhouette outline. Civic slabs (LARGE) keep
   // the thicker 5px wall and 3px outline to read at their bigger footprint scale.
   const SOUTH_FACE_PX = { 9: 4, 11: 4, 12: 5 };
-  for (let row = 0; row < VIEW_CELLS; row++) {
-    for (let col = 0; col < VIEW_CELLS; col++) {
+  for (let row = -1; row <= VIEW_CELLS; row++) {
+    for (let col = -1; col <= VIEW_CELLS; col++) {
       const type = T(col, row);
       if (!isB(type)) continue;
       const ox = col - half, oy = row - half;
@@ -375,22 +380,25 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
-  // reachable area (cells whose centre is within REACH_CELL_M of the character's
-  // visible feet). For each reachable cell, draw only the sides whose neighbour
-  // is NOT reachable. Result is the staircase silhouette of the reach region.
+  // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
+  // feet, so reach depends only on which cell they're standing in (3 cells in
+  // each cardinal direction, always — independent of intra-cell position).
+  // For each reachable cell, draw only the sides whose neighbour is NOT
+  // reachable. Result is the staircase silhouette of the reach region.
   const R2 = scene.REACH_CELL_M * scene.REACH_CELL_M;
   const isReach = (col, row) => {
+    // Player's "central cell" is col=half, row=half; ox/oy = offset in cells.
     const ox = col - half, oy = row - half;
-    const dxM = (ox - fracX + 0.5) * scene.cellM;
-    const dyM = (oy - fracY + 0.5) * scene.cellM - scene.feetOffsetM;
+    const dxM = ox * scene.cellM;
+    const dyM = oy * scene.cellM;
     return dxM * dxM + dyM * dyM <= R2;
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
   // top of the dim band, not under it.
   g.fillStyle(0x000000, 0.22);
-  for (let row = 0; row < VIEW_CELLS; row++) {
-    for (let col = 0; col < VIEW_CELLS; col++) {
+  for (let row = -1; row <= VIEW_CELLS; row++) {
+    for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
@@ -399,8 +407,8 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   g.lineStyle(3, 0xffffff, 0.3);
-  for (let row = 0; row < VIEW_CELLS; row++) {
-    for (let col = 0; col < VIEW_CELLS; col++) {
+  for (let row = -1; row <= VIEW_CELLS; row++) {
+    for (let col = -1; col <= VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
@@ -737,7 +745,7 @@ Render.drawObjects = function drawObjects(scene) {
         font: 'bold 9px ui-monospace, monospace',
         color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 2, y: 1 },
-      }).setOrigin(0, 0).setDepth(60);
+      }).setDepth(60);
       scene.plantedContainer.add(t);
       scene.plantedTimerPool.push(t);
     }
@@ -745,10 +753,11 @@ Render.drawObjects = function drawObjects(scene) {
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     const remaining = STAGE_HOLD_MS - (now - p.watered_t);
     const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
-    // Plant sprite top is at sy - 32*0.85 ≈ sy - 27; we offset by -22 so the
-    // badge tucks 5px into the sprite top rather than floating above it.
+    // Bottom-right of the tile (origin 1,1 anchors at the badge's bottom-right).
+    // Inset 1px on both edges so the badge sits just inside the cell border.
     t.setText(label)
-     .setPosition(Math.round(sx - CELL_PX / 2), Math.round(sy - 22))
+     .setOrigin(1, 1)
+     .setPosition(Math.round(sx + CELL_PX / 2 - 1), Math.round(sy + CELL_PX / 2 - 1))
      .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
      .setVisible(true);
     ti++;

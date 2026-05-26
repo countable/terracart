@@ -251,6 +251,86 @@ function pickLoot(rng, poiClass, relics) {
   return { id, n };
 }
 
+// === Chest-relic gating ============================================
+// Chests + shops can drop/sell relics, but several material tiers stay locked
+// until the player proves they've reached the matching milestone. T1-T3 are
+// always available; everything above requires a deliberate action.
+//
+//   T4 Gold     ← harvest a sunflower
+//   T5 Platinum ← catch a cow
+//   T6 Crimson  ← harvest a fireflower
+//   T7 Frost    ← harvest an iceflower
+//
+// `progress` is the player's save object. Reads .harvested and .caughtKinds
+// off it; missing fields are treated as empty so a fresh save just unlocks
+// T1..T3. (Earlier versions accepted a raw harvested map for back-compat;
+// that was brittle — any future top-level save field named like a crop
+// would silently unlock tiers.)
+function chestRelicAllowedTiers(progress) {
+  const harvested = progress?.harvested || {};
+  const caught = progress?.caughtKinds || {};
+  const tiers = [1, 2, 3];                             // always available
+  if (caught.cow)            tiers.push(5);            // Platinum — catch a cow
+  if (harvested.sunflower)   tiers.push(4);            // Gold
+  if (harvested.fireflower)  tiers.push(6);            // Crimson
+  if (harvested.iceflower)   tiers.push(7);            // Frost
+  return tiers.sort((a, b) => a - b);
+}
+
+// Pick a chest reward. Two-step:
+//
+//   1. Roll a (slot, tier) biased by the CHEST'S tier — high-tier chests
+//      (flora, civic, etc.) favour high-tier relics; lowtier chests favour
+//      wood / copper. The roll only ever picks from `chestRelicAllowedTiers`
+//      (gated by the player's harvest + cow milestones).
+//   2. If the rolled tier UPGRADES the player's current relic in that slot,
+//      return  { kind: 'relic', slot, tier }  → equip on accept.
+//      Otherwise return  { kind: 'gold', amount, slot, tier }  → consolation
+//      worth half the relic's listed price (player still gets something, never
+//      a "you already have this" dud).
+//
+// `progress` may be the whole save object or — for back-compat — just the
+// harvested map. chestRelicAllowedTiers handles either shape.
+// `chestT` (1-4) is the chest's own tier from chestTier(poiClass). Defaults
+// to 2 (mid) when the caller doesn't know the chest tier.
+function pickChestRelic(rng, progress, currentRelics, chestT = 2) {
+  const random = rng || Math.random;
+  const allowed = chestRelicAllowedTiers(progress);
+  if (!allowed.length || typeof RELIC_DEFS === 'undefined') return null;
+  // Map chest tier (1..4) to a preferred RELIC tier (1..7) — linear ramp so
+  // T1 chests centre on T1 relics, T4 chests centre on T7. Allowed tiers
+  // closer to the preferred score higher; tiers two away weigh half, etc.
+  const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
+  let weighted;
+  if (preferred > Math.max(...allowed)) {
+    // The chest "wants" a tier the player hasn't unlocked yet (e.g. flora chest
+    // asks for T7 but no iceflower harvested). Fall back to a UNIFORM roll over
+    // the basic tiers (Wood / Copper / Iron) instead of biasing high — so the
+    // player gets random low-tier gear, not always the highest-allowed.
+    const baseTiers = allowed.filter(t => t <= 3);
+    const pool = baseTiers.length ? baseTiers : allowed;
+    weighted = pool.map(t => ({ t, w: 1 }));
+  } else {
+    weighted = allowed.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
+  }
+  const total = weighted.reduce((a, b) => a + b.w, 0);
+  let r = random() * total;
+  let pickedTier = weighted[0].t;
+  for (const w of weighted) { r -= w.w; if (r <= 0) { pickedTier = w.t; break; } }
+  // Pick a random slot, uniform across all relic slots.
+  const slots = Object.keys(RELIC_DEFS);
+  const slot = slots[Math.floor(random() * slots.length)];
+  const cur = currentRelics?.[slot]?.tier ?? 0;
+  if (pickedTier > cur) {
+    return { kind: 'relic', slot, tier: pickedTier };
+  }
+  // Already own equal-or-better: hand over half the relic's gold value.
+  // Floor at $1 so even wood-tier dupes pay out something.
+  const price = (typeof gearPrice === 'function') ? gearPrice('relic', slot, pickedTier) : 0;
+  const amount = Math.max(1, Math.floor(price / 2));
+  return { kind: 'gold', amount, slot, tier: pickedTier };
+}
+
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
 // Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
 // Surprise treasure: when picking a wild ${key}, ${chance} chance to also get a ${bonus}.

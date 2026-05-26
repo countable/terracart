@@ -224,7 +224,6 @@ function gearPrice(kind, slot, tier) {
   // reach for early players. Floors at $1.
   return Math.max(1, Math.ceil(def.baseCost * t.costMul / 4));
 }
-function gearIconKey(kind, slot, tier) { return `gear_${kind}_${slot}_${tier}`; }
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
@@ -256,6 +255,16 @@ function effectivePickCost(relics) {
   if (!eq) return ENERGY_COST.rockBreak;
   return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
 }
+// Tool work-wheel duration. Bare hands take 10s; a wood tool of the right
+// kind (slot='pick' / 'axe') brings it to 3s, and each tier shaves another
+// 750ms (floored at 500ms). Iron pick (tier 3) clears rockfruit in 1.5s;
+// frost axe in 0.5s. pickDurationMs is kept as a back-compat alias.
+function toolDurationMs(relics, slot) {
+  const eq = relics?.[slot];
+  if (!eq) return 10000;
+  return Math.max(500, 3000 - (eq.tier - 1) * 750);
+}
+function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // Ring relic: +5% per tier to upgrade loot tier (1→2 or 2→3) on chests.
 function ringTierBoost(relics) {
   return relics?.ring ? 0.05 * relics.ring.tier : 0;
@@ -265,7 +274,10 @@ function amuletDoubleChance(relics) {
   return relics?.amulet ? 0.10 * relics.amulet.tier : 0;
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
-// tier 7 (frost sword sells at par with the listed PRICES[]).
+// tier 7 (frost sword sells at par with the listed PRICES[]). Note that
+// callers floor at $1 with Math.max(1, ceil(...)), so low-value items like
+// $1 longgrass show no sword benefit — the multiplier kicks in noticeably
+// above ~$4 produce.
 function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
