@@ -59,6 +59,15 @@ const MINERAL_ICON_SHEET = {
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
   emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Bars from the 16-col Extras 'Bars and ores' sheet. First row is bars
+  // in tier order; row 1 holds the matching ores (unused — we drop bars
+  // directly, no smelting step).
+  copper_bar:   { sheet: 'bars', frame: 0 },
+  iron_bar:     { sheet: 'bars', frame: 1 },
+  gold_bar:     { sheet: 'bars', frame: 2 },
+  platinum_bar: { sheet: 'bars', frame: 3 },
+  crimson_bar:  { sheet: 'bars', frame: 4 },
+  frost_bar:    { sheet: 'bars', frame: 5 },
   // Animal produce — Chicken Egg.png / Small Cow Milk.png are 32×16 each.
   egg:      { sheet: 'icon_egg',  frame: 0 },
   milk:     { sheet: 'icon_milk', frame: 0 },
@@ -144,7 +153,14 @@ const BASE_TIER = {
   potato: 1, rockfruit: 1,
   rainberry: 2, pairy: 2, nut: 2, shrub: 2, tree: 2,
   coffee: 3, gemfruit: 3,
-  iceflower: 4, fireflower: 4, sunflower: 4,
+  // Magical flowers — each one is the seed pair to its same-named magical
+  // gear tier (sunflower → Platinum recipes, fireflower → Crimson,
+  // iceflower → Frost). Tier follows gear_tier - 1.
+  sunflower: 4, fireflower: 5, iceflower: 6,
+  // Smelted metal bars dropped by mineralrocks. Each tier is the recipe
+  // ingredient for that tier's tool/weapon/armor at the blacksmith.
+  copper_bar: 2, iron_bar: 3, gold_bar: 4,
+  platinum_bar: 5, crimson_bar: 6, frost_bar: 7,
   // Wild produce / animal output
   longgrass: 1, flowers: 1, mushroom: 1,
   egg: 1, milk: 2,
@@ -250,6 +266,15 @@ const ITEMS = [
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral', icon: '🔵' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral', icon: '🔴' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral', icon: '🟢' },
+  // Smelted metal bars — primary forge material at blacksmiths. Dropped
+  // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
+  // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
+  { id: 'copper_bar',   name: 'Copper Bar',   kind: 'mineral', icon: '🟫' },
+  { id: 'iron_bar',     name: 'Iron Bar',     kind: 'mineral', icon: '⬜' },
+  { id: 'gold_bar',     name: 'Gold Bar',     kind: 'mineral', icon: '🟨' },
+  { id: 'platinum_bar', name: 'Platinum Bar', kind: 'mineral', icon: '⬛' },
+  { id: 'crimson_bar',  name: 'Crimson Bar',  kind: 'mineral', icon: '🟥' },
+  { id: 'frost_bar',    name: 'Frost Bar',    kind: 'mineral', icon: '🟦' },
 ];
 // Fill in baseTier for every entry that didn't set one explicitly (cleaner
 // than threading the lookup through each literal above). Anything missing
@@ -305,6 +330,14 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  // ── Metal bars (blacksmith forge ingredients) ───────────
+  // Roughly 2.5× ramp per tier, matching MATERIAL_TIERS.costMul.
+  copper_bar:    30,
+  iron_bar:      80,
+  gold_bar:     200,
+  platinum_bar: 500,
+  crimson_bar: 1200,
+  frost_bar:   3000,
   // ── Forest fauna drops ───────────────────────────────────
   meat: 30,
   rabbit_pelt: 15,

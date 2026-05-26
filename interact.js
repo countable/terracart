@@ -579,11 +579,34 @@ const TAP_HANDLERS = [
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          scene.addToInv('coal', 1 + Math.floor(Math.random() * 3));
-          const gem = o.requiredTier >= 5 ? 'emerald' : (o.requiredTier >= 3 ? 'ruby' : 'sapphire');
-          scene.addToInv(gem, 1 + Math.floor(Math.random() * (o.requiredTier > 4 ? 2 : 1)));
+          // Mineralrock drop table by requiredTier:
+          //   1 → coal + occasional copper bar
+          //   2 → copper bar + occasional iron bar
+          //   3 → iron bar  + occasional gold bar
+          //   4 → gold bar  + occasional sapphire (jewelry gem)
+          //   5 → platinum bar + occasional ruby
+          //   6 → crimson bar  + occasional emerald
+          //   7 → frost bar (very rare)
+          // Coal is universal change at every rock; bars are the main loot
+          // for the smithing economy; gems are the rarer side-prize that
+          // jewelry-class relic recipes (ring / staff / amulet) consume.
+          scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
+          const t = o.requiredTier;
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+          const BAR_QTY = t >= 5 ? 1 : (1 + Math.floor(Math.random() * 2));
+          const primaryBar = BARS[t] || 'copper_bar';
+          scene.addToInv(primaryBar, BAR_QTY);
+          // Side gem from tier 4-6 rocks — 25% chance.
+          const GEM_BY_TIER = { 4: 'sapphire', 5: 'ruby', 6: 'emerald' };
+          const gemId = GEM_BY_TIER[t];
+          let flashId = primaryBar;
+          if (gemId && Math.random() < 0.25) {
+            scene.addToInv(gemId, 1);
+            flashId = gemId;
+          }
           persistSave(save);
-          scene.flash(`💎 ${gem}`, sx, sy);
+          const item = ITEM_BY_ID[flashId];
+          scene.flash(`💎 ${item?.name || flashId}`, sx, sy);
         }, durMs);
         return true;
       }

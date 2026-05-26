@@ -2000,7 +2000,7 @@ class MapScene extends Phaser.Scene {
     if (shopType === 'blacksmith') {
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      this.flash('smith has nothing better to forge', sx, sy);
+      this.flash('we are still working on something for you', sx, sy);
       return;
     }
     // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
@@ -2262,39 +2262,75 @@ class MapScene extends Phaser.Scene {
   // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
   // so it's stable until bought. Reuses the generic showOfferModal — same UI
   // as cash/barter trades, just with a gem cost.
+  // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
+  // entries for forging the given (kind, slot, tier) relic/armor. Recipe
+  // rules:
+  //   • Jewelry slots (ring/staff/amulet) pay in gems:
+  //       ring → ruby, staff → emerald, amulet → sapphire
+  //   • Every other slot pays in tier-matched bars
+  //       (copper / iron / gold / platinum / crimson / frost).
+  //   • Quantity scales with tier — `tier` of the material.
+  //   • Tiers 5-7 additionally demand 1 flower bond:
+  //       T5 platinum → sunflower, T6 crimson → fireflower, T7 frost → iceflower.
+  // T1 wood gear is starter-shop-only and doesn't pass through here.
+  blacksmithRecipe(kind, slot, tier) {
+    if (!tier || tier < 2) return null;
+    const JEWELRY = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+    const BAR_BY_TIER = [, , 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+    const FLOWER_BY_TIER = { 5: 'sunflower', 6: 'fireflower', 7: 'iceflower' };
+    const primary = JEWELRY[slot] || BAR_BY_TIER[tier];
+    if (!primary) return null;
+    const recipe = [{ id: primary, qty: tier }];
+    const flower = FLOWER_BY_TIER[tier];
+    if (flower) recipe.push({ id: flower, qty: 1 });
+    return recipe;
+  }
+
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
-    // Pick the gem this smith demands. address-derived so a smith always
-    // wants the same stone across reloads.
-    const gemId = Shops.GEM_IDS[(house.address ?? 0) % Shops.GEM_IDS.length];
-    const gemItem = ITEM_BY_ID[gemId];
-    const GEM_COST = 5;
+    const recipe = this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+    if (!recipe) {
+      this.flash('we are still working on something for you', sx, sy);
+      return;
+    }
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
-    const heldCount = () =>
-      ((this.save.inv || []).find(s => s && s.id === gemId)?.count) ?? 0;
+    const heldCount = (id) =>
+      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
+    const costHTML = recipe.map(r => {
+      const itm = ITEM_BY_ID[r.id];
+      return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
+    }).join(' + ');
     this.showOfferModal({
       title: 'The blacksmith will forge:',
       get: `${iconHtml} ${name}`,
-      cost: `${GEM_COST}× ${this.iconSpanHTML(gemId)} ${gemItem?.name || gemId}`,
-      canAfford: heldCount() >= GEM_COST,
+      cost: costHTML,
+      canAfford: canAfford(),
       acceptLabel: 'Trade',
       onAccept: () => {
-        // Re-check tier and gem count — the inv can shift between modal open and accept.
         const curTier = offer.kind === 'relic'
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
         if (offer.tier <= curTier) { this.flash('already own better', sx, sy); return; }
-        if (heldCount() < GEM_COST) { this.flash(`need ${GEM_COST} ${gemItem?.name || gemId}`, sx, sy); return; }
-        let left = GEM_COST;
-        for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-          const s = this.save.inv[i];
-          if (!s || s.id !== gemId) continue;
-          const take = Math.min(left, s.count ?? 0);
-          s.count -= take; left -= take;
-          if ((s.count ?? 0) <= 0) {
-            this.save.inv.splice(i, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        if (!canAfford()) {
+          const missing = recipe.find(r => heldCount(r.id) < r.qty);
+          const itm = ITEM_BY_ID[missing.id];
+          this.flash(`need ${missing.qty} ${itm?.name || missing.id}`, sx, sy);
+          return;
+        }
+        // Consume every ingredient. Loop bottom-up so splicing is safe.
+        for (const r of recipe) {
+          let left = r.qty;
+          for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
+            const s = this.save.inv[i];
+            if (!s || s.id !== r.id) continue;
+            const take = Math.min(left, s.count ?? 0);
+            s.count -= take; left -= take;
+            if ((s.count ?? 0) <= 0) {
+              this.save.inv.splice(i, 1);
+              if (this.save.selSlot >= this.save.inv.length) {
+                this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+              }
             }
           }
         }
@@ -2312,7 +2348,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 ${name}\n−${GEM_COST} ${gemItem?.icon || ''}`, '#ffe066', 1.25);
+        this.flashLoot(`🪙 ${name}`, '#ffe066', 1.25);
       },
     });
   }

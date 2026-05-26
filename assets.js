@@ -67,6 +67,25 @@ const ASSETS = {
   mushroom_world: { kind: 'spritesheet', path: 'Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
+  // Gem inventory icons — 7×4 sheet of 16×16 frames. Sapphire / ruby /
+  // emerald previously rendered as emoji-dot fallbacks (🔵/🔴/🟢) which on
+  // most platforms read as plain coloured circles. inventoryIconSource()
+  // resolves the named gems to specific frames in this sheet.
+  gems:        { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Gemstones.png', frameWidth: 16, frameHeight: 16 },
+  // Coal — 2×2 sheet, frame 0 is the standard piece.
+  coal_icon:   { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Coal.png',      frameWidth: 16, frameHeight: 16 },
+  // Bars and ores — 256×64 = 16 cols × 4 rows of 16×16 frames. We treat
+  // the first row as bars in tier order (copper, iron, gold, platinum,
+  // crimson, frost). Ore frames in the lower rows are skipped — mineralrocks
+  // drop bars directly, no smelting step.
+  bars:        { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Bars and ores.png', frameWidth: 16, frameHeight: 16 },
+  // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
+  // variants). Spawns as wildplant-style debris on sand cells (and rarely
+  // near water polygons). frame index is hashed off the spawn cell.
+  shell_sheet: { kind: 'spritesheet', path: 'Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
+  // Scarecrow — 48×48 single-image prop. Pole base anchors at origin (0.5, 1)
+  // so it stands on its placement cell.
+  scarecrow:   { kind: 'image', path: 'Sprites/Single_Files_16x16/0_Complete_Tileset_Singles_16x16/Scarecrow_16x16.png' },
 };
 
 window.ASSETS = ASSETS;
