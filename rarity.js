@@ -120,18 +120,19 @@
     // 'level' of the shop: plain/market/trader = mid (1-2 steps), forts
     // and blacksmiths a bit higher, castle highest (relic-only).
     //
-    // singleItem: true forces qty=1 — shops offer one item at a time,
-    // not bundles. Any qty bumps the chain rolls are quietly discarded
-    // (no consolation either — the player is buying, not receiving).
-    'shop:plain':       { classBias: { seed:0.35, produce:0.35, animal:0.10, mineral:0.10, consumable:0.10 },
+    // singleItem: true forces qty=1 (except seeds, which ship in packs).
+    // Live animals are only sold by traders — buying a live chicken from
+    // a corner market doesn't read right; only the wandering merchant
+    // (trader) deals in livestock.
+    'shop:plain':       { classBias: { seed:0.40, produce:0.40, mineral:0.10, consumable:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
-    'shop:market':      { classBias: { produce:0.65, seed:0.20, animal:0.10, consumable:0.05 },
+    'shop:market':      { classBias: { produce:0.70, seed:0.20, consumable:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
     'shop:blacksmith':  { classBias: { mineral:0.40, relic:0.55, consumable:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 6, relicCap: 5, singleItem: true },
     'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, consumable:0.10, relic:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
-    'shop:fort':        { classBias: { seed:0.25, produce:0.25, mineral:0.15, consumable:0.15, animal:0.10, relic:0.10 },
+    'shop:fort':        { classBias: { seed:0.27, produce:0.27, mineral:0.17, consumable:0.17, relic:0.12 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
     'shop:castle':      { classBias: { relic: 1.00 },
                           chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, singleItem: true },
