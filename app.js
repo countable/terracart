@@ -864,7 +864,7 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
-        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.5 });
+        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.65 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
         // keep ~22 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
@@ -875,9 +875,13 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 6;
-        this.footprintGfx.fillStyle(0x808080, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 2);
+        // +22 lands the dot at the sprite's feet (sprite scale 1.5 × 32 = 48,
+        // origin (.5,.5) so feet are at sprite_y + 24). Earlier +6 buried the
+        // first dots inside the sprite body where they were unreadable; now
+        // they sit on the grass just below the sprite.
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 22;
+        this.footprintGfx.fillStyle(0x000000, fp.alpha);
+        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 4);
       }
     }
 
