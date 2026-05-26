@@ -650,19 +650,16 @@ Render.drawObjects = function drawObjects(scene) {
       const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== f) s.setFrame(f);
     }
-    // Specialty-shop houses tint: blacksmiths sooty grey, markets red.
-    // Traders share the default tint but pick up a label like the others.
-    // The starter shop (nearest spawn — guaranteed wood pick + axe in stock)
-    // gets a warm yellow tint that overrides any specialty type so the
-    // player can spot it from a tile away.
+    // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
+    // table lives in shops.js so adding a new shop type is one-file work.
+    // Starter-shop yellow overrides the specialty tint so the player can
+    // spot the inaugural shop from a tile away.
     let tint = 0xffffff;
     if (o.kind === 'house') {
       if (scene.save.starterShopId && scene.save.starterShopId === o.id) {
         tint = 0xffe066;
       } else {
-        const st = WorldGen.shopType(o);
-        if (st === 'blacksmith') tint = 0x807068;
-        else if (st === 'market') tint = 0xff6a6a;
+        tint = Shops.shopTint(o) || 0xffffff;
       }
     }
     s.setOrigin(spec.origin[0], spec.origin[1])
@@ -756,8 +753,15 @@ Render.drawObjects = function drawObjects(scene) {
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
 
   // Specialty-shop labels above small-house shops (markets / blacksmiths /
-  // traders). Same stone-tablet styling as chest labels, smaller font.
-  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && WorldGen.shopLabel(o));
+  // traders). Painted-wood signage — warm brown plank, deep-wood stroke
+  // around each glyph, and a hard drop-shadow below the lettering so the
+  // sign reads as carved/painted (NOT the glowing cyan rune tablets used
+  // for POI chests). Lettering colour comes from Shops.shopInk so each
+  // shop type's signage matches its house tint at a glance.
+  const SHOP_INK_BG    = 'rgb(96,64,40)';            // warm dark wood plank
+  const SHOP_STROKE    = '#2a1408';                  // near-black wood shadow around glyphs
+  const SHOP_DROP      = 'rgba(0,0,0,0.65)';         // hard drop shadow under the sign
+  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && Shops.shopLabel(o));
   let sli = 0;
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
@@ -767,17 +771,22 @@ Render.drawObjects = function drawObjects(scene) {
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
         font: 'bold 9px monospace',
-        color: LABEL_INK, backgroundColor: LABEL_BG,
-        padding: { x: 3, y: 2 },
-        stroke: LABEL_STROKE, strokeThickness: 2,
+        backgroundColor: SHOP_INK_BG,
+        padding: { x: 4, y: 2 },
+        stroke: SHOP_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(50);
-      tx.setShadow(0, 0, LABEL_GLOW, 6, true, true);
+      // Drop-shadow offset down-right with no blur so the sign reads as a
+      // hung wooden plank, not a glowing rune. shadowFill=true paints the
+      // shadow onto the glyph fill (and the wider stroke extends the
+      // silhouette so the shadow visually sits behind the whole letter).
+      tx.setShadow(1, 2, SHOP_DROP, 0, true, true);
       scene.objectsContainer.add(tx);
       scene.shopLabelPool.push(tx);
     }
     // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
     // height*0.6*0.9 above sy. Anchor the label just above that.
-    tx.setText(WorldGen.shopLabel(o))
+    tx.setText(Shops.shopLabel(o))
+      .setColor(Shops.shopInk(o))
       .setPosition(Math.round(sx), Math.round(sy - 26))
       .setVisible(true);
     sli++;
