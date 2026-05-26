@@ -212,8 +212,20 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
     if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
     if (this.save.relics.bags === undefined)   this.save.relics.bags = null;
-    // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
-    this.save.shopOffers = this.save.shopOffers || {};
+    // Per-shop bucket state: { [houseId]: { bucket, deals, rerolls } }.
+    // Replaces the old shopDeals (rolling timestamp array) + shopOffers
+    // (cached offer object) — both are re-derivable from a seeded RNG keyed
+    // by (house.id, bucket, rerolls). offerSalt is a once-per-save random
+    // so identical worlds won't see identical shops across players.
+    if (!this.save.shopState) {
+      this.save.shopState = {};
+      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
+      delete this.save.shopDeals;
+      delete this.save.shopOffers;
+    }
+    if (this.save.offerSalt == null) {
+      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    }
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
     // starterStock tracks which of those two items have been bought.
     this.save.starterStock = this.save.starterStock || { pick: true, axe: true };
@@ -1720,15 +1732,17 @@ class MapScene extends Phaser.Scene {
       : isStarter ? Infinity
       : (house.tier === 11 /* BUILDING_MED */) ? 5
       : 1;
+    // Hour-bucket deal cap. Each shop has its own offset (hash of id mod 1h)
+    // so all shops don't rotate at the same minute. cur.deals counts this
+    // bucket's deals; rolls over automatically when the bucket changes via
+    // shopBucketState() below.
     if (house && house.id && dealCap !== Infinity) {
-      this.save.shopDeals = this.save.shopDeals || {};
-      const now = Date.now();
-      const hourAgo = now - 60 * 60 * 1000;
-      const list = (this.save.shopDeals[house.id] || []).filter(t => t > hourAgo);
-      this.save.shopDeals[house.id] = list;
-      if (list.length >= dealCap) {
-        const oldest = Math.min(...list);
-        const waitMin = Math.max(1, Math.ceil((oldest + 60 * 60 * 1000 - now) / 60000));
+      const cur = this.shopBucketState(house);
+      if (cur.deals >= dealCap) {
+        const now = Date.now();
+        const offset = this._shopBucketOffset(house.id);
+        const nextBucketStart = (cur.bucket + 1) * 60 * 60 * 1000 - offset;
+        const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
         const kindLabel = (house.kind === 'tower' || house.tier === 12) ? 'castle'
                         : (house.tier === 11) ? 'fort' : 'house';
         this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
@@ -1738,9 +1752,8 @@ class MapScene extends Phaser.Scene {
     // Record a deal against this house — called from inside the accept path.
     const recordDeal = () => {
       if (!house || !house.id || dealCap === Infinity) return;
-      this.save.shopDeals = this.save.shopDeals || {};
-      const list = this.save.shopDeals[house.id] = this.save.shopDeals[house.id] || [];
-      list.push(Date.now());
+      const cur = this.shopBucketState(house);
+      cur.deals += 1;
     };
     const shopType = Shops.shopType(house);
     const sel = this.save.inv[this.save.selSlot];
@@ -1910,43 +1923,77 @@ class MapScene extends Phaser.Scene {
   // player either buys it, rerolls it, or (for non-castle shops) leaves and
   // the cap resets it. Castle offers persist forever and rotate on purchase.
   //
-  // Stale-offer guard: if the persisted offer is now ≤ the player's current
-  // tier (because they upgraded elsewhere), drop it and rebuild — otherwise
-  // the player could "buy" what is now a downgrade and silently lose tier.
-  // Size cap: shopOffers grows unbounded across many tile visits, so we also
-  // record a timestamp + prune entries older than the cap on every peek.
+  // ─── Hour-bucket helpers ────────────────────────────────────────
+  // Per-shop sub-hour offset so two shops don't rotate at the same wall-clock
+  // minute. Cached on the scene because every tap consults it.
+  _shopBucketOffset(houseId) {
+    // FNV-1a 32-bit on the id string, modulo 1h. Fast and uniform.
+    let h = 2166136261 >>> 0;
+    const s = String(houseId);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) % (60 * 60 * 1000);
+  }
+  _shopBucket(houseId, now = Date.now()) {
+    return Math.floor((now + this._shopBucketOffset(houseId)) / (60 * 60 * 1000));
+  }
+  // Returns the live { bucket, deals, rerolls } record for a house, creating
+  // it and GC-ing any stale-bucket predecessor on the way. Self-cleaning, so
+  // we never need a separate sweep.
+  shopBucketState(house) {
+    this.save.shopState = this.save.shopState || {};
+    const id = house.id;
+    const bucket = this._shopBucket(id);
+    let cur = this.save.shopState[id];
+    if (cur && cur.bucket !== bucket) cur = null;
+    if (!cur) {
+      cur = { bucket, deals: 0, rerolls: 0 };
+      this.save.shopState[id] = cur;
+    }
+    return cur;
+  }
+  // Deterministic 0..1 RNG keyed by (house.id, bucket, rerolls, lane). `lane`
+  // namespaces independent rolls within the same bucket — pass 'relic-pick',
+  // 'shop-offer-id', etc. so the price RNG can't accidentally consume the
+  // pool-pick RNG.
+  shopRng(house, lane = '') {
+    const cur = this.shopBucketState(house);
+    let h = ((this._shopBucketOffset(house.id) >>> 0)
+           ^ (cur.bucket >>> 0)
+           ^ ((this.save.offerSalt || 0) >>> 0)
+           ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
+    for (let i = 0; i < lane.length; i++) {
+      h ^= lane.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    let s = h;
+    return () => {
+      s = (Math.imul(s, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Build a relic/armor offer for a specific house, derived purely from the
+  // seeded RNG so the same shop in the same bucket always shows the same
+  // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
+  // which pivots the seed lane.
   peekOrBuildRelicOffer(house) {
-    const id = house?.id;
-    this.save.shopOffers = this.save.shopOffers || {};
-    // Trim entries older than SHOP_OFFERS_TTL_MS to bound save size.
-    const SHOP_OFFERS_TTL_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
-    const cutoff = Date.now() - SHOP_OFFERS_TTL_MS;
-    for (const k of Object.keys(this.save.shopOffers)) {
-      const t = this.save.shopOffers[k]?.t;
-      if (typeof t === 'number' && t < cutoff) delete this.save.shopOffers[k];
-    }
-    const cached = id && this.save.shopOffers[id];
-    if (cached) {
-      const curTier = cached.kind === 'relic'
-        ? (this.save.relics?.[cached.slot]?.tier ?? 0)
-        : (this.save.armor?.[cached.slot]?.tier ?? 0);
-      if (cached.tier > curTier) return cached;
-      delete this.save.shopOffers[id];   // stale — rebuild below
-    }
-    const off = this.buildRelicOffer();
-    if (off && id) {
-      off.rerollCount = 0;
-      off.t = Date.now();
-      this.save.shopOffers[id] = off;
-    }
-    return off;
+    if (!house?.id) return this.buildRelicOffer();
+    const rng = this.shopRng(house, 'relic');
+    return this.buildRelicOffer(rng);
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
   // their current slot is empty or holds a strictly lower tier. Returns null
   // if no upgrade is possible (caller falls through to the usual seed offer).
   // Tier is biased low so most offers are wood/copper; rare materials are rare.
-  buildRelicOffer() {
+  // `rng` defaults to Math.random — pass a seeded one for stable per-bucket offers.
+  buildRelicOffer(rng = Math.random) {
     const candidates = [];
     // Pick all (kind, slot) combos where the player can upgrade.
     const consider = (kind, slot, currentTier) => {
@@ -1961,17 +2008,17 @@ class MapScene extends Phaser.Scene {
     // Bias toward low tiers: weight ∝ 1 / 2^(tier-1). Tier 1 weight 1, t2 0.5, t3 0.25, …
     const weighted = candidates.map(c => ({ c, w: 1 / Math.pow(2, c.tier - 1) }));
     const total = weighted.reduce((a, b) => a + b.w, 0);
-    let r = Math.random() * total;
+    let r = rng() * total;
     let pick = weighted[weighted.length - 1].c;
     for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
-    const price = Math.max(1, Math.ceil(gearPrice(pick.kind, pick.slot, pick.tier) * (1.2 + Math.random() * 1.8)));
+    const price = Math.max(1, Math.ceil(gearPrice(pick.kind, pick.slot, pick.tier) * (1.2 + rng() * 1.8)));
     return { ...pick, price };
   }
 
   // Present a relic/armor offer. Re-roll is only shown at castles — regular
-  // houses + the starter shop hide it. The offer is persisted under
-  // save.shopOffers[house.id] so a subsequent tap shows the same offer until
-  // it's bought.
+  // houses + the starter shop hide it. The offer is derived from the bucket
+  // seed via peekOrBuildRelicOffer, so no per-tap persistence is needed; the
+  // re-roll button bumps cur.rerolls which pivots the seed lane.
   presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
@@ -1979,7 +2026,8 @@ class MapScene extends Phaser.Scene {
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
     const showReroll = allowReroll && !offer.starter;
-    const rerollCost = 5 * Math.pow(2, offer.rerollCount || 0);
+    const curState = (house?.id && !offer.starter) ? this.shopBucketState(house) : null;
+    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
       title: offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:',
       get: `${iconHtml} ${name}`,
@@ -1988,18 +2036,12 @@ class MapScene extends Phaser.Scene {
       canAfford: (this.save.money ?? 0) >= offer.price,
       acceptLabel: 'Buy',
       onAccept: () => {
-        // Last-chance downgrade guard — the persisted offer could have been
-        // built when the slot was lower-tier; in the meantime the player may
-        // have upgraded elsewhere. Without this check `this.save.relics[slot]`
-        // would silently overwrite the better tier.
+        // Last-chance downgrade guard — by the time the player taps Buy, the
+        // slot may have been upgraded elsewhere (chest reward, another shop).
         const curTier = offer.kind === 'relic'
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) {
-          this.flash('already own better', sx, sy);
-          if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
-          return;
-        }
+        if (offer.tier <= curTier) { this.flash('already own better', sx, sy); return; }
         if ((this.save.money ?? 0) < offer.price) { this.flash(`need $${offer.price}`, sx, sy); return; }
         addMoney(this.save, -offer.price);
         if (offer.kind === 'relic') {
@@ -2013,7 +2055,6 @@ class MapScene extends Phaser.Scene {
         }
         this.markRelicsDirty();
         if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
-        if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
         recordDeal();
         persistSave(this.save);
         this.updateHUD();
@@ -2024,11 +2065,12 @@ class MapScene extends Phaser.Scene {
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
           if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
-          const next = this.buildRelicOffer();
+          // Pivot the seed lane so the next peekOrBuildRelicOffer returns
+          // something else — no per-house cache to invalidate.
+          if (curState) curState.rerolls += 1;
+          const next = this.peekOrBuildRelicOffer(house);
           if (!next) { this.flash('nothing else in stock', sx, sy); return; }
           addMoney(this.save, -rerollCost);
-          next.rerollCount = (offer.rerollCount || 0) + 1;
-          if (house?.id) this.save.shopOffers[house.id] = next;
           persistSave(this.save);
           this.updateHUD();
           this.presentRelicOffer(sx, sy, next, recordDeal, house, true);
@@ -2063,11 +2105,7 @@ class MapScene extends Phaser.Scene {
         const curTier = offer.kind === 'relic'
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) {
-          this.flash('already own better', sx, sy);
-          if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
-          return;
-        }
+        if (offer.tier <= curTier) { this.flash('already own better', sx, sy); return; }
         if (heldCount() < GEM_COST) { this.flash(`need ${GEM_COST} ${gemItem?.name || gemId}`, sx, sy); return; }
         let left = GEM_COST;
         for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
@@ -2092,7 +2130,6 @@ class MapScene extends Phaser.Scene {
           this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
         }
         this.markRelicsDirty();
-        if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
         recordDeal();
         persistSave(this.save);
         this.updateHUD();
@@ -2200,15 +2237,42 @@ class MapScene extends Phaser.Scene {
     if (dataUrl) {
       css = base + `background-image:url('${dataUrl}');background-size:${sizePx}px ${sizePx}px;`;
     } else if (src) {
-      const sheetSize = src.sheet === 'springcrops'
-        ? { cols: 14, srcW: 224, srcH: 128 }
-        : { cols: 9,  srcW: 144, srcH: 256 };
-      const col = src.frame % sheetSize.cols;
-      const row = Math.floor(src.frame / sheetSize.cols);
-      const url = src.sheet === 'springcrops' ? 'Objects/Spring Crops.png' : 'Objects/Crops.png';
+      // Sheet table — adding a new icon sheet is one entry here plus a row
+      // in MINERAL_ICON_SHEET (items.js). The previous hardcoded if-else
+      // silently fell through to Crops.png for any unknown sheet, so a
+      // request like { sheet: 'gems', frame: 4 } rendered as rainberry
+      // stage 4 (the "berry bush" the user reported on sapphire offers).
+      const SHEETS = {
+        crops:       { url: 'Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
+        springcrops: { url: 'Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
+        gems:        { url: 'Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
+        coal_icon:   { url: 'Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+        // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
+        icon_egg:    { url: 'Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
+        icon_milk:   { url: 'Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
+        // Orchard fruit — 32×16 each (frame 0 = whole fruit).
+        icon_apple:   { url: 'Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_cherry:  { url: 'Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_peach:   { url: 'Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_banana:  { url: 'Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_orange:  { url: 'Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_mango:   { url: 'Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_coconut: { url: 'Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
+        icon_apricot: { url: 'Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
+        // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
+        // smallmouth bass icon (same family, just smaller fiction).
+        icon_minnow:     { url: 'Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
+        icon_bass:       { url: 'Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
+        icon_trout:      { url: 'Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
+        icon_salmon:     { url: 'Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
+        icon_goldenfish: { url: 'Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+      };
+      const sheet = SHEETS[src.sheet] || SHEETS.crops;
+      const col = src.frame % sheet.cols;
+      const row = Math.floor(src.frame / sheet.cols);
       const scale = sizePx / 16;
-      css = base + `background-image:url('${url}');`
-        + `background-size:${sheetSize.srcW * scale}px ${sheetSize.srcH * scale}px;`
+      css = base + `background-image:url('${sheet.url}');`
+        + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
     }
     if (style === 'block') {

@@ -131,59 +131,54 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 // We capture scene.flash() calls and check whether 'too far' fires for each
 // offset. Detecting via flash means we exercise the real cell-resolve gate
 // (not just the math), which is the regression surface for both bugs.
-test('reach shape includes (±1, ±3) and (±3, ±1); not affected by intra-cell foot position', (scene) => {
+test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', (scene) => {
   // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
   if (!startTile) return;
-  let pCell = null;
-  for (let i = 0; i < startTile.grid.length && !pCell; i++) {
-    if (startTile.grid[i] !== 0) continue;   // need grass
+  let bodyCell = null;
+  for (let i = 0; i < startTile.grid.length && !bodyCell; i++) {
+    if (startTile.grid[i] !== 0) continue;
     const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
-    if (cx < 4 || cy < 4 || cx > scene.cellsPerTile - 5 || cy > scene.cellsPerTile - 5) continue;
+    if (cx < 4 || cy < 5 || cx > scene.cellsPerTile - 5 || cy > scene.cellsPerTile - 5) continue;
     const approxX = 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM;
     const approxY = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
-    pCell = absCellCenterMeters(scene, cellIX, cellIY);
+    bodyCell = absCellCenterMeters(scene, cellIX, cellIY);
   }
-  if (!pCell) return;   // no interior grass in fixture — skip
+  if (!bodyCell) return;
+  // The reach is centred on the FEET cell, not the body cell. With the body
+  // teleported to its cell centre, the feet land in the cell ONE ROW SOUTH.
+  // Offsets in this test are expressed RELATIVE to the feet cell, so we
+  // shift the tap-y by +1 cell to convert from feet-offset back to body-y.
+  const FEET_ROW_OFFSET = 1;
 
-  // Capture every flash so we can detect 'too far'.
   const origFlash = scene.flash;
   const flashes = [];
   scene.flash = (msg) => { flashes.push(msg); };
   try {
-    const tapOffset = (dxCells, dyCells, atSouthEdge = false) => {
+    const tapOffsetFromFeet = (dxCells, dyCells) => {
       flashes.length = 0;
-      // Stand at the player cell's body centre. The dispatcher uses the BODY
-      // position (pre feet-offset) to compute the player cell for reach gates,
-      // so no feet-offset compensation here.
-      const py = atSouthEdge ? pCell.y + scene.cellM / 2 - 0.05 : pCell.y;
-      teleport(scene, pCell.x, py);
-      tapWorld(scene, pCell.x + dxCells * scene.cellM,
-                      pCell.y + dyCells * scene.cellM);
+      teleport(scene, bodyCell.x, bodyCell.y);
+      // Tap (dxCells, dyCells) cells from the feet cell. Feet cell is at
+      // body cell + FEET_ROW_OFFSET rows, so in world coords we add it back.
+      tapWorld(scene,
+        bodyCell.x + dxCells * scene.cellM,
+        bodyCell.y + (dyCells + FEET_ROW_OFFSET) * scene.cellM);
       return flashes.some(m => typeof m === 'string' && /too far/i.test(m));
     };
 
-    // The previously-edge-case offsets — now in reach.
-    assert.falsy(tapOffset( 1,  3), '(1, 3) cell tappable (was edge of old 15m diamond)');
-    assert.falsy(tapOffset(-1,  3), '(-1, 3) cell tappable');
-    assert.falsy(tapOffset( 3,  1), '(3, 1) cell tappable');
-    assert.falsy(tapOffset( 3, -1), '(3, -1) cell tappable');
-    // Cardinal extremes still in reach.
-    assert.falsy(tapOffset( 0,  3), '(0, 3) cell tappable');
-    assert.falsy(tapOffset( 3,  0), '(3, 0) cell tappable');
-    // Outside the rounded-square — still out of reach.
-    assert.truthy(tapOffset( 3,  3), '(3, 3) cell out of reach (√18·5 ≈ 21 m > 16 m)');
-    assert.truthy(tapOffset( 2,  3), '(2, 3) cell out of reach (√13·5 ≈ 18 m > 16 m)');
-
-    // Reach must be independent of intra-cell foot position: a tap on a
-    // far-edge cell while standing at the south edge of the own cell must
-    // still succeed, since both the visual outline and the gate measure
-    // from cell-centre.
-    assert.falsy(tapOffset( 0, -3, /*atSouthEdge=*/true),
-      'north cell (-3) tappable even when feet at south edge of own cell');
-    assert.falsy(tapOffset( 1, -3, /*atSouthEdge=*/true),
-      '(1, -3) cell tappable from south edge of own cell');
+    // The rounded-square shape — same geometry as before, just centred on
+    // the feet cell instead of the body cell. (±1, ±3) and (±3, ±1) are
+    // included; (±2, ±3) / (±3, ±3) are not.
+    assert.falsy(tapOffsetFromFeet( 1,  3), '(1, 3) cell tappable from feet (rounded-square shape)');
+    assert.falsy(tapOffsetFromFeet(-1,  3), '(-1, 3) cell tappable');
+    assert.falsy(tapOffsetFromFeet( 3,  1), '(3, 1) cell tappable');
+    assert.falsy(tapOffsetFromFeet( 3, -1), '(3, -1) cell tappable');
+    assert.falsy(tapOffsetFromFeet( 0,  3), '(0, 3) cell tappable');
+    assert.falsy(tapOffsetFromFeet( 3,  0), '(3, 0) cell tappable');
+    // Outside the rounded-square.
+    assert.truthy(tapOffsetFromFeet( 3,  3), '(3, 3) too far (√18·5 ≈ 21 m > 16 m)');
+    assert.truthy(tapOffsetFromFeet( 2,  3), '(2, 3) too far (√13·5 ≈ 18 m > 16 m)');
   } finally {
     scene.flash = origFlash;
   }
@@ -1182,7 +1177,8 @@ test('re-roll button is hidden on non-castle relic offers', (scene) => {
 });
 
 test('re-roll button swaps the on-display relic for a different one', (scene) => {
-  scene.save.shopOffers = {};
+  scene.save.shopState = {};
+  if (scene.save.offerSalt == null) scene.save.offerSalt = 0xdeadbeef;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
   scene.save.armor = { helmet: null, chest: null, legs: null, boots: null };
   scene.save.money = 100000;
@@ -1192,37 +1188,37 @@ test('re-roll button swaps the on-display relic for a different one', (scene) =>
   scene.shopInteract(0, 0, fakeCastle);
   let modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'first modal open');
-  const before = JSON.stringify(scene.save.shopOffers[fakeCastle.id]);
-  // Find the reroll button by its money string ($5 first time).
+  const stBefore = scene.save.shopState[fakeCastle.id];
+  assert.truthy(stBefore, 'bucket state initialized on first tap');
+  const rerollsBefore = stBefore.rerolls;
   const buttons = [...modal.querySelectorAll('button')];
   const reroll = buttons.find(b => b.innerHTML.includes('Re-roll'));
   assert.truthy(reroll, 'Re-roll button present');
   const moneyBefore = scene.save.money;
   reroll.click();
-  const after = JSON.stringify(scene.save.shopOffers[fakeCastle.id]);
-  assert.truthy(before !== after || scene.save.shopOffers[fakeCastle.id].rerollCount === 1,
-    're-roll updated the persisted offer (or at least bumped rerollCount)');
+  const stAfter = scene.save.shopState[fakeCastle.id];
+  assert.eq(stAfter.rerolls, rerollsBefore + 1, 're-roll bumped cur.rerolls (seed pivots)');
   assert.lt(scene.save.money, moneyBefore, 'money deducted by re-roll cost');
   document.getElementById('offer-modal')?.remove();
 });
 
 test('shop offer persists across multiple taps on same house', (scene) => {
-  scene.save.shopOffers = {};
-  scene.save.shopDeals = {};
+  scene.save.shopState = {};
+  if (scene.save.offerSalt == null) scene.save.offerSalt = 0xdeadbeef;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
   scene.save.money = 10000;
   const fakeCastle = { kind: 'tower', id: 'test_castle_persist', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
-  scene.shopInteract(0, 0, fakeCastle);
-  const first = JSON.parse(JSON.stringify(scene.save.shopOffers[fakeCastle.id]));
-  document.getElementById('offer-modal')?.remove();
-  scene.shopInteract(0, 0, fakeCastle);
-  const second = scene.save.shopOffers[fakeCastle.id];
-  assert.eq(first.kind, second.kind, 'kind matches across taps');
-  assert.eq(first.slot, second.slot, 'slot matches across taps');
-  assert.eq(first.tier, second.tier, 'tier matches across taps');
-  document.getElementById('offer-modal')?.remove();
+  // Bucketed offers are derived from (house.id, bucket, rerolls, offerSalt),
+  // so the same shop in the same bucket always produces the same offer
+  // without any per-tap persistence. Build twice and compare.
+  const a = scene.peekOrBuildRelicOffer(fakeCastle);
+  const b = scene.peekOrBuildRelicOffer(fakeCastle);
+  assert.truthy(a && b, 'offers built on both calls');
+  assert.eq(a.kind, b.kind, 'kind matches across taps');
+  assert.eq(a.slot, b.slot, 'slot matches across taps');
+  assert.eq(a.tier, b.tier, 'tier matches across taps');
 });
 
 test('weapons: sword raises sell price (T0=half, T7=par)', () => {
@@ -1685,7 +1681,7 @@ test('crow catch without bugnet flashes need-bug-net', (scene) => {
   }
 });
 
-test('crow catch WITH bugnet equipped drops a crow_feather', (scene) => {
+test('crow catch WITH bugnet equipped puts a crow in the inventory', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.relics = scene.save.relics || {};
@@ -1700,13 +1696,16 @@ test('crow catch WITH bugnet equipped drops a crow_feather', (scene) => {
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene.save.caught.includes(crow.id), 'crow caught');
-    assert.eq(invCount(scene, 'crow_feather'), 1, '1 crow_feather added');
+    // Catching adds the live animal — not a derived product (the old
+    // behaviour put a crow_feather in inv; now you get the crow itself).
+    assert.eq(invCount(scene, 'crow'), 1, '1 crow added');
+    assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather on catch — processed downstream');
   } finally {
     entry.creatures.pop();
   }
 });
 
-test('deer hunt: requires a weapon relic, drops meat', (scene) => {
+test('deer hunt: requires a weapon relic, then puts a deer in the inventory', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.caught = scene.save.caught || [];
@@ -1722,15 +1721,56 @@ test('deer hunt: requires a weapon relic, drops meat', (scene) => {
   try {
     tapWorld(scene, pWX, pWY);
     assert.falsy(scene.save.caught.includes(deer.id), 'no catch without weapon');
-    assert.eq(invCount(scene, 'meat'), 0, 'no meat without weapon');
+    assert.eq(invCount(scene, 'deer'), 0, 'no deer without weapon');
     // Any weapon works — wood sword.
     scene.save.relics.sword = { tier: 1 };
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene.save.caught.includes(deer.id), 'deer caught with weapon');
-    assert.eq(invCount(scene, 'meat'), 1, '1 meat added');
+    // Catch now adds the live deer to inventory rather than 'meat'.
+    assert.eq(invCount(scene, 'deer'), 1, '1 deer added');
+    assert.eq(invCount(scene, 'meat'), 0, 'no meat on catch — processed downstream');
   } finally {
     entry.creatures.pop();
   }
+});
+
+test('trader never barters an item for the same item', (scene) => {
+  // Force the barter branch (forceBarter=true) and try every priced id as
+  // both the offered item AND the held inventory. The trader must never
+  // pick the SAME id as payment.
+  scene.save.relics = { bow: null, staff: null };
+  scene.save.inv = []; scene.save.selSlot = 0;
+  // Stash every priced item in inv with count 5 so the candidates filter
+  // can in principle pick any of them.
+  for (const id of Object.keys(PRICES)) {
+    if (!ITEM_BY_ID[id]) continue;
+    scene.save.inv.push({ id, count: 5 });
+  }
+  // Try each priced item as the trader's offer and run the picker enough
+  // times that any same-item pick would surface.
+  let collisions = 0, samples = 0;
+  for (const id of Object.keys(PRICES)) {
+    if (!ITEM_BY_ID[id]) continue;
+    const base = PRICES[id];
+    for (let i = 0; i < 8; i++) {
+      const offer = scene.buildShopOffer(id, base, /* forceBarter */ true);
+      samples++;
+      // The barter label looks like `1× <iconHTML> Name` — pull the id out
+      // by scanning save.inv for the chosen pick name. Simpler: hijack
+      // canAfford / consume signatures by inspecting the closure indirectly
+      // via consuming a fresh inv snapshot.
+      // Cheapest: rebuild via a probe — if applying consume() drops the SAME
+      // id whose offer we asked for, we found a collision.
+      if (offer.kind === 'item') {
+        const before = scene.save.inv.find(s => s.id === id)?.count ?? 0;
+        // Don't actually consume — just check label includes the same id's display name.
+        const wantName = ITEM_BY_ID[id]?.name || id;
+        // Label format: `1× <icon> Name` — exact-match the name suffix.
+        if ((offer.label || '').endsWith(wantName)) collisions++;
+      }
+    }
+  }
+  assert.eq(collisions, 0, `trader self-barter offers across ${samples} draws`);
 });
 
 test('lowtier (chestTier 1) chest renders box sprite key', (scene) => {
