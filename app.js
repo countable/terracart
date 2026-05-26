@@ -1882,8 +1882,6 @@ class MapScene extends Phaser.Scene {
   // money/energy badges. Rebuilds only when the relics signature changes,
   // so calling from updateHUD every frame stays cheap.
   updateRelicRow() {
-    const game = document.getElementById('game');
-    if (!game) return;
     const relics = this.save.relics || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];
     const sig = order.map(s => `${s}:${relics[s]?.tier ?? 0}`).join(',');
@@ -1894,14 +1892,17 @@ class MapScene extends Phaser.Scene {
     if (!owned.length) return;
     const row = document.createElement('div');
     row.id = 'relic-row';
-    row.style.cssText = 'position:absolute;top:42px;right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
+    // position:fixed + appended to <body> for the same reason as the inv bar
+    // (see buildInventoryDOM): a fixed element inside transformed #game would
+    // anchor to #game, not the viewport.
+    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
     for (const slot of owned) {
       const wrap = document.createElement('span');
       wrap.style.cssText = 'display:inline-block;line-height:0;';
       wrap.innerHTML = this.gearIconHTML('relic', slot, relics[slot].tier, 20);
       row.appendChild(wrap);
     }
-    game.appendChild(row);
+    document.body.appendChild(row);
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
