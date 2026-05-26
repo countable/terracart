@@ -2444,6 +2444,16 @@ class MapScene extends Phaser.Scene {
     const cap = (typeof stackCapForBags === 'function')
       ? stackCapForBags(this.save.relics?.bags) : 9;
     let remaining = n;
+    // Did at least one existing stack of this id sit at the cap when we
+    // arrived? If so we'll show a "bag full" nudge once the spill is done —
+    // even if there was room (different existing stack) so the player still
+    // learns the cap is in play. Triggers only when a NEW stack had to be
+    // created OR an existing same-id stack was already at the ceiling.
+    let triggeredFull = false;
+    for (const s of this.save.inv) {
+      if (!s || s.id !== id) continue;
+      if ((s.count || 0) >= cap) { triggeredFull = true; break; }
+    }
     // Fill every existing stack of this id (in order) up to the cap first.
     for (const s of this.save.inv) {
       if (remaining <= 0) break;
@@ -2455,6 +2465,7 @@ class MapScene extends Phaser.Scene {
       remaining -= take;
     }
     // Anything left starts a new stack (and possibly more if remaining > cap).
+    if (remaining > 0) triggeredFull = true;
     while (remaining > 0) {
       const take = Math.min(cap, remaining);
       this.save.inv.push({ id, count: take });
@@ -2463,6 +2474,23 @@ class MapScene extends Phaser.Scene {
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
+    }
+    if (triggeredFull && !silent && typeof this.flash === 'function' && this.add) {
+      // Defer to the next tick so we don't race a flashLoot the caller fires
+      // immediately after this addToInv (e.g. chest-open does addToInv then
+      // flashLoot back-to-back; two add.text in the same synchronous chain
+      // exhausts Phaser's text canvas pool in test mode). Also keeps the
+      // nudge visually below the loot pop. Coalesce repeat triggers within a
+      // single frame so a bulk pickup only fires one 'bag full'.
+      if (!this._bagFullPending) {
+        this._bagFullPending = true;
+        setTimeout(() => {
+          this._bagFullPending = false;
+          try {
+            this.flash('bag full', this.viewCenterX, this.viewCenterY - 28);
+          } catch (_) {}
+        }, 0);
+      }
     }
   }
   buildInventoryDOM() {
