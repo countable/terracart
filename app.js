@@ -126,6 +126,10 @@ class MapScene extends Phaser.Scene {
     });
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
+    // Cats + dogs use the Icons/Pets icon sheets (16×16 cells) since we don't
+    // have animated spritesheets for them — render as static single-frame.
+    this.load.spritesheet('cat', 'Icons/Pets/cats icons.png', { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('dog', 'Icons/Pets/dogs icons.png', { frameWidth: 16, frameHeight: 16 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
     // Frames: 0 = closed, 1 = open.
     this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
@@ -332,6 +336,8 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 32, 32);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
+    window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 16, 16);
+    window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 16, 16);
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
@@ -729,6 +735,11 @@ class MapScene extends Phaser.Scene {
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
+    // Wild cats + dogs — as rare as cows. Same soft ground.
+    const catN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < catN; i++) tryPlace('cat', new Set([0, 4, 5, 6]), i, 'cat');
+    const dogN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < dogN; i++) tryPlace('dog', new Set([0, 4, 5, 6]), i, 'dog');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -855,8 +866,11 @@ class MapScene extends Phaser.Scene {
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
-    // and drop a fresh one at the player's previous spot. With 0.9^N falloff,
-    // ~5 dots stay visible (alpha < 0.05 → dropped).
+    // and drop a fresh one AT THE PLAYER'S CURRENT FEET. (Previously dropped
+    // at the player's _previous_ position, which made the freshest dot trail
+    // ~2m behind the sprite — the trail visibly started a body-length away
+    // from the feet.) Starting alpha is 0.45 (was 0.65 — ~30% lower) so the
+    // freshest dot reads as a soft press rather than ink.
     {
       const lp = this._lastFootprintM;
       const dx = this.playerM.x - lp.x, dy = this.playerM.y - lp.y;
@@ -868,7 +882,7 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
-        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.65 });
+        this.footprints.push({ x: this.playerM.x, y: this.playerM.y, alpha: 0.45 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
         // keep ~22 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
