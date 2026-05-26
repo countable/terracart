@@ -539,7 +539,10 @@ test('catch handler refuses without favourite food, succeeds with it', (scene) =
   assert.eq(r ? r.count : 0, 2, 'one rainberry consumed');
 });
 
-// Wrong-food → yuck: animal NOT caught, food still consumed.
+// Wrong-food → yuck: animal NOT caught, food still consumed. Use egg on
+// a chicken — chickens accept any PLANT produce now (which yields more
+// eggs), so the only unambiguous "yuck" path is non-plant edible items
+// like egg / milk on chickens / cows.
 test('feeding wrong food yields yuck and consumes the food', (scene) => {
   let target = null;
   for (const e of WorldGen.tileCache.values()) {
@@ -549,15 +552,38 @@ test('feeding wrong food yields yuck and consumes the food', (scene) => {
     if (target) break;
   }
   if (!target) return;
-  // pairy is the cow's favourite — wrong for a chicken.
-  scene.save.inv = [{ id: 'pairy', count: 3 }];
+  // Egg → chicken: edible but not a plant, not the favourite. Yuck.
+  scene.save.inv = [{ id: 'egg', count: 3 }];
   scene.save.selSlot = 0;
   scene.save.energy = scene.save.maxEnergy ?? 100;
   teleport(scene, target.x, target.y - 1);
   tapWorld(scene, target.x, target.y);
   assert.falsy(scene.save.caught.includes(target.id), 'no catch on wrong food');
+  const e = scene.save.inv.find(s => s && s.id === 'egg');
+  assert.eq(e ? e.count : 0, 2, 'wrong food still consumed (yuck)');
+});
+
+// Any plant produce fed to a chicken/cow yields an egg/milk.
+test('feeding any plant produce to a chicken yields an egg', (scene) => {
+  let target = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) {
+      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
+    }
+    if (target) break;
+  }
+  if (!target) return;
+  // pairy is a non-favourite plant produce for chickens.
+  scene.save.inv = [{ id: 'pairy', count: 2 }];
+  scene.save.selSlot = 0;
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  teleport(scene, target.x, target.y - 1);
+  tapWorld(scene, target.x, target.y);
+  assert.falsy(scene.save.caught.includes(target.id), 'chicken not caught (pairy is not favourite)');
   const p = scene.save.inv.find(s => s && s.id === 'pairy');
-  assert.eq(p ? p.count : 0, 2, 'wrong food still consumed (yuck)');
+  assert.eq(p ? p.count : 0, 1, 'one pairy consumed');
+  const eggStack = scene.save.inv.find(s => s && s.id === 'egg');
+  assert.truthy(eggStack && eggStack.count >= 1, 'egg produced from pairy');
 });
 
 // Feeding longgrass to an animal swaps it for egg / milk and leaves the
@@ -1221,15 +1247,21 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
   scene.save.inv = [{ id: 'potato', count: 1 }];  // base price $5
   scene.save.selSlot = 0;
   scene.save.money = 0;
-  // Pick any house and tap it with potato selected.
+  // Pick any house and tap it with potato selected. Compute the expected
+  // price using the same chain shopInteract uses — sword multiplier × the
+  // shop-type bonus — so the assertion isn't tied to whichever shop type
+  // worldgen happens to assign to the nearest house.
   const house = findObject(o => o.kind === 'house');
   assert.truthy(house, 'a house exists');
   teleport(scene, house.x, house.y - 2);
+  const shopType = WorldGen.shopType ? WorldGen.shopType(house) : null;
+  const shopMul = scene.shopSellBonus ? scene.shopSellBonus(shopType, 'potato') : 1;
+  const expected = Math.max(1, Math.ceil(PRICES.potato * sellMultiplier(scene.save.relics) * shopMul));
   scene.shopInteract(0, 0, house);
   const modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'sell modal opened');
-  // T7 sword: sell at par = $5 (was $3 at T0).
-  assert.truthy(modal.innerHTML.includes('+$5'), 'sells potato at base $5 with T7 sword');
+  assert.truthy(modal.innerHTML.includes(`+$${expected}`),
+    `sells potato at $${expected} with T7 sword (mul=1.0, shopMul=${shopMul})`);
   document.getElementById('offer-modal')?.remove();
 });
 

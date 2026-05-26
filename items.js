@@ -213,8 +213,8 @@ const PLAY_TIPS = [
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
   'Dogs follow whoever has eggs in hand. Lead them home that way.',
-  'Feeding longgrass to a chicken or cow swaps it for an egg / milk.',
-  'Cats and dogs turn their nose up at long grass — wastes both.',
+  'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
+  'Cats and dogs only eat meat — feeding them plants just wastes the food.',
 ];
 
 const STARTING_ENERGY = 100;

@@ -164,12 +164,16 @@ const TAP_HANDLERS = [
   //   FAVOURITE FOOD                 → catch (consumes 1, spends energy).
   //                                    chicken→rainberry, cow→pairy,
   //                                    cat→milk, dog→egg.
-  //   LONGGRASS on chicken/cow       → feed for produce: consume the
-  //                                    longgrass, gain 1 egg (chicken) or
-  //                                    milk (cow). Animal stays in world.
+  //   PLANT PRODUCE on chicken/cow   → feed for produce: consume the
+  //                                    plant, gain 1 egg (chicken) or
+  //                                    1 milk (cow). Any crop produce or
+  //                                    wild plant works (longgrass,
+  //                                    shrub, nut, rockfruit, flowers,
+  //                                    farmed crops…). Animal stays.
   //   ANY OTHER FOOD on this animal  → YUCK: consume the food anyway, no
   //                                    catch, no produce. (Cats/dogs
-  //                                    turn up their nose at longgrass.)
+  //                                    turn up their nose at plants;
+  //                                    chickens/cows refuse meat / dairy.)
   //   NOTHING / non-food selected    → flash a hint with the favourite.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
@@ -182,7 +186,14 @@ const TAP_HANDLERS = [
     if (!target) return false;
     const sel = getSelectedSlot(save);
     const wantFood = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
+    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
+    // "Plant produce" = anything tagged kind:'produce' that came from a plant
+    // — farmed crops carry an `item.crop` ref; longgrass too; the bare
+    // 'flowers' pickup is a wild plant with no .crop but still plant-origin.
+    // Excludes egg / milk (also kind:'produce' but they're animal-source).
+    const isPlantProduce = selItem && selItem.kind === 'produce'
+      && (!!selItem.crop || sel.id === 'flowers');
     // 1. Favourite → catch.
     if (sel && wantFood && sel.id === wantFood && (sel.count ?? 0) > 0) {
       if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
@@ -191,8 +202,8 @@ const TAP_HANDLERS = [
       scene.catchCreature(target, sx, sy);
       return true;
     }
-    // 2. Longgrass → produce (chicken/cow only).
-    if (sel && sel.id === 'longgrass' && (sel.count ?? 0) > 0) {
+    // 2. Plant produce → produce (chicken / cow only).
+    if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
       const yieldId = target.kind === 'chicken' ? 'egg'
                     : target.kind === 'cow'     ? 'milk'
                     : null;
@@ -209,7 +220,6 @@ const TAP_HANDLERS = [
     if (sel && isEdible && (sel.count ?? 0) > 0) {
       consumeSelected(save);
       scene.buildInventoryDOM();
-      const item = ITEM_BY_ID[sel.id];
       scene.flashLoot(`🤢 yuck`, '#ff8a7a', 1, sel.id);
       ctx.dirty = true;
       return true;
