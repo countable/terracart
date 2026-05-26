@@ -552,26 +552,46 @@ class MapScene extends Phaser.Scene {
     const onOrient = (e) => {
       let deg = null;
       if (typeof e.webkitCompassHeading === 'number') {
-        deg = e.webkitCompassHeading; // iOS: already CW from north
+        // iOS: tilt-compensated and CW from true north. Skip uncalibrated
+        // readings (accuracy < 0, often -1 after pickup) so a wild heading
+        // doesn't lock in before the magnetometer settles.
+        if (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy < 0) return;
+        deg = e.webkitCompassHeading;
       } else if (e.absolute && typeof e.alpha === 'number') {
         deg = (360 - e.alpha) % 360;  // alpha is CCW from north; flip
-      } else if (typeof e.alpha === 'number' && this.compassDeg == null) {
-        deg = (360 - e.alpha) % 360;  // best-effort non-absolute fallback
+      } else {
+        // Non-absolute alpha drifts from a device-power-on zero (not north),
+        // so it's useless as a compass — fall through to movement-direction
+        // facing instead of seeding compassDeg with garbage.
+        return;
       }
-      if (deg != null && !Number.isNaN(deg)) {
-        const rad = deg * Math.PI / 180;
-        this.compassDeg = deg;
-        this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
-      }
+      if (Number.isNaN(deg)) return;
+      // Screen-rotation compensation: heading is reported in the device's
+      // natural frame; we want it in the current screen frame so the arrow
+      // points true north whether the player holds the phone portrait or
+      // landscape (or upside-down on a tablet).
+      const screenAngle = (window.screen?.orientation?.angle)
+        ?? (typeof window.orientation === 'number' ? window.orientation : 0);
+      deg = (deg + screenAngle + 360) % 360;
+      const rad = deg * Math.PI / 180;
+      this.compassDeg = deg;
+      this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
     };
     const attach = () => {
       window.addEventListener('deviceorientationabsolute', onOrient, true);
       window.addEventListener('deviceorientation', onOrient, true);
     };
-    // iOS 13+ requires explicit permission. If the API is gated, request it.
+    // iOS 13+: DeviceOrientationEvent.requestPermission() MUST originate in a
+    // user gesture (tap/click) or it silently rejects. Defer the prompt to
+    // the player's first tap on the game — without this gate the listener
+    // never attaches on iPhone and the "compass" is really just GPS bearing.
     const DOE = window.DeviceOrientationEvent;
     if (DOE && typeof DOE.requestPermission === 'function') {
-      DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
+      const onFirstTap = () => {
+        window.removeEventListener('pointerdown', onFirstTap, true);
+        DOE.requestPermission().then(r => { if (r === 'granted') attach(); }).catch(() => {});
+      };
+      window.addEventListener('pointerdown', onFirstTap, true);
     } else {
       attach();
     }
