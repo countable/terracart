@@ -579,30 +579,40 @@ const TAP_HANDLERS = [
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          // Mineralrock drop table by requiredTier:
-          //   1 → coal + occasional copper bar
-          //   2 → copper bar + occasional iron bar
-          //   3 → iron bar  + occasional gold bar
-          //   4 → gold bar  + occasional sapphire (jewelry gem)
-          //   5 → platinum bar + occasional ruby
-          //   6 → crimson bar  + occasional emerald
-          //   7 → frost bar (very rare)
-          // Coal is universal change at every rock; bars are the main loot
-          // for the smithing economy; gems are the rarer side-prize that
-          // jewelry-class relic recipes (ring / staff / amulet) consume.
+          // Mineralrock drop table by requiredTier. Only the lower three
+          // bars (copper / iron / gold) are mineable — platinum, crimson,
+          // and frost can only be SMELTED from their matching flowers
+          // (sunflower / fireflower / iceflower) at a blacksmith. High-tier
+          // rocks just pay out gold-bar + extra gems instead.
+          //
+          //   1 → coal + 1-2 copper bar
+          //   2 → coal + 1-2 copper bar
+          //   3 → coal + 1-2 iron bar  + occasional gold bar
+          //   4 → coal + 1   gold bar  + 25% sapphire
+          //   5 → coal + 1-2 gold bar  + 35% ruby
+          //   6 → coal + 1-2 gold bar  + 40% emerald
+          //   7 → coal + 1-2 gold bar  + 50% emerald + 25% ruby
           scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
           const t = o.requiredTier;
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-          const BAR_QTY = t >= 5 ? 1 : (1 + Math.floor(Math.random() * 2));
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
+          const BAR_QTY = (t <= 3) ? (1 + Math.floor(Math.random() * 2))
+                          : (t === 4 ? 1 : (1 + Math.floor(Math.random() * 2)));
           const primaryBar = BARS[t] || 'copper_bar';
           scene.addToInv(primaryBar, BAR_QTY);
-          // Side gem from tier 4-6 rocks — 25% chance.
-          const GEM_BY_TIER = { 4: 'sapphire', 5: 'ruby', 6: 'emerald' };
-          const gemId = GEM_BY_TIER[t];
+          // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
           let flashId = primaryBar;
-          if (gemId && Math.random() < 0.25) {
+          const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['emerald', 'ruby'] };
+          const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
+          const gems = GEM_BY_TIER[t];
+          if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
+            const gemId = gems[Math.floor(Math.random() * gems.length)];
             scene.addToInv(gemId, 1);
             flashId = gemId;
+          }
+          // T7 rocks have a bonus 25% chance for a second ruby on top.
+          if (t === 7 && Math.random() < 0.25) {
+            scene.addToInv('ruby', 1);
+            flashId = 'ruby';
           }
           persistSave(save);
           const item = ITEM_BY_ID[flashId];

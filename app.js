@@ -2265,25 +2265,42 @@ class MapScene extends Phaser.Scene {
   // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
   // entries for forging the given (kind, slot, tier) relic/armor. Recipe
   // rules:
-  //   • Jewelry slots (ring/staff/amulet) pay in gems:
+  //   • Tools / weapons / armor / utility — pay `tier` × tier-matched bar.
+  //     T2..T4 bars (copper / iron / gold) are mined; T5..T7 bars
+  //     (platinum / crimson / frost) are SMELTED from their flowers, so the
+  //     flower bond is implicit through the bar requirement.
+  //   • Jewelry slots (ring / staff / amulet) — geometric gem cost
+  //     (1, 2, 4, 8, 16, 32 from T2..T7) of the slot-specific gem:
   //       ring → ruby, staff → emerald, amulet → sapphire
-  //   • Every other slot pays in tier-matched bars
-  //       (copper / iron / gold / platinum / crimson / frost).
-  //   • Quantity scales with tier — `tier` of the material.
-  //   • Tiers 5-7 additionally demand 1 flower bond:
-  //       T5 platinum → sunflower, T6 crimson → fireflower, T7 frost → iceflower.
+  //     plus 1 of the tier-matched bar.
   // T1 wood gear is starter-shop-only and doesn't pass through here.
   blacksmithRecipe(kind, slot, tier) {
     if (!tier || tier < 2) return null;
-    const JEWELRY = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+    const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
     const BAR_BY_TIER = [, , 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-    const FLOWER_BY_TIER = { 5: 'sunflower', 6: 'fireflower', 7: 'iceflower' };
-    const primary = JEWELRY[slot] || BAR_BY_TIER[tier];
-    if (!primary) return null;
-    const recipe = [{ id: primary, qty: tier }];
-    const flower = FLOWER_BY_TIER[tier];
-    if (flower) recipe.push({ id: flower, qty: 1 });
-    return recipe;
+    const bar = BAR_BY_TIER[tier];
+    if (!bar) return null;
+    if (JEWELRY_GEM[slot]) {
+      // Geometric gem ramp: 1, 2, 4, 8, 16, 32 from T2..T7.
+      const gemQty = Math.pow(2, tier - 2);
+      return [
+        { id: JEWELRY_GEM[slot], qty: gemQty },
+        { id: bar, qty: 1 },
+      ];
+    }
+    return [{ id: bar, qty: tier }];
+  }
+
+  // Bar smelting recipes — only T5+ bars can be smelted; T2-T4 are mined.
+  // Returns null for non-smeltable bars. UI flow for smelting is a separate
+  // pass (smith offer presents smelting if player has the ingredients).
+  smeltingRecipe(barId) {
+    const RECIPES = {
+      platinum_bar: [{ id: 'sunflower',    qty: 1 }, { id: 'gold_bar',     qty: 1 }],
+      crimson_bar:  [{ id: 'fireflower',   qty: 1 }, { id: 'platinum_bar', qty: 1 }],
+      frost_bar:    [{ id: 'iceflower',    qty: 1 }, { id: 'crimson_bar',  qty: 1 }],
+    };
+    return RECIPES[barId] || null;
   }
 
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
