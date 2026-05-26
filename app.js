@@ -1941,6 +1941,17 @@ class MapScene extends Phaser.Scene {
     bar.appendChild(pageLbl);
 
     game.appendChild(bar);
+
+    // Name strip just below the bar — always shows the currently selected
+    // item's name (across pages), so the player isn't guessing what's
+    // selected when scrolled to a different page.
+    let nameLbl = document.getElementById('inv-name');
+    if (nameLbl) nameLbl.remove();
+    nameLbl = document.createElement('div');
+    nameLbl.id = 'inv-name';
+    nameLbl.style.cssText = 'position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    game.appendChild(nameLbl);
+
     this.refreshInventoryHighlight();
   }
   refreshInventoryHighlight() {
@@ -1954,6 +1965,12 @@ class MapScene extends Phaser.Scene {
       el.style.borderColor = isSel ? '#ffd866' : '#555';
       el.style.background  = isSel ? '#553a' : '#222a';
     });
+    const nameLbl = document.getElementById('inv-name');
+    if (nameLbl) {
+      const sel = this.save.inv[this.save.selSlot];
+      const it = sel && ITEM_BY_ID[sel.id];
+      nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
+    }
   }
 }
 
