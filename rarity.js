@@ -52,12 +52,19 @@
     // across different biomes. See CHEST_TIER_BY_CATEGORY in loot.js for
     // the current biome→tier mapping (still used by the renderer for the
     // coloured diamond).
+    //
+    // chainMax bounds what the boost chain alone can reach; maxTier bounds
+    // the absolute (post-jackpot) tier. Every tier gets a small jackpot
+    // window above its chain — so a humble T1 chest can rarely produce a
+    // fancier crop, and a T3 chest can occasionally jackpot a T7 fish.
+    // Relics follow relicChainMax / relicCap separately; T4 is the only
+    // chest where Frost (T7 relic) is reachable, and only via jackpot or
+    // the walk-up ladder.
     chestTierMod: {
-      1: { boostP: 0.30, maxTier: 2, relicCap: 1 },
-      2: { boostP: 0.55, maxTier: 3, relicCap: 2 },
-      3: { boostP: 0.70, maxTier: 5, relicCap: 4 },
-      // T4 chest — Frost (T7) is jackpot/walkup-only by design.
-      4: { boostP: 0.85, maxTier: 7, chainMax: 6, relicCap: 7, relicChainMax: 6 },
+      1: { boostP: 0.30, chainMax: 2, maxTier: 4, relicCap: 1 },
+      2: { boostP: 0.55, chainMax: 3, maxTier: 5, relicCap: 2 },
+      3: { boostP: 0.70, chainMax: 5, maxTier: 7, relicCap: 4 },
+      4: { boostP: 0.85, chainMax: 6, maxTier: 7, relicCap: 7, relicChainMax: 6 },
     },
     // Per-class boost-rate multiplier. The boost chain rolls each step at
     // (ctx.boostP * mul + ringLuck); a class with mul < 1 climbs less
@@ -314,9 +321,15 @@
     }
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
+    // Tier-driven bracket demotion. Higher-tier items always come in smaller
+    // stacks than their lower-tier siblings: a chest that "would have given"
+    // 10 potato seeds at T1 gives ~3 gemfruit seeds at T2 and 1 iceflower
+    // seed at T3. Default demotePerTier=2, clamped at bracket 0.
+    const demote = (tier - 1) * (RARITY_TUNING.qtyDemotePerTier ?? 0);
+    const effBracket = Math.max(0, bracket - demote);
     const brackets = (RARITY_TUNING.qtyBracketsByClass && RARITY_TUNING.qtyBracketsByClass[cls])
       || RARITY_TUNING.qtyBracketsDefault;
-    const [lo, hi] = brackets[bracket];
+    const [lo, hi] = brackets[Math.min(effBracket, brackets.length - 1)];
     const qty = lo + Math.floor(rng() * (hi - lo + 1));
     return { kind: 'item', id, qty, tier, cls, jackpot: jackpotApplied };
   }
