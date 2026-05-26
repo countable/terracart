@@ -15,7 +15,7 @@
 //                                padContainer, plantedContainer,
 //                                creaturesContainer
 //                    Pools:      cobblePool, noisePool, padPool,
-//                                letterPool, objectPool, decorPool,
+//                                letterPool, objectPool, padPool,
 //                                plantedPool, creaturePool, chestLabelPool
 //                                (chestLabelPool may be pushed to)
 //                    View:       viewCenterX/Y, viewLeft, viewTop, viewSize
@@ -689,7 +689,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
-  Render.renderPool(scene, scene.decorPool, scene.padContainer, padList, (s, item) => {
+  Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;

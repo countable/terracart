@@ -363,7 +363,7 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
-    // (see padShapeForPoi below). No statues — the pad SHAPE conveys POI type.
+    // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
     makeAllPadShapes(this);
 
     // Layers
@@ -421,7 +421,7 @@ class MapScene extends Phaser.Scene {
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
-    this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
+    this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });

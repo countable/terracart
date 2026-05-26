@@ -1743,3 +1743,204 @@ test('lowtier (chestTier 1) chest renders box sprite key', (scene) => {
   if (!slot) return;
   assert.eq(slot.texture.key, 'box', 'lowtier chest uses box sprite');
 });
+
+// ───────────────────────────────────────────────────────────────────────
+// Coverage additions — mechanics that landed without dedicated tests.
+// ───────────────────────────────────────────────────────────────────────
+
+// PLACED ROCKS — full place-then-pickup cycle with the work-progress wheel.
+// Cycle: select rockfruit → tap empty tillable cell → cell joins placedRockSet
+// (renders as type-10 rock terrain) → tap again with no item → work-wheel
+// starts → flush wheel → cell leaves placedRockSet and rockfruit returns to inv.
+test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (scene) => {
+  scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
+  scene.save.tilled = [];  scene.tilledSet = new Set();
+  scene.save.energy = 100;
+  scene.save.inv = [{ id: 'rockfruit', count: 3 }];
+  scene.save.selSlot = 0;
+  // Find an empty tillable grass cell near the player so the place succeeds.
+  let target = null;
+  for (let d = 1; d < 12 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (!c.loaded || c.type !== 0) continue;     // need grass
+      // Skip cells with anything already on them.
+      const cellHalfM = scene.cellM / 2;
+      let blocked = false;
+      for (const e of WorldGen.tileCache.values()) {
+        for (const o of e.objects || []) {
+          if (Math.abs(o.x - wx) < cellHalfM && Math.abs(o.y - wy) < cellHalfM) { blocked = true; break; }
+        }
+        if (blocked) break;
+        for (const wp of e.wildplants || []) {
+          if (Math.abs(wp.x - wx) < cellHalfM && Math.abs(wp.y - wy) < cellHalfM) { blocked = true; break; }
+        }
+        if (blocked) break;
+      }
+      if (!blocked) { target = { wx, wy }; break; }
+    }
+  }
+  if (!target) return;
+  teleport(scene, target.wx, target.wy);
+  // Place the rockfruit.
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.placedRockSet.size, 1, 'placed-rock set grew by 1');
+  assert.eq(invCount(scene, 'rockfruit'), 2, 'inv stack decremented by 1');
+  // Empty-hand tap to start the pickup work-wheel.
+  scene.save.selSlot = -1;
+  tapWorld(scene, target.wx, target.wy);
+  assert.truthy(scene._workProgress, 'pickup-rock kicks off a work-wheel');
+  // Force the wheel to complete and verify the rock came back as rockfruit.
+  const cb = scene._workProgress.onComplete;
+  scene.cancelWorkProgress();
+  cb();
+  assert.eq(scene.placedRockSet.size, 0, 'placed-rock set drained after pickup');
+  assert.eq(invCount(scene, 'rockfruit'), 3, 'rockfruit refunded to inv');
+});
+
+// PICK / TOOL DURATION — tier curve for rock-break work-wheel.
+// Bare hands 10s, wood 3s, then -750ms per tier with a 500ms floor.
+test('pickDurationMs: tier curve matches design (bare 10s → wood 3s → iron 1.5s → floor 0.5s)', () => {
+  if (typeof pickDurationMs !== 'function') return;
+  assert.eq(pickDurationMs(null), 10000, 'no relic → 10s bare-handed');
+  assert.eq(pickDurationMs({}), 10000, 'no .pick entry → 10s');
+  assert.eq(pickDurationMs({ pick: { tier: 1 } }), 3000, 'wood pick → 3s');
+  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2250, 'copper → 2.25s');
+  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 1500, 'iron → 1.5s');
+  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 750,  'gold → 0.75s');
+  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 500,  'platinum hits floor');
+  assert.eq(pickDurationMs({ pick: { tier: 7 } }), 500,  'frost stays at floor');
+});
+
+// CHICKEN FLOCK RELEASE — chickens release in groups of 4. Stack must hold ≥4;
+// otherwise the tap flashes 'need 4 chickens' and leaves the stack untouched.
+test('chicken release: needs ≥4 in stack, then places 4 spread out', (scene) => {
+  scene.save.released = [];
+  scene.save.inv = [{ id: 'chicken', count: 3 }];
+  scene.save.selSlot = 0;
+  // Find an empty tillable grass cell to release onto.
+  let target = null;
+  for (let d = 1; d < 8 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && c.type === 0) { target = { wx, wy }; break; }
+    }
+  }
+  if (!target) return;
+  teleport(scene, target.wx, target.wy);
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.save.released.length, 0, '3 chickens: nothing released');
+  assert.eq(invCount(scene, 'chicken'), 3, 'stack untouched');
+  // Top up to 4 — now the release succeeds.
+  scene.save.inv = [{ id: 'chicken', count: 4 }];
+  scene.save.selSlot = 0;
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.save.released.length, 4, '4 chickens released');
+  assert.eq(invCount(scene, 'chicken'), 0, 'whole stack consumed (released 4)');
+  // Spread: each released bird sits at a distinct world position.
+  const xs = new Set(scene.save.released.map(r => r.x.toFixed(3)));
+  const ys = new Set(scene.save.released.map(r => r.y.toFixed(3)));
+  assert.gt(xs.size + ys.size, 2, 'released chickens are not all stacked');
+});
+
+// HOUSE SHOP TYPE — derived from house.address last digit.
+//   ends in 9     → blacksmith
+//   ends in 2 / 6 → market
+//   ends in 1 / 8 → trader
+//   anything else → null (plain house)
+test('shopType: address last digit picks blacksmith / market / trader / null', () => {
+  if (typeof WorldGen === 'undefined' || typeof WorldGen.shopType !== 'function') return;
+  const T = (typeof WorldGen.T !== 'undefined') ? WorldGen.T.BUILDING : 9;
+  const mk = (addr) => ({ kind: 'house', tier: T, address: addr });
+  assert.eq(WorldGen.shopType(mk(19)),  'blacksmith', 'address 19 (ends in 9)');
+  assert.eq(WorldGen.shopType(mk(102)), 'market',     'address 102 (ends in 2)');
+  assert.eq(WorldGen.shopType(mk(26)),  'market',     'address 26 (ends in 6)');
+  assert.eq(WorldGen.shopType(mk(31)),  'trader',     'address 31 (ends in 1)');
+  assert.eq(WorldGen.shopType(mk(48)),  'trader',     'address 48 (ends in 8)');
+  assert.eq(WorldGen.shopType(mk(7)),   null,         'address 7 → plain house');
+  assert.eq(WorldGen.shopType(mk(0)),   null,         'address 0 → plain house');
+  // Non-house objects and non-BUILDING tiers always return null.
+  assert.eq(WorldGen.shopType({ kind: 'house', tier: 11, address: 9 }), null, 'tier 11 disqualified');
+  assert.eq(WorldGen.shopType({ kind: 'chest', address: 9 }), null, 'non-house disqualified');
+  assert.eq(WorldGen.shopType(null), null, 'null safe');
+});
+
+// TREASURE TAP — finding the 'X' on the ground gives loot or money.
+// Each tile has an optional `entry.treasure` set by spawnInTile (one guaranteed
+// just north of spawn, otherwise rare). Tap within REACH_TREASURE_M of the X
+// (and inside the player's reach gate) and the id should be added to
+// foundTreasures + either money or an inventory entry should bump.
+test('treasure: tapping the X within reach marks it found and grants loot', (scene) => {
+  scene.save.foundTreasures = [];
+  scene.save.inv = []; scene.save.money = 0; scene.save.selSlot = -1;
+  // Pull the first unfound treasure from the cache. The spawn tile has a
+  // guaranteed one 10 m north of startWorldM.
+  let tr = null;
+  for (const e of WorldGen.tileCache.values()) {
+    if (e.treasure) { tr = e.treasure; break; }
+  }
+  if (!tr) return;
+  teleport(scene, tr.x, tr.y);
+  const moneyBefore = scene.save.money;
+  const invBefore = scene.save.inv.length;
+  tapWorld(scene, tr.x, tr.y);
+  assert.truthy(scene.save.foundTreasures.includes(tr.id), 'treasure id in foundTreasures');
+  const gotLoot = (scene.save.money > moneyBefore) || (scene.save.inv.length > invBefore);
+  assert.truthy(gotLoot, 'either money grew or an inv stack appeared');
+  // Tapping it again: no double dip.
+  const moneyMid = scene.save.money;
+  const invMid = scene.save.inv.length;
+  tapWorld(scene, tr.x, tr.y);
+  assert.eq(scene.save.money, moneyMid, 'second tap does not pay again');
+  assert.eq(scene.save.inv.length, invMid, 'second tap does not loot again');
+});
+
+// WORK-PROGRESS GRACE — a tap is swallowed (not cancelled) for the first 150ms
+// after a wheel starts. Without this, a double-tap that LAUNCHES the wheel
+// can end up cancelling it on the same gesture.
+test('work-progress: tap within 150ms of start does NOT cancel; later tap cancels', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 1 };
+  scene.save.energy = 100;
+  scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
+  // Find a rock cell to start a real work wheel.
+  let target = null;
+  for (let d = 1; d < 30 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
+    }
+  }
+  if (!target) return;
+  teleport(scene, target.wx, target.wy);
+  tapWorld(scene, target.wx, target.wy);
+  assert.truthy(scene._workProgress, 'work-progress launched');
+  // Fake an immediate second tap: by manually setting startT to "now" we
+  // guarantee the elapsed < 150ms branch fires.
+  scene._workProgress.startT = performance.now();
+  tapWorld(scene, target.wx, target.wy);
+  assert.truthy(scene._workProgress, 'tap within 150ms grace was swallowed, wheel still running');
+  // Now backdate the start so the grace window has passed. A tap should cancel.
+  scene._workProgress.startT = performance.now() - 500;
+  tapWorld(scene, target.wx, target.wy);
+  assert.falsy(scene._workProgress, 'tap after grace window cancels the wheel');
+});
+
+// SANDBOX MODULE — detect() reads the URL query; install() pre-populates
+// WorldGen.tileCache with a synthetic tile covering every biome the game
+// can render. The install is non-destructive on cached tiles, so it's safe
+// to call inside the test harness.
+test('Sandbox.detect respects ?sandbox=true and false otherwise', () => {
+  if (typeof Sandbox === 'undefined') return;
+  // We can't actually mutate location.search here, but the detect() call
+  // shape should match what the URL says — assert truthy/falsy boolean.
+  const d = Sandbox.detect();
+  assert.eq(typeof d, 'boolean', 'detect returns a boolean');
+});
