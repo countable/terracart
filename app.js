@@ -773,9 +773,12 @@ class MapScene extends Phaser.Scene {
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
     // Soft joystick contribution (when enabled). Vec is already in [-1, 1].
+    // Joystick is for testing on mobile — boost to 4× walk speed so a tester
+    // can cover ground quickly without endless thumb-pushing.
     if (this.save.joystick && this.joystickVec) {
       vx += this.joystickVec.x;
       vy += this.joystickVec.y;
+      if (this.joystickVec.x || this.joystickVec.y) speedMul = 4;
     }
     const moving = vx || vy;
     if (moving) {
