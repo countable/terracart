@@ -1570,30 +1570,7 @@ class MapScene extends Phaser.Scene {
     document.getElementById('offer-modal')?.remove();
     const def = gearDef(offer.kind, offer.slot);
     const name = gearName(offer.kind, offer.slot, offer.tier);
-    // The gear PNGs are spritesheets, not single icons:
-    //   weapons/armor (Pickaxe.png, Helmet.png, …): 32×16 = two 16×16 frames
-    //     side-by-side. We show frame 0.
-    //   rings + amulets (Rings.png, Amulet.png):    96×64 = 6 cols × 4 rows
-    //     of 16×16 variants. Pick a per-tier slot so the player sees a
-    //     different colour ring/amulet as they upgrade.
-    // CSS-clip via background-image instead of an unclipped <img> — otherwise
-    // the entire sheet gets crushed into the icon box ("ring looks like a
-    // whole spritesheet", "armor shows 2 suits").
-    const path = gearAssetPath(offer.kind, offer.slot, offer.tier);
-    const ICON_PX = 24;
-    let iconHtml = '';
-    if (path) {
-      const isMultiVariant = offer.kind === 'relic' && (offer.slot === 'ring' || offer.slot === 'amulet');
-      const sheetCols = isMultiVariant ? 6 : 2;
-      const sheetRows = isMultiVariant ? 4 : 1;
-      const col = isMultiVariant ? ((offer.tier - 1) % sheetCols) : 0;
-      const row = isMultiVariant ? Math.floor((offer.tier - 1) / sheetCols) % sheetRows : 0;
-      const bgW = sheetCols * ICON_PX, bgH = sheetRows * ICON_PX;
-      iconHtml = `<span style="display:inline-block;vertical-align:middle;`
-        + `width:${ICON_PX}px;height:${ICON_PX}px;image-rendering:pixelated;`
-        + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
-        + `background-position:-${col * ICON_PX}px -${row * ICON_PX}px;"></span>`;
-    }
+    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
       ? (def?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
@@ -1814,6 +1791,33 @@ class MapScene extends Phaser.Scene {
 
   iconSpanHTML(itemId, sizePx = 20) {
     return this.renderItemIcon(itemId, sizePx, 'inline');
+  }
+
+  // Canonical relic / armor icon renderer — used by BOTH the Stats modal and
+  // the Buy/Re-roll relic modal so they stay perfectly in sync.
+  //
+  // The gear PNGs are spritesheets, not single icons:
+  //   weapons + armor (Pickaxe.png, Helmet.png, …): 32×16, two 16×16 frames
+  //     side-by-side. We show frame 0.
+  //   rings + amulets (Rings.png, Amulet.png):    96×64, 6 cols × 4 rows of
+  //     16×16 variants. Pick a per-tier slot so each tier shows a different
+  //     colour band as the player upgrades.
+  // CSS-clip via background-image instead of an unclipped <img> — otherwise
+  // the entire sheet gets crushed into the icon box ("ring looks like a
+  // whole spritesheet", "armor shows 2 suits").
+  gearIconHTML(kind, slot, tier, sizePx = 20) {
+    const path = gearAssetPath(kind, slot, tier);
+    if (!path) return '';
+    const isMultiVariant = kind === 'relic' && (slot === 'ring' || slot === 'amulet');
+    const sheetCols = isMultiVariant ? 6 : 2;
+    const sheetRows = isMultiVariant ? 4 : 1;
+    const col = isMultiVariant ? ((tier - 1) % sheetCols) : 0;
+    const row = isMultiVariant ? Math.floor((tier - 1) / sheetCols) % sheetRows : 0;
+    const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
+    return `<span style="display:inline-block;vertical-align:middle;`
+      + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
+      + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
+      + `background-position:-${col * sizePx}px -${row * sizePx}px;"></span>`;
   }
 
   showOfferModal({ title, get, cost, canAfford, onAccept, acceptLabel = 'Buy' }) {
