@@ -329,7 +329,7 @@ class MapScene extends Phaser.Scene {
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
     this.noisePool = [];
-    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+    for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const s = this.add.image(0, 0, 'biome5_0').setOrigin(0, 0)
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.noiseContainer.add(s);
@@ -338,7 +338,7 @@ class MapScene extends Phaser.Scene {
 
     // Cobblestone overlay pool for ROAD cells (one decorative stone centered per cell).
     this.cobblePool = [];
-    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+    for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const s = this.add.image(0, 0, 'cobble', 0).setOrigin(0.5, 0.5)
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.cobbleContainer.add(s);
@@ -350,7 +350,7 @@ class MapScene extends Phaser.Scene {
     // read like worn paint markings rather than carved-in lettering.
     this.letterContainer = this.add.container(0, 0);
     this.letterPool = [];
-    for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
+    for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
         font: 'bold 13px serif', color: '#000000',
       }).setOrigin(0.5, 0.5).setAlpha(0.40).setDepth(0).setVisible(false);
