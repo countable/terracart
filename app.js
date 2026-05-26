@@ -604,22 +604,34 @@ class MapScene extends Phaser.Scene {
       // north correctly. screen.orientation.angle ∈ {0,90,180,270}.
       const screenAngle = (window.screen?.orientation?.angle) ?? 0;
       deg = (deg - screenAngle + 360) % 360;
-      // EMA smoothing on the shorter arc — handles the 359°→1° wraparound
-      // by choosing whichever direction is < 180° away.
-      const SMOOTH = 0.25;   // 25 % weight to the new reading
-      const prev = this.compassDeg;
-      let next;
-      if (prev == null) {
-        next = deg;
+      // Smooth the HEADING UNIT VECTOR, not the degrees — avoids the
+      // wraparound special-case entirely and is symmetric in all directions
+      // (smoothing degrees subtly biases towards 180° because of how the
+      // shortest-arc fold interacts with averaged drift).
+      //
+      // Time-constant low-pass: alpha = dt / (TAU + dt). Devices fire at very
+      // different rates (~60 Hz Android, ~10 Hz iOS), so a fixed per-event
+      // alpha gives wildly different convergence speeds. TAU is the response
+      // time constant (~63% of the way to a new reading) in milliseconds.
+      const now = performance.now();
+      const dt = this._lastOrientT ? (now - this._lastOrientT) : 16;
+      this._lastOrientT = now;
+      const TAU = 200;
+      const alpha = dt / (TAU + dt);
+      const rad = deg * Math.PI / 180;
+      const fx = Math.sin(rad), fy = -Math.cos(rad);   // unit vector in screen coords
+      if (!this._facingSmooth) {
+        this._facingSmooth = { x: fx, y: fy };
       } else {
-        let delta = deg - prev;
-        if (delta > 180) delta -= 360;
-        else if (delta < -180) delta += 360;
-        next = (prev + delta * SMOOTH + 360) % 360;
+        this._facingSmooth.x += (fx - this._facingSmooth.x) * alpha;
+        this._facingSmooth.y += (fy - this._facingSmooth.y) * alpha;
       }
-      this.compassDeg = next;
-      const rad = next * Math.PI / 180;
-      this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
+      // Re-normalise so the magnitude stays 1 (EMA of two points on a circle
+      // produces a chord; without renormalising the smoothed vector shrinks
+      // toward 0 during fast rotation).
+      const m = Math.hypot(this._facingSmooth.x, this._facingSmooth.y) || 1;
+      this.facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
+      this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
     };
     const attach = () => {
       window.addEventListener('deviceorientationabsolute', onOrient, true);
