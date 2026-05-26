@@ -1683,7 +1683,7 @@ class MapScene extends Phaser.Scene {
     };
     const cancel = mkBtn('Cancel', false, false);
     const reroll = showReroll ? mkBtn(`Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`, false, !rerollAfford) : null;
-    const buy = mkBtn(canAfford ? 'Buy' : '✗', true, !canAfford);
+    const buy = mkBtn('Buy', true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     buy.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1948,9 +1948,7 @@ class MapScene extends Phaser.Scene {
       if (primary && !canAfford) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
       return b;
     };
-    // When the player can't afford the asked item, swap the Yes label for ✗
-    // so the modal still names the want, but the button reads as a refusal.
-    const yes = mkBtn(canAfford ? acceptLabel : '✗', true);
+    const yes = mkBtn(acceptLabel, true);
     const no = mkBtn('Cancel', false);
     yes.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
     no.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
