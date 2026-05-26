@@ -1,4 +1,4 @@
-// Procedural textures + POI statue sprites + flora decals.
+// Procedural textures + flora decals + per-POI concrete-pad shapes.
 // Extracted from app.js for maintainability. Loaded BEFORE app.js so all
 // names (BIOME_TEX, draw* fns, makeBiomeTextures, makeFloraTextures, …) are
 // available as plain globals.

@@ -206,6 +206,7 @@ class MapScene extends Phaser.Scene {
     // would render as "—" forever).
     this.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                          sword: null, bow: null, staff: null, can: null, hoe: null,
+                         bugnet: null, rod: null,
                          ...(this.save.relics || {}) };
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
@@ -253,6 +254,23 @@ class MapScene extends Phaser.Scene {
     }
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
+
+    // Rename: venison → meat. Folds any existing 'venison' inv stacks into
+    // the new 'meat' stack so older saves don't lose hunting loot when the
+    // dog favourite-food rework dropped the venison item id.
+    if (Array.isArray(this.save.inv)) {
+      const merged = [];
+      let meatCount = 0;
+      let mutated = false;
+      for (const s of this.save.inv) {
+        if (!s) continue;
+        if (s.id === 'venison')   { meatCount += (s.count ?? 0); mutated = true; }
+        else if (s.id === 'meat') { meatCount += (s.count ?? 0); }
+        else                       merged.push(s);
+      }
+      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
+      if (mutated) { this.save.inv = merged; persistSave(this.save); }
+    }
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
@@ -347,7 +365,7 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
-    // (see padShapeForPoi below). No statues — the pad SHAPE conveys POI type.
+    // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
     makeAllPadShapes(this);
 
     // Layers
@@ -405,7 +423,7 @@ class MapScene extends Phaser.Scene {
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
-    this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
+    this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -479,6 +497,14 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
+
+    // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
+    // with a synthetic 5×5 grid of biome plots containing every native
+    // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
+    // circuits on the cached tile and skips the network fetch.
+    if (typeof Sandbox !== 'undefined' && Sandbox.detect()) {
+      Sandbox.install(this);
+    }
 
     // Boot tile load
     this.ensureTilesAround().catch(e => console.error(e));
@@ -575,6 +601,10 @@ class MapScene extends Phaser.Scene {
 
   // === GPS ===
   startGps() {
+    // Sandbox mode parks the player at a synthetic biome-grid plot and uses
+    // keyboard / joystick movement only — GPS would snap them away to their
+    // real-world coords on first fix.
+    if (this._sandboxMode) return;
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
     try {

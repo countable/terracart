@@ -159,7 +159,7 @@ const CATEGORY_LOOT = {
 };
 
 // === POI pad SHAPE mapping ===
-// The pad SHAPE itself conveys POI type — no statues anymore. The chest sits
+// The pad SHAPE itself conveys POI type. The chest sits
 // in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
 //   square2  → sports pitches  (chest in corner, pad extends right + down)
 //   cross    → chapels + medical facilities  (+ shape, chest centered)
