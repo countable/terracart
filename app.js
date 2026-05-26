@@ -66,6 +66,17 @@ const COLORS = {
 // Rock (10) is non-tillable too — taps break the rock instead (see handleWorldTap).
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
+// Building interior cells — small house, fort, civic slab. Used for the
+// "rest inside to recover energy" loop (slow, opt-in regen while indoors).
+const BUILDING_TYPES = new Set([9, 11, 12]);
+// Indoor resting fills the full energy bar in this many seconds while the
+// player stands on a building cell. Slower than active food, fast enough to
+// matter — sitting for ~5 minutes recovers from empty.
+const INDOOR_FULL_REST_S = 300;
+// Time-since-tab-close that grants the FULL energy bar back. Closing the tab
+// or backgrounding the app for an hour returns at 100% energy; shorter rests
+// are pro-rated linearly.
+const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
 
 
 // === Crop-affinity plaque (per-crop wooden sign baked once) ===
@@ -126,6 +137,10 @@ class MapScene extends Phaser.Scene {
     });
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
+    // Cats + dogs use the Icons/Pets icon sheets (16×16 cells) since we don't
+    // have animated spritesheets for them — render as static single-frame.
+    this.load.spritesheet('cat', 'Icons/Pets/cats icons.png', { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('dog', 'Icons/Pets/dogs icons.png', { frameWidth: 16, frameHeight: 16 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
     // Frames: 0 = closed, 1 = open.
     this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
@@ -194,6 +209,8 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.staff === undefined) this.save.relics.staff = null;
     if (this.save.relics.can === undefined)   this.save.relics.can = null;
     if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
+    if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
+    if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
@@ -212,6 +229,17 @@ class MapScene extends Phaser.Scene {
     if (!Number.isFinite(this.save.energy)) this.save.energy = maxE;
     // Clamp current to whatever the new max allows.
     this.save.energy = Math.min(maxE, Math.max(0, this.save.energy));
+    // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
+    // treated as "the player was resting" — pro-rated 100% per hour, capped at
+    // maxEnergy. Skipped in test mode so the harness's deterministic energy
+    // values aren't bumped on every harness reload.
+    if (this.save.lastSeenAt && !window.__TEST_MODE) {
+      this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+    }
+    this.save.lastSeenAt = Date.now();
+    // Float accumulator for indoor resting — fractions of an energy point
+    // accrue here between integer-pip bumps to save.energy.
+    this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
     // Soft cap on unbounded "history" save fields. A heavy player who walks
@@ -241,6 +269,26 @@ class MapScene extends Phaser.Scene {
       for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
       delete this.save.stash;
       needsMigrationPersist = true;
+    }
+    // Rename: venison → meat. Folds any existing 'venison' inv stacks into
+    // the new 'meat' stack so older saves don't lose hunting loot when the
+    // dog favourite-food rework dropped the venison item id.
+    if (Array.isArray(this.save.inv)) {
+      const merged = [];
+      let meatCount = 0;
+      for (const s of this.save.inv) {
+        if (!s) continue;
+        if (s.id === 'venison') {
+          meatCount += (s.count ?? 0);
+          needsMigrationPersist = true;
+        } else if (s.id === 'meat') {
+          meatCount += (s.count ?? 0);
+        } else {
+          merged.push(s);
+        }
+      }
+      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
+      this.save.inv = merged;
     }
     if (needsMigrationPersist) persistSave(this.save);
 
@@ -332,10 +380,12 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 32, 32);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
+    window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 16, 16);
+    window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 16, 16);
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
-    // (see padShapeForPoi below). No statues — the pad SHAPE conveys POI type.
+    // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
     makeAllPadShapes(this);
 
     // Layers
@@ -392,7 +442,8 @@ class MapScene extends Phaser.Scene {
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
-    this.decorPool = [];      // sprites for per-POI "statue" decorations beside chests
+    this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
+    this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -467,6 +518,14 @@ class MapScene extends Phaser.Scene {
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
 
+    // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
+    // with a synthetic 5×5 grid of biome plots containing every native
+    // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
+    // circuits on the cached tile and skips the network fetch.
+    if (typeof Sandbox !== 'undefined' && Sandbox.detect()) {
+      Sandbox.install(this);
+    }
+
     // Boot tile load
     this.ensureTilesAround().catch(e => console.error(e));
 
@@ -538,7 +597,19 @@ class MapScene extends Phaser.Scene {
           try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
           this.gpsWatchId = null;
         }
+        // Snapshot the moment we paused. Phaser stops calling update() while
+        // hidden, so the per-frame heartbeat freezes — anchor lastSeenAt here
+        // so the next visible-transition (or page reload) measures from now.
+        this.save.lastSeenAt = Date.now();
+        persistSave(this.save);
       } else {
+        // Foregrounded after a background nap. Pro-rate energy restoration
+        // by the gap, just like a fresh page load would do in create().
+        if (this.save.lastSeenAt && !window.__TEST_MODE) {
+          this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+        }
+        this.save.lastSeenAt = Date.now();
+        persistSave(this.save);
         if (this.game && this.game.isPaused) this.game.resume();
         if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
         // Wake lock is auto-released on hide; re-acquire on return.
@@ -550,6 +621,10 @@ class MapScene extends Phaser.Scene {
 
   // === GPS ===
   startGps() {
+    // Sandbox mode parks the player at a synthetic biome-grid plot and uses
+    // keyboard / joystick movement only — GPS would snap them away to their
+    // real-world coords on first fix.
+    if (this._sandboxMode) return;
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
     try {
@@ -730,6 +805,11 @@ class MapScene extends Phaser.Scene {
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
     for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
+    // Wild cats + dogs — as rare as cows. Same soft ground.
+    const catN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < catN; i++) tryPlace('cat', new Set([0, 4, 5, 6]), i, 'cat');
+    const dogN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < dogN; i++) tryPlace('dog', new Set([0, 4, 5, 6]), i, 'dog');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -827,6 +907,35 @@ class MapScene extends Phaser.Scene {
       this.player.play('idle-anim');
     }
 
+    // Heartbeat the "last seen" timestamp every frame. In-memory only — the
+    // save object is mutated by reference, so the next persistSave (or the
+    // pagehide flush in save.js) carries it. This bounds offline-rest drift
+    // to at most one frame if the tab dies without firing visibilitychange.
+    this.save.lastSeenAt = Date.now();
+
+    // Indoor resting: standing on a building cell slowly fills the bar.
+    // Float accumulator avoids per-frame integer churn — we only bump
+    // save.energy + refresh the DOM when a whole pip has accrued. Test mode
+    // skips this so deterministic test runs don't see energy creep.
+    if (!window.__TEST_MODE) {
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
+      const here = this.cellAt(pWX, pWY);
+      const indoors = here.loaded && BUILDING_TYPES.has(here.type);
+      const maxE = this.getMaxEnergy();
+      if (indoors && (this.save.energy ?? 0) < maxE) {
+        this._restAccrueE += maxE * (dt / INDOOR_FULL_REST_S);
+        const pip = Math.floor(this._restAccrueE);
+        if (pip > 0) {
+          this._restAccrueE -= pip;
+          this.save.energy = Math.min(maxE, (this.save.energy ?? 0) + pip);
+          if (this.updateEnergyDOM) this.updateEnergyDOM();
+        }
+      } else {
+        this._restAccrueE = 0;
+      }
+    }
+
     // Facing-direction indicator: yellow triangle arrow at the player's head,
     // pointing in the compass heading (or last movement, as fallback).
     this.facingGfx.clear();
@@ -856,8 +965,11 @@ class MapScene extends Phaser.Scene {
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
-    // and drop a fresh one at the player's previous spot. With 0.9^N falloff,
-    // ~5 dots stay visible (alpha < 0.05 → dropped).
+    // and drop a fresh one AT THE PLAYER'S CURRENT FEET. (Previously dropped
+    // at the player's _previous_ position, which made the freshest dot trail
+    // ~2m behind the sprite — the trail visibly started a body-length away
+    // from the feet.) Starting alpha is 0.45 (was 0.65 — ~30% lower) so the
+    // freshest dot reads as a soft press rather than ink.
     {
       const lp = this._lastFootprintM;
       const dx = this.playerM.x - lp.x, dy = this.playerM.y - lp.y;
@@ -869,7 +981,7 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
-        this.footprints.push({ x: lp.x, y: lp.y, alpha: 0.65 });
+        this.footprints.push({ x: this.playerM.x, y: this.playerM.y, alpha: 0.45 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
         // keep ~22 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
@@ -1330,6 +1442,20 @@ class MapScene extends Phaser.Scene {
     return this.save.maxEnergy ?? STARTING_ENERGY;
   }
 
+  // Convert a wall-time gap (since the previous lastSeenAt) into energy and
+  // restore it. Called from create() and the visibilitychange handler so the
+  // same formula serves both "tab was closed" and "tab was backgrounded".
+  applyOfflineRest(gapMs) {
+    if (!(gapMs > 0)) return;
+    const maxE = this.getMaxEnergy();
+    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
+    if (restored <= 0) return;
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.min(maxE, before + restored);
+    const gained = this.save.energy - before;
+    if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
+  }
+
   updateEnergyDOM() {
     const el = document.getElementById('energy');
     if (!el) return;
@@ -1615,13 +1741,17 @@ class MapScene extends Phaser.Scene {
       const list = this.save.shopDeals[house.id] = this.save.shopDeals[house.id] || [];
       list.push(Date.now());
     };
+    const shopType = Shops.shopType(house);
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
       // house tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
+      // Specialty shops pay a bonus on their associated goods: markets on
+      // produce, blacksmiths on gems, traders on anything (their thing IS trade).
       const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const shopMul = Shops.shopSellBonus(shopType, sel.id);
+      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul * shopMul));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       this.showOfferModal({
@@ -1655,12 +1785,13 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // BUY — empty slot: generate an offer and present a confirmation modal.
-    // Three special tracks come BEFORE the regular seed/produce rotation:
+    // Special tracks come BEFORE the regular seed/produce rotation:
     //   (a) Starter shop  — the nearest building to spawn always has a wood
     //       pickaxe AND wood axe in stock until each is bought (so players
     //       can clear rocks/trees without hunting for a relic).
     //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (c) Regular house — 10% chance to swap the normal offer for a relic.
+    //   (c) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
+    //   (d) Regular house  — 10% chance to swap the normal offer for a relic.
     if (house && this.isStarterShop(house) && this.starterShopOffer()) {
       this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false);
       return;
@@ -1674,18 +1805,27 @@ class MapScene extends Phaser.Scene {
       this.flash('castle has nothing better to sell', sx, sy);
       return;
     }
-    if (Math.random() < 0.10) {
+    if (shopType === 'blacksmith') {
+      const offer = this.peekOrBuildRelicOffer(house);
+      if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
+      this.flash('smith has nothing better to forge', sx, sy);
+      return;
+    }
+    // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
+    if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each house has a deterministic "shop kind" derived from its world
     // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
     // SEEDS from the rotating buyIndex. Same house always offers the same
-    // category, so the player learns "this house sells crops".
+    // category, so the player learns "this house sells crops". Markets force
+    // produce regardless of the position-derived flag.
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
-    const sellsProduce = houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
+    const sellsProduce = (shopType === 'market')
+      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
     let id;
     if (sellsProduce) {
       // Cycle through produce, weighted toward the buyIndex so it still rotates.
@@ -1696,7 +1836,8 @@ class MapScene extends Phaser.Scene {
     }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
-    const offer = this.buildShopOffer(id, baseValue);
+    // Traders never want cash — they only deal in barter (non-gold items).
+    const offer = this.buildShopOffer(id, baseValue, shopType === 'trader');
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -1826,114 +1967,138 @@ class MapScene extends Phaser.Scene {
     return { ...pick, price };
   }
 
-  // Render a relic/armor offer with Buy / Re-roll / Cancel buttons. Re-rolls
-  // cost 5 × 2^(rerollCount) and stop when no other valid offers exist. The
-  // offer is persisted under save.shopOffers[house.id] so a subsequent tap on
-  // the same shop shows the same offer until it's bought. Re-roll is only
-  // available at castles — regular houses + the starter shop hide the button.
+  // Present a relic/armor offer. Re-roll is only shown at castles — regular
+  // houses + the starter shop hide it. The offer is persisted under
+  // save.shopOffers[house.id] so a subsequent tap shows the same offer until
+  // it's bought.
   presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false) {
-    document.getElementById('offer-modal')?.remove();
-    const def = gearDef(offer.kind, offer.slot);
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
-      ? (def?.blurb || '')
+      ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
-    const canAfford = (this.save.money ?? 0) >= offer.price;
-    const rerollCost = 5 * Math.pow(2, offer.rerollCount || 0);
-    const rerollAfford = (this.save.money ?? 0) >= rerollCost && !offer.starter && allowReroll;
     const showReroll = allowReroll && !offer.starter;
+    const rerollCost = 5 * Math.pow(2, offer.rerollCount || 0);
+    this.showOfferModal({
+      title: offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:',
+      get: `${iconHtml} ${name}`,
+      blurb,
+      cost: `$${offer.price}`,
+      canAfford: (this.save.money ?? 0) >= offer.price,
+      acceptLabel: 'Buy',
+      onAccept: () => {
+        // Last-chance downgrade guard — the persisted offer could have been
+        // built when the slot was lower-tier; in the meantime the player may
+        // have upgraded elsewhere. Without this check `this.save.relics[slot]`
+        // would silently overwrite the better tier.
+        const curTier = offer.kind === 'relic'
+          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
+          : (this.save.armor?.[offer.slot]?.tier ?? 0);
+        if (offer.tier <= curTier) {
+          this.flash('already own better', sx, sy);
+          if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+          return;
+        }
+        if ((this.save.money ?? 0) < offer.price) { this.flash(`need $${offer.price}`, sx, sy); return; }
+        addMoney(this.save, -offer.price);
+        if (offer.kind === 'relic') {
+          this.save.relics[offer.slot] = { tier: offer.tier };
+        } else {
+          this.save.armor[offer.slot] = { tier: offer.tier };
+          const newMax = maxEnergyFromArmor(this.save.armor);
+          const bump = Math.max(0, newMax - this.getMaxEnergy());
+          this.save.maxEnergy = newMax;
+          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+        }
+        this.markRelicsDirty();
+        if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
+        if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+        recordDeal();
+        persistSave(this.save);
+        this.updateHUD();
+        this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
+      },
+      secondary: showReroll ? {
+        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+        disabled: (this.save.money ?? 0) < rerollCost,
+        onClick: () => {
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
+          const next = this.buildRelicOffer();
+          if (!next) { this.flash('nothing else in stock', sx, sy); return; }
+          addMoney(this.save, -rerollCost);
+          next.rerollCount = (offer.rerollCount || 0) + 1;
+          if (house?.id) this.save.shopOffers[house.id] = next;
+          persistSave(this.save);
+          this.updateHUD();
+          this.presentRelicOffer(sx, sy, next, recordDeal, house, true);
+        },
+      } : undefined,
+    });
+  }
 
-    const wrap = document.createElement('div');
-    wrap.id = 'offer-modal';
-    wrap.style.cssText =
-      'position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;' +
-      'background:#0008;pointer-events:auto;';
-    const box = document.createElement('div');
-    box.style.cssText =
-      'min-width:240px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
-      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
-    const title = offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:';
-    box.innerHTML =
-      `<div style="opacity:.75;font-size:11px;margin-bottom:6px">${title}</div>` +
-      `<div style="font-size:16px;font-weight:700;margin:4px 0;color:#ffe066">${iconHtml} ${name}</div>` +
-      `<div style="font-size:11px;opacity:.75;margin-bottom:6px">${blurb}</div>` +
-      `<div style="opacity:.85;margin:6px 0 4px">for</div>` +
-      `<div style="font-size:16px;font-weight:700;margin:4px 0 10px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">$${offer.price}</div>`;
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
-    const mkBtn = (label, primary, disabled) => {
-      const b = document.createElement('button');
-      b.innerHTML = label;
-      b.style.cssText =
-        `padding:8px 12px;border-radius:6px;font:700 12px ui-monospace,monospace;cursor:pointer;` +
-        (primary
-          ? 'background:#c8a64a;color:#1a1612;border:0;'
-          : 'background:transparent;color:#ddd;border:2px solid #444;');
-      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
-      return b;
-    };
-    const cancel = mkBtn('Cancel', false, false);
-    const reroll = showReroll ? mkBtn(`Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`, false, !rerollAfford) : null;
-    const buy = mkBtn('Buy', true, !canAfford);
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    buy.addEventListener('click', (e) => {
-      e.stopPropagation();
-      // Last-chance downgrade guard — the persisted offer could have been
-      // built when the slot was lower-tier; in the meantime the player may
-      // have upgraded elsewhere. Without this check `this.save.relics[slot]`
-      // would silently overwrite the better tier.
-      const curTier = offer.kind === 'relic'
-        ? (this.save.relics?.[offer.slot]?.tier ?? 0)
-        : (this.save.armor?.[offer.slot]?.tier ?? 0);
-      if (offer.tier <= curTier) {
-        this.flash('already own better', sx, sy);
-        if (house && house.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
-        wrap.remove();
-        return;
-      }
-      if ((this.save.money ?? 0) < offer.price) { this.flash(`need $${offer.price}`, sx, sy); return; }
-      addMoney(this.save, -offer.price);
-      if (offer.kind === 'relic') {
-        this.save.relics[offer.slot] = { tier: offer.tier };
-      } else {
-        this.save.armor[offer.slot] = { tier: offer.tier };
-        const newMax = maxEnergyFromArmor(this.save.armor);
-        const bump = Math.max(0, newMax - this.getMaxEnergy());
-        this.save.maxEnergy = newMax;
-        this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
-      }
-      this.markRelicsDirty();
-      // Starter stock: mark the slot as bought so the shop rotates to the next item.
-      if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
-      // Clear the persisted offer so the next tap generates a fresh one.
-      if (house && house.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
-      recordDeal();
-      persistSave(this.save);
-      this.updateHUD();
-      this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
-      wrap.remove();
+  // Blacksmiths (houses with an address ending in 9) forge a relic for
+  // exactly 5 of a gem they pick. Gem type is deterministic per house so a
+  // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
+  // so it's stable until bought. Reuses the generic showOfferModal — same UI
+  // as cash/barter trades, just with a gem cost.
+  presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
+    // Pick the gem this smith demands. address-derived so a smith always
+    // wants the same stone across reloads.
+    const gemId = Shops.GEM_IDS[(house.address ?? 0) % Shops.GEM_IDS.length];
+    const gemItem = ITEM_BY_ID[gemId];
+    const GEM_COST = 5;
+    const name = gearName(offer.kind, offer.slot, offer.tier);
+    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
+    const heldCount = () =>
+      ((this.save.inv || []).find(s => s && s.id === gemId)?.count) ?? 0;
+    this.showOfferModal({
+      title: 'The blacksmith will forge:',
+      get: `${iconHtml} ${name}`,
+      cost: `${GEM_COST}× ${this.iconSpanHTML(gemId)} ${gemItem?.name || gemId}`,
+      canAfford: heldCount() >= GEM_COST,
+      acceptLabel: 'Trade',
+      onAccept: () => {
+        // Re-check tier and gem count — the inv can shift between modal open and accept.
+        const curTier = offer.kind === 'relic'
+          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
+          : (this.save.armor?.[offer.slot]?.tier ?? 0);
+        if (offer.tier <= curTier) {
+          this.flash('already own better', sx, sy);
+          if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+          return;
+        }
+        if (heldCount() < GEM_COST) { this.flash(`need ${GEM_COST} ${gemItem?.name || gemId}`, sx, sy); return; }
+        let left = GEM_COST;
+        for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
+          const s = this.save.inv[i];
+          if (!s || s.id !== gemId) continue;
+          const take = Math.min(left, s.count ?? 0);
+          s.count -= take; left -= take;
+          if ((s.count ?? 0) <= 0) {
+            this.save.inv.splice(i, 1);
+            if (this.save.selSlot >= this.save.inv.length) {
+              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+            }
+          }
+        }
+        if (offer.kind === 'relic') {
+          this.save.relics[offer.slot] = { tier: offer.tier };
+        } else {
+          this.save.armor[offer.slot] = { tier: offer.tier };
+          const newMax = maxEnergyFromArmor(this.save.armor);
+          const bump = Math.max(0, newMax - this.getMaxEnergy());
+          this.save.maxEnergy = newMax;
+          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+        }
+        this.markRelicsDirty();
+        if (house?.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+        recordDeal();
+        persistSave(this.save);
+        this.updateHUD();
+        this.buildInventoryDOM();
+        this.flashLoot(`🪙 ${name}\n−${GEM_COST} ${gemItem?.icon || ''}`, '#ffe066', 1.25);
+      },
     });
-    if (reroll) reroll.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
-      const next = this.buildRelicOffer();
-      if (!next) { this.flash('nothing else in stock', sx, sy); return; }
-      addMoney(this.save, -rerollCost);
-      next.rerollCount = (offer.rerollCount || 0) + 1;
-      if (house && house.id) this.save.shopOffers[house.id] = next;
-      persistSave(this.save);
-      this.updateHUD();
-      wrap.remove();
-      this.presentRelicOffer(sx, sy, next, recordDeal, house, true);
-    });
-    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
-    row.appendChild(cancel);
-    if (reroll) row.appendChild(reroll);
-    row.appendChild(buy);
-    box.appendChild(row);
-    wrap.appendChild(box);
-    (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
@@ -1944,8 +2109,8 @@ class MapScene extends Phaser.Scene {
   // If the player owns NO qualifying barter item, the trader still names what
   // they want; the modal just disables the accept button (shows "✗"). This way
   // the player learns "this trader wants rockfruit" and can come back with it.
-  buildShopOffer(id, baseValue) {
-    const wantMoney = Math.random() < 1/3;
+  buildShopOffer(id, baseValue, forceBarter = false) {
+    const wantMoney = !forceBarter && Math.random() < 1/3;
     // Bow / Staff relics shrink the markup. Without either, the range stays
     // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
     const { lo, hi } = (typeof buyMarkupRange === 'function')
@@ -2209,8 +2374,19 @@ class MapScene extends Phaser.Scene {
       + `background-position:-${col * sizePx}px -${row * sizePx}px;"></span>`;
   }
 
-  showOfferModal({ title, get, cost, canAfford, onAccept, acceptLabel = 'Buy' }) {
-    // Remove any existing modal first (only one at a time).
+  // Canonical "trade with the shopkeep" modal. Used by every shop path —
+  // sell, buy, relic, blacksmith forge — so the chrome (stone-tablet panel,
+  // Cancel/accept layout, dismiss-on-overlay-click) stays in one place.
+  //   title:        small caption ("A trader offers:")
+  //   get:          HTML for the headline (gear icon + name, item ×1, +$5)
+  //   blurb:        OPTIONAL HTML, smaller text below `get` (e.g. relic effect)
+  //   cost:         HTML for the price line ("$30", "1× icon Item", "5× gem")
+  //   canAfford:    grey out the accept button when false
+  //   onAccept:     called after the modal closes
+  //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
+  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
+  //                 — rendered between Cancel and accept (re-roll button).
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary }) {
     document.getElementById('offer-modal')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'offer-modal';
@@ -2219,32 +2395,40 @@ class MapScene extends Phaser.Scene {
       'background:#0008;pointer-events:auto;';
     const box = document.createElement('div');
     box.style.cssText =
-      'min-width:230px;max-width:320px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
+      'min-width:230px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
       'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    const blurbHtml = blurb
+      ? `<div style="font-size:11px;opacity:.75;margin-bottom:6px">${blurb}</div>`
+      : '';
     box.innerHTML =
       `<div style="opacity:.75;font-size:11px;margin-bottom:6px">${title}</div>` +
-      `<div style="font-size:18px;font-weight:700;margin:4px 0;color:#ffe066">${get}</div>` +
-      `<div style="opacity:.85;margin:8px 0 4px">for</div>` +
-      `<div style="font-size:16px;font-weight:700;margin:4px 0 12px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">${cost}</div>`;
+      `<div style="font-size:16px;font-weight:700;margin:4px 0;color:#ffe066">${get}</div>` +
+      blurbHtml +
+      `<div style="opacity:.85;margin:6px 0 4px">for</div>` +
+      `<div style="font-size:16px;font-weight:700;margin:4px 0 10px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">${cost}</div>`;
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:4px;';
-    const mkBtn = (label, primary) => {
+    row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
+    const mkBtn = (label, primary, disabled) => {
       const b = document.createElement('button');
-      b.textContent = label;
+      b.innerHTML = label;
       b.style.cssText =
-        `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        `padding:8px 12px;border-radius:6px;font:700 12px ui-monospace,monospace;cursor:pointer;` +
         (primary
           ? 'background:#c8a64a;color:#1a1612;border:0;'
           : 'background:transparent;color:#ddd;border:2px solid #444;');
-      if (primary && !canAfford) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
+      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
       return b;
     };
-    const yes = mkBtn(acceptLabel, true);
-    const no = mkBtn('Cancel', false);
-    yes.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
-    no.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    const cancel = mkBtn('Cancel', false, false);
+    const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
+    const accept = mkBtn(acceptLabel, true, !canAfford);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    accept.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
+    if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
-    row.appendChild(no); row.appendChild(yes);
+    row.appendChild(cancel);
+    if (sec) row.appendChild(sec);
+    row.appendChild(accept);
     box.appendChild(row);
     wrap.appendChild(box);
     (document.getElementById('game') || document.body).appendChild(wrap);

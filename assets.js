@@ -45,6 +45,28 @@ const ASSETS = {
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
   cobble:      { kind: 'spritesheet', path: 'Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
+  // Wilderness art — all copied out of the gitignored Sprites/ source dump
+  // into Objects/Wilderness/ so the tree can build without the raw asset pack.
+  // Misc 16x16 prop — single boxed crate from the Singles tileset.
+  box:         { kind: 'image', path: 'Objects/Wilderness/Box_Single_16x16.png' },
+  // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
+  deer:        { kind: 'spritesheet', path: 'Objects/Wilderness/Deer Idle.png',       frameWidth: 16, frameHeight: 16 },
+  rabbit:      { kind: 'spritesheet', path: 'Objects/Wilderness/Rabbit Brown.png',    frameWidth: 16, frameHeight: 16 },
+  crow:        { kind: 'spritesheet', path: 'Objects/Wilderness/Crow.png',            frameWidth: 16, frameHeight: 16 },
+  butterfly:   { kind: 'spritesheet', path: 'Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
+  // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
+  apple_tree:   { kind: 'spritesheet', path: 'Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },
+  cherry_tree:  { kind: 'spritesheet', path: 'Objects/Wilderness/Cherry Tree.png',  frameWidth: 16, frameHeight: 48 },
+  peach_tree:   { kind: 'spritesheet', path: 'Objects/Wilderness/Peach Tree.png',   frameWidth: 16, frameHeight: 48 },
+  banana_tree:  { kind: 'spritesheet', path: 'Objects/Wilderness/Banana Tree.png',  frameWidth: 16, frameHeight: 48 },
+  orange_tree:  { kind: 'spritesheet', path: 'Objects/Wilderness/Orange Tree.png',  frameWidth: 16, frameHeight: 48 },
+  mango_tree:   { kind: 'spritesheet', path: 'Objects/Wilderness/Mango Tree.png',   frameWidth: 16, frameHeight: 48 },
+  coconut_tree: { kind: 'spritesheet', path: 'Objects/Wilderness/Coconut tree.png', frameWidth: 16, frameHeight: 48 },
+  apricot_tree: { kind: 'spritesheet', path: 'Objects/Wilderness/Apricot Tree.png', frameWidth: 16, frameHeight: 48 },
+  // Fantasy Mushroom sheet (96x288) — declared as spritesheet so renderer can pick any single 32x32 mushroom.
+  mushroom_world: { kind: 'spritesheet', path: 'Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
+  // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  mineralrock:    { kind: 'spritesheet', path: 'Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
 };
 
 window.ASSETS = ASSETS;

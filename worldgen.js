@@ -446,11 +446,16 @@
               const c = ringCentroid(ring);
               const m = toMeters(c.x, c.y);
               // Snap house sprite to the 5m cell centre so a row of houses lines up cleanly.
-              const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
-              const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+              const ix = Math.floor(m.x / CELL_M);
+              const iy = Math.floor(m.y / CELL_M);
+              const cx = (ix + 0.5) * CELL_M;
+              const cy = (iy + 0.5) * CELL_M;
               // Stable id for per-house shop state (deal rate-limit, future ledger).
               const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
-              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2, tier, id });
+              // Synthetic 3-digit street address derived from cell coords. Houses
+              // whose address ends in 9 become blacksmiths (~10% of houses).
+              const address = (((ix * 73856093) ^ (iy * 19349663)) >>> 0) % 1000;
+              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2, tier, id, address });
             }
           } else {
             if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
@@ -501,6 +506,64 @@
                       objects.push({ kind: 'tree', x: cx, y: cy, variant: 1 + Math.floor(rng() * 4) });
                     }
                   }
+                }
+                // Rare mushroom clusters in the same forest polygon. Independent RNG
+                // stream (different salt) so they don't co-locate with shrubs/nuts.
+                spawnDebris(f.geom, 'mushroom', (polyKey ^ 0xBADF00D) >>> 0, 0.015, 0.045);
+              }
+              // Fruit trees on ORCHARD landcover. One species per polygon so a single
+              // orchard reads as one fruit type.
+              if (cls === 'orchard' || f.tags.subclass === 'orchard') {
+                const FRUIT_SPECIES = ['apple', 'cherry', 'peach', 'banana', 'orange', 'mango', 'coconut', 'apricot'];
+                const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
+                const species = FRUIT_SPECIES[speciesIdx];
+                const bb = bboxOf(f.geom);
+                const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
+                for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+                  for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+                    if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+                    const m = toMeters(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
+                    const ix = Math.floor(m.x / CELL_M);
+                    const iy = Math.floor(m.y / CELL_M);
+                    const cx = (ix + 0.5) * CELL_M;
+                    const cy = (iy + 0.5) * CELL_M;
+                    objects.push({ kind: 'fruittree', x: cx, y: cy, species,
+                      id: `ft_${tx}_${ty}_${ix}_${iy}` });
+                  }
+                }
+              }
+            }
+
+            // Mineral-rich rocks on ROCK terrain. Rare — most are low-tier, with
+            // ultra-rare high-tier finds via 1/2^(t-1) weighting (T1 ~64%, T7 ~1%).
+            if (t === T.ROCK) {
+              const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
+              const bb = bboxOf(f.geom);
+              const stepMvt = 15 / mvtToM;   // one candidate per ~15m
+              // Precompute tier-weight CDF: w[i] = 1 / 2^i for i = 0..6.
+              const tierWeights = [];
+              let totalW = 0;
+              for (let t2 = 1; t2 <= 7; t2++) {
+                const w = 1 / Math.pow(2, t2 - 1);
+                totalW += w;
+                tierWeights.push(totalW); // cumulative
+              }
+              for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+                  if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+                  if (rockRng() > 0.4) continue;   // 40% chance per candidate
+                  const r = rockRng() * totalW;
+                  let requiredTier = 7;
+                  for (let i = 0; i < tierWeights.length; i++) {
+                    if (r <= tierWeights[i]) { requiredTier = i + 1; break; }
+                  }
+                  const m = toMeters(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
+                  const ix = Math.floor(m.x / CELL_M);
+                  const iy = Math.floor(m.y / CELL_M);
+                  const cx = (ix + 0.5) * CELL_M;
+                  const cy = (iy + 0.5) * CELL_M;
+                  objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                    id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
                 }
               }
             }
@@ -780,6 +843,7 @@
       shrub:     FOREST_PARK_GRASS,
       longgrass: GRASSLAND_FAMILY,
       nut:       new Set([1]),                  // forest only
+      mushroom:  new Set([1]),                  // forest only
       // rockfruit + anything else → GROUND fallback
     };
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
@@ -815,10 +879,12 @@
       return `${ix}_${iy}`;
     };
 
-    // 1) High-priority objects first (chest > house > tree). These never get
-    //    displaced — they claim their cells and everything else (wildplants,
-    //    flora) must avoid those cells.
-    const STRUCT_PRIO = { chest: 3, house: 2, tower: 2, tree: 1 };
+    // 1) High-priority objects first (chest > house > fruittree > tree > mineralrock).
+    //    These never get displaced — they claim their cells and everything else
+    //    (wildplants, flora) must avoid those cells.
+    //    Priority numbers are descending so the sort places higher-priority kinds
+    //    first; ties (e.g. house/tower) are stable.
+    const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, fruittree: 4, tree: 3, mineralrock: 2 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0));
     const keptStructs = [];
@@ -1068,6 +1134,12 @@
       }
     }
   }
+
+  // Specialty shop type for small houses, derived from the synthetic street
+  // address. Forts (BUILDING_MED) and civic slabs are excluded — only the
+  // small residential tier gets address-based specialties.
+  // The specialty-shop taxonomy + label + tint + sell-bonus all live in
+  // shops.js; the only thing worldgen owns here is the address field itself.
 
   global.WorldGen = {
     Z, CELL_M, T, TILE_URL,

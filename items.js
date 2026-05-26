@@ -35,6 +35,9 @@ const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
   // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
   longgrass: { sheet: 'longgrass', custom: true },
+  // Mushroom uses the Fantasy Mushroom sheet ('mushroom_world' key in
+  // assets.js, 32×32 frames). Single-frame render — pick frame 0 in render.js.
+  mushroom: { sheet: 'mushroom_world', custom: true },
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -93,6 +96,13 @@ const ITEMS = [
   // Caught creatures stack in the inventory.
   { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
   { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
+  { id: 'cat',     name: 'Cat',     kind: 'animal', icon: '🐱' },
+  { id: 'dog',     name: 'Dog',     kind: 'animal', icon: '🐶' },
+  // Animal produce — feed longgrass to a wild chicken / cow to swap the
+  // longgrass for an egg / milk. Repeatable until either you run out of
+  // longgrass or the animal is caught.
+  { id: 'egg',  name: 'Egg',  kind: 'produce', icon: '🥚' },
+  { id: 'milk', name: 'Milk', kind: 'produce', icon: '🥛' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
@@ -102,6 +112,28 @@ const ITEMS = [
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable', icon: '🪈' },
   { id: 'book',  name: 'Book',  kind: 'consumable', icon: '📖' },
+  // Wild forest fauna drops
+  { id: 'meat',         name: 'Meat',         kind: 'mineral', icon: '🥩' },
+  { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'mineral', icon: '🐇' },
+  { id: 'crow_feather', name: 'Crow Feather', kind: 'mineral', icon: '🪶' },
+  { id: 'butterfly',    name: 'Butterfly',    kind: 'mineral', icon: '🦋' },
+  // Wild mushroom (forest debris, pickable)
+  { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom', icon: '🍄' },
+  // Fish (caught by Fishing Rod on water tiles)
+  { id: 'minnow',     name: 'Minnow',     kind: 'produce', crop: 'minnow',     icon: '🐟' },
+  { id: 'bass',       name: 'Bass',       kind: 'produce', crop: 'bass',       icon: '🐠' },
+  { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      icon: '🐟' },
+  { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     icon: '🍣' },
+  { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', icon: '✨' },
+  // Fruit from fruit trees in orchard tiles
+  { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple',   icon: '🍎' },
+  { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry',  icon: '🍒' },
+  { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach',   icon: '🍑' },
+  { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana',  icon: '🍌' },
+  { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange',  icon: '🍊' },
+  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango',   icon: '🥭' },
+  { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut', icon: '🥥' },
+  { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot', icon: '🍑' },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral', icon: '⚫' },
@@ -137,9 +169,14 @@ const PRICES = {
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile, yields 4 per catch
   cow: 200,        // ~15–30/tile, premium catch
+  cat: 150,        // ~15–30/tile, wants milk
+  dog: 150,        // ~15–30/tile, wants eggs
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  // ── Animal produce (longgrass-feeding output) ────────────
+  egg:  4,
+  milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
@@ -149,6 +186,17 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  // ── Forest fauna drops ───────────────────────────────────
+  meat: 30,
+  rabbit_pelt: 15,
+  crow_feather: 10,
+  butterfly: 5,
+  // ── Wild mushroom ────────────────────────────────────────
+  mushroom: 8,
+  // ── Fish ─────────────────────────────────────────────────
+  minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
+  // ── Orchard fruit ────────────────────────────────────────
+  apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
@@ -196,6 +244,14 @@ const PLAY_TIPS = [
   // Combat / discovery
   'Hold rockfruit and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
+  // Animal favourite foods — one tip per kind, so a Book read can reveal them.
+  'Chickens come running for a juicy rainberry. Hold one to catch one.',
+  'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
+  'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
+  'Dogs only follow a hunter — hold raw meat to catch one.',
+  'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
+  'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
+  'Cats and dogs only eat meat — feeding them plants just wastes the food.',
 ];
 
 const STARTING_ENERGY = 100;
@@ -215,6 +271,14 @@ const FOOD_ENERGY = {
   sunflower: 150,
   chicken:    30,
   cow:       120,
+  cat:        20,
+  dog:        20,
+  egg:        10,
+  milk:       40,
+  mushroom:   25,
+  apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
+  minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
+  meat:       45,   // hunted from deer; dog favourite
 };
 const ENERGY_COST = {
   till: 2,
@@ -225,6 +289,18 @@ const ENERGY_COST = {
   catch: 5,
   unTill: 0,
   pickup: 0,             // wildplants / flora — free
+};
+
+// Catching an animal requires holding its favourite food in the selected
+// inventory slot — one is consumed per catch. Both picks are T1 farm produce
+// so the player has to deliberately grow a crop (not just collect debris)
+// before they can catch livestock. ITEM_BY_ID lookup so the catch flash can
+// show the readable name.
+const ANIMAL_FOOD = {
+  chicken: 'rainberry',  // berries to peck
+  cow:     'pairy',      // pears to munch
+  cat:     'milk',       // saucer of milk
+  dog:     'meat',       // raw meat — hunt deer with a weapon relic
 };
 
 // === Relics / armor catalogs ===
@@ -271,6 +347,12 @@ const RELIC_DEFS = {
   // (floored at 1) AND adds a per-tier chance of spending zero energy at all.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
              effectKey: 'tillSpeed',     blurb: 'cheaper tilling, sometimes free' },
+  // Bug Net — single 16×16 icon under Extras (handled by gearAssetPath below).
+  bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
+             effectKey: 'bugCatch',  blurb: 'catch crows + butterflies' },
+  // Fishing Rod — standard 32×16 weapon sheet per tier folder.
+  rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
+             effectKey: 'fishing',   blurb: 'catch fish from water' },
 };
 const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
@@ -300,7 +382,7 @@ function gearAssetPath(kind, slot, tier) {
   if (!def || !t) return null;
   // Ring + amulet live under Extras (single icon, tier shown as a badge).
   // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
-  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
+  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet')) {
     return `Icons/RPG icons/Extras/${def.icon}`;
   }
   return `Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
