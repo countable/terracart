@@ -58,13 +58,26 @@
     <table id="deals"></table>
   </section>
 
-  <script src="mvt.js"></script>
-  <script src="coords.js"></script>
-  <script src="worldgen.js"></script>
-  <script src="crops.js"></script>
-  <script src="items.js"></script>
-  <script src="shops.js"></script>
-  <script src="loot.js"></script>
+  <section>
+    <h2>Unified rarity (rarity.js) — 20 pulls per context</h2>
+    <p class="muted">
+      Drives every chest / shop / treasure / trader once migrations land. Uses the same
+      <code>pickReward(contextKey, save, rng)</code> function. Distribution columns show class
+      mix and tier histogram across 200 rolls per context. ✨ marks pulls that triggered a jackpot.
+    </p>
+    <table id="rarity-samples"></table>
+    <h2 style="margin-top:18px;">Class × tier population</h2>
+    <p class="muted">What each class can roll into. Empty cells fall back to nearest lower tier on a jackpot.</p>
+    <table id="rarity-population"></table>
+  </section>
+
+  <!-- cache-bust on every load so balancing edits show up without clearing cache. -->
+  <script>
+    document.write([
+      'mvt.js', 'coords.js', 'worldgen.js', 'crops.js',
+      'items.js', 'shops.js', 'rarity.js', 'loot.js',
+    ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
+  </script>
   <script>
     // Same anchor coords as app.js. Diverging from app.js → tile mismatch.
     const START_LAT = 49.85438;
@@ -382,6 +395,88 @@
     function rerollLootAndDeals() {
       renderTreasures();
       renderDeals();
+      renderRarity();
+      renderRarityPopulation();
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // Unified rarity sampler — calls pickReward() N times per context,
+    // tallies class mix + tier histogram, prints 20 representative pulls.
+    // ────────────────────────────────────────────────────────────────
+    function formatReward(r) {
+      if (!r) return '<span class="muted">∅</span>';
+      const jp = r.jackpot ? ` <span style="color:#ffd866;">✨+${r.jackpot}✨</span>` : '';
+      if (r.kind === 'item') {
+        const item = ITEM_BY_ID[r.id];
+        return `<span class="muted">[${r.cls} T${r.tier}]</span> ${item?.icon || ''} ${item?.name || r.id} ×${r.qty}${jp}`;
+      }
+      if (r.kind === 'relic') {
+        const name = gearName('relic', r.slot, r.tier);
+        return `<span class="pill">relic</span> ${name}${jp}`;
+      }
+      if (r.kind === 'gold') {
+        const name = gearName('relic', r.slot, r.tier);
+        return `<span class="pill">gold</span> ${name} (own) → $${r.amount}${jp}`;
+      }
+      return JSON.stringify(r);
+    }
+
+    function renderRarity() {
+      const SAMPLES_SHOW = 20;
+      const SAMPLES_DIST = 200;
+      const ctxKeys = Object.keys(LOOT_CONTEXTS);
+      const rows = [['<tr><th>context</th><th>20 pulls (✨ = jackpot)</th><th>class mix</th><th>tier hist</th><th>jackpot %</th></tr>'].join('')];
+      const save = { relics: {}, armor: {} };
+      for (const key of ctxKeys) {
+        const lines = [];
+        for (let i = 0; i < SAMPLES_SHOW; i++) lines.push(formatReward(pickReward(key, save)));
+        // 200-pull distribution
+        const clsTally = {};
+        const tierTally = {};
+        let jackpotN = 0;
+        for (let i = 0; i < SAMPLES_DIST; i++) {
+          const r = pickReward(key, save);
+          if (!r) continue;
+          const cls = r.kind === 'item' ? r.cls : (r.kind === 'relic' ? 'relic' : 'gold');
+          clsTally[cls] = (clsTally[cls] || 0) + 1;
+          if (r.tier != null) tierTally[r.tier] = (tierTally[r.tier] || 0) + 1;
+          if (r.jackpot) jackpotN++;
+        }
+        const clsMix = Object.keys(clsTally).sort()
+          .map(c => `${c}: ${(clsTally[c] / SAMPLES_DIST * 100).toFixed(0)}%`).join('<br>');
+        const tierHist = Object.keys(tierTally).sort((a, b) => +a - +b)
+          .map(t => `T${t}: ${(tierTally[t] / SAMPLES_DIST * 100).toFixed(0)}%`).join('<br>');
+        rows.push(
+          `<tr><th>${key}</th>` +
+          `<td>${lines.join('<br>')}</td>` +
+          `<td>${clsMix}</td>` +
+          `<td>${tierHist}</td>` +
+          `<td>${(jackpotN / SAMPLES_DIST * 100).toFixed(1)}%</td></tr>`
+        );
+      }
+      document.getElementById('rarity-samples').innerHTML = rows.join('');
+    }
+
+    // Population table: which item ids occupy each (class, tier) cell.
+    function renderRarityPopulation() {
+      const classes = Object.keys(ITEMS_BY_CLASS_TIER).sort();
+      const tiers = [1, 2, 3, 4, 5, 6, 7];
+      const head = ['<tr><th>class</th>' + tiers.map(t => `<th>T${t}</th>`).join('') + '</tr>'];
+      const body = classes.map(cls => {
+        const cells = tiers.map(t => {
+          const pool = (ITEMS_BY_CLASS_TIER[cls] || {})[t] || [];
+          if (!pool.length) return '<td class="muted">—</td>';
+          return `<td>${pool.map(id => ITEM_BY_ID[id]?.icon || '').join(' ')} <span class="muted">×${pool.length}</span></td>`;
+        }).join('');
+        return `<tr><th>${cls}</th>${cells}</tr>`;
+      });
+      // Relics span every tier 1..7 for every slot — show separately so it doesn't look empty.
+      const relicSlots = Object.keys(RELIC_DEFS || {});
+      if (relicSlots.length) {
+        const cells = tiers.map(t => `<td>${relicSlots.length} slots</td>`).join('');
+        body.push(`<tr><th>relic</th>${cells}</tr>`);
+      }
+      document.getElementById('rarity-population').innerHTML = head.concat(body).join('');
     }
 
     document.getElementById('reroll-loot').addEventListener('click', rerollLootAndDeals);

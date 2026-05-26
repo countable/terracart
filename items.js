@@ -46,9 +46,21 @@ const CROP_SPRITE = {
 //   Spring Crops.png: 14 cols x 8 rows. Inventory: col 7 = seed bag, col 8 = produce.
 //   Crops.png: 9 cols x 16 rows. Inventory: col 8 row 15 = generic seedbag,
 //     col 7 row CROP_ROW[crop] = produce.
+// Mineral / gem inventory icons that live OUTSIDE the crops sheet. Frame
+// indexes point into the corresponding texture loaded by assets.js. Pulled
+// out as its own table so adding a gem stays one line.
+const MINERAL_ICON_SHEET = {
+  coal:     { sheet: 'coal_icon', frame: 0 },
+  sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
+  ruby:     { sheet: 'gems',      frame: 0 },   // red gem
+  emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+};
+
 function inventoryIconSource(itemId) {
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
+  // Minerals + gems use the dedicated sheet table above.
+  if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const cropKey = item.grows || item.crop;
   if (!cropKey) return null;
   const ov = CROP_SPRITE[cropKey];
@@ -85,19 +97,61 @@ const PRODUCE_EMOJI = {
   potato:     '🥔',  iceflower: '❄️',  fireflower: '🔥',
   sunflower:  '🌻',  tree:      '🌳',  shrub:     '🌿',
 };
+// === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
+// Tier reflects relative rarity / value, not stage / yield. A seed and its
+// produce share a tier. Wild fauna and minerals climb with gem ladder. New
+// items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
+const BASE_TIER = {
+  // Crops (same tier for seed & produce; the seed id uses the suffix)
+  rainberry: 1, pairy: 1, nut: 1, potato: 1, shrub: 1, rockfruit: 1,
+  gemfruit: 2, coffee: 2, tree: 2,
+  iceflower: 3, fireflower: 3, sunflower: 3,
+  // Wild produce / animal output
+  longgrass: 1, flowers: 1, mushroom: 1,
+  egg: 1, milk: 2,
+  // Fish (rarity ramps fast — goldenfish is the late-game catch)
+  minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
+  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late)
+  apple: 2, cherry: 2, peach: 2, apricot: 2,
+  orange: 3, mango: 3,
+  banana: 4, coconut: 4,
+  // Live animals
+  chicken: 1, dog: 1, rabbit: 1,
+  cat: 2, butterfly: 2,
+  crow: 3,
+  deer: 4,
+  cow: 5,
+  // Consumables
+  flute: 2, book: 2,
+  // Minerals — coal floor, gem ladder mirrors mining rarity
+  coal: 1,
+  meat: 2, rabbit_pelt: 2,
+  crow_feather: 3,
+  sapphire: 4, ruby: 5, emerald: 6,
+};
+
 const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c, icon: '🌱',
+    baseTier: BASE_TIER[c] || 1,
   })),
   ...Object.keys(CROP_ROW).map(c => ({
     id: c, name: CROP_NAMES[c], kind: 'produce', crop: c,
     icon: PRODUCE_EMOJI[c] || '🌾',
+    baseTier: BASE_TIER[c] || 1,
   })),
-  // Caught creatures stack in the inventory.
-  { id: 'chicken', name: 'Chicken', kind: 'animal', icon: '🐔' },
-  { id: 'cow',     name: 'Cow',     kind: 'animal', icon: '🐄' },
-  { id: 'cat',     name: 'Cat',     kind: 'animal', icon: '🐱' },
-  { id: 'dog',     name: 'Dog',     kind: 'animal', icon: '🐶' },
+  // Caught creatures stack in the inventory. Catching any wild animal —
+  // including wilderness fauna (deer, rabbit, crow, butterfly) — puts the
+  // live animal here; processing into meat / pelt / feather is a separate
+  // step downstream.
+  { id: 'chicken',   name: 'Chicken',   kind: 'animal', icon: '🐔' },
+  { id: 'cow',       name: 'Cow',       kind: 'animal', icon: '🐄' },
+  { id: 'cat',       name: 'Cat',       kind: 'animal', icon: '🐱' },
+  { id: 'dog',       name: 'Dog',       kind: 'animal', icon: '🐶' },
+  { id: 'deer',      name: 'Deer',      kind: 'animal', icon: '🦌' },
+  { id: 'rabbit',    name: 'Rabbit',    kind: 'animal', icon: '🐇' },
+  { id: 'crow',      name: 'Crow',      kind: 'animal', icon: '🦅' },
+  { id: 'butterfly', name: 'Butterfly', kind: 'animal', icon: '🦋' },
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
@@ -112,11 +166,14 @@ const ITEMS = [
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable', icon: '🪈' },
   { id: 'book',  name: 'Book',  kind: 'consumable', icon: '📖' },
-  // Wild forest fauna drops
+  // Wild forest fauna drops — produced when a live caught animal is
+  // processed (a future butcher / blacksmith step). Catching itself yields
+  // the animal, not these.
+  // ('butterfly' lives above as the live-animal entry — there is no
+  // separate butterfly product; the insect itself is the drop.)
   { id: 'meat',         name: 'Meat',         kind: 'mineral', icon: '🥩' },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'mineral', icon: '🐇' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'mineral', icon: '🪶' },
-  { id: 'butterfly',    name: 'Butterfly',    kind: 'mineral', icon: '🦋' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom', icon: '🍄' },
   // Fish (caught by Fishing Rod on water tiles)
@@ -141,6 +198,13 @@ const ITEMS = [
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral', icon: '🔴' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral', icon: '🟢' },
 ];
+// Fill in baseTier for every entry that didn't set one explicitly (cleaner
+// than threading the lookup through each literal above). Anything missing
+// from BASE_TIER falls back to 1 — that's an authoring oversight worth
+// fixing rather than a load-time crash.
+for (const it of ITEMS) {
+  if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
+}
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // Chests drop only seeds.
 const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
@@ -474,10 +538,10 @@ function buyMarkupRange(relics) {
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===
 // T1 common (10 seeds/chest default yield), T2 uncommon (5), T3 rare (2).
-const SEED_TIER = {
-  rainberry_seed: 1, pairy_seed: 1, nut_seed: 1, potato_seed: 1, shrub_seed: 1,
-  gemfruit_seed: 2, rockfruit_seed: 2, coffee_seed: 2, tree_seed: 2,
-  iceflower_seed: 3, fireflower_seed: 3, sunflower_seed: 3,
-};
+// Sourced from BASE_TIER so rarity stays single-source. The legacy callers
+// (loot.js pickLoot, REG tests) keep working unchanged.
+const SEED_TIER = Object.fromEntries(
+  Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
+);
 // Flowers — used by the 'flora' chest category to restrict its T3 picks.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
