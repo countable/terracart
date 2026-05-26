@@ -14,7 +14,7 @@
 //                    Containers: terrainContainer, objectsContainer,
 //                                padContainer, plantedContainer,
 //                                creaturesContainer
-//                    Pools:      cobblePool, noisePool, terrainPool, padPool,
+//                    Pools:      cobblePool, noisePool, padPool,
 //                                letterPool, objectPool, decorPool,
 //                                plantedPool, creaturePool, chestLabelPool
 //                                (chestLabelPool may be pushed to)
@@ -31,7 +31,6 @@
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   tilemap.js   — (terrain types via app.js COLORS / NON_TILLABLE)
 //   crops.js     — (crop frame layouts via items.js)
 //   textures.js  — BIOME_TEX, TILLED_COLOR, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
@@ -99,7 +98,6 @@ Render.drawCells = function drawCells(scene) {
   // drift relative to the rendered cell positions.
   const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
   const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
-  let terrainIdx = 0;
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
@@ -221,11 +219,6 @@ Render.drawCells = function drawCells(scene) {
             isWatered = true; break;
           }
         }
-      }
-
-      // All ground art is procedural now — keep the legacy tile-sprite pool hidden.
-      if (scene.terrainPool.length) {
-        scene.terrainPool[terrainIdx++].setVisible(false);
       }
 
       // Repaint base color for tilled cells (yellow-brown soil, replaces underlying terrain color).

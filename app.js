@@ -152,9 +152,6 @@ class MapScene extends Phaser.Scene {
       makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
-    if (window.TileMap) {
-      this.load.spritesheet(TileMap.KEY, TileMap.PATH, { frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H });
-    }
     // Relic / armor icons (7 tiers × 7 slots + extras) are NOT preloaded — they
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
@@ -325,16 +322,10 @@ class MapScene extends Phaser.Scene {
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
 
-    // Pre-create terrain sprite pool (one per visible cell) to avoid allocation churn.
+    // Legacy terrain sprite pool — ground art is fully procedural now, so this
+    // is empty. Kept as a defined property so render.js's defensive length check
+    // continues to short-circuit without an undefined access.
     this.terrainPool = [];
-    if (window.TileMap) {
-      for (let i = 0; i < VIEW_CELLS * VIEW_CELLS; i++) {
-        const s = this.add.image(0, 0, TileMap.KEY, 0).setOrigin(0, 0)
-          .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
-        this.terrainContainer.add(s);
-        this.terrainPool.push(s);
-      }
-    }
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
     this.noisePool = [];

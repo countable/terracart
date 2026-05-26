@@ -47,12 +47,4 @@ const ASSETS = {
   cobble:      { kind: 'spritesheet', path: 'Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
 };
 
-// TileMap asset key is only known once tilemap.js has loaded.
-if (typeof window !== 'undefined' && window.TileMap) {
-  ASSETS[TileMap.KEY] = {
-    kind: 'spritesheet', path: TileMap.PATH,
-    frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H,
-  };
-}
-
 window.ASSETS = ASSETS;
