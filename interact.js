@@ -30,14 +30,14 @@
 // when the player taps a busy corner). 40² = ~1.25 cells at CELL_PX=32.
 const TAP_DEDUPE_R2 = 40 * 40;
 
-// Decrement the selected inventory stack by one. If it hits zero, splice it
-// out and clamp selSlot so it still points at a valid slot. Used by every
-// handler that consumes a held item (plant, release-animal, place-rock).
+// Decrement the selected inventory stack by `n` (default 1). If it hits zero,
+// splice it out and clamp selSlot so it still points at a valid slot. Used by
+// every handler that consumes a held item (plant, release-animal, place-rock).
 // Caller is responsible for setting ctx.dirty and calling buildInventoryDOM.
-function consumeSelected(save) {
+function consumeSelected(save, n = 1) {
   const sel = save.inv[save.selSlot];
   if (!sel) return;
-  sel.count -= 1;
+  sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
   if (save.selSlot >= save.inv.length) {
@@ -144,19 +144,34 @@ const TAP_HANDLERS = [
     if (bestWp) {
       const wp = bestWp;
       if (distM2(wp.x, wp.y, pWorldX, pWorldY) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
-      save.picked = [...pickedSet, wp.id];
-      scene.addToInv(wp.crop, 1);
-      let bonus = '';
-      const treasure = WILD_TREASURE[wp.crop];
-      if (treasure && Math.random() < treasure.chance) {
-        scene.addToInv(treasure.bonus, 1);
-        bonus = ` ✨${treasure.bonus}`;
+      // Some wild crops require physical work to harvest, mirroring their
+      // hard-object cousins:
+      //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
+      //   shrub     (woody bush)   → axe  relic speeds up chop work
+      // Both: 3s with the matching relic, 10s bare-handed. Other wildplants
+      // (rainberry, pairy, nut, longgrass …) stay instant.
+      const award = () => {
+        save.picked = [...new Set(save.picked || []), wp.id];
+        scene.addToInv(wp.crop, 1);
+        let bonus = '';
+        const treasure = WILD_TREASURE[wp.crop];
+        if (treasure && Math.random() < treasure.chance) {
+          scene.addToInv(treasure.bonus, 1);
+          bonus = ` ✨${treasure.bonus}`;
+        }
+        persistSave(save);
+        if (bonus) scene.flashLoot(`${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
+        else scene.flashLoot(`+1 ${wp.crop}`, undefined, 1, wp.crop);
+      };
+      const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
+      const reqRelic = WORK_RELIC[wp.crop];
+      if (reqRelic) {
+        const durMs = save.relics?.[reqRelic] ? 3000 : 10000;
+        scene.startWorkProgress(wp.x, wp.y, award, durMs);
+      } else {
+        award();
+        ctx.dirty = true;
       }
-      ctx.dirty = true;
-      const cropIcon = ITEM_BY_ID[wp.crop]?.icon || '';
-      // Sprite shows the crop — drop the emoji prefix.
-      if (bonus) scene.flashLoot(`${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
-      else scene.flashLoot(`+1 ${wp.crop}`, undefined, 1, wp.crop);
       return true;
     }
     // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
@@ -277,17 +292,34 @@ const TAP_HANDLERS = [
       scene.flash("can't release here", sx, sy);
       return true;
     }
-    const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    // Chickens are flock animals — one "release" drops a clutch of 4 hens, so
+    // you need at least 4 in the stack to place any. Cows (and any future
+    // non-flock animal) still release one at a time.
+    const flockSize = item.id === 'chicken' ? 4 : 1;
+    if ((sel.count ?? 0) < flockSize) {
+      scene.flash(`need ${flockSize} ${item.id}s`, sx, sy);
+      return true;
+    }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
-    save.released.push({ x: cwmx, y: cwmy, kind: item.id, id, tx, ty });
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
-    if (entry && entry.creatures) entry.creatures.push({ x: cwmx, y: cwmy, kind: item.id, id });
-    consumeSelected(save);
+    // Spread the flock around the tap point so they don't all stack on one
+    // pixel. Tight ~1.2m cluster keeps them in the same cell visually but
+    // still gives wanderCreatures distinct starting positions.
+    const SPREAD = 1.2;
+    for (let i = 0; i < flockSize; i++) {
+      const angle = (i / flockSize) * Math.PI * 2;
+      const ox = flockSize === 1 ? 0 : Math.cos(angle) * SPREAD;
+      const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
+      const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1e6)}_${i}`;
+      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id, tx, ty });
+      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id });
+    }
+    consumeSelected(save, flockSize);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash(`released ${item.icon || ''} ${item.id}`, sx, sy);
+    scene.flash(`released ${flockSize}× ${item.icon || ''} ${item.id}`, sx, sy);
     return true;
   }},
 
@@ -332,10 +364,14 @@ const TAP_HANDLERS = [
       scene.flash('rubble', sx, sy);
       return true;
     }
-    if (!save.relics?.pick) { scene.flash('need a pickaxe', sx, sy); return true; }
+    // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
+    // With a pick: 3s. Without: 10s. Energy cost is unchanged (pick tier
+    // already discounts via effectivePickCost).
+    const hasPick = !!save.relics?.pick;
     const cost = (typeof effectivePickCost === 'function')
       ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
     if (!scene.spendEnergy(cost, sx, sy)) return true;
+    const durMs = hasPick ? 3000 : 10000;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.brokenRockSet.add(cellKey);
       save.brokenRocks = [...scene.brokenRockSet];
@@ -348,7 +384,7 @@ const TAP_HANDLERS = [
       else if (r < 0.555)   { scene.addToInv('rockfruit_seed', 1);  msg = '💥 → rockfruit seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
-    });
+    }, durMs);
     return true;
   }},
 

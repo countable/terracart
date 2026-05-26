@@ -220,7 +220,9 @@ function gearDef(kind, slot) {
 function gearPrice(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return 0;
-  return Math.max(1, Math.ceil(def.baseCost * t.costMul));
+  // Global 4× price reduction — original scaling left wood-tier gear out of
+  // reach for early players. Floors at $1.
+  return Math.max(1, Math.ceil(def.baseCost * t.costMul / 4));
 }
 function gearIconKey(kind, slot, tier) { return `gear_${kind}_${slot}_${tier}`; }
 function gearAssetPath(kind, slot, tier) {

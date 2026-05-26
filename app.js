@@ -155,25 +155,10 @@ class MapScene extends Phaser.Scene {
     if (window.TileMap) {
       this.load.spritesheet(TileMap.KEY, TileMap.PATH, { frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H });
     }
-    // Relic / armor icons — one per (kind, slot, tier). Per-tier art lives under
-    // Weapons and Armor/<tier>/; the ring + amulet share a single sprite-sheet
-    // image under Extras/ (tier shown via a coloured badge in the UI).
-    if (typeof RELIC_DEFS !== 'undefined') {
-      for (const slot of Object.keys(RELIC_DEFS)) {
-        for (const t of MATERIAL_TIERS) {
-          const key = gearIconKey('relic', slot, t.tier);
-          const path = gearAssetPath('relic', slot, t.tier);
-          if (key && path) this.load.image(key, path);
-        }
-      }
-      for (const slot of Object.keys(ARMOR_DEFS)) {
-        for (const t of MATERIAL_TIERS) {
-          const key = gearIconKey('armor', slot, t.tier);
-          const path = gearAssetPath('armor', slot, t.tier);
-          if (key && path) this.load.image(key, path);
-        }
-      }
-    }
+    // Relic / armor icons (7 tiers × 7 slots + extras) are NOT preloaded — they
+    // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
+    // so the browser fetches each one on demand and caches it. Eagerly loading
+    // ~50 PNGs at startup blocked the splash screen for several seconds.
   }
 
   create() {
@@ -547,22 +532,58 @@ class MapScene extends Phaser.Scene {
     } catch { this.gpsAvailable = false; }
   }
   // Device compass: prefer absolute-orientation events (Android), fall back to
-  // webkitCompassHeading (iOS). Stores degrees clockwise from north in this.compassDeg.
+  // webkitCompassHeading (iOS), then to non-absolute `deviceorientation` as a
+  // last resort. Stores smoothed degrees CW-from-north in this.compassDeg.
+  //
+  // Three things this handles that the naive version didn't:
+  //  1. Once we get a TRUE absolute reading, we lock to it — later non-absolute
+  //     events (which are relative to whatever the device booted into) are
+  //     ignored. Conversely if we only ever get non-absolute, we KEEP accepting
+  //     them (the previous code latched after one reading → compass froze).
+  //  2. Screen-orientation correction: alpha is reported relative to the
+  //     device's natural orientation. When the player rotates to landscape,
+  //     we subtract screen.orientation.angle so north stays north.
+  //  3. Exponential-moving-average low-pass — raw readings jitter ±5–10°.
+  //     Smooth toward the new reading via the shorter arc on the 360° circle.
   startCompass() {
+    let sawAbsolute = false;
     const onOrient = (e) => {
       let deg = null;
+      let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        deg = e.webkitCompassHeading; // iOS: already CW from north
+        // iOS: already CW from north, already true-absolute.
+        deg = e.webkitCompassHeading;
+        absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
         deg = (360 - e.alpha) % 360;  // alpha is CCW from north; flip
-      } else if (typeof e.alpha === 'number' && this.compassDeg == null) {
-        deg = (360 - e.alpha) % 360;  // best-effort non-absolute fallback
+        absoluteThisEvent = true;
+      } else if (typeof e.alpha === 'number' && !sawAbsolute) {
+        // Best-effort non-absolute fallback — keep updating every event until
+        // (and unless) a true-absolute source appears.
+        deg = (360 - e.alpha) % 360;
       }
-      if (deg != null && !Number.isNaN(deg)) {
-        const rad = deg * Math.PI / 180;
-        this.compassDeg = deg;
-        this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
+      if (deg == null || Number.isNaN(deg)) return;
+      if (absoluteThisEvent) sawAbsolute = true;
+      // Subtract the screen rotation so a landscape-held phone still points
+      // north correctly. screen.orientation.angle ∈ {0,90,180,270}.
+      const screenAngle = (window.screen?.orientation?.angle) ?? 0;
+      deg = (deg - screenAngle + 360) % 360;
+      // EMA smoothing on the shorter arc — handles the 359°→1° wraparound
+      // by choosing whichever direction is < 180° away.
+      const SMOOTH = 0.25;   // 25 % weight to the new reading
+      const prev = this.compassDeg;
+      let next;
+      if (prev == null) {
+        next = deg;
+      } else {
+        let delta = deg - prev;
+        if (delta > 180) delta -= 360;
+        else if (delta < -180) delta += 360;
+        next = (prev + delta * SMOOTH + 360) % 360;
       }
+      this.compassDeg = next;
+      const rad = next * Math.PI / 180;
+      this.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
     };
     const attach = () => {
       window.addEventListener('deviceorientationabsolute', onOrient, true);
@@ -843,8 +864,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Work-progress wheel (rock-break / tree-chop) ---
-  startWorkProgress(worldX, worldY, onComplete) {
-    this._workProgress = { worldX, worldY, onComplete, startT: performance.now() };
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000) {
+    this._workProgress = { worldX, worldY, onComplete, durationMs, startT: performance.now() };
   }
   cancelWorkProgress() {
     this._workProgress = null;
@@ -853,14 +874,15 @@ class MapScene extends Phaser.Scene {
   _drawWorkProgress() {
     const wp = this._workProgress;
     if (!wp) return;
+    const dur = wp.durationMs || 3000;
     const elapsed = performance.now() - wp.startT;
-    if (elapsed >= 3000) {
+    if (elapsed >= dur) {
       const cb = wp.onComplete;
       this.cancelWorkProgress();
       cb();
       return;
     }
-    const progress = elapsed / 3000;
+    const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
     const cy = Math.round(screen.y) - 14;
@@ -933,27 +955,38 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Walk outward in a ring (up to 6 cells) from the given world-cell coords and return
-  // the COLOR of the first non-road, non-building cell found. Returns null if none found.
+  // Sample a symmetric square neighbourhood around (wcx, wcy) and return the
+  // COLOR of the most-common non-road / non-building / non-path cell. Used to
+  // tint road cells so cobbles sit on the surrounding zone.
+  //
+  // First-hit-in-asymmetric-ring picked DIFFERENT zones for each cell across a
+  // wide road, producing visible green/brown stripes where a residential strip
+  // ran along one side of the road and grass along the other. Mode of a
+  // symmetric radius-3 sample keeps the whole road segment one consistent tint.
   neighborNonRoadColor(wcx, wcy) {
-    const offsets = [
-      [1,0],[-1,0],[0,1],[0,-1],
-      [2,0],[-2,0],[0,2],[0,-2],[1,1],[1,-1],[-1,1],[-1,-1],
-      [3,0],[-3,0],[0,3],[0,-3],
-    ];
-    for (const [dx, dy] of offsets) {
-      const ncx = wcx + dx, ncy = wcy + dy;
-      const tx = Math.floor(ncx / this.cellsPerTile);
-      const ty = Math.floor(ncy / this.cellsPerTile);
-      const ix = Math.floor(ncx - tx * this.cellsPerTile);
-      const iy = Math.floor(ncy - ty * this.cellsPerTile);
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
-      if (!entry || !entry.grid) continue;
-      const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
-      // Skip roads (any tier) and buildings — those are themselves overlays.
-      if (t !== 7 && t !== 13 && t !== 14 && t !== 9 && t !== 11 && t !== 12) return COLORS[t] ?? null;
+    const R = 3;
+    const counts = new Map();   // terrain type → count
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const ncx = wcx + dx, ncy = wcy + dy;
+        const tx = Math.floor(ncx / this.cellsPerTile);
+        const ty = Math.floor(ncy / this.cellsPerTile);
+        const ix = Math.floor(ncx - tx * this.cellsPerTile);
+        const iy = Math.floor(ncy - ty * this.cellsPerTile);
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        if (!entry || !entry.grid) continue;
+        const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
+        // Skip roads (any tier), path, and buildings — those are overlays.
+        if (t === 7 || t === 8 || t === 13 || t === 14 || t === 9 || t === 11 || t === 12) continue;
+        counts.set(t, (counts.get(t) || 0) + 1);
+      }
     }
-    return null;
+    let bestT = -1, bestN = 0;
+    for (const [t, n] of counts) {
+      if (n > bestN) { bestN = n; bestT = t; }
+    }
+    return bestT === -1 ? null : (COLORS[bestT] ?? null);
   }
 
   // === Drawing ===
@@ -1491,11 +1524,10 @@ class MapScene extends Phaser.Scene {
     const stk = this.save.starterStock || {};
     const want = stk.pick ? 'pick' : (stk.axe ? 'axe' : null);
     if (!want) return null;
-    return {
-      kind: 'relic', slot: want, tier: 1,
-      price: gearPrice('relic', want, 1),
-      starter: true,
-    };
+    // Wood pickaxe is fixed at $30 — the gating tool to unlock the entire
+    // rock-breaking loop, so it shouldn't depend on global price scaling.
+    const price = want === 'pick' ? 30 : gearPrice('relic', want, 1);
+    return { kind: 'relic', slot: want, tier: 1, price, starter: true };
   }
 
   // Read the persisted offer for this house if set, else build a new one and
@@ -1875,7 +1907,7 @@ class MapScene extends Phaser.Scene {
     }
   }
   buildInventoryDOM() {
-    const PAGE = 5;
+    const PAGE = 6;
     const game = document.getElementById('game');
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
@@ -1894,6 +1926,27 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
+    // Sort: group by kind (produce → seed → animal → other), then alphabetical
+    // by name within each group. Selection is re-anchored to whatever item the
+    // user had selected so the highlight follows it across the resort.
+    const KIND_ORDER = { produce: 0, seed: 1, animal: 2 };
+    bar.appendChild(makeBtn('⇅', () => {
+      const selId = this.save.inv[this.save.selSlot]?.id;
+      this.save.inv = [...this.save.inv].sort((a, b) => {
+        const ia = ITEM_BY_ID[a.id], ib = ITEM_BY_ID[b.id];
+        const ka = KIND_ORDER[ia?.kind] ?? 9, kb = KIND_ORDER[ib?.kind] ?? 9;
+        if (ka !== kb) return ka - kb;
+        return (ia?.name || a.id).localeCompare(ib?.name || b.id);
+      });
+      if (selId) {
+        const newIdx = this.save.inv.findIndex(e => e.id === selId);
+        if (newIdx >= 0) {
+          this.save.selSlot = newIdx;
+          this.save.invPage = Math.floor(newIdx / PAGE);
+        }
+      }
+      persistSave(this.save); this.buildInventoryDOM();
+    }));
     bar.appendChild(makeBtn('◀', () => {
       this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
@@ -1935,9 +1988,11 @@ class MapScene extends Phaser.Scene {
       this.save.invPage = (this.save.invPage + 1) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
     }));
+    // Page indicator — pill-shaped so it visibly belongs to the inv bar even at
+    // its smaller size, and reads at a glance against any terrain underneath.
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
-    pageLbl.style.cssText = 'color:#fff8;font:10px ui-monospace,monospace;margin-left:4px;';
+    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffd866;font:700 11px ui-monospace,monospace;margin-left:4px;';
     bar.appendChild(pageLbl);
 
     game.appendChild(bar);
@@ -1946,7 +2001,7 @@ class MapScene extends Phaser.Scene {
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    const PAGE = 5;
+    const PAGE = 6;
     const startIdx = this.save.invPage * PAGE;
     [...bar.querySelectorAll('button[data-slot]')].forEach(el => {
       const i = +el.dataset.slot;

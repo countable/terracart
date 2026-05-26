@@ -274,7 +274,11 @@ Render.drawCells = function drawCells(scene) {
           const info = entry && entry.roadLetters && entry.roadLetters[`${ix2}_${iy2}`];
           if (info) {
             // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // Phaser Text textures include the font's internal padding (typically
+            // baseline gap + a 1-2px buffer), so origin(0.5, 0.5) leaves the
+            // visible glyph offset down/right of the cell centre. Nudge -2,-2 to
+            // optically centre the glyph within the cobble cluster.
+            lt.setText(info.char).setPosition(sx + CELL_PX / 2 - 2, sy + CELL_PX / 2 - 2)
               .setRotation(0).setVisible(true);
           } else {
             lt.setVisible(false);

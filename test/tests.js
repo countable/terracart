@@ -35,10 +35,12 @@ test('wildplant dedup — no two share the same cell', () => {
 test('picking a wildplant within reach adds to inventory and marks picked', (scene) => {
   scene.save.picked = [];
   scene.save.inv = [];
-  // Find a wildplant near the world origin (start tile).
+  // Find a non-rockfruit wildplant near the world origin (rockfruit pickup is
+  // now an async work-progress action and would only land mid-tick).
   const wp = findWildplant(w =>
-    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 30);
-  assert.truthy(wp, 'found a starter wildplant');
+    w.crop !== 'rockfruit' &&
+    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 50);
+  assert.truthy(wp, 'found a starter non-rockfruit wildplant');
   // Stand right on top of it.
   teleport(scene, wp.x, wp.y);
   const before = invCount(scene, wp.crop);
@@ -57,6 +59,7 @@ test('picking again at same spot does nothing (already picked)', (scene) => {
   outer: for (const entry of WorldGen.tileCache.values()) {
     if (!entry.wildplants) continue;
     for (const wp of entry.wildplants) {
+      if (wp.crop === 'rockfruit') continue;   // async work-progress, skip
       let lonely = true;
       for (const other of entry.wildplants) {
         if (other === wp) continue;
@@ -810,15 +813,22 @@ test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
   assert.eq(m2, STARTING_ENERGY + 20 + 25, 'multiple armor pieces additive');
 });
 
+test('starter shop wood pickaxe is fixed at $30', (scene) => {
+  scene.save.starterStock = { pick: true, axe: true };
+  const offer = scene.starterShopOffer();
+  assert.eq(offer.slot, 'pick', 'first offer is pick');
+  assert.eq(offer.price, 30, 'wood pickaxe is $30');
+});
+
 test('gearPrice scales with tier multiplier', () => {
   const t1 = gearPrice('relic', 'pick', 1);
   const t3 = gearPrice('relic', 'pick', 3);
-  // Tier 3 cost mul is 8× tier 1.
-  assert.eq(t1, 80, 'tier-1 pick = $80');
-  assert.eq(t3, 80 * 8, 'tier-3 pick = $80 × 8');
+  // baseCost $80, tier-3 costMul ×8, global /4 → t1 $20, t3 $160.
+  assert.eq(t1, 20, 'tier-1 pick = $20');
+  assert.eq(t3, 160, 'tier-3 pick = $160');
 });
 
-test('rock break refuses without a pickaxe relic', (scene) => {
+test('rock break: bare-handed works but slower than with pick', (scene) => {
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
@@ -834,14 +844,18 @@ test('rock break refuses without a pickaxe relic', (scene) => {
   }
   if (!target) return; // no rock loaded — skip
   teleport(scene, target.wx, target.wy);
-  const before = scene.brokenRockSet.size;
+  // No pick → still spends energy and kicks off a (longer) work progress.
   tapWorld(scene, target.wx, target.wy);
-  assert.eq(scene.brokenRockSet.size, before, 'rock NOT broken without pick');
-  // Equip wood pick — should now proceed (energy spent, work-progress started).
+  assert.lt(scene.save.energy, 100, 'energy spent even without pick');
+  assert.truthy(scene._workProgress, 'work-progress started bare-handed');
+  assert.eq(scene._workProgress.durationMs, 10000, 'bare-handed mining takes 10s');
+  // Equip wood pick → 3s instead of 10s. (Tap once to cancel the in-progress
+  // bare-handed attempt, then again to start the picked one.)
+  scene.cancelWorkProgress();
   scene.save.relics.pick = { tier: 1 };
   tapWorld(scene, target.wx, target.wy);
-  // startWorkProgress flips a flag; we just need to assert energy was deducted.
-  assert.lt(scene.save.energy, 100, 'energy spent once pick is equipped');
+  assert.truthy(scene._workProgress, 'work-progress started with pick');
+  assert.eq(scene._workProgress.durationMs, 3000, 'pick makes mining take 3s');
 });
 
 test('tree chop refuses without an axe relic', (scene) => {
