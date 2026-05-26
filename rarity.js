@@ -381,7 +381,11 @@
     const itemTier = _ITEM_BY_ID[id]?.baseTier ?? tier;
     let qty = 1;
     if (ctx.singleItem) {
-      // Discard any qty bumps the chain rolled — shops don't pay consolation.
+      // Shops sell one item at a time, EXCEPT seeds — players plant in
+      // bulk, so seed packs ship in 5 (T1-T3) or 1 (T4 Frost flowers).
+      // Any qty bumps the chain rolled are discarded; no consolation
+      // since the player is buying, not receiving.
+      if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
     } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls)) {
       wastedQtyBumps += bracket;          // bracket is dead for these classes
     } else {
