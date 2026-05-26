@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta name="theme-color" content="#111" />
+  <title>Compass debug — Terracart</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; min-height: 100%;
+      background: #111; color: #ddd;
+      font: 13px ui-monospace, monospace;
+      overscroll-behavior: none;
+    }
+    body { padding: 16px; }
+    h1 { font-size: 14px; margin: 0 0 12px; color: #ffd866; }
+    button {
+      background: #c8a64a; color: #1a1612; border: 0;
+      padding: 12px 18px; border-radius: 8px;
+      font: 700 14px ui-monospace, monospace; cursor: pointer;
+      margin: 4px 0;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .row { display: flex; justify-content: space-between; padding: 3px 0; }
+    .row .k { color: #888; }
+    .row .v { color: #fff; text-align: right; }
+    .section { background: #1a1612; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+    .ok    { color: #a7ffb0; }
+    .warn  { color: #ffd866; }
+    .err   { color: #ff8a7a; }
+    .small { font-size: 11px; color: #888; }
+    #compass {
+      width: 200px; height: 200px; margin: 12px auto;
+      border: 2px solid #c8a64a; border-radius: 50%;
+      position: relative; background: #1a1612;
+    }
+    #compass .label {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      font: 700 11px ui-monospace, monospace; color: #888;
+    }
+    #compass .label.n { top: 4px; }
+    #compass .label.s { bottom: 4px; }
+    #compass .label.e { right: 6px; top: 50%; transform: translateY(-50%); left: auto; }
+    #compass .label.w { left: 6px; top: 50%; transform: translateY(-50%); }
+    #needle {
+      position: absolute; left: 50%; top: 50%;
+      width: 4px; height: 80px;
+      background: linear-gradient(to bottom, #ff5555 0%, #ff5555 50%, #ffffff 50%, #ffffff 100%);
+      transform-origin: 50% 100%;
+      transform: translate(-50%, -100%) rotate(0deg);
+      border-radius: 2px;
+      transition: transform 0.05s linear;
+    }
+    #log {
+      font-size: 11px; color: #888; max-height: 120px; overflow-y: auto;
+      background: #0a0a0a; padding: 6px; border-radius: 4px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Compass debug</h1>
+  <p class="small">All output renders to the DOM. No console required.</p>
+
+  <div class="section">
+    <button id="enable">Enable compass</button>
+    <button id="reset">Reset listener</button>
+    <div class="row"><span class="k">requestPermission API:</span><span class="v" id="api-supported">—</span></div>
+    <div class="row"><span class="k">permission result:</span><span class="v" id="perm">—</span></div>
+    <div class="row"><span class="k">listener attached:</span><span class="v" id="attached">no</span></div>
+    <div class="row"><span class="k">events received:</span><span class="v" id="event-count">0</span></div>
+    <div class="row"><span class="k">last event ms ago:</span><span class="v" id="event-age">—</span></div>
+  </div>
+
+  <div class="section">
+    <div class="row"><span class="k">webkitCompassHeading:</span><span class="v" id="cw">—</span></div>
+    <div class="row"><span class="k">webkitCompassAccuracy:</span><span class="v" id="acc">—</span></div>
+    <div class="row"><span class="k">alpha (raw):</span><span class="v" id="alpha">—</span></div>
+    <div class="row"><span class="k">beta / gamma:</span><span class="v" id="bg">—</span></div>
+    <div class="row"><span class="k">absolute flag:</span><span class="v" id="abs">—</span></div>
+    <div class="row"><span class="k">screen.orientation.angle:</span><span class="v" id="sor">—</span></div>
+  </div>
+
+  <div class="section">
+    <div class="row"><span class="k">derived heading (raw):</span><span class="v" id="raw">—</span></div>
+    <div class="row"><span class="k">screen-corrected heading:</span><span class="v" id="corrected">—</span></div>
+    <div class="row"><span class="k">smoothed heading:</span><span class="v" id="smoothed">—</span></div>
+  </div>
+
+  <div id="compass">
+    <div class="label n">N</div>
+    <div class="label e">E</div>
+    <div class="label s">S</div>
+    <div class="label w">W</div>
+    <div id="needle"></div>
+  </div>
+
+  <div class="section">
+    <div class="k small">last 6 events:</div>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    // Standalone compass diagnostic. No service worker, no Phaser. Mirrors
+    // the production startCompass() logic in app.js so we can see exactly
+    // which step (permission / event / smoothing) is failing on a device.
+
+    const $ = (id) => document.getElementById(id);
+    const fmt = (v, p=1) => (typeof v === 'number' && !Number.isNaN(v)) ? v.toFixed(p) : String(v);
+
+    let listenerAttached = false;
+    let eventCount = 0;
+    let lastEventT = null;
+    let sawAbsolute = false;
+    let smoothed = null;       // { x, y } unit vector
+    let lastT = null;
+    const TAU = 120;
+    const logLines = [];
+
+    const DOE = window.DeviceOrientationEvent;
+    $('api-supported').textContent = (DOE && typeof DOE.requestPermission === 'function')
+      ? 'yes (iOS 13+)' : 'no (Android / desktop)';
+
+    function pushLog(line) {
+      logLines.push(line);
+      if (logLines.length > 6) logLines.shift();
+      $('log').textContent = logLines.join('\n');
+    }
+
+    function onOrient(e) {
+      eventCount++;
+      lastEventT = performance.now();
+      $('event-count').textContent = String(eventCount);
+
+      // Raw fields
+      $('cw').textContent    = fmt(e.webkitCompassHeading);
+      $('acc').textContent   = fmt(e.webkitCompassAccuracy);
+      $('alpha').textContent = fmt(e.alpha);
+      $('bg').textContent    = `${fmt(e.beta)} / ${fmt(e.gamma)}`;
+      $('abs').textContent   = String(e.absolute);
+      const sor = (window.screen?.orientation?.angle) ?? 0;
+      $('sor').textContent   = String(sor);
+
+      // Derive heading (same logic as startCompass in app.js).
+      let deg = null;
+      if (typeof e.webkitCompassHeading === 'number') {
+        deg = e.webkitCompassHeading;
+      } else if (e.absolute && typeof e.alpha === 'number') {
+        deg = (360 - e.alpha) % 360;
+        sawAbsolute = true;
+      } else if (typeof e.alpha === 'number' && !sawAbsolute) {
+        deg = (360 - e.alpha) % 360;
+      }
+      $('raw').textContent = fmt(deg);
+
+      if (deg == null || Number.isNaN(deg)) {
+        pushLog(`#${eventCount} no usable heading`);
+        return;
+      }
+
+      const corrected = (deg - sor + 360) % 360;
+      $('corrected').textContent = fmt(corrected);
+
+      // Unit-vector EMA with time-constant low-pass.
+      const now = performance.now();
+      const dt = lastT ? (now - lastT) : 16;
+      lastT = now;
+      const alpha = dt / (TAU + dt);
+      const rad = corrected * Math.PI / 180;
+      const fx = Math.sin(rad), fy = -Math.cos(rad);
+      if (!smoothed) {
+        smoothed = { x: fx, y: fy };
+      } else {
+        smoothed.x += (fx - smoothed.x) * alpha;
+        smoothed.y += (fy - smoothed.y) * alpha;
+      }
+      const m = Math.hypot(smoothed.x, smoothed.y) || 1;
+      const nx = smoothed.x / m, ny = smoothed.y / m;
+      const smoothedDeg = (Math.atan2(nx, -ny) * 180 / Math.PI + 360) % 360;
+      $('smoothed').textContent = fmt(smoothedDeg);
+
+      // Render the needle. Red tip points in the heading direction.
+      $('needle').style.transform = `translate(-50%, -100%) rotate(${smoothedDeg}deg)`;
+
+      pushLog(`#${eventCount} cw=${fmt(e.webkitCompassHeading)} a=${fmt(e.alpha)} →${fmt(smoothedDeg)}°`);
+    }
+
+    function attach() {
+      if (listenerAttached) return;
+      window.addEventListener('deviceorientationabsolute', onOrient, true);
+      window.addEventListener('deviceorientation', onOrient, true);
+      listenerAttached = true;
+      $('attached').textContent = 'yes';
+      $('attached').className = 'v ok';
+    }
+
+    function detach() {
+      window.removeEventListener('deviceorientationabsolute', onOrient, true);
+      window.removeEventListener('deviceorientation', onOrient, true);
+      listenerAttached = false;
+      eventCount = 0;
+      lastEventT = null;
+      smoothed = null;
+      lastT = null;
+      sawAbsolute = false;
+      logLines.length = 0;
+      ['cw','acc','alpha','bg','abs','raw','corrected','smoothed','event-count','event-age']
+        .forEach(id => $(id).textContent = id === 'event-count' ? '0' : '—');
+      $('attached').textContent = 'no';
+      $('attached').className = 'v';
+      $('log').textContent = '';
+    }
+
+    $('enable').addEventListener('click', async () => {
+      if (DOE && typeof DOE.requestPermission === 'function') {
+        try {
+          const r = await DOE.requestPermission();
+          $('perm').textContent = r;
+          $('perm').className = (r === 'granted') ? 'v ok' : 'v err';
+          if (r === 'granted') attach();
+        } catch (err) {
+          $('perm').textContent = 'error: ' + (err.message || err);
+          $('perm').className = 'v err';
+        }
+      } else {
+        $('perm').textContent = 'n/a — attaching anyway';
+        $('perm').className = 'v warn';
+        attach();
+      }
+    });
+
+    $('reset').addEventListener('click', detach);
+
+    // Tick the "last event ms ago" so a stale stream is obvious.
+    setInterval(() => {
+      $('event-age').textContent = lastEventT == null
+        ? '—'
+        : Math.round(performance.now() - lastEventT) + 'ms';
+    }, 100);
+  </script>
+</body>
+</html>
