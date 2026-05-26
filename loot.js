@@ -100,7 +100,10 @@ function rusticifyName(name) {
 }
 
 // === Loot tier yields (consumed by pickLoot) ===
-const TIER_YIELD = { 1: 10, 2: 5, 3: 2 };
+// Per-tier stack size for chest drops. Trimmed from 10/5/2 — old yields
+// flooded the inventory with seeds; with produce mixing (see CATEGORY_LOOT
+// below) and smaller stacks, chests feel more varied.
+const TIER_YIELD = { 1: 5, 2: 3, 3: 1 };
 
 // SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
 // loot flash (chest, treasure) so the player gets consistent visual feedback.
@@ -139,15 +142,20 @@ const POI_CATEGORY = {
   // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
   bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
 };
+// `drops`:
+//   'seed'    → always a seed (planting material)
+//   'produce' → always produce (harvested crop, ready to eat/sell)
+//   'mixed'   → coin-flip per drop, with chance = produceP (default 0.5)
+// Most categories now mix so chests don't all read as "more seeds".
 const CATEGORY_LOOT = {
   food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
-  commerce: { drops: 'seed',    weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
-  civic:    { drops: 'seed',    weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
-  health:   { drops: 'seed',    weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
-  park:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
+  commerce: { drops: 'mixed', produceP: 0.5, weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
+  civic:    { drops: 'mixed', produceP: 0.3, weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
+  health:   { drops: 'mixed', produceP: 0.5, weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
+  park:     { drops: 'mixed', produceP: 0.4, weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
   flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
-  farm:     { drops: 'seed',    weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
-  lowtier:  { drops: 'seed',    weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
+  farm:     { drops: 'mixed', produceP: 0.5, weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
+  lowtier:  { drops: 'mixed', produceP: 0.7, weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
 };
 
 // === POI pad SHAPE mapping ===
@@ -243,7 +251,14 @@ function pickLoot(rng, poiClass, relics) {
     if (flowers.length) pool = flowers;
   }
   const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
-  const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
+  // Seed-vs-produce decision: per category mode. 'mixed' flips a coin each roll
+  // weighted by cfg.produceP (default 0.5) so the same chest type yields both
+  // kinds of drops over time — no more "shop chest = always seeds".
+  let asProduce = cfg.drops === 'produce';
+  if (cfg.drops === 'mixed') {
+    asProduce = (rng ?? Math.random)() < (cfg.produceP ?? 0.5);
+  }
+  const id = asProduce ? seedId.replace(/_seed$/, '') : seedId;
   let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
   if (relics && typeof amuletDoubleChance === 'function') {
     if ((rng ?? Math.random)() < amuletDoubleChance(relics)) n *= 2;
@@ -298,8 +313,10 @@ function pickChestRelic(rng, progress, currentRelics, chestT = 2) {
   const allowed = chestRelicAllowedTiers(progress);
   if (!allowed.length || typeof RELIC_DEFS === 'undefined') return null;
   // Map chest tier (1..4) to a preferred RELIC tier (1..7) — linear ramp so
-  // T1 chests centre on T1 relics, T4 chests centre on T7. Allowed tiers
-  // closer to the preferred score higher; tiers two away weigh half, etc.
+  // T1 chests centre on T1 relics, T4 chests centre on T7. Preferred ALSO acts
+  // as a HARD CEILING — a T1 chest never drops anything above Wood, a T2 chest
+  // tops out at Iron, etc. Without the cap, weighted-by-closeness would let
+  // even a bus stop occasionally hand out an Iron pickaxe.
   const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
   let weighted;
   if (preferred > Math.max(...allowed)) {
@@ -311,7 +328,9 @@ function pickChestRelic(rng, progress, currentRelics, chestT = 2) {
     const pool = baseTiers.length ? baseTiers : allowed;
     weighted = pool.map(t => ({ t, w: 1 }));
   } else {
-    weighted = allowed.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
+    // Cap at preferred so chest tier directly limits relic tier.
+    const capped = allowed.filter(t => t <= preferred);
+    weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
   }
   const total = weighted.reduce((a, b) => a + b.w, 0);
   let r = random() * total;

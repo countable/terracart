@@ -28,3 +28,6 @@
 ## Commits
 
 - Commit and push freely as work completes; no need to ask first.
+- **Never rebase, always merge.** If integrating remote changes, use
+  `git merge` (or `git pull --no-rebase`). Do not run `git rebase`,
+  `git pull --rebase`, or `git pull` when `pull.rebase` is configured.

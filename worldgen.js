@@ -969,22 +969,57 @@
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner).
+      //
+      // Indexed by lowercased name to keep dedup O(new × matches) rather than
+      // O(new × total) — the prior triple-nested scan was quadratic across the
+      // entire tileCache for every tile load.
       const DEDUP_M = 120;
+      const DEDUP_M2 = DEDUP_M * DEDUP_M;
+      const byName = new Map();   // name → [{ x, y }]
+      for (const e of tileCache.values()) {
+        if (!e || !e.objects) continue;
+        for (const p of e.objects) {
+          if (p.kind !== 'chest' || !p.name) continue;
+          const k = p.name.trim().toLowerCase();
+          let arr = byName.get(k);
+          if (!arr) { arr = []; byName.set(k, arr); }
+          arr.push({ x: p.x, y: p.y });
+        }
+      }
+      // Position index for houses — same building can be duplicated across the
+      // 4 tiles meeting at its corner, producing 2-4 sprites for the same
+      // physical structure. Dedup any new house within HOUSE_DEDUP_M of an
+      // existing one (no name available — OSM doesn't usually name dwellings).
+      const HOUSE_DEDUP_M = 6;
+      const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
+      const housePositions = [];
+      for (const e of tileCache.values()) {
+        if (!e || !e.objects) continue;
+        for (const p of e.objects) {
+          if (p.kind === 'house') housePositions.push({ x: p.x, y: p.y });
+        }
+      }
       const filteredObjects = [];
       for (const o of objects) {
         if (o.kind === 'chest' && o.name) {
-          const key = o.name.trim().toLowerCase();
+          const arr = byName.get(o.name.trim().toLowerCase());
           let drop = false;
-          for (const e of tileCache.values()) {
-            if (!e.objects) continue;
-            for (const p of e.objects) {
-              if (p.kind !== 'chest' || !p.name) continue;
-              if (p.name.trim().toLowerCase() !== key) continue;
-              if (Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M) { drop = true; break; }
-            }
-            if (drop) break;
+          if (arr) for (const p of arr) {
+            const dx = p.x - o.x, dy = p.y - o.y;
+            if (dx * dx + dy * dy <= DEDUP_M2) { drop = true; break; }
           }
           if (drop) continue;
+        }
+        if (o.kind === 'house') {
+          let drop = false;
+          for (const p of housePositions) {
+            const dx = p.x - o.x, dy = p.y - o.y;
+            if (dx * dx + dy * dy <= HOUSE_DEDUP_M2) { drop = true; break; }
+          }
+          if (drop) continue;
+          // Record the kept house so other newly-pushed houses in this same
+          // tile also dedup against it (not just cross-tile).
+          housePositions.push({ x: o.x, y: o.y });
         }
         filteredObjects.push(o);
       }
@@ -999,6 +1034,16 @@
       return entry;
     })();
     tileCache.set(key, entry);
+    // LRU prune to bound memory on long-walking sessions. Insertion order is
+    // a reasonable proxy for "least recently loaded"; per-tile state worth
+    // preserving (opened chests, chopped trees, picked debris, etc.) lives in
+    // save.*, so re-rasterising an evicted tile reconstructs the same view.
+    const MAX_CACHED_TILES = 64;
+    while (tileCache.size > MAX_CACHED_TILES) {
+      const oldestKey = tileCache.keys().next().value;
+      if (oldestKey === key) break;   // never evict what we just inserted
+      tileCache.delete(oldestKey);
+    }
     return entry;
   }
 

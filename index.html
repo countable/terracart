@@ -29,12 +29,12 @@
       position: absolute; inset: 0;
       overflow: hidden;
     }
-    /* Fixed 390×844 native size; we scale the whole game (canvas + overlays)
-       with a CSS transform from JS so it fits any viewport while keeping a
-       single coordinate system internally. Overlay positions like the money
-       badge stay correct under the scale. */
+    /* Fixed 352×844 native size — 352 = VIEW_CELLS × CELL_PX so the 11×11
+       map view fills the canvas with no side padding. We scale the whole game
+       (canvas + overlays) with a CSS transform from JS so it fits any viewport
+       while keeping a single coordinate system internally. */
     #game {
-      width: 390px; height: 844px;
+      width: 352px; height: 844px;
       background: #000;
       box-shadow: 0 0 24px #000a;
       position: absolute; top: 0; left: 0;
@@ -116,20 +116,24 @@
   <div id="hud"></div>
   <script>
     // Fit the fixed 390×844 game box into the viewport using CSS scale.
-    // Scales to visualViewport (the actually-visible area, URL bar excluded)
-    // so all bottom-anchored UI stays on screen. Trade-off: on iPhone Safari
-    // with the URL bar visible the game is letterboxed to ~88% width; in PWA
-    // mode the URL bar is gone so it fills the screen.
+    // On portrait viewports (phones) scale by WIDTH so the map fills edge-to-
+    // edge — accepting that some game height tucks behind the iOS Safari URL
+    // bar, since the HUD overlays (money/energy/inventory) live OUTSIDE #game
+    // and are position:fixed, so they stay pinned to the visual viewport
+    // regardless. Landscape / desktop fall back to min(scaleW, scaleH) so the
+    // whole 390×844 box stays on-screen with letterboxing.
     function fitGame() {
-      const W = 390, H = 844;
-      const vw = window.visualViewport?.width  ?? window.innerWidth;
-      const vh = window.visualViewport?.height ?? window.innerHeight;
-      const s = Math.min(vw / W, vh / H);
+      const W = 352, H = 844;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const sW = vw / W, sH = vh / H;
+      const portrait = vw < vh;
+      const s = portrait ? sW : Math.min(sW, sH);
       const g = document.getElementById('game');
       if (!g) return;
       g.style.transform = `scale(${s})`;
       g.style.left = Math.max(0, (vw - W * s) / 2) + 'px';
-      g.style.top  = Math.max(0, (vh - H * s) / 2) + 'px';
+      g.style.top  = portrait ? '0px' : Math.max(0, (vh - H * s) / 2) + 'px';
     }
     window.addEventListener('resize', fitGame);
     window.addEventListener('orientationchange', fitGame);
@@ -196,16 +200,16 @@
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="coords.js?v=105"></script>
-  <script src="worldgen.js?v=105"></script>
-  <script src="crops.js?v=105"></script>
-  <script src="textures.js?v=105"></script>
-  <script src="save.js?v=105"></script>
-  <script src="items.js?v=105"></script>
-  <script src="loot.js?v=105"></script>
-  <script src="interact.js?v=105"></script>
-  <script src="render.js?v=105"></script>
-  <script src="assets.js?v=105"></script>
-  <script src="app.js?v=105"></script>
+  <script src="coords.js?v=111"></script>
+  <script src="worldgen.js?v=111"></script>
+  <script src="crops.js?v=111"></script>
+  <script src="textures.js?v=111"></script>
+  <script src="save.js?v=111"></script>
+  <script src="items.js?v=111"></script>
+  <script src="loot.js?v=111"></script>
+  <script src="interact.js?v=112"></script>
+  <script src="render.js?v=111"></script>
+  <script src="assets.js?v=111"></script>
+  <script src="app.js?v=113"></script>
 </body>
 </html>

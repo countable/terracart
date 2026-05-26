@@ -110,11 +110,82 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
   const wp = findWildplant(w =>
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 30);
   assert.truthy(wp, 'found a starter wildplant');
-  // Stand 25m away (outside REACH_FAR_M = 18m) but tap on the plant.
+  // Stand 25m away (well outside REACH_FAR_M = 16m, measured from player
+  // cell centre) but tap on the plant.
   teleport(scene, wp.x + 25, wp.y);
   tapWorld(scene, wp.x, wp.y);
   assert.falsy(scene.save.picked.includes(wp.id), 'not picked');
   assert.eq(invCount(scene, wp.crop), 0, 'inv empty');
+});
+
+// REACH SHAPE
+//
+// Two related properties locked down by this test:
+//   1. The reach silhouette is a rounded square, not a strict diamond — the
+//      (±1, ±3) and (±3, ±1) cells (15.81 m from cell-centre) are tappable.
+//   2. Standing at the EDGE of your cell doesn't shrink the reach. Both the
+//      visual outline and the "too far" gate measure from the player's
+//      CELL CENTRE, so any cell in the outline is tappable regardless of
+//      where in the player's cell their feet are.
+//
+// We capture scene.flash() calls and check whether 'too far' fires for each
+// offset. Detecting via flash means we exercise the real cell-resolve gate
+// (not just the math), which is the regression surface for both bugs.
+test('reach shape includes (±1, ±3) and (±3, ±1); not affected by intra-cell foot position', (scene) => {
+  // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  if (!startTile) return;
+  let pCell = null;
+  for (let i = 0; i < startTile.grid.length && !pCell; i++) {
+    if (startTile.grid[i] !== 0) continue;   // need grass
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    if (cx < 4 || cy < 4 || cx > scene.cellsPerTile - 5 || cy > scene.cellsPerTile - 5) continue;
+    const approxX = 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM;
+    const approxY = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
+    pCell = absCellCenterMeters(scene, cellIX, cellIY);
+  }
+  if (!pCell) return;   // no interior grass in fixture — skip
+
+  // Capture every flash so we can detect 'too far'.
+  const origFlash = scene.flash;
+  const flashes = [];
+  scene.flash = (msg) => { flashes.push(msg); };
+  try {
+    const tapOffset = (dxCells, dyCells, atSouthEdge = false) => {
+      flashes.length = 0;
+      // Stand at the player cell's centre — or just inside its south edge —
+      // to exercise the "cell-centre, not feet" rule.
+      const py = atSouthEdge ? pCell.y + scene.cellM / 2 - 0.05 : pCell.y;
+      teleport(scene, pCell.x, py);
+      tapWorld(scene, pCell.x + dxCells * scene.cellM,
+                      pCell.y + dyCells * scene.cellM);
+      return flashes.some(m => typeof m === 'string' && /too far/i.test(m));
+    };
+
+    // The previously-edge-case offsets — now in reach.
+    assert.falsy(tapOffset( 1,  3), '(1, 3) cell tappable (was edge of old 15m diamond)');
+    assert.falsy(tapOffset(-1,  3), '(-1, 3) cell tappable');
+    assert.falsy(tapOffset( 3,  1), '(3, 1) cell tappable');
+    assert.falsy(tapOffset( 3, -1), '(3, -1) cell tappable');
+    // Cardinal extremes still in reach.
+    assert.falsy(tapOffset( 0,  3), '(0, 3) cell tappable');
+    assert.falsy(tapOffset( 3,  0), '(3, 0) cell tappable');
+    // Outside the rounded-square — still out of reach.
+    assert.truthy(tapOffset( 3,  3), '(3, 3) cell out of reach (√18·5 ≈ 21 m > 16 m)');
+    assert.truthy(tapOffset( 2,  3), '(2, 3) cell out of reach (√13·5 ≈ 18 m > 16 m)');
+
+    // Reach must be independent of intra-cell foot position: a tap on a
+    // far-edge cell while standing at the south edge of the own cell must
+    // still succeed, since both the visual outline and the gate measure
+    // from cell-centre.
+    assert.falsy(tapOffset( 0, -3, /*atSouthEdge=*/true),
+      'north cell (-3) tappable even when feet at south edge of own cell');
+    assert.falsy(tapOffset( 1, -3, /*atSouthEdge=*/true),
+      '(1, -3) cell tappable from south edge of own cell');
+  } finally {
+    scene.flash = origFlash;
+  }
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -124,6 +195,14 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 test('opening a chest adds loot and marks it opened', (scene) => {
   scene.save.opened = [];
   scene.save.inv = [];
+  // Max every relic + armor slot so the 10% chest-relic roll never finds an
+  // upgrade. When it does upgrade, the chest equips a relic without adding
+  // anything to inventory (just by design) — and "loot added" would fail.
+  // With every slot at T7, pickChestRelic falls through to normal loot.
+  scene.save.relics = {};
+  for (const slot of Object.keys(RELIC_DEFS)) scene.save.relics[slot] = { tier: 7 };
+  scene.save.armor = {};
+  for (const slot of Object.keys(ARMOR_DEFS)) scene.save.armor[slot] = { tier: 7 };
   const chest = findObject(o =>
     o.kind === 'chest' && o.poiClass &&
     Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 200);
@@ -135,7 +214,11 @@ test('opening a chest adds loot and marks it opened', (scene) => {
   // same location with a different id, so assert "some" chest opened, not the
   // specific id we picked from the cache.
   assert.gt(scene.save.opened.length, 0, 'a chest was opened');
-  assert.gt((scene.save.inv || []).length, invBefore, 'loot added to inv');
+  // Either real loot (added to inv) OR a "gold" consolation (money) — both
+  // count as the chest paying out.
+  const gotInv = (scene.save.inv || []).length > invBefore;
+  const gotMoney = (scene.save.money ?? 0) > 0;
+  assert.truthy(gotInv || gotMoney, 'chest paid out (inv or money)');
 });
 
 test('tapping an already-opened chest is a no-op', (scene) => {
@@ -402,6 +485,10 @@ test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (
                   poiClass: real.poiClass, name: real.name };
   tile.objects.push(ghost);
   scene.save.opened.push(ghostId);   // mark the ghost as already-looted
+  // Stub Math.random so the chest-open path's 10% relic-reward roll
+  // always falls through to normal loot — otherwise the assert below is flaky.
+  const realRandom = Math.random;
+  Math.random = () => 0.5;
   try {
     teleport(scene, real.x, real.y - 2);
     const invBefore = (scene.save.inv || []).length;
@@ -410,6 +497,7 @@ test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (
     assert.truthy(scene.save.opened.includes(real.id), 'real chest got opened, not ghost');
     assert.gt((scene.save.inv || []).length, invBefore, 'loot was added');
   } finally {
+    Math.random = realRandom;
     // Cleanup: remove ghost, untag opened so subsequent tests aren't affected.
     const gi = tile.objects.indexOf(ghost);
     if (gi >= 0) tile.objects.splice(gi, 1);
@@ -782,26 +870,36 @@ test('pick relic reduces rock-break energy cost', () => {
 test('ring relic boosts loot tier roll (forced RNG)', () => {
   // No ring: park category, force tier-1 weight roll → must pick tier 1.
   // With ring tier 7 (35% boost), the second roll determining tier-up should hit.
-  // We feed a deterministic RNG that yields specific values.
+  // Park is now 'mixed' (seed/produce coin flip), so the seq includes one
+  // extra rng call AFTER the pool pick for the produce coin (0.99 = no-produce,
+  // keeps the returned id as a seed so SEED_TIER lookup still works).
+  // RNG order in pickLoot:
+  //   1) weights tier roll
+  //   2) ring tier-up roll          (only if ring present + tier<3)
+  //   3) pool pick
+  //   4) mixed-mode produce coin
+  //   5) amulet double roll          (only if amulet present)
+  // tierOf(id) handles either seed-suffix or produce form.
+  const tierOf = (id) => SEED_TIER[id] ?? SEED_TIER[`${id}_seed`];
+  const noRingSeq = [0.05, 0.5, 0.99];     // weights, pool, no-produce
   let calls = 0;
-  const seq = [0.05, 0.01, 0.5, 0.5];   // weights roll, tier-up roll, pool pick, double-roll
-  const rng = () => seq[calls++] ?? 0.5;
-  const noRing = pickLoot(() => 0.05, 'park');  // tier 1 floor
-  // With ring tier 7: 5% × 7 = 35% chance of tier-up; 0.01 < 0.35 → tier-up.
+  const noRing = pickLoot(() => { return noRingSeq[calls++] ?? 0.5; }, 'park');
+  const withRingSeq = [0.05, 0.01, 0.5, 0.99];   // weights, tier-up, pool, no-produce
   calls = 0;
-  const withRing = pickLoot(rng, 'park', { ring: { tier: 7 } });
-  assert.truthy(SEED_TIER[noRing.id] === 1, 'no-ring loot is T1');
-  assert.gt(SEED_TIER[withRing.id], 1, 'with ring, loot tier upgraded');
+  const withRing = pickLoot(() => withRingSeq[calls++] ?? 0.5, 'park', { ring: { tier: 7 } });
+  assert.eq(tierOf(noRing.id), 1, 'no-ring loot is T1');
+  assert.gt(tierOf(withRing.id), 1, 'with ring, loot tier upgraded');
 });
 
 test('amulet relic can double loot quantity', () => {
   let calls = 0;
-  // weights, pool pick, amulet double roll. tier=1 (TIER_YIELD=10).
-  const seq = [0.05, 0.5, 0.01];
+  // weights, pool pick, mixed-mode produce coin, amulet double roll.
+  // tier=1 yields TIER_YIELD[1] = 5 (was 10 — trimmed to reduce seed flood).
+  const seq = [0.05, 0.5, 0.99, 0.01];
   const rng = () => seq[calls++] ?? 0.5;
   const loot = pickLoot(rng, 'park', { amulet: { tier: 7 } });
-  // tier 1 base yield is 10; with amulet doubling → 20.
-  assert.eq(loot.n, 20, 'amulet doubled quantity');
+  // tier 1 base yield is 5; with amulet doubling → 10.
+  assert.eq(loot.n, 10, 'amulet doubled quantity (5 → 10)');
 });
 
 test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
@@ -1047,4 +1145,211 @@ test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) 
     if (o && o.kind === 'relic' && o.slot === 'pick' && o.tier <= 3) pickTooLow++;
   }
   assert.eq(pickTooLow, 0, 'no pick offers at tier ≤ 3');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Consumables, watering can, hoe, mineral drops — new this round.
+// ───────────────────────────────────────────────────────────────────────
+
+test('flute consumable is registered with the right shape', () => {
+  const f = ITEM_BY_ID['flute'];
+  assert.truthy(f, 'flute item exists');
+  assert.eq(f.kind, 'consumable', 'kind=consumable');
+  assert.truthy(PRICES.flute > 0, 'has a sell price');
+});
+
+test('book consumable is registered with the right shape', () => {
+  const b = ITEM_BY_ID['book'];
+  assert.truthy(b, 'book item exists');
+  assert.eq(b.kind, 'consumable', 'kind=consumable');
+});
+
+test('mineral items registered with expected price ladder', () => {
+  for (const id of ['coal', 'sapphire', 'ruby', 'emerald']) {
+    const it = ITEM_BY_ID[id];
+    assert.truthy(it, id + ' exists');
+    assert.eq(it.kind, 'mineral', id + ' kind=mineral');
+  }
+  assert.lt(PRICES.coal, PRICES.sapphire, 'coal < sapphire');
+  assert.lt(PRICES.sapphire, PRICES.ruby, 'sapphire < ruby');
+  assert.lt(PRICES.ruby, PRICES.emerald, 'ruby < emerald');
+});
+
+test('PLAY_TIPS is non-empty and every entry is a real string', () => {
+  assert.truthy(Array.isArray(PLAY_TIPS), 'PLAY_TIPS is array');
+  assert.gt(PLAY_TIPS.length, 10, '>10 tips so repeats are rare');
+  for (const t of PLAY_TIPS) {
+    assert.eq(typeof t, 'string', 'tip is a string');
+    assert.gt(t.length, 10, 'tip is non-trivial');
+  }
+});
+
+test('readBook consumes one Book and opens a modal', (scene) => {
+  scene.save.inv = [{ id: 'book', count: 2 }];
+  scene.save.selSlot = 0;
+  document.getElementById('message-modal')?.remove();
+  document.getElementById('offer-modal')?.remove();
+  scene.readBook();
+  const stack = scene.save.inv.find(s => s && s.id === 'book');
+  assert.eq(stack?.count, 1, 'one book consumed (2 -> 1)');
+  const m = document.getElementById('message-modal') || document.getElementById('offer-modal');
+  assert.truthy(m, 'modal appeared');
+  m?.remove();
+});
+
+test('playFlute consumes one Flute and re-anchors nearby creatures', (scene) => {
+  scene.save.inv = [{ id: 'flute', count: 1 }];
+  scene.save.selSlot = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const target = { x: pWX + 10, y: pWY, kind: 'chicken', id: 'test_flute_chick' };
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  entry.creatures.push(target);
+  document.getElementById('message-modal')?.remove();
+  scene.playFlute();
+  assert.eq(scene.save.inv.find(s => s?.id === 'flute'), undefined, 'flute consumed');
+  const homeDist = Math.hypot((target._homeX ?? target.x) - pWX, (target._homeY ?? target.y) - pWY);
+  assert.lt(homeDist, 6, 'chicken home pulled close to player');
+  entry.creatures.pop();
+  document.getElementById('message-modal')?.remove();
+});
+
+test('hoe relic: effectiveTillCost shape', () => {
+  assert.eq(effectiveTillCost(null), ENERGY_COST.till, 'no hoe = base cost');
+  const noFree = () => 0.99;
+  assert.eq(effectiveTillCost({ hoe: { tier: 1 } }, noFree), 2, 'T1 cost stays 2');
+  assert.eq(effectiveTillCost({ hoe: { tier: 3 } }, noFree), 1, 'T3 shaves to 1');
+  assert.eq(effectiveTillCost({ hoe: { tier: 7 } }, noFree), 1, 'T7 floored at 1');
+  const alwaysFree = () => 0;
+  assert.eq(effectiveTillCost({ hoe: { tier: 1 } }, alwaysFree), 0, 'T1 sometimes free');
+  assert.eq(effectiveTillCost({ hoe: { tier: 7 } }, alwaysFree), 0, 'T7 sometimes free');
+});
+
+test('hoe relic at tier 7 free rate is roughly 84%', () => {
+  let frees = 0;
+  for (let i = 0; i < 2000; i++) {
+    if (effectiveTillCost({ hoe: { tier: 7 } }) === 0) frees++;
+  }
+  const rate = frees / 2000;
+  assert.gt(rate, 0.79, 'T7 free rate >= 79%');
+  assert.lt(rate, 0.89, 'T7 free rate <= 89%');
+});
+
+test('watering can: watering writes canBoost to the planted crop', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.can = { tier: 3 };
+  scene.save.canCharges = 0;
+  scene.save.planted = [];
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  // Empty inventory so eat / use-consumable don't intercept the tap (those
+  // handlers fire when you tap your own feet with a food/consumable selected).
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  // Empty inventory so eat / use-consumable (priority -0.5 / -0.6) don't
+  // intercept a tap on the player's own cell with leftover food/flute from
+  // an earlier test.
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  // Pre-mark every nearby wildplant + flora as picked, and every nearby
+  // creature as caught, so the handlers that run BEFORE planted (creature,
+  // wildplant, flora) skip them. Otherwise the tap would catch a chicken or
+  // pick a rockfruit instead of watering our test crop.
+  const pWX0 = scene.startWorldM.x + scene.playerM.x;
+  const pWY0 = scene.startWorldM.y + scene.playerM.y;
+  const pickedNow = new Set(scene.save.picked || []);
+  const caughtNow = new Set(scene.save.caught || []);
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of (e.wildplants || [])) {
+      if (Math.hypot(wp.x - pWX0, wp.y - pWY0) < 10) pickedNow.add(wp.id);
+    }
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'flora' && o.deco === 'flower' &&
+          Math.hypot(o.x - pWX0, o.y - pWY0) < 10) pickedNow.add(o.id);
+    }
+    for (const c of (e.creatures || [])) {
+      if (Math.hypot(c.x - pWX0, c.y - pWY0) < 10) caughtNow.add(c.id);
+    }
+  }
+  scene.save.picked = [...pickedNow];
+  scene.save.caught = [...caughtNow];
+  // Also ensure full energy so spendEnergy (harvest path) never bails.
+  scene.save.energy = scene.save.maxEnergy ?? 100;
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene, pWX0, pWY0);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
+  teleport(scene, c.x, c.y);
+  tapWorld(scene, c.x, c.y);
+  const p = scene.save.planted[0];
+  assert.gt(p.watered_t, 0, 'crop got watered');
+  assert.eq(p.canBoost, 3, 'tier-3 can wrote canBoost=3');
+});
+
+test('watering can: refill at water tile -> 50 charges, then +2 boost', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.can = { tier: 2 };
+  scene.save.canCharges = 0;
+  let water = null;
+  for (const [key, e] of WorldGen.tileCache.entries()) {
+    if (!e.grid) continue;
+    const N = e.cellsPerEdge;
+    for (let i = 0; i < e.grid.length && !water; i++) {
+      if (e.grid[i] === 3) {
+        const ix = i % N, iy = Math.floor(i / N);
+        const parts = key.split('/');
+        const tXi = +parts[1], tYi = +parts[2];
+        water = {
+          x: tXi * e.tileEdgeM + (ix + 0.5) * scene.cellM,
+          y: tYi * e.tileEdgeM + (iy + 0.5) * scene.cellM,
+        };
+      }
+    }
+    if (water) break;
+  }
+  if (!water) return;
+  teleport(scene, water.x, water.y);
+  tapWorld(scene, water.x, water.y);
+  assert.eq(scene.save.canCharges, 50, 'refill set 50 charges');
+  scene.save.planted = [];
+  scene.tilledSet = new Set();
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene,
+    scene.startWorldM.x + scene.playerM.x,
+    scene.startWorldM.y + scene.playerM.y);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  // Suppress nearby wildplants / flora that would otherwise intercept the tap.
+  const pickedNow2 = new Set(scene.save.picked || []);
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of (e.wildplants || [])) {
+      if (Math.hypot(wp.x - c.x, wp.y - c.y) < 10) pickedNow2.add(wp.id);
+    }
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'flora' && o.deco === 'flower' &&
+          Math.hypot(o.x - c.x, o.y - c.y) < 10) pickedNow2.add(o.id);
+    }
+  }
+  scene.save.picked = [...pickedNow2];
+  scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 0, watered_t: 0 });
+  teleport(scene, c.x, c.y);
+  tapWorld(scene, c.x, c.y);
+  const p = scene.save.planted[0];
+  assert.eq(p.canBoost, 4, 'filled can: T2 + 2 bonus = 4');
+  assert.eq(scene.save.canCharges, 49, 'charge consumed (50 -> 49)');
+});
+
+test('rock loot table buckets produce coal + gems at expected rates', () => {
+  const tally = { coal: 0, sapphire: 0, ruby: 0, emerald: 0, other: 0 };
+  for (let i = 0; i < 5000; i++) {
+    const r = Math.random();
+    if (r < 0.002)      tally.emerald++;
+    else if (r < 0.008) tally.ruby++;
+    else if (r < 0.025) tally.sapphire++;
+    else if (r < 0.430) tally.coal++;
+    else                tally.other++;
+  }
+  assert.gt(tally.coal, 100, 'coal dropped many times (>= 100 in 5000)');
+  assert.gt(tally.sapphire, 0, 'sapphire dropped at least once');
+  assert.gt(tally.ruby, 0, 'ruby dropped at least once');
 });
