@@ -632,11 +632,12 @@ class MapScene extends Phaser.Scene {
       // Time-constant low-pass: alpha = dt / (TAU + dt). Devices fire at very
       // different rates (~60 Hz Android, ~10 Hz iOS), so a fixed per-event
       // alpha gives wildly different convergence speeds. TAU is the response
-      // time constant (~63% of the way to a new reading) in milliseconds.
+      // time constant (~63% of the way to a new reading) in milliseconds —
+      // small enough to feel realtime while still absorbing per-event jitter.
       const now = performance.now();
       const dt = this._lastOrientT ? (now - this._lastOrientT) : 16;
       this._lastOrientT = now;
-      const TAU = 120;
+      const TAU = 40;
       const alpha = dt / (TAU + dt);
       const rad = deg * Math.PI / 180;
       const fx = Math.sin(rad), fy = -Math.cos(rad);   // unit vector in screen coords
