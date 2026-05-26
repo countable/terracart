@@ -136,7 +136,7 @@ const TAP_HANDLERS = [
       // Treasure marks go through the unified rarity picker — class biased
       // toward seed/produce/mineral/consumable, boostP low (most marks pay
       // out small), relicCap 0 (mark never hands out a relic — that's what
-      // chests are for). Jackpot fanfare fires only on +2 or larger.
+      // chests are for). Jackpot fanfare fires on any jackpot (+1 or more).
       const reward = (typeof pickReward === 'function')
         ? pickReward('treasure:default', save) : null;
       if (!reward) {
@@ -152,7 +152,7 @@ const TAP_HANDLERS = [
         const color = ti?.color || '#ffe066';
         const label = `✕ → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
         scene.flashLoot(label, color, 1, reward.id);
-        if (reward.jackpot >= 2 && typeof scene.flashJackpot === 'function') {
+        if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(reward.jackpot);
         }
       } else if (reward.kind === 'gold') {
@@ -214,15 +214,57 @@ const TAP_HANDLERS = [
     // catalog needs deer/rabbit/crow/butterfly entries with kind:'animal'.
     const WILDERNESS_KINDS = new Set(['deer', 'rabbit', 'crow', 'butterfly']);
     if (WILDERNESS_KINDS.has(target.kind)) {
-      const isFlying = target.kind === 'crow' || target.kind === 'butterfly';
+      // Two tap modes for wilderness fauna, by KIND:
+      //
+      //   crow + deer   →  HUNT with a weapon (sword / bow / staff). Tap
+      //                    drops a processed product (feather / meat). With
+      //                    no weapon equipped, the creature gets SCARED and
+      //                    flees the player for 60 s — wanderCreatures
+      //                    honours _scaredUntilT.
+      //   butterfly     →  CATCH alive with the bug net (kept in the inv
+      //                    as a live animal).
+      //   rabbit        →  CATCH alive bare-handed, no relic gate.
+      const r = save.relics || {};
+      const hasWeapon = !!(r.sword || r.bow || r.staff);
+      const isHuntable = target.kind === 'crow' || target.kind === 'deer';
+      if (isHuntable) {
+        if (!hasWeapon) {
+          // Scare the creature instead of catching it — it'll flee for 60 s
+          // (wanderCreatures inverts its angle toward the player while
+          // _scaredUntilT is in the future), then drift back home.
+          target._scaredUntilT = performance.now() + 60 * 1000;
+          scene.flash(`${target.kind === 'crow' ? '🪶' : '🦌'} runs away`, sx, sy);
+          ctx.dirty = true;
+          return true;
+        }
+        // Successful hunt — pick one of the player's equipped weapons at
+        // random for the on-screen "swing" flash. Looks like a quick
+        // animated tap of the actual relic the player is holding.
+        const weapons = [];
+        if (r.sword) weapons.push('🗡');
+        if (r.bow)   weapons.push('🏹');
+        if (r.staff) weapons.push('🪄');
+        const wepIcon = weapons[Math.floor(Math.random() * weapons.length)] || '⚔';
+        const cost = Math.max(1, (ENERGY_COST?.catch ?? 0));
+        if (!scene.spendEnergy(cost, sx, sy)) return true;
+        const dropId = target.kind === 'crow' ? 'crow_feather' : 'meat';
+        save.caught.push(target.id);
+        save.caughtKinds = save.caughtKinds || {};
+        save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
+        scene.addToInv(dropId, 1);
+        ctx.dirty = true;
+        // Two-line flash: weapon icon "swung" at the target, then the drop
+        // label slightly above it. flashLoot already tweens upward + fades.
+        scene.flash(wepIcon, sx, sy);
+        const item = ITEM_BY_ID[dropId];
+        scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+        return true;
+      }
+      // Bug-net path for butterflies; bare-handed catch for rabbits.
+      const isFlying = target.kind === 'butterfly';
       if (isFlying && !save.relics?.bugnet) {
         scene.flash('need a bug net', sx, sy);
         return true;
-      }
-      if (target.kind === 'deer') {
-        const r = save.relics || {};
-        const hasWeapon = !!(r.sword || r.bow || r.staff);
-        if (!hasWeapon) { scene.flash('need a weapon', sx, sy); return true; }
       }
       const baseCost = ENERGY_COST?.catch ?? 0;
       const bugnetTier = save.relics?.bugnet?.tier || 0;
@@ -253,6 +295,35 @@ const TAP_HANDLERS = [
     // Excludes egg / milk (also kind:'produce' but they're animal-source).
     const isPlantProduce = selItem && selItem.kind === 'produce'
       && (!!selItem.crop || sel.id === 'flowers');
+
+    // ── TAME PETS — released animals (id starts with 'released_'). Tame
+    // pets never get "yuck'd"; tapping them with any item (or none) plays
+    // a brief species-specific happy interaction (cluck / purr / etc.),
+    // arms a petting-boost timer that gives the next produce roll a +50%
+    // double chance, and — for cats — kicks off a 5-minute follow timer
+    // the wander loop honours.
+    const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
+    if (isTame) {
+      const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
+                      butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
+      const sound = SOUND[target.kind] || 'happy';
+      // Petting accepts the favourite OR plant produce as a treat. Treats
+      // get consumed; an empty-handed pet is free.
+      const isTreat = sel && (sel.count ?? 0) > 0
+        && (wantSet && wantSet.has(sel.id) || isPlantProduce);
+      target._pettedUntilT = performance.now() + 10 * 60 * 1000;
+      if (target.kind === 'cat') {
+        target._followUntilT = performance.now() + 5 * 60 * 1000;
+      }
+      if (isTreat) {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        ctx.dirty = true;
+      }
+      scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
+      return true;
+    }
+
     // 1. Favourite → catch.
     if (sel && wantSet && wantSet.has(sel.id) && (sel.count ?? 0) > 0) {
       if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
@@ -261,16 +332,20 @@ const TAP_HANDLERS = [
       scene.catchCreature(target, sx, sy);
       return true;
     }
-    // 2. Plant produce → produce (chicken / cow only).
+    // 2. Plant produce → produce (chicken / cow only). Recently-petted
+    // tame animals roll a +50% chance for a double yield.
     if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
       const yieldId = target.kind === 'chicken' ? 'egg'
                     : target.kind === 'cow'     ? 'milk'
                     : null;
       if (yieldId) {
         consumeSelected(save);
-        scene.addToInv(yieldId, 1);
+        const petted = target._pettedUntilT && target._pettedUntilT > performance.now();
+        const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
+        if (petted) target._pettedUntilT = 0;   // consume the boost
+        scene.addToInv(yieldId, yieldN);
         scene.buildInventoryDOM();
-        scene.flashLoot(`+1 ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+        scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
         ctx.dirty = true;
         return true;
       }
@@ -593,6 +668,39 @@ const TAP_HANDLERS = [
       persistSave(save);
       scene.flash('⛏ rockfruit', sx, sy);
     });
+    return true;
+  }},
+
+  // 2-pickup-scarecrow) Tap a placed scarecrow (any tap, any selection) to
+  // pick it back up. Stores positions in save.scarecrows = [{ x, y }, …].
+  { name: 'pickup-scarecrow', try: (ctx) => {
+    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const arr = save.scarecrows = save.scarecrows || [];
+    const half = scene.cellM / 2;
+    const idx = arr.findIndex(s => Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
+    if (idx < 0) return false;
+    arr.splice(idx, 1);
+    scene.addToInv('scarecrow', 1);
+    ctx.dirty = true;
+    scene.flash('🪦 reclaimed', sx, sy);
+    return true;
+  }},
+
+  // 2-place-scarecrow) With scarecrow selected, drop one on an empty tillable cell.
+  { name: 'place-scarecrow', try: (ctx) => {
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
+    const sel = getSelectedSlot(save);
+    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+    if (!(selItem && selItem.id === 'scarecrow' && (sel.count ?? 0) > 0 &&
+          isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
+          !(save.scarecrows || []).some(s => Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1) &&
+          !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) return false;
+    save.scarecrows = save.scarecrows || [];
+    save.scarecrows.push({ x: cwmx, y: cwmy });
+    consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flash('🪦 placed', sx, sy);
     return true;
   }},
 

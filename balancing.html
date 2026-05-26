@@ -543,8 +543,8 @@
         `<td>boostP ${ctx.boostP} &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}</td></tr>`,
         `<tr><th>tier histogram</th><td>${tierHist}</td></tr>`,
         `<tr><th>jackpot rate</th>` +
-        `<td>+1 or more: ${(jackpot1 / N * 100).toFixed(1)}%<br>` +
-        `+2 or more (fanfare): ${(jackpot2 / N * 100).toFixed(1)}%</td></tr>`,
+        `<td>any jackpot (fanfare): ${(jackpot1 / N * 100).toFixed(1)}%<br>` +
+        `2+ step chain: ${(jackpot2 / N * 100).toFixed(1)}%</td></tr>`,
       ];
       document.getElementById('rar-header').innerHTML = rows.join('');
     }

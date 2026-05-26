@@ -23,7 +23,15 @@
   // ────────────────────────────────────────────────────────────────
   const RARITY_TUNING = {
     ringLuckPerTier:     0.01,   // T7 ring → +0.07 to boost probability
-    jackpotP:            0.50,   // P(another +1 tier in jackpot chain). +1 fires ~50%, +2 fanfare ~16% (applied), +3 ~4%, +4 ~1%. Higher raw rates clip down once the chest's tier cap is hit, so 0.5 lands on the 16/4/1 target after caps.
+    // Jackpot fires with entryP, then chains via continueP. Each boost step
+    // picks tier-up vs qty-up 50/50 (same split as the boost chain). Every
+    // jackpot — even a +1 — triggers the fanfare popup.
+    //   P(any jackpot)   = entryP            ~16% — fanfare rate
+    //   P(2-step chain)  = entryP × cont     ~4%
+    //   P(3-step chain)  = entryP × cont²    ~1%
+    //   P(4-step chain)  = entryP × cont³    ~0.25%
+    jackpotEntryP:       0.16,
+    jackpotContinueP:    0.25,
     tierVsQtySplit:      0.5,    // during boost chain, P(go tier) vs P(go qty)
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
     // Per-class quantity brackets. Index 0..3 = brackets returned by the
@@ -31,7 +39,7 @@
     // below). Falls back to qtyBracketsDefault for any class without an
     // override. Trimmed from earlier values — chests were too generous.
     qtyBracketsByClass: {
-      seed:       [[1, 2], [2, 4], [3, 6], [5, 10]],
+      seed:       [[1, 1], [2, 4], [3, 6], [5, 10]],
       produce:    [[1, 1], [1, 3], [2, 4], [3, 6]],
       mineral:    [[1, 1], [1, 2], [1, 2], [2, 3]],
       // Consumables (flute/book) are always single — they're tap-to-use items,
@@ -61,9 +69,12 @@
     // chest where Frost (T7 relic) is reachable, and only via jackpot or
     // the walk-up ladder.
     chestTierMod: {
-      // T1 chests never offer relics — they're the floor-tier "small treats"
-      // chest. Relics start showing up at T2 (wood-only).
-      1: { boostP: 0.30, chainMax: 2, maxTier: 4, relicCap: 0 },
+      // T1 chests never offer relics — they're the floor-tier 'small treats'
+      // chest. Relics start showing up at T2 (wood-only). boostP=0 means
+      // the chain never runs at T1 — the only path to T2 or a bigger qty
+      // stack is the jackpot, which fires at jackpotEntryP × 50% per axis
+      // (≈8% T2 upgrade, ≈8% qty boost).
+      1: { boostP: 0,    chainMax: 1, maxTier: 4, relicCap: 0 },
       2: { boostP: 0.55, chainMax: 3, maxTier: 5, relicCap: 2 },
       3: { boostP: 0.70, chainMax: 5, maxTier: 7, relicCap: 4 },
       4: { boostP: 0.85, chainMax: 6, maxTier: 7, relicCap: 7, relicChainMax: 6 },
@@ -102,7 +113,9 @@
     // Relic share is roughly half what it used to be — relics were turning
     // up too often across the board. They're still strongly weighted on the
     // civic / flora biomes (museums + florists are the magical-item spots).
-    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.07, animal:0.005 } },
+    // lowtier biome carries a small relic share. T1 chests scrub it via
+    // relicCap=0; T2+ chests honour it (T2 lowtier chest = ~5% relic).
+    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.06, animal:0.005, relic:0.05 } },
     'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.07 } },
     'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.08 } },
     'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.20 } },
@@ -308,14 +321,25 @@
       bracket = Math.min(3, bracket + 1);
     }
 
-    // 3) Jackpot. Independent 1/2^N chance of +N tiers, clamped to the
-    // absolute (post-jackpot) cap, NOT chainMax. So Frost is reachable only
-    // via this branch on contexts where chainMax < maxTier.
-    let jackpot = 0;
-    while (rng() < RARITY_TUNING.jackpotP && jackpot < 7) jackpot++;
-    const beforeJackpot = tier;
-    tier = Math.min(finalCap, tier + jackpot);
-    const jackpotApplied = tier - beforeJackpot;
+    // 3) Jackpot. Geometric chain rooted at jackpotEntryP × jackpotContinueP.
+    // Each step independently picks tier-up vs qty-up 50/50 (same split as
+    // the boost chain). Fanfare fires on any non-zero jackpot — every boost
+    // is celebratory.
+    let jackpotSteps = 0;
+    if (rng() < RARITY_TUNING.jackpotEntryP) {
+      jackpotSteps = 1;
+      while (rng() < RARITY_TUNING.jackpotContinueP && jackpotSteps < 7) jackpotSteps++;
+    }
+    const tierBefore = tier;
+    for (let i = 0; i < jackpotSteps; i++) {
+      // For relics, qty is meaningless — force tier-up. Otherwise 50/50.
+      const goTier = isRelic || rng() < 0.5;
+      if (goTier && tier < finalCap) tier++;
+      else if (!goTier && bracket < 3) bracket++;
+      // (Both axes at cap → the boost just sparkles for free; rare.)
+    }
+    const jackpotApplied = jackpotSteps;
+    void tierBefore;   // retained for potential debugging; reading it is free.
 
     // 4) Resolve to a concrete item / relic / gold.
     if (cls === 'relic') {

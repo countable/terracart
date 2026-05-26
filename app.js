@@ -171,6 +171,27 @@ class MapScene extends Phaser.Scene {
       makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
+    // Walk the ASSETS catalog (assets.js) so wilderness textures, gem
+    // icons, scarecrow, shell sheet, etc. all preload. Without this loop
+    // every reference in render.js / renderItemIcon falls back to the
+    // __MISSING texture — visible as broken grey blocks for deer / rabbit
+    // / mineralrock / etc., and item icons that should be sprites silently
+    // resolve to Crops.png frame 0.
+    if (typeof ASSETS !== 'undefined') {
+      for (const [key, a] of Object.entries(ASSETS)) {
+        if (this.textures.exists(key)) continue;
+        if (a.kind === 'spritesheet') {
+          this.load.spritesheet(key, a.path, { frameWidth: a.frameWidth, frameHeight: a.frameHeight });
+        } else if (a.kind === 'image') {
+          this.load.image(key, a.path);
+        }
+        if (a.onLoad) {
+          const tag = a.kind === 'spritesheet'
+            ? `filecomplete-spritesheet-${key}` : `filecomplete-image-${key}`;
+          this.load.once(tag, () => a.onLoad(this));
+        }
+      }
+    }
     // Relic / armor icons (7 tiers × 7 slots + extras) are NOT preloaded — they
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
@@ -1157,12 +1178,48 @@ class MapScene extends Phaser.Scene {
     // a chicken just entering the viewport is already mid-step.
     const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
+    // Pest spawn: if the player has any planted crop and the player's
+    // 3×3 tile neighbourhood contains < 2 wild crows, spawn one off-screen
+    // every ~30 s. The crow's wander loop targets the nearest crop and
+    // destroys it on contact (see below).
+    this._lastPestT = this._lastPestT || 0;
+    if (this.save.planted && this.save.planted.length > 0 && now - this._lastPestT > 30000) {
+      this._lastPestT = now;
+      // Count nearby wild (non-released, not-yet-caught) crows.
+      let wildCrows = 0;
+      WorldGen.forEachItem('creatures', (c) => {
+        if (c.kind !== 'crow') return;
+        if (typeof c.id === 'string' && c.id.startsWith('released_')) return;
+        if (this.save.caught.includes(c.id)) return;
+        const dx = c.x - px, dy = c.y - py;
+        if (dx * dx + dy * dy <= RANGE_SQ) wildCrows++;
+      });
+      if (wildCrows < 2) {
+        const pc = this.playerToWorldCell();
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
+        if (entry && entry.creatures) {
+          // Spawn 12 m away in a random direction so the crow is just
+          // off-screen; it flies toward the nearest crop next tick.
+          const angle = Math.random() * Math.PI * 2;
+          const SPAWN_R = 12 * this.cellM;   // ~12 cells; outside viewport
+          entry.creatures.push({
+            kind: 'crow',
+            x: px + Math.cos(angle) * SPAWN_R,
+            y: py + Math.sin(angle) * SPAWN_R,
+            id: `pest_crow_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+          });
+        }
+      }
+    }
+
     WorldGen.forEachItem('creatures', (c) => {
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // Wandering kinds: farm + pet animals always; tame butterflies also
-      // wander so they can pollinate. Wilderness fauna stays static.
+      // wander so they can pollinate. Crows + deer also wander when wild
+      // so they can eat crops / be hunted.
       const wanders = c.kind === 'chicken' || c.kind === 'cow'
                     || c.kind === 'cat' || c.kind === 'dog'
+                    || c.kind === 'crow' || c.kind === 'deer'
                     || (isTame && c.kind === 'butterfly');
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
@@ -1186,23 +1243,58 @@ class MapScene extends Phaser.Scene {
             if (dx * dx + dy * dy <= 64) pp.canBoost = true;
           }
         }
-        // Movement target — three modes:
-        //   (a) Cats with an active _followUntilT timer beeline toward the
-        //       player, stopping at FOLLOW_GAP m so they don't mob.
-        //   (b) Tame pets have a tighter home-bias radius (1.5 cells) so
-        //       they stay near their drop point — they're yours, not wild.
-        //   (c) Wild farm animals use the original 3-cell radius.
+        // Movement target — five modes, checked in order:
+        //   (a) Scared (_scaredUntilT > now): the creature flees the player
+        //       at full step distance until the timer expires. Set when a
+        //       weapon-less player taps a wild crow / deer.
+        //   (b) Cat-following (_followUntilT > now): cat homes in on the
+        //       player, gap-stopping so it doesn't mob.
+        //   (c) Crow targeting a planted crop: pick the nearest planted
+        //       cell within RANGE_M and head toward it with random jitter
+        //       ("haphazardly"). On contact (≤ cellM/2) destroy the crop.
+        //   (d) Tame pets — tighter home-bias radius so they stay near
+        //       their drop point.
+        //   (e) Default — wild farm animals random-wander around home.
         const FOLLOW_GAP = 1.5 * this.cellM;
+        const isScared = c._scaredUntilT && c._scaredUntilT > now;
         const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
+        // Crows hunting crops: find the nearest planted crop. The
+        // haphazard wobble + the random-attempt loop below combine into
+        // the "drifts toward the crop" behaviour the user described.
+        let cropTarget = null;
+        if (c.kind === 'crow' && !isTame && !isScared && this.save.planted && this.save.planted.length) {
+          let best = null, bestD2 = Infinity;
+          for (const pp of this.save.planted) {
+            const dx = pp.x - c.x, dy = pp.y - c.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestD2) { bestD2 = d2; best = pp; }
+          }
+          cropTarget = best;
+          // Contact check — if we're already on the crop cell, eat it.
+          if (best && bestD2 < (this.cellM * 0.5) * (this.cellM * 0.5)) {
+            const idx = this.save.planted.indexOf(best);
+            if (idx >= 0) this.save.planted.splice(idx, 1);
+            this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
+            cropTarget = null;
+          }
+        }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const homeRadius = isTame ? 1.5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
         let tx = c.x, ty = c.y, angle = 0;
+        let foundValidTarget = false;
         for (let attempt = 0; attempt < 6; attempt++) {
-          if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
+          if (isScared) {
+            // Flee directly away from the player, jittered.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
+          } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (cropTarget) {
+            // Haphazard advance toward the targeted crop.
+            const dxc = cropTarget.x - c.x, dyc = cropTarget.y - c.y;
+            angle = Math.atan2(dyc, dxc) + (Math.random() - 0.5) * 1.2;
           } else if (homeBias) {
             angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
           } else {
@@ -1214,8 +1306,29 @@ class MapScene extends Phaser.Scene {
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
+          // Scarecrow aversion (crow + deer only) — refuse any target cell
+          // within 4 m of an active scarecrow. Crows/deer that wander into
+          // such cells get bounced by the attempt loop until they pick a
+          // different direction.
+          if ((c.kind === 'crow' || c.kind === 'deer') && this.save.scarecrows && this.save.scarecrows.length) {
+            const SC_R = 4 * this.cellM;
+            const SC_R2 = SC_R * SC_R;
+            let blocked = false;
+            for (const sc of this.save.scarecrows) {
+              const dxs = sc.x - tx, dys = sc.y - ty;
+              if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
+            }
+            if (blocked) continue;
+          }
+          foundValidTarget = true;
           break;
         }
+        // If every attempt was blocked (e.g. crow surrounded by scarecrows
+        // / water / buildings), stand still instead of moving onto a bad
+        // cell — the old code took the last attempted target which let
+        // crows phase into the very cell the aversion was supposed to
+        // protect.
+        if (!foundValidTarget) { tx = c.x; ty = c.y; }
         c._startX = c.x; c._startY = c.y;
         c._targetX = tx; c._targetY = ty;
         c._stepT0 = now;
@@ -1448,13 +1561,12 @@ class MapScene extends Phaser.Scene {
       ease: 'Sine.In', onComplete: () => t.destroy() });
   }
 
-  // Jackpot fanfare for rarity.js' boost-chain rewards. Only fires on +2 or
-  // larger jackpots — +1 jackpots happen ~50% of the time, so a popup for
-  // each would be background noise. +2 is ~25% of jackpot triggers
-  // (~12% of all pulls), so the bell still rings often enough to feel real.
-  // Call AFTER flashLoot — stacks above the loot pop at depth 110.
+  // Jackpot fanfare for rarity.js' boost-chain rewards. Fires on any jackpot
+  // (+1 or larger) since rarity.js now gates the geometric chain at a low
+  // jackpotEntryP (~16%) so each fanfare feels earned. Call AFTER flashLoot
+  // — stacks above the loot pop at depth 110.
   flashJackpot(n) {
-    if (!n || n < 2) return;
+    if (!n || n < 1) return;
     if (!this.add) return;
     const x = this.viewCenterX, y = this.viewCenterY - 140;
     try {
@@ -2338,6 +2450,9 @@ class MapScene extends Phaser.Scene {
         icon_meat:     { url: 'Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
         icon_pelt:     { url: 'Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
         icon_feather:  { url: 'Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
+        // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
+        // cowrie used as the inventory icon.
+        shell_sheet:   { url: 'Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;
