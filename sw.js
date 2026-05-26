@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v4';
+const SHELL_VERSION = 'shell-v5';
 const TILE_CACHE    = 'tiles-v1';
 
 const SHELL_ASSETS = [
@@ -75,15 +75,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ── Same-origin app shell: stale-while-revalidate. ───────────────
+  // ── Same-origin app shell ────────────────────────────────────────
+  // HTML (index.html, "/") is NETWORK-FIRST so a fresh deploy lands on
+  // the very next reload instead of waiting an extra cycle. Falls back
+  // to cache only when the network fails (offline).
+  // JS / images / etc. are STALE-WHILE-REVALIDATE — versioned via ?v=
+  // in the script tags, so the URL itself changes on each deploy and
+  // the cache lookup naturally misses for stale entries.
   if (url.origin === self.location.origin) {
+    const isHTML = req.mode === 'navigate'
+      || (req.destination === 'document')
+      || url.pathname === '/' || url.pathname.endsWith('/')
+      || url.pathname.endsWith('.html');
     event.respondWith((async () => {
       const cache = await caches.open(SHELL_VERSION);
+      if (isHTML) {
+        try {
+          const resp = await fetch(req);
+          if (resp.ok) cache.put(req, resp.clone());
+          return resp;
+        } catch {
+          const cached = await cache.match(req);
+          if (cached) return cached;
+          throw new Error('offline and no cached HTML');
+        }
+      }
       const cached = await cache.match(req);
       const networkPromise = fetch(req).then((resp) => {
         if (resp.ok) cache.put(req, resp.clone());
         return resp;
-      }).catch(() => cached);  // If offline and cached, fall back.
+      }).catch(() => cached);
       return cached || networkPromise;
     })());
     return;
