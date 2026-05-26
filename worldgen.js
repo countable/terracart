@@ -448,7 +448,9 @@
               // Snap house sprite to the 5m cell centre so a row of houses lines up cleanly.
               const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
               const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
-              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2 });
+              // Stable id for per-house shop state (deal rate-limit, future ledger).
+              const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
+              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2, tier, id });
             }
           } else {
             if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);

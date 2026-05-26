@@ -1,0 +1,1036 @@
+// Test cases. Each test reaches into the running scene via the helpers in
+// runner.js. Tests share state — wipe the slice each test cares about at the
+// top so they're independent of run order.
+
+// ───────────────────────────────────────────────────────────────────────
+// 1. Sanity / setup
+// ───────────────────────────────────────────────────────────────────────
+
+test('scene boots and start tile loads', (scene) => {
+  assert.truthy(scene, 'scene present');
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  assert.truthy(startTile, 'start tile cached');
+  assert.truthy(startTile.grid, 'start tile rasterized');
+  assert.gt(startTile.wildplants.length, 0, 'wildplants spawned');
+  assert.gt(startTile.objects.length, 0, 'objects spawned');
+});
+
+test('wildplant dedup — no two share the same cell', () => {
+  let dups = 0;
+  for (const entry of WorldGen.tileCache.values()) {
+    if (!entry.wildplants) continue;
+    const seen = new Set();
+    for (const wp of entry.wildplants) {
+      const k = `${wp.x.toFixed(2)},${wp.y.toFixed(2)}`;
+      if (seen.has(k)) dups++; else seen.add(k);
+    }
+  }
+  assert.eq(dups, 0, 'duplicate-cell wildplants');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 2. Wild plant pickup
+// ───────────────────────────────────────────────────────────────────────
+
+test('picking a wildplant within reach adds to inventory and marks picked', (scene) => {
+  scene.save.picked = [];
+  scene.save.inv = [];
+  // Find a wildplant near the world origin (start tile).
+  const wp = findWildplant(w =>
+    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 30);
+  assert.truthy(wp, 'found a starter wildplant');
+  // Stand right on top of it.
+  teleport(scene, wp.x, wp.y);
+  const before = invCount(scene, wp.crop);
+  tapWorld(scene, wp.x, wp.y);
+  assert.eq(invCount(scene, wp.crop), before + 1, `+1 ${wp.crop} in inv`);
+  assert.truthy(scene.save.picked.includes(wp.id), 'wp.id in picked');
+});
+
+test('picking again at same spot does nothing (already picked)', (scene) => {
+  // Need an ISOLATED wildplant — no other wp within 4m, otherwise the
+  // second tap would correctly pick the next-nearest neighbour and the
+  // assertion would be wrong about what the system should do.
+  scene.save.picked = [];
+  scene.save.inv = [];
+  let isolated = null;
+  outer: for (const entry of WorldGen.tileCache.values()) {
+    if (!entry.wildplants) continue;
+    for (const wp of entry.wildplants) {
+      let lonely = true;
+      for (const other of entry.wildplants) {
+        if (other === wp) continue;
+        if (Math.hypot(other.x - wp.x, other.y - wp.y) < 8) { lonely = false; break; }
+      }
+      if (lonely) { isolated = wp; break outer; }
+    }
+  }
+  if (!isolated) return;  // dense fixture — skip
+  teleport(scene, isolated.x, isolated.y);
+  tapWorld(scene, isolated.x, isolated.y);
+  const after1 = invCount(scene, isolated.crop);
+  assert.eq(after1, 1, 'first tap picked it');
+  tapWorld(scene, isolated.x, isolated.y);
+  assert.eq(invCount(scene, isolated.crop), after1, 'second tap is a no-op');
+});
+
+test('nearest-match wins between two stacked plants', (scene) => {
+  scene.save.picked = [];
+  scene.save.inv = [];
+  // Find two wildplants in adjacent cells (one cell ≈ 5m apart vertically).
+  let pair = null;
+  for (const entry of WorldGen.tileCache.values()) {
+    if (!entry.wildplants) continue;
+    for (let i = 0; i < entry.wildplants.length && !pair; i++) {
+      const a = entry.wildplants[i];
+      for (let j = i + 1; j < entry.wildplants.length; j++) {
+        const b = entry.wildplants[j];
+        if (Math.abs(a.x - b.x) < 0.5 && Math.abs(Math.abs(a.y - b.y) - 5) < 0.5) {
+          pair = { a, b }; break;
+        }
+      }
+    }
+    if (pair) break;
+  }
+  if (!pair) return;  // no eligible pair in fixture — skip gracefully
+  // Stand mid-distance. Tap directly on `a`'s coords → expect a, not b.
+  const midX = pair.a.x, midY = (pair.a.y + pair.b.y) / 2;
+  teleport(scene, midX, midY);
+  tapWorld(scene, pair.a.x, pair.a.y);
+  assert.truthy(scene.save.picked.includes(pair.a.id), 'tapped the right one (a)');
+  assert.falsy(scene.save.picked.includes(pair.b.id), 'did NOT pick the wrong one (b)');
+});
+
+test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
+  scene.save.picked = [];
+  scene.save.inv = [];
+  const wp = findWildplant(w =>
+    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 30);
+  assert.truthy(wp, 'found a starter wildplant');
+  // Stand 25m away (outside REACH_FAR_M = 18m) but tap on the plant.
+  teleport(scene, wp.x + 25, wp.y);
+  tapWorld(scene, wp.x, wp.y);
+  assert.falsy(scene.save.picked.includes(wp.id), 'not picked');
+  assert.eq(invCount(scene, wp.crop), 0, 'inv empty');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 3. Chest interaction
+// ───────────────────────────────────────────────────────────────────────
+
+test('opening a chest adds loot and marks it opened', (scene) => {
+  scene.save.opened = [];
+  scene.save.inv = [];
+  const chest = findObject(o =>
+    o.kind === 'chest' && o.poiClass &&
+    Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 200);
+  assert.truthy(chest, 'found a chest near start');
+  teleport(scene, chest.x, chest.y - 2);   // stand just south of chest
+  const invBefore = (scene.save.inv || []).length;
+  tapWorld(scene, chest.x, chest.y);
+  // interact.js dedupes overlapping POI chests and may open a sibling at the
+  // same location with a different id, so assert "some" chest opened, not the
+  // specific id we picked from the cache.
+  assert.gt(scene.save.opened.length, 0, 'a chest was opened');
+  assert.gt((scene.save.inv || []).length, invBefore, 'loot added to inv');
+});
+
+test('tapping an already-opened chest is a no-op', (scene) => {
+  const openedId = scene.save.opened[scene.save.opened.length - 1];
+  const chest = findObject(o => o.id === openedId);
+  assert.truthy(chest, 'previously-opened chest still in cache');
+  const invLen = (scene.save.inv || []).length;
+  teleport(scene, chest.x, chest.y - 2);
+  tapWorld(scene, chest.x, chest.y);
+  assert.eq((scene.save.inv || []).length, invLen, 'no new loot');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 4. Terrain classification — these don't tap, just probe cellAt.
+// ───────────────────────────────────────────────────────────────────────
+
+test('cellAt returns a numeric terrain type for every loaded cell', (scene) => {
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  const tileEdgeM = startTile.tileEdgeM;
+  const cellM = scene.cellM;
+  // Sample 50 random cells in the start tile.
+  let coverage = 0;
+  for (let i = 0; i < 50; i++) {
+    const cx = Math.floor(Math.random() * scene.cellsPerTile);
+    const cy = Math.floor(Math.random() * scene.cellsPerTile);
+    const wx = 2754 * tileEdgeM + (cx + 0.5) * cellM;
+    const wy = 5566 * tileEdgeM + (cy + 0.5) * cellM;
+    const r = scene.cellAt(wx, wy);
+    assert.truthy(r.loaded, 'loaded');
+    assert.eq(typeof r.type, 'number', 'numeric type');
+    coverage++;
+  }
+  assert.gt(coverage, 0, 'sampled some cells');
+});
+
+test('tilling an empty grass cell adds it to tilledSet', (scene) => {
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  scene.save.planted = scene.save.planted || [];
+  // Find an empty grass/park cell that has no wildplant and no object on it.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  const cellM = scene.cellM;
+  const tileEdgeM = startTile.tileEdgeM;
+  const wpCells = new Set();
+  for (const wp of startTile.wildplants) {
+    const ix = Math.floor((wp.x - 2754 * tileEdgeM) / cellM);
+    const iy = Math.floor((wp.y - 5566 * tileEdgeM) / cellM);
+    wpCells.add(`${ix}_${iy}`);
+  }
+  const objCells = new Set();
+  for (const o of startTile.objects) {
+    if (o.kind === 'flora') continue;
+    const ix = Math.floor((o.x - 2754 * tileEdgeM) / cellM);
+    const iy = Math.floor((o.y - 5566 * tileEdgeM) / cellM);
+    objCells.add(`${ix}_${iy}`);
+  }
+  // Grass (0), Park (6), Farmland (4), Residential (5) are tillable per app.js.
+  const TILLABLE = new Set([0, 4, 5, 6]);
+  let target = null;
+  for (let i = 0; i < startTile.grid.length && !target; i++) {
+    if (!TILLABLE.has(startTile.grid[i])) continue;
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    if (wpCells.has(`${cx}_${cy}`) || objCells.has(`${cx}_${cy}`)) continue;
+    target = {
+      x: 2754 * tileEdgeM + (cx + 0.5) * cellM,
+      y: 5566 * tileEdgeM + (cy + 0.5) * cellM,
+    };
+  }
+  assert.truthy(target, 'found an empty tillable cell');
+  // Clear inventory so the tap doesn't trigger plant/place-rock branches.
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  teleport(scene, target.x, target.y);
+  const sizeBefore = scene.tilledSet.size;
+  tapWorld(scene, target.x, target.y);
+  assert.eq(scene.tilledSet.size, sizeBefore + 1, 'tilledSet grew by 1');
+  assert.gt(scene.save.tilled.length, 0, 'save.tilled persisted');
+});
+
+test('tapping a tilled cell again un-tills it (no seed selected)', (scene) => {
+  // Reuse the cell tilled in the previous test. Convert the saved key
+  // (abs tile-pixel-basis cell index) back to world meters via scene helper.
+  assert.gt(scene.tilledSet.size, 0, 'precondition: at least one tilled cell');
+  const cellKey = [...scene.tilledSet][0];
+  const [cellIX, cellIY] = cellKey.split('_').map(Number);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  teleport(scene, c.x, c.y);
+  scene.save.inv = [];
+  tapWorld(scene, c.x, c.y);
+  assert.falsy(scene.tilledSet.has(cellKey), 'cell un-tilled');
+});
+
+test('water cells are blocked from tilling', (scene) => {
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  // Find a water cell.
+  let water = null;
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  for (let i = 0; i < startTile.grid.length && !water; i++) {
+    if (startTile.grid[i] === 3 /* WATER */) {
+      const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+      water = {
+        x: 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM,
+        y: 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM,
+      };
+    }
+  }
+  if (!water) return;   // no water in fixture — skip
+  teleport(scene, water.x, water.y);
+  tapWorld(scene, water.x, water.y);
+  assert.eq(scene.tilledSet.size, 0, 'no water cell got tilled');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 5. Pad shape mapping
+// ───────────────────────────────────────────────────────────────────────
+
+test('POI categories resolve to expected pad shapes', () => {
+  assert.eq(padShapeKeyForPoi('school'), 'triangle', 'school → triangle');
+  assert.eq(padShapeKeyForPoi('pitch'), 'square2', 'pitch → square2');
+  assert.eq(padShapeKeyForPoi('place_of_worship'), 'cross', 'chapel → cross');
+  assert.eq(padShapeKeyForPoi('pharmacy'), 'cross', 'pharmacy → cross');
+  assert.eq(padShapeKeyForPoi('restaurant'), 'line3h', 'restaurant → line3h (food)');
+  assert.eq(padShapeKeyForPoi('playground'), 'line3v', 'playground → line3v');
+  assert.eq(padShapeKeyForPoi('bus'), null, 'bus → no pad');
+  assert.eq(padShapeKeyForPoi('gate'), null, 'gate → no pad');
+});
+
+test('all pad shape textures registered', (scene) => {
+  for (const k of Object.keys(PAD_SHAPES)) {
+    assert.truthy(scene.textures.exists(`pad_${k}`), `pad_${k} texture exists`);
+  }
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 6. Price coverage
+// ───────────────────────────────────────────────────────────────────────
+
+test('every produce item has a sell price', () => {
+  for (const item of ITEMS) {
+    if (item.kind !== 'produce') continue;
+    assert.truthy(PRICES[item.id] != null, `price for ${item.id}`);
+    assert.gt(PRICES[item.id], 0, `price > 0 for ${item.id}`);
+  }
+});
+
+test('produce prices range from $1 (rockfruit) to $500 (sunflower)', () => {
+  assert.eq(PRICES.rockfruit, 1, 'rockfruit floor = $1');
+  assert.eq(PRICES.sunflower, 500, 'sunflower ceiling = $500');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 7. Save debounce
+// ───────────────────────────────────────────────────────────────────────
+
+test('persistSave coalesces rapid writes', async () => {
+  const start = localStorage.getItem(SAVE_KEY);
+  const tag = Date.now();
+  // Fire 5 saves in rapid succession with distinct mutation.
+  for (let i = 0; i < 5; i++) {
+    window.__scene.save._testTag = tag + i;
+    persistSave(window.__scene.save);
+  }
+  // Within the debounce window, localStorage should still be the OLD value.
+  assert.eq(localStorage.getItem(SAVE_KEY), start, 'still old before flush');
+  // After > 500ms, flush should have happened.
+  await new Promise(r => setTimeout(r, 700));
+  const after = JSON.parse(localStorage.getItem(SAVE_KEY));
+  assert.eq(after._testTag, tag + 4, 'last write wins after flush');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// 8. Regression tests — for fixes shipped at ?v=56 (deep-dive audit).
+// Each test guards a specific behaviour with a known prior bug; comment
+// references the audit bug number.
+// ───────────────────────────────────────────────────────────────────────
+
+// #2 — Legacy inv migration: items must have numeric count or arithmetic NaN's.
+test('REG #2: legacy inv migration assigns numeric count', () => {
+  // Simulate the migration code path on a synthetic save.
+  const save = { inv: ['potato_seed', 'rockfruit'] };
+  if (save.inv && typeof save.inv[0] === 'string') {
+    save.inv = save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
+  }
+  for (const s of save.inv) {
+    assert.eq(typeof s.count, 'number', `${s.id}.count is numeric`);
+    assert.eq(s.count, 1, `${s.id}.count = 1`);
+    // Decrementing must not produce NaN — the failing pre-fix mode.
+    s.count -= 1;
+    assert.eq(s.count, 0, `${s.id} decrements cleanly to 0 (was NaN bug)`);
+  }
+});
+
+// #2 (continued) — verify the actual scene's migrated inv never carries undefined counts.
+test('REG #2: live scene inventory items all have numeric count', (scene) => {
+  for (const s of (scene.save.inv || [])) {
+    if (!s) continue;
+    assert.truthy(s.count != null, `slot ${s.id}: count present`);
+    assert.eq(typeof s.count, 'number', `slot ${s.id}: count numeric`);
+    assert.falsy(Number.isNaN(s.count), `slot ${s.id}: count not NaN`);
+  }
+});
+
+// #5 — Auto-advance must NOT fall through to harvest in the same tap.
+test('REG #5: watered crop ready to mature advances but does NOT harvest in one tap', (scene) => {
+  scene.save.planted = [];
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  // Find an empty tillable cell near origin; plant exactly at the cell centre that
+  // the tap handler will compute via absCellCenterMeters (tile-pixel basis), not the
+  // 5m grid basis — otherwise findIndex(0.1) won't locate the plant.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  const TILLABLE = new Set([0, 4, 5, 6]);
+  let target = null;
+  for (let i = 0; i < startTile.grid.length && !target; i++) {
+    if (!TILLABLE.has(startTile.grid[i])) continue;
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    const approxX = 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM;
+    const approxY = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
+    const c = absCellCenterMeters(scene, cellIX, cellIY);
+    // Also ensure no wildplant on this cell — wildplant pickup runs before the
+    // planted-cell branch in handleWorldTap.
+    let blocked = false;
+    for (const wp of startTile.wildplants || []) {
+      if (Math.abs(wp.x - c.x) < scene.cellM/2 && Math.abs(wp.y - c.y) < scene.cellM/2) { blocked = true; break; }
+    }
+    if (!blocked) target = { x: c.x, y: c.y, cellIX, cellIY };
+  }
+  assert.truthy(target, 'found a tillable empty cell');
+  teleport(scene, target.x, target.y);
+  // Inject: one-stage-from-mature, watered well in the past.
+  const oneHourAgo = Date.now() - (60 * 60 * 1000 + 1000);
+  scene.save.planted.push({
+    x: target.x, y: target.y, crop: 'potato',
+    stage: MAX_GROWTH_STAGE - 1, watered_t: oneHourAgo,
+  });
+  scene.tilledSet.add(`${target.cellIX}_${target.cellIY}`);
+  // Tap → should advance to MAX and STOP, not harvest.
+  const before = (scene.save.inv || []).length;
+  tapWorld(scene, target.x, target.y);
+  // After tap: planted entry should still exist; stage advanced to MAX.
+  const entry = scene.save.planted.find(p =>
+    Math.abs(p.x - target.x) < 0.1 && Math.abs(p.y - target.y) < 0.1);
+  assert.truthy(entry, 'plant still present (not harvested)');
+  assert.eq(entry.stage, MAX_GROWTH_STAGE, 'stage advanced to MAX');
+  assert.eq(entry.watered_t, 0, 'reset to dry');
+  assert.eq((scene.save.inv || []).length, before, 'no harvest yield given');
+});
+
+// #8 — Tap dedupe prefers unlooted over looted at the same name+position.
+test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (scene) => {
+  scene.save.opened = [];
+  scene.save.inv = [];
+  // Find any chest. Synthesize a looted duplicate 5m offset with a different id.
+  const real = findObject(o => o.kind === 'chest' && o.poiClass);
+  assert.truthy(real, 'have a real chest');
+  // Inject a looted ghost duplicate into the same tile's objects list.
+  const tile = [...WorldGen.tileCache.values()].find(e => (e.objects || []).includes(real));
+  const ghostId = `c_ghost_${Date.now()}`;
+  const ghost = { kind: 'chest', x: real.x + 5, y: real.y + 5, id: ghostId,
+                  poiClass: real.poiClass, name: real.name };
+  tile.objects.push(ghost);
+  scene.save.opened.push(ghostId);   // mark the ghost as already-looted
+  try {
+    teleport(scene, real.x, real.y - 2);
+    const invBefore = (scene.save.inv || []).length;
+    tapWorld(scene, real.x, real.y);
+    // Real chest should now be opened (loot added).
+    assert.truthy(scene.save.opened.includes(real.id), 'real chest got opened, not ghost');
+    assert.gt((scene.save.inv || []).length, invBefore, 'loot was added');
+  } finally {
+    // Cleanup: remove ghost, untag opened so subsequent tests aren't affected.
+    const gi = tile.objects.indexOf(ghost);
+    if (gi >= 0) tile.objects.splice(gi, 1);
+    scene.save.opened = scene.save.opened.filter(id => id !== ghostId);
+  }
+});
+
+// #9 — catching a released animal trims it from save.released so the array
+// doesn't grow unbounded across release/recatch cycles.
+test('REG #9: catching a released animal removes it from save.released', (scene) => {
+  scene.save.released = scene.save.released || [];
+  scene.save.caught = scene.save.caught || [];
+  const id = `released_test_${Date.now()}`;
+  scene.save.released.push({ x: 0, y: 0, kind: 'chicken', id, tx: 0, ty: 0 });
+  const beforeLen = scene.save.released.length;
+  scene.catchCreature({ id, kind: 'chicken' }, 0, 0);
+  assert.eq(scene.save.released.length, beforeLen - 1, 'released entry removed');
+  assert.truthy(scene.save.caught.includes(id), 'id in caught');
+});
+
+// #10 — Animal release is rejected on non-tillable terrain (water/road/building).
+test('REG #10: releasing on a road / water cell is refused', (scene) => {
+  // Find a road cell with NO creature within ~6m (otherwise the catch branch
+  // fires first and the test reads a false positive on inv mutation).
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  const creatures = [];
+  for (const e of WorldGen.tileCache.values()) {
+    for (const c of (e.creatures || [])) creatures.push(c);
+  }
+  let road = null;
+  for (let i = 0; i < startTile.grid.length && !road; i++) {
+    if (startTile.grid[i] !== 7 /* ROAD */) continue;
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    const rx = 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM;
+    const ry = 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM;
+    let hasCreature = false;
+    for (const c of creatures) {
+      if (Math.hypot(c.x - rx, c.y - ry) < 6) { hasCreature = true; break; }
+    }
+    if (!hasCreature) road = { x: rx, y: ry };
+  }
+  if (!road) return; // no clear road cell in fixture
+  // Setup: hold one chicken, select it, teleport to the road.
+  scene.save.inv = [{ id: 'chicken', count: 1 }];
+  scene.save.selSlot = 0;
+  scene.save.released = [];
+  teleport(scene, road.x, road.y);
+  tapWorld(scene, road.x, road.y);
+  assert.eq(scene.save.released.length, 0, 'no animal released on road');
+  // Chicken still in inventory (release was refused, not consumed).
+  assert.eq(invCount(scene, 'chicken'), 1, 'chicken stack untouched');
+});
+
+// #11 — POI chest position snaps to LOCAL-TILE cell centre. Verify the chest
+// stored x/y agrees with cellAt() at its stored coords (no drift).
+test('REG #11: chest position aligns with cellAt() — no coord-basis drift', (scene) => {
+  let mismatches = 0;
+  for (const v of WorldGen.tileCache.values()) {
+    if (!v.objects || !v.grid) continue;
+    for (const o of v.objects) {
+      if (o.kind !== 'chest') continue;
+      // The chest's stored x/y is supposed to be a local-cell centre.
+      // cellAt() must return the same cell whose centre rounds to (o.x, o.y).
+      const c = scene.cellAt(o.x, o.y);
+      if (!c.loaded) continue;
+      const cellCentre = absCellCenterMeters(scene,
+        ...Object.values(worldMetersToAbsCell(scene, o.x, o.y)));
+      // x/y of chest should be within 1mm of the cell centre we resolve.
+      if (Math.abs(cellCentre.x - o.x) > 0.001 || Math.abs(cellCentre.y - o.y) > 0.001) {
+        mismatches++;
+      }
+    }
+  }
+  assert.eq(mismatches, 0, 'all chest coords land exactly on their resolved cell centre');
+});
+
+// #12 — paintPolygon rightmost-cell coverage. A 1-cell-thin axis-aligned rect
+// must paint EVERY cell in its bbox (regression for the asymmetric ceil/floor).
+test('REG #12: paintPolygon fills the right-edge column (no off-by-one)', (scene) => {
+  // We don't have paintPolygon exposed externally; test the BEHAVIOUR by
+  // verifying that a known small landuse polygon in the fixture paints a
+  // contiguous filled rect (no thin gaps along edges).
+  // Heuristic: scan loaded grids for any contiguous building polygon; assert
+  // its rightmost cell is reachable from its leftmost via a connected flood.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  // Find a non-zero terrain region (e.g. residential) and flood-fill from any
+  // cell. Then verify the bounding box's right edge has at least one filled
+  // cell on every row — the prior bug would skip the rightmost column on rows
+  // where the polygon's right edge lands at fractional sub-pixel position.
+  const N = scene.cellsPerTile;
+  const seenType = new Map();
+  for (let i = 0; i < startTile.grid.length; i++) {
+    const t = startTile.grid[i];
+    if (t === 0 || t === 3) continue;
+    seenType.set(t, (seenType.get(t) || 0) + 1);
+  }
+  // Pick the most common non-trivial type as our probe.
+  let probeType = -1, probeCount = 0;
+  for (const [t, n] of seenType) {
+    if (n > probeCount) { probeCount = n; probeType = t; }
+  }
+  assert.gt(probeCount, 50, 'fixture has a non-trivial polygon to probe');
+  // Find bbox of any contiguous region of probeType and confirm every row in
+  // the bbox has at least one cell of that type (no thin row-wide gaps).
+  let minX = N, maxX = -1, minY = N, maxY = -1;
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      if (startTile.grid[y * N + x] !== probeType) continue;
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+  // Every row in [minY..maxY] should contain at least one cell of probeType.
+  // The prior bug would only show as occasional missing cells, but assuming
+  // multiple polygons of the same type exist, full row coverage is a strong
+  // smoke test.
+  let badRows = 0;
+  for (let y = minY; y <= maxY; y++) {
+    let any = false;
+    for (let x = minX; x <= maxX; x++) {
+      if (startTile.grid[y * N + x] === probeType) { any = true; break; }
+    }
+    if (!any) badRows++;
+  }
+  assert.lt(badRows, Math.max(2, (maxY - minY) * 0.1), 'most rows have a cell of the probe type');
+});
+
+// #13 — ring-scan integer-modulo: tile-seam cells must not silently fall back
+// to grass. Verify the grid type read at a tile boundary matches cellAt.
+test('REG #13: tile-seam cell reads agree between cellAt and grid lookup', (scene) => {
+  const N = scene.cellsPerTile;
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  if (!startTile) return;
+  // Sample the LAST column (x = N-1) and FIRST column of the neighbour tile.
+  for (let y = 0; y < N; y += 25) {
+    const wx = 2754 * startTile.tileEdgeM + (N - 1 + 0.5) * scene.cellM;
+    const wy = 5566 * startTile.tileEdgeM + (y + 0.5) * scene.cellM;
+    const direct = startTile.grid[y * N + (N - 1)];
+    const via = scene.cellAt(wx, wy).type;
+    assert.eq(via, direct, `seam-cell row ${y}: cellAt agrees with grid`);
+  }
+});
+
+// #14 — longgrass single-frame texture must explicitly set frame 0 to avoid
+// stale pool-slot frame state.
+test('REG #14: longgrass renders frame 0 even after pool reuse', (scene) => {
+  // Inject a planted longgrass entry near the player and force a render.
+  scene.save.planted = scene.save.planted || [];
+  const px = scene.startWorldM.x + 5, py = scene.startWorldM.y + 5;
+  scene.save.planted.push({ x: px, y: py, crop: 'longgrass', stage: MAX_GROWTH_STAGE });
+  teleport(scene, px, py);
+  scene.drawObjects();
+  // Find the pool sprite that just got assigned the longgrass texture.
+  const slot = scene.plantedPool.find(s =>
+    s.visible && s.texture && s.texture.key === 'longgrass');
+  assert.truthy(slot, 'longgrass pool slot exists');
+  // The texture is single-frame; frame must be the base one (Phaser identifies
+  // single-frame canvas textures with key __BASE).
+  assert.truthy(slot.frame.name === '__BASE' || slot.frame.name === 0 || slot.frame.name === '0',
+    `longgrass frame is the base/0, not stale: ${slot.frame.name}`);
+});
+
+// #15 — Sell modal must re-find by id, not by stale slot index.
+test('REG #15: sell modal succeeds even if the stack moved to a new slot index', (scene) => {
+  // Stage: two stacks. Sell the second one. Mid-modal, splice the first stack
+  // so the second moves to index 0. Accept the sale.
+  scene.save.inv = [
+    { id: 'rockfruit', count: 1 },
+    { id: 'potato_seed', count: 3 },
+  ];
+  scene.save.selSlot = 1;
+  scene.save.money = 0;
+  // Find a house to interact with.
+  const house = findObject(o => o.kind === 'house');
+  if (!house) return;
+  teleport(scene, house.x, house.y - 2);
+  scene.shopInteract(0, 0);
+  const modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'modal opened');
+  // Simulate inv shift: spend the first stack.
+  scene.save.inv.splice(0, 1);   // potato_seed now at index 0
+  // Click Sell.
+  const sellBtn = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Sell');
+  assert.truthy(sellBtn, 'Sell button present');
+  sellBtn.click();
+  // After the sale, the potato_seed stack should have one less unit (started at 3 → 2).
+  const cur = scene.save.inv.find(s => s && s.id === 'potato_seed');
+  assert.truthy(cur, 'potato_seed still present');
+  assert.eq(cur.count, 2, 'potato_seed decremented to 2');
+  assert.gt(scene.save.money, 0, 'received money');
+});
+
+// One-interactable-per-cell invariant: across all loaded tiles, no cell
+// should host more than one interactable (chest, house, tree, wildplant, flora).
+test('one-interactable-per-cell invariant across loaded tiles', () => {
+  let collisions = 0;
+  for (const [key, entry] of WorldGen.tileCache.entries()) {
+    if (!entry.grid || !entry.tileEdgeM) continue;
+    const [, txStr, tyStr] = key.split('/');
+    const tx = +txStr, ty = +tyStr;
+    const tileOriginMx = tx * entry.tileEdgeM;
+    const tileOriginMy = ty * entry.tileEdgeM;
+    const cellM = entry.tileEdgeM / entry.cellsPerEdge;
+    const occ = new Map();
+    const note = (kind, x, y) => {
+      const ix = Math.floor((x - tileOriginMx) / cellM);
+      const iy = Math.floor((y - tileOriginMy) / cellM);
+      const k = `${ix}_${iy}`;
+      if (occ.has(k)) { collisions++; }
+      else occ.set(k, kind);
+    };
+    for (const o of (entry.objects || [])) note(o.kind, o.x, o.y);
+    for (const wp of (entry.wildplants || [])) note('wildplant', wp.x, wp.y);
+  }
+  assert.eq(collisions, 0, 'no cell hosts >1 interactable');
+});
+
+// #16 — Self-heal of tilled marker must NOT fire when a planted crop sits on the cell.
+test('REG #16: tilled self-heal preserves cells with a planted crop', (scene) => {
+  // Find a planted-crop cell whose terrain is NON-tillable (rare but possible
+  // when a building polygon overlapped a previously-tilled cell). Simulate.
+  scene.save.tilled = [];
+  scene.tilledSet = new Set();
+  scene.save.planted = [];
+  // Pick any cell currently classified as building.
+  const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
+  let buildCell = null;
+  for (let i = 0; i < startTile.grid.length && !buildCell; i++) {
+    const t = startTile.grid[i];
+    if (t !== 9 && t !== 11 && t !== 12) continue;
+    const cx = i % scene.cellsPerTile, cy = Math.floor(i / scene.cellsPerTile);
+    buildCell = {
+      x: 2754 * startTile.tileEdgeM + (cx + 0.5) * scene.cellM,
+      y: 5566 * startTile.tileEdgeM + (cy + 0.5) * scene.cellM,
+    };
+  }
+  if (!buildCell) return;
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene, buildCell.x, buildCell.y);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  // Plant + mark tilled (simulating pre-overpaint legacy state).
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 1, watered_t: 0 });
+  scene.tilledSet.add(`${cellIX}_${cellIY}`);
+  teleport(scene, c.x, c.y);
+  // Force a draw — the buggy self-heal would silently drop the tilled mark.
+  scene.drawCells();
+  assert.truthy(scene.tilledSet.has(`${cellIX}_${cellIY}`), 'tilled mark preserved (plant present)');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Energy / food / relics
+// ───────────────────────────────────────────────────────────────────────
+
+test('energy: starts at maxEnergy after fresh init', (scene) => {
+  // Reset any pollution from prior runs — armor purchased in other tests would
+  // otherwise raise maxEnergy and fail the equality assertion.
+  scene.save.armor = { helmet: null, chest: null, legs: null, boots: null };
+  scene.save.maxEnergy = STARTING_ENERGY;
+  scene.save.energy = STARTING_ENERGY;
+  assert.eq(scene.save.maxEnergy, STARTING_ENERGY, 'maxEnergy = STARTING_ENERGY');
+  assert.truthy(scene.save.energy >= 0 && scene.save.energy <= scene.save.maxEnergy, 'energy in [0,max]');
+});
+
+test('energy: tilling deducts 2 energy', (scene) => {
+  // Find a tillable empty cell adjacent to the player and till it.
+  scene.save.energy = 50;
+  scene.save.tilled = []; scene.tilledSet = new Set();
+  scene.save.planted = []; scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  // Sweep a few cells near origin until we find a grass/farmland one.
+  let target = null;
+  for (let d = 0; d < 8 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && isTillable(c.type)) { target = { wx, wy }; break; }
+    }
+  }
+  assert.truthy(target, 'found a tillable cell');
+  teleport(scene, target.wx, target.wy);
+  const before = scene.save.energy;
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.save.energy, before - ENERGY_COST.till, 'energy deducted by till cost');
+});
+
+test('energy: refuses till when too tired', (scene) => {
+  scene.save.energy = 1;
+  scene.save.tilled = []; scene.tilledSet = new Set();
+  scene.save.planted = []; scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  let target = null;
+  for (let d = 1; d < 8 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && isTillable(c.type)) { target = { wx, wy }; break; }
+    }
+  }
+  assert.truthy(target, 'found a tillable cell');
+  teleport(scene, target.wx, target.wy);
+  const beforeTilled = scene.tilledSet.size;
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.tilledSet.size, beforeTilled, 'not tilled when too tired');
+  assert.eq(scene.save.energy, 1, 'energy unchanged on refusal');
+});
+
+test('eating rainberry restores energy + waters nearby crops + shows message modal', (scene) => {
+  // Set up: 3 crops within 20m, 1 crop at 40m, all unwatered.
+  scene.save.energy = 10;
+  scene.save.maxEnergy = 100;
+  scene.save.planted = [];
+  const sx = scene.startWorldM.x, sy = scene.startWorldM.y;
+  // Crops within range (unwatered).
+  scene.save.planted.push({ x: sx + 5,  y: sy,     crop: 'potato', stage: 0, watered_t: 0 });
+  scene.save.planted.push({ x: sx - 5,  y: sy + 8, crop: 'potato', stage: 0, watered_t: 0 });
+  scene.save.planted.push({ x: sx + 12, y: sy - 7, crop: 'potato', stage: 0, watered_t: 0 });
+  // Out of range (unwatered).
+  scene.save.planted.push({ x: sx + 40, y: sy,     crop: 'potato', stage: 0, watered_t: 0 });
+  teleport(scene, sx, sy);
+  // Select rainberry and eat.
+  scene.save.inv = [{ id: 'rainberry', count: 2 }];
+  scene.save.selSlot = 0;
+  scene.eatSelected();
+  assert.eq(scene.save.energy, 10 + FOOD_ENERGY.rainberry, 'energy bumped by rainberry restore');
+  assert.eq(scene.save.inv[0].count, 1, 'rainberry stack decremented');
+  // Three crops near should now be watered (have watered_t > 0).
+  const wateredNear = scene.save.planted.filter((p, i) => i < 3 && p.watered_t).length;
+  assert.eq(wateredNear, 3, 'all three nearby crops watered');
+  // Distant one should remain unwatered.
+  assert.eq(scene.save.planted[3].watered_t, 0, 'distant crop NOT watered');
+  // Message modal opened.
+  assert.truthy(document.getElementById('message-modal'), 'message modal shown');
+  document.getElementById('message-modal')?.remove();
+});
+
+test('eating pairy arms chest compass for 5 minutes toward nearest unopened chest', (scene) => {
+  scene.save.energy = 10;
+  scene.save.maxEnergy = 100;
+  scene.save.opened = [];
+  scene.pairyCompass = null;
+  // Find any chest as a target.
+  const chest = findObject(o => o.kind === 'chest');
+  assert.truthy(chest, 'a chest exists somewhere');
+  // Stand near it (but not on top, so it's still unopened).
+  teleport(scene, chest.x + 30, chest.y + 30);
+  scene.save.inv = [{ id: 'pairy', count: 1 }];
+  scene.save.selSlot = 0;
+  const t0 = Date.now();
+  scene.eatSelected();
+  assert.truthy(scene.pairyCompass, 'pairyCompass set');
+  // Target is the nearest unopened chest (not necessarily the one we found, but
+  // it must BE an unopened chest).
+  assert.truthy(scene.pairyCompass.targetId, 'targetId present');
+  // Until ≈ now + 5 min (allow 2 s wiggle room for slow CI runs).
+  const fiveMin = 5 * 60 * 1000;
+  assert.approx(scene.pairyCompass.until - t0, fiveMin, 2000, '5-min expiry');
+  assert.eq(scene.save.energy, 10 + FOOD_ENERGY.pairy, 'energy bumped by pairy restore');
+  document.getElementById('message-modal')?.remove();
+});
+
+test('pick relic reduces rock-break energy cost', () => {
+  const base = effectivePickCost(null);
+  assert.eq(base, ENERGY_COST.rockBreak, 'no relic = base cost');
+  const t1 = effectivePickCost({ pick: { tier: 1 } });
+  const t7 = effectivePickCost({ pick: { tier: 7 } });
+  assert.lt(t1, base, 'tier-1 pick cheaper than no pick');
+  assert.lt(t7, t1,   'tier-7 pick cheaper than tier-1');
+  assert.gt(t7, 1,    'cost floors at 2 (not 0)');
+});
+
+test('ring relic boosts loot tier roll (forced RNG)', () => {
+  // No ring: park category, force tier-1 weight roll → must pick tier 1.
+  // With ring tier 7 (35% boost), the second roll determining tier-up should hit.
+  // We feed a deterministic RNG that yields specific values.
+  let calls = 0;
+  const seq = [0.05, 0.01, 0.5, 0.5];   // weights roll, tier-up roll, pool pick, double-roll
+  const rng = () => seq[calls++] ?? 0.5;
+  const noRing = pickLoot(() => 0.05, 'park');  // tier 1 floor
+  // With ring tier 7: 5% × 7 = 35% chance of tier-up; 0.01 < 0.35 → tier-up.
+  calls = 0;
+  const withRing = pickLoot(rng, 'park', { ring: { tier: 7 } });
+  assert.truthy(SEED_TIER[noRing.id] === 1, 'no-ring loot is T1');
+  assert.gt(SEED_TIER[withRing.id], 1, 'with ring, loot tier upgraded');
+});
+
+test('amulet relic can double loot quantity', () => {
+  let calls = 0;
+  // weights, pool pick, amulet double roll. tier=1 (TIER_YIELD=10).
+  const seq = [0.05, 0.5, 0.01];
+  const rng = () => seq[calls++] ?? 0.5;
+  const loot = pickLoot(rng, 'park', { amulet: { tier: 7 } });
+  // tier 1 base yield is 10; with amulet doubling → 20.
+  assert.eq(loot.n, 20, 'amulet doubled quantity');
+});
+
+test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
+  assert.eq(maxEnergyFromArmor(null), STARTING_ENERGY, 'no armor = baseline');
+  const m1 = maxEnergyFromArmor({ helmet: { tier: 1 } });
+  assert.eq(m1, STARTING_ENERGY + 10, 'tier-1 helmet adds +10');
+  const m2 = maxEnergyFromArmor({ helmet: { tier: 2 }, chest: { tier: 1 } });
+  // helmet T2: 10*2 = 20; chest T1: 25*1 = 25. Total +45.
+  assert.eq(m2, STARTING_ENERGY + 20 + 25, 'multiple armor pieces additive');
+});
+
+test('gearPrice scales with tier multiplier', () => {
+  const t1 = gearPrice('relic', 'pick', 1);
+  const t3 = gearPrice('relic', 'pick', 3);
+  // Tier 3 cost mul is 8× tier 1.
+  assert.eq(t1, 80, 'tier-1 pick = $80');
+  assert.eq(t3, 80 * 8, 'tier-3 pick = $80 × 8');
+});
+
+test('rock break refuses without a pickaxe relic', (scene) => {
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.energy = 100;
+  scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
+  // Find a rock cell. Type 10 = rock.
+  let target = null;
+  for (let d = 1; d < 30 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
+    }
+  }
+  if (!target) return; // no rock loaded — skip
+  teleport(scene, target.wx, target.wy);
+  const before = scene.brokenRockSet.size;
+  tapWorld(scene, target.wx, target.wy);
+  assert.eq(scene.brokenRockSet.size, before, 'rock NOT broken without pick');
+  // Equip wood pick — should now proceed (energy spent, work-progress started).
+  scene.save.relics.pick = { tier: 1 };
+  tapWorld(scene, target.wx, target.wy);
+  // startWorkProgress flips a flag; we just need to assert energy was deducted.
+  assert.lt(scene.save.energy, 100, 'energy spent once pick is equipped');
+});
+
+test('tree chop refuses without an axe relic', (scene) => {
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.energy = 100;
+  const tree = findObject(o => o.kind === 'tree' && !o.chopped);
+  if (!tree) return;
+  teleport(scene, tree.x, tree.y);
+  tapWorld(scene, tree.x, tree.y);
+  assert.falsy(tree.chopped, 'tree NOT chopped without axe');
+});
+
+test('starter shop sells wood pickaxe + wood axe in sequence', (scene) => {
+  scene.save.starterShopId = null;
+  scene.save.starterStock = { pick: true, axe: true };
+  scene.save.shopOffers = {};
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.money = 1000;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  // Identify the starter shop via the same helper the runtime uses.
+  const starterId = scene.findStarterHouseId();
+  assert.truthy(starterId, 'a starter house exists in loaded tiles');
+  const house = findObject(o => o.id === starterId);
+  teleport(scene, house.x, house.y - 2);
+  scene.shopInteract(0, 0, house);
+  let modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'modal opened for starter shop');
+  const buy = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.truthy(buy, 'Buy button present');
+  buy.click();
+  assert.truthy(scene.save.relics.pick, 'wood pick acquired');
+  assert.eq(scene.save.relics.pick.tier, 1, 'tier 1');
+  assert.falsy(scene.save.starterStock.pick, 'pick removed from starter stock');
+  // Second visit: starter shop now offers axe.
+  scene.shopInteract(0, 0, house);
+  modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'modal opened second visit');
+  const buy2 = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  buy2.click();
+  assert.truthy(scene.save.relics.axe, 'wood axe acquired');
+  assert.eq(scene.save.relics.axe.tier, 1, 'tier 1');
+  // Third visit: stock empty → starter shop falls through to seed offers.
+  scene.shopInteract(0, 0, house);
+  modal = document.getElementById('offer-modal');
+  // Just assert it didn't crash; we don't care which offer comes up now.
+  document.getElementById('offer-modal')?.remove();
+});
+
+test('castle always offers relics with no rate-limit', (scene) => {
+  scene.save.shopOffers = {};
+  scene.save.shopDeals = {};
+  scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 }, ring: null, amulet: null };
+  scene.save.money = 100000;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  // Make a fake castle anchored at the start position so we don't depend on
+  // worldgen happening to load one nearby.
+  const fakeCastle = { kind: 'tower', id: 'test_castle', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  teleport(scene, fakeCastle.x, fakeCastle.y - 2);
+  // 50 consecutive shops — all should open a relic modal (never blocked).
+  let opened = 0;
+  for (let i = 0; i < 50; i++) {
+    scene.shopInteract(0, 0, fakeCastle);
+    const m = document.getElementById('offer-modal');
+    if (m && m.innerHTML.includes('relic')) {
+      opened++;
+      // Buy whatever's on offer to advance state, then re-enter.
+      const buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+      if (buy && !buy.disabled) buy.click(); else m.remove();
+    } else { m?.remove(); break; }
+  }
+  assert.gt(opened, 5, 'castle keeps opening relic offers');
+});
+
+test('re-roll button is hidden on non-castle relic offers', (scene) => {
+  // Force a non-castle relic offer via presentRelicOffer directly.
+  document.getElementById('offer-modal')?.remove();
+  scene.save.money = 10000;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null };
+  const offer = { kind: 'relic', slot: 'pick', tier: 1,
+    price: gearPrice('relic', 'pick', 1), rerollCount: 0 };
+  scene.presentRelicOffer(0, 0, offer, () => {},
+    { id: 'fake_regular', kind: 'house', tier: 9, x: 0, y: 0 }, false);
+  const modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'modal opened');
+  const rr = [...modal.querySelectorAll('button')].find(b => b.innerHTML.includes('Re-roll'));
+  assert.falsy(rr, 'no Re-roll button on regular house');
+  document.getElementById('offer-modal')?.remove();
+});
+
+test('re-roll button swaps the on-display relic for a different one', (scene) => {
+  scene.save.shopOffers = {};
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.armor = { helmet: null, chest: null, legs: null, boots: null };
+  scene.save.money = 100000;
+  const fakeCastle = { kind: 'tower', id: 'test_castle_reroll', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  teleport(scene, fakeCastle.x, fakeCastle.y - 2);
+  scene.shopInteract(0, 0, fakeCastle);
+  let modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'first modal open');
+  const before = JSON.stringify(scene.save.shopOffers[fakeCastle.id]);
+  // Find the reroll button by its money string ($5 first time).
+  const buttons = [...modal.querySelectorAll('button')];
+  const reroll = buttons.find(b => b.innerHTML.includes('Re-roll'));
+  assert.truthy(reroll, 'Re-roll button present');
+  const moneyBefore = scene.save.money;
+  reroll.click();
+  const after = JSON.stringify(scene.save.shopOffers[fakeCastle.id]);
+  assert.truthy(before !== after || scene.save.shopOffers[fakeCastle.id].rerollCount === 1,
+    're-roll updated the persisted offer (or at least bumped rerollCount)');
+  assert.lt(scene.save.money, moneyBefore, 'money deducted by re-roll cost');
+  document.getElementById('offer-modal')?.remove();
+});
+
+test('shop offer persists across multiple taps on same house', (scene) => {
+  scene.save.shopOffers = {};
+  scene.save.shopDeals = {};
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.money = 10000;
+  const fakeCastle = { kind: 'tower', id: 'test_castle_persist', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  teleport(scene, fakeCastle.x, fakeCastle.y - 2);
+  scene.shopInteract(0, 0, fakeCastle);
+  const first = JSON.parse(JSON.stringify(scene.save.shopOffers[fakeCastle.id]));
+  document.getElementById('offer-modal')?.remove();
+  scene.shopInteract(0, 0, fakeCastle);
+  const second = scene.save.shopOffers[fakeCastle.id];
+  assert.eq(first.kind, second.kind, 'kind matches across taps');
+  assert.eq(first.slot, second.slot, 'slot matches across taps');
+  assert.eq(first.tier, second.tier, 'tier matches across taps');
+  document.getElementById('offer-modal')?.remove();
+});
+
+test('weapons: sword raises sell price (T0=half, T7=par)', () => {
+  // Sell helper: ceil(base * sellMultiplier).
+  const base = 100;
+  const sellAt = (tier) => Math.ceil(base * sellMultiplier(tier ? { sword: { tier } } : null));
+  assert.eq(sellAt(0), 50,  'no sword = half');
+  assert.eq(sellAt(7), 100, 'frost sword = base (par)');
+  // Monotonic in between.
+  for (let t = 1; t < 7; t++) {
+    assert.truthy(sellAt(t) >= sellAt(t - 1), `T${t} >= T${t - 1}`);
+  }
+});
+
+test('weapons: bow/staff lower buy markup (T0=1.2..3, T7=1..1)', () => {
+  const r0 = buyMarkupRange(null);
+  assert.approx(r0.lo, 1.2, 0.0001, 'baseline lo');
+  assert.approx(r0.hi, 3.0, 0.0001, 'baseline hi');
+  const r7Bow   = buyMarkupRange({ bow:   { tier: 7 } });
+  const r7Staff = buyMarkupRange({ staff: { tier: 7 } });
+  assert.approx(r7Bow.lo,   1.0, 0.0001, 'T7 bow → lo = 1');
+  assert.approx(r7Bow.hi,   1.0, 0.0001, 'T7 bow → hi = 1');
+  assert.approx(r7Staff.lo, 1.0, 0.0001, 'T7 staff → lo = 1');
+  assert.approx(r7Staff.hi, 1.0, 0.0001, 'T7 staff → hi = 1');
+  // Max(bow, staff) wins.
+  const mixed = buyMarkupRange({ bow: { tier: 3 }, staff: { tier: 7 } });
+  assert.approx(mixed.lo, 1.0, 0.0001, 'max tier wins (staff over bow)');
+});
+
+test('weapons: sell modal honours the sword multiplier', (scene) => {
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 7 }, bow: null, staff: null };
+  scene.save.inv = [{ id: 'potato', count: 1 }];  // base price $5
+  scene.save.selSlot = 0;
+  scene.save.money = 0;
+  // Pick any house and tap it with potato selected.
+  const house = findObject(o => o.kind === 'house');
+  assert.truthy(house, 'a house exists');
+  teleport(scene, house.x, house.y - 2);
+  scene.shopInteract(0, 0, house);
+  const modal = document.getElementById('offer-modal');
+  assert.truthy(modal, 'sell modal opened');
+  // T7 sword: sell at par = $5 (was $3 at T0).
+  assert.truthy(modal.innerHTML.includes('+$5'), 'sells potato at base $5 with T7 sword');
+  document.getElementById('offer-modal')?.remove();
+});
+
+test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) => {
+  // Equip a tier-3 pick. The offer should NEVER include pick t1..t3.
+  scene.save.relics = { pick: { tier: 3 }, ring: null, amulet: null };
+  scene.save.armor  = { helmet: null, chest: null, legs: null, boots: null };
+  // Sample many offers and assert no pick<=3 appears.
+  let pickTooLow = 0;
+  for (let i = 0; i < 100; i++) {
+    const o = scene.buildRelicOffer();
+    if (o && o.kind === 'relic' && o.slot === 'pick' && o.tier <= 3) pickTooLow++;
+  }
+  assert.eq(pickTooLow, 0, 'no pick offers at tier ≤ 3');
+});

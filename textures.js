@@ -23,7 +23,7 @@ const BIOME_TEX = {
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
-  11: { variants: 1, draw: drawBuildingTex },     // building_med: cobbles (same as building)
+  11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
   // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
   15: { variants: 2, draw: drawGrassTex },        // SCHOOL
@@ -213,6 +213,36 @@ function drawBuildingTex(ctx, size, rng) {
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.beginPath(); ctx.arc(cx - 0.6, cy - 0.6, r - 1.2, 0, Math.PI * 2); ctx.fill();
     }
+  }
+}
+
+function drawWoodFloorTex(ctx, size, rng) {
+  // Horizontal planks with staggered seams + faint grain.
+  ctx.clearRect(0, 0, size, size);
+  const PLANK_H = 8;
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 1;
+  for (let y = PLANK_H; y < size; y += PLANK_H) {
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(size, y + 0.5); ctx.stroke();
+  }
+  // Plank-end seams — one per row, staggered.
+  for (let row = 0; row * PLANK_H < size; row++) {
+    const ex = 4 + Math.floor(rng() * (size - 8));
+    ctx.beginPath();
+    ctx.moveTo(ex + 0.5, row * PLANK_H);
+    ctx.lineTo(ex + 0.5, row * PLANK_H + PLANK_H);
+    ctx.stroke();
+  }
+  // Light grain streaks.
+  ctx.strokeStyle = 'rgba(255,230,170,0.18)';
+  for (let i = 0; i < 20; i++) {
+    const y = rng() * size, x = rng() * size, len = 3 + rng() * 10;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
+  }
+  // Occasional knot.
+  if (rng() < 0.5) {
+    ctx.fillStyle = 'rgba(70,40,15,0.55)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.4 + rng() * 0.6, 0, Math.PI * 2); ctx.fill();
   }
 }
 

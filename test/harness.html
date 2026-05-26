@@ -1,0 +1,113 @@
+<!doctype html>
+<!--
+  Terracart test harness.
+
+  Boots the real game in TEST_MODE (no GPS, no service worker, no Phaser auto-pause),
+  intercepts MVT tile fetches to serve from test/fixtures/*.pbf for determinism,
+  waits for the start tile to rasterize, then runs tests.js against the live scene.
+
+  Run by visiting /test/harness.html in any local server (the dev preview works).
+  Results render in #results — green = pass, red = fail. Open DevTools console
+  for full assertion errors.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- All asset paths in app.js are relative ("Character/Idle.png", etc.),
+       so resolve every URL on this page against the project root. Script
+       srcs and the fixture fetch path below use absolute `/test/...` to
+       compensate. -->
+  <base href="/" />
+  <title>terracart tests</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; color: #ddd; font: 13px ui-monospace, monospace; }
+    #frame { position: absolute; inset: 0; overflow: hidden; }
+    #game  { width: 390px; height: 844px; background: #000; position: absolute; top: 0; left: 0; transform-origin: top left; transform: scale(0.45); visibility: hidden; }
+    #results { position: fixed; top: 0; right: 0; width: 60vw; height: 100vh; overflow: auto; padding: 12px; background: #181818; border-left: 1px solid #333; box-sizing: border-box; }
+    h1 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+    .case { padding: 4px 8px; margin: 2px 0; border-left: 3px solid #555; }
+    .pass { border-color: #4caf50; color: #aae6a3; }
+    .fail { border-color: #e64646; color: #ffb4b4; background: #2a1414; }
+    .err  { color: #ffb4b4; font-size: 11px; white-space: pre-wrap; margin-top: 2px; }
+    .summary { font-size: 14px; font-weight: bold; margin: 8px 0; padding: 6px 8px; background: #222; }
+    .summary.ok   { color: #aae6a3; }
+    .summary.fail { color: #ffb4b4; }
+  </style>
+</head>
+<body>
+  <!-- Enable test mode BEFORE app.js runs. -->
+  <script>window.__TEST_MODE = true;</script>
+
+  <!-- ─── Tile-fetch interceptor ──────────────────────────────────────────
+       Redirect all OpenFreeMap tile requests to local fixtures so the test
+       suite is fully offline and deterministic. Tiles outside the captured
+       3×3 window resolve to an empty 504 (same shape worldgen tolerates). -->
+  <script>
+    const FIXTURE_TILES = new Set([
+      '2753_5565', '2754_5565', '2755_5565',
+      '2753_5566', '2754_5566', '2755_5566',
+      '2753_5567', '2754_5567', '2755_5567',
+    ]);
+    const realFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      const m = url.match(/\/14\/(\d+)\/(\d+)\.pbf$/);
+      if (m) {
+        const key = `${m[1]}_${m[2]}`;
+        if (FIXTURE_TILES.has(key)) return realFetch(`/test/fixtures/${key}.pbf`, init);
+        return Promise.resolve(new Response('', { status: 504 }));
+      }
+      return realFetch(input, init);
+    };
+  </script>
+
+  <!-- Game DOM (hidden but laid out so Phaser can attach). -->
+  <div id="frame">
+    <div id="game">
+      <div id="banner"></div>
+      <div id="money"></div>
+      <div id="hud"></div>
+      <details id="menu"><summary>☰</summary>
+        <div class="items"><button id="reset-save">Reset save</button></div>
+      </details>
+    </div>
+  </div>
+
+  <div id="results"><h1>terracart tests</h1><div id="cases"></div><div id="summary"></div></div>
+
+  <!-- Real game source (absolute paths under base href="/"). Order matches
+       index.html — items/save/loot/etc. must precede app.js.
+       Cache-bust everything so test runs always pick up the latest edits without
+       needing to clear the browser cache. -->
+  <script>
+    document.write([
+      '/phaser.js', '/mvt.js', '/coords.js', '/worldgen.js', '/tilemap.js', '/crops.js',
+      '/textures.js', '/save.js', '/items.js', '/loot.js', '/interact.js', '/render.js', '/assets.js', '/app.js',
+    ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
+  </script>
+
+  <!-- Test runner + cases. Cache-bust on every load so test edits show up
+       without needing to clear browser cache. -->
+  <script>document.write('<scr'+'ipt src="/test/runner.js?'+Date.now()+'"></scr'+'ipt>');
+          document.write('<scr'+'ipt src="/test/tests.js?'+Date.now()+'"></scr'+'ipt>');</script>
+  <script>
+    // Wait for the scene to boot + first tiles to load, then run tests.
+    (async () => {
+      const t0 = Date.now();
+      while (!window.__scene || !window.__scene.cellsPerTile) {
+        if (Date.now() - t0 > 5000) throw new Error('scene never booted');
+        await new Promise(r => setTimeout(r, 50));
+      }
+      // Wait for the starting tile to rasterize.
+      const startKey = `${WorldGen.Z}/2754/5566`;
+      while (!WorldGen.tileCache.get(startKey)?.grid) {
+        if (Date.now() - t0 > 8000) throw new Error('start tile never loaded');
+        await new Promise(r => setTimeout(r, 50));
+      }
+      await new Promise(r => setTimeout(r, 200));   // settle one more frame
+      await runTests(window.__scene);
+    })();
+  </script>
+</body>
+</html>

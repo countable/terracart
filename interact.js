@@ -53,6 +53,33 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // -0.5) Eat — tap the player's own feet (within 1.5m) with a food selected.
+  // Eating is a deliberate action so we show a confirmation modal rather than
+  // silently consuming the stack on a stray tap.
+  { name: 'eat', try: (ctx) => {
+    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const dx = wm.x - pWorldX, dy = wm.y - pWorldY;
+    if (dx * dx + dy * dy > 1.5 * 1.5) return false;
+    const sel = getSelectedSlot(save);
+    if (!sel || (sel.count ?? 0) <= 0) return false;
+    const restore = (typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
+    if (restore == null) return false;
+    // Don't let a stray tap consume food at full energy for zero gain.
+    const curE = save.energy ?? 0;
+    const maxE = save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+    if (curE >= maxE) { scene.flash('not hungry', sx, sy); return true; }
+    const item = ITEM_BY_ID[sel.id];
+    scene.showOfferModal({
+      title: 'Eat this?',
+      get: `⚡ +${restore} energy`,
+      cost: `1× ${scene.iconSpanHTML(sel.id)} ${item?.name || sel.id}`,
+      canAfford: true,
+      acceptLabel: 'Eat',
+      onAccept: () => { scene.eatSelected(); },
+    });
+    return true;
+  }},
+
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
     const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
@@ -93,6 +120,9 @@ const TAP_HANDLERS = [
     return WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
       if (distM2(c.x, c.y, wm.x, wm.y) < REACH_CREATURE_M * REACH_CREATURE_M) {
+        // Spend catch-energy BEFORE the catch so a tired player can't grab a
+        // chicken for free. spendEnergy returns true on success / false-with-flash.
+        if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
         // catchCreature mutates + persists itself; consume the tap without
         // setting ctx.dirty (would double-flush via the dispatcher's final persistSave).
         scene.catchCreature(c, sx, sy);
@@ -187,7 +217,7 @@ const TAP_HANDLERS = [
       }
       if (o.kind === 'chest') {
         if (save.opened.includes(o.id)) { scene.flash('already looted', sx, sy); return true; }
-        const loot = pickLoot(undefined, o.poiClass);
+        const loot = pickLoot(undefined, o.poiClass, save.relics);
         scene.addToInv(loot.id, loot.n);
         save.opened.push(o.id);
         ctx.dirty = true;
@@ -197,6 +227,8 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'tree') {
+        if (o.chopped) { scene.flash('stump', sx, sy); return true; }
+        if (!save.relics?.axe) { scene.flash('need an axe', sx, sy); return true; }
         scene.startWorkProgress(o.x, o.y, () => {
           o.chopped = true;
           scene.addToInv('tree', 1 + Math.floor(Math.random() * 2));
@@ -281,6 +313,7 @@ const TAP_HANDLERS = [
     if (!(selItem && selItem.id === 'rockfruit' && (sel.count ?? 0) > 0 &&
           isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
           !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) return false;
+    if (!scene.spendEnergy(ENERGY_COST?.rockPlace ?? 0, sx, sy)) return true;
     scene.placedRockSet.add(cellKey);
     save.placedRocks = [...scene.placedRockSet];
     consumeSelected(save);
@@ -290,7 +323,8 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2-rock) Tap a natural rock cell → break it.
+  // 2-rock) Tap a natural rock cell → break it. Requires a pickaxe relic;
+  // costs energy (mitigated by pick tier).
   { name: 'rock', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     if (cell.type !== 10) return false;
@@ -298,6 +332,10 @@ const TAP_HANDLERS = [
       scene.flash('rubble', sx, sy);
       return true;
     }
+    if (!save.relics?.pick) { scene.flash('need a pickaxe', sx, sy); return true; }
+    const cost = (typeof effectivePickCost === 'function')
+      ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
+    if (!scene.spendEnergy(cost, sx, sy)) return true;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.brokenRockSet.add(cellKey);
       save.brokenRocks = [...scene.brokenRockSet];
@@ -331,6 +369,7 @@ const TAP_HANDLERS = [
       return true;
     }
     if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
+      if (!scene.spendEnergy(ENERGY_COST?.harvest ?? 0, sx, sy)) return true;
       save.planted.splice(plantedIdx, 1);
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
@@ -388,6 +427,7 @@ const TAP_HANDLERS = [
       scene.flash('out of seeds', sx, sy);
       return true;
     }
+    if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
     consumeSelected(save);
     ctx.dirty = true;
@@ -427,6 +467,7 @@ const TAP_HANDLERS = [
       }
     }
     if (blocker) { scene.flash(`occupied: ${blocker}`, sx, sy); return true; }
+    if (!scene.spendEnergy(ENERGY_COST?.till ?? 0, sx, sy)) return true;
     scene.tilledSet.add(cellKey);
     save.tilled = [...scene.tilledSet];
     ctx.dirty = true;

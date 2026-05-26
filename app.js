@@ -200,8 +200,12 @@ class MapScene extends Phaser.Scene {
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
     // Stats / equipment migration — adds energy + relic/armor slots to older saves.
-    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null };
-    if (this.save.relics.axe === undefined) this.save.relics.axe = null;   // older saves
+    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
+                                              sword: null, bow: null, staff: null };
+    if (this.save.relics.axe === undefined)   this.save.relics.axe = null;   // older saves
+    if (this.save.relics.sword === undefined) this.save.relics.sword = null;
+    if (this.save.relics.bow === undefined)   this.save.relics.bow = null;
+    if (this.save.relics.staff === undefined) this.save.relics.staff = null;
     // Per-shop offer state: { [houseId]: { kind, slot, tier, price, rerollCount } }
     this.save.shopOffers = this.save.shopOffers || {};
     // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
@@ -1284,9 +1288,8 @@ class MapScene extends Phaser.Scene {
       if (!eq) {
         return `<div style="display:flex;justify-content:space-between;padding:2px 0;opacity:.55"><span>${label}</span><span style="font-size:11px">— empty —</span></div>`;
       }
-      const path = gearAssetPath(kind, slot, eq.tier);
       const t = TIER_BY_NUM[eq.tier];
-      const iconHtml = path ? `<img src="${path}" style="width:20px;height:20px;image-rendering:pixelated;vertical-align:middle">` : '';
+      const iconHtml = this.gearIconHTML(kind, slot, eq.tier, 20);
       return `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${label}</span><span>${iconHtml} ${t?.name || ''} (T${eq.tier})</span></div>`;
     };
     box.innerHTML =
@@ -1349,8 +1352,10 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     if (sel && sel.id) {
       // SELL one of the selected stack — confirm first so an accidental
-      // house tap can't silently dump a high-value item.
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) / 2));
+      // house tap can't silently dump a high-value item. Sword relic scales
+      // the price from half (no sword) up to full base value at tier 7.
+      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
+      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       this.showOfferModal({
@@ -1391,17 +1396,21 @@ class MapScene extends Phaser.Scene {
     //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
     //   (c) Regular house — 10% chance to swap the normal offer for a relic.
     if (house && this.isStarterShop(house) && this.starterShopOffer()) {
-      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house);
+      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false);
       return;
     }
     if (isCastle) {
       const offer = this.peekOrBuildRelicOffer(house);
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house); return; }
-      // (very rare) every slot is at max tier — fall through to regular offer.
+      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
+      // Every relic + armor slot is at max tier. Castles only deal in relics,
+      // so there's nothing left to sell — say so explicitly rather than
+      // silently swapping the player onto potato seeds.
+      this.flash('castle has nothing better to sell', sx, sy);
+      return;
     }
     if (Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
-      if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house); return; }
+      if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each house has a deterministic "shop kind" derived from its world
     // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
@@ -1493,12 +1502,34 @@ class MapScene extends Phaser.Scene {
   // persist. Persisting means the same offer "stays on display" until the
   // player either buys it, rerolls it, or (for non-castle shops) leaves and
   // the cap resets it. Castle offers persist forever and rotate on purchase.
+  //
+  // Stale-offer guard: if the persisted offer is now ≤ the player's current
+  // tier (because they upgraded elsewhere), drop it and rebuild — otherwise
+  // the player could "buy" what is now a downgrade and silently lose tier.
+  // Size cap: shopOffers grows unbounded across many tile visits, so we also
+  // record a timestamp + prune entries older than the cap on every peek.
   peekOrBuildRelicOffer(house) {
     const id = house?.id;
-    if (id && this.save.shopOffers[id]) return this.save.shopOffers[id];
+    this.save.shopOffers = this.save.shopOffers || {};
+    // Trim entries older than SHOP_OFFERS_TTL_MS to bound save size.
+    const SHOP_OFFERS_TTL_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
+    const cutoff = Date.now() - SHOP_OFFERS_TTL_MS;
+    for (const k of Object.keys(this.save.shopOffers)) {
+      const t = this.save.shopOffers[k]?.t;
+      if (typeof t === 'number' && t < cutoff) delete this.save.shopOffers[k];
+    }
+    const cached = id && this.save.shopOffers[id];
+    if (cached) {
+      const curTier = cached.kind === 'relic'
+        ? (this.save.relics?.[cached.slot]?.tier ?? 0)
+        : (this.save.armor?.[cached.slot]?.tier ?? 0);
+      if (cached.tier > curTier) return cached;
+      delete this.save.shopOffers[id];   // stale — rebuild below
+    }
     const off = this.buildRelicOffer();
     if (off && id) {
       off.rerollCount = 0;
+      off.t = Date.now();
       this.save.shopOffers[id] = off;
     }
     return off;
@@ -1533,21 +1564,43 @@ class MapScene extends Phaser.Scene {
   // Render a relic/armor offer with Buy / Re-roll / Cancel buttons. Re-rolls
   // cost 5 × 2^(rerollCount) and stop when no other valid offers exist. The
   // offer is persisted under save.shopOffers[house.id] so a subsequent tap on
-  // the same shop shows the same offer until it's bought.
-  presentRelicOffer(sx, sy, offer, recordDeal, house) {
+  // the same shop shows the same offer until it's bought. Re-roll is only
+  // available at castles — regular houses + the starter shop hide the button.
+  presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false) {
     document.getElementById('offer-modal')?.remove();
     const def = gearDef(offer.kind, offer.slot);
     const name = gearName(offer.kind, offer.slot, offer.tier);
+    // The gear PNGs are spritesheets, not single icons:
+    //   weapons/armor (Pickaxe.png, Helmet.png, …): 32×16 = two 16×16 frames
+    //     side-by-side. We show frame 0.
+    //   rings + amulets (Rings.png, Amulet.png):    96×64 = 6 cols × 4 rows
+    //     of 16×16 variants. Pick a per-tier slot so the player sees a
+    //     different colour ring/amulet as they upgrade.
+    // CSS-clip via background-image instead of an unclipped <img> — otherwise
+    // the entire sheet gets crushed into the icon box ("ring looks like a
+    // whole spritesheet", "armor shows 2 suits").
     const path = gearAssetPath(offer.kind, offer.slot, offer.tier);
-    const iconHtml = path
-      ? `<img src="${path}" style="width:24px;height:24px;image-rendering:pixelated;vertical-align:middle">`
-      : '';
+    const ICON_PX = 24;
+    let iconHtml = '';
+    if (path) {
+      const isMultiVariant = offer.kind === 'relic' && (offer.slot === 'ring' || offer.slot === 'amulet');
+      const sheetCols = isMultiVariant ? 6 : 2;
+      const sheetRows = isMultiVariant ? 4 : 1;
+      const col = isMultiVariant ? ((offer.tier - 1) % sheetCols) : 0;
+      const row = isMultiVariant ? Math.floor((offer.tier - 1) / sheetCols) % sheetRows : 0;
+      const bgW = sheetCols * ICON_PX, bgH = sheetRows * ICON_PX;
+      iconHtml = `<span style="display:inline-block;vertical-align:middle;`
+        + `width:${ICON_PX}px;height:${ICON_PX}px;image-rendering:pixelated;`
+        + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
+        + `background-position:-${col * ICON_PX}px -${row * ICON_PX}px;"></span>`;
+    }
     const blurb = offer.kind === 'relic'
       ? (def?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
     const canAfford = (this.save.money ?? 0) >= offer.price;
     const rerollCost = 5 * Math.pow(2, offer.rerollCount || 0);
-    const rerollAfford = (this.save.money ?? 0) >= rerollCost && !offer.starter;
+    const rerollAfford = (this.save.money ?? 0) >= rerollCost && !offer.starter && allowReroll;
+    const showReroll = allowReroll && !offer.starter;
 
     const wrap = document.createElement('div');
     wrap.id = 'offer-modal';
@@ -1579,11 +1632,24 @@ class MapScene extends Phaser.Scene {
       return b;
     };
     const cancel = mkBtn('Cancel', false, false);
-    const reroll = offer.starter ? null : mkBtn(`Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`, false, !rerollAfford);
+    const reroll = showReroll ? mkBtn(`Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`, false, !rerollAfford) : null;
     const buy = mkBtn(canAfford ? 'Buy' : '✗', true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     buy.addEventListener('click', (e) => {
       e.stopPropagation();
+      // Last-chance downgrade guard — the persisted offer could have been
+      // built when the slot was lower-tier; in the meantime the player may
+      // have upgraded elsewhere. Without this check `this.save.relics[slot]`
+      // would silently overwrite the better tier.
+      const curTier = offer.kind === 'relic'
+        ? (this.save.relics?.[offer.slot]?.tier ?? 0)
+        : (this.save.armor?.[offer.slot]?.tier ?? 0);
+      if (offer.tier <= curTier) {
+        this.flash('already own better', sx, sy);
+        if (house && house.id && this.save.shopOffers) delete this.save.shopOffers[house.id];
+        wrap.remove();
+        return;
+      }
       if ((this.save.money ?? 0) < offer.price) { this.flash(`need $${offer.price}`, sx, sy); return; }
       addMoney(this.save, -offer.price);
       if (offer.kind === 'relic') {
@@ -1616,7 +1682,7 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
       this.updateHUD();
       wrap.remove();
-      this.presentRelicOffer(sx, sy, next, recordDeal, house);
+      this.presentRelicOffer(sx, sy, next, recordDeal, house, true);
     });
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     row.appendChild(cancel);
@@ -1637,7 +1703,11 @@ class MapScene extends Phaser.Scene {
   // the player learns "this trader wants rockfruit" and can come back with it.
   buildShopOffer(id, baseValue) {
     const wantMoney = Math.random() < 1/3;
-    const cashCost = Math.max(1, Math.ceil(baseValue * (1.2 + Math.random() * 1.8)));
+    // Bow / Staff relics shrink the markup. Without either, the range stays
+    // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
+    const { lo, hi } = (typeof buyMarkupRange === 'function')
+      ? buyMarkupRange(this.save.relics) : { lo: 1.2, hi: 3.0 };
+    const cashCost = Math.max(1, Math.ceil(baseValue * (lo + Math.random() * (hi - lo))));
     const cashOffer = {
       kind: 'money',
       label: `$${cashCost}`,

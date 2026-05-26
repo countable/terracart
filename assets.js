@@ -1,0 +1,58 @@
+// Single source of truth for every texture the game loads.
+// preload() in app.js walks this object; per-asset post-processing
+// (alpha-keying, manual frame registration) lives in onLoad callbacks.
+const ASSETS = {
+  idle:    { kind: 'spritesheet', path: 'Character/Idle.png',           frameWidth: 32, frameHeight: 32 },
+  walk:    { kind: 'spritesheet', path: 'Character/Walk.png',           frameWidth: 32, frameHeight: 32 },
+  trees:   { kind: 'spritesheet', path: 'Objects/Maple Tree.png',       frameWidth: 32, frameHeight: 48 },
+  house:   {
+    kind: 'image', path: 'Objects/House.png',
+    // House.png is a tileset (two houses + detail bits). Register a single
+    // "front" frame for the right-hand cabin so we only render that.
+    onLoad: (scene) => { scene.textures.get('house').add('front', 0, 148, 3, 72, 95); },
+  },
+  chicken: { kind: 'spritesheet', path: 'Farm Animals/Chicken Red.png',        frameWidth: 32, frameHeight: 32 },
+  cow:     { kind: 'spritesheet', path: 'Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
+  // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
+  // Frames: 0 = closed, 1 = open.
+  chest:   { kind: 'spritesheet', path: 'Objects/chest.png',            frameWidth: 32, frameHeight: 16 },
+  // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
+  // In-world growth: col 0 (sprout) -> col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
+  crops:   {
+    kind: 'spritesheet', path: 'Objects/Crops.png', frameWidth: 16, frameHeight: 16,
+    // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
+    onLoad: (scene) => {
+      const tex = scene.textures.get('crops');
+      const src = tex.getSourceImage();
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < data.data.length; i += 4) {
+        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
+          data.data[i+3] = 0;
+        }
+      }
+      ctx.putImageData(data, 0, 0);
+      scene.textures.remove('crops');
+      scene.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
+      // Now that the alpha-keyed 'crops' image is available, bake per-crop plaque textures.
+      makePlaqueTextures(scene);
+    },
+  },
+  // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
+  // art lives here (e.g. potato) — see CROP_SPRITE override below.
+  springcrops: { kind: 'spritesheet', path: 'Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
+  cobble:      { kind: 'spritesheet', path: 'Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
+};
+
+// TileMap asset key is only known once tilemap.js has loaded.
+if (typeof window !== 'undefined' && window.TileMap) {
+  ASSETS[TileMap.KEY] = {
+    kind: 'spritesheet', path: TileMap.PATH,
+    frameWidth: TileMap.FRAME_W, frameHeight: TileMap.FRAME_H,
+  };
+}
+
+window.ASSETS = ASSETS;

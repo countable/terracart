@@ -133,6 +133,150 @@ const PRICES = {
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
 
+// === Energy / food ===
+// Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS
+// below). Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
+// till, and harvest deduct energy via ENERGY_COST and refuse when the current
+// pool is too low.
+const STARTING_ENERGY = 100;
+const FOOD_ENERGY = {
+  longgrass:  2,
+  shrub:      4,
+  nut:        8,
+  potato:     8,
+  rainberry: 12,   // also waters all crops within 20m
+  pairy:     12,   // also shows the nearest undiscovered chest for 5 min
+  gemfruit:  20,
+  rockfruit: 20,
+  coffee:    35,
+  tree:      35,
+  iceflower:  60,
+  fireflower: 90,
+  sunflower: 150,
+  chicken:    30,
+  cow:       120,
+};
+const ENERGY_COST = {
+  till: 2,
+  plant: 1,
+  harvest: 1,
+  rockBreak: 10,         // mitigated by pick relic tier (see effectivePickCost)
+  rockPlace: 1,
+  catch: 5,
+  unTill: 0,
+  pickup: 0,             // wildplants / flora — free
+};
+
+// === Relics / armor catalogs ===
+// Material tier 1..7 mirrors the Icons/RPG icons folders. Higher tier = stronger
+// effect AND higher price. Player can hold one relic per slot, one armor per
+// slot. Buying an equal-or-lower-tier item into an occupied slot is refused.
+const MATERIAL_TIERS = [
+  { tier: 1, folder: '1. Wood',     name: 'Wood',     costMul: 1,   effMul: 1.0 },
+  { tier: 2, folder: '2. Cooper',   name: 'Copper',   costMul: 3,   effMul: 1.5 },
+  { tier: 3, folder: '3. Iron',     name: 'Iron',     costMul: 8,   effMul: 2.2 },
+  { tier: 4, folder: '4. Gold',     name: 'Gold',     costMul: 20,  effMul: 3.0 },
+  { tier: 5, folder: '5. Platinum', name: 'Platinum', costMul: 50,  effMul: 4.0 },
+  { tier: 6, folder: '6. Crimson',  name: 'Crimson',  costMul: 120, effMul: 5.0 },
+  { tier: 7, folder: '7. Frost',    name: 'Frost',    costMul: 280, effMul: 6.0 },
+];
+const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
+// Relic SLOT defs. icon=file under Icons/RPG icons/Weapons and Armor/<folder>/.
+// effectKey is read by gameplay code (interact.js / loot.js) to apply bonuses.
+const RELIC_DEFS = {
+  pick:    { slot: 'pick',   name: 'Pickaxe', icon: 'Pickaxe.png', baseCost:  80,
+             effectKey: 'rockSpeed',     blurb: 'lets you break rocks' },
+  axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
+             effectKey: 'chopSpeed',     blurb: 'lets you chop trees' },
+  ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
+             effectKey: 'lootTier',      blurb: 'rarer chest loot' },
+  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
+             effectKey: 'lootBonus',     blurb: 'bonus chest quantity' },
+  // Weapons — no combat yet, but they bend shop prices. Sword raises sell
+  // values; bow/staff lower buy prices (max(bow,staff) tier wins).
+  sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
+             effectKey: 'sellPrice',     blurb: 'better sell prices' },
+  bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
+             effectKey: 'buyPrice',      blurb: 'better buy prices' },
+  staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
+             effectKey: 'buyPrice',      blurb: 'better buy prices' },
+};
+const ARMOR_DEFS = {
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250, energyPerTier: 25 },
+  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
+};
+// Helper: relic-or-armor item id (e.g. 'relic_pick_3' for an Iron pickaxe).
+function gearId(kind, slot, tier) { return `${kind}_${slot}_${tier}`; }
+function parseGearId(id) {
+  const m = /^(relic|armor)_(\w+?)_(\d+)$/.exec(id);
+  if (!m) return null;
+  return { kind: m[1], slot: m[2], tier: +m[3] };
+}
+function gearDef(kind, slot) {
+  return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
+}
+function gearPrice(kind, slot, tier) {
+  const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
+  if (!def || !t) return 0;
+  return Math.max(1, Math.ceil(def.baseCost * t.costMul));
+}
+function gearIconKey(kind, slot, tier) { return `gear_${kind}_${slot}_${tier}`; }
+function gearAssetPath(kind, slot, tier) {
+  const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
+  if (!def || !t) return null;
+  // Ring + amulet live under Extras (single icon, tier shown as a badge).
+  // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
+  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
+    return `Icons/RPG icons/Extras/${def.icon}`;
+  }
+  return `Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
+}
+function gearName(kind, slot, tier) {
+  const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
+  if (!def || !t) return slot;
+  return `${t.name} ${def.name}`;
+}
+function maxEnergyFromArmor(armor) {
+  let m = STARTING_ENERGY;
+  if (!armor) return m;
+  for (const [slot, eq] of Object.entries(armor)) {
+    if (!eq) continue;
+    const def = ARMOR_DEFS[slot]; const t = TIER_BY_NUM[eq.tier];
+    if (def && t) m += def.energyPerTier * eq.tier;
+  }
+  return m;
+}
+// Pick relic: per-tier 15% reduction in cost/time, floor at 2.
+function effectivePickCost(relics) {
+  const eq = relics?.pick;
+  if (!eq) return ENERGY_COST.rockBreak;
+  return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
+}
+// Ring relic: +5% per tier to upgrade loot tier (1→2 or 2→3) on chests.
+function ringTierBoost(relics) {
+  return relics?.ring ? 0.05 * relics.ring.tier : 0;
+}
+// Amulet relic: +10% per tier chance to double the chest quantity.
+function amuletDoubleChance(relics) {
+  return relics?.amulet ? 0.10 * relics.amulet.tier : 0;
+}
+// Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
+// tier 7 (frost sword sells at par with the listed PRICES[]).
+function sellMultiplier(relics) {
+  const t = relics?.sword?.tier || 0;
+  return 0.5 + (t / 7) * 0.5;
+}
+// Bow / Staff relics: shrink the random buy-cash markup. Without either, the
+// trader still wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0×
+// (the player buys at par). Take the BEST tier of bow vs staff.
+function buyMarkupRange(relics) {
+  const t = Math.max(relics?.bow?.tier || 0, relics?.staff?.tier || 0);
+  const f = 1 - t / 7;   // 1 → 0 as tier rises
+  return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
+}
+
 // === Per-crop loot tier config (used by chests + treasure marks) ===
 // T1 common (10 seeds/chest default yield), T2 uncommon (5), T3 rare (2).
 const SEED_TIER = {

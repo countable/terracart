@@ -223,11 +223,20 @@ function pickTreasure(rng) {
   return { kind: 'seed', id: pickFrom(seedsOfTier(1)), n: 1 };
 }
 
-function pickLoot(rng, poiClass) {
+// Ring relic: per-tier 5% chance to bump rolled tier up by 1 (cap at 3).
+// Amulet relic: per-tier 10% chance to double the quantity. Both apply on top
+// of the category's normal weights / yield. relics is save.relics (may be null
+// in tests / older saves) — read defensively.
+function pickLoot(rng, poiClass, relics) {
   const cfg = getLootConfig(poiClass);
   const r = (rng ?? Math.random)();
   let tier = 1, acc = 0;
   for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
+  // Ring tier-up roll. Skip for flora (already T3-leaning) and lowtier (its
+  // yieldOverride assumes the original tier).
+  if (relics && typeof ringTierBoost === 'function' && tier < 3 && !cfg.onlyFlowers && !cfg.yieldOverride) {
+    if ((rng ?? Math.random)() < ringTierBoost(relics)) tier += 1;
+  }
   let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
   if (cfg.onlyFlowers) {
     const flowers = pool.filter(s => FLOWER_SEEDS.has(s));
@@ -235,7 +244,10 @@ function pickLoot(rng, poiClass) {
   }
   const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
   const id = cfg.drops === 'produce' ? seedId.replace(/_seed$/, '') : seedId;
-  const n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
+  let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
+  if (relics && typeof amuletDoubleChance === 'function') {
+    if ((rng ?? Math.random)() < amuletDoubleChance(relics)) n *= 2;
+  }
   return { id, n };
 }
 
