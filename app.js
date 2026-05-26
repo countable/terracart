@@ -445,13 +445,21 @@ class MapScene extends Phaser.Scene {
     window.addEventListener('offline', () => this.showBanner(true));
     window.addEventListener('online', () => this.showBanner(false));
 
+    // Soft-joystick state. When enabled (toggled from the menu) it replaces
+    // GPS movement — used for testing on mobile without real walking.
+    this.save.joystick = !!this.save.joystick;
+    this.joystickVec = { x: 0, y: 0 };
+    this.syncJoystickButton();
+
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
+    // Joystick mode also skips GPS so the two don't fight over playerM.
     if (!window.__TEST_MODE) {
-      this.startGps();
+      if (!this.save.joystick) this.startGps();
       this.startCompass();
       this.setupLifecycle();
     }
+    if (this.save.joystick) this.buildJoystick();
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
   }
@@ -730,6 +738,11 @@ class MapScene extends Phaser.Scene {
       if (k.RIGHT.isDown) { vx += 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
+    }
+    // Soft joystick contribution (when enabled). Vec is already in [-1, 1].
+    if (this.save.joystick && this.joystickVec) {
+      vx += this.joystickVec.x;
+      vy += this.joystickVec.y;
     }
     const moving = vx || vy;
     if (moving) {
@@ -1872,6 +1885,99 @@ class MapScene extends Phaser.Scene {
   // Row of obtained-relic icons, anchored top-right just below the
   // money/energy badges. Rebuilds only when the relics signature changes,
   // so calling from updateHUD every frame stays cheap.
+  syncJoystickButton() {
+    const btn = document.getElementById('joystick-toggle');
+    if (btn) btn.textContent = `Joystick: ${this.save.joystick ? 'on' : 'off'}`;
+  }
+  toggleJoystick() {
+    this.save.joystick = !this.save.joystick;
+    persistSave(this.save);
+    this.syncJoystickButton();
+    if (this.save.joystick) {
+      // Turn ON: stop any GPS watch, clear pending ease, show the pad.
+      if (this.gpsWatchId != null && navigator.geolocation) {
+        try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
+      }
+      this.gpsWatchId = null;
+      this.gpsAvailable = false;
+      this.gpsM = null;
+      this._ease = null;
+      this.buildJoystick();
+    } else {
+      // Turn OFF: tear down the pad, restart GPS so real walking works again.
+      this.removeJoystick();
+      this.joystickVec = { x: 0, y: 0 };
+      if (!window.__TEST_MODE) this.startGps();
+    }
+  }
+  removeJoystick() {
+    document.getElementById('joystick')?.remove();
+  }
+  // Virtual analog stick — bottom-right above the inventory bar. Fixed to the
+  // viewport (outside #game for the usual transform-containing-block reason).
+  // Pointer events drive this.joystickVec ∈ [-1, 1]²; update() adds it to the
+  // movement vector exactly like WASD.
+  buildJoystick() {
+    this.removeJoystick();
+    const PAD = 110, NUB = 48;
+    const HALF = (PAD - NUB) / 2;     // nub centred in the pad at rest
+    const R = HALF;                   // max nub offset from pad centre
+    const pad = document.createElement('div');
+    pad.id = 'joystick';
+    // Sits above the inventory bar (bar bottom 48 + bar height ~54 + gap).
+    pad.style.cssText =
+      `position:fixed;` +
+      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `right:16px;width:${PAD}px;height:${PAD}px;border-radius:50%;` +
+      `background:rgba(0,0,0,0.35);border:2px solid #666;z-index:6;` +
+      `touch-action:none;user-select:none;-webkit-user-select:none;`;
+    const nub = document.createElement('div');
+    nub.style.cssText =
+      `position:absolute;left:${HALF}px;top:${HALF}px;` +
+      `width:${NUB}px;height:${NUB}px;border-radius:50%;` +
+      `background:rgba(255,255,255,0.55);border:2px solid #fff;pointer-events:none;`;
+    pad.appendChild(nub);
+    document.body.appendChild(pad);
+
+    let activePtr = null;
+    const reset = () => {
+      activePtr = null;
+      nub.style.left = `${HALF}px`;
+      nub.style.top  = `${HALF}px`;
+      this.joystickVec = { x: 0, y: 0 };
+    };
+    const place = (e) => {
+      const rect = pad.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top  + rect.height / 2;
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const m = Math.hypot(dx, dy);
+      if (m > R) { dx = dx / m * R; dy = dy / m * R; }
+      nub.style.left = `${HALF + dx}px`;
+      nub.style.top  = `${HALF + dy}px`;
+      this.joystickVec = { x: dx / R, y: dy / R };
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      activePtr = e.pointerId;
+      pad.setPointerCapture(e.pointerId);
+      place(e);
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== activePtr) return;
+      e.stopPropagation();
+      place(e);
+    });
+    const release = (e) => {
+      if (e.pointerId !== activePtr) return;
+      e.stopPropagation();
+      reset();
+    };
+    pad.addEventListener('pointerup', release);
+    pad.addEventListener('pointercancel', release);
+    pad.addEventListener('lostpointercapture', reset);
+  }
   updateRelicRow() {
     const relics = this.save.relics || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];

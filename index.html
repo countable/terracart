@@ -109,6 +109,7 @@
     <summary>☰</summary>
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
+      <button id="joystick-toggle">Joystick: off</button>
       <button class="danger" id="reset-save">Reset save</button>
     </div>
   </details>
@@ -144,6 +145,11 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    document.getElementById('joystick-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.toggleJoystick) window.__scene.toggleJoystick();
     });
     document.getElementById('reset-save').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -190,16 +196,16 @@
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="coords.js?v=103"></script>
-  <script src="worldgen.js?v=103"></script>
-  <script src="crops.js?v=103"></script>
-  <script src="textures.js?v=103"></script>
-  <script src="save.js?v=103"></script>
-  <script src="items.js?v=103"></script>
-  <script src="loot.js?v=103"></script>
-  <script src="interact.js?v=103"></script>
-  <script src="render.js?v=103"></script>
-  <script src="assets.js?v=103"></script>
-  <script src="app.js?v=103"></script>
+  <script src="coords.js?v=104"></script>
+  <script src="worldgen.js?v=104"></script>
+  <script src="crops.js?v=104"></script>
+  <script src="textures.js?v=104"></script>
+  <script src="save.js?v=104"></script>
+  <script src="items.js?v=104"></script>
+  <script src="loot.js?v=104"></script>
+  <script src="interact.js?v=104"></script>
+  <script src="render.js?v=104"></script>
+  <script src="assets.js?v=104"></script>
+  <script src="app.js?v=104"></script>
 </body>
 </html>
