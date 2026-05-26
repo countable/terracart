@@ -295,16 +295,56 @@ const ENERGY_COST = {
   pickup: 0,             // wildplants / flora — free
 };
 
-// Catching an animal requires holding its favourite food in the selected
-// inventory slot — one is consumed per catch. Both picks are T1 farm produce
-// so the player has to deliberately grow a crop (not just collect debris)
-// before they can catch livestock. ITEM_BY_ID lookup so the catch flash can
-// show the readable name.
-const ANIMAL_FOOD = {
-  chicken: 'rainberry',  // berries to peck
-  cow:     'pairy',      // pears to munch
-  cat:     'milk',       // saucer of milk
-  dog:     'meat',       // raw meat — hunt deer with a weapon relic
+// === Creature registry ===
+// Single table for every wandering creature in the world. Keyed by `kind`
+// (the same string stored on each spawned creature object). Fields:
+//   spawnCount     [lo, hi]   — per-tile count range, integer-inclusive.
+//   biomes         [tIds]     — terrain class ids where spawn is allowed.
+//   favouriteFood  itemId?    — tap with this in hand to catch (livestock).
+//   plantFeedYield itemId?    — tap with any plant produce to milk/coax this
+//                                yield without consuming the creature.
+//   drop           itemId?    — direct catch (no food needed); creature gone
+//                                after one tap, this item lands in inv.
+//   requiresAnyRelic [slots]? — must have at least one of these relic slots
+//                                equipped to catch; otherwise denialFlash.
+//   denialFlash    string?    — message shown when requiresAnyRelic isn't met.
+//   catchDiscountRelic slot?  — relic slot whose tier reduces catch energy
+//                                (used by the bug net for flying creatures).
+//
+// Consumers: spawnInTile (app.js) reads spawnCount + biomes; the 'creature'
+// tap handler (interact.js) reads everything else. Adding a creature means:
+//   1) one row here, 2) one sprite preload in assets.js, 3) one render-pool
+//   spec branch in render.js.
+const CREATURES = {
+  // Livestock / pets — caught with their favourite food. chicken + cow ALSO
+  // accept any plant produce to yield egg/milk without being consumed.
+  chicken:  { spawnCount: [75, 125], biomes: [0, 4, 5, 6],
+              favouriteFood: 'rainberry', plantFeedYield: 'egg' },
+  cow:      { spawnCount: [15,  30], biomes: [0, 4, 5, 6],
+              favouriteFood: 'pairy',     plantFeedYield: 'milk' },
+  cat:      { spawnCount: [15,  30], biomes: [0, 4, 5, 6],
+              favouriteFood: 'milk' },
+  dog:      { spawnCount: [15,  30], biomes: [0, 4, 5, 6],
+              favouriteFood: 'meat' },
+  // Wilderness fauna — caught directly, dropping a fixed loot item.
+  // Deer needs ANY weapon relic (sword/bow/staff); crow + butterfly need
+  // the bug net AND its tier discounts catch energy.
+  deer:     { spawnCount: [3,   8],  biomes: [1],
+              drop: 'meat',
+              requiresAnyRelic: ['sword', 'bow', 'staff'],
+              denialFlash: 'need a weapon' },
+  rabbit:   { spawnCount: [10, 25],  biomes: [0, 1, 6],
+              drop: 'rabbit_pelt' },
+  crow:     { spawnCount: [5,  15],  biomes: [0, 1, 5, 6],
+              drop: 'crow_feather',
+              requiresAnyRelic: ['bugnet'],
+              catchDiscountRelic: 'bugnet',
+              denialFlash: 'need a bug net' },
+  butterfly:{ spawnCount: [10, 25],  biomes: [0, 6],
+              drop: 'butterfly',
+              requiresAnyRelic: ['bugnet'],
+              catchDiscountRelic: 'bugnet',
+              denialFlash: 'need a bug net' },
 };
 
 // === Relics / armor catalogs ===

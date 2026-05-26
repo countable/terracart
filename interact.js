@@ -184,41 +184,32 @@ const TAP_HANDLERS = [
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });
     if (!target) return false;
-    // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
-    // relic equipped (sword / bow / staff — hunting is hunting); crow /
-    // butterfly require the Bug Net. Drops are a fixed loot id, not the
-    // kind name, so we handle inventory + caught tracking inline instead of
-    // routing through scene.catchCreature (which is wired for the
-    // favourite-food chicken/cow yield logic). Bug Net tier discounts catch
-    // energy: 5 → max(1, 5 - tier).
-    const NEW_DROP = { deer: 'meat', rabbit: 'rabbit_pelt', crow: 'crow_feather', butterfly: 'butterfly' };
-    if (NEW_DROP[target.kind]) {
-      const isFlying = target.kind === 'crow' || target.kind === 'butterfly';
-      if (isFlying && !save.relics?.bugnet) {
-        scene.flash('need a bug net', sx, sy);
+    const cfg = (typeof CREATURES !== 'undefined') ? CREATURES[target.kind] : null;
+    // Wilderness path: a fixed `drop` makes the creature a direct catch (no
+    // food needed, the loot lands in inv). Drops bypass scene.catchCreature
+    // because that helper is wired for the favourite-food chicken/cow flow.
+    if (cfg?.drop) {
+      const r = save.relics || {};
+      if (cfg.requiresAnyRelic && !cfg.requiresAnyRelic.some(slot => r[slot])) {
+        scene.flash(cfg.denialFlash || 'need the right gear', sx, sy);
         return true;
       }
-      if (target.kind === 'deer') {
-        const r = save.relics || {};
-        const hasWeapon = !!(r.sword || r.bow || r.staff);
-        if (!hasWeapon) { scene.flash('need a weapon', sx, sy); return true; }
-      }
       const baseCost = ENERGY_COST?.catch ?? 0;
-      const bugnetTier = save.relics?.bugnet?.tier || 0;
-      const energyCost = Math.max(1, baseCost - bugnetTier);
+      const discountTier = cfg.catchDiscountRelic ? (r[cfg.catchDiscountRelic]?.tier || 0) : 0;
+      const energyCost = Math.max(1, baseCost - discountTier);
       if (!scene.spendEnergy(energyCost, sx, sy)) return true;
       save.caught.push(target.id);
       save.caughtKinds = save.caughtKinds || {};
       save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-      const dropId = NEW_DROP[target.kind];
-      scene.addToInv(dropId, 1);
+      scene.addToInv(cfg.drop, 1);
       ctx.dirty = true;
-      const item = ITEM_BY_ID[dropId];
-      scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+      const item = ITEM_BY_ID[cfg.drop];
+      scene.flashLoot(`+1 ${item?.name || cfg.drop}`, '#ffe066', 1, cfg.drop);
       return true;
     }
+    // Livestock path: pick the resolution by what's selected in hand.
     const sel = getSelectedSlot(save);
-    const wantFood = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
+    const wantFood = cfg?.favouriteFood || null;
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
     // "Plant produce" = anything tagged kind:'produce' that came from a plant
@@ -235,19 +226,14 @@ const TAP_HANDLERS = [
       scene.catchCreature(target, sx, sy);
       return true;
     }
-    // 2. Plant produce → produce (chicken / cow only).
-    if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
-      const yieldId = target.kind === 'chicken' ? 'egg'
-                    : target.kind === 'cow'     ? 'milk'
-                    : null;
-      if (yieldId) {
-        consumeSelected(save);
-        scene.addToInv(yieldId, 1);
-        scene.buildInventoryDOM();
-        scene.flashLoot(`+1 ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
-        ctx.dirty = true;
-        return true;
-      }
+    // 2. Plant produce → milk / egg (only creatures with plantFeedYield).
+    if (sel && isPlantProduce && (sel.count ?? 0) > 0 && cfg?.plantFeedYield) {
+      consumeSelected(save);
+      scene.addToInv(cfg.plantFeedYield, 1);
+      scene.buildInventoryDOM();
+      scene.flashLoot(`+1 ${ITEM_BY_ID[cfg.plantFeedYield]?.name || cfg.plantFeedYield}`, '#a7ffb0', 1, cfg.plantFeedYield);
+      ctx.dirty = true;
+      return true;
     }
     // 3. Any other food → yuck. Wasted bite.
     if (sel && isEdible && (sel.count ?? 0) > 0) {

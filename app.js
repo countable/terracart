@@ -758,39 +758,34 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Spawns ===
+  // Spawn config is the CREATURES registry in items.js — adding a creature is
+  // one row there + a sprite preload + a render spec. Counts are tuned for
+  // ~1.5km tile / 55m viewport: hundreds per tile so any are visible at all.
   spawnInTile(entry, tx, ty) {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
-    const tryPlace = (kindWant, classesOK, idx, kindStr) => {
+    const tryPlace = (kind, biomeSet, idx) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = entry.grid[cy * N + cx];
-        if (classesOK.has(t)) {
+        if (biomeSet.has(t)) {
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-          const id = `${kindStr}_${tx}_${ty}_${idx}`;
+          const id = `${kind}_${tx}_${ty}_${idx}`;
           if (this.save.caught.includes(id)) return;
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id });
+          creatures.push({ x: wmx, y: wmy, kind, id });
           return;
         }
       }
     };
-    // Spawn chickens on any soft ground (grass / farmland / park / residential lawn).
-    // Each MVT tile is ~1.5km across — the 55m viewport is only ~0.1% of a tile —
-    // so we need hundreds per tile for any to actually be visible.
-    const chickenN = 75 + Math.floor(rng() * 50);    // 75..125 per tile (halved)
-    for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
-    // Cows: same soft ground as chickens, but ~10x rarer.
-    const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
-    for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
-    // Wild cats + dogs — as rare as cows. Same soft ground.
-    const catN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < catN; i++) tryPlace('cat', new Set([0, 4, 5, 6]), i, 'cat');
-    const dogN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < dogN; i++) tryPlace('dog', new Set([0, 4, 5, 6]), i, 'dog');
-    // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
+    for (const [kind, cfg] of Object.entries(CREATURES)) {
+      const [lo, hi] = cfg.spawnCount;
+      const count = lo + Math.floor(rng() * (hi - lo + 1));
+      const biomeSet = new Set(cfg.biomes);
+      for (let i = 0; i < count; i++) tryPlace(kind, biomeSet, i);
+    }
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
     if (this.save.released) {
