@@ -393,9 +393,20 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 32, 32);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
-    window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 16, 16);
-    window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 16, 16);
+    // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets
+    // file is gone). Frame 0 is the down-facing standing pose.
+    window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 32, 32);
+    window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 32, 32);
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
+    // Wilderness fauna inventory icons — baked from the same 16×16 wilderness
+    // sheets used to render them in-world. Without these, catching a deer
+    // would show 🦌 emoji instead of the deer sprite.
+    window.ITEM_DATA_URLS.deer      = bakeSheetFrame('deer',      0, 16, 16);
+    window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
+    window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 16, 16);
+    window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
+    // Wilderness drops + flora that share their world sprite.
+    window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world', 0, 32, 32);
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
@@ -1147,18 +1158,17 @@ class MapScene extends Phaser.Scene {
     const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
     WorldGen.forEachItem('creatures', (c) => {
-      if (c.kind !== 'chicken' && c.kind !== 'cow') return;
+      const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
+      // Wandering kinds: farm + pet animals always; tame butterflies also
+      // wander so they can pollinate. Wilderness fauna stays static.
+      const wanders = c.kind === 'chicken' || c.kind === 'cow'
+                    || c.kind === 'cat' || c.kind === 'dog'
+                    || (isTame && c.kind === 'butterfly');
+      if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       if (c._nextChooseT == null) {
-        // First time we sim this creature — DESYNC from the cohort by picking
-        // an initial expiry uniformly in [now, now + STEP_MS). Without this,
-        // every creature spawned at game load (null _nextChooseT) hits its
-        // first choose on the same frame and then re-chooses in lockstep
-        // every STEP_MS, producing a ~1-2s freeze every 5s once many tiles
-        // are loaded. Stepping state is pinned so the lerp at the bottom of
-        // the loop sees valid values until the staggered timer fires.
         c._nextChooseT = now + Math.random() * STEP_MS;
         c._startX = c.x; c._startY = c.y;
         c._targetX = c.x; c._targetY = c.y;
@@ -1166,28 +1176,43 @@ class MapScene extends Phaser.Scene {
       }
       if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
-        // Bias back toward home if we've drifted far so chickens stay near
-        // their spawn cluster rather than wandering off forever.
+        // Tame butterflies pollinate nearby planted crops while wandering —
+        // mirror the water-can boost (canBoost flag). Each step they're
+        // within 8 m of a planted cell, that cell gets armed for a double
+        // harvest on the next maturation.
+        if (isTame && c.kind === 'butterfly' && this.save.planted) {
+          for (const pp of this.save.planted) {
+            const dx = pp.x - c.x, dy = pp.y - c.y;
+            if (dx * dx + dy * dy <= 64) pp.canBoost = true;
+          }
+        }
+        // Movement target — three modes:
+        //   (a) Cats with an active _followUntilT timer beeline toward the
+        //       player, stopping at FOLLOW_GAP m so they don't mob.
+        //   (b) Tame pets have a tighter home-bias radius (1.5 cells) so
+        //       they stay near their drop point — they're yours, not wild.
+        //   (c) Wild farm animals use the original 3-cell radius.
+        const FOLLOW_GAP = 1.5 * this.cellM;
+        const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-        const homeBias = Math.hypot(dxh, dyh) > 3 * this.cellM;
-        // Try up to 6 angles to find one whose destination isn't blocked:
-        // placed rockfruit fences AND any building footprint (small/med/large).
-        // Animals path around walls and houses both.
+        const homeRadius = isTame ? 1.5 * this.cellM : 3 * this.cellM;
+        const homeBias = Math.hypot(dxh, dyh) > homeRadius;
+        const dxp = px - c.x, dyp = py - c.y;
+        const distToPlayer = Math.hypot(dxp, dyp);
         let tx = c.x, ty = c.y, angle = 0;
         for (let attempt = 0; attempt < 6; attempt++) {
-          angle = homeBias
-            ? Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8
-            : Math.random() * Math.PI * 2;
+          if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
+            angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (homeBias) {
+            angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
+          } else {
+            angle = Math.random() * Math.PI * 2;
+          }
           tx = c.x + Math.cos(angle) * STEP_M;
           ty = c.y + Math.sin(angle) * STEP_M;
-          // Use the same tile-pixel basis (worldMetersToAbsCell) the rest of the
-          // game keys placedRockSet by — `Math.floor(tx / this.cellM)` is a
-          // different basis at non-equator latitudes (cellM != cellPxSize*mPerPx)
-          // and let creatures walk straight through placed rocks.
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
-          // Block on water (3) and any building tier (9/11/12).
           if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
           break;
         }
@@ -1421,6 +1446,47 @@ class MapScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - 50, alpha: 0,
       duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
       ease: 'Sine.In', onComplete: () => t.destroy() });
+  }
+
+  // Jackpot fanfare for rarity.js' boost-chain rewards. Only fires on +2 or
+  // larger jackpots — +1 jackpots happen ~50% of the time, so a popup for
+  // each would be background noise. +2 is ~25% of jackpot triggers
+  // (~12% of all pulls), so the bell still rings often enough to feel real.
+  // Call AFTER flashLoot — stacks above the loot pop at depth 110.
+  flashJackpot(n) {
+    if (!n || n < 2) return;
+    if (!this.add) return;
+    const x = this.viewCenterX, y = this.viewCenterY - 140;
+    try {
+      const label = `✨ JACKPOT +${n} ✨`;
+      const t = this.add.text(x, y, label, {
+        font: 'bold 26px monospace', color: '#ffd866',
+        backgroundColor: '#3a1f5a', stroke: '#000', strokeThickness: 4,
+        padding: { left: 14, right: 14, top: 6, bottom: 6 },
+      }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
+      this.tweens.add({ targets: t, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.Out' });
+      this.tweens.add({ targets: t, scale: 1.0, duration: 220, delay: 220, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: t, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: t, y: y - 60, alpha: 0,
+        duration: 700, delay: 1800, ease: 'Sine.In',
+        onComplete: () => t.destroy() });
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const sx = x + Math.cos(angle) * 12;
+        const sy = y - 18 + Math.sin(angle) * 12;
+        const star = this.add.text(sx, sy, '✦', {
+          font: 'bold 18px monospace', color: '#ffd866',
+          stroke: '#000', strokeThickness: 2,
+        }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
+        this.tweens.add({
+          targets: star,
+          x: sx + Math.cos(angle) * 70,
+          y: sy + Math.sin(angle) * 70,
+          alpha: 0, duration: 900, ease: 'Sine.Out',
+          onComplete: () => star.destroy(),
+        });
+      }
+    } catch (_) {}
   }
 
   updateHUD() {
@@ -2266,6 +2332,12 @@ class MapScene extends Phaser.Scene {
         icon_trout:      { url: 'Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
         icon_salmon:     { url: 'Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
         icon_goldenfish: { url: 'Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+        // Consumables + wilderness drops.
+        icon_flute:    { url: 'Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
+        icon_book:     { url: 'Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+        icon_meat:     { url: 'Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+        icon_pelt:     { url: 'Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
+        icon_feather:  { url: 'Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;

@@ -133,16 +133,32 @@ const TAP_HANDLERS = [
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
       if (distM2(tr.x, tr.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
       save.foundTreasures = [...found, tr.id];
-      const t = pickTreasure();
-      if (t.kind === 'money') {
-        addMoney(save, t.amount);
-        scene.flashLoot(`✕ → $${t.amount}`, '#ffd96b');
+      // Treasure marks go through the unified rarity picker — class biased
+      // toward seed/produce/mineral/consumable, boostP low (most marks pay
+      // out small), relicCap 0 (mark never hands out a relic — that's what
+      // chests are for). Jackpot fanfare fires only on +2 or larger.
+      const reward = (typeof pickReward === 'function')
+        ? pickReward('treasure:default', save) : null;
+      if (!reward) {
+        // Shouldn't happen — context exists — but bail safely if rarity.js
+        // is missing or the pool is empty.
+        addMoney(save, 1);
+        scene.flashLoot('✕ → $1', '#ffd96b');
         if (scene.updateMoneyDOM) scene.updateMoneyDOM();
-      } else {
-        scene.addToInv(t.id, t.n);
-        const ti = tierInfo(t.id);
-        // flashLoot already adds an inline sprite (via itemId) — skip the 🌱 emoji.
-        scene.flashLoot(`✕ → ${t.id.replace(/_seed$/, '')} (${ti.label})`, ti.color, 1, t.id);
+      } else if (reward.kind === 'item') {
+        scene.addToInv(reward.id, reward.qty);
+        const item = ITEM_BY_ID[reward.id];
+        const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;
+        const color = ti?.color || '#ffe066';
+        const label = `✕ → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
+        scene.flashLoot(label, color, 1, reward.id);
+        if (reward.jackpot >= 2 && typeof scene.flashJackpot === 'function') {
+          scene.flashJackpot(reward.jackpot);
+        }
+      } else if (reward.kind === 'gold') {
+        addMoney(save, reward.amount);
+        scene.flashLoot(`✕ → $${reward.amount}`, '#ffd96b');
+        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
       }
       ctx.dirty = true;
       return true;
@@ -191,8 +207,13 @@ const TAP_HANDLERS = [
     // routing through scene.catchCreature (which is wired for the
     // favourite-food chicken/cow yield logic). Bug Net tier discounts catch
     // energy: 5 → max(1, 5 - tier).
-    const NEW_DROP = { deer: 'meat', rabbit: 'rabbit_pelt', crow: 'crow_feather', butterfly: 'butterfly' };
-    if (NEW_DROP[target.kind]) {
+    //
+    // Catching adds the live animal itself to the inventory — not a derived
+    // product (the player can decide later whether to process the animal
+    // into meat / pelt / feather). The animal id matches target.kind so the
+    // catalog needs deer/rabbit/crow/butterfly entries with kind:'animal'.
+    const WILDERNESS_KINDS = new Set(['deer', 'rabbit', 'crow', 'butterfly']);
+    if (WILDERNESS_KINDS.has(target.kind)) {
       const isFlying = target.kind === 'crow' || target.kind === 'butterfly';
       if (isFlying && !save.relics?.bugnet) {
         scene.flash('need a bug net', sx, sy);
@@ -210,15 +231,20 @@ const TAP_HANDLERS = [
       save.caught.push(target.id);
       save.caughtKinds = save.caughtKinds || {};
       save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-      const dropId = NEW_DROP[target.kind];
-      scene.addToInv(dropId, 1);
+      scene.addToInv(target.kind, 1);
       ctx.dirty = true;
-      const item = ITEM_BY_ID[dropId];
-      scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+      const item = ITEM_BY_ID[target.kind];
+      scene.flashLoot(`+1 ${item?.name || target.kind}`, '#ffe066', 1, target.kind);
       return true;
     }
     const sel = getSelectedSlot(save);
-    const wantFood = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
+    // ANIMAL_FOOD is keyed by creature kind. The catalog now stores either a
+    // single string ('rainberry') or an array of accepted ids (e.g. cats take
+    // milk OR any fish). Normalise to a Set so the membership check below
+    // doesn't need to branch on type.
+    const wantRaw = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
+    const wantSet = wantRaw ? new Set(Array.isArray(wantRaw) ? wantRaw : [wantRaw]) : null;
+    const wantPrimary = wantRaw ? (Array.isArray(wantRaw) ? wantRaw[0] : wantRaw) : null;
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
     // "Plant produce" = anything tagged kind:'produce' that came from a plant
@@ -228,7 +254,7 @@ const TAP_HANDLERS = [
     const isPlantProduce = selItem && selItem.kind === 'produce'
       && (!!selItem.crop || sel.id === 'flowers');
     // 1. Favourite → catch.
-    if (sel && wantFood && sel.id === wantFood && (sel.count ?? 0) > 0) {
+    if (sel && wantSet && wantSet.has(sel.id) && (sel.count ?? 0) > 0) {
       if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
       consumeSelected(save);
       scene.buildInventoryDOM();
@@ -257,8 +283,10 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       return true;
     }
-    // 4. Hint.
-    const wantName = wantFood ? (ITEM_BY_ID[wantFood]?.name || wantFood) : 'food';
+    // 4. Hint — show the primary favourite (first entry of the list) so the
+    // flash stays short. Cats list milk first so the existing "needs Milk"
+    // copy survives even with new fish bait accepted.
+    const wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
     scene.flash(`needs ${wantName}`, sx, sy);
     return true;
   }},
@@ -826,18 +854,15 @@ function interactTap(scene, sx, sy) {
   // so the reachable area is symmetric around what the user perceives as "the player".
   const pWorldY = scene.startWorldM.y + scene.playerM.y + scene.feetOffsetM;
   // Player's CELL centre — the basis the visual reach outline in render.js
-  // uses (the viewport is centred on the player BODY sprite). All
-  // REACH_FAR_M / REACH_CELL_M "too far" gates measure distance from this,
-  // not from the player's feet. Two things would break otherwise:
-  //   • Body vs feet: feetOffsetM (~3.75 m) puts the feet in the cell SOUTH
-  //     of the body's cell, so a feet-based gate would be one cell off
-  //     from the visual outline — the "too far in valid zones" bug.
-  //   • Intra-cell drift: standing at any edge of the body cell would
-  //     shrink the gate asymmetrically vs. the visual.
-  // worldMetersToAbsCell here intentionally takes the BODY world position,
-  // not pWorldY (which includes feetOffsetM).
-  const pBodyY = scene.startWorldM.y + scene.playerM.y;
-  const pCell = worldMetersToAbsCell(scene, pWorldX, pBodyY);
+  // uses, and what every REACH_FAR_M / REACH_CELL_M "too far" gate measures
+  // distance from. Uses the FEET position (pWorldY already includes
+  // feetOffsetM) so the reach box snaps to a new row exactly when the
+  // sprite's feet cross a cell gridline — matches what the player sees on
+  // screen. Earlier this used the BODY position, which made the box jump
+  // when the feet were still mid-tile (the user reported it as "rangebox
+  // moves up when I cross the centre of a tile, not a gridline"). The
+  // visual outline in render.js is also feet-based so the two stay synced.
+  const pCell = worldMetersToAbsCell(scene, pWorldX, pWorldY);
   const pCellCentre = absCellCenterMeters(scene, pCell.cellIX, pCell.cellIY);
   const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY,
                 pCellCx: pCellCentre.x, pCellCy: pCellCentre.y, sx, sy, dirty: false };
