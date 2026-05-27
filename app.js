@@ -141,7 +141,7 @@ class MapScene extends Phaser.Scene {
     // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
     // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
     // so the tree builds without the raw asset pack (same pattern as
-    // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Black.png
+    // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
     // and Sprites/Animals/Pets/Dogs/Premade/1/1.png; swap with sibling sheets
     // from those folders if we ever want colour variety.
     this.load.spritesheet('cat', 'Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
