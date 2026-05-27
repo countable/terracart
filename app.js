@@ -285,6 +285,17 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
     }
 
+    // One-shot pairy gift: 10 pairies dropped into the inventory so the new
+    // chest-compass + ghost-test loop is easy to exercise on first load.
+    if (!this.save._pairyGift) {
+      this.save.inv = this.save.inv || [];
+      const existing = this.save.inv.find(s => s && s.id === 'pairy');
+      if (existing) existing.count = (existing.count ?? 0) + 10;
+      else this.save.inv.push({ id: 'pairy', count: 10 });
+      this.save._pairyGift = true;
+      persistSave(this.save);
+    }
+
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
     this.viewCenterY = H / 2 - 60;            // raise to leave room for inventory bar (extra 20px so the map's bottom edge doesn't kiss the bar on small iPhones)
@@ -894,14 +905,14 @@ class MapScene extends Phaser.Scene {
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
-    // Ghost-mode joystick: vec ∈ [-1,1], 2× walk speed. Keyboard movement
+    // Ghost-mode joystick: vec ∈ [-1,1], 4× walk speed. Keyboard movement
     // is suppressed while the ghost is out so the two control schemes don't
     // fight. Energy is debited per CELL_M of ghost travel — empty energy
     // collapses the ghost back to the body.
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = 2;
+      speedMul = 4;
     }
     const moving = vx || vy;
     if (moving) {
