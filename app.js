@@ -535,8 +535,11 @@ class MapScene extends Phaser.Scene {
     // Player sprite
     // Player sprite — not interactive so taps on it fall through to the world
     // handler (which then treats the tap as if it were the cell under the player).
+    // Depth 10: above the footprint trail (9) so dots can't draw on the
+    // character's face, below the facing-arrow overlay (11).
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
       .setScale(1.5)
+      .setDepth(10)
       .play('idle-anim')
       .setMask(mask);
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
