@@ -993,16 +993,16 @@ Render.drawObjects = function drawObjects(scene) {
       // the cow; dog stays 1.0 since the sheet's frame fills more of its
       // 32×32 cell (dog is naturally chunkier than the cat sprite).
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      const sc = c.kind === 'cat' ? 1.3 : 1.0;
+      const sc = c.kind === 'cat' ? 1.3 : 2.0;
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
       s.setOrigin(0.5, 0.9).setScale(sc).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
-      // 32×32 sheet (see assets.js comment) → scale 1.65, matches the cow.
+      // 32×32 sheet (see assets.js comment) → scale 1.3, a touch under cow.
       // Row 0 frames 0-1 are the side-view idle pose.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.65).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.3).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
       // 16×16 sheet → 1.8× (a touch smaller than chicken — they're rabbits).
@@ -1026,13 +1026,12 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
-      // Chicken sheet is 16×16 (see assets.js note). Scale 1.5× lands it
-      // around 24 px — visibly smaller than the cow (32×32 × 1.1 ≈ 35 px),
-      // which matches the real-life size relationship. 2× looked huge
-      // because chicken_red.png's per-frame chicken is bigger relative to
-      // its cell than the cow's is.
+      // Chicken sheet is 16×16 (see assets.js note). Scale 0.75 = ~12 px —
+      // small bird next to the now-1.65× cow. The earlier 1.5×/2× values
+      // looked huge because chicken_red.png's per-frame bird fills more of
+      // its cell than the cow's does.
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1.5).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(0.75).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
   });
