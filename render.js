@@ -1023,10 +1023,13 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
-      // Chicken sheet is 16×16 (see assets.js note) — 2× scale lands it at
-      // a similar visual size to the 32×32 cow.
+      // Chicken sheet is 16×16 (see assets.js note). Scale 1.5× lands it
+      // around 24 px — visibly smaller than the cow (32×32 × 1.1 ≈ 35 px),
+      // which matches the real-life size relationship. 2× looked huge
+      // because chicken_red.png's per-frame chicken is bigger relative to
+      // its cell than the cow's is.
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.5).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
   });
