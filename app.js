@@ -854,35 +854,45 @@ class MapScene extends Phaser.Scene {
         }
       }
     };
-    // Spawn chickens on any soft ground (grass / farmland / park / residential lawn).
-    // Each MVT tile is ~1.5km across — the 55m viewport is only ~0.1% of a tile —
-    // so we need hundreds per tile for any to actually be visible.
-    const chickenN = 40 + Math.floor(rng() * 20);    // 40..59 per tile (mid ~50)
-    for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
-    // Cows: same soft ground as chickens, but ~10x rarer.
-    const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
-    for (let i = 0; i < cowN; i++) tryPlace('cow', new Set([0, 4, 5, 6]), i, 'cow');
-    // Wild cats + dogs — as rare as cows. Same soft ground.
-    const catN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < catN; i++) tryPlace('cat', new Set([0, 4, 5, 6]), i, 'cat');
-    const dogN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < dogN; i++) tryPlace('dog', new Set([0, 4, 5, 6]), i, 'dog');
-    // Wilderness fauna — pickier about terrain:
-    //   rabbit    → grass, forest, park (the wide skittish set)
-    //   deer      → forest only (need a weapon to hunt; rare)
-    //   crow      → grass / forest / park (smart birds find food anywhere)
-    //   butterfly → park / forest (flower-rich biomes)
-    // Counts roughly match the cow tier — meaningful but not dense.
-    const FOREST_NATURAL = new Set([0, 1, 6]);  // grass, forest, park
+    // Biome biasing: each fauna gets a "primary" biome and a wider "fallback" set.
+    // We split the spawn count 80/20 between primary and fallback to keep them
+    // visible everywhere while still feeling correct (cows in fields, chickens
+    // on lawns, etc.). Cat/dog/crow are "global" — they roam every natural cell.
+    const RESIDENTIAL = new Set([5]);
+    const GRASSLAND   = new Set([0]);
+    const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
+    const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
+    const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
     const FOREST_ONLY    = new Set([1]);
-    const PARKLAND       = new Set([1, 6]);     // park + forest
-    const rabbitN = 30 + Math.floor(rng() * 20);  // 30..50 per tile
+    const PARKLAND       = new Set([1, 6]);                   // park + forest
+    const splitPlace = (kind, n, primary, fallback, salt) => {
+      const primN = Math.round(n * 0.8);
+      for (let i = 0; i < primN; i++)     tryPlace(kind, primary,  i,           salt);
+      for (let i = primN; i < n; i++)     tryPlace(kind, fallback, i,           salt);
+    };
+    // Chickens: residential primarily, soft ground elsewhere. ~50 per tile.
+    const chickenN = 40 + Math.floor(rng() * 20);
+    splitPlace('chicken', chickenN, RESIDENTIAL, SOFT_GROUND, 'chicken');
+    // Cows: grassland primarily, soft ground elsewhere. ~23 per tile.
+    const cowN = 15 + Math.floor(rng() * 16);
+    splitPlace('cow', cowN, GRASSLAND, SOFT_GROUND, 'cow');
+    // Cat / dog: global — every natural biome, no primary bias.
+    const catN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < catN; i++) tryPlace('cat', GLOBAL_NAT, i, 'cat');
+    const dogN = 15 + Math.floor(rng() * 16);
+    for (let i = 0; i < dogN; i++) tryPlace('dog', GLOBAL_NAT, i, 'dog');
+    // Wilderness fauna:
+    //   rabbit    → grass / forest / park (skittish, wide)
+    //   deer      → forest only (rare, weapon-gated)
+    //   crow      → global — smart birds everywhere
+    //   butterfly → park / forest (flower-rich biomes)
+    const rabbitN = 30 + Math.floor(rng() * 20);
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
-    const deerN = 8 + Math.floor(rng() * 6);      // 8..14
+    const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', FOREST_ONLY, i, 'deer');
-    const crowN = 40 + Math.floor(rng() * 20);    // 40..59 — mid ~50
-    for (let i = 0; i < crowN; i++) tryPlace('crow', FOREST_NATURAL, i, 'crow');
-    const butterflyN = 40 + Math.floor(rng() * 20);  // 40..59 — mid ~50
+    const crowN = 40 + Math.floor(rng() * 20);
+    for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
+    const butterflyN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -2840,7 +2850,7 @@ class MapScene extends Phaser.Scene {
     pad.style.cssText =
       `position:fixed;` +
       `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
-      `right:16px;width:${PAD}px;height:${PAD}px;border-radius:50%;` +
+      `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
       `background:rgba(0,0,0,0.35);border:2px solid #666;z-index:6;` +
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
     const nub = document.createElement('div');
@@ -2908,7 +2918,7 @@ class MapScene extends Phaser.Scene {
     // position:fixed + appended to <body> for the same reason as the inv bar
     // (see buildInventoryDOM): a fixed element inside transformed #game would
     // anchor to #game, not the viewport.
-    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
+    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:calc(var(--phone-right, 0px) + 8px);display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
     for (const slot of owned) {
       const wrap = document.createElement('span');
       wrap.style.cssText = 'display:inline-block;line-height:0;';
@@ -3055,7 +3065,7 @@ class MapScene extends Phaser.Scene {
     // Firefox Mobile URL-bar chrome. Appended to <body> because a position:
     // fixed element inside a transformed parent (#game uses transform:scale)
     // takes the transformed parent as its containing block — defeats the point.
-    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:0;right:0;display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
+    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
     if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
     if (this.save.invPage == null) this.save.invPage = 0;
     const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
@@ -3147,7 +3157,7 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:0;right:0;text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();

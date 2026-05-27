@@ -15,6 +15,18 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <title>map-game prototype</title>
   <style>
+    /* Phone-preview gutters — declared ONLY on :root so the JS-set values
+       on document.documentElement aren't shadowed by a body-level
+       declaration. (Declaring on `html, body` makes body re-declare 0px
+       which then wins for every descendant, defeating the cascade.) When
+       the viewport is wider than the phone column (landscape / desktop),
+       fitGame sets these so all HUD overlays tuck inside the narrow phone
+       column instead of stretching to the browser edges. On real phones
+       (portrait) both stay 0. */
+    :root {
+      --phone-left:  0px;
+      --phone-right: 0px;
+    }
     html, body {
       margin: 0; padding: 0; height: 100%;
       background: #111; color: #ddd;
@@ -26,8 +38,26 @@
       touch-action: none;
     }
     #frame {
-      position: absolute; inset: 0;
+      position: absolute;
+      top: 0; bottom: 0;
+      left:  var(--phone-left, 0px);
+      right: var(--phone-right, 0px);
       overflow: hidden;
+    }
+    /* Phone-preview vignette — a thin border that frames the simulated phone
+       column on desktop so the dev can see exactly where the device edge is.
+       Hidden on real portrait viewports (--phone-left = 0). */
+    body.phone-preview::before {
+      content: '';
+      position: fixed;
+      top: 0; bottom: 0;
+      left:  var(--phone-left,  0px);
+      right: var(--phone-right, 0px);
+      border-left:  1px solid #333;
+      border-right: 1px solid #333;
+      box-shadow: 0 0 0 9999px #0a0a0a;
+      pointer-events: none;
+      z-index: 99;
     }
     /* Fixed 352×844 native size — 352 = VIEW_CELLS × CELL_PX so the 11×11
        map view fills the canvas with no side padding. We scale the whole game
@@ -47,7 +77,8 @@
     }
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-      left: 8px; right: 8px;
+      left:  calc(var(--phone-left,  0px) + 8px);
+      right: calc(var(--phone-right, 0px) + 8px);
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace;
     }
@@ -55,20 +86,23 @@
        on #hud below) so it anchors to the visual viewport instead of #game's
        scaled box. env(safe-area-inset-top) clears the iPhone notch. */
     #money {
-      position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px;
+      position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
+      right: calc(var(--phone-right, 0px) + 10px);
       background: #000a; color: #ffd96b; padding: 4px 10px;
       border: 2px solid #c8a64a; border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
     #energy {
-      position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: 88px;
+      position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
+      right: calc(var(--phone-right, 0px) + 88px);
       background: #000a; color: #a7ffb0; padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
-    #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px; z-index: 8; }
+    #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
+            left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
       background: #000a; color: #ddd;
@@ -143,37 +177,48 @@
   </div>
   <script>
     // Fit the fixed 352×844 game box into the viewport using CSS scale.
-    // Portrait: scale by WIDTH so the map fills edge-to-edge horizontally —
-    // some game height tucks behind the iOS Safari URL bar, but the HUD
-    // overlays (money/energy/inventory) live OUTSIDE #game and are
-    // position:fixed, so they stay pinned to the visual viewport.
-    // Landscape: scaling by the full 844-tall box made the game tiny on phones
-    // (e.g. 844×390 → 19% width). Instead, scale so the 352×352 map area
-    // fills the viewport (leaving a slice at the bottom for the inventory
-    // bar), then translate the box so the MAP's centre sits at the frame's
-    // centre. Game chrome above / below the map overflows and is clipped by
-    // #frame, but the player only needs the map and the position:fixed HUD.
+    //
+    // Portrait (real phone): scale by WIDTH so the map fills edge-to-edge
+    // horizontally. The HUD overlays (money / energy / inventory bar / menu)
+    // are position:fixed and stay pinned to the visual viewport.
+    //
+    // Landscape (desktop preview): scale by HEIGHT so the whole 352×844 game
+    // (canvas + HUD chrome) fits the browser height as a phone-shaped narrow
+    // column, centred horizontally. The two gutters on either side of the
+    // column are exposed as CSS variables --phone-left / --phone-right so
+    // every position:fixed HUD (declared either in <style> or via inline
+    // styles in app.js — joystick, inv bar, relic row, etc.) can anchor
+    // itself inside the column rather than stretching across the full
+    // browser width. body.phone-preview also paints a thin frame around
+    // the column for clarity.
     function fitGame() {
       const W = 352, H = 844;
-      const MAP = 352;             // viewSize — square map area inside #game
-      const MAP_CY_IN_GAME = 362;  // viewCenterY — y of the map centre in game coords
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const portrait = vw < vh;
       const g = document.getElementById('game');
       if (!g) return;
+      const root = document.documentElement;
       if (portrait) {
         const s = vw / W;
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = '0px';
+        document.body.classList.remove('phone-preview');
+        root.style.setProperty('--phone-left',  '0px');
+        root.style.setProperty('--phone-right', '0px');
       } else {
-        const reservedBottom = 60;   // inventory bar sits position:fixed near the screen bottom
-        const usableH = Math.max(1, vh - reservedBottom);
-        const s = Math.min(vw / MAP, usableH / MAP);
+        // Fit the whole phone-shaped 352×844 game into the browser HEIGHT.
+        const s = vh / H;
+        const phoneW = W * s;
+        const left = Math.max(0, (vw - phoneW) / 2);
+        const right = Math.max(0, vw - left - phoneW);
         g.style.transform = `scale(${s})`;
-        g.style.left = (vw / 2 - (W / 2) * s) + 'px';
-        g.style.top  = (usableH / 2 - MAP_CY_IN_GAME * s) + 'px';
+        g.style.left = left + 'px';
+        g.style.top  = '0px';
+        document.body.classList.add('phone-preview');
+        root.style.setProperty('--phone-left',  left  + 'px');
+        root.style.setProperty('--phone-right', right + 'px');
       }
     }
     window.addEventListener('resize', fitGame);
@@ -277,6 +322,6 @@
   <script src="assets.js?v=136"></script>
   <script src="sandbox.js?v=11"></script>
   <script src="testtools.js?v=5"></script>
-  <script src="app.js?v=156"></script>
+  <script src="app.js?v=157"></script>
 </body>
 </html>

@@ -130,13 +130,13 @@
       // is the formula midpoint — actual counts will vary slightly.
       const mid = (lo, range) => Math.floor(lo + range / 2);
       return {
-        chicken:   mid(40, 20),   // 40..59
-        cow:       mid(15, 16),   // 15..30
-        cat:       mid(15, 16),   // 15..30
-        dog:       mid(15, 16),   // 15..30
+        chicken:   mid(40, 20),   // 40..59 — 80% residential, 20% soft ground
+        cow:       mid(15, 16),   // 15..30 — 80% grassland, 20% soft ground
+        cat:       mid(15, 16),   // 15..30 — global (any natural biome)
+        dog:       mid(15, 16),   // 15..30 — global (any natural biome)
         rabbit:    mid(30, 20),   // 30..49 — wilderness, grass/forest/park
         deer:      mid(8,  6),    // 8..13  — forest-only, weapon-gated catch
-        crow:      mid(40, 20),   // 40..59 — bug-net catch path
+        crow:      mid(40, 20),   // 40..59 — global (any natural biome), bug-net
         butterfly: mid(40, 20),   // 40..59 — park + forest
       };
     }
