@@ -2148,14 +2148,55 @@ class MapScene extends Phaser.Scene {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal')) return;
-    // Starter shop is the player's HOME — not a shop at all. Tap = "welcome
-    // back" flash, no offers. (Originally it stocked a wood pick + axe so
-    // the player had a guaranteed source for the two starter tools; that
-    // catalogue is retired now that themed-house sprites replaced the
-    // tinted starter beacon, and the player should find their pick/axe at
-    // a real blacksmith or random house relic offer.)
-    if (house && this.isStarterShop(house)) {
-      this.flash('home sweet home', sx, sy);
+    // House routing:
+    //   HOME (starter trailer)  → only SELL. Tap with nothing selected
+    //                              just flashes "home sweet home"; tap
+    //                              with a selected stack opens the sell
+    //                              modal (no specialty bonus — home isn't
+    //                              a specialty shop).
+    //   Every other house       → only its PRIMARY interaction (buy /
+    //                              trade / smith / relic). Selling
+    //                              anywhere but home is intentionally
+    //                              gated so the player has a reason to
+    //                              come home with their haul.
+    const isHome = !!house && this.isStarterShop(house);
+    const sel = this.save.inv[this.save.selSlot];
+    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
+    if (isHome) {
+      if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // SELL one of the selected stack — confirm first so an accidental
+      // home tap can't silently dump a high-value item. Sword relic scales
+      // the price from half (no sword) up to full base value at tier 7.
+      // No shop specialty bonus at home — it's a private sale, not a
+      // shopkeep's bid.
+      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
+      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const item = ITEM_BY_ID[sel.id];
+      const sellId = sel.id;
+      this.showOfferModal({
+        title: 'Sell from your stash?',
+        get: `+$${price}`,
+        cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
+        canAfford: true,
+        acceptLabel: 'Sell',
+        onAccept: () => {
+          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
+          if (idx < 0) { this.flash('gone', sx, sy); return; }
+          const cur = this.save.inv[idx];
+          cur.count -= 1;
+          addMoney(this.save, price);
+          if (cur.count <= 0) {
+            this.save.inv.splice(idx, 1);
+            if (this.save.selSlot >= this.save.inv.length) {
+              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+            }
+          }
+          persistSave(this.save);
+          this.buildInventoryDOM();
+          if (this.updateMoneyDOM) this.updateMoneyDOM();
+          this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
+        },
+      });
       return;
     }
     // Per-building deal rate-limit. Bigger buildings handle more daily traffic:
@@ -2164,12 +2205,8 @@ class MapScene extends Phaser.Scene {
     //   castle / tower     → unlimited (they sell relics only — see below)
     // Counted per house.id over a rolling 1-hour window.
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
-    // Starter shop has uncapped traffic while either tool is still in stock —
-    // we'd otherwise lock the only source of pick/axe behind a 1-deal/hr cap.
-    const isStarter = !!house && this.isStarterShop(house) && !!this.starterShopOffer();
     const dealCap = !house ? Infinity
       : isCastle ? Infinity
-      : isStarter ? Infinity
       : (house.tier === 11 /* BUILDING_MED */) ? 5
       : 1;
     // Hour-bucket deal cap. Each shop has its own offset (hash of id mod 1h)
@@ -2196,60 +2233,17 @@ class MapScene extends Phaser.Scene {
       cur.deals += 1;
     };
     const shopType = Shops.shopType(house);
-    const sel = this.save.inv[this.save.selSlot];
-    if (sel && sel.id) {
-      // SELL one of the selected stack — confirm first so an accidental
-      // house tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
-      // Specialty shops pay a bonus on their associated goods: markets on
-      // produce, blacksmiths on gems, traders on anything (their thing IS trade).
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const shopMul = Shops.shopSellBonus(shopType, sel.id);
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul * shopMul));
-      const item = ITEM_BY_ID[sel.id];
-      const sellId = sel.id;
-      this.showOfferModal({
-        title: 'Sell to the shopkeep?',
-        get: `+$${price}`,
-        cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
-        canAfford: true,
-        acceptLabel: 'Sell',
-        onAccept: () => {
-          // Re-find by id (not index) — the slot may have shifted, but as long as
-          // SOME stack of this id still exists we can fulfil the sale.
-          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('gone', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          cur.count -= 1;
-          addMoney(this.save, price);
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
-          }
-          recordDeal();
-          persistSave(this.save);
-          this.buildInventoryDOM();
-          if (this.updateMoneyDOM) this.updateMoneyDOM();
-          // Sprite shows the sold item — drop the item-icon emoji from the text.
-          this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
-        },
-      });
-      return;
-    }
-    // BUY — empty slot: generate an offer and present a confirmation modal.
+    // Selling is HOME-ONLY (handled above). Every other house runs straight
+    // into its primary interaction below — selected-item taps no longer
+    // open a sell modal here. The player has to bring the haul back to
+    // their trailer to cash out.
+    // BUY — generate an offer and present a confirmation modal.
     // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Starter shop  — the nearest building to spawn always has a wood
-    //       pickaxe AND wood axe in stock until each is bought (so players
-    //       can clear rocks/trees without hunting for a relic).
-    //   (b) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (c) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
-    //   (d) Regular house  — 10% chance to swap the normal offer for a relic.
-    if (house && this.isStarterShop(house) && this.starterShopOffer()) {
-      this.presentRelicOffer(sx, sy, this.starterShopOffer(), recordDeal, house, false);
-      return;
-    }
+    //   (a) Castle / tower — always sells relics, no rate-limit, with re-roll.
+    //   (b) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
+    //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
+    // (Home / starter trailer is handled at the top of this function — it
+    // only sells, never buys.)
     if (isCastle) {
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
