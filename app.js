@@ -147,8 +147,8 @@ class MapScene extends Phaser.Scene {
     // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
     // so the tree builds without the raw asset pack (same pattern as
     // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
-    // and Sprites/Animals/Pets/Dogs/Premade/1/1.png; swap with sibling sheets
-    // from those folders if we ever want colour variety.
+    // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
+    // sheets from those folders if we ever want colour variety.
     this.load.spritesheet('cat', 'Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('dog', 'Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).

@@ -62,7 +62,7 @@ const ASSETS = {
   // quadrant (a leg / tail tip) and the body itself sat invisible in the
   // upper cells. 32×32 + a scale ~1.0 matches the cow's visual footprint.
   deer:        { kind: 'spritesheet', path: 'Objects/Wilderness/Deer Idle.png',       frameWidth: 32, frameHeight: 32 },
-  rabbit:      { kind: 'spritesheet', path: 'Objects/Wilderness/Rabbit Brown.png',    frameWidth: 16, frameHeight: 16 },
+  rabbit:      { kind: 'spritesheet', path: 'Objects/Wilderness/Rabbit White.png',    frameWidth: 16, frameHeight: 16 },
   crow:        { kind: 'spritesheet', path: 'Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
   // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
@@ -78,11 +78,11 @@ const ASSETS = {
   mushroom_world: { kind: 'spritesheet', path: 'Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
-  // Magic Crafting Shrine — 288×144 = 6 cols × 3 rows of 48×48 stone-altar
-  // variants. Each shrine level uses a different frame so the altar visibly
-  // evolves: L1 → frame 0, L7 → frame 6 (top-row left-to-right). Anchored
-  // at (0.5, 1.0) so the base sits on the placement cell.
-  shrine:      { kind: 'spritesheet', path: 'Objects/Wilderness/Altar.png', frameWidth: 48, frameHeight: 48 },
+  // Magic Crafting Shrine — 192×128 = 4 cols × 2 rows of 48×64 water-fountain
+  // variants. Each shrine level picks a different frame (row-major) so the
+  // fountain visibly evolves: L1 → frame 0, L7 → frame 6. Anchored at
+  // (0.5, 1.0) so the base sits on the placement cell.
+  shrine:      { kind: 'spritesheet', path: 'Objects/Wilderness/Water fountain.png', frameWidth: 48, frameHeight: 64 },
   // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
   // near water polygons). frame index is hashed off the spawn cell.
