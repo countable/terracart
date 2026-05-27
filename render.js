@@ -732,7 +732,9 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
-    s.setAlpha(0.92);
+    // Fully opaque — earlier 0.92 made pads read as slightly washed out
+    // against the terrain underneath, which dulled the POI signage too.
+    s.setAlpha(1);
     s.setTint(0xffffff);
   });
 
@@ -780,7 +782,11 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
     tx.setColor(LABEL_INK);
     tx.setBackgroundColor(LABEL_BG);
-    tx.setAlpha(openedSet.has(o.id) ? 0.55 : 1);
+    // Always full opacity — opened chests keep their concrete-pad label
+     // legible (per user: the dimmed-after-open look made closed shops read
+     // as inactive). The opened/closed state is already conveyed by the
+     // chest sprite frame + the tier-diamond disappearing.
+    tx.setAlpha(1);
     li++;
   }
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
@@ -982,34 +988,36 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
-      // 32×32 character sheet — row 0 is the down-walk cycle, which we loop
-      // as the "idle" animation. wanderCreatures moves the sprite around the
-      // world; the anim itself runs continuously to give them life.
+      // 16×16 sheet — half the dimensions of the 32×32 chicken/cow sheets,
+      // so scale doubles to keep them visually comparable. Row 0 is the
+      // down-walk cycle, which we loop as the "idle" animation.
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
-      s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
+      // 16×16 sheet → 2.4× to keep deer slightly larger than cow's footprint.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.2).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(2.4).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
+      // 16×16 sheet → 1.8× (a touch smaller than chicken — they're rabbits).
       if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(0.9).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.8).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
+      // 16×16 sheet → 1.8×. Flying — float 14 px above the ground tile.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      // Flying — float 14 px above the ground tile.
-      s.setOrigin(0.5, 0.9).setScale(0.9).setPosition(Math.round(sx), Math.round(sy) - 14);
+      s.setOrigin(0.5, 0.9).setScale(1.8).setPosition(Math.round(sx), Math.round(sy) - 14);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
+      // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
       if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
-      // Simple animated cycle — 7-frame sheet, ~100 ms/frame.
       s.setFrame(Math.floor(performance.now() / 100) % 7);
-      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy) - 8);
+      s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
