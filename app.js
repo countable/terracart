@@ -1728,8 +1728,14 @@ class MapScene extends Phaser.Scene {
     // Resolve an inline sprite for the loot item. When present, we reserve room
     // INSIDE the text bg via left-padding so the icon sits over the dark label
     // (rather than floating outside its left edge).
-    const iconSrc = itemId && (typeof inventoryIconSource === 'function')
+    let iconSrc = itemId && (typeof inventoryIconSource === 'function')
       ? inventoryIconSource(itemId) : null;
+    // Guard against a missing Phaser texture — the inventory falls back to
+    // CSS background-image so an unpreloaded sheet still renders there, but
+    // `scene.add.image(sheet)` would draw a broken green square. Skip the
+    // icon rather than show garbage. (Keep ASSETS in sync with SHEETS in
+    // renderItemIcon to avoid this path.)
+    if (iconSrc && !this.textures.exists(iconSrc.sheet)) iconSrc = null;
     const ICON_PX = 28;       // displayed icon side
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconSrc ? ICON_PX + ICON_GAP : 0;
