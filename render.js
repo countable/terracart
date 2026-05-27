@@ -313,6 +313,43 @@ Render.drawCells = function drawCells(scene) {
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
   const isB = (t) => t === 9 || t === 11 || t === 12;
+  // Per-house south-face tint: each themed house biases the brick base
+  // beneath it toward its own primary colour, subtly (the role tint is
+  // blended 30/70 with the default brown wall). Plain houses keep the
+  // default — that's the visual "neutral residential" baseline.
+  const _ROLE_PRIMARY = {
+    blacksmith: 0xc25a3a,  // red-brown forge wall
+    trader:     0x6a8aa6,  // steel-blue awning
+    market:     0xa84a3a,  // red brick roof
+    fort:       0xa84838,  // red brick stone
+    trailer:    0xa8b0c0,  // pale blue trailer
+  };
+  const _mixHex = (a, b, t) => {
+    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+    const mr = Math.round(ar + (br - ar) * t);
+    const mg = Math.round(ag + (bg - ag) * t);
+    const mb = Math.round(ab + (bb - ab) * t);
+    return (mr << 16) | (mg << 8) | mb;
+  };
+  const _houseRoleCells = new Map();   // cellKey → role string
+  const _houseRoleForCell = (o) => {
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
+    if (o.tier === 11) return 'fort';
+    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+    return t || null;
+  };
+  for (const [, entry] of (WorldGen.tileCache || new Map())) {
+    if (!entry || !entry.objects) continue;
+    for (const ho of entry.objects) {
+      if (ho.kind !== 'house') continue;
+      const role = _houseRoleForCell(ho);
+      if (!role || !_ROLE_PRIMARY[role]) continue;
+      const ix = Math.round((ho.x - scene.startWorldM.x) / scene.cellM - 0.5);
+      const iy = Math.round((ho.y - scene.startWorldM.y) / scene.cellM - 0.5);
+      _houseRoleCells.set(cellKeyFromAbsCell(ix, iy), role);
+    }
+  }
   // Pseudo-3D extrusion: building footprints are the "top surface", and the
   // south-facing edge of each building cell gets a 5px-tall darker wall projected
   // downward, painted on top of the row below. Other edges get a thin black tint
@@ -363,9 +400,17 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
-      // South wall: tier-specific extrusion, darker shade of the building tier.
+      // South wall: tier-specific extrusion, darker shade of the building
+      // tier — biased toward the themed-house primary if this cell hosts
+      // one (look up by absolute cell key; falls back to the neutral
+      // tier colour for plain residential).
       if (!isB(T(col, row + 1))) {
-        g.fillStyle(SOUTH_FACE_COLOR[type] || 0x444444, 0.95);
+        const _absIX = baseCellIX + (col - half);
+        const _absIY = baseCellIY + (row - half);
+        const role = _houseRoleCells.get(cellKeyFromAbsCell(_absIX, _absIY));
+        const baseHex = SOUTH_FACE_COLOR[type] || 0x444444;
+        const hex = role ? _mixHex(baseHex, _ROLE_PRIMARY[role], 0.3) : baseHex;
+        g.fillStyle(hex, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
@@ -838,7 +883,19 @@ Render.drawObjects = function drawObjects(scene) {
   const SHOP_INK_BG    = 'rgb(96,64,40)';            // warm dark wood plank
   const SHOP_STROKE    = '#2a1408';                  // near-black wood shadow around glyphs
   const SHOP_DROP      = 'rgba(0,0,0,0.65)';         // hard drop shadow under the sign
-  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && Shops.shopLabel(o));
+  // Starter shop labels as "Home" — it's no longer a shop, but the player
+  // should still spot their base across the map. Shops.shopLabel() returns
+  // null for non-shopType houses, so we wrap it here so the renderer can
+  // also handle the starter case without changing the Shops module.
+  const _houseSignText = (o) => {
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
+    return Shops.shopLabel(o);
+  };
+  const _houseSignInk = (o) => {
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return '#ffe066';
+    return Shops.shopInk(o);
+  };
+  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
   let sli = 0;
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
@@ -862,8 +919,8 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
     // height*0.6*0.9 above sy. Anchor the label just above that.
-    tx.setText(Shops.shopLabel(o))
-      .setColor(Shops.shopInk(o))
+    tx.setText(_houseSignText(o))
+      .setColor(_houseSignInk(o))
       .setPosition(Math.round(sx), Math.round(sy - 26))
       .setVisible(true);
     sli++;

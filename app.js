@@ -2148,6 +2148,16 @@ class MapScene extends Phaser.Scene {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal')) return;
+    // Starter shop is the player's HOME — not a shop at all. Tap = "welcome
+    // back" flash, no offers. (Originally it stocked a wood pick + axe so
+    // the player had a guaranteed source for the two starter tools; that
+    // catalogue is retired now that themed-house sprites replaced the
+    // tinted starter beacon, and the player should find their pick/axe at
+    // a real blacksmith or random house relic offer.)
+    if (house && this.isStarterShop(house)) {
+      this.flash('home sweet home', sx, sy);
+      return;
+    }
     // Per-building deal rate-limit. Bigger buildings handle more daily traffic:
     //   house (small)      → 1  deal/hr
     //   fort  (mid-tier)   → 5  deals/hr
@@ -2677,10 +2687,19 @@ class MapScene extends Phaser.Scene {
     }
 
     const canAfford = bundle.every(r => heldCount(r.id) >= r.qty);
+    // Cost is rendered as one row per ingredient instead of "A + B + C" on
+    // one line — three "5× ICON Name" segments overflow the 340px modal width
+    // and wrap mid-ingredient, splitting an icon from its label.
     const costHTML = bundle.map(r => {
       const it = ITEM_BY_ID[r.id];
-      return `${r.qty}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}`;
-    }).join(' + ');
+      const have = heldCount(r.id);
+      const ok = have >= r.qty;
+      const color = ok ? '#a7ffb0' : '#ff8a7a';
+      return `<div style="color:${color};margin:2px 0">`
+        + `${r.qty}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}`
+        + `<span style="opacity:.5;font-size:11px;margin-left:6px">(have ${have})</span>`
+        + `</div>`;
+    }).join('');
     const transformsBlurb = transforms.length
       ? `Unlocked: ${transforms.map(t => `${ITEM_BY_ID[t.input]?.name}→${ITEM_BY_ID[t.output]?.name}`).join(' · ')}`
       : 'No transforms unlocked yet.';
@@ -2702,11 +2721,29 @@ class MapScene extends Phaser.Scene {
         this.save.shrineLevel = (this.save.shrineLevel || 1) + 1;
         persistSave(this.save);
         this.buildInventoryDOM();
-        const newTransform = MapScene.SHRINE_TRANSFORMS[this.save.shrineLevel];
+        const newLvl = this.save.shrineLevel;
+        const newTransform = MapScene.SHRINE_TRANSFORMS[newLvl];
         const unlockMsg = newTransform
-          ? `unlocked ${ITEM_BY_ID[newTransform.input]?.name} → ${ITEM_BY_ID[newTransform.output]?.name}`
-          : 'shrine grows in power';
-        this.flashLoot(`✨ Shrine L${this.save.shrineLevel}\n${unlockMsg}`, '#a7e9ff', 1.4);
+          ? `Unlocked: ${this.iconSpanHTML(newTransform.input)} ${ITEM_BY_ID[newTransform.input]?.name} → ${this.iconSpanHTML(newTransform.output)} ${ITEM_BY_ID[newTransform.output]?.name}`
+          : 'the shrine hums at full power';
+        // 64×85 fountain frame for the new level (row-major over 4×2 grid,
+        // 48×64 each — scaled up 1.78× for the big icon slot).
+        const frame = Math.min(7, newLvl) - 1;
+        const fcol = frame % 4, frow = Math.floor(frame / 4);
+        const ICON_SIZE = 96;            // big icon slot in the reward modal
+        const SCALE = ICON_SIZE / 48;    // scale the 48-wide frame up to ICON_SIZE
+        const iconHTML = `<span style="display:inline-block;width:${ICON_SIZE}px;height:${64 * SCALE}px;`
+          + `background-image:url('Objects/Wilderness/Water fountain.png');`
+          + `background-size:${192 * SCALE}px ${128 * SCALE}px;`
+          + `background-position:-${fcol * ICON_SIZE}px -${frow * 64 * SCALE}px;`
+          + `image-rendering:pixelated"></span>`;
+        this.showChestRewardModal({
+          header: '✨ Shrine ascended ✨',
+          iconHTML,
+          name: `Level ${newLvl}`,
+          sub: unlockMsg,
+          color: '#a7e9ff',
+        });
       },
     });
   }
@@ -2886,6 +2923,12 @@ class MapScene extends Phaser.Scene {
         springcrops: { url: 'Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
         gems:        { url: 'Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
         coal_icon:   { url: 'Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+        // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
+        // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
+        // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
+        // Without this entry, every bar fell through to crops.png frame 0 and
+        // rendered as a grass sprout in shrine / smith trade modals.
+        bars:        { url: 'Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
         // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
         icon_egg:    { url: 'Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
         icon_milk:   { url: 'Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
@@ -3176,7 +3219,7 @@ class MapScene extends Phaser.Scene {
   //                          for stacks, or a relic-equipped tagline).
   //   color         string? → tier colour for the name (defaults gold).
   //   onDismiss     fn?    → called after the modal closes.
-  showChestRewardModal({ iconHTML, name, sub, color = '#ffe066', onDismiss }) {
+  showChestRewardModal({ iconHTML, name, sub, color = '#ffe066', onDismiss, header = 'From the chest' }) {
     document.getElementById('chest-reward-modal')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'chest-reward-modal';
@@ -3205,7 +3248,7 @@ class MapScene extends Phaser.Scene {
       ? `<div style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
     box.innerHTML =
-      '<div style="opacity:.6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">From the chest</div>' +
+      `<div style="opacity:.6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${header}</div>` +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       subHtml +
