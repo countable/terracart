@@ -306,6 +306,7 @@
     5:  'rockfruit', // RESIDENTIAL
     6:  'shrub',     // PARK
     1:  'shrub',     // FOREST
+    2:  'shell',     // SAND — beaches grow shells as common debris
     // longgrass is spawned independently for the whole grassland family below — it isn't
     // wired through DEBRIS_CROP because PARK already grows shrubs, and we want each
     // grassland polygon to get its own seeded longgrass density in [0%, 15%].

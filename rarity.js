@@ -128,7 +128,11 @@
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
     'shop:market':      { classBias: { produce:0.70, seed:0.20, consumable:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
-    'shop:blacksmith':  { classBias: { mineral:0.40, relic:0.55, consumable:0.05 },
+    // Blacksmiths exclusively convert gems → relics. classBias is relic-only;
+    // the player trades a fixed gem cost and the smith forges one relic tier
+    // above what they already hold in that slot. If every slot is maxed,
+    // the smith has nothing better to forge → 'still working on it' flash.
+    'shop:blacksmith':  { classBias: { relic: 1.00 },
                           chainSteps: 2, chainMax: 3, maxTier: 6, relicCap: 5, singleItem: true },
     'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, consumable:0.10, relic:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },

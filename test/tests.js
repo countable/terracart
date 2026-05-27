@@ -1681,11 +1681,14 @@ test('crow catch without bugnet flashes need-bug-net', (scene) => {
   }
 });
 
-test('crow catch WITH bugnet equipped puts a crow in the inventory', (scene) => {
+test('crow hunt: with a weapon equipped drops a crow_feather, no live crow', (scene) => {
+  // Mechanic changed: bug-net catch was replaced by weapon-hunting. A weapon
+  // relic (sword/bow/staff) is required; the drop is the processed feather,
+  // not a live crow.
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = scene.save.relics || {};
-  scene.save.relics.bugnet = { tier: 1 };
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.energy = 100;
@@ -1695,17 +1698,38 @@ test('crow catch WITH bugnet equipped puts a crow in the inventory', (scene) => 
   entry.creatures.push(crow);
   try {
     tapWorld(scene, pWX, pWY);
-    assert.truthy(scene.save.caught.includes(crow.id), 'crow caught');
-    // Catching adds the live animal — not a derived product (the old
-    // behaviour put a crow_feather in inv; now you get the crow itself).
-    assert.eq(invCount(scene, 'crow'), 1, '1 crow added');
-    assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather on catch — processed downstream');
+    assert.truthy(scene.save.caught.includes(crow.id), 'crow downed with weapon');
+    assert.eq(invCount(scene, 'crow_feather'), 1, '1 feather dropped');
+    assert.eq(invCount(scene, 'crow'), 0, 'no live crow in inventory');
   } finally {
     entry.creatures.pop();
   }
 });
 
-test('deer hunt: requires a weapon relic, then puts a deer in the inventory', (scene) => {
+test('crow hunt: no weapon → scared, not caught, _scaredUntilT in future', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.caught = scene.save.caught || [];
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.energy = 100;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_scared_crow_' + Date.now() };
+  entry.creatures.push(crow);
+  try {
+    const t0 = performance.now();
+    tapWorld(scene, pWX, pWY);
+    assert.falsy(scene.save.caught.includes(crow.id), 'crow NOT caught bare-handed');
+    assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather without weapon');
+    assert.gt(crow._scaredUntilT || 0, t0 + 30000, 'scared timer set ~60 s into future');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('deer hunt: no weapon → scared 60s; with weapon → drops meat, no live deer', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.caught = scene.save.caught || [];
@@ -1715,20 +1739,22 @@ test('deer hunt: requires a weapon relic, then puts a deer in the inventory', (s
   const pWY = scene.startWorldM.y + scene.playerM.y;
   const deer = { x: pWX, y: pWY, kind: 'deer', id: 'test_deer_' + Date.now() };
   entry.creatures.push(deer);
-  // No weapon → refused.
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: null, staff: null };
   try {
+    const t0 = performance.now();
     tapWorld(scene, pWX, pWY);
-    assert.falsy(scene.save.caught.includes(deer.id), 'no catch without weapon');
-    assert.eq(invCount(scene, 'deer'), 0, 'no deer without weapon');
-    // Any weapon works — wood sword.
-    scene.save.relics.sword = { tier: 1 };
+    assert.falsy(scene.save.caught.includes(deer.id), 'no catch bare-handed');
+    assert.eq(invCount(scene, 'meat'), 0, 'no meat without weapon');
+    assert.gt(deer._scaredUntilT || 0, t0 + 30000, 'deer scared ~60s into future');
+    // Equip a staff to satisfy the weapon gate; clear the scare so the
+    // hunt branch fires (it returns early when scared also? no — the
+    // scared flag only steers wander, not interact. Hunt still works.).
+    scene.save.relics.staff = { tier: 1 };
     tapWorld(scene, pWX, pWY);
-    assert.truthy(scene.save.caught.includes(deer.id), 'deer caught with weapon');
-    // Catch now adds the live deer to inventory rather than 'meat'.
-    assert.eq(invCount(scene, 'deer'), 1, '1 deer added');
-    assert.eq(invCount(scene, 'meat'), 0, 'no meat on catch — processed downstream');
+    assert.truthy(scene.save.caught.includes(deer.id), 'deer downed with weapon');
+    assert.eq(invCount(scene, 'meat'), 1, '1 meat dropped');
+    assert.eq(invCount(scene, 'deer'), 0, 'no live deer in inventory');
   } finally {
     entry.creatures.pop();
   }
@@ -1983,4 +2009,136 @@ test('Sandbox.detect respects ?sandbox=true and false otherwise', () => {
   // shape should match what the URL says — assert truthy/falsy boolean.
   const d = Sandbox.detect();
   assert.eq(typeof d, 'boolean', 'detect returns a boolean');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Recent feature coverage — pets, pests, scarecrows, icons.
+// ───────────────────────────────────────────────────────────────────────
+
+test('cat catch: any fish works (bass)', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.energy = 100;
+  scene.save.inv = [{ id: 'bass', count: 1 }]; scene.save.selSlot = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const cat = { x: pWX, y: pWY, kind: 'cat', id: 'test_cat_bass_' + Date.now() };
+  entry.creatures.push(cat);
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.truthy(scene.save.caught.includes(cat.id), 'cat caught with bass');
+    assert.eq(invCount(scene, 'cat'), 1, '1 cat in inv');
+    assert.eq(invCount(scene, 'bass'), 0, 'bass consumed');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('tame pet: any tap flashes purr/cluck (never "yuck"), arms _pettedUntilT', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.energy = 100;
+  // Hold a deliberately wrong food (rainberry is a chicken treat — feed it
+  // to a tame cat, which on a WILD cat would yuck and consume).
+  scene.save.inv = [{ id: 'rainberry', count: 3 }]; scene.save.selSlot = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const pet = { x: pWX, y: pWY, kind: 'cat', id: 'released_test_pet_' + Date.now() };
+  entry.creatures.push(pet);
+  // Capture flash calls so we can verify the message is the purr line.
+  const flashes = [];
+  const origLoot = scene.flashLoot;
+  scene.flashLoot = function(msg) { flashes.push(String(msg)); };
+  try {
+    const t0 = performance.now();
+    tapWorld(scene, pWX, pWY);
+    assert.falsy(scene.save.caught.includes(pet.id), 'tame pet not consumed by catch');
+    assert.gt(pet._pettedUntilT || 0, t0 + 60000, 'petting-boost timer armed (~10m)');
+    assert.gt(pet._followUntilT || 0, t0 + 60000, 'cat follow timer armed (~5m)');
+    const sawPurr = flashes.some(s => s.includes('purr'));
+    const sawYuck = flashes.some(s => /yuck|needs/i.test(s));
+    assert.truthy(sawPurr, 'flashLoot played purr');
+    assert.falsy(sawYuck, 'no yuck flash for tame pet');
+  } finally {
+    scene.flashLoot = origLoot;
+    entry.creatures.pop();
+  }
+});
+
+test('scarecrow aversion: crow refuses to step within 4 cells of a scarecrow', (scene) => {
+  // Plant a crop next to the player so the crow has something to target,
+  // ring it with a scarecrow, and verify that after wanderCreatures() picks
+  // a step target the chosen cell is NOT inside the 4-cell exclusion.
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  scene.save.planted = scene.save.planted || [];
+  // Crop 1 cell east of player.
+  const crop = { x: pWX + scene.cellM, y: pWY, id: 'rainberry', stage: 0, t: 0 };
+  scene.save.planted.push(crop);
+  // Scarecrow co-located with the crop so the whole 4-cell aversion disc
+  // covers the crop and the cells immediately around the crow.
+  scene.save.scarecrows = [{ x: crop.x, y: crop.y }];
+  // Crow 6 cells east of player (just outside the 4-cell aversion ring).
+  const crow = { x: pWX + 6 * scene.cellM, y: pWY, kind: 'crow', id: 'aversion_crow_' + Date.now() };
+  entry.creatures.push(crow);
+  try {
+    // Run wander twice so _nextChooseT lands in the past and a fresh
+    // target is picked under the aversion check.
+    scene.wanderCreatures();
+    crow._nextChooseT = 0;
+    scene.wanderCreatures();
+    const dx = crow._targetX - crop.x, dy = crow._targetY - crop.y;
+    const dist2 = dx * dx + dy * dy;
+    const SC_R = 4 * scene.cellM;
+    assert.truthy(dist2 >= SC_R * SC_R, 'crow target outside 4-cell scarecrow ring');
+  } finally {
+    entry.creatures.pop();
+    const ci = scene.save.planted.indexOf(crop);
+    if (ci >= 0) scene.save.planted.splice(ci, 1);
+    scene.save.scarecrows = [];
+  }
+});
+
+test('pest crow eats planted crop on contact (removes from save.planted)', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  scene.save.planted = scene.save.planted || [];
+  scene.save.scarecrows = [];
+  const crop = { x: pWX, y: pWY, id: 'rainberry', stage: 0, t: 0 };
+  scene.save.planted.push(crop);
+  const before = scene.save.planted.length;
+  // Crow co-located with the crop → bestD2 < (cellM*0.5)^2 → eaten.
+  const crow = { x: pWX, y: pWY, kind: 'crow', id: 'eat_crow_' + Date.now() };
+  entry.creatures.push(crow);
+  try {
+    crow._nextChooseT = 0;   // force a target pick this tick
+    scene.wanderCreatures();
+    assert.eq(scene.save.planted.length, before - 1, 'planted crop was eaten');
+    assert.falsy(scene.save.planted.includes(crop), 'specific crop gone');
+  } finally {
+    entry.creatures.pop();
+  }
+});
+
+test('REG: sapphire/ruby/emerald icons resolve to Gemstones.png (not Crops.png berry)', () => {
+  // The SHEETS table in app.js used to be an if/else that fell through to
+  // Crops.png for any unknown sheet — sapphire {sheet:'gems', frame:4}
+  // rendered as a rainberry bush. Guard against the regression by asserting
+  // the catalog entry routes to the gems sheet.
+  if (typeof inventoryIconSource !== 'function') return;
+  for (const id of ['sapphire', 'ruby', 'emerald']) {
+    const src = inventoryIconSource(id);
+    assert.truthy(src, `${id} has an icon source`);
+    assert.eq(src.sheet, 'gems', `${id} routed to gems sheet`);
+  }
+  // Shell uses its own multi-variant sheet — also a regression vector.
+  const sh = inventoryIconSource('shell');
+  assert.truthy(sh, 'shell has an icon source');
+  assert.eq(sh.sheet, 'shell_sheet', 'shell routed to shell_sheet');
 });

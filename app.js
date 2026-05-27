@@ -867,6 +867,23 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i < catN; i++) tryPlace('cat', new Set([0, 4, 5, 6]), i, 'cat');
     const dogN = 15 + Math.floor(rng() * 16);
     for (let i = 0; i < dogN; i++) tryPlace('dog', new Set([0, 4, 5, 6]), i, 'dog');
+    // Wilderness fauna — pickier about terrain:
+    //   rabbit    → grass, forest, park (the wide skittish set)
+    //   deer      → forest only (need a weapon to hunt; rare)
+    //   crow      → grass / forest / park (smart birds find food anywhere)
+    //   butterfly → park / forest (flower-rich biomes)
+    // Counts roughly match the cow tier — meaningful but not dense.
+    const FOREST_NATURAL = new Set([0, 1, 6]);  // grass, forest, park
+    const FOREST_ONLY    = new Set([1]);
+    const PARKLAND       = new Set([1, 6]);     // park + forest
+    const rabbitN = 30 + Math.floor(rng() * 20);  // 30..50 per tile
+    for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
+    const deerN = 8 + Math.floor(rng() * 6);      // 8..14
+    for (let i = 0; i < deerN; i++) tryPlace('deer', FOREST_ONLY, i, 'deer');
+    const crowN = 20 + Math.floor(rng() * 12);    // 20..32
+    for (let i = 0; i < crowN; i++) tryPlace('crow', FOREST_NATURAL, i, 'crow');
+    const butterflyN = 15 + Math.floor(rng() * 10);  // 15..25
+    for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.

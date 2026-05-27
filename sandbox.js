@@ -158,7 +158,117 @@
     scene._ease = null;
     // Pretend a GPS fix arrived so the UI doesn't sit in "no GPS" mode.
     scene.gpsM = { x: scene.playerM.x, y: scene.playerM.y };
+    // Plant a treasure X one cell north of spawn (within REACH_TREASURE_M)
+    // so the tester can verify treasure-tap loot without hunting for one.
+    const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    if (centreEntry && !centreEntry.treasure) {
+      centreEntry.treasure = {
+        id: `sandbox_treasure_${centreTX}_${centreTY}`,
+        x: targetWorldX,
+        y: targetWorldY - cellM,
+      };
+    }
+    // Debug biome labels — a thin white-on-black caption at each plot's
+    // centre. Helps a tester orient (the terrain colours are subtle and the
+    // grid layout is non-obvious from inside the game). Anchored as Phaser
+    // text on its own container above the cell paint, below sprites.
+    installBiomeLabels(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
+                       cellsPerEdge, tileEdgeM, cellM);
   }
+
+  // Lazy-create a labels container the first time install runs; subsequent
+  // installs (e.g. resetTestState → Sandbox.install) recreate the labels in
+  // the same container.
+  function installBiomeLabels(scene, originIX, originIY, tx, ty, cellsPerEdge, tileEdgeM, cellM) {
+    if (!scene._sandboxLabels) {
+      scene._sandboxLabels = scene.add.container(0, 0).setDepth(50);
+    }
+    scene._sandboxLabels.removeAll(true);
+    scene._sandboxLabelData = [];
+    for (let gy = 0; gy < GRID_H; gy++) {
+      for (let gx = 0; gx < GRID_W; gx++) {
+        const biome = PLOT_LAYOUT[gy][gx];
+        const name = BIOME_NAMES[biome] || (biome === -1 ? 'PLAYER' : `?${biome}`);
+        // Anchor at the plot CENTRE (not the top row) so the label is in
+        // viewport range when the player is on or beside the plot. The top-
+        // row anchor put labels for nearby plots 5 cells too high, just
+        // outside the 32m halfM cull.
+        const cellIX = originIX + gx * PLOT_W + Math.floor(PLOT_W / 2);
+        const cellIY = originIY + gy * PLOT_W + Math.floor(PLOT_W / 2);
+        const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
+        const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
+        const t = scene.add.text(0, 0, name, {
+          font: 'bold 8px ui-monospace, monospace',
+          color: '#ffffff',
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          padding: { x: 3, y: 1 },
+        }).setOrigin(0.5, 0).setVisible(false);
+        scene._sandboxLabels.add(t);
+        scene._sandboxLabelData.push({ wx, wy, t });
+      }
+    }
+    // Hook into the update loop so labels follow the camera. We attach a
+    // post-update tick that re-positions every label from its world coord
+    // each frame. The container has its own depth so it sits above cells.
+    if (!scene._sandboxLabelTickInstalled) {
+      scene._sandboxLabelTickInstalled = true;
+      const reposition = () => {
+        const data = scene._sandboxLabelData;
+        if (!data) return;
+        const pWX = scene.startWorldM.x + scene.playerM.x;
+        const pWY = scene.startWorldM.y + scene.playerM.y;
+        const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+        for (const d of data) {
+          const dx = d.wx - pWX, dy = d.wy - pWY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) {
+            d.t.setVisible(false); continue;
+          }
+          const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+          const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+          d.t.setVisible(true).setPosition(Math.round(sx), Math.round(sy));
+        }
+      };
+      // Hook into a method we KNOW runs every scene tick. Phaser binds
+      // scene.update via its system, so a direct `scene.update = ...` patch
+      // doesn't intercept — but wanderCreatures is called from inside
+      // scene.update each frame, and we own the reference. Wrap it so
+      // reposition fires immediately after the wander step every frame.
+      const origWander = scene.wanderCreatures.bind(scene);
+      scene.wanderCreatures = function () {
+        const r = origWander();
+        try { reposition(); } catch (_) { /* never throw in update */ }
+        return r;
+      };
+    }
+  }
+
+  // Friendly names for the biome plot labels. Numeric keys match the terrain
+  // type codes in app.js COLORS{}.
+  const BIOME_NAMES = {
+    0:  'GRASS',
+    1:  'FOREST',
+    2:  'SAND',
+    3:  'WATER',
+    4:  'FARMLAND',
+    5:  'RESIDENT',
+    6:  'PARK',
+    7:  'ROAD',
+    8:  'PATH',
+    9:  'HOUSE',
+    10: 'ROCK',
+    11: 'FORT',
+    12: 'CASTLE',
+    13: 'ROAD_LG',
+    14: 'ROAD_MD',
+    15: 'SCHOOL',
+    16: 'COMMERCIAL',
+    17: 'INDUSTRY',
+    18: 'PLAYGROUND',
+    19: 'PITCH',
+    20: 'WETLAND',
+    21: 'GOLF',
+    22: 'ORCHARD',
+  };
 
   // Lay out the biome plots into the tile's grid + populate every plot with
   // every native interactable. Called once per sandbox install.
@@ -232,6 +342,21 @@
       objects.push({ kind: 'tower', x, y,
         id: `${baseId}_tower_${plotTag}_${dx}_${dy}` });
     };
+    // Fruit trees yield their species (apple, cherry, …) when tapped — gated
+    // by save.picked. One species per tree so the test driver can probe all
+    // eight by tapping different cells in the orchard.
+    const pushFruitTree = (species, dx, dy) => {
+      const { x, y } = at(dx, dy);
+      objects.push({ kind: 'fruittree', x, y, species,
+        id: `${baseId}_ft_${plotTag}_${species}_${dx}_${dy}` });
+    };
+    // Mineral rocks gate on pickaxe tier — `requiredTier` 1..7 maps onto the
+    // MATERIAL_TIERS ladder. Drops coal + a gem scaled by tier.
+    const pushMineralRock = (requiredTier, dx, dy) => {
+      const { x, y } = at(dx, dy);
+      objects.push({ kind: 'mineralrock', x, y, requiredTier,
+        id: `${baseId}_mr_${plotTag}_t${requiredTier}_${dx}_${dy}` });
+    };
 
     switch (biome) {
       case 0: {   // GRASS — small herd + flowers + longgrass
@@ -244,25 +369,36 @@
         pushFlora(2, 1, 3); pushFlora(3, 3, 3);
         pushWildplant('longgrass', 2, 0);
         pushWildplant('longgrass', 2, 4);
-        // A bonus chest in the duplicate-grass plot at (4, 4) — see PLOT_LAYOUT.
+        // A bonus chest in the duplicate-grass plot at (4, 4) — see
+        // PLOT_LAYOUT. Uses the 'playground' POI class so the line3v pad
+        // shape gets a sample.
         if (gx === 4 && gy === 4) {
-          pushChest('shop', 'Sandbox Chest', PLOT_MID, PLOT_MID);
+          pushChest('playground', 'Sandbox Chest', PLOT_MID, PLOT_MID);
         }
         break;
       }
-      case 1: {   // FOREST — every tree variant, shrubs, nuts
+      case 1: {   // FOREST — every tree variant, shrubs, nuts, wild fauna.
         for (let v = 0; v < 5; v++) {
           const dx = (v % 5);   // line them up on the top row of the plot
           pushTree(v, dx, 0);
         }
         pushWildplant('shrub', 0, 2);
-        pushWildplant('shrub', 2, 2);
         pushWildplant('shrub', 4, 2);
         pushWildplant('nut',   1, 4);
         pushWildplant('nut',   3, 4);
+        // Wilderness fauna — gated by relic. Deer drops meat (needs sword /
+        // bow / staff); rabbit drops pelt (no gate). Lets a tester exercise
+        // both branches of the NEW_DROP table in the creature handler.
+        pushCreature('deer',   2, 2, 1);
+        pushCreature('rabbit', 1, 3, 1);
         break;
       }
-      case 2: {   // SAND — no native spawns; place one cat for movement testing
+      case 2: {   // SAND / BEACH — collectible shells (common) + a cat sunning.
+        pushWildplant('shell', 0, 0);
+        pushWildplant('shell', 2, 0);
+        pushWildplant('shell', 4, 1);
+        pushWildplant('shell', 1, 3);
+        pushWildplant('shell', 3, 4);
         pushCreature('cat', PLOT_MID, PLOT_MID, 1);
         break;
       }
@@ -276,35 +412,54 @@
         pushCreature('cow',     4, 4, 2);
         break;
       }
-      case 5: {   // RESIDENTIAL — rockfruit + a small house + shop variants
-        pushWildplant('rockfruit', 0, 0);
-        pushWildplant('rockfruit', 4, 0);
-        pushWildplant('rockfruit', 0, 4);
-        pushWildplant('rockfruit', 4, 4);
-        // Three shop houses at the centre row — addresses pick shop type.
-        pushHouse(1, PLOT_MID, 9);   // blacksmith
-        pushHouse(2, PLOT_MID, 6);   // market
-        pushHouse(3, PLOT_MID, 8);   // trader
+      case 5: {   // RESIDENTIAL — rockfruit + three shop houses.
+        pushWildplant('rockfruit', 2, 2);
+        // Spread the three specialty houses to the corners of the plot.
+        // Adjacent placement (1 cell apart) caused the REACH_HOUSE_M=6m
+        // hitboxes to overlap, making the middle house unclickable behind
+        // its neighbours — separating to (0,0)/(4,0)/(2,4) gives ≥10m
+        // between any two so each gets a clean hit-zone.
+        pushHouse(0, 0, 9);   // blacksmith — top-left
+        pushHouse(4, 0, 6);   // market     — top-right
+        pushHouse(2, 4, 8);   // trader     — bottom-centre
         break;
       }
-      case 6: {   // PARK — shrubs + flowers + longgrass + a cat/dog
+      case 6: {   // PARK — shrubs + flowers + longgrass + cat/dog + flying fauna.
         pushWildplant('shrub', 0, 0);
         pushWildplant('shrub', 4, 0);
-        pushWildplant('shrub', 2, 2);
         pushFlora(0, 1, 1);
         pushFlora(1, 3, 1);
         pushFlora(2, 1, 3);
         pushWildplant('longgrass', 2, 4);
         pushCreature('cat', 0, 4, 1);
         pushCreature('dog', 4, 4, 1);
+        // Flying fauna — bug-net relic gated. Crow drops a feather, butterfly
+        // drops itself. Lets the tester verify both creature-handler branches.
+        pushCreature('crow',      2, 0, 1);
+        pushCreature('butterfly', 2, 2, 1);
         break;
       }
-      case 9:    // SMALL HOUSE — building tile is its own interactable
-      case 11:   // BUILDING_MED — the building IS the thing
-      case 12:   // BUILDING_LARGE — castle, also self-rendering
+      case 9:   // SMALL HOUSE — the cluster is itself the interactable; no
+        break;  // extra props.
+      case 11: { // BUILDING_MED — palisade fort: pop a chest in the middle
+        // so the "fort" reads as a defended cache.
+        pushChest('shop', 'Sandbox Fort Cache', PLOT_MID, PLOT_MID);
         break;
-      case 10: { // ROCK — solid 5×5; tap any cell to break and roll loot
-        // No items needed — the rock terrain itself is the interactable.
+      }
+      case 12: { // BUILDING_LARGE — castle. A tower sprite belongs here
+        // (it's the lookout at the castle wall) — not on the player's
+        // spawn plot, where it had been a placeholder.
+        pushTower(PLOT_MID, 0);
+        pushTower(0, PLOT_MID);
+        pushTower(PLOT_W - 1, PLOT_MID);
+        break;
+      }
+      case 10: { // ROCK — solid 5×5 of plain rock cells, plus a mineral-rock
+        // sample at each milestone tier (T1, T3, T5) on top of three cells.
+        // Plain rock-cell taps still work for everywhere else.
+        pushMineralRock(1, 0, 0);
+        pushMineralRock(3, 2, 2);
+        pushMineralRock(5, 4, 4);
         break;
       }
       case 15:   // SCHOOL
@@ -321,23 +476,28 @@
         }
         break;
       }
-      case 16:   // COMMERCIAL — mushrooms + a high-tier chest
-      case 17: { // INDUSTRIAL — same; rocky-family
+      case 16:   // COMMERCIAL — mushrooms + a triangle-pad chest (school/college).
+      case 17: { // INDUSTRIAL — same; rocky-family, with a cross-pad chest.
         pushWildplant('mushroom', 1, 1);
         pushWildplant('mushroom', 3, 3);
-        pushChest('shop', biome === 16 ? 'Sandbox Mall' : 'Sandbox Factory',
-                  PLOT_MID, PLOT_MID);
+        // POI class varies by biome so each pad shape (triangle / cross)
+        // gets a sample under the chest sprite.
+        const poiClass = biome === 16 ? 'school' : 'hospital';
+        const name = biome === 16 ? 'Sandbox School' : 'Sandbox Hospital';
+        pushChest(poiClass, name, PLOT_MID, PLOT_MID);
         break;
       }
-      case 22: { // ORCHARD — fruit trees + chest
-        pushTree(2, 0, 0); pushTree(3, 4, 0);
-        pushTree(2, 0, 4); pushTree(3, 4, 4);
-        pushChest('parking', 'Sandbox Orchard', PLOT_MID, PLOT_MID);
+      case 22: { // ORCHARD — fruit trees (one of each species) + a chest
+        // with a 'pitch' POI class (square2 pad) just so a third pad shape
+        // gets exercised.
+        pushFruitTree('apple',  0, 0);
+        pushFruitTree('cherry', 4, 0);
+        pushFruitTree('peach',  0, 4);
+        pushFruitTree('banana', 4, 4);
+        pushChest('pitch', 'Sandbox Orchard', PLOT_MID, PLOT_MID);
         break;
       }
-      case -1: { // PLAYER spawn — small starter kit so test taps land on something
-        // A nearby tower (cardinal landmark) and a chest at the corner.
-        pushTower(0, 0);
+      case -1: { // PLAYER spawn — small starter kit so test taps land on something.
         pushChest('shop', 'Sandbox Start Chest', 4, 4);
         // A single chicken to verify creature catching at spawn.
         pushCreature('chicken', 3, 3, 1);

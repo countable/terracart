@@ -57,7 +57,11 @@
   function setRelic(slot, tier) {
     const s = S();
     s.save.relics = s.save.relics || {};
-    s.save.relics[slot] = { tier };
+    // `setRelic('axe', null)` should UNEQUIP, not write a `{ tier: null }`
+    // placeholder. The game's slot-presence checks use `save.relics?.axe`
+    // which is truthy for any object — placeholders broke those gates.
+    if (tier == null) s.save.relics[slot] = null;
+    else s.save.relics[slot] = { tier };
   }
 
   function setEnergy(n) {
@@ -406,6 +410,7 @@
     sv.placedRocks = [];
     sv.brokenRocks = [];
     sv.foundTreasures = [];
+    sv.scarecrows = [];
     sv.inv = [];
     sv.selSlot = -1;
     sv.energy = sv.maxEnergy ?? 100;

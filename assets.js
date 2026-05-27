@@ -91,7 +91,7 @@ const ASSETS = {
   // Scarecrow — 32×32 single-image prop (proper straw-man with hat & cross-
   // pole). Pole base anchors at origin (0.5, 1) so it stands on its
   // placement cell.
-  scarecrow:   { kind: 'image', path: 'Objects/scarcrow.png' },
+  scarecrow:   { kind: 'image', path: 'Objects/scarecrow.png' },
 };
 
 window.ASSETS = ASSETS;
