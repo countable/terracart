@@ -1058,8 +1058,10 @@ class MapScene extends Phaser.Scene {
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
       this._ghostDistAccrue = 0;
+      this._ghostCostAccrue = 0;
       this._ease = null;                  // cancel any pending GPS ease on the body
-      this.flashRelic('amulet');
+      // (No relic-icon flash — bodyPlayer.setVisible + alpha drop give the
+      // visual cue that ghost mode armed.)
       this.bodyPlayer.setVisible(true);
       this.player.setAlpha(0.5);
     } else if (!ghostHeld && this._bodyM) {

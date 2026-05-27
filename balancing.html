@@ -258,12 +258,26 @@
     // Unified rarity sampler — calls pickReward() N times per context,
     // tallies class mix + tier histogram, prints 20 representative pulls.
     // ────────────────────────────────────────────────────────────────
-    function formatReward(r) {
+    function formatReward(r, ctxKey) {
       if (!r) return '<span class="muted">∅</span>';
       const jp = r.jackpot ? ` <span style="color:#ffd866;">✨+${r.jackpot}✨</span>` : '';
+      // Trader barter preview: show what the shop would ask for the offered
+      // item. Mirrors app.js buildShopOffer(forceBarter=true) when the player
+      // owns nothing qualifying — deterministic-ish pick from the wishlist.
+      const traderAsk = (id) => {
+        if (ctxKey !== 'shop:trader' || !id) return '';
+        const baseValue = (typeof PRICES !== 'undefined' && PRICES[id]) || 1;
+        const need = baseValue * 0.75;
+        const wishlist = Object.keys(PRICES || {}).filter(k =>
+          k !== id && PRICES[k] >= need && ITEM_BY_ID[k]);
+        if (!wishlist.length) return ` <span class="muted">for $${Math.ceil(baseValue * 2)}</span>`;
+        const wish = wishlist[Math.floor(Math.random() * wishlist.length)];
+        const wishItem = ITEM_BY_ID[wish];
+        return ` <span class="muted">for 1×</span> ${wishItem?.icon || ''} <span class="muted">${wishItem?.name || wish}</span>`;
+      };
       if (r.kind === 'item') {
         const item = ITEM_BY_ID[r.id];
-        return `<span class="muted">[${r.cls} T${r.tier}]</span> ${item?.icon || ''} ${item?.name || r.id} ×${r.qty}${jp}`;
+        return `<span class="muted">[${r.cls} T${r.tier}]</span> ${item?.icon || ''} ${item?.name || r.id} ×${r.qty}${traderAsk(r.id)}${jp}`;
       }
       if (r.kind === 'relic') {
         const name = gearName('relic', r.slot, r.tier);
@@ -385,7 +399,7 @@
       const rows = ['<tr><th style="width:40px;">#</th><th>pull</th></tr>'];
       for (let i = 1; i <= 10; i++) {
         const r = pickReward(key, save, Math.random, opts);
-        rows.push(`<tr><th>${i}</th><td>${formatReward(r)}</td></tr>`);
+        rows.push(`<tr><th>${i}</th><td>${formatReward(r, key)}</td></tr>`);
       }
       document.getElementById('rar-rolls').innerHTML = rows.join('');
     }
