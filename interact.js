@@ -405,11 +405,10 @@ const TAP_HANDLERS = [
         scene.addToInv(loot.id, loot.n);
         save.opened.push(o.id);
         ctx.dirty = true;
-        // Ring nudges loot up a tier; amulet boosts quantity. Both fire
-        // passively inside pickLoot — pulse them so the player learns which
-        // relic helped this drop.
-        if (save.relics?.ring)   scene.flashRelic('ring');
-        if (save.relics?.amulet) scene.flashRelic('amulet');
+        // Ring nudges loot up a tier inside pickLoot — pulse it so the
+        // player learns which relic helped this drop. (Amulet no longer
+        // affects chests; it powers ghost mode and flashes there.)
+        if (save.relics?.ring) scene.flashRelic('ring');
         const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
         // Sprite shows the loot — drop the icon from the text.
         scene.flashLoot(`${lootName} ×${loot.n}`, tierInfo(loot.id).color, 1.25, loot.id);

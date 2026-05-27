@@ -259,10 +259,7 @@ function pickLoot(rng, poiClass, relics) {
     asProduce = (rng ?? Math.random)() < (cfg.produceP ?? 0.5);
   }
   const id = asProduce ? seedId.replace(/_seed$/, '') : seedId;
-  let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
-  if (relics && typeof amuletDoubleChance === 'function') {
-    if ((rng ?? Math.random)() < amuletDoubleChance(relics)) n *= 2;
-  }
+  const n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
   return { id, n };
 }
 
