@@ -92,37 +92,6 @@ const ASSETS = {
   // pole). Pole base anchors at origin (0.5, 1) so it stands on its
   // placement cell.
   scarecrow:   { kind: 'image', path: 'Objects/scarecrow.png' },
-  // === Inventory-icon sheets ===
-  // These mirror the SHEETS table in MapScene.renderItemIcon (app.js). The
-  // inventory renders them via CSS background-image (no Phaser texture
-  // needed), but flashLoot's pickup toast uses `scene.add.image(sheet)` —
-  // so any sheet missing here would render as a broken / "missing texture"
-  // square in the toast even though the inventory icon for the same item
-  // looks fine. Keep this list in sync with that SHEETS table.
-  // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
-  icon_egg:        { kind: 'spritesheet', path: 'Icons/Food Icons/Chicken Egg.png',         frameWidth: 16, frameHeight: 16 },
-  icon_milk:       { kind: 'spritesheet', path: 'Icons/Food Icons/Small Cow Milk.png',      frameWidth: 16, frameHeight: 16 },
-  // Orchard fruit — 32×16 each (frame 0 = whole fruit).
-  icon_apple:      { kind: 'spritesheet', path: 'Icons/Food Icons/Apple.png',               frameWidth: 16, frameHeight: 16 },
-  icon_cherry:     { kind: 'spritesheet', path: 'Icons/Food Icons/Cherry.png',              frameWidth: 16, frameHeight: 16 },
-  icon_peach:      { kind: 'spritesheet', path: 'Icons/Food Icons/Peach.png',               frameWidth: 16, frameHeight: 16 },
-  icon_banana:     { kind: 'spritesheet', path: 'Icons/Food Icons/Banana.png',              frameWidth: 16, frameHeight: 16 },
-  icon_orange:     { kind: 'spritesheet', path: 'Icons/Food Icons/Orange.png',              frameWidth: 16, frameHeight: 16 },
-  icon_mango:      { kind: 'spritesheet', path: 'Icons/Food Icons/Mango.png',               frameWidth: 16, frameHeight: 16 },
-  icon_coconut:    { kind: 'spritesheet', path: 'Icons/Food Icons/Coconut.png',             frameWidth: 16, frameHeight: 16 },
-  icon_apricot:    { kind: 'spritesheet', path: 'Icons/Food Icons/Apricot.png',             frameWidth: 16, frameHeight: 16 },
-  // Fish — 64×16 (4 frames). Frame 0 = right-facing.
-  icon_minnow:     { kind: 'spritesheet', path: 'Icons/Fish/Sea/Smallmouth Bass.png',       frameWidth: 16, frameHeight: 16 },
-  icon_bass:       { kind: 'spritesheet', path: 'Icons/Fish/River/Large Mouth Bass.png',    frameWidth: 16, frameHeight: 16 },
-  icon_trout:      { kind: 'spritesheet', path: 'Icons/Fish/River/Tiger Trout.png',         frameWidth: 16, frameHeight: 16 },
-  icon_salmon:     { kind: 'spritesheet', path: 'Icons/Fish/Sea/Salmon.png',                frameWidth: 16, frameHeight: 16 },
-  icon_goldenfish: { kind: 'spritesheet', path: 'Icons/Fish/River/Golden Fish.png',         frameWidth: 16, frameHeight: 16 },
-  // Consumables + wilderness drops.
-  icon_flute:      { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Flutes.png',        frameWidth: 16, frameHeight: 16 },
-  icon_book:       { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Books.png',         frameWidth: 16, frameHeight: 16 },
-  icon_meat:       { kind: 'spritesheet', path: 'Icons/Food Icons/Beef.png',                frameWidth: 16, frameHeight: 16 },
-  icon_pelt:       { kind: 'spritesheet', path: 'Icons/Food Icons/Black rabbit Fur.png',    frameWidth: 16, frameHeight: 16 },
-  icon_feather:    { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Chicken feather.png', frameWidth: 16, frameHeight: 16 },
 };
 
 window.ASSETS = ASSETS;

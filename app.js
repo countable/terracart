@@ -1733,44 +1733,60 @@ class MapScene extends Phaser.Scene {
   // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
   flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null) {
     const x = this.viewCenterX, y = this.viewCenterY - 90;
-    // Resolve an inline sprite for the loot item. When present, we reserve room
-    // INSIDE the text bg via left-padding so the icon sits over the dark label
-    // (rather than floating outside its left edge).
-    let iconSrc = itemId && (typeof inventoryIconSource === 'function')
-      ? inventoryIconSource(itemId) : null;
-    // Guard against a missing Phaser texture — the inventory falls back to
-    // CSS background-image so an unpreloaded sheet still renders there, but
-    // `scene.add.image(sheet)` would draw a broken green square. Skip the
-    // icon rather than show garbage. (Keep ASSETS in sync with SHEETS in
-    // renderItemIcon to avoid this path.)
-    if (iconSrc && !this.textures.exists(iconSrc.sheet)) iconSrc = null;
+    // Loot icon = DOM overlay using the same CSS-background renderer the
+    // inventory uses. Going through scene.add.image(sheet) would demand
+    // every icon sheet be preloaded into Phaser textures (egg / milk /
+    // fish / fruit / etc.); the inventory doesn't need that, it draws
+    // straight from disk via background-image. The DOM icon is appended
+    // to <body> (matching the inventory bar's anchoring) and re-positioned
+    // each frame against #game's CSS-scaled bounding rect.
+    const iconEl = itemId && this.renderItemIcon
+      ? this.renderItemIcon(itemId, 28, 'block') : null;
     const ICON_PX = 28;       // displayed icon side
     const ICON_GAP = 8;       // gap between icon and text inside the bg
-    const RESERVE = iconSrc ? ICON_PX + ICON_GAP : 0;
+    const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
     const t = this.add.text(x, y, text, {
       font: 'bold 22px monospace', color, backgroundColor: '#000c',
       stroke: '#000', strokeThickness: 3,
       padding: { left: 10 + RESERVE, right: 10, top: 5, bottom: 5 },
     }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
-    let icon = null;
-    if (iconSrc) {
-      icon = this.add.image(0, 0, iconSrc.sheet)
-        .setFrame(iconSrc.frame)
-        .setOrigin(0.5, 0.5).setDepth(102).setScale(0.6).setAlpha(0);
-      icon.setDisplaySize(ICON_PX, ICON_PX);
-      // Centre the icon inside the reserved zone (which lives at the LEFT of the
-      // text bg). Coordinates are in screen-space; account for text.scale.
+    if (iconEl) {
+      // The 'block' icon came back as inline-block — restyle as a fixed
+      // overlay we can absolute-position with transform.
+      iconEl.style.position = 'fixed';
+      iconEl.style.left = '0px';
+      iconEl.style.top  = '0px';
+      iconEl.style.zIndex = '102';
+      iconEl.style.pointerEvents = 'none';
+      iconEl.style.opacity = '0';
+      iconEl.style.transformOrigin = 'center center';
+      document.body.appendChild(iconEl);
+      // Re-place every frame so the icon tracks the text through pop-in,
+      // hold, and drift-up. Cheap — getBoundingClientRect + transform set.
+      const gameEl = document.getElementById('game');
       const placeIcon = () => {
-        const b = t.getBounds();
+        const r = gameEl.getBoundingClientRect();
+        const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
+        const sy = r.height / H;
+        const b = t.getBounds();   // Phaser/game coords
         const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
-        icon.setPosition(b.left + reserveCentreFromLeft, (b.top + b.bottom) / 2);
+        const cx = b.left + reserveCentreFromLeft;
+        const cy = (b.top + b.bottom) / 2;
+        const px = r.left + cx * sx;
+        const py = r.top  + cy * sy;
+        // Match the text's current scale (0.6 → 1.0 during pop-in) and alpha.
+        iconEl.style.transform =
+          `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
+        iconEl.style.opacity = String(t.alpha);
       };
+      this.events.on('update', placeIcon);
+      // Clean up alongside the text — covers normal completion AND any
+      // early scene shutdown (Phaser destroys all GOs on stop).
+      t.once('destroy', () => {
+        this.events.off('update', placeIcon);
+        iconEl.remove();
+      });
       placeIcon();
-      this.tweens.add({ targets: icon, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out',
-        onUpdate: placeIcon });
-      this.tweens.add({ targets: icon, y: y - 50, alpha: 0,
-        duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
-        ease: 'Sine.In', onComplete: () => icon.destroy() });
     }
     // Pop in (140ms), hold (1.44s * dwellMul), drift up + fade (700ms * dwellMul).
     this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
