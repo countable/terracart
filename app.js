@@ -237,8 +237,14 @@ class MapScene extends Phaser.Scene {
     // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
     // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
     // save.shrine = { id, x, y } once spawned; null until then.
-    if (this.save.shrine === undefined)      this.save.shrine = null;
-    if (this.save.shrineLevel === undefined) this.save.shrineLevel = 1;
+    if (this.save.shrine === undefined)           this.save.shrine = null;
+    if (this.save.shrineLevel === undefined)      this.save.shrineLevel = 1;
+    // POIs span tile seams (worldgen replicates them across up to 4
+    // neighbouring tile entries). When the shrine REPLACES a POI we need
+    // to suppress that chest id everywhere it appears, not just on the
+    // tile the spawn picked. Single id is enough — only one shrine per
+    // game and a POI's id is unique.
+    if (this.save.shrineReplacedId === undefined) this.save.shrineReplacedId = null;
     // Per-shop bucket state: { [houseId]: { bucket, deals, rerolls } }.
     // Replaces the old shopDeals (rolling timestamp array) + shopOffers
     // (cached offer object) — both are re-derivable from a seeded RNG keyed
@@ -902,66 +908,67 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Magic Crafting Shrine — one per game. Placed adjacent to the nearest
-    // POI that's ≥200m from the player's start. We try to spawn on the
-    // start tile (most common case); if no qualifying POI here, the next
-    // loaded tile gets a shot at hosting it. save.shrine pins the world
-    // position once chosen so the placement is stable across reloads.
+    // Magic Crafting Shrine — one per game. REPLACES the nearest POI ≥200m
+    // from the player's start. We try to spawn on the current tile; if no
+    // qualifying POI here, the next loaded tile gets a shot. save.shrine
+    // pins the world position once chosen so the placement is stable across
+    // reloads. The replaced POI's id is tracked in save.shrineReplacedId
+    // so we can suppress its ghost in neighbouring tiles where the same
+    // chest replicates (worldgen seam handling).
     if (!this.save.shrine) {
       this._trySpawnShrineOnTile(entry, tx, ty);
-    } else if (
-      this.save.shrine.x >= tx0 && this.save.shrine.x < tx0 + this.tileEdgeM &&
-      this.save.shrine.y >= ty0 && this.save.shrine.y < ty0 + this.tileEdgeM
-    ) {
-      // Already spawned — make sure the live entry.objects has the shrine
-      // so the renderer can draw it (objects get rebuilt on tile load).
+    }
+    if (this.save.shrine) {
+      // Always: filter out the replaced chest from THIS tile's objects.
+      // Worldgen rebuilds entry.objects on every load so the chest would
+      // otherwise come back like a zombie.
+      if (this.save.shrineReplacedId) {
+        entry.objects = (entry.objects || []).filter(
+          o => !(o.kind === 'chest' && o.id === this.save.shrineReplacedId)
+        );
+      }
+      // Always: if this tile owns the shrine's world position, ensure the
+      // shrine object is present.
       const s = this.save.shrine;
-      const already = (entry.objects || []).some(o => o.kind === 'shrine' && o.id === s.id);
-      if (!already) {
-        entry.objects = entry.objects || [];
-        entry.objects.push({ kind: 'shrine', x: s.x, y: s.y, id: s.id });
+      if (
+        s.x >= tx0 && s.x < tx0 + this.tileEdgeM &&
+        s.y >= ty0 && s.y < ty0 + this.tileEdgeM
+      ) {
+        const already = (entry.objects || []).some(o => o.kind === 'shrine' && o.id === s.id);
+        if (!already) {
+          entry.objects = entry.objects || [];
+          entry.objects.push({ kind: 'shrine', x: s.x, y: s.y, id: s.id });
+        }
       }
     }
   }
 
   _trySpawnShrineOnTile(entry, tx, ty) {
     if (this.save.shrine) return;
-    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const sx = this.startWorldM.x, sy = this.startWorldM.y;
     // Find POIs (chests are pinned to POIs) on this tile that are at least
     // 200m from spawn. Walk objects, score by distance, take nearest.
     const MIN_DIST_M = 200;
-    let best = null, bestD2 = Infinity;
-    for (const o of (entry.objects || [])) {
+    let bestIdx = -1, bestD2 = Infinity;
+    const objs = entry.objects || [];
+    for (let i = 0; i < objs.length; i++) {
+      const o = objs[i];
       if (o.kind !== 'chest') continue;
       const dx = o.x - sx, dy = o.y - sy;
       const d2 = dx * dx + dy * dy;
       if (d2 < MIN_DIST_M * MIN_DIST_M) continue;
-      if (d2 < bestD2) { best = o; bestD2 = d2; }
+      if (d2 < bestD2) { bestIdx = i; bestD2 = d2; }
     }
-    if (!best) return;
-    // Place the shrine one cell east of the POI, on a walkable tile if
-    // possible. Falls back to the POI's own cell if every neighbour is
-    // blocked (rare — shrines on a road/building cell still render fine).
-    const N = entry.cellsPerEdge;
-    const poiCellX = Math.floor((best.x - tx0) / this.cellM);
-    const poiCellY = Math.floor((best.y - ty0) / this.cellM);
-    const cellOK = (cx, cy) => {
-      if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
-      const t = entry.grid[cy * N + cx];
-      return t !== 3 && t !== 9 && t !== 11 && t !== 12;   // no water/buildings
-    };
-    const OFFSETS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
-    let placeCellX = poiCellX, placeCellY = poiCellY;
-    for (const [dx, dy] of OFFSETS) {
-      if (cellOK(poiCellX + dx, poiCellY + dy)) { placeCellX = poiCellX + dx; placeCellY = poiCellY + dy; break; }
-    }
-    const wmx = tx0 + (placeCellX + 0.5) * this.cellM;
-    const wmy = ty0 + (placeCellY + 0.5) * this.cellM;
-    const id = `shrine_${tx}_${ty}_${placeCellX}_${placeCellY}`;
-    this.save.shrine = { id, x: wmx, y: wmy };
-    entry.objects = entry.objects || [];
-    entry.objects.push({ kind: 'shrine', x: wmx, y: wmy, id });
+    if (bestIdx < 0) return;
+    // REPLACE the chest with the shrine at the same world position. The
+    // chest id is recorded in save.shrineReplacedId so spawnInTile can
+    // suppress it on every tile load (including the other tiles where
+    // worldgen mirrors the same POI at the seam).
+    const replaced = objs[bestIdx];
+    const id = `shrine_${tx}_${ty}_${Math.round(replaced.x)}_${Math.round(replaced.y)}`;
+    this.save.shrine = { id, x: replaced.x, y: replaced.y };
+    this.save.shrineReplacedId = replaced.id;
+    objs.splice(bestIdx, 1, { kind: 'shrine', x: replaced.x, y: replaced.y, id });
     if (typeof persistSave === 'function') persistSave(this.save);
   }
 
