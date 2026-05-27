@@ -2697,6 +2697,43 @@ class MapScene extends Phaser.Scene {
       const it = sel && ITEM_BY_ID[sel.id];
       nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
     }
+    this.syncEatButton();
+  }
+
+  // Eat button — appears bottom-right when the selected stack is food.
+  // Tapping the player sprite to eat works too (interact.js 'eat' handler),
+  // but on a small screen the body is fiddly to hit; this surfaces an
+  // explicit affordance. Position sits above the ghost pad's slot so the
+  // two never overlap.
+  syncEatButton() {
+    const sel = this.save.inv?.[this.save.selSlot];
+    const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
+    const existing = document.getElementById('eat-btn');
+    if (restore == null) { existing?.remove(); return; }
+    const item = ITEM_BY_ID[sel.id];
+    const iconHtml = this.iconSpanHTML(sel.id, 20);
+    const label = `${iconHtml} Eat +${restore}⚡`;
+    if (existing) { existing.innerHTML = label; return; }
+    const btn = document.createElement('button');
+    btn.id = 'eat-btn';
+    // Anchored above where the ghost pad sits (its top edge is at ~228px
+    // from the bottom). 240px gives a clean gap when both are visible and
+    // a reasonable thumb-height when only the Eat button is present.
+    btn.style.cssText =
+      'position:fixed;' +
+      'bottom:calc(240px + env(safe-area-inset-bottom, 0px));' +
+      'right:16px;z-index:7;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'padding:8px 12px;border-radius:8px;cursor:pointer;' +
+      'background:#1a1612;color:#a7ffb0;border:2px solid #4a8c4a;' +
+      'font:700 13px ui-monospace,monospace;';
+    btn.innerHTML = label;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.eatSelected();
+      this.syncEatButton();   // refresh count / hide if stack ran out
+    });
+    document.body.appendChild(btn);
   }
 }
 
