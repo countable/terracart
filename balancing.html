@@ -125,20 +125,20 @@
     // KEEP IN SYNC with MapScene.spawnInTile — each rng() pull below mirrors
     // an N-rolled-then-placed line there. Drift will silently miscount.
     function estimateCreatureCounts(tx, ty) {
-      const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
-      // RNG draws happen in the order app.js spawnInTile calls them: each N
-      // pull happens first, then per-creature tryPlace consumes additional
-      // draws we ignore here (we just want target counts). Skip-draws aren't
-      // needed because we never inspect the rng after these reads.
-      const chickenN = 75 + Math.floor(rng() * 50);
-      const cowN     = 15 + Math.floor(rng() * 16);
-      const catN     = 15 + Math.floor(rng() * 16);
-      const dogN     = 15 + Math.floor(rng() * 16);
-      // Wilderness fauna (deer / rabbit / crow / butterfly) have catch + drop
-      // wiring but no spawn site in app.js or worldgen.js yet — surfaced as 0
-      // so the missing spawn shows up in the dashboard rather than hiding.
-      return { chicken: chickenN, cow: cowN, cat: catN, dog: dogN,
-               deer: 0, rabbit: 0, crow: 0, butterfly: 0 };
+      // Mirrors the N rolls in MapScene.spawnInTile. We can't replay the
+      // intermediate tryPlace draws (they're scene-local), so each N here
+      // is the formula midpoint — actual counts will vary slightly.
+      const mid = (lo, range) => Math.floor(lo + range / 2);
+      return {
+        chicken:   mid(75, 50),   // 75..125
+        cow:       mid(15, 16),   // 15..30
+        cat:       mid(15, 16),   // 15..30
+        dog:       mid(15, 16),   // 15..30
+        rabbit:    mid(30, 20),   // 30..49 — wilderness, grass/forest/park
+        deer:      mid(8,  6),    // 8..13 — forest-only, weapon-gated catch
+        crow:      mid(20, 12),   // 20..31 — bug-net catch path
+        butterfly: mid(15, 10),   // 15..24 — park + forest
+      };
     }
 
     function countTile(entry, tx, ty) {
@@ -240,7 +240,7 @@
       for (const k of Object.keys(stats.creatures).sort()) {
         const n = stats.creatures[k];
         const cls = n === 0 ? ' class="muted"' : '';
-        const note = n === 0 ? ' — no spawn site wired up' : '';
+        const note = n === 0 ? ' — none' : '';
         rows.push(`<tr${cls}><th>${k}</th><td>${n} <span class="muted">(est. spawn target${note})</span></td></tr>`);
       }
       document.getElementById('tile-stats').innerHTML = rows.join('');
