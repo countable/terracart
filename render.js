@@ -989,10 +989,13 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
       // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
-      // cycle defined in app.js. Scale 1.0 matches the cow's visual footprint.
+      // cycle defined in app.js. Cat ~1.3 reads at proper "cat-size" next to
+      // the cow; dog stays 1.0 since the sheet's frame fills more of its
+      // 32×32 cell (dog is naturally chunkier than the cat sprite).
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
+      const sc = c.kind === 'cat' ? 1.3 : 1.0;
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
-      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(sc).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
       // 32×32 sheet (see assets.js comment) → scale 1.1, matches cow.
@@ -1010,10 +1013,11 @@ Render.drawObjects = function drawObjects(scene) {
     } else if (c.kind === 'crow') {
       // 32×32 sheet (see assets.js comment). Row 0 frames 0-4 are the ground
       // strut; row 1 is intentionally empty in the source PNG; row 2 is the
-      // take-off flap. Float 14 px above the ground tile.
+      // take-off flap. Float 14 px above the ground tile. Scale 1.3 reads as
+      // a proper bird next to the cow rather than a tiny pebble.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy) - 14);
+      s.setOrigin(0.5, 0.9).setScale(1.3).setPosition(Math.round(sx), Math.round(sy) - 14);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
       // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
