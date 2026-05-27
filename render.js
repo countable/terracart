@@ -747,7 +747,11 @@ Render.drawObjects = function drawObjects(scene) {
   // maximum legibility. ~5:1 contrast on the chosen tone (WCAG AA).
   const LABEL_BG       = 'rgb(202,206,212)';       // pale cool stone
   const LABEL_INK      = '#1a3fbf';                // vivid royal blue
-  const LABEL_STROKE   = null;                     // no chisel highlight
+  // 1px outline around the glyphs — same hue as the stone bg but 10%
+  // darker (RGB × 0.9 → rgb(182,185,191)) so the text "sits in" the
+  // tablet rather than floating on its surface.
+  const LABEL_STROKE   = 'rgb(182,185,191)';
+  const LABEL_STROKE_W = 1;
   const LABEL_GLOW     = null;                     // no halo
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
@@ -762,10 +766,9 @@ Render.drawObjects = function drawObjects(scene) {
       tx = scene.add.text(0, 0, '', {
         font: 'bold 10px monospace',
         color: LABEL_INK, backgroundColor: LABEL_BG,
+        stroke: LABEL_STROKE, strokeThickness: LABEL_STROKE_W,
         padding: { x: 4, y: 3 },
       }).setOrigin(0.5, 0).setDepth(50);
-      // Glow + stroke intentionally NOT applied — flat solid blue on stone
-      // reads cleaner than the earlier chisel-and-halo variant.
       scene.objectsContainer.add(tx);
       scene.chestLabelPool.push(tx);
     }
