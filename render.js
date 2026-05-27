@@ -658,11 +658,9 @@ Render.drawObjects = function drawObjects(scene) {
     // centre the sprite in the cell so the petals land where the cell does.
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
               origin: [0.5, 0.5],  scale: 1.8 },
-    // Magic Crafting Shrine — 48×48 altar sprite. Frame = current shrine
-    // level so the altar visibly evolves as the player levels it up:
-    //   L1 → frame 0  (plain stone)
-    //   L7 → frame 6  (glowing high-rune altar)
-    // Slightly larger than other objects so it reads as a landmark.
+    // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
+    // shrine level (row-major across the 4×2 grid) so the fountain visibly
+    // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
     shrine: { key: 'shrine',
               frame: (o) => {
                 const lvl = Math.min(7, Math.max(1, scene.save.shrineLevel || 1));
@@ -918,7 +916,16 @@ Render.drawObjects = function drawObjects(scene) {
     // for character-like sprites but on flat ground tiles (longgrass,
     // flowers, wildplants) it shifted the sprite 11 px above the cell
     // centre, which the user spotted as "not centered in tiles".
-    s.setOrigin(0.5, 0.5).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+    //
+    // Exception: Crops.png seed frames (stage 0, default crops sheet) only
+    // have pixels in the bottom half of their 16×16 cell — Crops.png draws
+    // the seed sitting "on the ground". Centering that frame visually puts
+    // the seed at the bottom of the tile. Stage 0 only: use the old
+    // foot-anchor (0.5, 0.85) so the visible seed lands near the cell
+    // centre. Stages 1+ grow upward and look right centered.
+    const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
+    const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
+    s.setOrigin(0.5, oy).setScale(2).setPosition(Math.round(sx), Math.round(sy));
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -951,8 +958,9 @@ Render.drawObjects = function drawObjects(scene) {
     // Bottom-right of the tile, inset 1px so the badge sits just inside the
     // cell border (origin (1,1) was set at pool creation).
     t.setText(label)
-     .setPosition(Math.round(sx + CELL_PX / 2 - 1), Math.round(sy + CELL_PX / 2 - 1))
+     .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
      .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
+     .setAlpha(0.8)
      .setVisible(true);
     ti++;
   }
