@@ -294,7 +294,12 @@ Render.drawCells = function drawCells(scene) {
         const frame = isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
+          // Roads get bumped up 10% so the cobble cluster reads as a real
+          // surface texture instead of pixel speckle. Paths stay at cell size
+          // — a sparse pebble doesn't benefit from the same upscaling.
+          const size = isRoad(type) ? CELL_PX * 1.10 : CELL_PX;
           cs.setFrame(frame)
+            .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setVisible(true);
         } else {
@@ -690,6 +695,9 @@ Render.drawObjects = function drawObjects(scene) {
       },
       frame: (o) => (_houseRole(o) === 'plain' ? 'front' : undefined),
       origin: [0.5, 0.9],
+      // Houses sit 5px lower than their nominal cell foot so the brick base
+      // tucks into the ground instead of floating above the cobble line.
+      dyPx: 5,
       scale: (o) => {
         const role = _houseRole(o);
         // Fort PNG is ~3× the others — scale down so it still reads as a
@@ -775,9 +783,10 @@ Render.drawObjects = function drawObjects(scene) {
       tint = Shops.shopTint(o) || 0xffffff;
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const dyPx = spec.dyPx || 0;
     s.setOrigin(spec.origin[0], spec.origin[1])
      .setScale(scl)
-     .setPosition(Math.round(sx), Math.round(sy))
+     .setPosition(Math.round(sx), Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
     // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
@@ -933,10 +942,11 @@ Render.drawObjects = function drawObjects(scene) {
     // House sprite origin is [0.5, 0.9] — sy is roughly the building's foot.
     // Anchor the label TOP just below sy so the sign tucks under the
     // building, almost touching the doorstep (origin set to [0.5, 0] at
-    // pool creation so position y = label top).
+    // pool creation so position y = label top). +5 follows the house
+    // sprite's own dyPx so the sign stays glued to the doorstep.
     tx.setText(_houseSignText(o))
       .setColor(_houseSignInk(o))
-      .setPosition(Math.round(sx), Math.round(sy + 7))
+      .setPosition(Math.round(sx), Math.round(sy + 7) + 5)
       .setVisible(true);
     sli++;
   }
