@@ -488,8 +488,8 @@ class MapScene extends Phaser.Scene {
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 11px serif', color: '#000000',
-      }).setOrigin(0.5, 0.5).setAlpha(0.40).setDepth(0).setVisible(false);
+        font: 'bold 10px serif', color: '#000000',
+      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -1141,11 +1141,11 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +19 lands the dot right at the sprite's feet. (Sprite scale 1.5 × 32
+        // +16 lands the dot right at the sprite's feet. (Sprite scale 1.5 × 32
         // = 48, origin (.5,.5) so the sprite's nominal bottom is +24, but the
-        // visible foot pixels are a few px above the bottom of the texture —
-        // +19 sits flush rather than on the grass behind the heel.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 19;
+        // visible foot pixels sit several px above the bottom of the texture —
+        // +16 lines up with where the shoes actually meet the ground.)
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 16;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
         this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 4);
       }
