@@ -988,16 +988,11 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
-      // The pet sheets in Icons/Pets are face-icon grids (no animation —
-      // each cell is a different breed face). We pin to frame 0 and STOP
-      // any animation the pool sprite might have been running for its
-      // previous occupant. Without the stop(), a leftover chicken-idle /
-      // cow-idle keeps cycling and periodically re-stamps that creature's
-      // texture onto this sprite — so a cat would visibly morph into a
-      // chicken on every anim tick.
-      if (s.texture.key !== c.kind) { s.anims?.stop(); s.setTexture(c.kind, 0); }
-      s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy));
+      // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
+      // cycle defined in app.js. Scale 1.0 matches the cow's visual footprint.
+      const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
+      if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
+      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
       // 32×32 sheet (see assets.js comment) → scale 1.1, matches cow.

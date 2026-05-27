@@ -137,10 +137,13 @@ class MapScene extends Phaser.Scene {
     });
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
-    // Cats + dogs use the Icons/Pets icon sheets (16×16 cells) since we don't
-    // have animated spritesheets for them — render as static single-frame.
-    this.load.spritesheet('cat', 'Icons/Pets/cats icons.png', { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('dog', 'Icons/Pets/dogs icons.png', { frameWidth: 16, frameHeight: 16 });
+    // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
+    // Row 0 is the down-walk cycle, which we loop as the idle anim. We use a
+    // single sheet per kind for every cat / dog in the world; switching to
+    // Sprites/Animals/Pets/Cats/{2..7} or Dogs/Premade/{2..9} would give
+    // colour variety later.
+    this.load.spritesheet('cat', 'Sprites/Animals/Pets/Cats/1/Black.png',     { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('dog', 'Sprites/Animals/Pets/Dogs/Premade/1/1.png', { frameWidth: 32, frameHeight: 32 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
     // Frames: 0 = closed, 1 = open.
     this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
@@ -455,12 +458,12 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 32, 32);
     window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 32, 32);
     window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
-    // Wilderness fauna inventory icons — baked from the same 16×16 wilderness
-    // sheets used to render them in-world. Without these, catching a deer
-    // would show 🦌 emoji instead of the deer sprite.
-    window.ITEM_DATA_URLS.deer      = bakeSheetFrame('deer',      0, 16, 16);
+    // Wilderness fauna inventory icons — baked from the world sprite sheets.
+    // Deer + crow are 32×32; rabbit + butterfly stay 16×16. Without these,
+    // catching a deer would show 🦌 emoji instead of the deer sprite.
+    window.ITEM_DATA_URLS.deer      = bakeSheetFrame('deer',      0, 32, 32);
     window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
-    window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 16, 16);
+    window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     // Wilderness drops + flora that share their world sprite.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world', 0, 32, 32);
@@ -555,6 +558,12 @@ class MapScene extends Phaser.Scene {
     this.anims.create({ key: 'walk-anim', frames: this.anims.generateFrameNumbers('walk', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'chicken-idle', frames: this.anims.generateFrameNumbers('chicken', { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
     this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
+    // Cat / dog idle — row 0 (frames 0-3) of their 4×N pet body sheets. The
+    // renderer's cat/dog branch calls s.play('{kind}-idle'); without these
+    // anims defined, leftover chicken/cow-idle from the pooled sprite kept
+    // re-stamping the wrong texture onto cats and dogs.
+    this.anims.create({ key: 'cat-idle', frames: this.anims.generateFrameNumbers('cat', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
+    this.anims.create({ key: 'dog-idle', frames: this.anims.generateFrameNumbers('dog', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
 
     // Player sprite
     // Player sprite — not interactive so taps on it fall through to the world
