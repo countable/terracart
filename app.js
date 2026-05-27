@@ -1363,7 +1363,7 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
-    const cy = Math.round(screen.y) - 14;
+    const cy = Math.round(screen.y) - 9;
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
