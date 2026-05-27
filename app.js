@@ -338,6 +338,19 @@ class MapScene extends Phaser.Scene {
     }
     if (needsMigrationPersist) persistSave(this.save);
 
+    // One-shot ghost-mode gift: any save that doesn't already own an amulet
+    // gets a tier-1 one so the new ghost pad is reachable on first load.
+    // _amuletGift flag means we won't re-gift if the player ever sells it.
+    if (!this.save._amuletGift && !this.save.relics?.amulet) {
+      this.save.relics = this.save.relics || {};
+      this.save.relics.amulet = { tier: 1 };
+      this.save._amuletGift = true;
+      persistSave(this.save);
+    } else if (!this.save._amuletGift) {
+      this.save._amuletGift = true;
+      persistSave(this.save);
+    }
+
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
     this.viewCenterY = H / 2 - 60;            // raise to leave room for inventory bar (extra 20px so the map's bottom edge doesn't kiss the bar on small iPhones)
@@ -542,6 +555,16 @@ class MapScene extends Phaser.Scene {
       .setDepth(10)
       .play('idle-anim')
       .setMask(mask);
+    // Second sprite for the player's real body when ghost mode is active.
+    // While ghost mode is OFF (the default) this stays hidden and `this.player`
+    // is the body. When ghost mode flips ON, `this.player` becomes the ghost
+    // (at 50% alpha, centred at viewCenter) and this sprite shows up at the
+    // body's offset, full opacity.
+    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
+      .setScale(1.5)
+      .play('idle-anim')
+      .setVisible(false)
+      .setMask(mask);
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
@@ -593,15 +616,19 @@ class MapScene extends Phaser.Scene {
     window.addEventListener('offline', () => this.showBanner(true));
     window.addEventListener('online', () => this.showBanner(false));
 
-    // Soft-joystick state. When enabled (toggled from the menu) it replaces
-    // GPS movement — used for testing on mobile without real walking.
-    this.save.joystick = !!this.save.joystick;
+    // Ghost-mode state. The pad shows up only when an amulet is equipped
+    // (managed in updateRelicRow → syncGhostPad). joystickVec is driven by
+    // pointer events on the pad; _ghostPadHeld tracks whether the pointer is
+    // currently down (so we can collapse the ghost on release even when the
+    // nub is centred). _bodyM is set on activation to remember where the
+    // real body was — restored to playerM on collapse.
     this.joystickVec = { x: 0, y: 0 };
-    this.syncJoystickButton();
+    this._ghostPadHeld = false;
+    this._bodyM = null;
+    this._ghostDistAccrue = 0;   // meters of ghost travel since last energy pip
 
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
-    // Joystick mode also skips GPS so the two don't fight over playerM.
     // Compass + GPS are gated behind the safety-splash button click (the
     // genuine user gesture iOS requires for DeviceOrientationEvent
     // permission) — see #safety-dismiss in index.html, which sets
@@ -611,7 +638,6 @@ class MapScene extends Phaser.Scene {
       this.setupLifecycle();
       if (window.__compassPerm) this.startSensors();
     }
-    if (this.save.joystick) this.buildJoystick();
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
   }
@@ -622,7 +648,7 @@ class MapScene extends Phaser.Scene {
   // window.__compassPerm because iOS gives us nothing without 'granted'.
   startSensors() {
     if (window.__compassPerm === 'granted') this._attachCompass();
-    if (!this.save.joystick && this.gpsWatchId == null) this.startGps();
+    if (this.gpsWatchId == null) this.startGps();
   }
 
   // === Power / lifecycle ===
@@ -695,12 +721,20 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * 111320;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          // Ease toward the new GPS fix instead of snapping.
-          this._ease = {
-            fromX: this.playerM.x, fromY: this.playerM.y,
-            toX: this.gpsM.x, toY: this.gpsM.y,
-            t0: performance.now(), dur: 300,
-          };
+          // While ghost mode is active, playerM IS the ghost; GPS updates
+          // the body silently behind it (the body sprite re-positions
+          // itself off-centre based on _bodyM during render).
+          if (this._bodyM) {
+            this._bodyM.x = this.gpsM.x;
+            this._bodyM.y = this.gpsM.y;
+          } else {
+            // Ease toward the new GPS fix instead of snapping.
+            this._ease = {
+              fromX: this.playerM.x, fromY: this.playerM.y,
+              toX: this.gpsM.x, toY: this.gpsM.y,
+              t0: performance.now(), dur: 300,
+            };
+          }
           if (prev) {
             const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
             // Only use movement as facing fallback when there's no compass.
@@ -1004,6 +1038,22 @@ class MapScene extends Phaser.Scene {
   // === Tick ===
   update(_, dtMs) {
     const dt = dtMs / 1000;
+    // Ghost-mode lifecycle: the pad is held iff the player has an amulet AND
+    // they're actively touching the pad. On the down-edge, snapshot the body
+    // into _bodyM and let `this.playerM` become the ghost. On the up-edge,
+    // collapse — restore playerM to the body and tidy ghost render state.
+    const ghostEligible = !!this.save.relics?.amulet;
+    const ghostHeld = ghostEligible && this._ghostPadHeld;
+    if (ghostHeld && !this._bodyM) {
+      this._bodyM = { x: this.playerM.x, y: this.playerM.y };
+      this._ghostDistAccrue = 0;
+      this._ease = null;                  // cancel any pending GPS ease on the body
+      this.flashRelic('amulet');
+      this.bodyPlayer.setVisible(true);
+      this.player.setAlpha(0.5);
+    } else if (!ghostHeld && this._bodyM) {
+      this.collapseGhost();
+    }
     let vx = 0, vy = 0;
     const k = this.keys;
     if (k.A.isDown) vx -= 1;
@@ -1018,19 +1068,37 @@ class MapScene extends Phaser.Scene {
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
-    // Soft joystick contribution (when enabled). Vec is already in [-1, 1].
-    // Joystick is for testing on mobile — boost to 4× walk speed so a tester
-    // can cover ground quickly without endless thumb-pushing.
-    if (this.save.joystick && this.joystickVec) {
-      vx += this.joystickVec.x;
-      vy += this.joystickVec.y;
-      if (this.joystickVec.x || this.joystickVec.y) speedMul = 4;
+    // Ghost-mode joystick: vec ∈ [-1,1], 2× walk speed. Keyboard movement
+    // is suppressed while the ghost is out so the two control schemes don't
+    // fight. Energy is debited per CELL_M of ghost travel — empty energy
+    // collapses the ghost back to the body.
+    if (this._bodyM && this.joystickVec) {
+      vx = this.joystickVec.x;
+      vy = this.joystickVec.y;
+      speedMul = 2;
     }
     const moving = vx || vy;
     if (moving) {
       const n = Math.hypot(vx, vy);
-      this.playerM.x += (vx / n) * WALK_M_S * speedMul * dt;
-      this.playerM.y += (vy / n) * WALK_M_S * speedMul * dt;
+      const dx = (vx / n) * WALK_M_S * speedMul * dt;
+      const dy = (vy / n) * WALK_M_S * speedMul * dt;
+      this.playerM.x += dx;
+      this.playerM.y += dy;
+      if (this._bodyM) {
+        // Each whole cell of ghost travel costs 1 energy. Collapse on empty
+        // so the player isn't stranded with the ghost out + no body.
+        this._ghostDistAccrue += Math.hypot(dx, dy);
+        while (this._ghostDistAccrue >= this.cellM) {
+          this._ghostDistAccrue -= this.cellM;
+          if ((this.save.energy ?? 0) <= 0) {
+            this.flash('too tired', this.viewCenterX, this.viewCenterY);
+            this.collapseGhost();
+            break;
+          }
+          this.save.energy = Math.max(0, (this.save.energy ?? 0) - 1);
+          if (this.updateEnergyDOM) this.updateEnergyDOM();
+        }
+      }
       // Only let WASD drive facing when there's no compass heading available.
       if (this.compassDeg == null) this.facing = { x: vx, y: vy };
       if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
@@ -1056,6 +1124,17 @@ class MapScene extends Phaser.Scene {
       this.player.play('idle-anim');
     }
 
+    // Position the body sprite at its true world offset from the ghost.
+    // worldMetersToScreen does the camera-relative projection in one place;
+    // inlining the math here would let it drift away from every other
+    // render site if cellM / CELL_PX semantics ever change.
+    if (this._bodyM) {
+      const p = worldMetersToScreen(this,
+        this.startWorldM.x + this._bodyM.x,
+        this.startWorldM.y + this._bodyM.y);
+      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y));
+    }
+
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
     // save object is mutated by reference, so the next persistSave (or the
     // pagehide flush in save.js) carries it. This bounds offline-rest drift
@@ -1067,8 +1146,12 @@ class MapScene extends Phaser.Scene {
     // save.energy + refresh the DOM when a whole pip has accrued. Test mode
     // skips this so deterministic test runs don't see energy creep.
     if (!window.__TEST_MODE) {
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
+      // Rest is a body activity — when ghost mode is out, the BODY decides
+      // whether the player is indoors. Otherwise scouting a ghost into a
+      // house would let the body recover without ever being there.
+      const restAnchor = this._bodyM || this.playerM;
+      const pWX = this.startWorldM.x + restAnchor.x;
+      const pWY = this.startWorldM.y + restAnchor.y;
       const here = this.cellAt(pWX, pWY);
       const indoors = here.loaded && BUILDING_TYPES.has(here.type);
       const maxE = this.getMaxEnergy();
@@ -1120,23 +1203,29 @@ class MapScene extends Phaser.Scene {
     // from the feet.) Starting alpha is 0.45 (was 0.65 — ~30% lower) so the
     // freshest dot reads as a soft press rather than ink.
     {
+      // Footprints belong to the BODY — the ghost is an ethereal projection
+      // and shouldn't leave prints. When ghost mode is out, anchor logic to
+      // _bodyM (true body coords). When inactive, playerM IS the body.
+      const bodyM = this._bodyM || this.playerM;
       const lp = this._lastFootprintM;
-      const dx = this.playerM.x - lp.x, dy = this.playerM.y - lp.y;
+      const dx = bodyM.x - lp.x, dy = bodyM.y - lp.y;
       // First GPS fix can jump hundreds of meters from playerM=(0,0); skip the
       // single huge step so the inaugural footprint isn't dropped at world
       // origin. 200m = ~13 cells, well outside any normal walking gait.
       const tooFar = dx * dx + dy * dy > 200 * 200;
       if (tooFar) {
-        this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+        this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.9;
-        this.footprints.push({ x: this.playerM.x, y: this.playerM.y, alpha: 0.45 });
+        this.footprints.push({ x: bodyM.x, y: bodyM.y, alpha: 0.45 });
         // Cap at 5 so the trail stays short — the 10%/step fade alone would
         // keep ~22 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
-        this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+        this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
       this.footprintGfx.clear();
+      // Camera anchor stays on playerM (= ghost while active), so footprints
+      // drawn at body world coords land at the body's screen offset.
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
@@ -2809,57 +2898,61 @@ class MapScene extends Phaser.Scene {
   // Row of obtained-relic icons, anchored top-right just below the
   // money/energy badges. Rebuilds only when the relics signature changes,
   // so calling from updateHUD every frame stays cheap.
-  syncJoystickButton() {
-    const btn = document.getElementById('joystick-toggle');
-    if (btn) btn.textContent = `Joystick: ${this.save.joystick ? 'on' : 'off'}`;
+  // Collapse the ghost back into the body: restore playerM to the snapshot,
+  // re-show the now-merged sprite at full opacity, hide the body double.
+  // Safe to call when no ghost is active (it's a no-op).
+  collapseGhost() {
+    if (!this._bodyM) return;
+    this.playerM.x = this._bodyM.x;
+    this.playerM.y = this._bodyM.y;
+    this._bodyM = null;
+    this._ghostDistAccrue = 0;
+    this.bodyPlayer.setVisible(false);
+    this.player.setAlpha(1);
   }
-  toggleJoystick() {
-    this.save.joystick = !this.save.joystick;
-    persistSave(this.save);
-    this.syncJoystickButton();
-    if (this.save.joystick) {
-      // Turn ON: stop any GPS watch, clear pending ease, show the pad.
-      if (this.gpsWatchId != null && navigator.geolocation) {
-        try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
-      }
-      this.gpsWatchId = null;
-      this.gpsAvailable = false;
-      this.gpsM = null;
-      this._ease = null;
-      this.buildJoystick();
-    } else {
-      // Turn OFF: tear down the pad, restart GPS so real walking works again.
-      this.removeJoystick();
-      this.joystickVec = { x: 0, y: 0 };
-      if (!window.__TEST_MODE) this.startGps();
-    }
+  // Show or tear down the ghost pad based on amulet ownership. Called from
+  // updateRelicRow so the pad appears the moment the player first equips an
+  // amulet (and disappears if they ever ditch it).
+  syncGhostPad() {
+    const has = !!this.save.relics?.amulet;
+    const exists = !!document.getElementById('ghost-pad');
+    if (has && !exists) this.buildGhostPad();
+    else if (!has && exists) this.removeGhostPad();
   }
-  removeJoystick() {
-    document.getElementById('joystick')?.remove();
+  removeGhostPad() {
+    document.getElementById('ghost-pad')?.remove();
+    this.joystickVec = { x: 0, y: 0 };
+    this._ghostPadHeld = false;
+    if (this._bodyM) this.collapseGhost();
   }
   // Virtual analog stick — bottom-right above the inventory bar. Fixed to the
   // viewport (outside #game for the usual transform-containing-block reason).
-  // Pointer events drive this.joystickVec ∈ [-1, 1]²; update() adds it to the
-  // movement vector exactly like WASD.
-  buildJoystick() {
-    this.removeJoystick();
+  // Pointer events drive this.joystickVec ∈ [-1, 1]² and _ghostPadHeld;
+  // update() reads both to advance the ghost while held.
+  buildGhostPad() {
+    this.removeGhostPad();
     const PAD = 110, NUB = 48;
     const HALF = (PAD - NUB) / 2;     // nub centred in the pad at rest
     const R = HALF;                   // max nub offset from pad centre
     const pad = document.createElement('div');
-    pad.id = 'joystick';
+    pad.id = 'ghost-pad';
     // Sits above the inventory bar (bar bottom 48 + bar height ~54 + gap).
+    // Purple tint so the player reads it as "amulet/ghost" rather than
+    // generic d-pad.
     pad.style.cssText =
       `position:fixed;` +
       `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      // Purple tint reads as "amulet/ghost" rather than generic d-pad.
+      // Right-anchored via --phone-right so the pad tucks inside the
+      // simulated phone column on desktop.
       `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
-      `background:rgba(0,0,0,0.35);border:2px solid #666;z-index:6;` +
+      `background:rgba(80,30,120,0.35);border:2px solid #b07adc;z-index:6;` +
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
     const nub = document.createElement('div');
     nub.style.cssText =
       `position:absolute;left:${HALF}px;top:${HALF}px;` +
       `width:${NUB}px;height:${NUB}px;border-radius:50%;` +
-      `background:rgba(255,255,255,0.55);border:2px solid #fff;pointer-events:none;`;
+      `background:rgba(220,180,255,0.65);border:2px solid #fff;pointer-events:none;`;
     pad.appendChild(nub);
     document.body.appendChild(pad);
 
@@ -2869,6 +2962,7 @@ class MapScene extends Phaser.Scene {
       nub.style.left = `${HALF}px`;
       nub.style.top  = `${HALF}px`;
       this.joystickVec = { x: 0, y: 0 };
+      this._ghostPadHeld = false;
     };
     const place = (e) => {
       const rect = pad.getBoundingClientRect();
@@ -2886,6 +2980,7 @@ class MapScene extends Phaser.Scene {
       e.stopPropagation();
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
+      this._ghostPadHeld = true;
       place(e);
     });
     pad.addEventListener('pointermove', (e) => {
@@ -2910,6 +3005,9 @@ class MapScene extends Phaser.Scene {
     const gen = this._relicsGen || 0;
     if (this._relicRowGen === gen) return;
     this._relicRowGen = gen;
+    // Amulet → ghost mode: the pad lives or dies with the slot. Mirror it
+    // here so the toggle happens the moment a buy/forge writes save.relics.
+    this.syncGhostPad();
     const relics = this.save.relics || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];
     document.getElementById('relic-row')?.remove();
