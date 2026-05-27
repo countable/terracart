@@ -510,7 +510,7 @@
                 }
                 // Rare mushroom clusters in the same forest polygon. Independent RNG
                 // stream (different salt) so they don't co-locate with shrubs/nuts.
-                spawnDebris(f.geom, 'mushroom', (polyKey ^ 0xBADF00D) >>> 0, 0.015, 0.045);
+                spawnDebris(f.geom, 'mushroom', (polyKey ^ 0xBADF00D) >>> 0, 0.04, 0.10);
               }
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.

@@ -863,7 +863,6 @@ class MapScene extends Phaser.Scene {
     const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
     const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
     const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
-    const FOREST_ONLY    = new Set([1]);
     const PARKLAND       = new Set([1, 6]);                   // park + forest
     const splitPlace = (kind, n, primary, fallback, salt) => {
       const primN = Math.round(n * 0.8);
@@ -883,13 +882,13 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i < dogN; i++) tryPlace('dog', GLOBAL_NAT, i, 'dog');
     // Wilderness fauna:
     //   rabbit    → grass / forest / park (skittish, wide)
-    //   deer      → forest only (rare, weapon-gated)
+    //   deer      → forest + park (rare, weapon-gated)
     //   crow      → global — smart birds everywhere
     //   butterfly → park / forest (flower-rich biomes)
     const rabbitN = 30 + Math.floor(rng() * 20);
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
-    for (let i = 0; i < deerN; i++) tryPlace('deer', FOREST_ONLY, i, 'deer');
+    for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
     const crowN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
     const butterflyN = 40 + Math.floor(rng() * 20);
