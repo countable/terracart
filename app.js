@@ -1138,11 +1138,11 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +22 lands the dot at the sprite's feet (sprite scale 1.5 × 32 = 48,
-        // origin (.5,.5) so feet are at sprite_y + 24). Earlier +6 buried the
-        // first dots inside the sprite body where they were unreadable; now
-        // they sit on the grass just below the sprite.
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 22;
+        // +19 lands the dot right at the sprite's feet. (Sprite scale 1.5 × 32
+        // = 48, origin (.5,.5) so the sprite's nominal bottom is +24, but the
+        // visible foot pixels are a few px above the bottom of the texture —
+        // +19 sits flush rather than on the grass behind the heel.)
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 19;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
         this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 4);
       }
