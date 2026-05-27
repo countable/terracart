@@ -1020,8 +1020,10 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
+      // Chicken sheet is 16×16 (see assets.js note) — 2× scale lands it at
+      // a similar visual size to the 32×32 cow.
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
   });

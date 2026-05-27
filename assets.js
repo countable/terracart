@@ -11,7 +11,13 @@ const ASSETS = {
     // "front" frame for the right-hand cabin so we only render that.
     onLoad: (scene) => { scene.textures.get('house').add('front', 0, 148, 3, 72, 95); },
   },
-  chicken: { kind: 'spritesheet', path: 'Farm Animals/Chicken Red.png',        frameWidth: 32, frameHeight: 32 },
+  // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
+  // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
+  // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
+  // spawned chicken rendered as four. 16×16 plus a 2× scale in render.js
+  // keeps the visual footprint comparable to the cow. Frames {0, 1} on
+  // the top row form the idle animation pair.
+  chicken: { kind: 'spritesheet', path: 'Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
   cow:     { kind: 'spritesheet', path: 'Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
   // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
   // Frames: 0 = closed, 1 = open.

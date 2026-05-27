@@ -448,7 +448,7 @@ class MapScene extends Phaser.Scene {
     };
     const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
     window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
-    window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 32, 32);
+    window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets
     // file is gone). Frame 0 is the down-facing standing pose.
