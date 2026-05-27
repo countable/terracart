@@ -654,6 +654,12 @@ class MapScene extends Phaser.Scene {
     this._bodyM = null;
     this._ghostDistAccrue = 0;   // meters of ghost travel since last energy pip
 
+    // Debug-controls pad (opt-in via the ☰ menu). When save.debugControls is
+    // true the ghost pad is suppressed and a debug pad takes its slot —
+    // direct body movement at DEBUG_SPEED_MUL × walk speed, no energy cost.
+    this.debugJoystickVec = { x: 0, y: 0 };
+    this._debugPadHeld = false;
+
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
     // Compass + GPS are gated behind the safety-splash button click (the
@@ -1105,6 +1111,13 @@ class MapScene extends Phaser.Scene {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
       speedMul = ghostSpeedMul(this.save.relics) || 8;
+    } else if (this._debugPadHeld && this.debugJoystickVec) {
+      // Debug pad replaces the ghost pad while save.debugControls is on:
+      // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
+      // behaviour as the keyboard arrow keys, just touch-friendly).
+      vx = this.debugJoystickVec.x;
+      vy = this.debugJoystickVec.y;
+      speedMul = DEBUG_SPEED_MUL;
     }
     const moving = vx || vy;
     if (moving) {
@@ -3077,9 +3090,11 @@ class MapScene extends Phaser.Scene {
   }
   // Show or tear down the ghost pad based on amulet ownership. Called from
   // updateRelicRow so the pad appears the moment the player first equips an
-  // amulet (and disappears if they ever ditch it).
+  // amulet (and disappears if they ever ditch it). Debug controls win the
+  // slot — when save.debugControls is on the ghost pad is suppressed even
+  // if an amulet is equipped.
   syncGhostPad() {
-    const has = !!this.save.relics?.amulet;
+    const has = !!this.save.relics?.amulet && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -3162,6 +3177,95 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('pointercancel', release);
     pad.addEventListener('lostpointercapture', reset);
   }
+  // Debug pad — same footprint as the ghost pad but gold-tinted, replaces
+  // the ghost pad while save.debugControls is on, and drives the body
+  // directly at DEBUG_SPEED_MUL × walk speed instead of activating a ghost.
+  syncDebugPad() {
+    const want = !!this.save.debugControls;
+    const exists = !!document.getElementById('debug-pad');
+    if (want && !exists) this.buildDebugPad();
+    else if (!want && exists) this.removeDebugPad();
+  }
+  removeDebugPad() {
+    document.getElementById('debug-pad')?.remove();
+    this.debugJoystickVec = { x: 0, y: 0 };
+    this._debugPadHeld = false;
+  }
+  buildDebugPad() {
+    this.removeDebugPad();
+    const PAD = 110, NUB = 48;
+    const HALF = (PAD - NUB) / 2;
+    const R = HALF;
+    const pad = document.createElement('div');
+    pad.id = 'debug-pad';
+    // Gold tint so it reads as a dev/debug control rather than the purple
+    // ghost amulet pad. Same anchor point as the ghost pad — they're
+    // mutually exclusive (see syncGhostPad / syncDebugPad).
+    pad.style.cssText =
+      `position:fixed;` +
+      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
+      `background:rgba(120,90,20,0.35);border:2px solid #ffd96b;z-index:6;` +
+      `touch-action:none;user-select:none;-webkit-user-select:none;`;
+    const nub = document.createElement('div');
+    nub.style.cssText =
+      `position:absolute;left:${HALF}px;top:${HALF}px;` +
+      `width:${NUB}px;height:${NUB}px;border-radius:50%;` +
+      `background:rgba(255,224,128,0.7);border:2px solid #fff;pointer-events:none;`;
+    pad.appendChild(nub);
+    document.body.appendChild(pad);
+
+    let activePtr = null;
+    const reset = () => {
+      activePtr = null;
+      nub.style.left = `${HALF}px`;
+      nub.style.top  = `${HALF}px`;
+      this.debugJoystickVec = { x: 0, y: 0 };
+      this._debugPadHeld = false;
+    };
+    const place = (e) => {
+      const rect = pad.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top  + rect.height / 2;
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const m = Math.hypot(dx, dy);
+      if (m > R) { dx = dx / m * R; dy = dy / m * R; }
+      nub.style.left = `${HALF + dx}px`;
+      nub.style.top  = `${HALF + dy}px`;
+      this.debugJoystickVec = { x: dx / R, y: dy / R };
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      activePtr = e.pointerId;
+      pad.setPointerCapture(e.pointerId);
+      this._debugPadHeld = true;
+      place(e);
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== activePtr) return;
+      e.stopPropagation();
+      place(e);
+    });
+    const release = (e) => {
+      if (e.pointerId !== activePtr) return;
+      e.stopPropagation();
+      reset();
+    };
+    pad.addEventListener('pointerup', release);
+    pad.addEventListener('pointercancel', release);
+    pad.addEventListener('lostpointercapture', reset);
+  }
+  // Toggle entry point wired from the ☰ menu. Persists the flag, swaps the
+  // ghost pad for the debug pad (or back), and returns the new state so the
+  // menu button can update its label.
+  setDebugControls(on) {
+    this.save.debugControls = !!on;
+    persistSave(this.save);
+    this.syncGhostPad();
+    this.syncDebugPad();
+    return this.save.debugControls;
+  }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
   // per-frame row rebuild can early-out by comparing a counter instead of
   // recomputing a join-string of every slot every frame.
@@ -3172,7 +3276,10 @@ class MapScene extends Phaser.Scene {
     this._relicRowGen = gen;
     // Amulet → ghost mode: the pad lives or dies with the slot. Mirror it
     // here so the toggle happens the moment a buy/forge writes save.relics.
+    // syncDebugPad rides along so a save with debugControls already true
+    // gets its pad on first frame (the menu toggle path handles later flips).
     this.syncGhostPad();
+    this.syncDebugPad();
     const relics = this.save.relics || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];
     document.getElementById('relic-row')?.remove();

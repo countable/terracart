@@ -164,6 +164,7 @@
     <summary>☰</summary>
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
+      <button id="debug-controls">Debug controls: off</button>
       <button class="danger" id="reset-save">Reset save</button>
     </div>
   </details>
@@ -255,6 +256,27 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    // Debug controls: toggles a gold soft-joystick that drives the body at
+    // 10× walk speed. Replaces the purple ghost pad while on. The button
+    // label tracks state both before the scene loads (read save directly)
+    // and after each click (scene returns the new value).
+    const debugBtn = document.getElementById('debug-controls');
+    function setDebugBtnLabel(on) {
+      debugBtn.textContent = 'Debug controls: ' + (on ? 'on' : 'off');
+    }
+    try {
+      const raw = localStorage.getItem('terracart.save.v4');
+      const s = raw ? JSON.parse(raw) : null;
+      setDebugBtnLabel(!!(s && s.debugControls));
+    } catch { /* leave default 'off' */ }
+    debugBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.setDebugControls) return;
+      const next = !scene.save?.debugControls;
+      setDebugBtnLabel(scene.setDebugControls(next));
     });
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
@@ -354,6 +376,6 @@
   <script src="assets.js?v=145"></script>
   <script src="sandbox.js?v=15"></script>
   <script src="testtools.js?v=5"></script>
-  <script src="app.js?v=175"></script>
+  <script src="app.js?v=176"></script>
 </body>
 </html>
