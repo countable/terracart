@@ -208,8 +208,17 @@
         root.style.setProperty('--phone-left',  '0px');
         root.style.setProperty('--phone-right', '0px');
       } else {
-        // Fit the whole phone-shaped 352×844 game into the browser HEIGHT.
-        const s = vh / H;
+        // Desktop emulation: pin the simulated column to phone-sized widths
+        // (390..430 CSS px — iPhone regular ↔ Pro Max) so HUD overlays sized
+        // for a real phone don't cramp on short laptop windows. Tall windows
+        // also clamp to ≤430 so the column doesn't grow unrealistically big.
+        // #frame's overflow:hidden quietly clips the bottom if the column
+        // exceeds vh.
+        const PHONE_MIN = 390, PHONE_MAX = 430;
+        const sByHeight = vh / H;
+        const sByMaxW   = PHONE_MAX / W;
+        const sByMinW   = PHONE_MIN / W;
+        const s = Math.max(sByMinW, Math.min(sByHeight, sByMaxW));
         const phoneW = W * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
