@@ -274,9 +274,9 @@ Render.drawCells = function drawCells(scene) {
             // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
             // Phaser Text textures include the font's internal padding (typically
             // baseline gap + a 1-2px buffer). y still nudged -2 to optically
-            // centre the glyph in the cobble; x shifted +2 right of cell centre
+            // centre the glyph in the cobble; x shifted +1 right of cell centre
             // so the letter rides the cobble rather than its left gutter.
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2 + 2, sy + CELL_PX / 2 - 2)
+            lt.setText(info.char).setPosition(sx + CELL_PX / 2 + 1, sy + CELL_PX / 2 - 2)
               .setRotation(0).setVisible(true);
           } else {
             lt.setVisible(false);
