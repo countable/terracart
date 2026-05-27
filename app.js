@@ -2259,6 +2259,13 @@ class MapScene extends Phaser.Scene {
       this.flash('we are still working on something for you', sx, sy);
       return;
     }
+    // Traders sometimes prefer to BUY from the player. 30% chance per visit
+    // they roll a cash offer on a random non-empty stack in the inventory.
+    // Fall through to the regular trader barter if the roll fails or the
+    // player has nothing to trade.
+    if (shopType === 'trader' && Math.random() < 0.30) {
+      if (this.presentTraderCashOffer(sx, sy, house, recordDeal)) return;
+    }
     // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
     if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
@@ -2742,6 +2749,48 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // Trader cash-for-goods. Picks a random non-empty stack from the player's
+  // inventory and offers full PRICES[id] in cash for one of it. Better than
+  // the home sell (base sellMul = 0.5×) — the trader is a connoisseur, not
+  // a private buyer. Returns true if a modal was shown (caller should skip
+  // its normal trader-barter path); false if there was nothing to offer for
+  // (empty inventory or no priced items).
+  presentTraderCashOffer(sx, sy, house, recordDeal) {
+    const candidates = (this.save.inv || []).filter(s =>
+      s && s.id && (s.count ?? 0) > 0 && (PRICES?.[s.id] ?? 0) > 0);
+    if (candidates.length === 0) return false;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const sellId = pick.id;
+    const item = ITEM_BY_ID[sellId];
+    const price = Math.max(1, PRICES[sellId] ?? 1);
+    this.showOfferModal({
+      title: 'The trader is buying:',
+      get: `+$${price}`,
+      cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
+      canAfford: true,
+      acceptLabel: 'Sell',
+      onAccept: () => {
+        const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
+        if (idx < 0) { this.flash('gone', sx, sy); return; }
+        const cur = this.save.inv[idx];
+        cur.count -= 1;
+        addMoney(this.save, price);
+        if (cur.count <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.updateMoneyDOM) this.updateMoneyDOM();
+        this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
+      },
+    });
+    return true;
+  }
+
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
     const recipe = this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
@@ -2757,12 +2806,31 @@ class MapScene extends Phaser.Scene {
       const itm = ITEM_BY_ID[r.id];
       return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
     }).join(' + ');
+    // Re-roll mirrors the relic-offer flow: cost = 5 × 2^rerolls (climbs
+    // fast so it's a real decision), bumps curState.rerolls so the next
+    // peekOrBuildRelicOffer returns a different forge target.
+    const curState = house?.id ? this.shopBucketState(house) : null;
+    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
       title: 'The blacksmith will forge:',
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Trade',
+      secondary: {
+        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+        disabled: (this.save.money ?? 0) < rerollCost,
+        onClick: () => {
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
+          if (curState) curState.rerolls += 1;
+          const next = this.peekOrBuildRelicOffer(house);
+          if (!next) { this.flash('nothing else to forge', sx, sy); return; }
+          addMoney(this.save, -rerollCost);
+          persistSave(this.save);
+          this.updateHUD();
+          this.presentBlacksmithOffer(sx, sy, next, recordDeal, house);
+        },
+      },
       onAccept: () => {
         const curTier = offer.kind === 'relic'
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
