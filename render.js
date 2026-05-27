@@ -988,11 +988,15 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
-      // 16×16 sheet — half the dimensions of the 32×32 chicken/cow sheets,
-      // so scale doubles to keep them visually comparable. Row 0 is the
-      // down-walk cycle, which we loop as the "idle" animation.
-      const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
+      // The pet sheets in Icons/Pets are face-icon grids (no animation —
+      // each cell is a different breed face). We pin to frame 0 and STOP
+      // any animation the pool sprite might have been running for its
+      // previous occupant. Without the stop(), a leftover chicken-idle /
+      // cow-idle keeps cycling and periodically re-stamps that creature's
+      // texture onto this sprite — so a cat would visibly morph into a
+      // chicken on every anim tick.
+      if (s.texture.key !== c.kind) { s.anims?.stop(); s.setTexture(c.kind, 0); }
+      s.setFrame(0);
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
