@@ -936,9 +936,13 @@
     for (const o of keptStructs) objects.push(o);
     for (const o of keptFlora)   objects.push(o);
     for (const o of otherKinds)  objects.push(o);
-    // Road-name letters: walk each transportation_name line at ~1 cell per step and assign the
-    // next character of the name to whatever cell we're in. Last writer wins on overlap (good
-    // enough; intersections are noisy by nature). Skip whitespace so spaces don't blank cells.
+    // Road-name letters: walk each transportation_name line at ~1 cell per step
+    // and stamp ONE letter per road cell, cycling through "FIRSTWORD " (the
+    // first word of the name plus a single space gap before it repeats).
+    // To keep labels readable, we pre-orient each polyline so it reads
+    // left-to-right (predominantly horizontal roads) or top-to-bottom
+    // (predominantly vertical roads), reversing the line if its raw direction
+    // points the "wrong" way. Cells visited more than once skip the duplicate.
     // Stored as { "ix_iy": { char, angle } }.
     const roadLetters = {};
     const tnLayer = layersByName['transportation_name'];
@@ -948,17 +952,24 @@
         if (f.type !== 2) continue;
         const name = f.tags?.name;
         if (!name) continue;
-        // Single-letter labels: every cell along this road gets the road name's
-        // first letter (uppercase). Keeps the map legible without long captions.
-        const first = name.replace(/^\s+/, '').charAt(0).toUpperCase();
-        if (!first) continue;
-        const letters = first;
-        for (const line of f.geom) {
-          if (line.length < 2) continue;
+        // First word only, then a literal space — the space leaves a one-cell
+        // gap before the word repeats so the eye gets a natural break.
+        const firstWord = name.trim().split(/\s+/)[0];
+        if (!firstWord) continue;
+        const letters = (firstWord + ' ').toUpperCase();
+        for (const lineOrig of f.geom) {
+          if (lineOrig.length < 2) continue;
+          // Reverse the polyline if its overall direction reads right-to-left
+          // or bottom-to-top — letters always lay out LTR / top-down.
+          const a = lineOrig[0], b = lineOrig[lineOrig.length - 1];
+          const ndx = b.x - a.x, ndy = b.y - a.y;
+          const horizontal = Math.abs(ndx) >= Math.abs(ndy);
+          const reverse = (horizontal && ndx < 0) || (!horizontal && ndy < 0);
+          const line = reverse ? lineOrig.slice().reverse() : lineOrig;
+
           let letterIdx = 0;
-          // Step ~1 cell along the polyline.
+          let lastKey = '';
           const stepMvt = CELL_M / mvtToM;
-          let curX = line[0].x, curY = line[0].y;
           for (let i = 1; i < line.length; i++) {
             const ax = line[i - 1].x, ay = line[i - 1].y;
             const bx = line[i].x,     by = line[i].y;
@@ -967,21 +978,23 @@
             if (segLen < 1e-6) continue;
             // Local direction in radians (note: MVT y grows downward → that matches screen y).
             const ang = Math.atan2(segDy, segDx);
-            // March along this segment.
-            let remaining = segLen - Math.hypot(curX - ax, curY - ay);
             const ux = segDx / segLen, uy = segDy / segLen;
-            // Single-letter mode: place the letter every few cells along the road
-            // (not every cell — too noisy). Skip three of every four candidate cells.
+            // March along the segment from its start, one cell-width per step.
+            let curX = ax, curY = ay;
+            let remaining = segLen;
             while (remaining >= 0) {
               const ix = Math.floor(curX * mvtToCell);
               const iy = Math.floor(curY * mvtToCell);
-              if (ix >= 0 && iy >= 0 && ix < w && iy < h && ROAD_TYPES.has(grid[iy * w + ix])) {
-                // Stamp the road's initial every 4th candidate cell so labels
-                // are visible but not densely repeated.
-                if ((letterIdx & 3) === 0) {
-                  roadLetters[`${ix}_${iy}`] = { char: letters, angle: ang };
-                }
+              const key = `${ix}_${iy}`;
+              if (key !== lastKey &&
+                  ix >= 0 && iy >= 0 && ix < w && iy < h &&
+                  ROAD_TYPES.has(grid[iy * w + ix])) {
+                const ch = letters.charAt(letterIdx % letters.length);
+                // Space cells stay visually blank (no entry written) so the
+                // gap between repeats reads as cobble showing through.
+                if (ch !== ' ') roadLetters[key] = { char: ch, angle: ang };
                 letterIdx++;
+                lastKey = key;
               }
               curX += ux * stepMvt;
               curY += uy * stepMvt;

@@ -488,7 +488,7 @@ class MapScene extends Phaser.Scene {
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 13px serif', color: '#000000',
+        font: 'bold 11px serif', color: '#000000',
       }).setOrigin(0.5, 0.5).setAlpha(0.40).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
