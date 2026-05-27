@@ -326,13 +326,16 @@
   // using procedurally-generated 16x16 textures.
   // dMin/dMax is the per-polygon density range — each polygon rolls its own
   // density inside this range (so some grass fields are barren, others bloom).
+  // Every grass/park polygon shows SOME flowers (dMin > 0) so a grass tile
+  // never reads as flowerless. dMax stays modest — fields shouldn't be
+  // wall-to-wall blossoms. Polygon picks one density + one color variant.
   const FLORA_BY_TYPE = {
-    [T.GRASS]:      { deco: 'flower', dMin: 0.0, dMax: 0.05 },
-    [T.PARK]:       { deco: 'flower', dMin: 0.0, dMax: 0.05 },
-    [T.GOLF]:       { deco: 'flower', dMin: 0.0, dMax: 0.05 },
-    [T.PITCH]:      { deco: 'flower', dMin: 0.0, dMax: 0.05 },
-    [T.PLAYGROUND]: { deco: 'flower', dMin: 0.0, dMax: 0.05 },
-    [T.WETLAND]:    { deco: 'flower', dMin: 0.0, dMax: 0.05 },
+    [T.GRASS]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    [T.PARK]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    [T.GOLF]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    [T.PITCH]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    [T.PLAYGROUND]: { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    [T.WETLAND]:    { deco: 'flower', dMin: 0.015, dMax: 0.06 },
   };
   const FLORA_VARIANTS = { flower: 4 };
 
