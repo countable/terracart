@@ -1,0 +1,12 @@
+# Core (always needed)
+Pillow>=10.0
+
+# OSM source needs nothing extra (stdlib urllib + json)
+
+# DeepForest source
+deepforest>=1.4   ; extra == "trees"
+
+# Grounding DINO source (HuggingFace impl, easier than the original repo)
+torch>=2.0        ; extra == "objects"
+torchvision>=0.15 ; extra == "objects"
+transformers>=4.40; extra == "objects"

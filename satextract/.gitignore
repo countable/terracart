@@ -1,0 +1,6 @@
+tiles_cache/
+*.geojson
+mosaic*.png
+.venv/
+__pycache__/
+*.egg-info/
