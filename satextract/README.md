@@ -37,15 +37,25 @@ pip install -e ".[all]"
 ## Run
 
 ```bash
+# Rectangle (min_lat,min_lon,max_lat,max_lon)
 python -m satextract.cli \
     --bbox 49.8735,-119.4955,49.8770,-119.4905 \
     --zoom 19 \
     --sources osm,trees,objects \
     --mosaic mosaic.png \
-    --out features.geojson
+    --out features.geojson \
+    --viz features.html
+
+# Or a square around a point (handy for "around my house")
+python -m satextract.cli \
+    --center 49.8750,-119.4930 --radius_m 150 \
+    --sources osm \
+    --out around_home.geojson --viz around_home.html
 ```
 
-bbox is `min_lat,min_lon,max_lat,max_lon`.
+`--viz` writes a self-contained Leaflet HTML page (Esri imagery + OSM
+toggle, points coloured by source, popups with kind / score / tags).
+Open it with `file://` — no server needed.
 
 See `examples/run_kelowna.sh` for the screenshot's neighborhood.
 
