@@ -891,8 +891,21 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
     return Shops.shopLabel(o);
   };
+  // Sign ink for themed houses → matches the role's primary colour (same
+  // hue we mix into the brick base under each one), so the label and the
+  // foundation read as the same "house identity" at a glance. Plain shops
+  // (none today — all shopTypes are themed) would still fall back to
+  // Shops.shopInk if they ever appeared.
+  const _ROLE_INK = {
+    trailer:    '#a8b0c0',
+    blacksmith: '#c25a3a',
+    trader:     '#6a8aa6',
+    market:     '#a84a3a',
+  };
   const _houseSignInk = (o) => {
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return '#ffe066';
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
+    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+    if (t && _ROLE_INK[t]) return _ROLE_INK[t];
     return Shops.shopInk(o);
   };
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
@@ -908,7 +921,7 @@ Render.drawObjects = function drawObjects(scene) {
         backgroundColor: SHOP_INK_BG,
         padding: { x: 4, y: 2 },
         stroke: SHOP_STROKE, strokeThickness: 2,
-      }).setOrigin(0.5, 1).setDepth(50);
+      }).setOrigin(0.5, 0).setDepth(50);
       // Drop-shadow offset down-right with no blur so the sign reads as a
       // hung wooden plank, not a glowing rune. shadowFill=true paints the
       // shadow onto the glyph fill (and the wider stroke extends the
@@ -917,11 +930,13 @@ Render.drawObjects = function drawObjects(scene) {
       scene.objectsContainer.add(tx);
       scene.shopLabelPool.push(tx);
     }
-    // House sprite origin is [0.5, 0.9] with scale 0.6 — its top sits roughly
-    // height*0.6*0.9 above sy. Anchor the label just above that.
+    // House sprite origin is [0.5, 0.9] — sy is roughly the building's foot.
+    // Anchor the label TOP just below sy so the sign tucks under the
+    // building, almost touching the doorstep (origin set to [0.5, 0] at
+    // pool creation so position y = label top).
     tx.setText(_houseSignText(o))
       .setColor(_houseSignInk(o))
-      .setPosition(Math.round(sx), Math.round(sy - 26))
+      .setPosition(Math.round(sx), Math.round(sy + 7))
       .setVisible(true);
     sli++;
   }
