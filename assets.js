@@ -67,18 +67,6 @@ const ASSETS = {
   mushroom_world: { kind: 'spritesheet', path: 'Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
-  // Gem inventory icons — 7×4 sheet of 16×16 frames. Sapphire / ruby /
-  // emerald previously rendered as emoji-dot fallbacks (🔵/🔴/🟢) which on
-  // most platforms read as plain coloured circles. inventoryIconSource()
-  // resolves the named gems to specific frames in this sheet.
-  gems:        { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Gemstones.png', frameWidth: 16, frameHeight: 16 },
-  // Coal — 2×2 sheet, frame 0 is the standard piece.
-  coal_icon:   { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Coal.png',      frameWidth: 16, frameHeight: 16 },
-  // Bars and ores — 256×64 = 16 cols × 4 rows of 16×16 frames. We treat
-  // the first row as bars in tier order (copper, iron, gold, platinum,
-  // crimson, frost). Ore frames in the lower rows are skipped — mineralrocks
-  // drop bars directly, no smelting step.
-  bars:        { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Bars and ores.png', frameWidth: 16, frameHeight: 16 },
   // Magic Crafting Shrine — 288×144 = 6 cols × 3 rows of 48×48 stone-altar
   // variants. Each shrine level uses a different frame so the altar visibly
   // evolves: L1 → frame 0, L7 → frame 6 (top-row left-to-right). Anchored
