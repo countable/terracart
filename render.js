@@ -623,6 +623,7 @@ Render.drawObjects = function drawObjects(scene) {
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     if (t === 'blacksmith') return 'blacksmith';
     if (t === 'trader')     return 'trader';
+    if (t === 'market')     return 'market';
     return 'plain';
   };
   const RENDER_SPEC = {
@@ -1036,11 +1037,11 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
       // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
-      // cycle defined in app.js. Cat ~1.3 reads at proper "cat-size" next to
-      // the cow; dog stays 1.0 since the sheet's frame fills more of its
-      // 32×32 cell (dog is naturally chunkier than the cat sprite).
+      // cycle defined in app.js. Both pets at 1.3 — the dog sheet's frame
+      // fills more of its 32×32 cell than the cat's does, so they read as
+      // visually similar despite sharing the scalar.
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      const sc = c.kind === 'cat' ? 1.3 : 2.0;
+      const sc = 1.3;
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
       s.setOrigin(0.5, 0.9).setScale(sc).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
@@ -1052,10 +1053,12 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.3).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
-      // 16×16 sheet → 1.8× (a touch smaller than chicken — they're rabbits).
+      // 16×16 sheet → 1.5× (per user). Reads a touch smaller than the
+      // chicken's 1.20 + cow's 1.20 because the rabbit's per-frame footprint
+      // fills less of its 16×16 cell.
       if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.8).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.5).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
       // 32×32 sheet (see assets.js comment). Row 0 frames 0-4 are the ground
@@ -1074,10 +1077,10 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFlipX(!!c._faceFlip);
     } else {
       // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
-      // Per user → 1.00 (16 px native), with the cow trimmed to 1.20 so the
-      // chicken/cow size ratio reads tighter (close-to-realistic 1:~1.5).
+      // Per user → 1.20 (still well under the cow's 1.20 because the chicken
+      // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1.00).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
   });

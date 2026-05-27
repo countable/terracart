@@ -97,6 +97,7 @@ const ASSETS = {
   // function. Anchored at origin (0.5, 0.9) like the base house.
   house_blacksmith: { kind: 'image', path: 'Objects/Houses/blacksmith.png' },
   house_trader:     { kind: 'image', path: 'Objects/Houses/trader.png' },
+  house_market:     { kind: 'image', path: 'Objects/Houses/market.png' },
   house_fort:       { kind: 'image', path: 'Objects/Houses/fort.png' },
   house_trailer:    { kind: 'image', path: 'Objects/Houses/trailer.png' },
 };
