@@ -276,14 +276,31 @@
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
     });
-    document.getElementById('reset-save').addEventListener('click', (e) => {
+    // Full nuke: save data + service worker + every offline cache. We do
+    // the SW / caches sweep too so a stale app shell can't survive a reset
+    // — the player (and devs chasing weird behaviour) gets a truly clean
+    // load. Errors are swallowed individually so a missing SW or caches
+    // API never blocks the reload.
+    document.getElementById('reset-save').addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Wipe all saved progress (inventory, planted crops, opened chests)?')) return;
-      // Clear every terracart save key (current + any older versions).
+      if (!confirm('Wipe ALL saved progress AND offline cache (forces a fresh app download)?')) return;
+      // 1) Save data — every terracart.* key (current + any older versions).
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
         if (k && k.startsWith('terracart.')) localStorage.removeItem(k);
       }
+      // 2) Service worker — unregister so the next load fetches a fresh sw.js.
+      try {
+        const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+      } catch {}
+      // 3) Caches API — drop every cache bucket (app shell + MVT tiles).
+      try {
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+        }
+      } catch {}
       location.reload();
     });
 
