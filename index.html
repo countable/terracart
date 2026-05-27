@@ -171,6 +171,7 @@
   <div id="hud"></div>
   <div id="safety">
     <div class="box">
+      <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:#ffd96b;">Welcome to Pocket Acres</h2>
       <p>Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <button id="safety-dismiss">Get my location</button>
     </div>
@@ -222,8 +223,11 @@
         const phoneW = W * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
+        // #frame is already left/right-inset by var(--phone-*), so #game sits
+        // at 0,0 inside #frame — setting g.style.left = left would double the
+        // offset and push the game off-centre to the right.
         g.style.transform = `scale(${s})`;
-        g.style.left = left + 'px';
+        g.style.left = '0px';
         g.style.top  = '0px';
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
