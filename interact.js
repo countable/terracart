@@ -198,6 +198,14 @@ const TAP_HANDLERS = [
       const discountTier = cfg.catchDiscountRelic ? (r[cfg.catchDiscountRelic]?.tier || 0) : 0;
       const energyCost = Math.max(1, baseCost - discountTier);
       if (!scene.spendEnergy(energyCost, sx, sy)) return true;
+      // Pulse whichever relic just fired: the gate (e.g. bugnet for flyers)
+      // and the discount (same slot, today, but the data model allows them
+      // to differ).
+      if (cfg.catchDiscountRelic && r[cfg.catchDiscountRelic]) scene.flashRelic(cfg.catchDiscountRelic);
+      else if (cfg.requiresAnyRelic) {
+        const fired = cfg.requiresAnyRelic.find(slot => r[slot]);
+        if (fired) scene.flashRelic(fired);
+      }
       save.caught.push(target.id);
       save.caughtKinds = save.caughtKinds || {};
       save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
@@ -293,6 +301,7 @@ const TAP_HANDLERS = [
         const durMs = (typeof toolDurationMs === 'function')
           ? toolDurationMs(save.relics, reqRelic)
           : (save.relics?.[reqRelic] ? 3000 : 10000);
+        if (save.relics?.[reqRelic]) scene.flashRelic(reqRelic);
         scene.startWorkProgress(wp.x, wp.y, award, durMs);
       } else {
         award();
@@ -396,6 +405,11 @@ const TAP_HANDLERS = [
         scene.addToInv(loot.id, loot.n);
         save.opened.push(o.id);
         ctx.dirty = true;
+        // Ring nudges loot up a tier; amulet boosts quantity. Both fire
+        // passively inside pickLoot — pulse them so the player learns which
+        // relic helped this drop.
+        if (save.relics?.ring)   scene.flashRelic('ring');
+        if (save.relics?.amulet) scene.flashRelic('amulet');
         const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
         // Sprite shows the loot — drop the icon from the text.
         scene.flashLoot(`${lootName} ×${loot.n}`, tierInfo(loot.id).color, 1.25, loot.id);
@@ -411,6 +425,7 @@ const TAP_HANDLERS = [
         if (!save.relics?.axe) { scene.flash('need an axe', sx, sy); return true; }
         const durMs = (typeof toolDurationMs === 'function')
           ? toolDurationMs(save.relics, 'axe') : 3000;
+        scene.flashRelic('axe');
         scene.startWorkProgress(o.x, o.y, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
@@ -451,6 +466,7 @@ const TAP_HANDLERS = [
         const cost = 10 + (o.requiredTier - 1) * 4;
         if (!scene.spendEnergy(cost, sx, sy)) return true;
         const durMs = (3 + (o.requiredTier - 1) * 1) * 1000;
+        scene.flashRelic('pick');
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
@@ -591,6 +607,7 @@ const TAP_HANDLERS = [
     const durMs = (typeof pickDurationMs === 'function')
       ? pickDurationMs(save.relics)
       : (save.relics?.pick ? 3000 : 10000);
+    if (save.relics?.pick) scene.flashRelic('pick');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.brokenRockSet.add(cellKey);
       save.brokenRocks = [...scene.brokenRockSet];
@@ -661,6 +678,7 @@ const TAP_HANDLERS = [
         const filled = (save.canCharges ?? 0) > 0;
         p.canBoost = can.tier + (filled ? 2 : 0);
         if (filled) save.canCharges -= 1;
+        scene.flashRelic('can');
       }
       ctx.dirty = true;
       scene.flash(p.canBoost ? `💧 watered +${p.canBoost}` : '💧 watered', sx, sy);
@@ -679,6 +697,7 @@ const TAP_HANDLERS = [
     if (!save.relics?.can) return false;         // no can equipped
     save.canCharges = 50;
     ctx.dirty = true;
+    scene.flashRelic('can');
     scene.flash('🪣 can refilled (50 charges)', sx, sy);
     return true;
   }},
@@ -695,6 +714,7 @@ const TAP_HANDLERS = [
       return true;
     }
     if (!scene.spendEnergy(5, sx, sy)) return true;
+    scene.flashRelic('rod');
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 1;
       const fish = [
@@ -796,6 +816,7 @@ const TAP_HANDLERS = [
     const tillCost = (typeof effectiveTillCost === 'function')
       ? effectiveTillCost(save.relics) : (ENERGY_COST?.till ?? 0);
     if (!scene.spendEnergy(tillCost, sx, sy)) return true;
+    if (save.relics?.hoe) scene.flashRelic('hoe');
     scene.tilledSet.add(cellKey);
     save.tilled = [...scene.tilledSet];
     ctx.dirty = true;

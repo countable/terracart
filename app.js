@@ -1788,6 +1788,9 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.updateMoneyDOM();
+        // Sword raises sell prices (sellMultiplier); pulse it so the player
+        // sees which relic just helped the deal.
+        if (this.save.relics?.sword) this.flashRelic('sword');
         // Sprite shows the sold item — drop the item-icon emoji from the text.
         this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
       },
@@ -1826,6 +1829,10 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.updateMoneyDOM();
+        // Bow + staff both lower buyMarkupRange (max-tier wins) — pulse
+        // whichever is equipped so the player sees the markdown source.
+        if (this.save.relics?.bow)   this.flashRelic('bow');
+        if (this.save.relics?.staff) this.flashRelic('staff');
         // Loud loot pop so a purchase reads as a real gain. Sprite shows the
         // bought item — drop the item-icon emoji.
         this.flashLoot(`🪙 ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
@@ -2311,7 +2318,10 @@ class MapScene extends Phaser.Scene {
     if (this._relicRowGen === gen) return;
     this._relicRowGen = gen;
     const relics = this.save.relics || {};
-    const order = ['pick','axe','sword','bow','staff','ring','amulet'];
+    // Order mirrors the gameplay loop: tools, weapons, jewellery, utility.
+    // can/hoe/bugnet/rod live at the tail so the row only widens once those
+    // slots are filled.
+    const order = ['pick','axe','sword','bow','staff','ring','amulet','can','hoe','bugnet','rod'];
     document.getElementById('relic-row')?.remove();
     const owned = order.filter(s => relics[s]);
     if (!owned.length) return;
@@ -2323,11 +2333,27 @@ class MapScene extends Phaser.Scene {
     row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:8px;display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
     for (const slot of owned) {
       const wrap = document.createElement('span');
+      wrap.dataset.slot = slot;   // flashRelic() finds the icon by slot
       wrap.style.cssText = 'display:inline-block;line-height:0;';
       wrap.innerHTML = this.gearIconHTML('relic', slot, relics[slot].tier, 20);
       row.appendChild(wrap);
     }
     document.body.appendChild(row);
+  }
+  // Pulse a relic icon in the HUD to signal "this relic just fired". Safe to
+  // call with a slot that isn't owned (no row entry → no-op). Re-fires
+  // require removing the class first so the animation restarts.
+  flashRelic(slot) {
+    const row = document.getElementById('relic-row');
+    if (!row) return;
+    const el = row.querySelector(`[data-slot="${slot}"]`);
+    if (!el) return;
+    el.classList.remove('relic-flash');
+    // Force reflow so removing + re-adding restarts the animation. Without
+    // this the browser coalesces the two style changes and the class is
+    // effectively a no-op when the relic fires twice within one frame.
+    void el.offsetWidth;
+    el.classList.add('relic-flash');
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);

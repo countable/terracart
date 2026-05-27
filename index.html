@@ -111,6 +111,16 @@
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
+    /* Relic icon flash — pulse the wrapper when the relic's effect fires.
+       Quick scale + warm-yellow glow so the player sees "this relic helped"
+       at a glance. flashRelic() in app.js re-triggers by toggling the class
+       (animation must be removed first to restart on rapid re-fires). */
+    @keyframes relicFlash {
+      0%   { transform: scale(1);    filter: drop-shadow(0 0 0 #ffe066); }
+      30%  { transform: scale(1.45); filter: drop-shadow(0 0 6px #ffe066); }
+      100% { transform: scale(1);    filter: drop-shadow(0 0 0 #ffe066); }
+    }
+    .relic-flash { animation: relicFlash 600ms ease-out; }
   </style>
 </head>
 <body>
@@ -270,11 +280,11 @@
   <script src="items.js?v=132"></script>
   <script src="shops.js?v=3"></script>
   <script src="loot.js?v=130"></script>
-  <script src="interact.js?v=132"></script>
+  <script src="interact.js?v=133"></script>
   <script src="render.js?v=131"></script>
   <script src="assets.js?v=130"></script>
   <script src="sandbox.js?v=2"></script>
   <script src="testtools.js?v=3"></script>
-  <script src="app.js?v=132"></script>
+  <script src="app.js?v=133"></script>
 </body>
 </html>
