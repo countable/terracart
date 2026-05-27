@@ -550,6 +550,16 @@ const TAP_HANDLERS = [
         scene.shopInteract(sx, sy, o);
         return true;
       }
+      if (o.kind === 'shrine') {
+        // Magic Crafting Shrine — opens level-up + transform UI.
+        if (typeof scene.shrineInteract === 'function') {
+          scene.shrineInteract(sx, sy, o);
+        } else {
+          const lvl = save.shrineLevel || 1;
+          scene.flash(`shrine L${lvl}`, sx, sy);
+        }
+        return true;
+      }
       if (o.kind === 'fruittree') {
         const pickedSet = new Set(save.picked || []);
         if (pickedSet.has(o.id)) {

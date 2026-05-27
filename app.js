@@ -233,6 +233,12 @@ class MapScene extends Phaser.Scene {
     if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
     if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
     if (this.save.relics.bags === undefined)   this.save.relics.bags = null;
+    // Magic Crafting Shrine — one per game, spawned on the start tile at
+    // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
+    // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
+    // save.shrine = { id, x, y } once spawned; null until then.
+    if (this.save.shrine === undefined)      this.save.shrine = null;
+    if (this.save.shrineLevel === undefined) this.save.shrineLevel = 1;
     // Per-shop bucket state: { [houseId]: { bucket, deals, rerolls } }.
     // Replaces the old shopDeals (rolling timestamp array) + shopOffers
     // (cached offer object) — both are re-derivable from a seeded RNG keyed
@@ -895,6 +901,68 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
+
+    // Magic Crafting Shrine — one per game. Placed adjacent to the nearest
+    // POI that's ≥200m from the player's start. We try to spawn on the
+    // start tile (most common case); if no qualifying POI here, the next
+    // loaded tile gets a shot at hosting it. save.shrine pins the world
+    // position once chosen so the placement is stable across reloads.
+    if (!this.save.shrine) {
+      this._trySpawnShrineOnTile(entry, tx, ty);
+    } else if (
+      this.save.shrine.x >= tx0 && this.save.shrine.x < tx0 + this.tileEdgeM &&
+      this.save.shrine.y >= ty0 && this.save.shrine.y < ty0 + this.tileEdgeM
+    ) {
+      // Already spawned — make sure the live entry.objects has the shrine
+      // so the renderer can draw it (objects get rebuilt on tile load).
+      const s = this.save.shrine;
+      const already = (entry.objects || []).some(o => o.kind === 'shrine' && o.id === s.id);
+      if (!already) {
+        entry.objects = entry.objects || [];
+        entry.objects.push({ kind: 'shrine', x: s.x, y: s.y, id: s.id });
+      }
+    }
+  }
+
+  _trySpawnShrineOnTile(entry, tx, ty) {
+    if (this.save.shrine) return;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const sx = this.startWorldM.x, sy = this.startWorldM.y;
+    // Find POIs (chests are pinned to POIs) on this tile that are at least
+    // 200m from spawn. Walk objects, score by distance, take nearest.
+    const MIN_DIST_M = 200;
+    let best = null, bestD2 = Infinity;
+    for (const o of (entry.objects || [])) {
+      if (o.kind !== 'chest') continue;
+      const dx = o.x - sx, dy = o.y - sy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < MIN_DIST_M * MIN_DIST_M) continue;
+      if (d2 < bestD2) { best = o; bestD2 = d2; }
+    }
+    if (!best) return;
+    // Place the shrine one cell east of the POI, on a walkable tile if
+    // possible. Falls back to the POI's own cell if every neighbour is
+    // blocked (rare — shrines on a road/building cell still render fine).
+    const N = entry.cellsPerEdge;
+    const poiCellX = Math.floor((best.x - tx0) / this.cellM);
+    const poiCellY = Math.floor((best.y - ty0) / this.cellM);
+    const cellOK = (cx, cy) => {
+      if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
+      const t = entry.grid[cy * N + cx];
+      return t !== 3 && t !== 9 && t !== 11 && t !== 12;   // no water/buildings
+    };
+    const OFFSETS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    let placeCellX = poiCellX, placeCellY = poiCellY;
+    for (const [dx, dy] of OFFSETS) {
+      if (cellOK(poiCellX + dx, poiCellY + dy)) { placeCellX = poiCellX + dx; placeCellY = poiCellY + dy; break; }
+    }
+    const wmx = tx0 + (placeCellX + 0.5) * this.cellM;
+    const wmy = ty0 + (placeCellY + 0.5) * this.cellM;
+    const id = `shrine_${tx}_${ty}_${placeCellX}_${placeCellY}`;
+    this.save.shrine = { id, x: wmx, y: wmy };
+    entry.objects = entry.objects || [];
+    entry.objects.push({ kind: 'shrine', x: wmx, y: wmy, id });
+    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // === Tick ===
@@ -2301,6 +2369,162 @@ class MapScene extends Phaser.Scene {
       frost_bar:    [{ id: 'iceflower',    qty: 1 }, { id: 'crimson_bar',  qty: 1 }],
     };
     return RECIPES[barId] || null;
+  }
+
+  // ─── Magic Crafting Shrine ───────────────────────────────────────
+  // The shrine is a per-game upgradable altar spawned near the player's
+  // start. Tap it to either (a) level it up by paying a harvest bundle of
+  // 5× three items at the next tier, or (b) trade a flower/produce for a
+  // matching bar using one of the transforms unlocked so far.
+  //
+  // Each level unlocks one new produce → bar transform. shrineLevel is the
+  // CURRENT level (capped at 7); shrineLevelUpCost(level) returns the cost
+  // to advance ABOVE that level.
+
+  // Cost to advance from `level` to `level + 1`. Always 5 × 3 distinct items
+  // at the same tier as the level you're currently sitting at.
+  shrineLevelUpCost(level) {
+    if (level >= 7) return null;
+    // Indexed by current level. Index 1 = the bundle to go from L1 → L2.
+    // T4-T6 substitute seeds for the missing animal-byproduct slot.
+    const BUNDLES = [, // 0: unused
+      [{ id: 'potato',     qty: 5 }, { id: 'egg',           qty: 5 }, { id: 'coal',         qty: 5 }],  // L1→L2 (T1)
+      [{ id: 'rainberry',  qty: 5 }, { id: 'milk',          qty: 5 }, { id: 'copper_bar',   qty: 5 }],  // L2→L3 (T2)
+      [{ id: 'coffee',     qty: 5 }, { id: 'meat',          qty: 5 }, { id: 'iron_bar',     qty: 5 }],  // L3→L4 (T3)
+      [{ id: 'sunflower',  qty: 5 }, { id: 'sunflower_seed',qty: 5 }, { id: 'gold_bar',     qty: 5 }],  // L4→L5 (T4)
+      [{ id: 'fireflower', qty: 5 }, { id: 'fireflower_seed',qty:5 }, { id: 'platinum_bar', qty: 5 }],  // L5→L6 (T5)
+      [{ id: 'iceflower',  qty: 5 }, { id: 'iceflower_seed', qty:5 }, { id: 'crimson_bar',  qty: 5 }],  // L6→L7 (T6)
+    ];
+    return BUNDLES[level] || null;
+  }
+
+  // Transforms unlocked at each level. Index = level, value = { input, output }.
+  // Each transform is 1 produce → 1 bar. shrineLevel >= entry.level means
+  // the player has unlocked that transform.
+  static SHRINE_TRANSFORMS = [, // 0,1 unused
+    null,                                            // L1: nothing
+    { input: 'rainberry',  output: 'copper_bar' },   // L2
+    { input: 'coffee',     output: 'iron_bar' },     // L3
+    { input: 'sunflower',  output: 'gold_bar' },     // L4
+    { input: 'fireflower', output: 'platinum_bar' }, // L5
+    { input: 'iceflower',  output: 'crimson_bar' },  // L6
+    { input: 'iceflower',  output: 'frost_bar' },    // L7 — endgame, ALSO iceflower
+  ];
+
+  // All transforms the player currently has access to (level <= shrineLevel).
+  shrineTransforms() {
+    const lvl = this.save.shrineLevel || 1;
+    const out = [];
+    for (let i = 2; i <= Math.min(lvl, 7); i++) {
+      const t = MapScene.SHRINE_TRANSFORMS[i];
+      if (t) out.push({ level: i, ...t });
+    }
+    return out;
+  }
+
+  // Shrine tap handler. Presents a single-modal offer: either the next
+  // level-up bundle (if the player has every ingredient) OR a transform
+  // (if the player has matching produce selected). On the first tap with
+  // no selection we show the level-up bundle path.
+  shrineInteract(sx, sy, shrine) {
+    if (document.getElementById('offer-modal')) return;
+    const heldCount = (id) =>
+      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const consume = (id, n) => {
+      let left = n;
+      for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
+        const s = this.save.inv[i];
+        if (!s || s.id !== id) continue;
+        const take = Math.min(left, s.count ?? 0);
+        s.count -= take; left -= take;
+        if ((s.count ?? 0) <= 0) {
+          this.save.inv.splice(i, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+      }
+    };
+    const lvl = this.save.shrineLevel || 1;
+    const sel = this.save.inv[this.save.selSlot];
+    const transforms = this.shrineTransforms();
+
+    // If the player has a matching produce selected, offer the transform.
+    const matching = sel ? transforms.find(t => t.input === sel.id) : null;
+    if (matching && (sel.count ?? 0) > 0) {
+      const inItem = ITEM_BY_ID[matching.input];
+      const outItem = ITEM_BY_ID[matching.output];
+      this.showOfferModal({
+        title: 'The shrine glows. Transform?',
+        get: `1× ${this.iconSpanHTML(matching.output)} ${outItem?.name || matching.output}`,
+        cost: `1× ${this.iconSpanHTML(matching.input)} ${inItem?.name || matching.input}`,
+        canAfford: true,
+        acceptLabel: 'Transform',
+        onAccept: () => {
+          if (heldCount(matching.input) < 1) { this.flash('gone', sx, sy); return; }
+          consume(matching.input, 1);
+          this.addToInv(matching.output, 1);
+          persistSave(this.save);
+          this.buildInventoryDOM();
+          this.flashLoot(`✨ ${outItem?.name || matching.output}`, '#a7e9ff', 1.25, matching.output);
+        },
+      });
+      return;
+    }
+
+    // No matching produce selected — present the next level-up bundle.
+    const bundle = this.shrineLevelUpCost(lvl);
+    if (!bundle) {
+      // Maxed out at level 7 — list the transforms.
+      const lines = transforms.map(t => {
+        const i = ITEM_BY_ID[t.input], o = ITEM_BY_ID[t.output];
+        return `${this.iconSpanHTML(t.input)} ${i?.name} → ${this.iconSpanHTML(t.output)} ${o?.name}`;
+      }).join('<br>');
+      this.showOfferModal({
+        title: 'Magic Crafting Shrine (Level 7)',
+        get: `the shrine hums at full power`,
+        blurb: `Hold a matching produce + tap to transform:<br>${lines}`,
+        cost: '',
+        canAfford: false,
+        acceptLabel: 'Close',
+        onAccept: () => {},
+      });
+      return;
+    }
+
+    const canAfford = bundle.every(r => heldCount(r.id) >= r.qty);
+    const costHTML = bundle.map(r => {
+      const it = ITEM_BY_ID[r.id];
+      return `${r.qty}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}`;
+    }).join(' + ');
+    const transformsBlurb = transforms.length
+      ? `Unlocked: ${transforms.map(t => `${ITEM_BY_ID[t.input]?.name}→${ITEM_BY_ID[t.output]?.name}`).join(' · ')}`
+      : 'No transforms unlocked yet.';
+    this.showOfferModal({
+      title: `Magic Crafting Shrine (Level ${lvl})`,
+      get: `Advance to Level ${lvl + 1}`,
+      blurb: transformsBlurb,
+      cost: costHTML,
+      canAfford,
+      acceptLabel: 'Offer',
+      onAccept: () => {
+        if (!bundle.every(r => heldCount(r.id) >= r.qty)) {
+          const missing = bundle.find(r => heldCount(r.id) < r.qty);
+          const it = ITEM_BY_ID[missing.id];
+          this.flash(`need ${missing.qty} ${it?.name || missing.id}`, sx, sy);
+          return;
+        }
+        for (const r of bundle) consume(r.id, r.qty);
+        this.save.shrineLevel = (this.save.shrineLevel || 1) + 1;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        const newTransform = MapScene.SHRINE_TRANSFORMS[this.save.shrineLevel];
+        const unlockMsg = newTransform
+          ? `unlocked ${ITEM_BY_ID[newTransform.input]?.name} → ${ITEM_BY_ID[newTransform.output]?.name}`
+          : 'shrine grows in power';
+        this.flashLoot(`✨ Shrine L${this.save.shrineLevel}\n${unlockMsg}`, '#a7e9ff', 1.4);
+      },
+    });
   }
 
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {

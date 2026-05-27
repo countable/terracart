@@ -386,9 +386,15 @@ Render.drawCells = function drawCells(scene) {
   // For each reachable cell, draw only the sides whose neighbour is NOT
   // reachable. Result is the staircase silhouette of the reach region.
   const R2 = scene.REACH_CELL_M * scene.REACH_CELL_M;
+  // Reach is centred on the FEET CELL, not the body cell. The body sprite
+  // renders at viewport centre (col=half, row=half), but its feet sit
+  // feetOffsetM south. Centering the reach on the feet means the outline
+  // snaps to a new row exactly when the visible feet cross a cell line —
+  // not half a cell earlier (when the body crosses) as it used to.
+  const feetCellsBelowBody = Math.floor(pc.cy + scene.feetOffsetM / scene.cellM) - Math.floor(pc.cy);
+  const reachOriginRow = half + feetCellsBelowBody;
   const isReach = (col, row) => {
-    // Player's "central cell" is col=half, row=half; ox/oy = offset in cells.
-    const ox = col - half, oy = row - half;
+    const ox = col - half, oy = row - reachOriginRow;
     const dxM = ox * scene.cellM;
     const dyM = oy * scene.cellM;
     return dxM * dxM + dyM * dyM <= R2;
@@ -562,6 +568,13 @@ Render.drawObjects = function drawObjects(scene) {
       plantedList.push({ p: { x, y, crop: 'rockfruit', _placedRock: true }, dx, dy });
     }
   }
+  // Placed scarecrows render as world objects — 3-cell-tall single image,
+  // anchored at the base so it appears to stand on the cell. Pool reuses
+  // objectPool slots so it integrates with depth-sort and viewport clip.
+  const scarecrowList = (scene.save.scarecrows || []).map(sc => ({
+    o: { kind: '_scarecrow', x: sc.x, y: sc.y, id: `scarecrow_${sc.x.toFixed(2)}_${sc.y.toFixed(2)}` },
+    dx: sc.x - pWorldX, dy: sc.y - pWorldY,
+  })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
   // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
   // Hide objects that are temporarily gone:
@@ -577,6 +590,10 @@ Render.drawObjects = function drawObjects(scene) {
     !(o.kind === 'chest' && openedSet.has(o.id)) &&
     !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id)))
   );
+  // Merge in placed scarecrows so they go through the same sprite pool +
+  // depth sort as other world objects. Their RENDER_SPEC entry (kind
+  // '_scarecrow') anchors the pole base on the placement cell.
+  for (const sc of scarecrowList) filteredObj.push(sc);
   filteredObj.sort((a, b) => a.dy - b.dy);
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
@@ -599,6 +616,9 @@ Render.drawObjects = function drawObjects(scene) {
   const RENDER_SPEC = {
     house:  { key: 'house', frame: 'front', origin: [0.5, 0.9],  scale: 0.6 },
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0 },
+    // Placed scarecrow — 32×32 image with the pole base at the bottom of the
+    // sprite; origin (0.5, 1) anchors that base on the placement cell.
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },
     tree:   { key: 'trees', frame: (o) => Phaser.Math.Clamp(o.variant || 2, 0, 4),
               origin: [0.5, 0.95], scale: 0.85 },
     chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
@@ -634,8 +654,21 @@ Render.drawObjects = function drawObjects(scene) {
                 s.setAlpha(broken ? 0.5 : 1);
                 s.setTint(broken ? 0x555555 : 0xffffff);
               } },
+    // Flora (flower decals) live ON the ground tile, not standing on it —
+    // centre the sprite in the cell so the petals land where the cell does.
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
-              origin: [0.5, 0.8],  scale: 1.8 },
+              origin: [0.5, 0.5],  scale: 1.8 },
+    // Magic Crafting Shrine — 48×48 altar sprite. Frame = current shrine
+    // level so the altar visibly evolves as the player levels it up:
+    //   L1 → frame 0  (plain stone)
+    //   L7 → frame 6  (glowing high-rune altar)
+    // Slightly larger than other objects so it reads as a landmark.
+    shrine: { key: 'shrine',
+              frame: (o) => {
+                const lvl = Math.min(7, Math.max(1, scene.save.shrineLevel || 1));
+                return lvl - 1;
+              },
+              origin: [0.5, 1.0], scale: 0.85 },
   };
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
@@ -845,11 +878,20 @@ Render.drawObjects = function drawObjects(scene) {
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
     const ov = CROP_SPRITE[p.crop];
     if (ov && ov.custom) {
-      // Single-frame procedural texture (e.g. longgrass). Always force frame 0 —
-      // a pool slot reused from another crop type may carry a stale frame index
-      // that doesn't exist in the single-frame texture.
+      // Custom-sheet wildplants. Some are single-frame (longgrass,
+      // mushroom), others have N visual variants picked off a stable
+      // per-item hash so the same world cell always renders the same
+      // shell / pebble / etc. but the field reads as varied.
       if (s.texture.key !== ov.sheet) s.setTexture(ov.sheet);
-      s.setFrame(0);
+      if (ov.variants && ov.variants > 1) {
+        // Hash off the wildplant's stable _ix/_iy (or wildId for picked
+        // entries) so the variant survives reloads.
+        const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663)
+                ^ ((p.wildId || '').length * 2654435761);
+        s.setFrame(Math.abs(h) % ov.variants);
+      } else {
+        s.setFrame(0);
+      }
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
       const frame = ov.row * SPRING_CROPS_COLS + stage;
@@ -862,8 +904,12 @@ Render.drawObjects = function drawObjects(scene) {
       if (s.texture.key !== 'crops') s.setTexture('crops');
       s.setFrame(frame);
     }
-    // 16x16 frame, scale 2 = 32x32 display, anchored near the bottom of the cell.
-    s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+    // 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
+    // (origin 0.5, 0.5) — the earlier (0.5, 0.85) "foot-anchor" was meant
+    // for character-like sprites but on flat ground tiles (longgrass,
+    // flowers, wildplants) it shifted the sprite 11 px above the cell
+    // centre, which the user spotted as "not centered in tiles".
+    s.setOrigin(0.5, 0.5).setScale(2).setPosition(Math.round(sx), Math.round(sy));
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -903,6 +949,30 @@ Render.drawObjects = function drawObjects(scene) {
   }
   for (; ti < scene.plantedTimerPool.length; ti++) scene.plantedTimerPool[ti].setVisible(false);
 
+  // Heart overlay — a small 💗 floats above every tame (released_) creature
+  // so the player can spot their pets at a glance. Pool is created lazily.
+  scene._petHeartPool = scene._petHeartPool || [];
+  const tameList = creatureList.filter(item => typeof item.c.id === 'string' && item.c.id.startsWith('released_'));
+  let hi = 0;
+  for (const item of tameList) {
+    const { c, dx, dy } = item;
+    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    let t = scene._petHeartPool[hi];
+    if (!t) {
+      t = scene.add.text(0, 0, '💗', { font: '10px ui-monospace, monospace' })
+        .setOrigin(0.5, 1).setDepth(60);
+      scene.creaturesContainer.add(t);
+      scene._petHeartPool.push(t);
+    }
+    // Float the heart ~16 px above the creature's anchor point. Tame creatures
+    // sit at origin (0.5, 0.9) so anchor.y is roughly the ground; the heart
+    // hovers just above the body.
+    t.setPosition(Math.round(sx), Math.round(sy) - 22).setVisible(true);
+    hi++;
+  }
+  for (; hi < scene._petHeartPool.length; hi++) scene._petHeartPool[hi].setVisible(false);
+
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
@@ -912,13 +982,12 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
-      // No animated sheet — static frame from the icons sheet. Stop any prior
-      // anim that the pooled sprite may have been carrying.
-      if (s.texture.key !== c.kind) {
-        s.anims?.stop();
-        s.setTexture(c.kind, 0);
-      }
-      s.setOrigin(0.5, 0.9).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      // 32×32 character sheet — row 0 is the down-walk cycle, which we loop
+      // as the "idle" animation. wanderCreatures moves the sprite around the
+      // world; the anim itself runs continuously to give them life.
+      const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
+      if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
+      s.setOrigin(0.5, 0.9).setScale(1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }

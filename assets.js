@@ -79,13 +79,19 @@ const ASSETS = {
   // crimson, frost). Ore frames in the lower rows are skipped — mineralrocks
   // drop bars directly, no smelting step.
   bars:        { kind: 'spritesheet', path: 'Icons/RPG icons/Extras/Bars and ores.png', frameWidth: 16, frameHeight: 16 },
+  // Magic Crafting Shrine — 288×144 = 6 cols × 3 rows of 48×48 stone-altar
+  // variants. Each shrine level uses a different frame so the altar visibly
+  // evolves: L1 → frame 0, L7 → frame 6 (top-row left-to-right). Anchored
+  // at (0.5, 1.0) so the base sits on the placement cell.
+  shrine:      { kind: 'spritesheet', path: 'Objects/Wilderness/Altar.png', frameWidth: 48, frameHeight: 48 },
   // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
   // near water polygons). frame index is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
-  // Scarecrow — 48×48 single-image prop. Pole base anchors at origin (0.5, 1)
-  // so it stands on its placement cell.
-  scarecrow:   { kind: 'image', path: 'Sprites/Single_Files_16x16/0_Complete_Tileset_Singles_16x16/Scarecrow_16x16.png' },
+  // Scarecrow — 32×32 single-image prop (proper straw-man with hat & cross-
+  // pole). Pole base anchors at origin (0.5, 1) so it stands on its
+  // placement cell.
+  scarecrow:   { kind: 'image', path: 'Objects/scarcrow.png' },
 };
 
 window.ASSETS = ASSETS;
