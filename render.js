@@ -746,7 +746,7 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
     tx.setColor(LABEL_INK);
     tx.setBackgroundColor(LABEL_BG);
-    tx.setAlpha(openedSet.has(o.id) ? 0.55 : 1);
+    tx.setAlpha(1);
     li++;
   }
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
