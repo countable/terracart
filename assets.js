@@ -56,9 +56,14 @@ const ASSETS = {
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
   box:         { kind: 'image', path: 'Objects/Wilderness/Box_Single_16x16.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
-  deer:        { kind: 'spritesheet', path: 'Objects/Wilderness/Deer Idle.png',       frameWidth: 16, frameHeight: 16 },
+  // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
+  // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
+  // body into a 2×2 quadrant grid; render.js only ever showed the bottom-right
+  // quadrant (a leg / tail tip) and the body itself sat invisible in the
+  // upper cells. 32×32 + a scale ~1.0 matches the cow's visual footprint.
+  deer:        { kind: 'spritesheet', path: 'Objects/Wilderness/Deer Idle.png',       frameWidth: 32, frameHeight: 32 },
   rabbit:      { kind: 'spritesheet', path: 'Objects/Wilderness/Rabbit Brown.png',    frameWidth: 16, frameHeight: 16 },
-  crow:        { kind: 'spritesheet', path: 'Objects/Wilderness/Crow.png',            frameWidth: 16, frameHeight: 16 },
+  crow:        { kind: 'spritesheet', path: 'Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
   // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
   apple_tree:   { kind: 'spritesheet', path: 'Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },

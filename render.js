@@ -996,10 +996,11 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
-      // 16×16 sheet → 2.4× to keep deer slightly larger than cow's footprint.
+      // 32×32 sheet (see assets.js comment) → scale 1.1, matches cow.
+      // Row 0 frames 0-1 are the side-view idle pose.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(2.4).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.1).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
       // 16×16 sheet → 1.8× (a touch smaller than chicken — they're rabbits).
@@ -1008,10 +1009,12 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.8).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
-      // 16×16 sheet → 1.8×. Flying — float 14 px above the ground tile.
+      // 32×32 sheet (see assets.js comment). Row 0 frames 0-4 are the ground
+      // strut; row 1 is intentionally empty in the source PNG; row 2 is the
+      // take-off flap. Float 14 px above the ground tile.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.8).setPosition(Math.round(sx), Math.round(sy) - 14);
+      s.setOrigin(0.5, 0.9).setScale(1.0).setPosition(Math.round(sx), Math.round(sy) - 14);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
       // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
