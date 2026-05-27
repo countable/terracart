@@ -221,14 +221,22 @@
         const sByMinW   = PHONE_MIN / W;
         const s = Math.max(sByMinW, Math.min(sByHeight, sByMaxW));
         const phoneW = W * s;
+        const scaledH = H * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
+        // Vertically centre the game inside the column. When the column is
+        // shorter than the scaled game (short laptop windows + the PHONE_MIN
+        // clamp above), top goes negative so the game's MIDDLE sits at the
+        // viewport's middle — otherwise the player view (rendered at
+        // canvas-centre ≈ 422) ends up below the visible area and the map
+        // disappears off the bottom.
+        const top = Math.min(0, (vh - scaledH) / 2);
         // #frame is already left/right-inset by var(--phone-*), so #game sits
-        // at 0,0 inside #frame — setting g.style.left = left would double the
-        // offset and push the game off-centre to the right.
+        // at left:0 inside #frame — setting g.style.left = left would double
+        // the offset and push the game off-centre to the right.
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
-        g.style.top  = '0px';
+        g.style.top  = top + 'px';
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
         root.style.setProperty('--phone-right', right + 'px');
