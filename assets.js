@@ -91,6 +91,14 @@ const ASSETS = {
   // pole). Pole base anchors at origin (0.5, 1) so it stands on its
   // placement cell.
   scarecrow:   { kind: 'image', path: 'Objects/scarecrow.png' },
+  // Themed-house sprites (sliced top-left out of NPC house sheets in
+  // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the
+  // generic tinted 'house' for a specific role — see render.js' house key
+  // function. Anchored at origin (0.5, 0.9) like the base house.
+  house_blacksmith: { kind: 'image', path: 'Objects/Houses/blacksmith.png' },
+  house_trader:     { kind: 'image', path: 'Objects/Houses/trader.png' },
+  house_fort:       { kind: 'image', path: 'Objects/Houses/fort.png' },
+  house_trailer:    { kind: 'image', path: 'Objects/Houses/trailer.png' },
 };
 
 window.ASSETS = ASSETS;

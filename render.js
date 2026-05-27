@@ -613,8 +613,44 @@ Render.drawObjects = function drawObjects(scene) {
     return h;
   };
   const MINERALROCK_COLS = 11;
+  // Pick the themed-sprite role for a 'house' object. 'plain' falls back
+  // to the generic 'house' texture (the tinted shared sprite). Order
+  // matters: starter wins over tier wins over shopType — so a tier-11
+  // fort that happens to also be the starter shop renders as a trailer.
+  const _houseRole = (o) => {
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
+    if (o.tier === 11) return 'fort';
+    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+    if (t === 'blacksmith') return 'blacksmith';
+    if (t === 'trader')     return 'trader';
+    return 'plain';
+  };
   const RENDER_SPEC = {
-    house:  { key: 'house', frame: 'front', origin: [0.5, 0.9],  scale: 0.6 },
+    // Houses pick their texture by role — the generic 'house' frame stays
+    // as the fallback for plain residential. Themed sprites (sliced top-
+    // left from NPC house sheets, see Objects/Houses/):
+    //   - starter shop  → trailer    (the player's home/RV)
+    //   - blacksmith    → blacksmith (forge with chimney + sign)
+    //   - trader        → trader     (Fishman-style awning house)
+    //   - fort tier 11  → fort       (the school — big civic stone building)
+    // The 'house' texture is a tileset with a registered 'front' sub-frame;
+    // the themed PNGs are single-image, so frame must be undefined for them.
+    // Tint is suppressed for themed houses (the sprite is already distinct)
+    // in the post-config block further down — see the `themedHouse` flag.
+    house:  {
+      key: (o) => {
+        const role = _houseRole(o);
+        return role === 'plain' ? 'house' : `house_${role}`;
+      },
+      frame: (o) => (_houseRole(o) === 'plain' ? 'front' : undefined),
+      origin: [0.5, 0.9],
+      scale: (o) => {
+        const role = _houseRole(o);
+        // Fort PNG is ~3× the others — scale down so it still reads as a
+        // building, not a wall. Plain / blacksmith / trader / trailer share
+        // 0.6 so they look like neighbours from the same village.
+        return role === 'fort' ? 0.35 : 0.6;
+      } },
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0 },
     // Placed scarecrow — 32×32 image with the pole base at the bottom of the
     // sprite; origin (0.5, 1) anchors that base on the placement cell.
@@ -683,18 +719,18 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
     // table lives in shops.js so adding a new shop type is one-file work.
-    // Starter-shop yellow overrides the specialty tint so the player can
-    // spot the inaugural shop from a tile away.
+    // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
+    // the sprite itself signals the role; tinting would discolour the art.
+    // Starter still gets the gold tint (in case the trailer sprite isn't
+    // available the player still spots the inaugural shop), but the
+    // themed-house branch already returned 'plain' for non-themed roles.
     let tint = 0xffffff;
-    if (o.kind === 'house') {
-      if (scene.save.starterShopId && scene.save.starterShopId === o.id) {
-        tint = 0xffe066;
-      } else {
-        tint = Shops.shopTint(o) || 0xffffff;
-      }
+    if (o.kind === 'house' && _houseRole(o) === 'plain') {
+      tint = Shops.shopTint(o) || 0xffffff;
     }
+    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     s.setOrigin(spec.origin[0], spec.origin[1])
-     .setScale(spec.scale)
+     .setScale(scl)
      .setPosition(Math.round(sx), Math.round(sy))
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
@@ -996,7 +1032,7 @@ Render.drawObjects = function drawObjects(scene) {
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     if (c.kind === 'cow') {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1.65).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
       // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
@@ -1037,12 +1073,11 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else {
-      // Chicken sheet is 16×16 (see assets.js note). Scale 0.75 = ~12 px —
-      // small bird next to the now-1.65× cow. The earlier 1.5×/2× values
-      // looked huge because chicken_red.png's per-frame bird fills more of
-      // its cell than the cow's does.
+      // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
+      // Per user → 1.00 (16 px native), with the cow trimmed to 1.20 so the
+      // chicken/cow size ratio reads tighter (close-to-realistic 1:~1.5).
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(0.75).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.9).setScale(1.00).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
   });
