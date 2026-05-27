@@ -140,7 +140,6 @@
     <summary>☰</summary>
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
-      <button id="joystick-toggle">Joystick: off</button>
       <button class="danger" id="reset-save">Reset save</button>
     </div>
   </details>
@@ -200,11 +199,6 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
-    });
-    document.getElementById('joystick-toggle').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      if (window.__scene && window.__scene.toggleJoystick) window.__scene.toggleJoystick();
     });
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
@@ -285,6 +279,6 @@
   <script src="assets.js?v=130"></script>
   <script src="sandbox.js?v=2"></script>
   <script src="testtools.js?v=3"></script>
-  <script src="app.js?v=134"></script>
+  <script src="app.js?v=135"></script>
 </body>
 </html>
