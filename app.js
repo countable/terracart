@@ -1797,14 +1797,38 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // True when a food POI (restaurant / grocer / bakery / cafe / etc.) lands
+  // inside this house's footprint, so the building reads as a food shop.
+  // Result memoized on the in-memory object so subsequent taps are O(1).
+  // Tile cache resets on reload, so the underscore-prefixed flag never
+  // outlives a session.
+  isFoodShopHouse(house) {
+    if (!house) return false;
+    if (house._foodShop !== undefined) return house._foodShop;
+    const R2 = 15 * 15;   // ~one building footprint
+    let found = false;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'chest') continue;
+        if (POI_CATEGORY[o.poiClass] !== 'food') continue;
+        const dx = o.x - house.x, dy = o.y - house.y;
+        if (dx * dx + dy * dy <= R2) { found = true; break; }
+      }
+      if (found) break;
+    }
+    house._foodShop = found;
+    return found;
+  }
+
   // Buy from a regular / market / trader house. The house's position-derived
-  // shop kind picks produce vs seeds; market forces produce regardless,
-  // trader forces a barter offer (no cash deals).
+  // shop kind picks produce vs seeds; market and food-POI overlap force
+  // produce regardless; trader forces a barter offer (no cash deals).
   presentBuyOffer(sx, sy, house, shopType, recordDeal) {
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
     const sellsProduce = (shopType === 'market')
+      || this.isFoodShopHouse(house)
       || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
     const id = sellsProduce
       // Cycle through produce, weighted toward buyIndex so it still rotates.
