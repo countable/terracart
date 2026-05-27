@@ -308,6 +308,11 @@
     document.getElementById('reset-save').addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm('Wipe ALL saved progress AND offline cache (forces a fresh app download)?')) return;
+      // 0) Kill the save pipeline first. Without this, the scene's update
+      //    loop (or the pagehide handler triggered by location.reload below)
+      //    flushes the in-memory _pendingSave back to localStorage AFTER
+      //    we wipe it — silently restoring the old save on next load.
+      if (typeof disableSave === 'function') disableSave();
       // 1) Save data — every terracart.* key (current + any older versions).
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
@@ -366,7 +371,7 @@
   <script src="worldgen.js?v=129"></script>
   <script src="crops.js?v=111"></script>
   <script src="textures.js?v=129"></script>
-  <script src="save.js?v=111"></script>
+  <script src="save.js?v=112"></script>
   <script src="items.js?v=145"></script>
   <script src="shops.js?v=3"></script>
   <script src="rarity.js?v=22"></script>

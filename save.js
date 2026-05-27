@@ -23,9 +23,11 @@ function loadSave() {
 // flushing immediately when the page is hidden/closing so nothing is lost.
 let _saveTimer = null;
 let _pendingSave = null;
+let _savingDisabled = false;
 const SAVE_DEBOUNCE_MS = 500;
 
 function flushSave() {
+  if (_savingDisabled) return;
   if (_pendingSave) {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
@@ -41,9 +43,21 @@ function flushSave() {
 }
 
 function persistSave(s) {
+  if (_savingDisabled) return;
   _pendingSave = s;
   if (_saveTimer) return;
   _saveTimer = setTimeout(() => { _saveTimer = null; flushSave(); }, SAVE_DEBOUNCE_MS);
+}
+
+// Hard-disable all writes. Used by the menu's "Reset save" path: once
+// localStorage is wiped, the in-memory _pendingSave (and any in-flight
+// persistSave calls between here and location.reload) must NOT make it back
+// to disk — otherwise the pagehide flush rewrites the old save on top of
+// the clean slate and the reset appears to do nothing.
+function disableSave() {
+  _savingDisabled = true;
+  _pendingSave = null;
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
 }
 
 // Tiny helpers that read/write save shape — same null-coalescing repeated
