@@ -649,14 +649,16 @@ Render.drawObjects = function drawObjects(scene) {
       const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== f) s.setFrame(f);
     }
-    // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
-    // table lives in shops.js so adding a new shop type is one-file work.
-    // Starter-shop yellow overrides the specialty tint so the player can
-    // spot the inaugural shop from a tile away.
+    // House tint priority: starter shop (yellow) > food-POI overlap (green)
+    // > specialty shop kind (red / sooty). Food shops can overlap any house
+    // tier (forts too), so the food tint is checked outside the small-house
+    // specialty path that Shops.shopTint owns.
     let tint = 0xffffff;
     if (o.kind === 'house') {
       if (scene.save.starterShopId && scene.save.starterShopId === o.id) {
         tint = 0xffe066;
+      } else if (scene.isFoodShopHouse && scene.isFoodShopHouse(o)) {
+        tint = 0x6abc6a;   // grocer / restaurant green
       } else {
         tint = Shops.shopTint(o) || 0xffffff;
       }
