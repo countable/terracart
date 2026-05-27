@@ -348,30 +348,6 @@ class MapScene extends Phaser.Scene {
     }
     if (needsMigrationPersist) persistSave(this.save);
 
-    // One-shot ghost-mode gift: any save that doesn't already own an amulet
-    // gets a tier-1 one so the new ghost pad is reachable on first load.
-    // _amuletGift flag means we won't re-gift if the player ever sells it.
-    if (!this.save._amuletGift && !this.save.relics?.amulet) {
-      this.save.relics = this.save.relics || {};
-      this.save.relics.amulet = { tier: 1 };
-      this.save._amuletGift = true;
-      persistSave(this.save);
-    } else if (!this.save._amuletGift) {
-      this.save._amuletGift = true;
-      persistSave(this.save);
-    }
-
-    // One-shot pairy gift: 10 pairies dropped into the inventory so the new
-    // chest-compass + ghost-test loop is easy to exercise on first load.
-    if (!this.save._pairyGift) {
-      this.save.inv = this.save.inv || [];
-      const existing = this.save.inv.find(s => s && s.id === 'pairy');
-      if (existing) existing.count = (existing.count ?? 0) + 10;
-      else this.save.inv.push({ id: 'pairy', count: 10 });
-      this.save._pairyGift = true;
-      persistSave(this.save);
-    }
-
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
     this.viewCenterY = H / 2 - 110;           // raise map well clear of the inventory bar AND the Eat button beneath it

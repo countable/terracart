@@ -31,3 +31,10 @@
 - **Never rebase, always merge.** If integrating remote changes, use
   `git merge` (or `git pull --no-rebase`). Do not run `git rebase`,
   `git pull --rebase`, or `git pull` when `pull.rebase` is configured.
+
+## Branching
+
+- **Always work directly on `main`.** Don't create feature branches, even
+  if the session was started on one. If you find yourself on a
+  non-`main` branch, switch to `main`, merge anything you've done so
+  far, and continue there. Push to `main` directly.
