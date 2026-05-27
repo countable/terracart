@@ -135,7 +135,12 @@ class MapScene extends Phaser.Scene {
     this.load.once('filecomplete-image-house', () => {
       this.textures.get('house').add('front', 0, 148, 3, 72, 95);
     });
-    this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
+    // Chicken is loaded by the ASSETS catalog below (16×16 — see assets.js).
+    // A manual load.spritesheet('chicken', ..., 32×32) here used to shadow
+    // assets.js because Phaser's loader keeps the first config queued for a
+    // given key. The resulting 32×32 frame was actually a 2×2 grid of
+    // 16×16 chickens, so every spawned creature rendered as four. Don't
+    // re-add this line — let ASSETS own the framing.
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
     // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
     // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
