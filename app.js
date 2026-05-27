@@ -138,12 +138,14 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('chicken', 'Farm Animals/Chicken Red.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
     // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
-    // Row 0 is the down-walk cycle, which we loop as the idle anim. We use a
-    // single sheet per kind for every cat / dog in the world; switching to
-    // Sprites/Animals/Pets/Cats/{2..7} or Dogs/Premade/{2..9} would give
-    // colour variety later.
-    this.load.spritesheet('cat', 'Sprites/Animals/Pets/Cats/1/Black.png',     { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('dog', 'Sprites/Animals/Pets/Dogs/Premade/1/1.png', { frameWidth: 32, frameHeight: 32 });
+    // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
+    // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
+    // so the tree builds without the raw asset pack (same pattern as
+    // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Black.png
+    // and Sprites/Animals/Pets/Dogs/Premade/1/1.png; swap with sibling sheets
+    // from those folders if we ever want colour variety.
+    this.load.spritesheet('cat', 'Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('dog', 'Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
     // Frames: 0 = closed, 1 = open.
     this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
