@@ -260,9 +260,7 @@ function pickLoot(rng, poiClass, relics) {
   }
   const id = asProduce ? seedId.replace(/_seed$/, '') : seedId;
   let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
-  if (relics && typeof amuletDoubleChance === 'function') {
-    if ((rng ?? Math.random)() < amuletDoubleChance(relics)) n *= 2;
-  }
+  // (Amulet no longer doubles chest qty — its job is ghost mode now.)
   return { id, n };
 }
 

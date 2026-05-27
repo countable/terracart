@@ -364,7 +364,7 @@ class MapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    this.viewCenterY = H / 2 - 60;            // raise to leave room for inventory bar (extra 20px so the map's bottom edge doesn't kiss the bar on small iPhones)
+    this.viewCenterY = H / 2 - 110;           // raise map well clear of the inventory bar AND the Eat button beneath it
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
@@ -1079,14 +1079,14 @@ class MapScene extends Phaser.Scene {
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
-    // Ghost-mode joystick: vec ∈ [-1,1], 4× walk speed. Keyboard movement
-    // is suppressed while the ghost is out so the two control schemes don't
-    // fight. Energy is debited per CELL_M of ghost travel — empty energy
-    // collapses the ghost back to the body.
+    // Ghost-mode joystick: vec ∈ [-1,1], amulet-tier-scaled speed. Keyboard
+    // movement is suppressed while the ghost is out so the two control
+    // schemes don't fight. Energy is debited per cell of ghost travel —
+    // amulet tier shrinks the per-cell cost (frost = 0.15/cell).
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = 4;
+      speedMul = ghostSpeedMul(this.save.relics) || 8;
     }
     const moving = vx || vy;
     if (moving) {
@@ -1096,18 +1096,26 @@ class MapScene extends Phaser.Scene {
       this.playerM.x += dx;
       this.playerM.y += dy;
       if (this._bodyM) {
-        // Each whole cell of ghost travel costs 1 energy. Collapse on empty
-        // so the player isn't stranded with the ghost out + no body.
+        // Each cell crossed accrues ghostEnergyCost(amulet) into the
+        // fractional buffer; whole units come out of save.energy. Higher
+        // amulet tier → smaller per-cell cost → fewer pips debited per cell.
+        // Collapse on empty so the player isn't stranded with no body.
         this._ghostDistAccrue += Math.hypot(dx, dy);
+        const costPerCell = ghostEnergyCost(this.save.relics) || 1;
         while (this._ghostDistAccrue >= this.cellM) {
           this._ghostDistAccrue -= this.cellM;
-          if ((this.save.energy ?? 0) <= 0) {
-            this.flash('too tired', this.viewCenterX, this.viewCenterY);
-            this.collapseGhost();
-            break;
+          this._ghostCostAccrue = (this._ghostCostAccrue || 0) + costPerCell;
+          while (this._ghostCostAccrue >= 1) {
+            this._ghostCostAccrue -= 1;
+            if ((this.save.energy ?? 0) <= 0) {
+              this.flash('too tired', this.viewCenterX, this.viewCenterY);
+              this.collapseGhost();
+              break;
+            }
+            this.save.energy = Math.max(0, (this.save.energy ?? 0) - 1);
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
-          this.save.energy = Math.max(0, (this.save.energy ?? 0) - 1);
-          if (this.updateEnergyDOM) this.updateEnergyDOM();
+          if (!this._bodyM) break;   // collapse happened inside inner loop
         }
       }
       // Only let WASD drive facing when there's no compass heading available.
@@ -2924,6 +2932,7 @@ class MapScene extends Phaser.Scene {
     this.playerM.y = this._bodyM.y;
     this._bodyM = null;
     this._ghostDistAccrue = 0;
+    this._ghostCostAccrue = 0;
     this.bodyPlayer.setVisible(false);
     this.player.setAlpha(1);
   }
@@ -3185,7 +3194,13 @@ class MapScene extends Phaser.Scene {
     bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
     if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
     if (this.save.invPage == null) this.save.invPage = 0;
-    const pageCount = Math.max(1, Math.ceil(this.save.inv.length / PAGE));
+    // Always keep one extra blank page reachable — a multiple-of-5 inventory
+    // would otherwise have no empty slot for the player to select before
+    // tapping a shop to BUY (empty selection = buy intent).
+    const filledPages = Math.ceil(this.save.inv.length / PAGE);
+    const pageCount = Math.max(1, this.save.inv.length % PAGE === 0
+      ? filledPages + 1
+      : filledPages);
     if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
 
     const makeBtn = (txt, onclick, w = 28) => {
@@ -3296,6 +3311,42 @@ class MapScene extends Phaser.Scene {
       const it = sel && ITEM_BY_ID[sel.id];
       nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
     }
+    this.syncEatButton();
+  }
+
+  // Eat button — appears bottom-right when the selected stack is food.
+  // Tapping the player sprite to eat works too (interact.js 'eat' handler),
+  // but on a small screen the body is fiddly to hit; this surfaces an
+  // explicit affordance below the inventory bar.
+  syncEatButton() {
+    const sel = this.save.inv?.[this.save.selSlot];
+    const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
+    const existing = document.getElementById('eat-btn');
+    if (restore == null) { existing?.remove(); return; }
+    const iconHtml = this.iconSpanHTML(sel.id, 20);
+    const label = `${iconHtml} Eat +${restore}⚡`;
+    if (existing) { existing.innerHTML = label; return; }
+    const btn = document.createElement('button');
+    btn.id = 'eat-btn';
+    // Bottom-right, BELOW the inventory bar (the bar bottom sits at
+    // safe-area + 48px, so a button at safe-area + 4px sits in the gap
+    // underneath). Right-anchored to --phone-right so the button tucks
+    // inside the simulated phone column on desktop.
+    btn.style.cssText =
+      'position:fixed;' +
+      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+      'background:#1a1612;color:#a7ffb0;border:2px solid #4a8c4a;' +
+      'font:700 12px ui-monospace,monospace;';
+    btn.innerHTML = label;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.eatSelected();
+      this.syncEatButton();   // refresh count / hide if stack ran out
+    });
+    document.body.appendChild(btn);
   }
 }
 
@@ -3307,6 +3358,15 @@ const game = window.__game = new Phaser.Game({
   pixelArt: true,
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
+  // Phaser's loader defaults to maxParallelDownloads: 32. ASSETS in
+  // assets.js already exceeds that, and the queue-pump fails to move the
+  // remaining files into inflight after the first 32 finish — the scene
+  // stalls in LOADING forever, leaving the game frozen on a black canvas
+  // (and the test harness timing out on "scene never booted"). Bump the
+  // cap above the asset count so every file fits in one batch; nothing in
+  // this project is big enough to make parallel downloads a network
+  // concern.
+  loader: { maxParallelDownloads: 128 },
   // No audio in this game — disable both backends so Phaser uses the
   // NoAudioSoundManager and never creates an AudioContext. Without this the
   // browser logs a "failed to start the audio device" warning on iOS/Android

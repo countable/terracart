@@ -374,7 +374,7 @@ const PLAY_TIPS = [
   'Bow or Staff drops the markup traders charge you — best tier wins.',
   'Equip a Pickaxe to break rocks, an Axe to chop trees.',
   'A Ring nudges chest loot up a tier when it triggers.',
-  'An Amulet sometimes doubles the loot quantity from chests.',
+  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
   // Progression / gating
   'Harvest a sunflower to unlock Gold relics from chests and shops.',
@@ -490,7 +490,7 @@ const RELIC_DEFS = {
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'lootBonus',     blurb: 'bonus chest quantity' },
+             effectKey: 'ghostMode',     blurb: 'projects a ghost — faster + cheaper per tier' },
   // Weapons — no combat yet, but they bend shop prices. Sword raises sell
   // values; bow/staff lower buy prices (max(bow,staff) tier wins).
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
@@ -614,8 +614,22 @@ function ringTierBoost(relics) {
   return relics?.ring ? 0.05 * relics.ring.tier : 0;
 }
 // Amulet relic: +10% per tier chance to double the chest quantity.
-function amuletDoubleChance(relics) {
-  return relics?.amulet ? 0.10 * relics.amulet.tier : 0;
+// Amulet relic: powers ghost mode. The slot's only job is to unlock the
+// pad and to scale how aggressive the projection can be — speed climbs to
+// 3× of the baseline at frost tier; per-cell energy cost falls to 15%.
+//   ghostSpeedMul   tier 1 → 8× walk, tier 7 → 24× walk (linear).
+//   ghostEnergyCost tier 1 → 1.0 / cell, tier 7 → 0.15 / cell (linear).
+// Both return 0 when no amulet is equipped — callers treat that as "ghost
+// mode unavailable".
+function ghostSpeedMul(relics) {
+  const t = relics?.amulet?.tier || 0;
+  if (!t) return 0;
+  return 8 * (1 + (t - 1) / 3);
+}
+function ghostEnergyCost(relics) {
+  const t = relics?.amulet?.tier || 0;
+  if (!t) return 0;
+  return 1 - (t - 1) * (0.85 / 6);
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that
