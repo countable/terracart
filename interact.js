@@ -501,7 +501,12 @@ const TAP_HANDLERS = [
             const name = (typeof gearName === 'function')
               ? gearName('relic', reward.slot, reward.tier)
               : `${reward.slot} T${reward.tier}`;
-            scene.flashLoot(`★ ${name}`, '#ffe066', 1.5);
+            const iconHTML = scene.gearIconHTML
+              ? scene.gearIconHTML('relic', reward.slot, reward.tier, 64)
+              : '★';
+            scene.showChestRewardModal({
+              iconHTML, name, sub: 'equipped', color: '#ffe066',
+            });
             return true;
           }
           if (reward?.kind === 'gold') {
@@ -512,7 +517,13 @@ const TAP_HANDLERS = [
             const name = (typeof gearName === 'function')
               ? gearName('relic', reward.slot, reward.tier)
               : `${reward.slot} T${reward.tier}`;
-            scene.flashLoot(`★ ${name} (own) → $${reward.amount}`, '#ffd96b', 1.4);
+            const iconHTML = scene.gearIconHTML
+              ? scene.gearIconHTML('relic', reward.slot, reward.tier, 64)
+              : '★';
+            scene.showChestRewardModal({
+              iconHTML, name: `+$${reward.amount}`,
+              sub: `${name} (already owned)`, color: '#ffd96b',
+            });
             return true;
           }
           // reward is null (no allowed tiers — very early game) — fall through.
@@ -522,8 +533,15 @@ const TAP_HANDLERS = [
         save.opened.push(o.id);
         ctx.dirty = true;
         const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
-        // Sprite shows the loot — drop the icon from the text.
-        scene.flashLoot(`${lootName} ×${loot.n}`, tierInfo(loot.id).color, 1.25, loot.id);
+        const lootColor = tierInfo(loot.id).color;
+        // Chest loot gets the full ceremony modal — quick-feedback flashLoot
+        // is reserved for X-marks / harvest / mining (cheap repeating rewards).
+        const iconHTML = scene.iconSpanHTML
+          ? scene.iconSpanHTML(loot.id, 64) : '';
+        scene.showChestRewardModal({
+          iconHTML, name: lootName, sub: loot.n > 1 ? `× ${loot.n}` : null,
+          color: lootColor,
+        });
         return true;
       }
       if (o.kind === 'tree') {
