@@ -2142,3 +2142,385 @@ test('REG: sapphire/ruby/emerald icons resolve to Gemstones.png (not Crops.png b
   assert.truthy(sh, 'shell has an icon source');
   assert.eq(sh.sheet, 'shell_sheet', 'shell routed to shell_sheet');
 });
+
+// ───────────────────────────────────────────────────────────────────────
+// Bars + smelting / blacksmith recipes
+// Bars are the forge ladder — six tiers (copper → frost) feeding every
+// non-wood blacksmith recipe. T2-T4 (copper / iron / gold) are mineable;
+// T5-T7 (platinum / crimson / frost) must be SMELTED from their tier's
+// magical flower via a separate recipe.
+// ───────────────────────────────────────────────────────────────────────
+
+test('bars: all six tiers registered as mineral-kind with ascending price + matching baseTier', () => {
+  const expected = [
+    ['copper_bar',   2],
+    ['iron_bar',     3],
+    ['gold_bar',     4],
+    ['platinum_bar', 5],
+    ['crimson_bar',  6],
+    ['frost_bar',    7],
+  ];
+  let lastPrice = 0;
+  for (const [id, tier] of expected) {
+    const it = ITEM_BY_ID[id];
+    assert.truthy(it, id + ' is registered');
+    assert.eq(it.kind, 'mineral', id + ' kind=mineral');
+    assert.eq(it.baseTier, tier, id + ' baseTier = T' + tier);
+    assert.gt(PRICES[id], lastPrice, id + ' price > previous (' + lastPrice + ')');
+    lastPrice = PRICES[id];
+  }
+});
+
+test('bars: inventory icons route to the bars sheet at tier-ordered frames', () => {
+  if (typeof inventoryIconSource !== 'function') return;
+  const order = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  order.forEach((id, idx) => {
+    const src = inventoryIconSource(id);
+    assert.truthy(src, id + ' has icon source');
+    assert.eq(src.sheet, 'bars', id + ' routed to bars sheet');
+    assert.eq(src.frame, idx, id + ' frame index = ' + idx);
+  });
+});
+
+test('blacksmithRecipe: tool/weapon/armor slots want N copies of the tier-matched bar', (scene) => {
+  const BARS = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  for (let t = 2; t <= 7; t++) {
+    const r = scene.blacksmithRecipe('relic', 'pick', t);
+    assert.truthy(Array.isArray(r) && r.length === 1, 'pick T' + t + ': single-ingredient recipe');
+    assert.eq(r[0].id, BARS[t - 2], 'pick T' + t + ' bar = ' + BARS[t - 2]);
+    assert.eq(r[0].qty, t, 'pick T' + t + ' qty = ' + t);
+  }
+});
+
+test('blacksmithRecipe: jewelry slots use 2^(t-2) slot-gems + 1 tier-bar', (scene) => {
+  const BARS = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  const gemFor = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+  for (const slot of Object.keys(gemFor)) {
+    for (let t = 2; t <= 7; t++) {
+      const r = scene.blacksmithRecipe('relic', slot, t);
+      assert.truthy(r && r.length === 2, slot + ' T' + t + ' has 2-ingredient recipe');
+      assert.eq(r[0].id, gemFor[slot], slot + ' T' + t + ' gem = ' + gemFor[slot]);
+      assert.eq(r[0].qty, Math.pow(2, t - 2), slot + ' T' + t + ' gem qty = 2^(t-2)');
+      assert.eq(r[1].id, BARS[t - 2], slot + ' T' + t + ' bar = ' + BARS[t - 2]);
+      assert.eq(r[1].qty, 1, slot + ' T' + t + ' bar qty = 1');
+    }
+  }
+});
+
+test('blacksmithRecipe: tier < 2 returns null (T1 wood is starter-shop only)', (scene) => {
+  assert.eq(scene.blacksmithRecipe('relic', 'pick', 1), null, 'T1 = null');
+  assert.eq(scene.blacksmithRecipe('relic', 'pick', 0), null, 'T0 = null');
+  assert.eq(scene.blacksmithRecipe('relic', 'pick', null), null, 'no tier = null');
+});
+
+test('smeltingRecipe: T2-T4 bars are non-smeltable; T5-T7 each consume 1 flower + 1 prev-tier bar', (scene) => {
+  for (const id of ['copper_bar', 'iron_bar', 'gold_bar']) {
+    assert.eq(scene.smeltingRecipe(id), null, id + ' is not smeltable (mineable only)');
+  }
+  const chain = [
+    ['platinum_bar', 'sunflower',  'gold_bar'],
+    ['crimson_bar',  'fireflower', 'platinum_bar'],
+    ['frost_bar',    'iceflower',  'crimson_bar'],
+  ];
+  for (const [bar, flower, prevBar] of chain) {
+    const r = scene.smeltingRecipe(bar);
+    assert.truthy(Array.isArray(r) && r.length === 2, bar + ' has 2-ingredient recipe');
+    assert.eq(r[0].id, flower, bar + ' wants ' + flower);
+    assert.eq(r[0].qty, 1, bar + ' wants 1 flower');
+    assert.eq(r[1].id, prevBar, bar + ' wants ' + prevBar);
+    assert.eq(r[1].qty, 1, bar + ' wants 1 ' + prevBar);
+  }
+  assert.eq(scene.smeltingRecipe('not_a_bar'), null, 'unknown bar id → null');
+});
+
+test('mineralrock mining: T1-2 drops copper_bar, T3 drops iron_bar, T4+ drops gold_bar', (scene) => {
+  // Pin Math.random so the side gem / bonus rolls don't add cross-noise to
+  // the primary-bar assertion. We're checking the BARS[] mapping in
+  // interact.js, not the gem percentages (covered separately).
+  const expected = { 1: 'copper_bar', 2: 'copper_bar', 3: 'iron_bar',
+                     4: 'gold_bar',   5: 'gold_bar',   6: 'gold_bar', 7: 'gold_bar' };
+  const seenTiers = new Set();
+  for (const e of WorldGen.tileCache.values()) {
+    for (const o of (e.objects || [])) {
+      if (o.kind !== 'mineralrock') continue;
+      if (seenTiers.has(o.requiredTier)) continue;
+      const want = expected[o.requiredTier];
+      if (!want) continue;
+      seenTiers.add(o.requiredTier);
+      // Fresh rock state.
+      scene.save.relics = scene.save.relics || {};
+      scene.save.relics.pick = { tier: 7 };
+      scene.save.energy = 100;
+      scene.save.inv = []; scene.save.selSlot = 0;
+      scene.save.brokenRocks = (scene.save.brokenRocks || []).filter(k => k !== o.id);
+      scene.brokenRockSet = new Set(scene.save.brokenRocks);
+      if (scene._workProgress) scene.cancelWorkProgress();
+      teleport(scene, o.x, o.y);
+      const origStart = scene.startWorkProgress.bind(scene);
+      const origRandom = Math.random;
+      scene.startWorkProgress = (wx, wy, cb) => cb();
+      Math.random = () => 0.99;   // skip every percentage gate (gems, bonus)
+      try { tapWorld(scene, o.x, o.y); }
+      finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
+      assert.gt(invCount(scene, want), 0,
+        'T' + o.requiredTier + ' rock drops ' + want);
+    }
+  }
+  assert.gt(seenTiers.size, 0, 'fixture contains at least one mineralrock');
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Magic Crafting Shrine — one per game, levels 1..7. Each level unlocks
+// a new produce → bar transform. Level-up costs a 3-item bundle of 5×
+// each. The shrine REPLACES a chest ≥ 200 m from start on the first
+// qualifying tile load.
+// ───────────────────────────────────────────────────────────────────────
+
+test('shrine: save bootstrapper defaults (shrineLevel = 1, shrine + shrineReplacedId defined)', (scene) => {
+  assert.eq(typeof scene.save.shrineLevel, 'number', 'shrineLevel is numeric');
+  assert.truthy(scene.save.shrineLevel >= 1 && scene.save.shrineLevel <= 7,
+    'shrineLevel in [1..7]');
+  assert.truthy('shrine' in scene.save, 'save.shrine defined');
+  assert.truthy('shrineReplacedId' in scene.save, 'save.shrineReplacedId defined');
+});
+
+test('shrineLevelUpCost: each L1..L6 bundle is 3 distinct items × qty 5; L7 returns null', (scene) => {
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    const b = scene.shrineLevelUpCost(lvl);
+    assert.truthy(Array.isArray(b), 'L' + lvl + ' bundle is an array');
+    assert.eq(b.length, 3, 'L' + lvl + ' bundle has 3 ingredients');
+    const ids = new Set(b.map(r => r.id));
+    assert.eq(ids.size, 3, 'L' + lvl + ' ingredients are distinct');
+    for (const r of b) {
+      assert.eq(r.qty, 5, 'L' + lvl + ' ' + r.id + ' qty = 5');
+      assert.truthy(ITEM_BY_ID[r.id], 'L' + lvl + ' ' + r.id + ' is a known item');
+    }
+  }
+  assert.eq(scene.shrineLevelUpCost(7), null, 'L7 (cap) returns null');
+  assert.eq(scene.shrineLevelUpCost(99), null, 'over-cap returns null');
+});
+
+test('shrineLevelUpCost: each tier bundle requires the matching bar (T1→coal, T2→copper..T6→crimson)', (scene) => {
+  // L1→L2 is the only bundle that requests an UNSMELTED currency (coal);
+  // every subsequent tier asks for the bar one tier BELOW the upgrade.
+  const expectedBar = { 1: 'coal',
+                        2: 'copper_bar', 3: 'iron_bar', 4: 'gold_bar',
+                        5: 'platinum_bar', 6: 'crimson_bar' };
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    const b = scene.shrineLevelUpCost(lvl);
+    const ids = b.map(r => r.id);
+    assert.truthy(ids.includes(expectedBar[lvl]),
+      'L' + lvl + '→L' + (lvl + 1) + ' bundle includes ' + expectedBar[lvl]);
+  }
+});
+
+test('shrineTransforms: returns 0 entries at L1; one new unlock per level; capped at 6 by L7', (scene) => {
+  const origLvl = scene.save.shrineLevel;
+  try {
+    scene.save.shrineLevel = 1;
+    assert.eq(scene.shrineTransforms().length, 0, 'L1 has no transforms');
+    for (let lvl = 2; lvl <= 7; lvl++) {
+      scene.save.shrineLevel = lvl;
+      assert.eq(scene.shrineTransforms().length, lvl - 1,
+        'L' + lvl + ' cumulative transforms = ' + (lvl - 1));
+    }
+    // L2 unlock is rainberry → copper_bar; L7 (last) is iceflower → frost_bar.
+    scene.save.shrineLevel = 7;
+    const ts = scene.shrineTransforms();
+    assert.eq(ts[0].input, 'rainberry', 'first unlock = rainberry');
+    assert.eq(ts[0].output, 'copper_bar', 'first unlock outputs copper_bar');
+    assert.eq(ts[ts.length - 1].input, 'iceflower', 'last unlock = iceflower');
+    assert.eq(ts[ts.length - 1].output, 'frost_bar', 'last unlock outputs frost_bar');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+  }
+});
+
+test('shrineInteract: matching produce → transform modal; accept swaps 1 input for 1 output', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  const origLvl = scene.save.shrineLevel;
+  scene.save.shrineLevel = 2;          // rainberry → copper_bar unlocked
+  scene.save.inv = [{ id: 'rainberry', count: 3 }];
+  scene.save.selSlot = 0;
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_xform' });
+    const modal = document.getElementById('offer-modal');
+    assert.truthy(modal, 'transform modal opened');
+    assert.truthy(modal.innerHTML.toLowerCase().includes('transform'),
+      'modal title mentions Transform');
+    const accept = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Transform');
+    assert.truthy(accept, 'Transform button present');
+    accept.click();
+    assert.eq(invCount(scene, 'rainberry'), 2, 'one rainberry consumed');
+    assert.eq(invCount(scene, 'copper_bar'), 1, 'one copper_bar added');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrineInteract: no matching produce → level-up modal; Offer consumes bundle + bumps level', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  const origLvl = scene.save.shrineLevel;
+  scene.save.shrineLevel = 1;
+  // L1→L2 bundle is 5 potato + 5 egg + 5 coal. Hold all three.
+  scene.save.inv = [
+    { id: 'potato', count: 5 },
+    { id: 'egg',    count: 5 },
+    { id: 'coal',   count: 5 },
+  ];
+  scene.save.selSlot = 0;   // potato — NOT a transform input at L1
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_up' });
+    const modal = document.getElementById('offer-modal');
+    assert.truthy(modal, 'level-up modal opened');
+    assert.truthy(modal.innerHTML.includes('Level 1'), 'modal mentions current level');
+    const offer = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Offer');
+    assert.truthy(offer, 'Offer button present');
+    assert.falsy(offer.disabled, 'Offer enabled when bundle fully held');
+    offer.click();
+    assert.eq(scene.save.shrineLevel, 2, 'level advanced to 2');
+    assert.eq(invCount(scene, 'potato'), 0, '5 potato consumed');
+    assert.eq(invCount(scene, 'egg'), 0, '5 egg consumed');
+    assert.eq(invCount(scene, 'coal'), 0, '5 coal consumed');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrineInteract: incomplete bundle disables Offer button + leaves level + inv intact', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  const origLvl = scene.save.shrineLevel;
+  scene.save.shrineLevel = 1;
+  // Hold the easy two but no coal — bundle is unaffordable.
+  scene.save.inv = [
+    { id: 'potato', count: 5 },
+    { id: 'egg',    count: 5 },
+  ];
+  scene.save.selSlot = 0;
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_short' });
+    const modal = document.getElementById('offer-modal');
+    assert.truthy(modal, 'modal opened');
+    const offer = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Offer');
+    assert.truthy(offer, 'Offer button present');
+    assert.truthy(offer.disabled, 'Offer disabled (missing coal)');
+    assert.eq(scene.save.shrineLevel, 1, 'level unchanged');
+    assert.eq(invCount(scene, 'potato'), 5, 'potato stack untouched');
+    assert.eq(invCount(scene, 'egg'), 5, 'egg stack untouched');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrineInteract: at level 7 the modal lists transforms with a Close button (no Offer)', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  const origLvl = scene.save.shrineLevel;
+  scene.save.shrineLevel = 7;
+  scene.save.inv = [];            // no matching produce → level-up branch
+  scene.save.selSlot = 0;
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_max' });
+    const modal = document.getElementById('offer-modal');
+    assert.truthy(modal, 'modal opened at L7');
+    assert.truthy(modal.innerHTML.includes('Level 7'), 'modal mentions Level 7');
+    const close = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Close');
+    assert.truthy(close, 'Close button present');
+    const offer = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Offer');
+    assert.falsy(offer, 'no Offer button at max level');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrineInteract: re-entry while a modal is open is a no-op (single modal at a time)', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  scene.save.inv = [];
+  scene.save.selSlot = 0;
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_lock' });
+    assert.truthy(document.getElementById('offer-modal'), 'first modal opened');
+    // Second call must NOT replace or stack.
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_lock' });
+    assert.eq(document.querySelectorAll('#offer-modal').length, 1,
+      'only one offer-modal in the DOM');
+  } finally {
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrineInteract: L6→L7 upgrade unlocks the iceflower → frost_bar transform', (scene) => {
+  document.getElementById('offer-modal')?.remove();
+  const origLvl = scene.save.shrineLevel;
+  scene.save.shrineLevel = 6;
+  // L6→L7 bundle: 5 iceflower + 5 iceflower_seed + 5 crimson_bar.
+  scene.save.inv = [
+    { id: 'iceflower',      count: 5 },
+    { id: 'iceflower_seed', count: 5 },
+    { id: 'crimson_bar',    count: 5 },
+  ];
+  // Iceflower IS a transform input at L6 — selecting potato (or empty)
+  // avoids the matching-produce branch so the level-up modal opens.
+  scene.save.selSlot = -1;
+  try {
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_l6' });
+    const modal = document.getElementById('offer-modal');
+    assert.truthy(modal, 'level-up modal opened at L6');
+    const offer = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Offer');
+    assert.truthy(offer && !offer.disabled, 'Offer affordable');
+    offer.click();
+    assert.eq(scene.save.shrineLevel, 7, 'advanced to L7');
+    // L7 must now include the frost_bar transform.
+    const ts = scene.shrineTransforms();
+    const frost = ts.find(t => t.output === 'frost_bar');
+    assert.truthy(frost, 'frost_bar transform unlocked');
+    assert.eq(frost.input, 'iceflower', 'frost_bar input is iceflower');
+  } finally {
+    scene.save.shrineLevel = origLvl;
+    document.getElementById('offer-modal')?.remove();
+  }
+});
+
+test('shrine spawn: replaces a chest ≥ 200 m from start (or correctly skips when none qualify)', (scene) => {
+  // Either save.shrine is set and references a world position ≥ 200 m from
+  // the player's start, or shrine is null because no qualifying POI lived in
+  // any loaded tile — both outcomes are valid per _trySpawnShrineOnTile.
+  const s = scene.save.shrine;
+  if (!s) {
+    // No spawn — assert the bookkeeping is consistent.
+    assert.eq(scene.save.shrineReplacedId, null,
+      'no shrine ⇒ no replaced chest id');
+    return;
+  }
+  // Spawned: position must be ≥ 200 m from start. _trySpawnShrineOnTile
+  // uses `d2 < MIN_DIST_M^2` to SKIP, so equality at 200 m is allowed.
+  const dx = s.x - scene.startWorldM.x, dy = s.y - scene.startWorldM.y;
+  const dist = Math.hypot(dx, dy);
+  assert.truthy(dist >= 200, 'shrine distance from start (' + dist.toFixed(1) + ' m) ≥ 200 m');
+  // The id of the replaced chest must be recorded.
+  assert.truthy(scene.save.shrineReplacedId,
+    'shrineReplacedId set when shrine spawned');
+  // The shrine object should be in some loaded tile's objects list.
+  let shrineObj = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'shrine' && o.id === s.id) { shrineObj = o; break; }
+    }
+    if (shrineObj) break;
+  }
+  assert.truthy(shrineObj, 'shrine object present in tile cache');
+  assert.eq(shrineObj.x, s.x, 'shrine.x matches save');
+  assert.eq(shrineObj.y, s.y, 'shrine.y matches save');
+  // And the replaced chest must NOT also be there (zombie chest regression).
+  let zombie = null;
+  for (const e of WorldGen.tileCache.values()) {
+    for (const o of (e.objects || [])) {
+      if (o.kind === 'chest' && o.id === scene.save.shrineReplacedId) { zombie = o; break; }
+    }
+    if (zombie) break;
+  }
+  assert.falsy(zombie, 'replaced chest id no longer present as a chest object');
+});
