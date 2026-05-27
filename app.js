@@ -857,7 +857,7 @@ class MapScene extends Phaser.Scene {
     // Spawn chickens on any soft ground (grass / farmland / park / residential lawn).
     // Each MVT tile is ~1.5km across — the 55m viewport is only ~0.1% of a tile —
     // so we need hundreds per tile for any to actually be visible.
-    const chickenN = 75 + Math.floor(rng() * 50);    // 75..125 per tile (halved)
+    const chickenN = 40 + Math.floor(rng() * 20);    // 40..59 per tile (mid ~50)
     for (let i = 0; i < chickenN; i++) tryPlace('chicken', new Set([0, 4, 5, 6]), i, 'chicken');
     // Cows: same soft ground as chickens, but ~10x rarer.
     const cowN = 15 + Math.floor(rng() * 16);   // 15..30 per tile
@@ -880,9 +880,9 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);      // 8..14
     for (let i = 0; i < deerN; i++) tryPlace('deer', FOREST_ONLY, i, 'deer');
-    const crowN = 20 + Math.floor(rng() * 12);    // 20..32
+    const crowN = 40 + Math.floor(rng() * 20);    // 40..59 — mid ~50
     for (let i = 0; i < crowN; i++) tryPlace('crow', FOREST_NATURAL, i, 'crow');
-    const butterflyN = 15 + Math.floor(rng() * 10);  // 15..25
+    const butterflyN = 40 + Math.floor(rng() * 20);  // 40..59 — mid ~50
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
