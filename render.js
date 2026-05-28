@@ -913,7 +913,16 @@ Render.drawObjects = function drawObjects(scene) {
     const roman = Shops.toRoman((o.address ?? 0) + 1);
     if (o.tier === 12) return `Castle ${roman}`;
     if (o.tier === 11) return `Fort ${roman}`;
-    if (o.tier === 9)  return `House ${roman}`;
+    if (o.tier === 9) {
+      // Plain residential — the sign doubles as a delivery plaque listing the
+      // 2-3 produce this household will buy at full price (see
+      // MapScene.wantedProduce / presentDeliveryOffer).
+      const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
+      if (wanted.length && typeof ITEM_BY_ID !== 'undefined') {
+        return wanted.map(id => ITEM_BY_ID[id]?.icon || '?').join(' ');
+      }
+      return `House ${roman}`;
+    }
     return null;
   };
   // Sign ink for themed houses → matches the role's primary colour (same
