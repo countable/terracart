@@ -36,6 +36,17 @@
          touch-action: none alone doesn't suppress it. */
       overscroll-behavior: none;
       touch-action: none;
+      /* Kill every accidental "selection" gesture — the game has no text
+         input, so long-press text selection, iOS's blue-loupe magnifier
+         and callout menu, drag-to-select on desktop, and the grey tap
+         flash on Android/iOS are all pure noise that get triggered by
+         normal play (long-press to mine, double-tap on a house, etc.). */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #frame {
       position: absolute;
