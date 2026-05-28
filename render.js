@@ -896,23 +896,38 @@ Render.drawObjects = function drawObjects(scene) {
   // also handle the starter case without changing the Shops module.
   const _houseSignText = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
-    return Shops.shopLabel(o);
+    const shopLbl = Shops.shopLabel(o);
+    if (shopLbl) return shopLbl;
+    // No specialty? Still give the building a label so the map reads as a
+    // populated street instead of rows of anonymous huts. Roman-numeral
+    // suffix from address+1 keeps consistency with the shop labels above.
+    const roman = Shops.toRoman((o.address ?? 0) + 1);
+    if (o.tier === 12) return `Castle ${roman}`;
+    if (o.tier === 11) return `Fort ${roman}`;
+    if (o.tier === 9)  return `House ${roman}`;
+    return null;
   };
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
-  // foundation read as the same "house identity" at a glance. Plain shops
-  // (none today — all shopTypes are themed) would still fall back to
-  // Shops.shopInk if they ever appeared.
+  // foundation read as the same "house identity" at a glance. Plain houses /
+  // forts / castles fall back to neutral inks below.
   const _ROLE_INK = {
     trailer:    '#a8b0c0',
     blacksmith: '#c25a3a',
     trader:     '#6a8aa6',
     market:     '#a84a3a',
   };
+  // Fallback inks for the non-specialty building kinds.
+  const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
+  const _FORT_INK   = '#9aa49a';   // mossy stone — military
+  const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     if (t && _ROLE_INK[t]) return _ROLE_INK[t];
+    if (o.tier === 12) return _CASTLE_INK;
+    if (o.tier === 11) return _FORT_INK;
+    if (o.tier === 9)  return _HOUSE_INK;
     return Shops.shopInk(o);
   };
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
