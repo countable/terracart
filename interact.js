@@ -650,7 +650,10 @@ const TAP_HANDLERS = [
         // brokenRockSet is normally keyed by cell-key (numeric "IX_IY") for
         // natural rock cells. Mineral rock ids look like "mr_..." so collisions
         // with cell-keys are essentially impossible — reuse the same set.
-        if (scene.brokenRockSet.has(o.id)) { scene.flash('spent', sx, sy); return true; }
+        // (Spent rocks are filtered out of the render list, so we shouldn't
+        // hit this branch in practice; keep the guard for taps that race a
+        // render frame or hit a stale object reference.)
+        if (scene.brokenRockSet.has(o.id)) return true;
         const pickTier = save.relics?.pick?.tier || 0;
         const isCave = o.caveVariant != null;
         if (pickTier < o.requiredTier) {

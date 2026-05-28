@@ -107,10 +107,12 @@ Render.drawCells = function drawCells(scene) {
   // sand, etc.) avoids decos appearing in places where they'd read as litter.
   const DECO_BIOMES = new Set([0 /*grass*/, 6 /*park*/, 15 /*school*/, 18 /*playground*/,
                                19 /*pitch*/, 21 /*golf*/, 22 /*orchard*/]);
-  // Props.png is 22 cols × 12 rows of 16×16 frames; col 7, rows 1–3 = these
-  // three indices. Picking one per cell via the cell's hash keeps it stable
-  // across reloads without any save state.
-  const DECO_FRAMES = [1 * 22 + 7, 2 * 22 + 7, 3 * 22 + 7];   // 29, 51, 73
+  // Props.png is 22 cols × 12 rows of 16×16 frames. Col 7 row 0 is the
+  // canonical spring-green grass tuft; rows 1/2/3 of the same column are
+  // yellow-spring, autumn-brown, winter-snow — out of place on a green
+  // field. Per user: the (7,3) winter tuft should be (7,0) spring instead.
+  // Frame indices: row * 22 + col.
+  const DECO_FRAMES = [0 * 22 + 7, 1 * 22 + 7, 2 * 22 + 7];   // 7, 29, 51
   // 8% of qualifying cells get a deco. The probability check uses the same
   // FNV-style hash that picks the biome-noise variant, just mixed with a
   // different constant so the two streams don't correlate.
@@ -692,9 +694,16 @@ Render.drawObjects = function drawObjects(scene) {
   // doesn't regrow them. Check both — save.chopped is the source of truth.
   const choppedSet = new Set(scene.save.chopped || []);
   const pickedSetObj = new Set(scene.save.picked || []);
+  const brokenRockSet = scene.brokenRockSet || new Set();
   const filteredObj = objList.filter(({ o }) =>
     !(o.kind === 'chest' && openedSet.has(o.id)) &&
     !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
+    // Mined-out mineralrocks vanish. Previously they hung around as a
+    // dimmed sprite that flashed "spent" on tap — now they just clear,
+    // matching how chopped trees and opened chests already disappear.
+    // save.brokenRocks still tracks them so re-rasterizing the tile
+    // (cache evict + walk back) doesn't respawn them.
+    !(o.kind === 'mineralrock' && brokenRockSet.has(o.id)) &&
     // Ground stacks vanish once picked up. Same key (save.picked) as the
     // wildplant + flora pickup tracking, so existing UIs / saves don't
     // grow a new field.
@@ -828,18 +837,7 @@ Render.drawObjects = function drawObjects(scene) {
               // creatures; on a flat ground-resting rock it shoved the
               // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
               // read as off-centre by almost a whole cell.
-              origin: [0.5, 0.5], scale: 1.6,
-              after: (s, o) => {
-                // Already-broken rocks (tracked by absolute-cell key in
-                // brokenRockSet, same pattern as natural rocks in drawCells)
-                // tint dark + half alpha so they read as "spent".
-                const cellIX = Math.round((o.x - scene.startWorldM.x) / scene.cellM - 0.5);
-                const cellIY = Math.round((o.y - scene.startWorldM.y) / scene.cellM - 0.5);
-                const key = cellKeyFromAbsCell(cellIX, cellIY);
-                const broken = scene.brokenRockSet && scene.brokenRockSet.has(key);
-                s.setAlpha(broken ? 0.5 : 1);
-                s.setTint(broken ? 0x555555 : 0xffffff);
-              } },
+              origin: [0.5, 0.5], scale: 1.6 },
     // Flora (flower decals) live ON the ground tile, not standing on it —
     // centre the sprite in the cell so the petals land where the cell does.
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
