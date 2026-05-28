@@ -561,7 +561,7 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.10) continue;   // 10 % of pivots fire a cluster
+                  if (resRng() > 0.15) continue;   // 15 % of pivots fire a cluster
                   const clusterN = 3 + Math.floor(resRng() * 3);  // 3..5 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
@@ -571,6 +571,49 @@
                     let requiredTier = 7;
                     for (let i = 0; i < resTierW.length; i++) {
                       if (r <= resTierW[i]) { requiredTier = i + 1; break; }
+                    }
+                    const m = toMeters(jx, jy);
+                    const ix = Math.floor(m.x / CELL_M);
+                    const iy = Math.floor(m.y / CELL_M);
+                    const cx = (ix + 0.5) * CELL_M;
+                    const cy = (iy + 0.5) * CELL_M;
+                    objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                      id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                  }
+                }
+              }
+            }
+
+            // Industrial mineral piles — old quarries, scrap yards, slag heaps.
+            // Dense (lots of rocks): tight pivot grid + high fire chance + bigger
+            // clusters than residential. Tier dropoff is slower (1/1.6^(t-1)) so
+            // mid-tier metals (gold/platinum) actually show up here, but T7 stays
+            // very rare via the geometric tail (~3 % per cluster pick).
+            if (t === T.INDUSTRIAL) {
+              const indRng = makeRng((polyKey ^ 0xC0AL) >>> 0);
+              const bb = bboxOf(f.geom);
+              const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
+              const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
+              const indTierW = [];
+              let indTotalW = 0;
+              for (let t2 = 1; t2 <= 7; t2++) {
+                const w = 1 / Math.pow(1.6, t2 - 1);
+                indTotalW += w;
+                indTierW.push(indTotalW);
+              }
+              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
+                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
+                  if (indRng() > 0.55) continue;   // 55 % of pivots fire — "lots"
+                  const clusterN = 4 + Math.floor(indRng() * 5);   // 4..8 rocks per cluster
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (indRng() - 0.5) * 2 * clusterR;
+                    const jy = yy + (indRng() - 0.5) * 2 * clusterR;
+                    if (!pointInRings(f.geom, jx, jy)) continue;
+                    const r = indRng() * indTotalW;
+                    let requiredTier = 7;
+                    for (let i = 0; i < indTierW.length; i++) {
+                      if (r <= indTierW[i]) { requiredTier = i + 1; break; }
                     }
                     const m = toMeters(jx, jy);
                     const ix = Math.floor(m.x / CELL_M);
