@@ -670,40 +670,42 @@ const TAP_HANDLERS = [
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
+          // Bar lookup is shared between the cave-rock lucky-strike and the
+          // ore-rock primary drop. Slot 0 is unused (tier index starts at 1).
+          // T1/T2 → copper, T3 → iron, T4-T7 → gold (platinum / crimson /
+          // frost bars are blacksmith-smelting only — high-tier rocks just
+          // pay out gold + extra gems via the GEM table below).
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
           if (isCave) {
-            // Plain cave rock — just stone. 1-3 rockfruit, no ore.
+            // Plain cave rock — primarily stone (1-3 rockfruit) plus a
+            // small chance per tier of cracking open a sliver of ore.
+            // Per-tier probability is 1/(2*t²): T1 50 %, T2 12.5 %, T3
+            // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
+            // cave can yield multiple low-tier bars, while T7 lucky
+            // strikes stay genuinely rare (~1 in 100).
             const qty = 1 + Math.floor(Math.random() * 3);
             scene.addToInv('rockfruit', qty);
-            // Occasional small coal sliver — even plain caves have a
-            // chance of carbonised seam, ~15 %. Just colour, not a
-            // reliable source.
             if (Math.random() < 0.15) scene.addToInv('coal', 1);
+            let flashId = 'rockfruit';
+            for (let t = 1; t <= 7; t++) {
+              if (Math.random() < 1 / (2 * t * t)) {
+                const bar = BARS[t];
+                if (bar) { scene.addToInv(bar, 1); flashId = bar; }
+              }
+            }
             persistSave(save);
-            const item = ITEM_BY_ID['rockfruit'];
-            scene.flash(`🪨 ${item?.name || 'rockfruit'} ×${qty}`, sx, sy);
+            const item = ITEM_BY_ID[flashId];
+            scene.flash(`🪨 ${item?.name || flashId}`, sx, sy);
             return;
           }
-          // Ore-bearing rock — drop table by yieldTier. Only the lower three
-          // bars (copper / iron / gold) are mineable — platinum, crimson,
-          // and frost can only be SMELTED from their matching flowers
-          // (sunflower / fireflower / iceflower) at a blacksmith. High-tier
-          // rocks just pay out gold-bar + extra gems instead.
-          //
-          //   1 → coal + 2-3 copper bar
-          //   2 → coal + 2-3 copper bar
-          //   3 → coal + 2-3 iron bar  + occasional gold bar
-          //   4 → coal + 1-2 gold bar  + 25% sapphire
-          //   5 → coal + 2-3 gold bar  + 35% ruby
-          //   6 → coal + 2-3 gold bar  + 40% emerald
-          //   7 → coal + 2-3 gold bar  + 50% emerald + 25% ruby
+          // Ore-bearing rock — exactly ONE bar of the indicated type, plus
+          // a coal nugget and a tier-rolled gem on T4+. Bar count is no
+          // longer randomised (was 2-3) — every iron rock gives one iron,
+          // every gold rock gives one gold. Predictable yield per swing.
           scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
           const t = o.yieldTier || 1;
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
-          const BAR_QTY = (t <= 3) ? (2 + Math.floor(Math.random() * 2))
-                          : (t === 4 ? (1 + Math.floor(Math.random() * 2))
-                                     : (2 + Math.floor(Math.random() * 2)));
           const primaryBar = BARS[t] || 'copper_bar';
-          scene.addToInv(primaryBar, BAR_QTY);
+          scene.addToInv(primaryBar, 1);
           // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
           let flashId = primaryBar;
           const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['emerald', 'ruby'] };

@@ -1531,9 +1531,15 @@ test('mineralrock without pickaxe flashes need-pickaxe', (scene) => {
   assert.falsy(scene.brokenRockSet.has(mr.id), 'rock not broken without pick');
 });
 
-test('mineralrock with sufficient pick tier starts work and drops loot', (scene) => {
-  const mr = findObject(o => o.kind === 'mineralrock' && o.requiredTier <= 3);
+test('mineralrock ore drop: exactly 1 bar of the indicated tier', (scene) => {
+  // Force a T4 (gold-bearing) ore rock by mutating an existing rock to
+  // a known yieldTier — saves the test from rolling a cluster until it
+  // hits the right tier (T4+ is rare under the natural curve).
+  const mr = findObject(o => o.kind === 'mineralrock');
   if (!mr) return;
+  delete mr.caveVariant;
+  mr.yieldTier = 4;
+  mr.requiredTier = 3;   // gold needs an iron pick (one below)
   scene.save.relics = scene.save.relics || {};
   scene.save.relics.pick = { tier: 7 };
   scene.save.energy = 100;
@@ -1546,9 +1552,94 @@ test('mineralrock with sufficient pick tier starts work and drops loot', (scene)
   scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
   try { tapWorld(scene, mr.x, mr.y); } finally { scene.startWorkProgress = origStart; }
   assert.truthy(scene.brokenRockSet.has(mr.id), 'rock id added to brokenRockSet');
-  assert.gt(invCount(scene, 'coal'), 0, 'coal dropped');
-  const gemTotal = invCount(scene, 'sapphire') + invCount(scene, 'ruby') + invCount(scene, 'emerald');
-  assert.gt(gemTotal, 0, 'a gem dropped');
+  assert.eq(invCount(scene, 'gold_bar'), 1, 'exactly 1 gold bar (T4 indicated bar)');
+  assert.eq(invCount(scene, 'copper_bar'), 0, 'no copper from a T4 rock');
+  assert.eq(invCount(scene, 'iron_bar'), 0, 'no iron from a T4 rock');
+  assert.gt(invCount(scene, 'coal'), 0, 'coal also dropped');
+});
+
+test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
+  // Force a cave rock and stub Math.random so EVERY ore-tier roll
+  // misses — then the cave drop is exclusively stone.
+  const mr = findObject(o => o.kind === 'mineralrock');
+  if (!mr) return;
+  delete mr.yieldTier;
+  mr.caveVariant = 0;
+  mr.requiredTier = 1;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 1 };
+  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
+  scene.brokenRockSet = new Set(scene.save.brokenRocks);
+  if (scene._workProgress) scene.cancelWorkProgress();
+  teleport(scene, mr.x, mr.y);
+  const origRandom = Math.random;
+  Math.random = () => 0.99;   // always fail every probability roll
+  const origStart = scene.startWorkProgress.bind(scene);
+  scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
+  try { tapWorld(scene, mr.x, mr.y); }
+  finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
+  assert.gt(invCount(scene, 'rockfruit'), 0, 'cave rock drops rockfruit');
+  assert.eq(invCount(scene, 'copper_bar'), 0, 'no copper bar when ore roll fails');
+  assert.eq(invCount(scene, 'iron_bar'), 0, 'no iron bar when ore roll fails');
+  assert.eq(invCount(scene, 'gold_bar'), 0, 'no gold bar when ore roll fails');
+});
+
+test('mineralrock cave drop: lucky T1 ore strike when roll succeeds', (scene) => {
+  // Same cave rock, but every Math.random returns 0 so ALL per-tier ore
+  // rolls succeed. Cave should yield 1 of every BARS[t] entry (T1-T7).
+  const mr = findObject(o => o.kind === 'mineralrock');
+  if (!mr) return;
+  delete mr.yieldTier;
+  mr.caveVariant = 0;
+  mr.requiredTier = 1;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 1 };
+  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
+  scene.brokenRockSet = new Set(scene.save.brokenRocks);
+  if (scene._workProgress) scene.cancelWorkProgress();
+  teleport(scene, mr.x, mr.y);
+  const origRandom = Math.random;
+  Math.random = () => 0;   // every roll succeeds
+  const origStart = scene.startWorkProgress.bind(scene);
+  scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
+  try { tapWorld(scene, mr.x, mr.y); }
+  finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
+  // Each tier roll succeeds → copper (T1+T2), iron (T3), gold (T4-T7).
+  assert.eq(invCount(scene, 'copper_bar'), 2, 'T1 + T2 rolls → 2 copper bars');
+  assert.eq(invCount(scene, 'iron_bar'),   1, 'T3 roll → 1 iron bar');
+  assert.eq(invCount(scene, 'gold_bar'),   4, 'T4-T7 rolls → 4 gold bars');
+});
+
+test('mineralrock cave drop: no ore on T1 fail', (scene) => {
+  // Stub Math.random so the T1 roll (lowest threshold = 0.5) still
+  // fails — ensures we test the BOUNDARY, not just the 0.99-always-fail
+  // case. With probability 1/(2*1*1) = 0.5, returning 0.6 fails.
+  const mr = findObject(o => o.kind === 'mineralrock');
+  if (!mr) return;
+  delete mr.yieldTier;
+  mr.caveVariant = 0;
+  mr.requiredTier = 1;
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 1 };
+  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
+  scene.brokenRockSet = new Set(scene.save.brokenRocks);
+  if (scene._workProgress) scene.cancelWorkProgress();
+  teleport(scene, mr.x, mr.y);
+  const origRandom = Math.random;
+  Math.random = () => 0.6;   // 0.6 > 0.5 → T1 roll misses; > every higher-tier roll too
+  const origStart = scene.startWorkProgress.bind(scene);
+  scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
+  try { tapWorld(scene, mr.x, mr.y); }
+  finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
+  assert.eq(invCount(scene, 'copper_bar'), 0, 'T1 roll at 0.6 > 0.5 → no copper');
+  assert.eq(invCount(scene, 'iron_bar'),   0, 'no iron either');
+  assert.eq(invCount(scene, 'gold_bar'),   0, 'no gold either');
 });
 
 test('fishing handler: tap water without rod flashes need-rod', (scene) => {
