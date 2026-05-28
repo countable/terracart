@@ -423,12 +423,11 @@ class MapScene extends Phaser.Scene {
     // the produce icon onto a wooden sign.
     makeFloraTextures(this);
     makeTowerTexture(this);
-    // Long-grass wild-debris sprite. 16x16 so it scales the same as crop frames.
-    if (!this.textures.exists('longgrass')) {
-      const tex = this.textures.createCanvas('longgrass', 16, 16);
-      drawLongGrassTex(tex.getContext(), 16, seededRand(31337));
-      tex.refresh();
-    }
+    // (Longgrass used to be a procedural canvas texture painted by
+    // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
+    // 'props' sheet, which reads as a hand-painted grass tuft consistent
+    // with the rest of the wilderness art. Procedural texture + the
+    // drawLongGrassTex helper have been removed.)
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after makeFloraTextures + sheet loads so all source images
@@ -447,7 +446,12 @@ class MapScene extends Phaser.Scene {
       return c.toDataURL();
     };
     const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
-    window.ITEM_DATA_URLS.longgrass = bakeCanvas('longgrass');
+    // Longgrass — bake frame 0 of the 'props' sheet (small green tuft) so
+    // the inventory icon matches the in-world wildplant sprite. The
+    // procedural 'longgrass' canvas texture is still registered earlier
+    // (for any code path that asks for the texture by key), but the
+    // inventory data URL now uses the same source as the map sprite.
+    window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 0, 16, 16);
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets

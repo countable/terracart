@@ -271,30 +271,9 @@ function drawRockTex(ctx, size, rng) {
   }
 }
 
-// Procedurally drawn long-grass sprite (16x16, transparent background).
-function drawLongGrassTex(ctx, size, rng) {
-  ctx.clearRect(0, 0, size, size);
-  const cy = size - 1;
-  const blades = 6 + Math.floor(rng() * 3);
-  for (let i = 0; i < blades; i++) {
-    const baseX = 2 + Math.floor(rng() * (size - 4));
-    const h = 6 + Math.floor(rng() * 6);
-    const lean = (rng() - 0.5) * 3;
-    const shade = 90 + Math.floor(rng() * 60);
-    ctx.strokeStyle = `rgb(${Math.floor(shade * 0.4)},${shade + 30},${Math.floor(shade * 0.45)})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(baseX + 0.5, cy + 0.5);
-    ctx.quadraticCurveTo(baseX + lean * 0.5, cy - h * 0.5, baseX + lean, cy - h);
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#d8c873';
-  for (let i = 0; i < 2; i++) {
-    const x = 3 + Math.floor(rng() * (size - 6));
-    const y = 2 + Math.floor(rng() * 4);
-    ctx.fillRect(x, y, 1, 1);
-  }
-}
+// (drawLongGrassTex removed — longgrass now uses frame 0 of the 'props'
+// sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
+// blade colours / shading next to the hand-painted wilderness art.)
 
 // === Procedural decorative flora ===
 // Tiny non-interactable sprites drawn on transparent 16×16 canvases.

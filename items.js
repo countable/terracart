@@ -141,9 +141,10 @@ function inventoryIconSource(itemId) {
     return { sheet: 'springcrops', frame: ov.row * 14 + col };
   }
   if (ov && ov.custom) {
-    // longgrass uses the procedural texture; reuse its key directly.
-    // ov.frame is honoured so sheets with multiple cells (e.g. mushroom_world,
-    // whose frame 0 is empty) can point at the right cell.
+    // Custom sheets (longgrass→props, mushroom→mushroom_world, shell→
+    // shell_sheet). ov.frame is honoured so sheets with multiple cells
+    // (e.g. mushroom_world whose frame 0 is empty) can point at the right
+    // cell. Shells use the variants path in the renderer.
     return { sheet: ov.sheet, frame: ov.frame ?? 0 };
   }
   if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * 9 + 8 };
