@@ -446,12 +446,10 @@ class MapScene extends Phaser.Scene {
       return c.toDataURL();
     };
     const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
-    // Longgrass — bake frame 0 of the 'props' sheet (small green tuft) so
-    // the inventory icon matches the in-world wildplant sprite. The
-    // procedural 'longgrass' canvas texture is still registered earlier
-    // (for any code path that asks for the texture by key), but the
-    // inventory data URL now uses the same source as the map sprite.
-    window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 0, 16, 16);
+    // Longgrass (display name "Fern") — bake frame 10 of the 'props' sheet
+    // (col 11 row 1 in 1-indexed coords = leafy green fern frond). Same
+    // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
+    window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets
@@ -466,11 +464,12 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
-    // Wilderness drops + flora that share their world sprite.
-    // Frame index comes from CROP_SPRITE.mushroom — frame 0 of the source PNG
-    // is empty, so the single source of truth lives in items.js.
-    window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world',
-      CROP_SPRITE.mushroom?.frame ?? 0, 32, 32);
+    // Wilderness drops + flora that share their world sprite. Source sheet
+    // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
+    // glued to whatever the world renderer is drawing.
+    window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame(
+      CROP_SPRITE.mushroom?.sheet ?? 'mushroom_world',
+      CROP_SPRITE.mushroom?.frame ?? 0, 16, 16);
     // Wood — inventory uses frame 2 (the third / "amber" log variant
     // of the three). Ground stacks pick a frame based on the stack's
     // qty (see render.js groundstack branch).

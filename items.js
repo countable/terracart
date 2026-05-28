@@ -45,18 +45,23 @@ const CROP_SPRITE = {
   berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // Long grass — replaced the procedural sprite with frame 0 of the ALL
-  // props seasons sheet (small green tuft). The procedural drawLongGrassTex
-  // is still bound to the 'longgrass' texture key in app.js but is no
-  // longer the in-world sprite — the props frame reads much nicer.
-  longgrass: { sheet: 'props', custom: true, frame: 0 },
-  // Mushroom uses the Fantasy Mushroom sheet ('mushroom_world' key in
-  // assets.js, 3 cols × 9 rows of 32×32 frames). Frame 0 (top-left cell)
-  // is fully transparent in the source PNG — picking it gave a blank
-  // inventory slot and an invisible wildplant on the map. Frame 2 (top-
-  // right) is the big red mushroom cluster that fills the cell, so it
-  // reads at icon size and at the wildplant's in-world scale.
-  mushroom: { sheet: 'mushroom_world', custom: true, frame: 2 },
+  // "Long grass" is now FERN (item id stays 'longgrass' for save-compat —
+  // display name is 'Fern'). Props.png is a 22-col grid; frame (col 11,
+  // row 1) 1-indexed = col 10 row 0 0-indexed = 0*22 + 10 = 10. Reads as
+  // leafy green fern fronds at the wildplant scale.
+  longgrass: { sheet: 'props', custom: true, frame: 10 },
+  // Shrub (the wildplant; chopping it drops wood). Props.png frame
+  // (col 11, row 6) 1-indexed = col 10 row 5 = 5*22 + 10 = 120. A brown
+  // bare-twig bush. Without this override the renderer falls back to row
+  // 1 of crops.png (the pairy sprite) which looked like a fruit.
+  shrub:     { sheet: 'props', custom: true, frame: 120 },
+  // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
+  // (col=14, row=1) → index 1*22 + 14 = 36 is a small red-cap toadstool
+  // sized to fit a single cell. The previous Fantasy Mushroom sheet was
+  // 32×32 frames rendered at the wildplant scale of 2 → 64×64 display,
+  // i.e. twice the footprint of every other ground prop, which read as
+  // a "giant broken-looking" mushroom on commercial/industrial plots.
+  mushroom: { sheet: 'props', custom: true, frame: 36 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -251,7 +256,10 @@ const ITEMS = [
   { id: 'egg',  name: 'Egg',  kind: 'produce', icon: '🥚' },
   { id: 'milk', name: 'Milk', kind: 'produce', icon: '🥛' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
-  { id: 'longgrass', name: 'Long Grass', kind: 'produce', crop: 'longgrass', icon: '🌿' },
+  // Display name 'Fern' since the swap to Props.png's fern-frond sprite;
+  // id remains 'longgrass' for save / loot-table back-compat. icon stays
+  // 🌿 (the closest leaf emoji; no plain "fern" emoji in unicode).
+  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass', icon: '🌿' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce', icon: '🌼' },
   // Consumables — used on yourself (tap your own feet with one selected).
@@ -512,13 +520,22 @@ const ENERGY_COST = {
 // read ANIMAL_FOOD[kind][0]; code that asks "is this food OK?" should call
 // animalLikesFood(kind, id) below.
 const ANIMAL_FOOD = {
-  chicken: ['rainberry'],  // berries to peck
+  // Chickens — no explicit list. animalLikesFood special-cases any *_seed
+  // for them, and the catch-hint flash hardcodes "want seed" for chickens,
+  // so the array can stay empty. (Was ['rainberry'] before seeds replaced
+  // berries as the canonical feed.)
+  chicken: [],
   cow:     ['pairy'],      // pears to munch
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
 };
 function animalLikesFood(kind, foodId) {
+  // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
+  // felt arbitrary. Other species keep their explicit list.
+  if (kind === 'chicken' && typeof foodId === 'string' && foodId.endsWith('_seed')) {
+    return true;
+  }
   const list = ANIMAL_FOOD[kind];
   if (!list) return false;
   return list.includes(foodId);
