@@ -92,37 +92,10 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // -0.5) Eat — tap the player's own feet (within 1.5m) with a food selected.
-  // Eating is a deliberate action so we show a confirmation modal rather than
-  // silently consuming the stack on a stray tap.
-  { name: 'eat', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
-    const dx = wm.x - pWorldX, dy = wm.y - pWorldY;
-    if (dx * dx + dy * dy > 1.5 * 1.5) return false;
-    const sel = getSelectedSlot(save);
-    if (!sel || (sel.count ?? 0) <= 0) return false;
-    const restore = (typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
-    if (restore == null) return false;
-    const item = ITEM_BY_ID[sel.id];
-    // Items with a more-specific cell action take priority over eat — seeds go
-    // to plant, rockfruit to place-rock, etc. Without this gate the player
-    // couldn't till/plant the cell directly under their feet while holding
-    // food, because eat would intercept the tap.
-    if (item && (item.kind === 'seed' || item.id === 'rockfruit')) return false;
-    // Don't let a stray tap consume food at full energy for zero gain.
-    const curE = save.energy ?? 0;
-    const maxE = save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
-    if (curE >= maxE) { scene.flash('not hungry', sx, sy); return true; }
-    scene.showOfferModal({
-      title: 'Eat this?',
-      get: `⚡ +${restore} energy`,
-      cost: `1× ${scene.iconSpanHTML(sel.id)} ${item?.name || sel.id}`,
-      canAfford: true,
-      acceptLabel: 'Eat',
-      onAccept: () => { scene.eatSelected(); },
-    });
-    return true;
-  }},
+  // (Eat-by-tapping-the-player removed — the persistent Eat button below the
+  // inventory bar covers this affordance now, and the tap-on-feet variant
+  // was easy to trigger accidentally while trying to till / plant under the
+  // player's own cell.)
 
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
