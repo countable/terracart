@@ -2279,6 +2279,16 @@ class MapScene extends Phaser.Scene {
     // The starter blacksmith overrides the address-derived shop role so the
     // forge branch below fires regardless of the underlying house number.
     const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
+    const isFort = !!house && house.tier === 11;
+    // Plain houses — small residential without a shop role and not the
+    // starter blacksmith — are delivery sites only. Each picks 2-3 produce
+    // they'll buy (full price, no sword sellMul); they don't sell anything
+    // or do the old 10% relic swap. Their sign shows the wanted icons so
+    // the player can scout a street and bring matching produce.
+    if (!isCastle && !isFort && !shopType && !isStarterSmith && house) {
+      this.presentDeliveryOffer(sx, sy, house, recordDeal);
+      return;
+    }
     // Selling is HOME-ONLY (handled above). Every other house runs straight
     // into its primary interaction below — selected-item taps no longer
     // open a sell modal here. The player has to bring the haul back to
@@ -2476,6 +2486,106 @@ class MapScene extends Phaser.Scene {
       }
     }
     return null;
+  }
+
+  // ─── Deliveries: plain houses only buy specific produce ──────────────
+  // Stable per-house RNG keyed only on house.id. Differs from shopRng (which
+  // rotates with the deal bucket) — the wanted-produce list shouldn't shift
+  // out from under the player when the shop's hour resets.
+  wantedProduceRng(house) {
+    let h = 2166136261 >>> 0;
+    const s = String(house?.id || '');
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    let state = h;
+    return () => {
+      state = (Math.imul(state, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // 2-3 produce ids this plain house is willing to buy at full price. Picked
+  // once and cached on the house object so the render-loop sign and the
+  // interact handler agree without re-rolling.
+  wantedProduce(house) {
+    if (!house?.id) return [];
+    if (house._wantedProduce) return house._wantedProduce;
+    const universe = (typeof ITEMS !== 'undefined')
+      ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
+      : [];
+    if (!universe.length) return [];
+    const rng = this.wantedProduceRng(house);
+    const count = 2 + Math.floor(rng() * 2);  // 2 or 3
+    const pool = universe.slice();
+    const picks = [];
+    while (picks.length < count && pool.length) {
+      const idx = Math.floor(rng() * pool.length);
+      picks.push(pool.splice(idx, 1)[0]);
+    }
+    house._wantedProduce = picks;
+    return picks;
+  }
+
+  // Delivery interaction. Tap a plain house with one of its wanted produce
+  // selected → sell at full PRICES[id] (no sword sellMul, no specialty bonus).
+  // Tap with anything else (or an empty selection) flashes the wanted icons
+  // so the player can see what this house actually wants.
+  presentDeliveryOffer(sx, sy, house, recordDeal) {
+    const wanted = this.wantedProduce(house);
+    if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    const sel = this.save.inv[this.save.selSlot];
+    const hasMatch = sel && sel.id && (sel.count ?? 0) > 0 && wanted.includes(sel.id);
+    if (!hasMatch) {
+      const icons = wanted.map(id => ITEM_BY_ID[id]?.icon || '?').join(' ');
+      this.flash(`wants ${icons}`, sx, sy);
+      return;
+    }
+    const sellId = sel.id;
+    const item = ITEM_BY_ID[sellId];
+    const unitPrice = Math.max(1, PRICES[sellId] ?? 1);
+    const maxQty = Math.max(1, sel.count | 0);
+    const iconHTML = this.iconSpanHTML(sellId);
+    const itemName = item?.name || sellId;
+    const fmt = (q) => ({
+      get: `+$${unitPrice * q}`,
+      cost: `${q}× ${iconHTML} ${itemName}`,
+      canAfford: true,
+    });
+    const first = fmt(1);
+    this.showOfferModal({
+      title: 'The household will take:',
+      get: first.get,
+      cost: first.cost,
+      canAfford: true,
+      acceptLabel: 'Deliver',
+      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+      onAccept: (q) => {
+        const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
+        if (idx < 0) { this.flash('gone', sx, sy); return; }
+        const cur = this.save.inv[idx];
+        const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
+        if (sold <= 0) { this.flash('gone', sx, sy); return; }
+        cur.count -= sold;
+        const gain = unitPrice * sold;
+        addMoney(this.save, gain);
+        if (cur.count <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.updateMoneyDOM) this.updateMoneyDOM();
+        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+      },
+    });
   }
 
   // Read the persisted offer for this house if set, else build a new one and
