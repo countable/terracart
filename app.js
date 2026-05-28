@@ -978,28 +978,47 @@ class MapScene extends Phaser.Scene {
     }
     entry.creatures = creatures;
 
-    // Ground-stack wood. Sprinkle a few small piles of wood per tile on
-    // soft ground so the player can pick them up bare-handed. Same RNG +
-    // index basis as creatures so the same tile always picks the same
-    // cells (and picked-up stacks stay picked-up via save.picked).
+    // Starter-area ground stacks. A couple of wood + rockfruit piles
+    // within 20m of the player's spawn so the very first session has
+    // something to pick up (and a path to the starter blacksmith's pick
+    // recipe = 3 rockfruit + 1 wood). Restricted to the start tile +
+    // empty soft-ground cells (no other object within 4m). Once a stack's
+    // id lands in save.picked it stays picked across reloads, same as
+    // every other pickup.
     entry.objects = entry.objects || [];
-    const woodN = 2 + Math.floor(rng() * 2);   // 2 or 3 stacks per tile
-    for (let i = 0; i < woodN; i++) {
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
-        const t = entry.grid[cy * N + cx];
-        if (SOFT_GROUND.has(t)) {
+    const startTx = Math.floor(this.startWorldM.x / this.tileEdgeM);
+    const startTy = Math.floor(this.startWorldM.y / this.tileEdgeM);
+    if (tx === startTx && ty === startTy) {
+      const startCellIX = Math.floor((this.startWorldM.x - tx * this.tileEdgeM) / this.cellM);
+      const startCellIY = Math.floor((this.startWorldM.y - ty * this.tileEdgeM) / this.cellM);
+      const RADIUS_CELLS = Math.ceil(20 / this.cellM);    // 20m → 4 cells at 5m
+      // Tries one stack id per (kind, idx) pair so picked stacks stay picked.
+      const tryStarterStack = (itemId, qty, idx) => {
+        const id = `starter_${itemId}_${idx}`;
+        if (this.save.picked && this.save.picked.includes(id)) return;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const dx = Math.floor((rng() - 0.5) * 2 * (RADIUS_CELLS + 1));
+          const dy = Math.floor((rng() - 0.5) * 2 * (RADIUS_CELLS + 1));
+          if (Math.abs(dx) + Math.abs(dy) < 2) continue;   // not directly under player
+          const cx = startCellIX + dx, cy = startCellIY + dy;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          if (!SOFT_GROUND.has(entry.grid[cy * N + cx])) continue;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-          const id = `ws_${tx}_${ty}_${i}`;
-          if (this.save.picked && this.save.picked.includes(id)) break;
-          // Stack of 2-3 wood per pile (frame index = qty - 1).
-          const qty = 2 + Math.floor(rng() * 2);
-          entry.objects.push({ kind: 'groundstack', itemId: 'wood', qty, x: wmx, y: wmy, id });
-          break;
+          // Skip cells already occupied by a chest/house/tree/etc.
+          const blocked = entry.objects.some(o =>
+            (o.x - wmx) * (o.x - wmx) + (o.y - wmy) * (o.y - wmy) < 4 * 4);
+          if (blocked) continue;
+          entry.objects.push({ kind: 'groundstack', itemId, qty, x: wmx, y: wmy, id });
+          return;
         }
-      }
+      };
+      // Two piles of each so the player isn't stuck if one spawns behind a
+      // tree. Wood × {2, 3}, rockfruit × {2, 3}.
+      tryStarterStack('wood',      2, 0);
+      tryStarterStack('wood',      3, 1);
+      tryStarterStack('rockfruit', 2, 0);
+      tryStarterStack('rockfruit', 3, 1);
     }
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants

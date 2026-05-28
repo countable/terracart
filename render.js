@@ -786,14 +786,17 @@ Render.drawObjects = function drawObjects(scene) {
                 return lvl - 1;
               },
               origin: [0.5, 1.0], scale: 0.85 },
-    // Ground stack — an item id + qty sitting on the map. The sprite key
-    // currently only handles wood (its 4-frame 16×16 sheet doubles as the
-    // stack-size visualiser: frame = clamp(qty - 1, 0, 3)). To add another
-    // stackable item later, branch on o.itemId and pick the matching
-    // texture / frame curve.
+    // Ground stack — an item id + qty sitting on the map. Texture +
+    // frame come from inventoryIconSource(itemId) so any item with an
+    // inventory icon can sit on the ground without per-kind plumbing.
+    // For wood (the 4-frame stack sheet) we override the frame to
+    // visualise stack size: frame = clamp(qty - 1, 0, 3).
     groundstack: {
-      key: (o) => o.itemId === 'wood' ? 'wood' : 'wood',
-      frame: (o) => Math.min(3, Math.max(0, (o.qty || 1) - 1)),
+      key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
+      frame: (o) => {
+        if (o.itemId === 'wood') return Math.min(3, Math.max(0, (o.qty || 1) - 1));
+        return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
+      },
       origin: [0.5, 0.9], scale: 1.8,
     },
   };

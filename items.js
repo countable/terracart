@@ -63,6 +63,8 @@ const CROP_SPRITE = {
 // app.js' renderItemIcon) plus a frame index. One line per item; the
 // renderer handles the rest. Used by trader / shop / inventory modals.
 const MINERAL_ICON_SHEET = {
+  // Wood — frame 3 is the densest 4-log pile; reads as a stack at icon size.
+  wood:     { sheet: 'wood',      frame: 3 },
   coal:     { sheet: 'coal_icon', frame: 0 },
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
