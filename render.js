@@ -1018,7 +1018,9 @@ Render.drawObjects = function drawObjects(scene) {
       // Custom-sheet wildplants. Some are single-frame (longgrass,
       // mushroom), others have N visual variants picked off a stable
       // per-item hash so the same world cell always renders the same
-      // shell / pebble / etc. but the field reads as varied.
+      // shell / pebble / etc. but the field reads as varied. ov.frame
+      // overrides the default 0 — needed for sheets whose first cell
+      // is empty (mushroom_world's frame 0 is fully transparent).
       if (s.texture.key !== ov.sheet) s.setTexture(ov.sheet);
       if (ov.variants && ov.variants > 1) {
         // Hash off the wildplant's stable _ix/_iy (or wildId for picked
@@ -1027,7 +1029,7 @@ Render.drawObjects = function drawObjects(scene) {
                 ^ ((p.wildId || '').length * 2654435761);
         s.setFrame(Math.abs(h) % ov.variants);
       } else {
-        s.setFrame(0);
+        s.setFrame(ov.frame ?? 0);
       }
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
