@@ -884,12 +884,10 @@ Render.drawObjects = function drawObjects(scene) {
   for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
 
   // Specialty-shop labels above small-house shops (markets / blacksmiths /
-  // traders). Painted-wood signage — warm brown plank, deep-wood stroke
-  // around each glyph, and a hard drop-shadow below the lettering so the
-  // sign reads as carved/painted (NOT the glowing cyan rune tablets used
-  // for POI chests). Lettering colour comes from Shops.shopInk so each
-  // shop type's signage matches its house tint at a glance.
-  const SHOP_INK_BG    = 'rgb(96,64,40)';            // warm dark wood plank
+  // traders). Plain coloured glyphs with a dark stroke + hard drop shadow —
+  // no background plank — so the lettering floats over the building art.
+  // Lettering colour comes from Shops.shopInk so each shop type's signage
+  // matches its house tint at a glance.
   const SHOP_STROKE    = '#2a1408';                  // near-black wood shadow around glyphs
   const SHOP_DROP      = 'rgba(0,0,0,0.65)';         // hard drop shadow under the sign
   // Starter shop labels as "Home" — it's no longer a shop, but the player
@@ -927,8 +925,6 @@ Render.drawObjects = function drawObjects(scene) {
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
         font: 'bold 9px monospace',
-        backgroundColor: SHOP_INK_BG,
-        padding: { x: 4, y: 2 },
         stroke: SHOP_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(50);
       // Drop-shadow offset down-right with no blur so the sign reads as a

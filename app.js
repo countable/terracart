@@ -730,10 +730,17 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * 111320;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          // While ghost mode is active, playerM IS the ghost; GPS updates
-          // the body silently behind it (the body sprite re-positions
-          // itself off-centre based on _bodyM during render).
-          if (this._bodyM) {
+          // Debug controls take over movement entirely — skip the GPS-driven
+          // ease (and the silent body-warp under ghost mode) so the gold
+          // joystick / arrow keys aren't fighting the watcher. gpsM still
+          // tracks so the HUD's gps-live check and the facing fallback below
+          // keep working.
+          if (this.save.debugControls) {
+            // intentionally no playerM / _bodyM write
+          } else if (this._bodyM) {
+            // While ghost mode is active, playerM IS the ghost; GPS updates
+            // the body silently behind it (the body sprite re-positions
+            // itself off-centre based on _bodyM during render).
             this._bodyM.x = this.gpsM.x;
             this._bodyM.y = this.gpsM.y;
           } else {
@@ -2133,6 +2140,34 @@ class MapScene extends Phaser.Scene {
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
+  // Building-flavored title for an offer modal. Different building kinds
+  // (castle / fort / market / trader / blacksmith / plain house) get their
+  // own greeting so the player can tell at a glance what they walked into,
+  // instead of every dialog reading "A trader offers:". `action` is one of:
+  //   'buy'      → routine seed/produce/barter buy
+  //   'relic'    → a relic offer (non-starter)
+  //   'cashbuy'  → trader is paying cash for the player's goods
+  //   'forge'    → blacksmith forge offer
+  buildingFlavorTitle(house, action) {
+    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    const isFort   = !!house && house.tier === 11;
+    const st = (!isCastle && !isFort && house && typeof Shops !== 'undefined')
+      ? Shops.shopType(house) : null;
+    if (action === 'cashbuy') return 'The trader is buying:';
+    if (action === 'forge')   return 'The blacksmith will forge:';
+    if (action === 'relic') {
+      if (isCastle) return "The castle's vault holds:";
+      if (isFort)   return 'The fort quartermaster offers a relic:';
+      return 'A villager offers a relic:';
+    }
+    // 'buy'
+    if (isCastle) return "From the castle's vault:";
+    if (isFort)   return 'The fort quartermaster offers:';
+    if (st === 'market')     return 'The market has fresh stock:';
+    if (st === 'trader')     return 'The trader proposes a barter:';
+    if (st === 'blacksmith') return 'The blacksmith has on hand:';
+    return 'A villager offers:';
+  }
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
@@ -2300,7 +2335,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     this.showOfferModal({
-      title: 'A trader offers:',
+      title: this.buildingFlavorTitle(house, 'buy'),
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       cost: offer.label,
       canAfford: offer.canAfford(),
@@ -2472,7 +2507,7 @@ class MapScene extends Phaser.Scene {
     const curState = (house?.id && !offer.starter) ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
-      title: offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:',
+      title: offer.starter ? 'Starter gear in stock:' : this.buildingFlavorTitle(house, 'relic'),
       get: `${iconHtml} ${name}`,
       blurb,
       cost: `$${offer.price}`,
@@ -2775,7 +2810,7 @@ class MapScene extends Phaser.Scene {
     });
     const first = fmt(1);
     this.showOfferModal({
-      title: 'The trader is buying:',
+      title: this.buildingFlavorTitle(house, 'cashbuy'),
       get: first.get,
       cost: first.cost,
       canAfford: true,
@@ -2827,7 +2862,7 @@ class MapScene extends Phaser.Scene {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
-      title: 'The blacksmith will forge:',
+      title: this.buildingFlavorTitle(house, 'forge'),
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
@@ -3266,6 +3301,10 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.syncGhostPad();
     this.syncDebugPad();
+    // Cancel any in-flight GPS ease so a fix that landed milliseconds before
+    // the toggle doesn't keep dragging the player after the gold joystick
+    // takes over. The startGps callback will skip future eases on its own.
+    if (this.save.debugControls) this._ease = null;
     return this.save.debugControls;
   }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
