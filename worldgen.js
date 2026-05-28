@@ -538,6 +538,59 @@
               }
             }
 
+            // Mineralrock cluster spawner — shared between RESIDENTIAL,
+            // INDUSTRIAL, and ROCK passes. Each rock in a cluster is rolled
+            // independently:
+            //   70 % → plain CAVE rock (no ore, T1 pick suffices).
+            //          Renders as one of the bottom-row sprite variants in
+            //          stone with minerals.png. Drops 1-3 rockfruit.
+            //   30 % → ORE rock. Tier picked from the caller's tierW table
+            //          (residential/industrial/ROCK each provide their own
+            //          dropoff curve). PICK REQUIREMENT is max(1, yieldT-1)
+            //          — to mine copper-bearing rock (yieldT=2) you need a
+            //          T1 wood pick; iron-bearing (T3) needs a T2 copper
+            //          pick; up to frost-bearing (T7) which needs a T6
+            //          crimson pick.
+            // Also: never spawn on a BUILDING cell, even if the polygon
+            // happens to overlap (residential polygons often contain
+            // painted building footprints).
+            const _CAVE_ROCK_P = 0.70;
+            const _CAVE_VARIANTS = 11 * 3;   // rows 14, 15, 16 (3 rows × 11 cols)
+            const _isBuildingCell = (ix, iy) => {
+              const tc = grid[iy * w + ix];
+              return tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+            };
+            const _pushMineralrock = (rng, jx, jy, tierW, totalW) => {
+              if (!pointInRings(f.geom, jx, jy)) return;
+              const m = toMeters(jx, jy);
+              const ix = Math.floor(m.x / CELL_M);
+              const iy = Math.floor(m.y / CELL_M);
+              // Convert world cell index back to local tile cell index for the
+              // building check (grid is indexed by [iy * w + ix] in TILE space).
+              const localIx = ix - tx * w;
+              const localIy = iy - ty * h;
+              if (localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
+                  && _isBuildingCell(localIx, localIy)) return;
+              const cx = (ix + 0.5) * CELL_M;
+              const cy = (iy + 0.5) * CELL_M;
+              if (rng() < _CAVE_ROCK_P) {
+                // Cave rock — pure stone, T1 pick OK.
+                const caveVariant = Math.floor(rng() * _CAVE_VARIANTS);
+                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
+                  caveVariant, id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                return;
+              }
+              // Ore rock — roll yieldTier from the caller's CDF.
+              const r = rng() * totalW;
+              let yieldTier = 7;
+              for (let i = 0; i < tierW.length; i++) {
+                if (r <= tierW[i]) { yieldTier = i + 1; break; }
+              }
+              const requiredTier = Math.max(1, yieldTier - 1);
+              objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier, yieldTier,
+                id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+            };
+
             // Residential mineral clusters — a few abandoned-yard / construction
             // piles in town. Sparse: pivot grid is ~30 m so most residential
             // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
@@ -548,15 +601,14 @@
               const bb = bboxOf(f.geom);
               const pivotStep = 30 / mvtToM;        // one cluster candidate per ~30 m
               const clusterR  = 6  / mvtToM;        // rocks placed within ~6 m of pivot
-              // Lower-tier bias for town rocks (T1 ~80% → T7 negligible). Stronger
-              // damping than the wilderness ROCK loop because residential should
-              // not be where the player farms platinum.
-              const resTierW = [];
-              let resTotalW = 0;
+              // Lower-tier bias for town ore (T1 ~67 % → T7 negligible). 70 %
+              // of the cluster is still plain CAVE rock per the shared helper.
+              const tierW = [];
+              let totalW = 0;
               for (let t2 = 1; t2 <= 7; t2++) {
                 const w = 1 / Math.pow(3, t2 - 1);
-                resTotalW += w;
-                resTierW.push(resTotalW);
+                totalW += w;
+                tierW.push(totalW);
               }
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
@@ -566,19 +618,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    if (!pointInRings(f.geom, jx, jy)) continue;
-                    const r = resRng() * resTotalW;
-                    let requiredTier = 7;
-                    for (let i = 0; i < resTierW.length; i++) {
-                      if (r <= resTierW[i]) { requiredTier = i + 1; break; }
-                    }
-                    const m = toMeters(jx, jy);
-                    const ix = Math.floor(m.x / CELL_M);
-                    const iy = Math.floor(m.y / CELL_M);
-                    const cx = (ix + 0.5) * CELL_M;
-                    const cy = (iy + 0.5) * CELL_M;
-                    objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
-                      id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                    _pushMineralrock(resRng, jx, jy, tierW, totalW);
                   }
                 }
               }
@@ -590,16 +630,18 @@
             // mid-tier metals (gold/platinum) actually show up here, but T7 stays
             // very rare via the geometric tail (~3 % per cluster pick).
             if (t === T.INDUSTRIAL) {
-              const indRng = makeRng((polyKey ^ 0xC0AL) >>> 0);
+              const indRng = makeRng((polyKey ^ 0xC0A11D) >>> 0);
               const bb = bboxOf(f.geom);
               const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
               const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
-              const indTierW = [];
-              let indTotalW = 0;
+              // Slower tier dropoff than residential — mid-tier ore (gold,
+              // platinum) shows up regularly while T7 stays ~3 % per ore pick.
+              const tierW = [];
+              let totalW = 0;
               for (let t2 = 1; t2 <= 7; t2++) {
                 const w = 1 / Math.pow(1.6, t2 - 1);
-                indTotalW += w;
-                indTierW.push(indTotalW);
+                totalW += w;
+                tierW.push(totalW);
               }
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
@@ -609,19 +651,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (indRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (indRng() - 0.5) * 2 * clusterR;
-                    if (!pointInRings(f.geom, jx, jy)) continue;
-                    const r = indRng() * indTotalW;
-                    let requiredTier = 7;
-                    for (let i = 0; i < indTierW.length; i++) {
-                      if (r <= indTierW[i]) { requiredTier = i + 1; break; }
-                    }
-                    const m = toMeters(jx, jy);
-                    const ix = Math.floor(m.x / CELL_M);
-                    const iy = Math.floor(m.y / CELL_M);
-                    const cx = (ix + 0.5) * CELL_M;
-                    const cy = (iy + 0.5) * CELL_M;
-                    objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
-                      id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                    _pushMineralrock(indRng, jx, jy, tierW, totalW);
                   }
                 }
               }
@@ -634,29 +664,20 @@
               const bb = bboxOf(f.geom);
               const stepMvt = 15 / mvtToM;   // one candidate per ~15m
               // Precompute tier-weight CDF: w[i] = 1 / 2^i for i = 0..6.
-              const tierWeights = [];
+              // 70 % of these spawns are still plain CAVE rock per the
+              // shared helper; this curve only governs the ore subset.
+              const tierW = [];
               let totalW = 0;
               for (let t2 = 1; t2 <= 7; t2++) {
                 const w = 1 / Math.pow(2, t2 - 1);
                 totalW += w;
-                tierWeights.push(totalW); // cumulative
+                tierW.push(totalW);
               }
               for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
                   if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
                   if (rockRng() > 0.4) continue;   // 40% chance per candidate
-                  const r = rockRng() * totalW;
-                  let requiredTier = 7;
-                  for (let i = 0; i < tierWeights.length; i++) {
-                    if (r <= tierWeights[i]) { requiredTier = i + 1; break; }
-                  }
-                  const m = toMeters(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
-                  const ix = Math.floor(m.x / CELL_M);
-                  const iy = Math.floor(m.y / CELL_M);
-                  const cx = (ix + 0.5) * CELL_M;
-                  const cy = (iy + 0.5) * CELL_M;
-                  objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
-                    id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                  _pushMineralrock(rockRng, xx + stepMvt * 0.5, yy + stepMvt * 0.5, tierW, totalW);
                 }
               }
             }

@@ -802,18 +802,24 @@ Render.drawObjects = function drawObjects(scene) {
                 s.setAlpha(picked ? 0.55 : 1);
               } },
     mineralrock: { key: 'mineralrock',
-              // Sheet: 11 cols × 17 rows = 187 frames. Row picked by tier
-              // (T1=row 0 … T7=row 12, step 2 so adjacent tiers look
-              // distinct); col deterministic on id-hash so each rock stays
-              // visually stable.
-              //
-              // Col is hashed mod 10 (not the sheet's full 11) because
-              // sheet col 10 is BLANK on rows 10 + 12 (the T6 / T7 tier
-              // rows). A rock that hashed into col 10 on those rows rendered
-              // as an empty square — looked like "cut in half" /
-              // "missing art". mod 10 stays inside the always-filled range.
+              // Sheet: 11 cols × 17 rows = 187 frames.
+              //   CAVE rocks (o.caveVariant set, no ore) → bottom three rows
+              //     (14, 15, 16) which are plain stone art. Variant is rolled
+              //     at worldgen time so a given rock is visually stable.
+              //   ORE rocks (o.yieldTier set) → row = (yieldTier - 1) × 2
+              //     so T1=row 0, T2=row 2 … T7=row 12.
+              // Col is hashed mod 10 (not the full 11) because sheet col 10
+              // is blank on rows 10 + 12 — a rock that hashed there rendered
+              // as an empty square. Cave rows are full 11 cols but we stay
+              // with mod 10 for symmetry.
               frame: (o) => {
-                const row = Math.min(16, ((o.requiredTier || 1) - 1) * 2);
+                if (o.caveVariant != null) {
+                  const caveRow = 14 + Math.floor(o.caveVariant / MINERALROCK_COLS);
+                  const caveCol = o.caveVariant % MINERALROCK_COLS;
+                  return Math.min(16, caveRow) * MINERALROCK_COLS + Math.min(10, caveCol);
+                }
+                const tier = o.yieldTier || o.requiredTier || 1;
+                const row = Math.min(16, (tier - 1) * 2);
                 const col = _idHash(o.id || '') % 10;
                 return row * MINERALROCK_COLS + col;
               },
@@ -1088,14 +1094,16 @@ Render.drawObjects = function drawObjects(scene) {
   for (; sli < scene.shopLabelPool.length; sli++) scene.shopLabelPool[sli].setVisible(false);
 
   // Per-house readiness pip — sits just above each house / tower sprite and
-  // shows either "✓" (this shop can take a deal right now) or "Xm" (the
-  // wall-clock minutes until the hour bucket rolls over). Castles + the
-  // starter blacksmith have dealCap=Infinity and never go busy, so we skip
-  // the pip entirely for them — the sign + house style already communicate
-  // "always open". The text styling matches the shop sign but with a
-  // smaller font + a wood-plank brown bg vs the role-coloured sign ink, so
-  // the player can read role AND availability at a glance without the two
-  // signs fighting for the same visual real estate.
+  // shows either "✓ open" (this shop can take a deal right now) or "Xm"
+  // (the wall-clock minutes until the hour bucket rolls over). Skipped for:
+  //   • Castles + the starter blacksmith (dealCap=Infinity) — no busy state
+  //     to communicate, so absence of a pip means "always open".
+  //   • Unrestored wreck houses — they have no shop function until rebuilt,
+  //     so the pip would read as a lie ("open" for a building you can't
+  //     trade with). The restore modal is the affordance instead.
+  // Styling: green ink on white plaque with a hard black border so the pip
+  // reads against any biome colour, anchored top-left and offset 10 px
+  // further left from the house's foot point.
   const houseObjs = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
   let hri = 0;
   for (const item of houseObjs) {
@@ -1105,29 +1113,42 @@ Render.drawObjects = function drawObjects(scene) {
     // Unlimited-deal shops never need a "busy" badge; the absence of a pip
     // is itself the signal that they're always open.
     if (info.dealCap === Infinity) continue;
+    // Wrecks aren't shops yet — the pip would read as a contradiction.
+    if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
+      // Small, quiet label — italic sans-serif at 8 px on a parchment-cream
+      // plaque. Deliberately a different visual family from the house's
+      // bold-monospace wooden sign hanging below it, so the two don't
+      // compete: the name sign owns the building's identity, this label is
+      // a secondary "open/closed" tag.
       tx = scene.add.text(0, 0, '', {
-        font: 'bold 10px ui-monospace, monospace',
-        padding: { x: 4, y: 2 },
-        stroke: '#000', strokeThickness: 2,
+        font: 'italic 8px ui-serif, "Times New Roman", serif',
+        padding: { x: 3, y: 1 },
       }).setOrigin(0.5, 1).setDepth(51);
       scene.objectsContainer.add(tx);
       scene.shopReadyPool.push(tx);
     }
-    const label = info.ready ? '✓ open' : `⏳ ${info.waitMin}m`;
-    const ink   = info.ready ? '#a7ffb0' : '#ff8a7a';
-    const bg    = info.ready ? 'rgba(20,40,20,0.85)' : 'rgba(50,20,20,0.85)';
-    // Float ~32 px above the building's foot (sy), well clear of the sign
-    // hung BELOW the building. Origin (0.5, 1) means y is the badge's
-    // bottom, so it tucks just above the roof.
+    const label = info.ready ? 'open' : `${info.waitMin}m`;
+    // Sepia ink on cream parchment for "open"; dim rust on cream for
+    // "busy". Muted to read as a tag, not a callout.
+    const ink = info.ready ? '#3a6b2f' : '#7a3838';
     tx.setText(label)
       .setColor(ink)
-      .setBackgroundColor(bg)
-      .setPosition(Math.round(sx), Math.round(sy) - 32)
+      .setBackgroundColor('#f3e9c6')
+      // Origin (0.5, 1): y is the plaque's bottom. sy is the house's foot
+      // anchor; sy - 20 tucks the tag just above the roofline. -10 on x
+      // nudges it slightly off-centre so it reads as hanging from a
+      // bracket on the left side rather than dead-centred on the gable.
+      .setPosition(Math.round(sx) - 10, Math.round(sy) - 20)
       .setVisible(true);
+    // Soft, low-opacity drop shadow so the tag looks like it hangs in
+    // front of the building rather than being painted onto it. NOT the
+    // hard 1-px outline of the previous version — that competed too
+    // hard with the house sign's stroked block lettering.
+    tx.setShadow(1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
     hri++;
   }
   for (; hri < scene.shopReadyPool.length; hri++) scene.shopReadyPool[hri].setVisible(false);

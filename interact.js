@@ -299,9 +299,12 @@ const TAP_HANDLERS = [
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
-      // get consumed; an empty-handed pet is free.
+      // get consumed; an empty-handed pet is free. animalLikesFood handles
+      // species-specific quirks (e.g. tame chicken accepts any seed).
+      const likesTame = (typeof animalLikesFood === 'function')
+        && sel && animalLikesFood(target.kind, sel.id);
       const isTreat = sel && (sel.count ?? 0) > 0
-        && (wantSet && wantSet.has(sel.id) || isPlantProduce);
+        && (likesTame || isPlantProduce);
       target._pettedUntilT = performance.now() + 10 * 60 * 1000;
       if (target.kind === 'cat') {
         target._followUntilT = performance.now() + 5 * 60 * 1000;
@@ -315,8 +318,12 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // 1. Favourite → catch.
-    if (sel && wantSet && wantSet.has(sel.id) && (sel.count ?? 0) > 0) {
+    // 1. Favourite → catch. animalLikesFood handles the chicken-eats-any-
+    // seed special case so wantSet (built from ANIMAL_FOOD) doesn't have
+    // to enumerate every crop_seed id.
+    const likes = (typeof animalLikesFood === 'function') && sel
+      && animalLikesFood(target.kind, sel.id);
+    if (sel && likes && (sel.count ?? 0) > 0) {
       if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
       consumeSelected(save);
       scene.buildInventoryDOM();
@@ -374,10 +381,13 @@ const TAP_HANDLERS = [
       return true;
     }
     // 4. Hint — show the primary favourite (first entry of the list) so the
-    // flash stays short. Cats list milk first so the existing "needs Milk"
-    // copy survives even with new fish bait accepted.
-    const wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
-    scene.flash(`needs ${wantName}`, sx, sy);
+    // flash stays short. Cats list milk first so "want Milk" reads cleanly.
+    // Chickens accept ANY seed (no canonical favourite); their hint is the
+    // generic "want seed" instead of naming one specific crop.
+    let wantName;
+    if (target.kind === 'chicken') wantName = 'seed';
+    else wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
+    scene.flash(`want ${wantName}`, sx, sy);
     return true;
   }},
 
@@ -627,17 +637,35 @@ const TAP_HANDLERS = [
         // with cell-keys are essentially impossible — reuse the same set.
         if (scene.brokenRockSet.has(o.id)) { scene.flash('spent', sx, sy); return true; }
         const pickTier = save.relics?.pick?.tier || 0;
+        const isCave = o.caveVariant != null;
         if (pickTier < o.requiredTier) {
           scene.flash(`need T${o.requiredTier} pickaxe`, sx, sy);
           return true;
         }
-        const cost = 10 + (o.requiredTier - 1) * 4;
+        // Cave rocks are plain — quick (3s) and cheap (10 energy). Ore
+        // rocks scale work + cost by their YIELD tier (the richer the
+        // rock, the harder it is to crack open).
+        const tierForWork = isCave ? 1 : (o.yieldTier || 1);
+        const cost = 10 + (tierForWork - 1) * 4;
         if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const durMs = (3 + (o.requiredTier - 1) * 1) * 1000;
+        const durMs = (3 + (tierForWork - 1) * 1) * 1000;
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          // Mineralrock drop table by requiredTier. Only the lower three
+          if (isCave) {
+            // Plain cave rock — just stone. 1-3 rockfruit, no ore.
+            const qty = 1 + Math.floor(Math.random() * 3);
+            scene.addToInv('rockfruit', qty);
+            // Occasional small coal sliver — even plain caves have a
+            // chance of carbonised seam, ~15 %. Just colour, not a
+            // reliable source.
+            if (Math.random() < 0.15) scene.addToInv('coal', 1);
+            persistSave(save);
+            const item = ITEM_BY_ID['rockfruit'];
+            scene.flash(`🪨 ${item?.name || 'rockfruit'} ×${qty}`, sx, sy);
+            return;
+          }
+          // Ore-bearing rock — drop table by yieldTier. Only the lower three
           // bars (copper / iron / gold) are mineable — platinum, crimson,
           // and frost can only be SMELTED from their matching flowers
           // (sunflower / fireflower / iceflower) at a blacksmith. High-tier
@@ -651,7 +679,7 @@ const TAP_HANDLERS = [
           //   6 → coal + 1-2 gold bar  + 40% emerald
           //   7 → coal + 1-2 gold bar  + 50% emerald + 25% ruby
           scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
-          const t = o.requiredTier;
+          const t = o.yieldTier || 1;
           const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
           const BAR_QTY = (t <= 3) ? (1 + Math.floor(Math.random() * 2))
                           : (t === 4 ? 1 : (1 + Math.floor(Math.random() * 2)));
@@ -972,6 +1000,55 @@ const TAP_HANDLERS = [
     if (!scene.spendEnergy(5, sx, sy)) return true;
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 1;
+      // Per user: most of the wait results in nothing on a low-tier rod,
+      // and that "skunk" rate falls as the rod climbs. Linear ramp:
+      //   T1 → 50%  (the user's "half the time")
+      //   T7 → 20%
+      // Formula: max(0.20, 0.55 - tier * 0.05). T7 floors at 0.20.
+      const skunkChance = Math.max(0.20, 0.55 - tier * 0.05);
+      if (Math.random() < skunkChance) {
+        scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
+        return;
+      }
+      // 2% per cast → relic jackpot. Pick a random slot, random tier in
+      // 1..rod_tier. Equips it if it's better than the current slot;
+      // otherwise the relic is kept as a salvage event (recorded on
+      // save.relicsCaught) and the flash explains the outcome. Returns
+      // before the regular fish loot table so no double drop.
+      if (Math.random() < 0.02) {
+        const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
+        if (slots.length) {
+          const slot = slots[Math.floor(Math.random() * slots.length)];
+          const relicTier = 1 + Math.floor(Math.random() * tier);
+          save.relicsCaught = save.relicsCaught || [];
+          save.relicsCaught.push({ slot, tier: relicTier, t: Date.now() });
+          const cur = save.relics?.[slot];
+          let equipped = false;
+          if (!cur || (cur.tier ?? 0) < relicTier) {
+            save.relics = save.relics || {};
+            save.relics[slot] = { tier: relicTier };
+            equipped = true;
+          }
+          persistSave(save);
+          const label = (typeof gearName === 'function')
+            ? gearName('relic', slot, relicTier)
+            : `${slot} T${relicTier}`;
+          scene.flashLoot(equipped
+            ? `✨ ${label} (equipped!)`
+            : `✨ ${label} (already better)`,
+            '#ffd96b', 1.6);
+          return;
+        }
+      }
+      // 6% per cast → junk pull (old boot). Below the relic jackpot in the
+      // order so the 2% jackpot wins the cast outright when both would
+      // fire.
+      if (Math.random() < 0.06) {
+        scene.addToInv('boot', 1);
+        persistSave(save);
+        scene.flashLoot('🥾 Old Boot', '#999', 1, 'boot');
+        return;
+      }
       const fish = [
         { id: 'minnow',     w: Math.max(0.5, 10 - tier * 1.0) },
         { id: 'bass',       w: 3 + tier * 0.5 },
@@ -987,7 +1064,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, 5000);
+    }, 7000);
     return true;
   }},
 
