@@ -101,6 +101,20 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
+  let decoIdx = 0;
+  // Grass-family biomes that look better with the occasional Props.png tuft
+  // sprinkled in. Keeping the set tight (no roads, water, buildings, rock,
+  // sand, etc.) avoids decos appearing in places where they'd read as litter.
+  const DECO_BIOMES = new Set([0 /*grass*/, 6 /*park*/, 15 /*school*/, 18 /*playground*/,
+                               19 /*pitch*/, 21 /*golf*/, 22 /*orchard*/]);
+  // Props.png is 22 cols × 12 rows of 16×16 frames; col 7, rows 1–3 = these
+  // three indices. Picking one per cell via the cell's hash keeps it stable
+  // across reloads without any save state.
+  const DECO_FRAMES = [1 * 22 + 7, 2 * 22 + 7, 3 * 22 + 7];   // 29, 51, 73
+  // 8% of qualifying cells get a deco. The probability check uses the same
+  // FNV-style hash that picks the biome-noise variant, just mixed with a
+  // different constant so the two streams don't correlate.
+  const DECO_P = 0.08;
   // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
   // 15-16 contain art. Each road tier picks ONE frame so the same road class
   // reads visually consistent across cells; different tiers look distinct.
@@ -153,7 +167,12 @@ Render.drawCells = function drawCells(scene) {
       const _cellKey = cellKeyFromAbsCell(_absIX, _absIY);
       let type = T(col, row);
       if (scene.placedRockSet && scene.placedRockSet.has(_cellKey)) type = 10;
-      else if (type === 10 && scene.brokenRockSet && scene.brokenRockSet.has(_cellKey)) type = 0;
+      // Broken rock cells used to revert to type 0 (grass) — that flipped
+      // the cell green while the mineralrock-overlay 'after' hook
+      // separately darkened the rock sprite. The visual mismatch
+      // ("rubble" flash on a grass-coloured tile) confused players. Now
+      // we keep type=10 so the broken cell still reads as rock terrain;
+      // the dimmed mineralrock sprite alone signals "spent".
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? 0x5fa84a;
@@ -253,6 +272,37 @@ Render.drawCells = function drawCells(scene) {
             .setVisible(true);
         } else {
           ns.setVisible(false);
+        }
+      }
+
+      // Sparse ground decoration — one Props.png tuft per visible cell, hidden
+      // unless this is a grass-family biome AND the per-cell hash crosses the
+      // 8% threshold. Seeded by abs cell coords so the same world cell always
+      // shows the same deco frame (or none) without persisting anything to
+      // save. Skipped on tilled cells so a deco frame doesn't sit on top of
+      // dirt + a seedling looking like an unrelated weed.
+      {
+        const ds = scene.groundDecoPool[decoIdx++];
+        if (ds) {
+          if (!isTilled && DECO_BIOMES.has(type)) {
+            // FNV-ish mix — different constants than the noise hash above so
+            // the decoration roll doesn't correlate with the noise variant.
+            let dh = (absCellIX * 374761393) ^ (absCellIY * 668265263);
+            dh = ((dh ^ (dh >>> 13)) * 1274126177) >>> 0;
+            // Convert to [0, 1).
+            const roll = (dh & 0xffffff) / 0x1000000;
+            if (roll < DECO_P) {
+              const frame = DECO_FRAMES[(dh >>> 24) % DECO_FRAMES.length];
+              ds.setTexture('props', frame)
+                .setPosition(Math.round(sx) + CELL_PX / 2, Math.round(sy) + CELL_PX / 2)
+                .setDisplaySize(CELL_PX, CELL_PX)
+                .setVisible(true);
+            } else {
+              ds.setVisible(false);
+            }
+          } else {
+            ds.setVisible(false);
+          }
         }
       }
 
@@ -753,14 +803,26 @@ Render.drawObjects = function drawObjects(scene) {
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. Row picked by tier
-              // (T1=row 0 … T7=row 12, step 2 so adjacent tiers look distinct),
-              // col deterministic on id-hash so each rock stays visually stable.
+              // (T1=row 0 … T7=row 12, step 2 so adjacent tiers look
+              // distinct); col deterministic on id-hash so each rock stays
+              // visually stable.
+              //
+              // Col is hashed mod 10 (not the sheet's full 11) because
+              // sheet col 10 is BLANK on rows 10 + 12 (the T6 / T7 tier
+              // rows). A rock that hashed into col 10 on those rows rendered
+              // as an empty square — looked like "cut in half" /
+              // "missing art". mod 10 stays inside the always-filled range.
               frame: (o) => {
                 const row = Math.min(16, ((o.requiredTier || 1) - 1) * 2);
-                const col = _idHash(o.id || '') % MINERALROCK_COLS;
+                const col = _idHash(o.id || '') % 10;
                 return row * MINERALROCK_COLS + col;
               },
-              origin: [0.5, 0.9], scale: 1.6,
+              // Origin (0.5, 0.5) — centre the sprite in its cell. The
+              // previous (0.5, 0.9) foot-anchor was meant for standing
+              // creatures; on a flat ground-resting rock it shoved the
+              // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
+              // read as off-centre by almost a whole cell.
+              origin: [0.5, 0.5], scale: 1.6,
               after: (s, o) => {
                 // Already-broken rocks (tracked by absolute-cell key in
                 // brokenRockSet, same pattern as natural rocks in drawCells)
