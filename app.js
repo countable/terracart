@@ -2828,16 +2828,18 @@ class MapScene extends Phaser.Scene {
   // Cost to advance from `level` to `level + 1`. Always 5 × 3 distinct items
   // at the same tier as the level you're currently sitting at.
   shrineLevelUpCost(level) {
-    if (level >= 7) return null;
+    // Shrine caps at L6 since the transform table now ends there (the
+    // offset-by-1 fix made iceflower→frost the endgame; L7 had nothing
+    // left to unlock so it was dropped).
+    if (level >= 6) return null;
     // Indexed by current level. Index 1 = the bundle to go from L1 → L2.
-    // T4-T6 substitute seeds for the missing animal-byproduct slot.
+    // T4-T5 substitute seeds for the missing animal-byproduct slot.
     const BUNDLES = [, // 0: unused
       [{ id: 'potato',     qty: 5 }, { id: 'egg',           qty: 5 }, { id: 'coal',         qty: 5 }],  // L1→L2 (T1)
       [{ id: 'rainberry',  qty: 5 }, { id: 'milk',          qty: 5 }, { id: 'copper_bar',   qty: 5 }],  // L2→L3 (T2)
       [{ id: 'coffee',     qty: 5 }, { id: 'meat',          qty: 5 }, { id: 'iron_bar',     qty: 5 }],  // L3→L4 (T3)
       [{ id: 'sunflower',  qty: 5 }, { id: 'sunflower_seed',qty: 5 }, { id: 'gold_bar',     qty: 5 }],  // L4→L5 (T4)
       [{ id: 'fireflower', qty: 5 }, { id: 'fireflower_seed',qty:5 }, { id: 'platinum_bar', qty: 5 }],  // L5→L6 (T5)
-      [{ id: 'iceflower',  qty: 5 }, { id: 'iceflower_seed', qty:5 }, { id: 'crimson_bar',  qty: 5 }],  // L6→L7 (T6)
     ];
     return BUNDLES[level] || null;
   }
@@ -2845,16 +2847,17 @@ class MapScene extends Phaser.Scene {
   // Transforms unlocked at each level. Index = level, value = { input, output }.
   // Each transform is 1 produce → 1 bar. shrineLevel >= entry.level means
   // the player has unlocked that transform.
+  // Per user: the trade table was offset by 1 — every output sat one tier
+  // lower than the player expected. Whole ladder bumped up one bar tier so
+  // rainberry→iron, coffee→gold, sunflower→platinum, fireflower→crimson,
+  // iceflower→frost. The previously-bottom copper_bar slot is no longer a
+  // shrine output (still available from mineralrocks + the blacksmith). L7
+  // unlocks no new transform — L6's iceflower→frost is the endgame.
   static SHRINE_TRANSFORMS = [, // 0,1 unused
     null,                                            // L1: nothing
-    { input: 'rainberry',  output: 'copper_bar' },   // L2
-    { input: 'coffee',     output: 'iron_bar' },     // L3
-    { input: 'sunflower',  output: 'gold_bar' },     // L4
-    // Bottom half bumped one bar higher per user — fireflower felt under-
-    // rewarded producing the mid-tier platinum_bar (it's a T5+ rare flower).
-    // The late-game ladder is now sunflower→gold, fireflower→crimson,
-    // iceflower→frost. Platinum_bar no longer comes from the shrine; it
-    // remains available via mineralrock loot + blacksmith forging.
+    { input: 'rainberry',  output: 'iron_bar' },     // L2
+    { input: 'coffee',     output: 'gold_bar' },     // L3
+    { input: 'sunflower',  output: 'platinum_bar' }, // L4
     { input: 'fireflower', output: 'crimson_bar' },  // L5
     { input: 'iceflower',  output: 'frost_bar' },    // L6 — endgame
   ];
@@ -3124,20 +3127,19 @@ class MapScene extends Phaser.Scene {
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
+    const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
-    // Only pop the modal when the player can ACTUALLY commit — opening
-    // a modal whose Accept is disabled wastes a tap. If they can't yet,
-    // flash the price as a hint so they know what to bring back.
-    if (heldCount < cost.qty) {
-      this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
-      return;
-    }
+    // Always show the modal — even when the player can't yet afford it,
+    // they need to see WHAT to gather. Accept stays disabled (red cost
+    // line, greyed button) so the dialog reads as a price tag rather
+    // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       title: 'Restore this wreck?',
       get: `🛠 a working ${cost.material === 'stone' ? 'shop' : 'house'}`,
       blurb: 'Hauls the rubble away and pulls back the boards.',
-      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`,
-      canAfford: true,
+      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
+        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
+      canAfford,
       acceptLabel: 'Restore',
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent
