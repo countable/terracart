@@ -306,7 +306,7 @@ function chestRelicAllowedTiers(progress) {
 // harvested map. chestRelicAllowedTiers handles either shape.
 // `chestT` (1-4) is the chest's own tier from chestTier(poiClass). Defaults
 // to 2 (mid) when the caller doesn't know the chest tier.
-function pickChestRelic(rng, progress, currentRelics, chestT = 2) {
+function pickChestRelic(rng, progress, currentRelics, chestT = 2, currentArmor = null) {
   const random = rng || Math.random;
   const allowed = chestRelicAllowedTiers(progress);
   if (!allowed.length || typeof RELIC_DEFS === 'undefined') return null;
@@ -334,18 +334,30 @@ function pickChestRelic(rng, progress, currentRelics, chestT = 2) {
   let r = random() * total;
   let pickedTier = weighted[0].t;
   for (const w of weighted) { r -= w.w; if (r <= 0) { pickedTier = w.t; break; } }
-  // Pick a random slot, uniform across all relic slots.
-  const slots = Object.keys(RELIC_DEFS);
-  const slot = slots[Math.floor(random() * slots.length)];
-  const cur = currentRelics?.[slot]?.tier ?? 0;
+  // Pick a random slot, uniform across every wearable slot — relic slots
+  // (pick / axe / hoe / sword / bow / staff / ring / amulet / can / hoe /
+  // bugnet / rod / bags) AND armor slots (helmet / chest / legs / boots).
+  // Each slot gets equal odds (the 4 armor slots used to be excluded; chests
+  // never dropped armor pieces). Slot tag and current-tier lookup branch on
+  // whether the chosen slot belongs to RELIC_DEFS or ARMOR_DEFS.
+  const relicSlots = Object.keys(RELIC_DEFS);
+  const armorSlots = (typeof ARMOR_DEFS !== 'undefined') ? Object.keys(ARMOR_DEFS) : [];
+  const slotPool = [
+    ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
+    ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
+  ];
+  const sp = slotPool[Math.floor(random() * slotPool.length)];
+  const cur = sp.kind === 'relic'
+    ? (currentRelics?.[sp.slot]?.tier ?? 0)
+    : (currentArmor?.[sp.slot]?.tier ?? 0);
   if (pickedTier > cur) {
-    return { kind: 'relic', slot, tier: pickedTier };
+    return { kind: sp.kind, slot: sp.slot, tier: pickedTier };
   }
-  // Already own equal-or-better: hand over half the relic's gold value.
+  // Already own equal-or-better: hand over half the gear's gold value.
   // Floor at $1 so even wood-tier dupes pay out something.
-  const price = (typeof gearPrice === 'function') ? gearPrice('relic', slot, pickedTier) : 0;
+  const price = (typeof gearPrice === 'function') ? gearPrice(sp.kind, sp.slot, pickedTier) : 0;
   const amount = Math.max(1, Math.floor(price / 2));
-  return { kind: 'gold', amount, slot, tier: pickedTier };
+  return { kind: 'gold', amount, slot: sp.slot, gearKind: sp.kind, tier: pickedTier };
 }
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.

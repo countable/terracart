@@ -530,18 +530,32 @@ const TAP_HANDLERS = [
         if (Math.random() < 0.10) {
           const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
           const reward = (typeof pickChestRelic === 'function')
-            ? pickChestRelic(undefined, save, save.relics, chestT)
+            ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
             : null;
-          if (reward?.kind === 'relic') {
-            save.relics[reward.slot] = { tier: reward.tier };
+          if (reward?.kind === 'relic' || reward?.kind === 'armor') {
+            const kind = reward.kind;
+            if (kind === 'armor') {
+              save.armor = save.armor || {};
+              save.armor[reward.slot] = { tier: reward.tier };
+              // Armor bumps maxEnergy — bring current energy along by the
+              // delta so the new ceiling isn't just a future-cap.
+              if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
+                const newMax = maxEnergyFromArmor(save.armor);
+                const bump = Math.max(0, newMax - scene.getMaxEnergy());
+                save.maxEnergy = newMax;
+                save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
+              }
+            } else {
+              save.relics[reward.slot] = { tier: reward.tier };
+            }
             scene.markRelicsDirty?.();
             save.opened.push(o.id);
             ctx.dirty = true;
             const name = (typeof gearName === 'function')
-              ? gearName('relic', reward.slot, reward.tier)
+              ? gearName(kind, reward.slot, reward.tier)
               : `${reward.slot} T${reward.tier}`;
             const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML('relic', reward.slot, reward.tier, 64)
+              ? scene.gearIconHTML(kind, reward.slot, reward.tier, 64)
               : '★';
             scene.showChestRewardModal({
               iconHTML, name, sub: 'equipped', color: '#ffe066',
@@ -553,11 +567,12 @@ const TAP_HANDLERS = [
             save.opened.push(o.id);
             ctx.dirty = true;
             if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+            const gearKind = reward.gearKind || 'relic';
             const name = (typeof gearName === 'function')
-              ? gearName('relic', reward.slot, reward.tier)
+              ? gearName(gearKind, reward.slot, reward.tier)
               : `${reward.slot} T${reward.tier}`;
             const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML('relic', reward.slot, reward.tier, 64)
+              ? scene.gearIconHTML(gearKind, reward.slot, reward.tier, 64)
               : '★';
             scene.showChestRewardModal({
               iconHTML, name: `+$${reward.amount}`,
