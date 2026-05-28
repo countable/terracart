@@ -554,7 +554,7 @@
             // Also: never spawn on a BUILDING cell, even if the polygon
             // happens to overlap (residential polygons often contain
             // painted building footprints).
-            const _CAVE_ROCK_P = 0.70;
+            const _CAVE_ROCK_P = 0.50;
             const _CAVE_VARIANTS = 11 * 3;   // rows 14, 15, 16 (3 rows × 11 cols)
             const _isBuildingCell = (ix, iy) => {
               const tc = grid[iy * w + ix];
@@ -613,7 +613,7 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.15) continue;   // 15 % of pivots fire a cluster
+                  if (resRng() > 0.22) continue;   // 22 % of pivots fire a cluster
                   const clusterN = 3 + Math.floor(resRng() * 3);  // 3..5 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
@@ -646,7 +646,7 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (indRng() > 0.55) continue;   // 55 % of pivots fire — "lots"
+                  if (indRng() > 0.70) continue;   // 70 % of pivots fire — "lots"
                   const clusterN = 4 + Math.floor(indRng() * 5);   // 4..8 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (indRng() - 0.5) * 2 * clusterR;
@@ -676,7 +676,7 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
                   if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
-                  if (rockRng() > 0.4) continue;   // 40% chance per candidate
+                  if (rockRng() > 0.55) continue;   // 55% chance per candidate
                   _pushMineralrock(rockRng, xx + stepMvt * 0.5, yy + stepMvt * 0.5, tierW, totalW);
                 }
               }

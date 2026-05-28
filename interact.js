@@ -686,18 +686,19 @@ const TAP_HANDLERS = [
           // (sunflower / fireflower / iceflower) at a blacksmith. High-tier
           // rocks just pay out gold-bar + extra gems instead.
           //
-          //   1 → coal + 1-2 copper bar
-          //   2 → coal + 1-2 copper bar
-          //   3 → coal + 1-2 iron bar  + occasional gold bar
-          //   4 → coal + 1   gold bar  + 25% sapphire
-          //   5 → coal + 1-2 gold bar  + 35% ruby
-          //   6 → coal + 1-2 gold bar  + 40% emerald
-          //   7 → coal + 1-2 gold bar  + 50% emerald + 25% ruby
+          //   1 → coal + 2-3 copper bar
+          //   2 → coal + 2-3 copper bar
+          //   3 → coal + 2-3 iron bar  + occasional gold bar
+          //   4 → coal + 1-2 gold bar  + 25% sapphire
+          //   5 → coal + 2-3 gold bar  + 35% ruby
+          //   6 → coal + 2-3 gold bar  + 40% emerald
+          //   7 → coal + 2-3 gold bar  + 50% emerald + 25% ruby
           scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
           const t = o.yieldTier || 1;
           const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
-          const BAR_QTY = (t <= 3) ? (1 + Math.floor(Math.random() * 2))
-                          : (t === 4 ? 1 : (1 + Math.floor(Math.random() * 2)));
+          const BAR_QTY = (t <= 3) ? (2 + Math.floor(Math.random() * 2))
+                          : (t === 4 ? (1 + Math.floor(Math.random() * 2))
+                                     : (2 + Math.floor(Math.random() * 2)));
           const primaryBar = BARS[t] || 'copper_bar';
           scene.addToInv(primaryBar, BAR_QTY);
           // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
