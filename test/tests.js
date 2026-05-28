@@ -1718,42 +1718,27 @@ test('deer hunt: no weapon → scared 60s; with weapon → drops meat, no live d
 });
 
 test('trader never barters an item for the same item', (scene) => {
-  // Force the barter branch (forceBarter=true) and try every priced id as
-  // both the offered item AND the held inventory. The trader must never
-  // pick the SAME id as payment.
+  // peekOrBuildTraderOffer must never ask for the same id it's giving.
+  // Sample across many seeded houses + rerolls so we exercise the full
+  // (giveId, askId) cross-product.
   scene.save.relics = { bow: null, staff: null };
-  scene.save.inv = []; scene.save.selSlot = 0;
-  // Stash every priced item in inv with count 5 so the candidates filter
-  // can in principle pick any of them.
+  scene.save.inv = [];
   for (const id of Object.keys(PRICES)) {
     if (!ITEM_BY_ID[id]) continue;
     scene.save.inv.push({ id, count: 5 });
   }
-  // Try each priced item as the trader's offer and run the picker enough
-  // times that any same-item pick would surface.
   let collisions = 0, samples = 0;
-  for (const id of Object.keys(PRICES)) {
-    if (!ITEM_BY_ID[id]) continue;
-    const base = PRICES[id];
-    for (let i = 0; i < 8; i++) {
-      const offer = scene.buildShopOffer(id, base, /* forceBarter */ true);
+  for (let h = 0; h < 40; h++) {
+    const house = { id: `trader-test-${h}`, x: h * 13.7, y: h * 7.3 };
+    const cur = scene.shopBucketState(house);
+    for (let r = 0; r < 12; r++) {
+      cur.rerolls = r;
+      const offer = scene.peekOrBuildTraderOffer(house);
       samples++;
-      // The barter label looks like `1× <iconHTML> Name` — pull the id out
-      // by scanning save.inv for the chosen pick name. Simpler: hijack
-      // canAfford / consume signatures by inspecting the closure indirectly
-      // via consuming a fresh inv snapshot.
-      // Cheapest: rebuild via a probe — if applying consume() drops the SAME
-      // id whose offer we asked for, we found a collision.
-      if (offer.kind === 'item') {
-        const before = scene.save.inv.find(s => s.id === id)?.count ?? 0;
-        // Don't actually consume — just check label includes the same id's display name.
-        const wantName = ITEM_BY_ID[id]?.name || id;
-        // Label format: `1× <icon> Name` — exact-match the name suffix.
-        if ((offer.label || '').endsWith(wantName)) collisions++;
-      }
+      if (offer && offer.askId === offer.giveId) collisions++;
     }
   }
-  assert.eq(collisions, 0, `trader self-barter offers across ${samples} draws`);
+  assert.eq(collisions, 0, `trader self-barter across ${samples} draws`);
 });
 
 test('lowtier (chestTier 1) chest renders box sprite key', (scene) => {

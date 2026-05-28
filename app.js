@@ -2148,14 +2148,12 @@ class MapScene extends Phaser.Scene {
   // instead of every dialog reading "A trader offers:". `action` is one of:
   //   'buy'      → routine seed/produce/barter buy
   //   'relic'    → a relic offer (non-starter)
-  //   'cashbuy'  → trader is paying cash for the player's goods
   //   'forge'    → blacksmith forge offer
   buildingFlavorTitle(house, action) {
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isFort   = !!house && house.tier === 11;
     const st = (!isCastle && !isFort && house && typeof Shops !== 'undefined')
       ? Shops.shopType(house) : null;
-    if (action === 'cashbuy') return 'The trader is buying:';
     if (action === 'forge')   return 'The blacksmith will forge:';
     if (action === 'relic') {
       if (isCastle) return "The castle's vault holds:";
@@ -2315,14 +2313,13 @@ class MapScene extends Phaser.Scene {
       this.flash('we are still working on something for you', sx, sy);
       return;
     }
-    // Traders sometimes prefer to BUY from the player. 30% chance per visit
-    // they roll a cash offer on a random non-empty stack in the inventory.
-    // Fall through to the regular trader barter if the roll fails or the
-    // player has nothing to trade.
-    if (shopType === 'trader' && Math.random() < 0.30) {
-      if (this.presentTraderCashOffer(sx, sy, house, recordDeal)) return;
+    // Traders are barter-only with their own seeded offer (qty scales to a
+    // target value) and a re-roll secondary — fully self-contained branch.
+    if (shopType === 'trader') {
+      this.presentTraderOffer(sx, sy, house, recordDeal);
+      return;
     }
-    // Markets and traders skip the 10% relic-swap; their shop kind is dedicated.
+    // Markets skip the 10% relic-swap; the market shop kind is dedicated.
     if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
@@ -2347,8 +2344,7 @@ class MapScene extends Phaser.Scene {
     }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
-    // Traders never want cash — they only deal in barter (non-gold items).
-    const offer = this.buildShopOffer(id, baseValue, shopType === 'trader');
+    const offer = this.buildShopOffer(id, baseValue);
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -2865,59 +2861,100 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Trader cash-for-goods. Picks a random non-empty stack from the player's
-  // inventory and offers full PRICES[id] in cash for one of it. Better than
-  // the home sell (base sellMul = 0.5×) — the trader is a connoisseur, not
-  // a private buyer. Returns true if a modal was shown (caller should skip
-  // its normal trader-barter path); false if there was nothing to offer for
-  // (empty inventory or no priced items).
-  presentTraderCashOffer(sx, sy, house, recordDeal) {
-    const candidates = (this.save.inv || []).filter(s =>
-      s && s.id && (s.count ?? 0) > 0 && (PRICES?.[s.id] ?? 0) > 0);
-    if (candidates.length === 0) return false;
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    const sellId = pick.id;
-    const item = ITEM_BY_ID[sellId];
-    const unitPrice = Math.max(1, PRICES[sellId] ?? 1);
-    const maxQty = Math.max(1, pick.count | 0);
-    const iconHTML = this.iconSpanHTML(sellId);
-    const itemName = item?.name || sellId;
-    const fmt = (q) => ({
-      get: `+$${unitPrice * q}`,
-      cost: `${q}× ${iconHTML} ${itemName}`,
-      canAfford: true,
-    });
-    const first = fmt(1);
+  // Trader offer: barter-only, qty scaled to a target trade value. The trader
+  // picks an item to give the player, picks an asking item from inventory,
+  // then asks for whatever count of it hits a target value (1.0..2.0× of the
+  // offered item's base price). Seeded by (house, bucket, rerolls) so the
+  // offer is stable until the player buys, walks away through a bucket flip,
+  // or pays the re-roll cost.
+  peekOrBuildTraderOffer(house) {
+    if (!house?.id) return null;
+    const rng = this.shopRng(house, 'trader');
+    // Same houseSeed produce-vs-buylist coin flip the generic path uses.
+    const houseSeed = ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0);
+    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
+    let giveId;
+    if (sellsProduce) {
+      const ids = Object.keys(CROP_ROW);
+      giveId = ids[Math.floor(rng() * ids.length)] || ids[0];
+    } else {
+      giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
+    }
+    if (!giveId) return null;
+    const baseValue = Math.max(1, PRICES[giveId] ?? 1);
+    // Target trade value the trader considers appropriate.
+    const target = baseValue * (1.0 + rng());
+    // Asking item: any priced item, excluding the offered id. Prefer something
+    // the player actually owns so the offer is acceptable on the spot;
+    // otherwise fall back to a wishlist pick so the player still learns what
+    // the trader wants.
+    const owned = (this.save.inv || []).filter(s =>
+      s && s.id && s.id !== giveId && (s.count ?? 0) > 0 && (PRICES?.[s.id] ?? 0) > 0);
+    let askId;
+    if (owned.length) {
+      askId = owned[Math.floor(rng() * owned.length)].id;
+    } else {
+      const wishlist = Object.keys(PRICES).filter(k =>
+        k !== giveId && (PRICES[k] ?? 0) > 0 && ITEM_BY_ID[k]);
+      if (!wishlist.length) return null;
+      askId = wishlist[Math.floor(rng() * wishlist.length)];
+    }
+    const askQty = Math.max(1, Math.ceil(target / Math.max(1, PRICES[askId] ?? 1)));
+    return { giveId, askId, askQty };
+  }
+
+  presentTraderOffer(sx, sy, house, recordDeal) {
+    const offer = this.peekOrBuildTraderOffer(house);
+    if (!offer) { this.flash('no deal', sx, sy); return; }
+    const giveItem = ITEM_BY_ID[offer.giveId];
+    const askItem  = ITEM_BY_ID[offer.askId];
+    const heldCount = () =>
+      ((this.save.inv || []).find(s => s && s.id === offer.askId)?.count) ?? 0;
+    const curState = this.shopBucketState(house);
+    const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
     this.showOfferModal({
-      title: this.buildingFlavorTitle(house, 'cashbuy'),
-      get: first.get,
-      cost: first.cost,
-      canAfford: true,
-      acceptLabel: 'Sell',
-      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
-      onAccept: (q) => {
-        const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-        if (idx < 0) { this.flash('gone', sx, sy); return; }
+      title: this.buildingFlavorTitle(house, 'buy'),
+      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×1`,
+      cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
+      canAfford: heldCount() >= offer.askQty,
+      onAccept: () => {
+        if (heldCount() < offer.askQty) {
+          this.flash(`need ${offer.askQty} ${askItem?.name || offer.askId}`, sx, sy);
+          return;
+        }
+        const idx = this.save.inv.findIndex(s => s && s.id === offer.askId);
         const cur = this.save.inv[idx];
-        const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
-        if (sold <= 0) { this.flash('gone', sx, sy); return; }
-        cur.count -= sold;
-        const gain = unitPrice * sold;
-        addMoney(this.save, gain);
+        cur.count -= offer.askQty;
         if (cur.count <= 0) {
           this.save.inv.splice(idx, 1);
           if (this.save.selSlot >= this.save.inv.length) {
             this.save.selSlot = Math.max(0, this.save.inv.length - 1);
           }
         }
+        this.addToInv(offer.giveId, 1);
+        this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
-        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+        this.flashLoot(
+          `🪙 ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.icon || ''}`,
+          '#ffe066', 1, offer.giveId,
+        );
+      },
+      secondary: {
+        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+        disabled: (this.save.money ?? 0) < rerollCost,
+        onClick: () => {
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
+          curState.rerolls += 1;
+          addMoney(this.save, -rerollCost);
+          persistSave(this.save);
+          this.updateHUD();
+          this.presentTraderOffer(sx, sy, house, recordDeal);
+        },
       },
     });
-    return true;
   }
 
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts = {}) {
@@ -3013,15 +3050,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
-  // 1/3 chance: trader wants 2x value in cash. 2/3: barter for an inventory item.
+  // 1/3 chance: shop wants 2x value in cash. 2/3: barter for an inventory item.
   // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
   // qualify too — otherwise early-game players almost never see a barter, since
   // wild rockfruit/shrub/longgrass at $1-2 fall below higher thresholds.
-  // If the player owns NO qualifying barter item, the trader still names what
+  // If the player owns NO qualifying barter item, the shop still names what
   // they want; the modal just disables the accept button (shows "✗"). This way
-  // the player learns "this trader wants rockfruit" and can come back with it.
-  buildShopOffer(id, baseValue, forceBarter = false) {
-    const wantMoney = !forceBarter && Math.random() < 1/3;
+  // the player learns "this shop wants rockfruit" and can come back with it.
+  // (Traders take a different path in presentTraderOffer — qty-scaled barter
+  // with a re-roll button.)
+  buildShopOffer(id, baseValue) {
+    const wantMoney = Math.random() < 1/3;
     // Bow / Staff relics shrink the markup. Without either, the range stays
     // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
     const { lo, hi } = (typeof buyMarkupRange === 'function')
