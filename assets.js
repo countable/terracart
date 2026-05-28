@@ -91,10 +91,23 @@ const ASSETS = {
   // pole). Pole base anchors at origin (0.5, 1) so it stands on its
   // placement cell.
   scarecrow:   { kind: 'image', path: 'Objects/scarecrow.png' },
-  // Wood stack — 64×16 sheet, 4 frames of 16×16. Each frame is a denser
-  // pile: 0 → single log, 3 → big stack of 4. Renderer picks frame =
-  // min(3, qty - 1) so a ground-stack of N wood reads visually as that
-  // many logs (up to 4). Also used as the inventory icon for the wood item.
+  // ALL props seasons — 352×192 = 22 cols × 12 rows of 16×16 frames.
+  // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
+  // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
+  // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
+  // the procedural longgrass texture.
+  props:       { kind: 'spritesheet', path: 'Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
+  // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
+  // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
+  // Currently used for the fishing-junk boot icon.
+  pickup:      { kind: 'spritesheet', path: 'Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
+  // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
+  // bark variants with little green sprigs). Sliced out of Sprites/
+  // 7_Pickup_Items_16x16.png row 8 cols 0-2 — the bottom row of the
+  // OBJECTS section. The previous wood.png (4-frame stack-growth pile
+  // from Sprites/unused/Objects/Props/wood.png) had water tinting in it
+  // that read poorly on grass. Renderer picks frame = min(2, qty - 1)
+  // so the variant cycles with stack size. Inventory icon uses frame 2.
   wood:        { kind: 'spritesheet', path: 'Objects/wood.png', frameWidth: 16, frameHeight: 16 },
   // Themed-house sprites (sliced top-left out of NPC house sheets in
   // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the

@@ -19,6 +19,11 @@
 const CROP_ROW = {
   rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
   potato: 6, iceflower: 7, fireflower: 8, sunflower: 9,
+  // Spring Crops residents — their on-sheet row is overridden in CROP_SPRITE
+  // below (springcrops row 1/3/7). The CROP_ROW value here is just the
+  // unused index in Crops.png that the fallback path would use; never
+  // actually reached because CROP_SPRITE intercepts first.
+  berry: 10, cress: 11, onion: 12,
   // tree + shrub are no longer crops — chopping a tree / harvesting a
   // shrub now drops the 'wood' mineral item directly. The world-object
   // 'tree' and wildplant 'shrub' kinds in worldgen.js still exist as
@@ -37,8 +42,14 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
-  // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
-  longgrass: { sheet: 'longgrass', custom: true },
+  berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
+  cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
+  onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
+  // Long grass — replaced the procedural sprite with frame 0 of the ALL
+  // props seasons sheet (small green tuft). The procedural drawLongGrassTex
+  // is still bound to the 'longgrass' texture key in app.js but is no
+  // longer the in-world sprite — the props frame reads much nicer.
+  longgrass: { sheet: 'props', custom: true, frame: 0 },
   // Mushroom uses the Fantasy Mushroom sheet ('mushroom_world' key in
   // assets.js, 3 cols × 9 rows of 32×32 frames). Frame 0 (top-left cell)
   // is fully transparent in the source PNG — picking it gave a blank
@@ -63,8 +74,8 @@ const CROP_SPRITE = {
 // app.js' renderItemIcon) plus a frame index. One line per item; the
 // renderer handles the rest. Used by trader / shop / inventory modals.
 const MINERAL_ICON_SHEET = {
-  // Wood — frame 3 is the densest 4-log pile; reads as a stack at icon size.
-  wood:     { sheet: 'wood',      frame: 3 },
+  // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
+  wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
@@ -98,6 +109,10 @@ const MINERAL_ICON_SHEET = {
   trout:      { sheet: 'icon_trout',      frame: 0 },
   salmon:     { sheet: 'icon_salmon',     frame: 0 },
   goldenfish: { sheet: 'icon_goldenfish', frame: 0 },
+  // Junk pull from fishing — brown leather boot at row 6 col 4 of
+  // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
+  // 6 * 14 + 4 = 88.
+  boot:       { sheet: 'pickup',         frame: 88 },
   // Consumables — flutes/books are 32×32 / 240×64 multi-frame sheets;
   // frame 0 is the basic variant.
   flute:      { sheet: 'icon_flute',  frame: 0 },
@@ -145,6 +160,7 @@ const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
   rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
   fireflower: 'Fireflower', sunflower: 'Sunflower',
+  berry: 'Berry', cress: 'Cress', onion: 'Onion',
 };
 // Per-crop produce emoji — used in DOM modals / flash text where Phaser sprites
 // aren't easily embedded. The default 🌾 (sheaf-of-rice) looked like wheat for
@@ -154,6 +170,7 @@ const PRODUCE_EMOJI = {
   nut:        '🌰',  rockfruit: '🪨',  coffee:    '☕',
   potato:     '🥔',  iceflower: '❄️',  fireflower: '🔥',
   sunflower:  '🌻',
+  berry:      '🍓',  cress:     '🥬',  onion:     '🧅',
 };
 // === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
 // Tier reflects relative rarity / value, not stage / yield. A seed and its
@@ -163,7 +180,11 @@ const BASE_TIER = {
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
-  rainberry: 2, pairy: 2, nut: 2,
+  // Spring Crops kitchen-garden — berry + cress are T1 starter produce;
+  // onion bumped to T2 (per user) since it's a richer flavour and reads
+  // as a step-up from the basic greens.
+  berry: 1, cress: 1,
+  rainberry: 2, pairy: 2, nut: 2, onion: 2,
   // wood: T1 mineral. Dropped by trees + shrubs (no tools needed beyond
   // an axe for shrubs / trees) and sprinkled around the starting area.
   // Used as the smithy ingredient for every T1 wooden tool.
@@ -178,7 +199,7 @@ const BASE_TIER = {
   copper_bar: 2, iron_bar: 3, gold_bar: 4,
   platinum_bar: 5, crimson_bar: 6, frost_bar: 7,
   // Wild produce / animal output
-  longgrass: 1, flowers: 1, mushroom: 1,
+  longgrass: 1, flowers: 1, mushroom: 1, boot: 1,
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
@@ -252,6 +273,9 @@ const ITEMS = [
   // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
   // shell_sheet, hashed off the spawn cell coord.
   { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell', icon: '🐚' },
+  // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
+  // from the rod's loot table at small weight; mostly a flavour moment.
+  { id: 'boot',         name: 'Old Boot',     kind: 'produce', icon: '🥾' },
   // Scarecrow — placeable on tillable cells. Wild crows and deer steer
   // around it (4-cell aversion radius in wanderCreatures). Stack of N can
   // be deployed across the farm.
@@ -318,6 +342,7 @@ const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3, shrub_seed: 2,
+  berry_seed: 3, cress_seed: 3, onion_seed: 3,
   gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12, tree_seed: 15,
   iceflower_seed: 30, fireflower_seed: 40, sunflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
@@ -325,7 +350,10 @@ const PRICES = {
   shrub: 2,        // wild debris in parks/forests
   nut: 4,
   potato: 5,
+  cress: 5,        // T1 kitchen-garden green
+  onion: 6,        // T1 kitchen-garden bulb
   rainberry: 6,
+  berry: 7,        // T1 sweet — slightly above rainberry
   pairy: 8,
   gemfruit: 25,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
@@ -342,6 +370,7 @@ const PRICES = {
   longgrass: 1,
   flowers: 2,
   shell: 6,        // beach pickup — small collectible
+  boot: 2,         // fishing junk — old boot, the joke is finding it
 
   // ── Animal produce (longgrass-feeding output) ────────────
   egg:  4,
@@ -437,6 +466,9 @@ const FOOD_ENERGY = {
   shrub:      4,
   nut:        8,
   potato:     8,
+  cress:      6,   // leafy green — mild restore
+  onion:      8,   // bulb — same as potato
+  berry:     10,   // sweet — between potato and rainberry
   rainberry: 12,   // also waters all crops within 20m
   pairy:     12,   // also shows the nearest undiscovered chest for 5 min
   gemfruit:  20,

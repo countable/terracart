@@ -793,7 +793,9 @@ Render.drawObjects = function drawObjects(scene) {
     groundstack: {
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
-        if (o.itemId === 'wood') return Math.min(3, Math.max(0, (o.qty || 1) - 1));
+        // Wood sheet is 3 frames (brown / grey / amber log variants); the
+        // frame cycles with qty so the sprite changes as the stack grows.
+        if (o.itemId === 'wood') return Math.min(2, Math.max(0, (o.qty || 1) - 1));
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       origin: [0.5, 0.9], scale: 1.8,

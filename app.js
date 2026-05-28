@@ -467,10 +467,10 @@ class MapScene extends Phaser.Scene {
     // is empty, so the single source of truth lives in items.js.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world',
       CROP_SPRITE.mushroom?.frame ?? 0, 32, 32);
-    // Wood — inventory uses frame 3 (the densest 4-log stack) so a single
-    // wood in your bag still reads as a pile. Ground stacks pick a frame
-    // based on the stack's qty (see render.js groundstack branch).
-    window.ITEM_DATA_URLS.wood      = bakeSheetFrame('wood', 3, 16, 16);
+    // Wood — inventory uses frame 2 (the third / "amber" log variant
+    // of the three). Ground stacks pick a frame based on the stack's
+    // qty (see render.js groundstack branch).
+    window.ITEM_DATA_URLS.wood      = bakeSheetFrame('wood', 2, 16, 16);
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
@@ -531,6 +531,7 @@ class MapScene extends Phaser.Scene {
     this.creaturePool = [];
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
+    this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
 
     // Viewport mask clips everything inside the 11x11 area.
@@ -933,36 +934,41 @@ class MapScene extends Phaser.Scene {
     // on lawns, etc.). Cat/dog/crow are "global" — they roam every natural cell.
     const RESIDENTIAL = new Set([5]);
     const GRASSLAND   = new Set([0]);
+    const FARM_GRASS  = new Set([0, 4]);                      // grass + farmland (chickens)
     const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
     const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
     const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
     const PARKLAND       = new Set([1, 6]);                   // park + forest
-    const splitPlace = (kind, n, primary, fallback, salt) => {
-      const primN = Math.round(n * 0.8);
+    const splitPlace = (kind, n, primary, fallback, salt, primaryShare = 0.8) => {
+      const primN = Math.round(n * primaryShare);
       for (let i = 0; i < primN; i++)     tryPlace(kind, primary,  i,           salt);
       for (let i = primN; i < n; i++)     tryPlace(kind, fallback, i,           salt);
     };
-    // Chickens: residential primarily, soft ground elsewhere. ~50 per tile.
-    const chickenN = 40 + Math.floor(rng() * 20);
-    splitPlace('chicken', chickenN, RESIDENTIAL, SOFT_GROUND, 'chicken');
-    // Cows: grassland primarily, soft ground elsewhere. ~23 per tile.
-    const cowN = 15 + Math.floor(rng() * 16);
-    splitPlace('cow', cowN, GRASSLAND, SOFT_GROUND, 'cow');
-    // Cat / dog: global — every natural biome, no primary bias.
-    const catN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < catN; i++) tryPlace('cat', GLOBAL_NAT, i, 'cat');
-    const dogN = 15 + Math.floor(rng() * 16);
-    for (let i = 0; i < dogN; i++) tryPlace('dog', GLOBAL_NAT, i, 'dog');
+    // Chickens: farm/grass primarily, soft ground elsewhere. ~40/tile. Pulled
+    // OUT of residential as the primary biome (per user: too many of them
+    // crowding the suburbs) — barn-yard fauna belongs on farmland.
+    const chickenN = 30 + Math.floor(rng() * 15);
+    splitPlace('chicken', chickenN, FARM_GRASS, SOFT_GROUND, 'chicken');
+    // Cows: grassland primarily, soft ground elsewhere. Tightened primary
+    // share to 0.90 (was 0.80) so fewer cows wander into residential.
+    const cowN = 12 + Math.floor(rng() * 12);
+    splitPlace('cow', cowN, GRASSLAND, SOFT_GROUND, 'cow', 0.90);
+    // Cat / dog: RARER than barn fauna, but heavily residential-biased —
+    // they're pets, not livestock. ~10/tile each, 80% in residential.
+    const catN = 6 + Math.floor(rng() * 8);
+    splitPlace('cat', catN, RESIDENTIAL, GLOBAL_NAT, 'cat');
+    const dogN = 6 + Math.floor(rng() * 8);
+    splitPlace('dog', dogN, RESIDENTIAL, GLOBAL_NAT, 'dog');
     // Wilderness fauna:
     //   rabbit    → grass / forest / park (skittish, wide)
     //   deer      → forest + park (rare, weapon-gated)
-    //   crow      → global — smart birds everywhere
+    //   crow      → global — smart birds, MORE common per user; ~70/tile
     //   butterfly → park / forest (flower-rich biomes)
     const rabbitN = 30 + Math.floor(rng() * 20);
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
-    const crowN = 40 + Math.floor(rng() * 20);
+    const crowN = 60 + Math.floor(rng() * 25);
     for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
     const butterflyN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
@@ -1026,9 +1032,17 @@ class MapScene extends Phaser.Scene {
     // via this.save.picked.
     entry.wildplants = entry.wildplants || [];
 
-    // Treasure mark — 1/200 tiles get a subtle X (deterministic per tile).
-    // Stored on entry.treasure = { x, y, id } or null. Found state lives in save.foundTreasures.
+    // Treasure marks. Three streams:
+    //  1) entry.treasure       — single legacy slot. Starter tile (guaranteed)
+    //                            + low-density random across all tiles.
+    //  2) entry.parkingTreasures — one per OSM parking-lot POI (worldgen).
+    //  3) entry.extraTreasures   — per-tile random scatter (new). Every tile
+    //                            rolls for 2–5 X marks dropped on random
+    //                            walkable cells, so X's feel like a regular
+    //                            ambient reward instead of a once-a-walk find.
+    // All three render + interact through the same code path.
     entry.treasure = null;
+    entry.extraTreasures = [];
     // Force a guaranteed X ~10m north of the player's start (whichever tile
     // contains the spawn). All four locals here were previously undefined and
     // every tile load threw "sx is not defined" — see the tile-fetch warnings.
@@ -1036,7 +1050,9 @@ class MapScene extends Phaser.Scene {
     const sx = this.startWorldM.x, sy = this.startWorldM.y;
     if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
       entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
-    } else if (rng() < 1 / 200) {
+    } else if (rng() < 1 / 4) {
+      // Bumped from 1/200 to 1/4 — combined with the scatter below, players
+      // see X's frequently instead of stumbling onto one a session.
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -1047,6 +1063,24 @@ class MapScene extends Phaser.Scene {
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
         entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
         break;
+      }
+    }
+    // Extra scatter: 2–5 X's per tile on random walkable cells. Each gets a
+    // stable id derived from its cell so save.foundTreasures persists across
+    // reloads. Failed placement attempts (water/building cells) just drop
+    // that slot — small scatter variance is fine.
+    const EXTRA_X_COUNT = 2 + Math.floor(rng() * 4);
+    for (let k = 0; k < EXTRA_X_COUNT; k++) {
+      let placed = false;
+      for (let attempt = 0; attempt < 8 && !placed; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        const t = entry.grid[cy * N + cx];
+        if (t === 3 || t === 9 || t === 11 || t === 12) continue;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        entry.extraTreasures.push({ x: wmx, y: wmy, id: `treasure_x_${tx}_${ty}_${cx}_${cy}` });
+        placed = true;
       }
     }
 
@@ -2310,36 +2344,17 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    // Per-building deal rate-limit. Bigger buildings handle more daily traffic:
-    //   house (small)      → 1  deal/hr
-    //   fort  (mid-tier)   → 5  deals/hr
-    //   castle / tower     → unlimited (they sell relics only — see below)
-    //   starter blacksmith → unlimited so the player can craft pick/axe/hoe in
-    //                        one trip instead of waiting an hour between tools
-    // Counted per house.id over a rolling 1-hour window.
+    // Per-building deal rate-limit — see shopDealCap() / shopReadiness() for
+    // the ladder + bucket math. Renderer reuses the same helpers to draw the
+    // ready/timer pip above each house, so the player sees the same state
+    // the tap handler will enforce.
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    const dealCap = !house ? Infinity
-      : isCastle ? Infinity
-      : isStarterSmith ? Infinity
-      : (house.tier === 11 /* BUILDING_MED */) ? 5
-      : 1;
-    // Hour-bucket deal cap. Each shop has its own offset (hash of id mod 1h)
-    // so all shops don't rotate at the same minute. cur.deals counts this
-    // bucket's deals; rolls over automatically when the bucket changes via
-    // shopBucketState() below.
-    if (house && house.id && dealCap !== Infinity) {
-      const cur = this.shopBucketState(house);
-      if (cur.deals >= dealCap) {
-        const now = Date.now();
-        const offset = this._shopBucketOffset(house.id);
-        const nextBucketStart = (cur.bucket + 1) * 60 * 60 * 1000 - offset;
-        const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
-        const kindLabel = (house.kind === 'tower' || house.tier === 12) ? 'castle'
-                        : (house.tier === 11) ? 'fort' : 'house';
-        this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
-        return;
-      }
+    const { dealCap, ready: shopReady, waitMin } = this.shopReadiness(house);
+    if (house && !shopReady) {
+      const kindLabel = isCastle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
+      this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
+      return;
     }
     // Record a deal against this house — called from inside the accept path.
     const recordDeal = () => {
@@ -2678,6 +2693,36 @@ class MapScene extends Phaser.Scene {
   }
   _shopBucket(houseId, now = Date.now()) {
     return Math.floor((now + this._shopBucketOffset(houseId)) / (60 * 60 * 1000));
+  }
+  // Per-house deal-rate ladder. Mirrors the cap math used inside
+  // shopInteract — extracted so the renderer's ready/timer indicator and the
+  // tap handler can both pull it from one place without divergence.
+  //   castle / tower     → Infinity (relics only — never busy)
+  //   starter blacksmith → Infinity (first tools shouldn't gate on an hour)
+  //   fort (tier 11)     → 5 deals / hour
+  //   small house        → 1 deal  / hour
+  shopDealCap(house) {
+    if (!house) return Infinity;
+    if (house.kind === 'tower' || house.tier === 12) return Infinity;
+    if (this.isStarterBlacksmith(house)) return Infinity;
+    if (house.tier === 11) return 5;
+    return 1;
+  }
+  // Snapshot a house's readiness. `ready` is true if a new deal would be
+  // accepted right now; `waitMin` is how many wall-clock minutes until the
+  // next bucket if not. Returns `{ dealCap, ready, waitMin }`.
+  shopReadiness(house) {
+    const dealCap = this.shopDealCap(house);
+    if (dealCap === Infinity || !house || !house.id) {
+      return { dealCap, ready: true, waitMin: 0 };
+    }
+    const cur = this.shopBucketState(house);
+    if (cur.deals < dealCap) return { dealCap, ready: true, waitMin: 0 };
+    const now = Date.now();
+    const offset = this._shopBucketOffset(house.id);
+    const nextBucketStart = (cur.bucket + 1) * 60 * 60 * 1000 - offset;
+    const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
+    return { dealCap, ready: false, waitMin };
   }
   // Returns the live { bucket, deals, rerolls } record for a house, creating
   // it and GC-ing any stale-bucket predecessor on the way. Self-cleaning, so
@@ -3460,6 +3505,13 @@ class MapScene extends Phaser.Scene {
         // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
         // cowrie used as the inventory icon.
         shell_sheet:   { url: 'Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
+        // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
+        // (top-left grass tuft) backs the longgrass inventory icon now
+        // that the procedural sprite has been retired.
+        props:         { url: 'Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+        // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
+        // is the brown leather boot used as the fishing-junk inventory icon.
+        pickup:        { url: 'Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;
