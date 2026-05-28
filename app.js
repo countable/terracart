@@ -2159,21 +2159,34 @@ class MapScene extends Phaser.Scene {
       // No shop specialty bonus at home — it's a private sale, not a
       // shopkeep's bid.
       const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const price = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const unitPrice = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
+      const maxQty = Math.max(1, sel.count | 0);
+      const iconHTML = this.iconSpanHTML(sellId);
+      const itemName = item?.name || sellId;
+      const fmt = (q) => ({
+        get: `+$${unitPrice * q}`,
+        cost: `${q}× ${iconHTML} ${itemName}`,
+        canAfford: true,
+      });
+      const first = fmt(1);
       this.showOfferModal({
         title: 'Sell from your stash?',
-        get: `+$${price}`,
-        cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
+        get: first.get,
+        cost: first.cost,
         canAfford: true,
         acceptLabel: 'Sell',
-        onAccept: () => {
+        quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+        onAccept: (q) => {
           const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
           if (idx < 0) { this.flash('gone', sx, sy); return; }
           const cur = this.save.inv[idx];
-          cur.count -= 1;
-          addMoney(this.save, price);
+          const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
+          if (sold <= 0) { this.flash('gone', sx, sy); return; }
+          cur.count -= sold;
+          const gain = unitPrice * sold;
+          addMoney(this.save, gain);
           if (cur.count <= 0) {
             this.save.inv.splice(idx, 1);
             if (this.save.selSlot >= this.save.inv.length) {
@@ -2183,7 +2196,7 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.buildInventoryDOM();
           if (this.updateMoneyDOM) this.updateMoneyDOM();
-          this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
+          this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
         },
       });
       return;
@@ -2751,19 +2764,32 @@ class MapScene extends Phaser.Scene {
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
     const sellId = pick.id;
     const item = ITEM_BY_ID[sellId];
-    const price = Math.max(1, PRICES[sellId] ?? 1);
+    const unitPrice = Math.max(1, PRICES[sellId] ?? 1);
+    const maxQty = Math.max(1, pick.count | 0);
+    const iconHTML = this.iconSpanHTML(sellId);
+    const itemName = item?.name || sellId;
+    const fmt = (q) => ({
+      get: `+$${unitPrice * q}`,
+      cost: `${q}× ${iconHTML} ${itemName}`,
+      canAfford: true,
+    });
+    const first = fmt(1);
     this.showOfferModal({
       title: 'The trader is buying:',
-      get: `+$${price}`,
-      cost: `1× ${this.iconSpanHTML(sellId)} ${item?.name || sellId}`,
+      get: first.get,
+      cost: first.cost,
       canAfford: true,
       acceptLabel: 'Sell',
-      onAccept: () => {
+      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+      onAccept: (q) => {
         const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
         if (idx < 0) { this.flash('gone', sx, sy); return; }
         const cur = this.save.inv[idx];
-        cur.count -= 1;
-        addMoney(this.save, price);
+        const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
+        if (sold <= 0) { this.flash('gone', sx, sy); return; }
+        cur.count -= sold;
+        const gain = unitPrice * sold;
+        addMoney(this.save, gain);
         if (cur.count <= 0) {
           this.save.inv.splice(idx, 1);
           if (this.save.selSlot >= this.save.inv.length) {
@@ -2774,7 +2800,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
-        this.flashLoot(`🪙 +$${price}`, '#ffe066', 1, sellId);
+        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
       },
     });
     return true;
@@ -3302,7 +3328,7 @@ class MapScene extends Phaser.Scene {
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity }) {
     document.getElementById('offer-modal')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'offer-modal';
@@ -3313,15 +3339,96 @@ class MapScene extends Phaser.Scene {
     box.style.cssText =
       'min-width:230px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
       'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
-    const blurbHtml = blurb
-      ? `<div style="font-size:11px;opacity:.75;margin-bottom:6px">${blurb}</div>`
-      : '';
-    box.innerHTML =
-      `<div style="opacity:.75;font-size:11px;margin-bottom:6px">${title}</div>` +
-      `<div style="font-size:16px;font-weight:700;margin:4px 0;color:#ffe066">${get}</div>` +
-      blurbHtml +
-      `<div style="opacity:.85;margin:6px 0 4px">for</div>` +
-      `<div style="font-size:16px;font-weight:700;margin:4px 0 10px;color:${canAfford ? '#a7ffb0' : '#ff8a7a'}">${cost}</div>`;
+    // Build the chrome out of individual nodes so the quantity stepper (when
+    // present) can live-update the get/cost lines without re-rendering the
+    // whole modal — tap − / + and the headline price + cost-line stack count
+    // refresh in place.
+    const titleDiv = document.createElement('div');
+    titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
+    titleDiv.textContent = title;
+    box.appendChild(titleDiv);
+    const getDiv = document.createElement('div');
+    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
+    getDiv.innerHTML = get;
+    box.appendChild(getDiv);
+    if (blurb) {
+      const blurbDiv = document.createElement('div');
+      blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:6px';
+      blurbDiv.innerHTML = blurb;
+      box.appendChild(blurbDiv);
+    }
+    const forDiv = document.createElement('div');
+    forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
+    forDiv.textContent = 'for';
+    box.appendChild(forDiv);
+    const costDiv = document.createElement('div');
+    costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
+    costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
+    costDiv.innerHTML = cost;
+    box.appendChild(costDiv);
+    // Quantity stepper (only when caller passes `quantity`). Lays out as
+    // [ − ]  N / MAX  [ + ] just above the action-button row.
+    let qty = 1;
+    let liveCanAfford = canAfford;
+    let stepperRefresh = null;
+    if (quantity) {
+      const minQ = quantity.min ?? 1;
+      const maxQ = Math.max(minQ, quantity.max ?? 1);
+      qty = Math.max(minQ, Math.min(maxQ, quantity.initial ?? minQ));
+      const stepRow = document.createElement('div');
+      stepRow.style.cssText =
+        'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
+      const mkStep = (label) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.style.cssText =
+          'width:40px;height:34px;border-radius:6px;font:700 20px ui-monospace,monospace;cursor:pointer;' +
+          'background:transparent;color:#ddd;border:2px solid #555;line-height:1;';
+        return b;
+      };
+      const minusBtn = mkStep('−');
+      const plusBtn  = mkStep('+');
+      const countSpan = document.createElement('span');
+      countSpan.style.cssText =
+        'min-width:72px;text-align:center;font:700 14px ui-monospace,monospace;color:#fff';
+      stepRow.appendChild(minusBtn);
+      stepRow.appendChild(countSpan);
+      stepRow.appendChild(plusBtn);
+      box.appendChild(stepRow);
+      stepperRefresh = () => {
+        countSpan.textContent = `${qty} / ${maxQ}`;
+        if (typeof quantity.format === 'function') {
+          const r = quantity.format(qty) || {};
+          if (r.get  != null) getDiv.innerHTML  = r.get;
+          if (r.cost != null) costDiv.innerHTML = r.cost;
+          if (r.canAfford != null) {
+            liveCanAfford = !!r.canAfford;
+            costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
+          }
+        }
+        const dim = (b, off) => {
+          b.disabled = off;
+          b.style.opacity = off ? '0.4' : '1';
+          b.style.cursor  = off ? 'not-allowed' : 'pointer';
+        };
+        dim(minusBtn, qty <= minQ);
+        dim(plusBtn,  qty >= maxQ);
+        // Keep the primary action button in sync with the live canAfford.
+        if (accept) {
+          accept.disabled = !liveCanAfford;
+          accept.style.opacity = liveCanAfford ? '1' : '0.4';
+          accept.style.cursor  = liveCanAfford ? 'pointer' : 'not-allowed';
+        }
+      };
+      minusBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (qty > minQ) { qty--; stepperRefresh(); }
+      });
+      plusBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (qty < maxQ) { qty++; stepperRefresh(); }
+      });
+    }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const mkBtn = (label, primary, disabled) => {
@@ -3339,13 +3446,19 @@ class MapScene extends Phaser.Scene {
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    accept.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); onAccept(); });
+    accept.addEventListener('click', (e) => {
+      e.stopPropagation(); wrap.remove();
+      onAccept(quantity ? qty : undefined);
+    });
     if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
     box.appendChild(row);
+    // First paint of stepper-driven state (also syncs accept-button disabled
+    // colours with the format() canAfford if the caller computes it).
+    if (stepperRefresh) stepperRefresh();
     wrap.appendChild(box);
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
