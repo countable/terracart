@@ -791,12 +791,11 @@ class MapScene extends Phaser.Scene {
       let deg = null;
       let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: tilt-compensated and CW from true north. We previously gated
-        // on webkitCompassAccuracy < 0 to skip uncalibrated readings, but
-        // iOS persistently reports -1 indoors / near anything magnetic and
-        // the gate was making the compass appear stuck. Smoothing absorbs
-        // the extra noise; let the readings through.
-        deg = e.webkitCompassHeading;
+        // iOS: tilt-compensated and CW from true north. Empirically reads
+        // 90° behind where the device's top edge actually points when held
+        // in portrait — add +90 to align so phone-pointed direction
+        // matches the in-game facing arrow.
+        deg = (e.webkitCompassHeading + 90) % 360;
         absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
         deg = (360 - e.alpha) % 360;  // alpha is CCW from north; flip
