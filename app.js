@@ -2798,31 +2798,37 @@ class MapScene extends Phaser.Scene {
   // Tier is biased low so most offers are wood/copper; rare materials are rare.
   // `rng` defaults to Math.random — pass a seeded one for stable per-bucket offers.
   buildRelicOffer(rng = Math.random) {
+    // Armor pieces (helmet / chest / legs / boots) are conceptually part
+    // of the relic family — the player thinks of every wearable upgrade
+    // as "a relic." They're split across save.relics and save.armor only
+    // because armor has the separate max-energy bonus to compute.
+    //
+    // For offer balance we want the 4 armor SLOTS to get equal airtime
+    // with the 12 non-armor RELIC SLOTS — without this normalisation the
+    // candidate pool is 84 relic-candidates vs 28 armor-candidates and
+    // armor surfaces only ~22-25% of the time. Players reported castle
+    // visits "never" showing armor; this normalisation puts the two
+    // pools at ~50% each by total weight. Inside each pool we still
+    // bias toward low tiers (weight ∝ 1 / 2^(tier-1)) so early game
+    // sees mostly wood/copper offers.
     const candidates = [];
-    // Pick all (kind, slot) combos where the player can upgrade.
     const consider = (kind, slot, currentTier) => {
       for (const t of MATERIAL_TIERS) {
-        if (t.tier <= currentTier) continue;     // never offer same-or-lower
+        if (t.tier <= currentTier) continue;
         candidates.push({ kind, slot, tier: t.tier });
       }
     };
     for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
     if (!candidates.length) return null;
-    // Two-step bias:
-    //   1) Equal weight between relic-pool and armor-pool. Naively pooling
-    //      everything together gave relics 3× the chance of armor because
-    //      relics have 12 slots vs armor's 4 — castle visits "never" surfaced
-    //      armor in practice. Now each kind contributes 50% of total weight.
-    //   2) Within each pool, bias toward low tiers: weight ∝ 1 / 2^(tier-1).
-    //      Tier 1 weight 1, T2 0.5, T3 0.25 …
-    const relicW = candidates.filter(c => c.kind === 'relic').reduce((a, c) => a + 1 / Math.pow(2, c.tier - 1), 0);
-    const armorW = candidates.filter(c => c.kind === 'armor').reduce((a, c) => a + 1 / Math.pow(2, c.tier - 1), 0);
-    const relicNorm = relicW > 0 ? 1 / relicW : 0;
-    const armorNorm = armorW > 0 ? 1 / armorW : 0;
+    const tierW = (t) => 1 / Math.pow(2, t - 1);
+    const relicSum = candidates.filter(c => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);
+    const armorSum = candidates.filter(c => c.kind === 'armor').reduce((a, c) => a + tierW(c.tier), 0);
+    const relicNorm = relicSum > 0 ? 1 / relicSum : 0;
+    const armorNorm = armorSum > 0 ? 1 / armorSum : 0;
     const weighted = candidates.map(c => ({
       c,
-      w: (c.kind === 'relic' ? relicNorm : armorNorm) * (1 / Math.pow(2, c.tier - 1)),
+      w: (c.kind === 'relic' ? relicNorm : armorNorm) * tierW(c.tier),
     }));
     const total = weighted.reduce((a, b) => a + b.w, 0);
     let r = rng() * total;
@@ -4281,6 +4287,7 @@ class MapScene extends Phaser.Scene {
       nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
     }
     this.syncEatButton();
+    this.syncConsumableButton();
   }
 
   // Eat button — appears bottom-right when the selected stack is food.
@@ -4314,6 +4321,58 @@ class MapScene extends Phaser.Scene {
       e.stopPropagation();
       this.eatSelected();
       this.syncEatButton();   // refresh count / hide if stack ran out
+    });
+    document.body.appendChild(btn);
+  }
+
+  // Book / Flute Read / Play button. Mirror of syncEatButton — sits next
+  // to the Eat button (or in the same spot when food isn't selected) so
+  // the player has a one-tap affordance to use a consumable without
+  // having to tap their own feet precisely. Honours the existing
+  // showOfferModal flow used by interact.js 'use-consumable'.
+  syncConsumableButton() {
+    const sel = this.save.inv?.[this.save.selSlot];
+    const existing = document.getElementById('consumable-btn');
+    const CONSUMABLE = { book: { verb: 'Read', method: 'readBook' },
+                         flute: { verb: 'Play', method: 'playFlute' } };
+    const cfg = sel && CONSUMABLE[sel.id];
+    if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
+    const iconHtml = this.iconSpanHTML(sel.id, 20);
+    const label = `${iconHtml} ${cfg.verb}`;
+    if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; return; }
+    const btn = document.createElement('button');
+    btn.id = 'consumable-btn';
+    btn.dataset.id = sel.id;
+    // Sit to the LEFT of the Eat button (Eat lives at right:8). Since the
+    // two are mutually-exclusive in normal play (Eat = food selected,
+    // consumable = book/flute selected) we use the same right slot. CSS
+    // identical except border colour (warm tan to distinguish from
+    // Eat's green).
+    btn.style.cssText =
+      'position:fixed;' +
+      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+      'background:#1a1612;color:#ffd866;border:2px solid #c8a64a;' +
+      'font:700 12px ui-monospace,monospace;';
+    btn.innerHTML = label;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const fn = CONSUMABLE[id]?.method;
+      if (!fn || typeof this[fn] !== 'function') return;
+      // Mirror the interact.js use-consumable flow: confirmation modal,
+      // accept consumes 1 and triggers the action.
+      const item = ITEM_BY_ID[id];
+      this.showOfferModal({
+        title: id === 'flute' ? 'Play the flute?' : 'Read the book?',
+        get: id === 'flute' ? '🪈 lure nearby creatures' : '📖 a tip from the elders',
+        cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
+        canAfford: true,
+        acceptLabel: CONSUMABLE[id].verb,
+        onAccept: () => { this[fn](); this.syncConsumableButton(); },
+      });
     });
     document.body.appendChild(btn);
   }
