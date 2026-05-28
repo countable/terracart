@@ -515,6 +515,22 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
+    // Ground decoration overlay pool — sparse, non-interactable tufts/pebbles
+    // sprinkled into grass-family biomes at ~8% of cells. Frame picked from
+    // Props.png column 7, rows 1–3 (frames 29 / 51 / 73). Existence + frame
+    // are derived deterministically from the cell's absolute coords so the
+    // same tile always shows the same deco across reloads without any save
+    // state. Reuses cobbleContainer so the deco z-orders alongside other
+    // cell-overlay art (above noise, below pads/objects/sprites) without
+    // needing a brand-new container slot in the scene layer stack.
+    this.groundDecoPool = [];
+    for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
+      const s = this.add.image(0, 0, 'props', 0).setOrigin(0.5, 0.5)
+        .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+      this.cobbleContainer.add(s);
+      this.groundDecoPool.push(s);
+    }
+
     // Road-letter pool: small light letters with a soft drop shadow, laid out one
     // per cell along named streets. Lighter than the cobble background so they
     // read like worn paint markings rather than carved-in lettering.
@@ -2793,8 +2809,21 @@ class MapScene extends Phaser.Scene {
     for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
     if (!candidates.length) return null;
-    // Bias toward low tiers: weight ∝ 1 / 2^(tier-1). Tier 1 weight 1, t2 0.5, t3 0.25, …
-    const weighted = candidates.map(c => ({ c, w: 1 / Math.pow(2, c.tier - 1) }));
+    // Two-step bias:
+    //   1) Equal weight between relic-pool and armor-pool. Naively pooling
+    //      everything together gave relics 3× the chance of armor because
+    //      relics have 12 slots vs armor's 4 — castle visits "never" surfaced
+    //      armor in practice. Now each kind contributes 50% of total weight.
+    //   2) Within each pool, bias toward low tiers: weight ∝ 1 / 2^(tier-1).
+    //      Tier 1 weight 1, T2 0.5, T3 0.25 …
+    const relicW = candidates.filter(c => c.kind === 'relic').reduce((a, c) => a + 1 / Math.pow(2, c.tier - 1), 0);
+    const armorW = candidates.filter(c => c.kind === 'armor').reduce((a, c) => a + 1 / Math.pow(2, c.tier - 1), 0);
+    const relicNorm = relicW > 0 ? 1 / relicW : 0;
+    const armorNorm = armorW > 0 ? 1 / armorW : 0;
+    const weighted = candidates.map(c => ({
+      c,
+      w: (c.kind === 'relic' ? relicNorm : armorNorm) * (1 / Math.pow(2, c.tier - 1)),
+    }));
     const total = weighted.reduce((a, b) => a + b.w, 0);
     let r = rng() * total;
     let pick = weighted[weighted.length - 1].c;
