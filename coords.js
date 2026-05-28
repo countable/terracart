@@ -39,3 +39,29 @@ function cellKeyFromWorldMeters(scene, wmx, wmy) {
   const { cellIX, cellIY } = worldMetersToAbsCell(scene, wmx, wmy);
   return cellKeyFromAbsCell(cellIX, cellIY);
 }
+
+// Player's "reach origin" — the absolute cell the visual reach silhouette
+// and every too-far gate measure distance from. X is the body cell column
+// (no horizontal feet offset); Y is the FEET cell row (feetOffsetM south
+// of the body), so the reach snaps when the visible feet cross a gridline.
+// Returns { cellIX, cellIY }.
+function playerReachCell(scene) {
+  const wx = scene.originPx.x + scene.playerM.x / scene.mPerPx;
+  const wy = scene.originPx.y + (scene.playerM.y + scene.feetOffsetM) / scene.mPerPx;
+  const cellPxSize = 256 / scene.cellsPerTile;
+  return {
+    cellIX: Math.floor(wx / cellPxSize),
+    cellIY: Math.floor(wy / cellPxSize),
+  };
+}
+
+// One source of truth for "is this absolute cell within the player's reach?"
+// Both drawCells (visual reach silhouette) and interact.js' cell-resolve tap
+// test call this — keeps the lit area and the tap-accept area byte-identical
+// regardless of intra-cell player position, FP drift, or rounding mode.
+function cellInReach(scene, cellIX, cellIY) {
+  const p = playerReachCell(scene);
+  const dx = (cellIX - p.cellIX) * scene.cellM;
+  const dy = (cellIY - p.cellIY) * scene.cellM;
+  return dx * dx + dy * dy <= scene.REACH_CELL_M * scene.REACH_CELL_M;
+}

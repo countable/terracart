@@ -441,19 +441,17 @@ Render.drawCells = function drawCells(scene) {
   // each cardinal direction, always — independent of intra-cell position).
   // For each reachable cell, draw only the sides whose neighbour is NOT
   // reachable. Result is the staircase silhouette of the reach region.
-  const R2 = scene.REACH_CELL_M * scene.REACH_CELL_M;
-  // Reach is centred on the FEET CELL, not the body cell. The body sprite
-  // renders at viewport centre (col=half, row=half), but its feet sit
-  // feetOffsetM south. Centering the reach on the feet means the outline
-  // snaps to a new row exactly when the visible feet cross a cell line —
-  // not half a cell earlier (when the body crosses) as it used to.
-  const feetCellsBelowBody = Math.floor(pc.cy + scene.feetOffsetM / scene.cellM) - Math.floor(pc.cy);
-  const reachOriginRow = half + feetCellsBelowBody;
+  // Visual reach: delegate to the shared cellInReach helper (coords.js)
+  // so the lit area on screen and the tap-accept area in interact.js are
+  // computed from the same integer-cell math. Earlier this path used a
+  // local hypotenuse check against a separately computed feet-cell row,
+  // and the user reported the leftmost lit cell occasionally flashing
+  // "too far" — eliminating the duplicated math closes any way for the
+  // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
   const isReach = (col, row) => {
-    const ox = col - half, oy = row - reachOriginRow;
-    const dxM = ox * scene.cellM;
-    const dyM = oy * scene.cellM;
-    return dxM * dxM + dyM * dyM <= R2;
+    const absIX = baseCellIX + (col - half);
+    const absIY = baseCellIY + (row - half);
+    return cellInReach(scene, absIX, absIY);
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
@@ -527,6 +525,7 @@ Render.drawCells = function drawCells(scene) {
         if (!entry) continue;
         drawX(entry.treasure);
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
+        if (entry.extraTreasures)   for (const tr of entry.extraTreasures)   drawX(tr);
       }
     }
   }
@@ -1023,6 +1022,51 @@ Render.drawObjects = function drawObjects(scene) {
     sli++;
   }
   for (; sli < scene.shopLabelPool.length; sli++) scene.shopLabelPool[sli].setVisible(false);
+
+  // Per-house readiness pip — sits just above each house / tower sprite and
+  // shows either "✓" (this shop can take a deal right now) or "Xm" (the
+  // wall-clock minutes until the hour bucket rolls over). Castles + the
+  // starter blacksmith have dealCap=Infinity and never go busy, so we skip
+  // the pip entirely for them — the sign + house style already communicate
+  // "always open". The text styling matches the shop sign but with a
+  // smaller font + a wood-plank brown bg vs the role-coloured sign ink, so
+  // the player can read role AND availability at a glance without the two
+  // signs fighting for the same visual real estate.
+  const houseObjs = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
+  let hri = 0;
+  for (const item of houseObjs) {
+    const { o, dx, dy } = item;
+    if (typeof scene.shopReadiness !== 'function') break;
+    const info = scene.shopReadiness(o);
+    // Unlimited-deal shops never need a "busy" badge; the absence of a pip
+    // is itself the signal that they're always open.
+    if (info.dealCap === Infinity) continue;
+    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    let tx = scene.shopReadyPool[hri];
+    if (!tx) {
+      tx = scene.add.text(0, 0, '', {
+        font: 'bold 10px ui-monospace, monospace',
+        padding: { x: 4, y: 2 },
+        stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(51);
+      scene.objectsContainer.add(tx);
+      scene.shopReadyPool.push(tx);
+    }
+    const label = info.ready ? '✓ open' : `⏳ ${info.waitMin}m`;
+    const ink   = info.ready ? '#a7ffb0' : '#ff8a7a';
+    const bg    = info.ready ? 'rgba(20,40,20,0.85)' : 'rgba(50,20,20,0.85)';
+    // Float ~32 px above the building's foot (sy), well clear of the sign
+    // hung BELOW the building. Origin (0.5, 1) means y is the badge's
+    // bottom, so it tucks just above the roof.
+    tx.setText(label)
+      .setColor(ink)
+      .setBackgroundColor(bg)
+      .setPosition(Math.round(sx), Math.round(sy) - 32)
+      .setVisible(true);
+    hri++;
+  }
+  for (; hri < scene.shopReadyPool.length; hri++) scene.shopReadyPool[hri].setVisible(false);
 
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,

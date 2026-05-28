@@ -151,6 +151,10 @@ const TAP_HANDLERS = [
         const r = tryClaim(tr);
         if (r === true || r === 'far') return r;
       }
+      if (entry.extraTreasures) for (const tr of entry.extraTreasures) {
+        const r = tryClaim(tr);
+        if (r === true || r === 'far') return r;
+      }
     }
     return false;
   }},
@@ -693,10 +697,11 @@ const TAP_HANDLERS = [
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
     const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
-    // Use the dispatcher-supplied body-cell centre (ctx.pCellCx / pCellCy),
-    // which is computed from the player BODY world position. The visual reach
-    // outline in render.js is also body-centred, so the two stay in sync.
-    if (Math.hypot(cwmx - ctx.pCellCx, cwmy - ctx.pCellCy) > scene.REACH_CELL_M) {
+    // Single source of truth (coords.js): cellInReach uses the same
+    // (cellIX - playerCellIX, cellIY - feetCellIY) integer math as the
+    // visual reach silhouette in render.js, so a cell that's visually
+    // lit is always tap-accepted — no FP / cell-centre / hypot drift.
+    if (!cellInReach(scene, cellIX, cellIY)) {
       scene.flash('too far', sx, sy); return true;
     }
     ctx.cell = cell;
@@ -706,6 +711,30 @@ const TAP_HANDLERS = [
     ctx.cwmy = cwmy;
     ctx.cellKey = cellKeyFromAbsCell(cellIX, cellIY);
     return false;
+  }},
+
+  // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
+  // player is within tap range of the cell. If that cell is a building tile
+  // (small house / fort / castle terrain), find the nearest house/tower in
+  // the loaded objects[] and route the tap to shopInteract as if the player
+  // had clicked the building sprite itself. Without this, taps on the
+  // non-sprite cells of a building's biome cluster fall through to the
+  // til/release/etc. handlers and look like nothing happened, because the
+  // 'object' handler's REACH_HOUSE_M=6m doesn't span the full 5×5-cell
+  // building footprint (≈35 m diagonal). The 30 m snap keeps us from
+  // bridging across to a different cluster on the next tile.
+  { name: 'building-zone', try: (ctx) => {
+    const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
+    if (!BUILDING_TYPES.has(cell.type)) return false;
+    let best = null, bestD2 = Infinity;
+    WorldGen.forEachItem('objects', (o) => {
+      if (o.kind !== 'house' && o.kind !== 'tower') return;
+      const d2 = (o.x - cwmx) * (o.x - cwmx) + (o.y - cwmy) * (o.y - cwmy);
+      if (d2 < bestD2) { bestD2 = d2; best = o; }
+    });
+    if (!best || bestD2 > 30 * 30) return false;
+    scene.shopInteract(sx, sy, best);
+    return true;
   }},
 
   // 2-pre) Release a selected animal onto this cell.
