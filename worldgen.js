@@ -538,6 +538,52 @@
               }
             }
 
+            // Residential mineral clusters — a few abandoned-yard / construction
+            // piles in town. Sparse: pivot grid is ~30 m so most residential
+            // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
+            // grouped within ~6 m. Gives the early game a reliable urban source
+            // of stone + low-tier ore without flooding sidewalks with rocks.
+            if (t === T.RESIDENTIAL) {
+              const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
+              const bb = bboxOf(f.geom);
+              const pivotStep = 30 / mvtToM;        // one cluster candidate per ~30 m
+              const clusterR  = 6  / mvtToM;        // rocks placed within ~6 m of pivot
+              // Lower-tier bias for town rocks (T1 ~80% → T7 negligible). Stronger
+              // damping than the wilderness ROCK loop because residential should
+              // not be where the player farms platinum.
+              const resTierW = [];
+              let resTotalW = 0;
+              for (let t2 = 1; t2 <= 7; t2++) {
+                const w = 1 / Math.pow(3, t2 - 1);
+                resTotalW += w;
+                resTierW.push(resTotalW);
+              }
+              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
+                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
+                  if (resRng() > 0.10) continue;   // 10 % of pivots fire a cluster
+                  const clusterN = 3 + Math.floor(resRng() * 3);  // 3..5 rocks per cluster
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (resRng() - 0.5) * 2 * clusterR;
+                    const jy = yy + (resRng() - 0.5) * 2 * clusterR;
+                    if (!pointInRings(f.geom, jx, jy)) continue;
+                    const r = resRng() * resTotalW;
+                    let requiredTier = 7;
+                    for (let i = 0; i < resTierW.length; i++) {
+                      if (r <= resTierW[i]) { requiredTier = i + 1; break; }
+                    }
+                    const m = toMeters(jx, jy);
+                    const ix = Math.floor(m.x / CELL_M);
+                    const iy = Math.floor(m.y / CELL_M);
+                    const cx = (ix + 0.5) * CELL_M;
+                    const cy = (iy + 0.5) * CELL_M;
+                    objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                      id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                  }
+                }
+              }
+            }
+
             // Mineral-rich rocks on ROCK terrain. Rare — most are low-tier, with
             // ultra-rare high-tier finds via 1/2^(t-1) weighting (T1 ~64%, T7 ~1%).
             if (t === T.ROCK) {
