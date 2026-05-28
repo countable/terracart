@@ -1657,8 +1657,9 @@ class MapScene extends Phaser.Scene {
       const ri = this.save.released.findIndex(r => r.id === c.id);
       if (ri >= 0) this.save.released.splice(ri, 1);
     }
-    // Per-creature catch yield. Chickens yield 4 (eggs + bird); cows yield 1.
-    const yieldN = c.kind === 'chicken' ? 4 : 1;
+    // One creature → one inventory entry. Egg / milk yield happens via the
+    // produce branch (tap with plant produce selected), not the catch branch.
+    const yieldN = 1;
     // addToInv already persists; passing silent=true to avoid a double write.
     this.addToInv(c.kind, yieldN, true);
     persistSave(this.save);

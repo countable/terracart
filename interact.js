@@ -199,6 +199,12 @@ const TAP_HANDLERS = [
   //                                    turn up their nose at plants;
   //                                    chickens/cows refuse meat / dairy.)
   //   NOTHING / non-food selected    → flash a hint with the favourite.
+  // PRIORITY: creature checks happen BEFORE wildplant / object / cell so a
+  // tap near any nearby animal always reads as "I'm trying to interact with
+  // the animal." A tap on a tree two metres from a chicken will trigger the
+  // chicken handler (favourite-food hint / catch / yuck), not the chop —
+  // step away from the animal to chop the tree. This is intentional: in
+  // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     let target = null, bestD2 = REACH_CREATURE_M * REACH_CREATURE_M;
@@ -476,7 +482,11 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      const r = (o.kind === 'house' || o.kind === 'tower') ? REACH_HOUSE_M : REACH_OBJECT_M;
+      // Shrine + house/tower share the wider house-sized reach: their sprites
+      // are taller than the default 3.5m hit zone (fountain is ~9m tall in
+      // world units), so a tap on the visible top of the sprite would otherwise
+      // miss-and-fall-through to the till handler under it.
+      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
       if (distM2(o.x, o.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) {
         scene.flash('too far', sx, sy); return 'far';
