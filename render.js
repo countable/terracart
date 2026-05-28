@@ -340,6 +340,7 @@ Render.drawCells = function drawCells(scene) {
   const _houseRoleCells = new Map();   // cellKey → role string
   const _houseRoleForCell = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     return t || null;
@@ -669,6 +670,9 @@ Render.drawObjects = function drawObjects(scene) {
   // fort that happens to also be the starter shop renders as a trailer.
   const _houseRole = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
+    // Starter blacksmith — the house nearest to Home, force-assigned a forge
+    // role so the player has a deterministic place to craft wooden tools.
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     if (t === 'blacksmith') return 'blacksmith';
@@ -896,6 +900,11 @@ Render.drawObjects = function drawObjects(scene) {
   // also handle the starter case without changing the Shops module.
   const _houseSignText = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
+    // Forced starter blacksmith — bypass Shops.shopLabel since the address
+    // doesn't end in 9, but the player should still see a smithy sign.
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) {
+      return `Blacksmith ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    }
     const shopLbl = Shops.shopLabel(o);
     if (shopLbl) return shopLbl;
     // No specialty? Still give the building a label so the map reads as a
@@ -923,6 +932,7 @@ Render.drawObjects = function drawObjects(scene) {
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return _ROLE_INK.blacksmith;
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     if (t && _ROLE_INK[t]) return _ROLE_INK[t];
     if (o.tier === 12) return _CASTLE_INK;

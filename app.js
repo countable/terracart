@@ -2243,10 +2243,14 @@ class MapScene extends Phaser.Scene {
     //   house (small)      → 1  deal/hr
     //   fort  (mid-tier)   → 5  deals/hr
     //   castle / tower     → unlimited (they sell relics only — see below)
+    //   starter blacksmith → unlimited so the player can craft pick/axe/hoe in
+    //                        one trip instead of waiting an hour between tools
     // Counted per house.id over a rolling 1-hour window.
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    const isStarterSmith = this.isStarterBlacksmith(house);
     const dealCap = !house ? Infinity
       : isCastle ? Infinity
+      : isStarterSmith ? Infinity
       : (house.tier === 11 /* BUILDING_MED */) ? 5
       : 1;
     // Hour-bucket deal cap. Each shop has its own offset (hash of id mod 1h)
@@ -2272,7 +2276,9 @@ class MapScene extends Phaser.Scene {
       const cur = this.shopBucketState(house);
       cur.deals += 1;
     };
-    const shopType = Shops.shopType(house);
+    // The starter blacksmith overrides the address-derived shop role so the
+    // forge branch below fires regardless of the underlying house number.
+    const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
     // Selling is HOME-ONLY (handled above). Every other house runs straight
     // into its primary interaction below — selected-item taps no longer
     // open a sell modal here. The player has to bring the haul back to
@@ -2294,6 +2300,17 @@ class MapScene extends Phaser.Scene {
       return;
     }
     if (shopType === 'blacksmith') {
+      // Starter blacksmith: walk the player through wooden pick → axe → hoe
+      // before falling through to the random-relic forge. Custom recipe (not
+      // bar-based) so blacksmithRecipe stays T2+ for every other smithy.
+      if (isStarterSmith) {
+        const woodOffer = this.starterBlacksmithOffer();
+        if (woodOffer) {
+          const recipe = this.starterBlacksmithRecipe(woodOffer.slot);
+          this.presentBlacksmithOffer(sx, sy, woodOffer, recordDeal, house, { recipe, noReroll: true });
+          return;
+        }
+      }
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
       this.flash('we are still working on something for you', sx, sy);
@@ -2397,6 +2414,78 @@ class MapScene extends Phaser.Scene {
     // rock-breaking loop, so it shouldn't depend on global price scaling.
     const price = want === 'pick' ? 30 : gearPrice('relic', want, 1);
     return { kind: 'relic', slot: want, tier: 1, price, starter: true };
+  }
+
+  // Wooden-tool blacksmith. The house closest to Home (the starter shop)
+  // is forced to be a Blacksmith that forges T1 pick / axe / hoe out of
+  // rockfruit (wild stones, no tool needed) and tree (chopped logs).
+  // Memoized once like starterShopId so reloads + roaming keep the same shop.
+  // Falls through to the normal random-relic forge once all three wooden
+  // tools have been crafted — the smithy keeps doing useful business.
+  isStarterBlacksmith(house) {
+    if (!house || !house.id) return false;
+    if (this.save.starterBlacksmithId == null) {
+      const id = this.findStarterBlacksmithId();
+      if (id) this.save.starterBlacksmithId = id;
+    }
+    return this.save.starterBlacksmithId === house.id;
+  }
+
+  findStarterBlacksmithId() {
+    // Resolve the starter shop first — needed both to anchor the search and
+    // to exclude it from the candidate list.
+    if (this.save.starterShopId == null) {
+      const sid = this.findStarterHouseId();
+      if (sid) this.save.starterShopId = sid;
+    }
+    const starterId = this.save.starterShopId;
+    // Anchor the distance search at the starter house's world position when
+    // it's loaded; otherwise fall back to the player's spawn so the choice
+    // converges to the same answer once tiles around home stream in.
+    let fromPos = this.startWorldM;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind === 'house' && o.id === starterId) {
+          fromPos = { x: o.x, y: o.y }; break;
+        }
+      }
+    }
+    // Closest small house (BUILDING tier) to the starter, excluding the
+    // starter itself. Skip forts and castles so a civic building next door
+    // doesn't get re-skinned as a smithy.
+    let bestId = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house' || !o.id || o.id === starterId) continue;
+        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
+        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
+      }
+    }
+    return bestId;
+  }
+
+  // Recipes the starter blacksmith trades for wooden tools. rockfruit is
+  // wild residential debris (no tool needed); tree drops from chopping
+  // (gated on the starter-shop $30 wood axe, which keeps the loop honest).
+  starterBlacksmithRecipe(slot) {
+    if (slot === 'pick') return [{ id: 'rockfruit', qty: 3 }, { id: 'tree', qty: 1 }];
+    if (slot === 'axe')  return [{ id: 'rockfruit', qty: 1 }, { id: 'tree', qty: 3 }];
+    if (slot === 'hoe')  return [{ id: 'rockfruit', qty: 2 }, { id: 'tree', qty: 2 }];
+    return null;
+  }
+
+  // Next T1 wooden tool the player still needs, in pick → axe → hoe order.
+  // Returns null when all three are owned so the caller can fall through
+  // to the normal random-relic offer.
+  starterBlacksmithOffer() {
+    for (const slot of ['pick', 'axe', 'hoe']) {
+      if (!(this.save.relics?.[slot]?.tier)) {
+        return { kind: 'relic', slot, tier: 1 };
+      }
+    }
+    return null;
   }
 
   // Read the persisted offer for this house if set, else build a new one and
@@ -2844,8 +2933,11 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  presentBlacksmithOffer(sx, sy, offer, recordDeal, house) {
-    const recipe = this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+  presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts = {}) {
+    // recipe override lets the starter blacksmith define T1 wooden recipes
+    // (rockfruit + tree) without loosening the T2+ bar requirement in
+    // blacksmithRecipe — keeps every other smithy on the original ladder.
+    const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
       this.flash('we are still working on something for you', sx, sy);
       return;
@@ -2861,29 +2953,32 @@ class MapScene extends Phaser.Scene {
     }).join(' + ');
     // Re-roll mirrors the relic-offer flow: cost = 5 × 2^rerolls (climbs
     // fast so it's a real decision), bumps curState.rerolls so the next
-    // peekOrBuildRelicOffer returns a different forge target.
+    // peekOrBuildRelicOffer returns a different forge target. Suppressed for
+    // the starter blacksmith — the wooden-tool queue is sequential, not
+    // random, so there's nothing to re-roll into.
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
+    const secondary = opts.noReroll ? undefined : {
+      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+      disabled: (this.save.money ?? 0) < rerollCost,
+      onClick: () => {
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
+        if (curState) curState.rerolls += 1;
+        const next = this.peekOrBuildRelicOffer(house);
+        if (!next) { this.flash('nothing else to forge', sx, sy); return; }
+        addMoney(this.save, -rerollCost);
+        persistSave(this.save);
+        this.updateHUD();
+        this.presentBlacksmithOffer(sx, sy, next, recordDeal, house);
+      },
+    };
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'forge'),
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Trade',
-      secondary: {
-        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
-        disabled: (this.save.money ?? 0) < rerollCost,
-        onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`need $${rerollCost}`, sx, sy); return; }
-          if (curState) curState.rerolls += 1;
-          const next = this.peekOrBuildRelicOffer(house);
-          if (!next) { this.flash('nothing else to forge', sx, sy); return; }
-          addMoney(this.save, -rerollCost);
-          persistSave(this.save);
-          this.updateHUD();
-          this.presentBlacksmithOffer(sx, sy, next, recordDeal, house);
-        },
-      },
+      secondary,
       onAccept: () => {
         const curTier = offer.kind === 'relic'
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
