@@ -1042,13 +1042,6 @@ test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
   assert.eq(m2, STARTING_ENERGY + 20 + 25, 'multiple armor pieces additive');
 });
 
-test('starter shop wood pickaxe is fixed at $30', (scene) => {
-  scene.save.starterStock = { pick: true, axe: true };
-  const offer = scene.starterShopOffer();
-  assert.eq(offer.slot, 'pick', 'first offer is pick');
-  assert.eq(offer.price, 30, 'wood pickaxe is $30');
-});
-
 test('gearPrice scales with tier multiplier', () => {
   const t1 = gearPrice('relic', 'pick', 1);
   const t3 = gearPrice('relic', 'pick', 3);
@@ -1095,42 +1088,6 @@ test('tree chop refuses without an axe relic', (scene) => {
   teleport(scene, tree.x, tree.y);
   tapWorld(scene, tree.x, tree.y);
   assert.falsy(tree.chopped, 'tree NOT chopped without axe');
-});
-
-test('starter shop sells wood pickaxe + wood axe in sequence', (scene) => {
-  scene.save.starterShopId = null;
-  scene.save.starterStock = { pick: true, axe: true };
-  scene.save.shopOffers = {};
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
-  scene.save.money = 1000;
-  scene.save.inv = []; scene.save.selSlot = 0;
-  // Identify the starter shop via the same helper the runtime uses.
-  const starterId = scene.findStarterHouseId();
-  assert.truthy(starterId, 'a starter house exists in loaded tiles');
-  const house = findObject(o => o.id === starterId);
-  teleport(scene, house.x, house.y - 2);
-  scene.shopInteract(0, 0, house);
-  let modal = document.getElementById('offer-modal');
-  assert.truthy(modal, 'modal opened for starter shop');
-  const buy = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.truthy(buy, 'Buy button present');
-  buy.click();
-  assert.truthy(scene.save.relics.pick, 'wood pick acquired');
-  assert.eq(scene.save.relics.pick.tier, 1, 'tier 1');
-  assert.falsy(scene.save.starterStock.pick, 'pick removed from starter stock');
-  // Second visit: starter shop now offers axe.
-  scene.shopInteract(0, 0, house);
-  modal = document.getElementById('offer-modal');
-  assert.truthy(modal, 'modal opened second visit');
-  const buy2 = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  buy2.click();
-  assert.truthy(scene.save.relics.axe, 'wood axe acquired');
-  assert.eq(scene.save.relics.axe.tier, 1, 'tier 1');
-  // Third visit: stock empty → starter shop falls through to seed offers.
-  scene.shopInteract(0, 0, house);
-  modal = document.getElementById('offer-modal');
-  // Just assert it didn't crash; we don't care which offer comes up now.
-  document.getElementById('offer-modal')?.remove();
 });
 
 test('castle always offers relics with no rate-limit', (scene) => {

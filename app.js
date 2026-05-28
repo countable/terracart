@@ -269,13 +269,9 @@ class MapScene extends Phaser.Scene {
     if (this.save.offerSalt == null) {
       this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
     }
-    // Starter shop nearest spawn — guaranteed wood pick + wood axe for sale.
-    // starterStock tracks which of those two items have been bought.
-    this.save.starterStock = this.save.starterStock || { pick: true, axe: true };
     // Backfill armor slots (spread, not || , so a save missing one slot key
     // still gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
     this.save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(this.save.armor || {}) };
-    this.save.starterStock = { pick: true, axe: true, ...(this.save.starterStock || {}) };
     // Always re-derive maxEnergy from the equipped armor — never trust a stale
     // saved value (older saves may have had a lower maxEnergy than the current
     // armor set warrants, which would silently cap energy below the real ceiling).
@@ -2194,22 +2190,7 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      // Empty-selection tap = "buy from home". The starter trailer stocks a
-      // wood pickaxe and wood axe so the player can bootstrap rock-breaking
-      // and tree-chopping without needing to find a generous random shop.
-      // Once both are bought, the empty-selection tap falls through to the
-      // "home sweet home" flash (commit 383c2e5 had stripped this buy path
-      // entirely — left the player stuck with no way to chop trees for the
-      // starter blacksmith's wood-tool recipes).
-      if (!hasSel) {
-        const starterOffer = this.starterShopOffer();
-        if (starterOffer) {
-          this.presentRelicOffer(sx, sy, starterOffer, () => {}, house, false);
-          return;
-        }
-        this.flash('home sweet home', sx, sy);
-        return;
-      }
+      if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
@@ -2394,9 +2375,9 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // The "starter shop" is the building closest to the player's spawn. It's
-  // guaranteed to stock a wood pickaxe + wood axe so the player can always
-  // unlock rock/tree clearing without random-shopping. We pick it once and
+  // The "starter shop" is the building closest to the player's spawn — the
+  // player's Home. Tap it to sell from your stash; the starter blacksmith
+  // (nearest house to Home) handles wooden-tool crafting. Pick it once and
   // memoize in save.starterShopId so reloads + roaming keep the same shop.
   isStarterShop(house) {
     if (!house || !house.id) return false;
@@ -2421,18 +2402,6 @@ class MapScene extends Phaser.Scene {
       }
     }
     return bestId;
-  }
-
-  // Return the next starter-shop offer (wood pick, then wood axe), or null
-  // when both have been bought.
-  starterShopOffer() {
-    const stk = this.save.starterStock || {};
-    const want = stk.pick ? 'pick' : (stk.axe ? 'axe' : null);
-    if (!want) return null;
-    // Wood pickaxe is fixed at $30 — the gating tool to unlock the entire
-    // rock-breaking loop, so it shouldn't depend on global price scaling.
-    const price = want === 'pick' ? 30 : gearPrice('relic', want, 1);
-    return { kind: 'relic', slot: want, tier: 1, price, starter: true };
   }
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
@@ -2487,7 +2456,9 @@ class MapScene extends Phaser.Scene {
 
   // Recipes the starter blacksmith trades for wooden tools. rockfruit is
   // wild residential debris (no tool needed); tree drops from chopping
-  // (gated on the starter-shop $30 wood axe, which keeps the loop honest).
+  // (requires an axe — chicken-and-egg on the axe + hoe recipes; the
+  // pick recipe is light on tree so the player can craft that first and
+  // build a stockpile by mining for more rockfruit before going for axe).
   starterBlacksmithRecipe(slot) {
     if (slot === 'pick') return [{ id: 'rockfruit', qty: 3 }, { id: 'tree', qty: 1 }];
     if (slot === 'axe')  return [{ id: 'rockfruit', qty: 1 }, { id: 'tree', qty: 3 }];
@@ -2614,11 +2585,10 @@ class MapScene extends Phaser.Scene {
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
-    const showReroll = allowReroll && !offer.starter;
-    const curState = (house?.id && !offer.starter) ? this.shopBucketState(house) : null;
+    const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
-      title: offer.starter ? 'Starter gear in stock:' : this.buildingFlavorTitle(house, 'relic'),
+      title: this.buildingFlavorTitle(house, 'relic'),
       get: `${iconHtml} ${name}`,
       blurb,
       cost: `$${offer.price}`,
@@ -2643,13 +2613,12 @@ class MapScene extends Phaser.Scene {
           this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
         }
         this.markRelicsDirty();
-        if (offer.starter && this.save.starterStock) this.save.starterStock[offer.slot] = false;
         recordDeal();
         persistSave(this.save);
         this.updateHUD();
         this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
       },
-      secondary: showReroll ? {
+      secondary: allowReroll ? {
         label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
