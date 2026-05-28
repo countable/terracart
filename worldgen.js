@@ -556,21 +556,29 @@
             // painted building footprints).
             const _CAVE_ROCK_P = 0.50;
             const _CAVE_VARIANTS = 11 * 3;   // rows 14, 15, 16 (3 rows × 11 cols)
-            const _isBuildingCell = (ix, iy) => {
+            // Cells that REFUSE a rock spawn even if the polygon overlaps
+            // them. Roads, paths, water, and every building footprint —
+            // rocks plopped on a sidewalk or in the middle of a road look
+            // glitchy and break traffic flow visually.
+            const _isBlockedCell = (ix, iy) => {
               const tc = grid[iy * w + ix];
-              return tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+              return tc === T.ROAD     || tc === T.ROAD_LG || tc === T.ROAD_MD
+                  || tc === T.PATH     || tc === T.WATER
+                  || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
             };
             const _pushMineralrock = (rng, jx, jy, tierW, totalW) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const m = toMeters(jx, jy);
               const ix = Math.floor(m.x / CELL_M);
               const iy = Math.floor(m.y / CELL_M);
-              // Convert world cell index back to local tile cell index for the
-              // building check (grid is indexed by [iy * w + ix] in TILE space).
+              // Convert world cell index back to local tile cell index for
+              // the blocked-cell check (grid is indexed by [iy * w + ix]
+              // in TILE space). Anything off-tile gets a free pass —
+              // adjacent tiles run their own spawner.
               const localIx = ix - tx * w;
               const localIy = iy - ty * h;
               if (localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
-                  && _isBuildingCell(localIx, localIy)) return;
+                  && _isBlockedCell(localIx, localIy)) return;
               const cx = (ix + 0.5) * CELL_M;
               const cy = (iy + 0.5) * CELL_M;
               if (rng() < _CAVE_ROCK_P) {
@@ -599,22 +607,24 @@
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const bb = bboxOf(f.geom);
-              const pivotStep = 30 / mvtToM;        // one cluster candidate per ~30 m
-              const clusterR  = 6  / mvtToM;        // rocks placed within ~6 m of pivot
-              // Lower-tier bias for town ore (T1 ~67 % → T7 negligible). 70 %
-              // of the cluster is still plain CAVE rock per the shared helper.
+              const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m (was 30)
+              const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
+              // Tier curve 1/2^(t-1) — same dropoff as wilderness ROCK so T3+
+              // ore actually appears (under 1/3^(t-1) town rocks were 95 %
+              // copper-only and a wood pick mined everything). Still skewed
+              // low: T1 ~50 % → T7 ~0.8 % of the ore subset.
               const tierW = [];
               let totalW = 0;
               for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(3, t2 - 1);
+                const w = 1 / Math.pow(2, t2 - 1);
                 totalW += w;
                 tierW.push(totalW);
               }
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.22) continue;   // 22 % of pivots fire a cluster
-                  const clusterN = 3 + Math.floor(resRng() * 3);  // 3..5 rocks per cluster
+                  if (resRng() > 0.35) continue;   // 35 % of pivots fire a cluster
+                  const clusterN = 5 + Math.floor(resRng() * 5);  // 5..9 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
@@ -646,8 +656,8 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (indRng() > 0.70) continue;   // 70 % of pivots fire — "lots"
-                  const clusterN = 4 + Math.floor(indRng() * 5);   // 4..8 rocks per cluster
+                  if (indRng() > 0.80) continue;   // 80 % of pivots fire — "lots"
+                  const clusterN = 6 + Math.floor(indRng() * 6);   // 6..11 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (indRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (indRng() - 0.5) * 2 * clusterR;
