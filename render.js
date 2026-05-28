@@ -642,9 +642,14 @@ Render.drawObjects = function drawObjects(scene) {
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
   const choppedSet = new Set(scene.save.chopped || []);
+  const pickedSetObj = new Set(scene.save.picked || []);
   const filteredObj = objList.filter(({ o }) =>
     !(o.kind === 'chest' && openedSet.has(o.id)) &&
-    !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id)))
+    !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
+    // Ground stacks vanish once picked up. Same key (save.picked) as the
+    // wildplant + flora pickup tracking, so existing UIs / saves don't
+    // grow a new field.
+    !(o.kind === 'groundstack' && pickedSetObj.has(o.id))
   );
   // Merge in placed scarecrows so they go through the same sprite pool +
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
@@ -781,6 +786,16 @@ Render.drawObjects = function drawObjects(scene) {
                 return lvl - 1;
               },
               origin: [0.5, 1.0], scale: 0.85 },
+    // Ground stack — an item id + qty sitting on the map. The sprite key
+    // currently only handles wood (its 4-frame 16×16 sheet doubles as the
+    // stack-size visualiser: frame = clamp(qty - 1, 0, 3)). To add another
+    // stackable item later, branch on o.itemId and pick the matching
+    // texture / frame curve.
+    groundstack: {
+      key: (o) => o.itemId === 'wood' ? 'wood' : 'wood',
+      frame: (o) => Math.min(3, Math.max(0, (o.qty || 1) - 1)),
+      origin: [0.5, 0.9], scale: 1.8,
+    },
   };
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
@@ -1171,7 +1186,10 @@ Render.drawObjects = function drawObjects(scene) {
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     if (c.kind === 'cow') {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
+      // Cow is the biggest farm animal — needs to read larger than the
+      // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
+      // (48 px effective) so the cow visibly dwarfs the pets.
+      s.setOrigin(0.5, 0.9).setScale(1.50).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
       // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle

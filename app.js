@@ -467,6 +467,10 @@ class MapScene extends Phaser.Scene {
     // is empty, so the single source of truth lives in items.js.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world',
       CROP_SPRITE.mushroom?.frame ?? 0, 32, 32);
+    // Wood — inventory uses frame 3 (the densest 4-log stack) so a single
+    // wood in your bag still reads as a pile. Ground stacks pick a frame
+    // based on the stack's qty (see render.js groundstack branch).
+    window.ITEM_DATA_URLS.wood      = bakeSheetFrame('wood', 3, 16, 16);
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
@@ -973,6 +977,30 @@ class MapScene extends Phaser.Scene {
       }
     }
     entry.creatures = creatures;
+
+    // Ground-stack wood. Sprinkle a few small piles of wood per tile on
+    // soft ground so the player can pick them up bare-handed. Same RNG +
+    // index basis as creatures so the same tile always picks the same
+    // cells (and picked-up stacks stay picked-up via save.picked).
+    entry.objects = entry.objects || [];
+    const woodN = 2 + Math.floor(rng() * 2);   // 2 or 3 stacks per tile
+    for (let i = 0; i < woodN; i++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        const t = entry.grid[cy * N + cx];
+        if (SOFT_GROUND.has(t)) {
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+          const id = `ws_${tx}_${ty}_${i}`;
+          if (this.save.picked && this.save.picked.includes(id)) break;
+          // Stack of 2-3 wood per pile (frame index = qty - 1).
+          const qty = 2 + Math.floor(rng() * 2);
+          entry.objects.push({ kind: 'groundstack', itemId: 'wood', qty, x: wmx, y: wmy, id });
+          break;
+        }
+      }
+    }
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time
@@ -2487,14 +2515,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // Recipes the starter blacksmith trades for wooden tools. rockfruit is
-  // wild residential debris (no tool needed); tree drops from chopping
-  // (requires an axe — chicken-and-egg on the axe + hoe recipes; the
-  // pick recipe is light on tree so the player can craft that first and
-  // build a stockpile by mining for more rockfruit before going for axe).
+  // wild residential debris (no tool needed); wood drops from ground stacks
+  // sprinkled near the starting area (no tool needed) AND from chopping
+  // shrubs (bare-handed slow chop) AND from chopping trees (axe). The pick
+  // recipe is light on wood so the player can craft it first using ground-
+  // stack wood + rockfruit, then stockpile more wood for axe + hoe.
   starterBlacksmithRecipe(slot) {
-    if (slot === 'pick') return [{ id: 'rockfruit', qty: 3 }, { id: 'tree', qty: 1 }];
-    if (slot === 'axe')  return [{ id: 'rockfruit', qty: 1 }, { id: 'tree', qty: 3 }];
-    if (slot === 'hoe')  return [{ id: 'rockfruit', qty: 2 }, { id: 'tree', qty: 2 }];
+    if (slot === 'pick') return [{ id: 'rockfruit', qty: 3 }, { id: 'wood', qty: 1 }];
+    if (slot === 'axe')  return [{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 3 }];
+    if (slot === 'hoe')  return [{ id: 'rockfruit', qty: 2 }, { id: 'wood', qty: 2 }];
     return null;
   }
 
@@ -2787,12 +2816,16 @@ class MapScene extends Phaser.Scene {
   //     plus 1 of the tier-matched bar.
   // T1 wood gear is starter-shop-only and doesn't pass through here.
   blacksmithRecipe(kind, slot, tier) {
-    if (!tier || tier < 2) return null;
+    if (!tier) return null;
     const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
-    const BAR_BY_TIER = [, , 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+    // T1 wooden tools use plain wood (no bar). T2+ use the matching metal
+    // bar. Jewelry starts at T2 — no wooden jewelry recipe at T1.
+    const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
     const bar = BAR_BY_TIER[tier];
     if (!bar) return null;
     if (JEWELRY_GEM[slot]) {
+      // No wooden jewelry — T1 jewelry isn't craftable at the smithy.
+      if (tier < 2) return null;
       // Geometric gem ramp: 1, 2, 4, 8, 16, 32 from T2..T7.
       const gemQty = Math.pow(2, tier - 2);
       return [
@@ -3121,7 +3154,7 @@ class MapScene extends Phaser.Scene {
       !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
     return isThemed
       ? { id: 'rockfruit', qty: 5, material: 'stone' }
-      : { id: 'tree',      qty: 5, material: 'wood' };
+      : { id: 'wood',      qty: 5, material: 'wood' };
   }
 
   presentWreckRestoreModal(sx, sy, house) {

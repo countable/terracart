@@ -18,7 +18,11 @@
 // Inventory icons: col 7 = produce, col 8 = seed.
 const CROP_ROW = {
   rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
-  potato: 6, iceflower: 7, fireflower: 8, sunflower: 9, tree: 10, shrub: 11,
+  potato: 6, iceflower: 7, fireflower: 8, sunflower: 9,
+  // tree + shrub are no longer crops — chopping a tree / harvesting a
+  // shrub now drops the 'wood' mineral item directly. The world-object
+  // 'tree' and wildplant 'shrub' kinds in worldgen.js still exist as
+  // map features; only the harvested inv id changed.
 };
 const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
 const PRODUCE_COL = 7;
@@ -138,7 +142,7 @@ function inventoryIconSource(itemId) {
 const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
   rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
-  fireflower: 'Fireflower', sunflower: 'Sunflower', tree: 'Tree', shrub: 'Shrub',
+  fireflower: 'Fireflower', sunflower: 'Sunflower',
 };
 // Per-crop produce emoji — used in DOM modals / flash text where Phaser sprites
 // aren't easily embedded. The default 🌾 (sheaf-of-rice) looked like wheat for
@@ -147,7 +151,7 @@ const PRODUCE_EMOJI = {
   rainberry:  '🫐',  pairy:     '🍐',  gemfruit:  '💎',
   nut:        '🌰',  rockfruit: '🪨',  coffee:    '☕',
   potato:     '🥔',  iceflower: '❄️',  fireflower: '🔥',
-  sunflower:  '🌻',  tree:      '🌳',  shrub:     '🌿',
+  sunflower:  '🌻',
 };
 // === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
 // Tier reflects relative rarity / value, not stage / yield. A seed and its
@@ -157,7 +161,11 @@ const BASE_TIER = {
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
-  rainberry: 2, pairy: 2, nut: 2, shrub: 2, tree: 2,
+  rainberry: 2, pairy: 2, nut: 2,
+  // wood: T1 mineral. Dropped by trees + shrubs (no tools needed beyond
+  // an axe for shrubs / trees) and sprinkled around the starting area.
+  // Used as the smithy ingredient for every T1 wooden tool.
+  wood: 1,
   coffee: 3, gemfruit: 3,
   // Magical flowers — each one is the seed pair to its same-named magical
   // gear tier (sunflower → Platinum recipes, fireflower → Crimson,
@@ -275,12 +283,21 @@ const ITEMS = [
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
-  { id: 'copper_bar',   name: 'Copper Bar',   kind: 'mineral', icon: '🟫' },
-  { id: 'iron_bar',     name: 'Iron Bar',     kind: 'mineral', icon: '⬜' },
-  { id: 'gold_bar',     name: 'Gold Bar',     kind: 'mineral', icon: '🟨' },
-  { id: 'platinum_bar', name: 'Platinum Bar', kind: 'mineral', icon: '⬛' },
-  { id: 'crimson_bar',  name: 'Crimson Bar',  kind: 'mineral', icon: '🟥' },
-  { id: 'frost_bar',    name: 'Frost Bar',    kind: 'mineral', icon: '🟦' },
+  // Display names drop the trailing "Bar" so the inventory + flash text
+  // reads as the material itself ("Copper", "Frost") — the bar nature is
+  // already conveyed by the sprite. Ids keep the _bar suffix so existing
+  // saves + recipe references don't need to migrate.
+  // wood is the T1 mineral — chopping a tree or harvesting a shrub drops it,
+  // and the starter blacksmith uses it as the sole ingredient for every T1
+  // wooden tool. icon is the emoji fallback; in-world (ground stack +
+  // inventory bar) we render the 'wood' spritesheet via ITEM_DATA_URLS.
+  { id: 'wood',         name: 'Wood',     kind: 'mineral', icon: '🪵' },
+  { id: 'copper_bar',   name: 'Copper',   kind: 'mineral', icon: '🟫' },
+  { id: 'iron_bar',     name: 'Iron',     kind: 'mineral', icon: '⬜' },
+  { id: 'gold_bar',     name: 'Gold',     kind: 'mineral', icon: '🟨' },
+  { id: 'platinum_bar', name: 'Platinum', kind: 'mineral', icon: '⬛' },
+  { id: 'crimson_bar',  name: 'Crimson',  kind: 'mineral', icon: '🟥' },
+  { id: 'frost_bar',    name: 'Frost',    kind: 'mineral', icon: '🟦' },
 ];
 // Fill in baseTier for every entry that didn't set one explicitly (cleaner
 // than threading the lookup through each literal above). Anything missing

@@ -372,13 +372,18 @@ const TAP_HANDLERS = [
       //   shrub     (woody bush)   → axe  relic speeds up chop work
       // Both: 3s with the matching relic, 10s bare-handed. Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
+      // shrub → wood: chopping a bush yields the wood mineral, not a 'shrub'
+      // item (tree + shrub no longer have inventory item counterparts).
+      // Any other wildplant crop drops itself as before.
+      const HARVEST_OUTPUT = { shrub: 'wood' };
       const award = () => {
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
         if ((save.picked || []).includes(wp.id)) return;
         save.picked = [...(save.picked || []), wp.id];
-        scene.addToInv(wp.crop, 1);
+        const outId = HARVEST_OUTPUT[wp.crop] || wp.crop;
+        scene.addToInv(outId, 1);
         let bonus = '';
         const treasure = WILD_TREASURE[wp.crop];
         if (treasure && Math.random() < treasure.chance) {
@@ -386,8 +391,8 @@ const TAP_HANDLERS = [
           bonus = ` ✨${treasure.bonus}`;
         }
         persistSave(save);
-        if (bonus) scene.flashLoot(`${wp.crop}${bonus}`, '#ff8aff', 1, wp.crop);
-        else scene.flashLoot(`+1 ${wp.crop}`, undefined, 1, wp.crop);
+        if (bonus) scene.flashLoot(`${outId}${bonus}`, '#ff8aff', 1, outId);
+        else scene.flashLoot(`+1 ${outId}`, undefined, 1, outId);
       };
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
@@ -463,6 +468,19 @@ const TAP_HANDLERS = [
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
       if (distM2(o.x, o.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) {
         scene.flash('too far', sx, sy); return 'far';
+      }
+      if (o.kind === 'groundstack') {
+        // Already-picked stacks are filtered out at render time, but the
+        // forEachItem here walks all objects regardless of save state, so
+        // guard again in case a tap races a re-render.
+        if (save.picked && save.picked.includes(o.id)) continue;
+        save.picked = [...(save.picked || []), o.id];
+        const qty = Math.max(1, o.qty || 1);
+        scene.addToInv(o.itemId, qty);
+        ctx.dirty = true;
+        const item = ITEM_BY_ID[o.itemId];
+        scene.flashLoot(`+${qty} ${item?.name || o.itemId}`, undefined, 1, o.itemId);
+        return true;
       }
       if (o.kind === 'chest') {
         if (save.opened.includes(o.id)) { scene.flash('already looted', sx, sy); return true; }
@@ -541,7 +559,8 @@ const TAP_HANDLERS = [
           o.chopped = true;
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
-          scene.addToInv('tree', 1 + Math.floor(Math.random() * 2));
+          // Trees drop 2-3 wood logs (more generous than the shrub's 1).
+          scene.addToInv('wood', 2 + Math.floor(Math.random() * 2));
           persistSave(save);
           scene.flash('🌲 chopped', sx, sy);
         }, durMs);

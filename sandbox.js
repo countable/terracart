@@ -174,6 +174,174 @@
     // text on its own container above the cell paint, below sprites.
     installBiomeLabels(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
                        cellsPerEdge, tileEdgeM, cellM);
+
+    // Stock the inventory with a representative test set — one stack of
+    // ~5 of every sellable / consumable / placeable item in the catalog,
+    // so the tester can exercise every icon, sell flow, eat flow, place
+    // flow, etc. without first walking the map collecting samples.
+    // Skips relics (they live in save.relics, not save.inv) and skips
+    // items that have no item entry (e.g. growing-stage placeholders).
+    // Always runs on sandbox load — the inv is intentionally clobbered
+    // so the test set is predictable across reloads.
+    stockSandboxInventory(scene);
+
+    // Seed runtime state that lives outside the tile entry — planted crops,
+    // placed scarecrows / rocks, tame released pets, shrine, extra
+    // treasures. These all live in save.* arrays and scene-side Sets, so
+    // we mutate the scene directly. Clobber-and-rebuild like the inv set.
+    seedSandboxState(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
+                     cellsPerEdge, tileEdgeM, cellM);
+  }
+
+  // Drop runtime-state interactables into the sandbox plots: a row of crops
+  // at every growth stage in FARMLAND (gx=4 gy=0), a placed scarecrow next
+  // to them so its 4-cell aversion ring can be seen, a placed rockfruit
+  // rock in GRASS to exercise the pickaxe-on-placed cycle, a couple of
+  // tame released pets near the player, a crafting shrine in the start
+  // plot, and an extra treasure-X at the FOREST plot edge.
+  function seedSandboxState(scene, originIX, originIY, centreTX, centreTY,
+                            cellsPerEdge, tileEdgeM, cellM) {
+    const save = scene.save;
+    save.planted = save.planted || [];
+    save.placedRocks = save.placedRocks || [];
+    save.scarecrows = save.scarecrows || [];
+    save.tilled = save.tilled || [];
+    // Helper: world coords at the centre of an absolute cell.
+    const cellCenter = (cellIX, cellIY) => ({
+      x: centreTX * tileEdgeM + (cellIX + 0.5) * cellM,
+      y: centreTY * tileEdgeM + (cellIY + 0.5) * cellM,
+    });
+    // Helper: cell coords of (dx,dy) inside the plot at PLOT_LAYOUT[gy][gx].
+    const plotCell = (gx, gy, dx, dy) => ({
+      cellIX: originIX + gx * PLOT_W + dx,
+      cellIY: originIY + gy * PLOT_W + dy,
+    });
+
+    // ── Planted crops in FARMLAND (gx=4 gy=0) — one per growth stage. The
+    //    cell must be tilled first; the renderer pulls the stage frame off
+    //    each entry's `stage` field directly so we don't have to wait for
+    //    real game time.
+    const FARM_GX = 4, FARM_GY = 0;
+    const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rockfruit'];
+    for (let stage = 0; stage < 5; stage++) {
+      const { cellIX, cellIY } = plotCell(FARM_GX, FARM_GY, stage, 0);
+      const key = `${cellIX}_${cellIY}`;
+      if (!scene.tilledSet.has(key)) {
+        scene.tilledSet.add(key);
+        save.tilled.push(key);
+      }
+      const { x, y } = cellCenter(cellIX, cellIY);
+      save.planted.push({ x, y, crop: CROPS_AT_STAGE[stage], stage, watered_t: 0 });
+    }
+    // Stage-4 (mature) one already watered + ready to harvest a doubled
+    // yield — flips the canBoost flag the watering-can sets, so harvesting
+    // it exercises the double-produce path.
+    const mature = save.planted[save.planted.length - 1];
+    if (mature) mature.canBoost = 2;
+
+    // ── Placed scarecrow on the row below the crops, same FARMLAND plot.
+    //    Renders as a sprite + creates an aversion ring crows/deer respect.
+    {
+      const { cellIX, cellIY } = plotCell(FARM_GX, FARM_GY, 2, 2);
+      const { x, y } = cellCenter(cellIX, cellIY);
+      save.scarecrows.push({ x, y });
+    }
+
+    // ── Placed rockfruit-rock in the GRASS plot (gx=0 gy=0). Tap with a
+    //    pickaxe to run the work-wheel and revert it to grass + drop a
+    //    rockfruit back into the inventory.
+    {
+      const { cellIX, cellIY } = plotCell(0, 0, 4, 0);
+      const key = `${cellIX}_${cellIY}`;
+      if (!scene.placedRockSet.has(key)) {
+        scene.placedRockSet.add(key);
+        save.placedRocks.push(key);
+      }
+    }
+
+    // ── Two tame released pets in the PARK plot (gx=1 gy=1). Released_*
+    //    creatures trigger the purr/cluck path on tap and (for cats) the
+    //    5-minute follow timer. Butterflies pollinate nearby crops.
+    const PARK_GX = 1, PARK_GY = 1;
+    const parkEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    if (parkEntry && parkEntry.creatures) {
+      const petAt = (kind, dx, dy) => {
+        const { cellIX, cellIY } = plotCell(PARK_GX, PARK_GY, dx, dy);
+        const { x, y } = cellCenter(cellIX, cellIY);
+        parkEntry.creatures.push({
+          x, y, kind,
+          id: `released_sandbox_${kind}_${cellIX}_${cellIY}`,
+        });
+      };
+      petAt('cat', 1, 1);
+      petAt('butterfly', 3, 3);
+    }
+
+    // ── Crafting shrine on the player spawn plot's edge — pushed straight
+    //    into the centre tile's objects[]. Tapping opens the shrine UI for
+    //    smelting / forging tests.
+    if (parkEntry && parkEntry.objects) {
+      let pgx = 0, pgy = 0;
+      for (let gy = 0; gy < GRID_H; gy++) {
+        for (let gx = 0; gx < GRID_W; gx++) {
+          if (PLOT_LAYOUT[gy][gx] === -1) { pgx = gx; pgy = gy; }
+        }
+      }
+      const { cellIX, cellIY } = plotCell(pgx, pgy, 0, 0);
+      const { x, y } = cellCenter(cellIX, cellIY);
+      parkEntry.objects.push({
+        kind: 'shrine', x, y,
+        id: `sandbox_shrine_${cellIX}_${cellIY}`,
+      });
+    }
+
+    // ── An extra treasure-X south-west of spawn, two cells away — within
+    //    reach if you take one step but visible at spawn. Each tile entry
+    //    only holds ONE `treasure` slot so we hang this one on the SW
+    //    neighbour tile rather than overwriting the in-reach one already
+    //    placed north of spawn.
+    const swKey = `${WorldGen.Z}/${centreTX - 1}/${centreTY + 1}`;
+    const swEntry = WorldGen.tileCache.get(swKey);
+    if (swEntry && !swEntry.treasure) {
+      // Place it at the SW tile's NE corner so it sits at the seam with
+      // the centre tile — visually right next to the sandbox grid.
+      const cellIX = cellsPerEdge - 2, cellIY = 1;
+      swEntry.treasure = {
+        id: `sandbox_treasure_sw_${centreTX - 1}_${centreTY + 1}`,
+        x: (centreTX - 1) * tileEdgeM + (cellIX + 0.5) * cellM,
+        y: (centreTY + 1) * tileEdgeM + (cellIY + 0.5) * cellM,
+      };
+    }
+
+    if (typeof scene.persistSave === 'function') scene.persistSave();
+  }
+
+  function stockSandboxInventory(scene) {
+    if (typeof ITEMS === 'undefined') return;
+    const COUNT = 5;
+    const inv = [];
+    // Order items so the most-tested first (seeds, then produce, then
+    // animals, then minerals, then consumables) — pagination shows the
+    // earlier slots first and the player can scroll for the rest.
+    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable'];
+    const byKind = {};
+    for (const it of ITEMS) {
+      if (!it || !it.id || !it.kind) continue;
+      (byKind[it.kind] = byKind[it.kind] || []).push(it.id);
+    }
+    for (const kind of ORDER) {
+      const list = byKind[kind] || [];
+      for (const id of list) inv.push({ id, count: COUNT });
+    }
+    // Any kind not in ORDER (future-proofing) appended at the end.
+    for (const kind of Object.keys(byKind)) {
+      if (ORDER.includes(kind)) continue;
+      for (const id of byKind[kind]) inv.push({ id, count: COUNT });
+    }
+    scene.save.inv = inv;
+    scene.save.selSlot = 0;
+    if (typeof scene.buildInventoryDOM === 'function') scene.buildInventoryDOM();
+    if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
   // Lazy-create a labels container the first time install runs; subsequent
@@ -337,6 +505,11 @@
       objects.push({ kind: 'house', x, y, tier: 9, address,
         id: `${baseId}_house_${plotTag}_${dx}_${dy}` });
     };
+    const pushWood = (dx, dy, qty = 2) => {
+      const { x, y } = at(dx, dy);
+      objects.push({ kind: 'groundstack', itemId: 'wood', qty, x, y,
+        id: `${baseId}_wood_${plotTag}_${dx}_${dy}` });
+    };
     const pushTower = (dx, dy) => {
       const { x, y } = at(dx, dy);
       objects.push({ kind: 'tower', x, y,
@@ -368,6 +541,10 @@
         pushFlora(0, 1, 1); pushFlora(1, 3, 1);
         pushFlora(2, 1, 3); pushFlora(3, 3, 3);
         pushWildplant('longgrass', 2, 0);
+        // Two ground stacks so the wood pickup interaction is exercisable
+        // in the sandbox without first walking to a real-tile spawn.
+        pushWood(1, 0, 2);
+        pushWood(3, 0, 3);
         pushWildplant('longgrass', 2, 4);
         // A bonus chest in the duplicate-grass plot at (4, 4) — see
         // PLOT_LAYOUT. Uses the 'playground' POI class so the line3v pad
@@ -389,8 +566,12 @@
         // Wilderness fauna — gated by relic. Deer drops meat (needs sword /
         // bow / staff); rabbit drops pelt (no gate). Lets a tester exercise
         // both branches of the NEW_DROP table in the creature handler.
+        // Two rabbits at opposite corners so at least one is visible when
+        // the tree row above shadows the centre — single rabbit at the
+        // original (1, 3) was hard to find among the trees + deer.
         pushCreature('deer',   2, 2, 1);
-        pushCreature('rabbit', 1, 3, 1);
+        pushCreature('rabbit', 0, 3, 1);
+        pushCreature('rabbit', 4, 3, 2);
         break;
       }
       case 2: {   // SAND / BEACH — collectible shells (common) + a cat sunning.
@@ -405,11 +586,13 @@
       case 3: {   // WATER — unwalkable; nothing to put on top
         break;
       }
-      case 4: {   // FARMLAND — chickens + cows; soil is tillable
+      case 4: {   // FARMLAND — chickens + cows + a farm-class chest in the
+        // middle (square3 pad, T3 chest).
         pushCreature('chicken', 0, 0, 1);
         pushCreature('chicken', 4, 0, 2);
-        pushCreature('cow',     2, 2, 1);
+        pushCreature('cow',     0, 4, 1);
         pushCreature('cow',     4, 4, 2);
+        pushChest('farm', 'Sandbox Farm', PLOT_MID, PLOT_MID);
         break;
       }
       case 5: {   // RESIDENTIAL — rockfruit + three shop houses.
@@ -424,49 +607,80 @@
         pushHouse(2, 4, 8);   // trader     — bottom-centre
         break;
       }
-      case 6: {   // PARK — shrubs + flowers + longgrass + cat/dog + flying fauna.
+      case 6: {   // PARK — shrubs + flowers + longgrass + cat/dog + flying
+        // fauna + a park-class chest (square3 pad, T2 chest).
         pushWildplant('shrub', 0, 0);
         pushWildplant('shrub', 4, 0);
         pushFlora(0, 1, 1);
         pushFlora(1, 3, 1);
         pushFlora(2, 1, 3);
-        pushWildplant('longgrass', 2, 4);
+        pushWildplant('longgrass', 0, 2);
         pushCreature('cat', 0, 4, 1);
         pushCreature('dog', 4, 4, 1);
         // Flying fauna — bug-net relic gated. Crow drops a feather, butterfly
         // drops itself. Lets the tester verify both creature-handler branches.
         pushCreature('crow',      2, 0, 1);
-        pushCreature('butterfly', 2, 2, 1);
+        pushCreature('butterfly', 4, 2, 1);
+        pushChest('park', 'Sandbox Park', PLOT_MID, PLOT_MID);
         break;
       }
-      case 9:   // SMALL HOUSE — the cluster is itself the interactable; no
-        break;  // extra props.
+      case 9: {  // SMALL HOUSE — the cluster terrain is the interactable, but
+        // drop a lowtier bus-stop chest too (no pad — bare wooden box) so
+        // the no-pad render path gets a sample.
+        pushChest('bus', 'Sandbox Bus Stop', PLOT_MID, PLOT_MID);
+        break;
+      }
       case 11: { // BUILDING_MED — palisade fort: pop a chest in the middle
         // so the "fort" reads as a defended cache.
         pushChest('shop', 'Sandbox Fort Cache', PLOT_MID, PLOT_MID);
         break;
       }
-      case 12: { // BUILDING_LARGE — castle. A tower sprite belongs here
-        // (it's the lookout at the castle wall) — not on the player's
-        // spawn plot, where it had been a placeholder.
+      case 12: { // BUILDING_LARGE — castle. Towers ARE the castle-shop
+        // interactable (per app.js: house.tier===12 || kind==='tower' →
+        // castle-class relic shop with unlimited stock + re-roll). No
+        // chest needed — the towers cover the POI's testable surface.
         pushTower(PLOT_MID, 0);
         pushTower(0, PLOT_MID);
         pushTower(PLOT_W - 1, PLOT_MID);
         break;
       }
       case 10: { // ROCK — solid 5×5 of plain rock cells, plus a mineral-rock
-        // sample at each milestone tier (T1, T3, T5) on top of three cells.
-        // Plain rock-cell taps still work for everywhere else.
+        // sample at EVERY tier T1..T7 so the pickaxe gating ladder can be
+        // exercised end-to-end. Cells laid out two rows on top + one on each
+        // side so plain-rock taps still work in the gaps.
         pushMineralRock(1, 0, 0);
-        pushMineralRock(3, 2, 2);
-        pushMineralRock(5, 4, 4);
+        pushMineralRock(2, 2, 0);
+        pushMineralRock(3, 4, 0);
+        pushMineralRock(4, 0, 2);
+        pushMineralRock(5, 4, 2);
+        pushMineralRock(6, 0, 4);
+        pushMineralRock(7, 4, 4);
         break;
       }
-      case 15:   // SCHOOL
-      case 18:   // PLAYGROUND
-      case 19:   // PITCH
+      case 15: { // SCHOOL — grassland + a school chest (triangle pad, T3).
+        pushFlora(0, 1, 1); pushFlora(1, 3, 1);
+        pushWildplant('longgrass', 0, 0);
+        pushWildplant('longgrass', 4, 4);
+        pushChest('school', 'Sandbox School', PLOT_MID, PLOT_MID);
+        break;
+      }
+      case 18: { // PLAYGROUND — grassland + a playground chest (line3v pad).
+        pushFlora(0, 1, 1); pushFlora(1, 3, 1);
+        pushWildplant('longgrass', 0, 0);
+        pushWildplant('longgrass', 4, 4);
+        pushChest('playground', 'Sandbox Playground', PLOT_MID, PLOT_MID);
+        break;
+      }
+      case 19: { // PITCH — grassland + a pitch chest (square2 pad).
+        pushFlora(2, 1, 1); pushFlora(2, 3, 1);
+        pushWildplant('longgrass', 0, 0);
+        pushWildplant('longgrass', 4, 4);
+        pushChest('pitch', 'Sandbox Pitch', PLOT_MID, PLOT_MID);
+        break;
+      }
       case 20:   // WETLAND
-      case 21: { // GOLF — all grassland-family; longgrass + flowers
+      case 21: { // GOLF — both grassland-family with no POI chest in the
+        // real game; just flowers + longgrass to differentiate.
         pushFlora(0, 1, 1);
         pushFlora(1, 3, 1);
         pushFlora(2, 2, 3);
@@ -476,24 +690,32 @@
         }
         break;
       }
-      case 16:   // COMMERCIAL — mushrooms + a triangle-pad chest (school/college).
-      case 17: { // INDUSTRIAL — same; rocky-family, with a cross-pad chest.
+      case 16: { // COMMERCIAL — mushrooms + a generic 'shop' chest (line3h pad).
         pushWildplant('mushroom', 1, 1);
         pushWildplant('mushroom', 3, 3);
-        // POI class varies by biome so each pad shape (triangle / cross)
-        // gets a sample under the chest sprite.
-        const poiClass = biome === 16 ? 'school' : 'hospital';
-        const name = biome === 16 ? 'Sandbox School' : 'Sandbox Hospital';
-        pushChest(poiClass, name, PLOT_MID, PLOT_MID);
+        pushChest('shop', 'Sandbox Commerce', PLOT_MID, PLOT_MID);
         break;
       }
-      case 22: { // ORCHARD — fruit trees (one of each species) + a chest
-        // with a 'pitch' POI class (square2 pad) just so a third pad shape
-        // gets exercised.
-        pushFruitTree('apple',  0, 0);
-        pushFruitTree('cherry', 4, 0);
-        pushFruitTree('peach',  0, 4);
-        pushFruitTree('banana', 4, 4);
+      case 17: { // INDUSTRIAL — mushrooms + a hospital chest (cross pad, T3).
+        // Real-game industrial isn't a chest biome; we co-locate a hospital
+        // here so the cross pad shape has a sample without inventing a
+        // dedicated HEALTH plot in PLOT_LAYOUT.
+        pushWildplant('mushroom', 1, 1);
+        pushWildplant('mushroom', 3, 3);
+        pushChest('hospital', 'Sandbox Hospital', PLOT_MID, PLOT_MID);
+        break;
+      }
+      case 22: { // ORCHARD — fruit trees (one of EACH species: apple, cherry,
+        // peach, banana, orange, mango, coconut, apricot) + a chest with a
+        // 'pitch' POI class (square2 pad) so a third pad shape gets a sample.
+        pushFruitTree('apple',   0, 0);
+        pushFruitTree('orange',  2, 0);
+        pushFruitTree('cherry',  4, 0);
+        pushFruitTree('mango',   0, 2);
+        pushFruitTree('coconut', 4, 2);
+        pushFruitTree('peach',   0, 4);
+        pushFruitTree('apricot', 2, 4);
+        pushFruitTree('banana',  4, 4);
         pushChest('pitch', 'Sandbox Orchard', PLOT_MID, PLOT_MID);
         break;
       }

@@ -91,6 +91,11 @@ const ASSETS = {
   // pole). Pole base anchors at origin (0.5, 1) so it stands on its
   // placement cell.
   scarecrow:   { kind: 'image', path: 'Objects/scarecrow.png' },
+  // Wood stack — 64×16 sheet, 4 frames of 16×16. Each frame is a denser
+  // pile: 0 → single log, 3 → big stack of 4. Renderer picks frame =
+  // min(3, qty - 1) so a ground-stack of N wood reads visually as that
+  // many logs (up to 4). Also used as the inventory icon for the wood item.
+  wood:        { kind: 'spritesheet', path: 'Objects/wood.png', frameWidth: 16, frameHeight: 16 },
   // Themed-house sprites (sliced top-left out of NPC house sheets in
   // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the
   // generic tinted 'house' for a specific role — see render.js' house key
