@@ -321,11 +321,31 @@ const TAP_HANDLERS = [
     }
     // 2. Plant produce → produce (chicken / cow only). Recently-petted
     // tame animals roll a +50% chance for a double yield.
+    //
+    // Per-creature production cooldown: each chicken / cow only yields once
+    // per PRODUCE_COOLDOWN_MS (1 hour). The last-yield timestamp lives on
+    // the creature object as `_lastProduceT` (epoch ms, NOT performance.now
+    // — must survive save reloads + tile re-rasterise). The save also
+    // persists save.lastProduce[id] so the timer survives across reloads:
+    // creature objects are re-spawned each tile load and lose any in-memory
+    // _lastProduceT, but the save-side mirror is read back below.
+    const PRODUCE_COOLDOWN_MS = 60 * 60 * 1000;
     if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
       const yieldId = target.kind === 'chicken' ? 'egg'
                     : target.kind === 'cow'     ? 'milk'
                     : null;
       if (yieldId) {
+        const now = Date.now();
+        save.lastProduce = save.lastProduce || {};
+        const lastT = save.lastProduce[target.id] || target._lastProduceT || 0;
+        if (now - lastT < PRODUCE_COOLDOWN_MS) {
+          // Still on cooldown — refuse without consuming the produce.
+          const remainMs = PRODUCE_COOLDOWN_MS - (now - lastT);
+          const mins = Math.max(1, Math.ceil(remainMs / 60000));
+          const verb = target.kind === 'chicken' ? 'laid' : 'milked';
+          scene.flash(`already ${verb} (${mins}m)`, sx, sy);
+          return true;
+        }
         consumeSelected(save);
         const petted = target._pettedUntilT && target._pettedUntilT > performance.now();
         const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
@@ -333,6 +353,10 @@ const TAP_HANDLERS = [
         scene.addToInv(yieldId, yieldN);
         scene.buildInventoryDOM();
         scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+        // Stamp the cooldown on the creature (in-memory) AND in the save
+        // (survives tile reload + game restart).
+        target._lastProduceT = now;
+        save.lastProduce[target.id] = now;
         ctx.dirty = true;
         return true;
       }
