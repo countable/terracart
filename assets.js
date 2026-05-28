@@ -100,6 +100,10 @@ const ASSETS = {
   house_market:     { kind: 'image', path: 'Objects/Houses/market.png' },
   house_fort:       { kind: 'image', path: 'Objects/Houses/fort.png' },
   house_trailer:    { kind: 'image', path: 'Objects/Houses/trailer.png' },
+  // Wreck: every tier-9 small house starts out as one of these until the
+  // player brings the restoration materials. Single sprite shared across
+  // all roles — what the wreck WILL become is hidden until restoration.
+  house_wreck:      { kind: 'image', path: 'Objects/Houses/Wreck.png' },
 };
 
 window.ASSETS = ASSETS;

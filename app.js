@@ -294,6 +294,24 @@ class MapScene extends Phaser.Scene {
     this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
+    // Restored-houses set: empty by default. Every tier-9 small-house starts
+    // out as a "wreck" sprite with no shop function — the player has to
+    // bring 5 wood (plain residential) or 5 rockfruit (themed: blacksmith /
+    // market / trader) to restore it. The starter trailer is exempt — it's
+    // marked as restored on first load so Home is functional from day one.
+    if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
+      this.save.restoredHouses = {};
+    }
+    // Starter-tools gift: old starter shop used to stock a wood pick + axe
+    // until each was bought. That shop is gone now, but the player still
+    // needs the tools to collect wood + rockfruit (the restoration
+    // materials) on day one. Gift them directly once per save.
+    if (!this.save.starterToolsGifted) {
+      this.save.relics = this.save.relics || {};
+      if (!this.save.relics.pick) this.save.relics.pick = { tier: 1 };
+      if (!this.save.relics.axe)  this.save.relics.axe  = { tier: 1 };
+      this.save.starterToolsGifted = true;
+    }
     // Soft cap on unbounded "history" save fields. A heavy player who walks
     // for hours can balloon these to MBs and silently break localStorage
     // writes (quota exceeded). Keeping the MOST RECENT N entries means the
@@ -2173,6 +2191,14 @@ class MapScene extends Phaser.Scene {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal')) return;
+    // Wreck → restoration modal. Every tier-9 small house starts as a
+    // wreck (see save.restoredHouses); the trailer is exempt and forts /
+    // castles never wreck. Plain houses cost 5 wood (tree); themed
+    // tier-9 shops (blacksmith / market / trader) cost 5 rockfruit.
+    if (house && this._isHouseWreck && this._isHouseWreck(house)) {
+      this.presentWreckRestoreModal(sx, sy, house);
+      return;
+    }
     // House routing:
     //   HOME (starter trailer)  → only SELL. Tap with nothing selected
     //                              just flashes "home sweet home"; tap
@@ -3068,6 +3094,72 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // True iff `house` is a tier-9 small building that hasn't been restored
+  // yet. Trailer (starter shop) and forts/castles skip wreck status. Used
+  // by shopInteract to route to the restore modal and by the render layer
+  // indirectly via save.restoredHouses (see _houseRole in render.js).
+  _isHouseWreck(house) {
+    if (!house || house.kind !== 'house') return false;
+    if (house.tier !== 9) return false;   // forts (11) + castles (12) skip wreck
+    if (this.save.starterShopId && this.save.starterShopId === house.id) return false;
+    return !this.save.restoredHouses?.[house.id];
+  }
+
+  // Restoration cost: themed tier-9 shops (blacksmith / market / trader,
+  // including the force-assigned starter blacksmith) need 5 rockfruit
+  // because they're more elaborate; plain residential needs 5 tree (wood).
+  _wreckRestoreCost(house) {
+    const isThemed =
+      (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) ||
+      !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
+    return isThemed
+      ? { id: 'rockfruit', qty: 5, material: 'stone' }
+      : { id: 'tree',      qty: 5, material: 'wood' };
+  }
+
+  presentWreckRestoreModal(sx, sy, house) {
+    const cost = this._wreckRestoreCost(house);
+    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
+    const canAfford = heldCount >= cost.qty;
+    const item = ITEM_BY_ID[cost.id];
+    this.showOfferModal({
+      title: 'Restore this wreck?',
+      get: `🛠 a working ${cost.material === 'stone' ? 'shop' : 'house'}`,
+      blurb: 'Hauls the rubble away and pulls back the boards.',
+      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`,
+      canAfford,
+      acceptLabel: 'Restore',
+      onAccept: () => {
+        // Re-check stock at accept time — the player might have spent
+        // the materials elsewhere while the modal was open.
+        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
+        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy); return; }
+        const stack = this.save.inv[idx];
+        stack.count -= cost.qty;
+        if ((stack.count ?? 0) <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        this.save.restoredHouses = this.save.restoredHouses || {};
+        this.save.restoredHouses[house.id] = true;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.showChestRewardModal) {
+          this.showChestRewardModal({
+            iconHTML: '🏠',
+            name: 'A working building',
+            sub: 'Tap it again to do business.',
+            color: '#a7ffb0',
+          });
+        } else {
+          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+        }
+      },
+    });
+  }
+
   presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts = {}) {
     // recipe override lets the starter blacksmith define T1 wooden recipes
     // (rockfruit + tree) without loosening the T2+ bar requirement in
@@ -3759,15 +3851,23 @@ class MapScene extends Phaser.Scene {
       'position:absolute;inset:0;z-index:55;display:flex;align-items:center;' +
       'justify-content:center;background:#000c;pointer-events:auto;' +
       'animation:chestModalIn 180ms ease-out;';
-    // Keyframes injected once — Phaser/Phaser-text can't render this, and
-    // adding @keyframes inline isn't possible, so we stamp a <style>.
+    // Keyframes injected once. The sparkle keyframe reads its drift vector
+    // from per-element CSS custom properties (--dx/--dy) so a single shared
+    // rule animates N sparkles each along its own randomised direction. The
+    // translate(-50%,-50%) prefix keeps each sparkle centred on its
+    // perimeter anchor while drifting outward.
     if (!document.getElementById('chest-modal-css')) {
       const s = document.createElement('style');
       s.id = 'chest-modal-css';
       s.textContent =
         '@keyframes chestModalIn { from { opacity:0 } to { opacity:1 } }' +
         '@keyframes chestRewardPop { 0% { transform:scale(.6); opacity:0 } ' +
-        '60% { transform:scale(1.08); opacity:1 } 100% { transform:scale(1); opacity:1 } }';
+        '60% { transform:scale(1.08); opacity:1 } 100% { transform:scale(1); opacity:1 } }' +
+        '@keyframes chestSparkle {' +
+        ' 0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0 }' +
+        ' 18%  { transform: translate(calc(-50% + var(--dx) * 0.18), calc(-50% + var(--dy) * 0.18)) scale(1.15); opacity: 1 }' +
+        ' 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.35); opacity: 0 }' +
+        '}';
       document.head.appendChild(s);
     }
     const box = document.createElement('div');

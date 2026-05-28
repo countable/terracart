@@ -338,10 +338,15 @@ Render.drawCells = function drawCells(scene) {
     return (mr << 16) | (mg << 8) | mb;
   };
   const _houseRoleCells = new Map();   // cellKey → role string
+  const _restoredForCell = scene.save.restoredHouses || {};
   const _houseRoleForCell = (o) => {
+    // Wrecks (tier-9 houses not yet restored, excluding the trailer) skip
+    // the role tint so their brick base reads as the neutral default —
+    // restoration is what colours the foundation.
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
+    if (!_restoredForCell[o.id] && o.tier === 9) return null;
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     return t || null;
   };
@@ -668,10 +673,15 @@ Render.drawObjects = function drawObjects(scene) {
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
   // fort that happens to also be the starter shop renders as a trailer.
-  const _houseRole = (o) => {
+  //
+  // 'wreck' is the universal pre-restoration role for tier-9 houses:
+  // any non-restored, non-starter, non-fort house renders as the wreck
+  // sprite. Once the player feeds it the right materials at
+  // shopInteract, it goes into save.restoredHouses and reverts to its
+  // "true" role (plain / blacksmith / etc.).
+  const _restored = scene.save.restoredHouses || {};
+  const _houseTrueRole = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    // Starter blacksmith — the house nearest to Home, force-assigned a forge
-    // role so the player has a deterministic place to craft wooden tools.
     if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
@@ -679,6 +689,16 @@ Render.drawObjects = function drawObjects(scene) {
     if (t === 'trader')     return 'trader';
     if (t === 'market')     return 'market';
     return 'plain';
+  };
+  const _houseRole = (o) => {
+    const trueRole = _houseTrueRole(o);
+    // Forts (tier 11) and the starter trailer skip wreck status — forts
+    // are civic structures, the trailer is the player's already-furnished
+    // home. Everything else (plain residential + themed tier-9 shops) is
+    // a wreck until restored.
+    if (trueRole === 'fort' || trueRole === 'trailer') return trueRole;
+    if (_restored[o.id]) return trueRole;
+    return 'wreck';
   };
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
@@ -899,6 +919,10 @@ Render.drawObjects = function drawObjects(scene) {
   // null for non-shopType houses, so we wrap it here so the renderer can
   // also handle the starter case without changing the Shops module.
   const _houseSignText = (o) => {
+    // Wrecks have no sign — their identity is hidden until the player
+    // restores them. Once _houseRole stops returning 'wreck', the
+    // sign re-emerges with the correct shop / house label.
+    if (_houseRole(o) === 'wreck') return null;
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
     // Forced starter blacksmith — bypass Shops.shopLabel since the address
     // doesn't end in 9, but the player should still see a smithy sign.
