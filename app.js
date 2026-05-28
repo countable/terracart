@@ -2140,6 +2140,34 @@ class MapScene extends Phaser.Scene {
     (document.getElementById('game') || document.body).appendChild(wrap);
   }
 
+  // Building-flavored title for an offer modal. Different building kinds
+  // (castle / fort / market / trader / blacksmith / plain house) get their
+  // own greeting so the player can tell at a glance what they walked into,
+  // instead of every dialog reading "A trader offers:". `action` is one of:
+  //   'buy'      → routine seed/produce/barter buy
+  //   'relic'    → a relic offer (non-starter)
+  //   'cashbuy'  → trader is paying cash for the player's goods
+  //   'forge'    → blacksmith forge offer
+  buildingFlavorTitle(house, action) {
+    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    const isFort   = !!house && house.tier === 11;
+    const st = (!isCastle && !isFort && house && typeof Shops !== 'undefined')
+      ? Shops.shopType(house) : null;
+    if (action === 'cashbuy') return 'The trader is buying:';
+    if (action === 'forge')   return 'The blacksmith will forge:';
+    if (action === 'relic') {
+      if (isCastle) return "The castle's vault holds:";
+      if (isFort)   return 'The fort quartermaster offers a relic:';
+      return 'A villager offers a relic:';
+    }
+    // 'buy'
+    if (isCastle) return "From the castle's vault:";
+    if (isFort)   return 'The fort quartermaster offers:';
+    if (st === 'market')     return 'The market has fresh stock:';
+    if (st === 'trader')     return 'The trader proposes a barter:';
+    if (st === 'blacksmith') return 'The blacksmith has on hand:';
+    return 'A villager offers:';
+  }
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
@@ -2307,7 +2335,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     this.showOfferModal({
-      title: 'A trader offers:',
+      title: this.buildingFlavorTitle(house, 'buy'),
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       cost: offer.label,
       canAfford: offer.canAfford(),
@@ -2479,7 +2507,7 @@ class MapScene extends Phaser.Scene {
     const curState = (house?.id && !offer.starter) ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
-      title: offer.starter ? 'Starter gear in stock:' : 'A trader offers a relic:',
+      title: offer.starter ? 'Starter gear in stock:' : this.buildingFlavorTitle(house, 'relic'),
       get: `${iconHtml} ${name}`,
       blurb,
       cost: `$${offer.price}`,
@@ -2782,7 +2810,7 @@ class MapScene extends Phaser.Scene {
     });
     const first = fmt(1);
     this.showOfferModal({
-      title: 'The trader is buying:',
+      title: this.buildingFlavorTitle(house, 'cashbuy'),
       get: first.get,
       cost: first.cost,
       canAfford: true,
@@ -2834,7 +2862,7 @@ class MapScene extends Phaser.Scene {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
-      title: 'The blacksmith will forge:',
+      title: this.buildingFlavorTitle(house, 'forge'),
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
