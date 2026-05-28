@@ -36,8 +36,12 @@ const CROP_SPRITE = {
   // Long grass uses a procedurally generated 16x16 texture (see drawLongGrassTex).
   longgrass: { sheet: 'longgrass', custom: true },
   // Mushroom uses the Fantasy Mushroom sheet ('mushroom_world' key in
-  // assets.js, 32×32 frames). Single-frame render — pick frame 0 in render.js.
-  mushroom: { sheet: 'mushroom_world', custom: true },
+  // assets.js, 3 cols × 9 rows of 32×32 frames). Frame 0 (top-left cell)
+  // is fully transparent in the source PNG — picking it gave a blank
+  // inventory slot and an invisible wildplant on the map. Frame 2 (top-
+  // right) is the big red mushroom cluster that fills the cell, so it
+  // reads at icon size and at the wildplant's in-world scale.
+  mushroom: { sheet: 'mushroom_world', custom: true, frame: 2 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -117,7 +121,9 @@ function inventoryIconSource(itemId) {
   }
   if (ov && ov.custom) {
     // longgrass uses the procedural texture; reuse its key directly.
-    return { sheet: ov.sheet, frame: 0 };
+    // ov.frame is honoured so sheets with multiple cells (e.g. mushroom_world,
+    // whose frame 0 is empty) can point at the right cell.
+    return { sheet: ov.sheet, frame: ov.frame ?? 0 };
   }
   if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * 9 + 8 };
   if (item.kind === 'produce') {

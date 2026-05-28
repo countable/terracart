@@ -449,7 +449,10 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     // Wilderness drops + flora that share their world sprite.
-    window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world', 0, 32, 32);
+    // Frame index comes from CROP_SPRITE.mushroom — frame 0 of the source PNG
+    // is empty, so the single source of truth lives in items.js.
+    window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame('mushroom_world',
+      CROP_SPRITE.mushroom?.frame ?? 0, 32, 32);
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
