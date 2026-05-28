@@ -2194,7 +2194,22 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // Empty-selection tap = "buy from home". The starter trailer stocks a
+      // wood pickaxe and wood axe so the player can bootstrap rock-breaking
+      // and tree-chopping without needing to find a generous random shop.
+      // Once both are bought, the empty-selection tap falls through to the
+      // "home sweet home" flash (commit 383c2e5 had stripped this buy path
+      // entirely — left the player stuck with no way to chop trees for the
+      // starter blacksmith's wood-tool recipes).
+      if (!hasSel) {
+        const starterOffer = this.starterShopOffer();
+        if (starterOffer) {
+          this.presentRelicOffer(sx, sy, starterOffer, () => {}, house, false);
+          return;
+        }
+        this.flash('home sweet home', sx, sy);
+        return;
+      }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
