@@ -2850,9 +2850,13 @@ class MapScene extends Phaser.Scene {
     { input: 'rainberry',  output: 'copper_bar' },   // L2
     { input: 'coffee',     output: 'iron_bar' },     // L3
     { input: 'sunflower',  output: 'gold_bar' },     // L4
-    { input: 'fireflower', output: 'platinum_bar' }, // L5
-    { input: 'iceflower',  output: 'crimson_bar' },  // L6
-    { input: 'iceflower',  output: 'frost_bar' },    // L7 — endgame, ALSO iceflower
+    // Bottom half bumped one bar higher per user — fireflower felt under-
+    // rewarded producing the mid-tier platinum_bar (it's a T5+ rare flower).
+    // The late-game ladder is now sunflower→gold, fireflower→crimson,
+    // iceflower→frost. Platinum_bar no longer comes from the shrine; it
+    // remains available via mineralrock loot + blacksmith forging.
+    { input: 'fireflower', output: 'crimson_bar' },  // L5
+    { input: 'iceflower',  output: 'frost_bar' },    // L6 — endgame
   ];
 
   // All transforms the player currently has access to (level <= shrineLevel).
@@ -3120,14 +3124,20 @@ class MapScene extends Phaser.Scene {
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
-    const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
+    // Only pop the modal when the player can ACTUALLY commit — opening
+    // a modal whose Accept is disabled wastes a tap. If they can't yet,
+    // flash the price as a hint so they know what to bring back.
+    if (heldCount < cost.qty) {
+      this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+      return;
+    }
     this.showOfferModal({
       title: 'Restore this wreck?',
       get: `🛠 a working ${cost.material === 'stone' ? 'shop' : 'house'}`,
       blurb: 'Hauls the rubble away and pulls back the boards.',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`,
-      canAfford,
+      canAfford: true,
       acceptLabel: 'Restore',
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent
@@ -3895,6 +3905,58 @@ class MapScene extends Phaser.Scene {
     wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
     wrap.appendChild(box);
     (document.getElementById('game') || document.body).appendChild(wrap);
+    // Sparkle burst around the modal — drives the "fanfare" feel. Spawned
+    // AFTER the wrap is in the DOM so getBoundingClientRect() gives us the
+    // box's real on-screen footprint (it's flex-centred, so the rect depends
+    // on viewport size). Each sparkle is parented to wrap and animates from
+    // a randomised point on the box perimeter outward along its --dx/--dy
+    // vector. Tier colour bleeds into the glow so chest/shrine/etc each
+    // sparkle in their own hue.
+    requestAnimationFrame(() => {
+      const wr = wrap.getBoundingClientRect();
+      const br = box.getBoundingClientRect();
+      // Coords RELATIVE to wrap (which is the absolute-positioned overlay).
+      const bx = br.left - wr.left, by = br.top - wr.top;
+      const bw = br.width, bh = br.height;
+      const SPARKLE_COUNT = 14;
+      for (let i = 0; i < SPARKLE_COUNT; i++) {
+        // Pick a point on the box perimeter (parametrise the rectangle by
+        // its perimeter length so corners aren't oversampled).
+        const t = Math.random() * 2 * (bw + bh);
+        let px, py;
+        if (t < bw)                        { px = bx + t;            py = by; }
+        else if (t < bw + bh)              { px = bx + bw;           py = by + (t - bw); }
+        else if (t < 2 * bw + bh)          { px = bx + bw - (t - bw - bh); py = by + bh; }
+        else                                { px = bx;                py = by + bh - (t - 2 * bw - bh); }
+        // Drift outward from the box centre — vector from centre through the
+        // perimeter point, scaled to 40..90 px.
+        const cx = bx + bw / 2, cy = by + bh / 2;
+        let vx = px - cx, vy = py - cy;
+        const vlen = Math.hypot(vx, vy) || 1;
+        const drift = 40 + Math.random() * 50;
+        const dx = (vx / vlen) * drift;
+        const dy = (vy / vlen) * drift;
+        const sp = document.createElement('div');
+        const size = 8 + Math.floor(Math.random() * 6);   // 8..13 px
+        const delay = Math.random() * 220;                // 0..220 ms stagger
+        sp.style.cssText =
+          `position:absolute;left:${px}px;top:${py}px;` +
+          `width:${size}px;height:${size}px;pointer-events:none;` +
+          `--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;` +
+          // Radial gradient = soft glow; the central white core sits on a
+          // tier-coloured halo that fades to transparent. Layered with a thin
+          // 4-point star (drawn via conic-gradient masking is overkill —
+          // simpler to fake the star highlight with a tighter inner gradient).
+          `background:` +
+            `radial-gradient(circle at 50% 50%, #ffffff 0%, #ffffff 18%, ` +
+            `${color} 40%, ${color}88 65%, transparent 100%);` +
+          `border-radius:50%;` +
+          `box-shadow:0 0 6px 1px ${color}cc, 0 0 12px 2px ${color}55;` +
+          `transform:translate(-50%,-50%) scale(0);opacity:0;` +
+          `animation:chestSparkle 1100ms ease-out ${delay.toFixed(0)}ms forwards;`;
+        wrap.appendChild(sp);
+      }
+    });
   }
 
   // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE
