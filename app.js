@@ -1454,8 +1454,13 @@ class MapScene extends Phaser.Scene {
       if (this.save.caught.includes(c.id)) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
+      // Per-kind step duration. Crows fly — they were stepping at the same
+      // 5s cadence as cows/chickens, which read as them ambling on the
+      // ground. Halve their step time so a wild crow can actually beeline
+      // toward a planted crop before the player walks to it.
+      const stepMs = c.kind === 'crow' ? STEP_MS / 2 : STEP_MS;
       if (c._nextChooseT == null) {
-        c._nextChooseT = now + Math.random() * STEP_MS;
+        c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
         c._targetX = c.x; c._targetY = c.y;
         c._stepT0 = now;
@@ -1561,10 +1566,10 @@ class MapScene extends Phaser.Scene {
         c._startX = c.x; c._startY = c.y;
         c._targetX = tx; c._targetY = ty;
         c._stepT0 = now;
-        c._nextChooseT = now + STEP_MS;
+        c._nextChooseT = now + stepMs;
         c._faceFlip = (c._targetX - c._startX) < 0;
       }
-      const u = Math.min(1, (now - c._stepT0) / STEP_MS);
+      const u = Math.min(1, (now - c._stepT0) / stepMs);
       c.x = c._startX + (c._targetX - c._startX) * u;
       c.y = c._startY + (c._targetY - c._startY) * u;
     });
@@ -2031,11 +2036,10 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.buildInventoryDOM();
     this.updateEnergyDOM();
-    const item = ITEM_BY_ID[sel.id];
-    this.showMessageModal({
-      title: 'You eat the ' + (item?.name || sel.id),
-      body: `⚡ +${gained} energy${extra}`,
-    });
+    // Quiet pop-up instead of a modal — eating is a frequent action and a
+    // dismiss-tap every time would get old fast. Longer dwellMul so the
+    // gain (+ any compass / water side-effect) is readable before fading.
+    this.flashLoot(`+${gained}⚡${extra}`, '#a7ffb0', 1.8, sel.id);
     return true;
   }
 

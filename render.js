@@ -923,8 +923,8 @@ Render.drawObjects = function drawObjects(scene) {
   const _ROLE_INK = {
     trailer:    '#a8b0c0',
     blacksmith: '#c25a3a',
-    trader:     '#6a8aa6',
-    market:     '#a84a3a',
+    trader:     '#ffae5c',
+    market:     '#5ddcc0',
   };
   // Fallback inks for the non-specialty building kinds.
   const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
