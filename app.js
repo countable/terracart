@@ -730,10 +730,17 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * 111320;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          // While ghost mode is active, playerM IS the ghost; GPS updates
-          // the body silently behind it (the body sprite re-positions
-          // itself off-centre based on _bodyM during render).
-          if (this._bodyM) {
+          // Debug controls take over movement entirely — skip the GPS-driven
+          // ease (and the silent body-warp under ghost mode) so the gold
+          // joystick / arrow keys aren't fighting the watcher. gpsM still
+          // tracks so the HUD's gps-live check and the facing fallback below
+          // keep working.
+          if (this.save.debugControls) {
+            // intentionally no playerM / _bodyM write
+          } else if (this._bodyM) {
+            // While ghost mode is active, playerM IS the ghost; GPS updates
+            // the body silently behind it (the body sprite re-positions
+            // itself off-centre based on _bodyM during render).
             this._bodyM.x = this.gpsM.x;
             this._bodyM.y = this.gpsM.y;
           } else {
@@ -3266,6 +3273,10 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.syncGhostPad();
     this.syncDebugPad();
+    // Cancel any in-flight GPS ease so a fix that landed milliseconds before
+    // the toggle doesn't keep dragging the player after the gold joystick
+    // takes over. The startGps callback will skip future eases on its own.
+    if (this.save.debugControls) this._ease = null;
     return this.save.debugControls;
   }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
