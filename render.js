@@ -631,12 +631,10 @@ Render.drawCells = function drawCells(scene) {
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
-  // Numbered starter-trail treasures render as box sprites + a small index
-  // label above the crate — clearer "go pick up these crates" affordance
-  // for first-time players than the scratched-X. Pooled to avoid per-frame
-  // alloc; unused slots are hidden between frames.
+  // Starter-trail treasures render as box sprites — a clearer "go pick up
+  // these crates" affordance for first-time players than the scratched-X.
+  // Pooled to avoid per-frame alloc; unused slots are hidden between frames.
   scene.starterBoxPool = scene.starterBoxPool || [];
-  scene.starterBoxLabelPool = scene.starterBoxLabelPool || [];
   let boxIdx = 0;
   const drawBox = (tr) => {
     if (!tr || found.has(tr.id)) return;
@@ -650,17 +648,6 @@ Render.drawCells = function drawCells(scene) {
       scene.starterBoxPool.push(s);
     }
     s.setPosition(Math.round(cx), Math.round(cy)).setScale(1.2).setVisible(true);
-    let lbl = scene.starterBoxLabelPool[boxIdx];
-    if (!lbl) {
-      lbl = scene.add.text(0, 0, '', {
-        font: 'bold 9px ui-monospace, monospace',
-        color: '#fff', stroke: '#000', strokeThickness: 2,
-      }).setOrigin(0.5, 1).setDepth(51);
-      scene.starterBoxLabelPool.push(lbl);
-    }
-    lbl.setText(String(tr.n))
-       .setPosition(Math.round(cx), Math.round(cy) - 18)
-       .setVisible(true);
     boxIdx++;
   };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
@@ -685,7 +672,6 @@ Render.drawCells = function drawCells(scene) {
   }
   for (; boxIdx < scene.starterBoxPool.length; boxIdx++) {
     scene.starterBoxPool[boxIdx].setVisible(false);
-    if (scene.starterBoxLabelPool[boxIdx]) scene.starterBoxLabelPool[boxIdx].setVisible(false);
   }
 };
 

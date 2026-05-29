@@ -1047,52 +1047,10 @@ class MapScene extends Phaser.Scene {
     }
     entry.creatures = creatures;
 
-    // Starter-area ground stacks. A couple of wood + rockfruit piles
-    // within 20m of the player's spawn so the very first session has
-    // something to pick up (and a path to the starter blacksmith's pick
-    // recipe = 3 rockfruit + 1 wood). Restricted to the start tile +
-    // empty soft-ground cells (no other object within 4m). Once a stack's
-    // id lands in save.picked it stays picked across reloads, same as
-    // every other pickup.
+    // Starter loot now lives entirely in the two road-side crates placed
+    // below (entry.extraTreasures with starterLoot). No loose groundstack
+    // logs / rockfruit piles near spawn — the tutorial pocket stays clean.
     entry.objects = entry.objects || [];
-    const startTx = Math.floor(this.startWorldM.x / this.tileEdgeM);
-    const startTy = Math.floor(this.startWorldM.y / this.tileEdgeM);
-    if (tx === startTx && ty === startTy) {
-      const startCellIX = Math.floor((this.startWorldM.x - tx * this.tileEdgeM) / this.cellM);
-      const startCellIY = Math.floor((this.startWorldM.y - ty * this.tileEdgeM) / this.cellM);
-      const RADIUS_CELLS = Math.ceil(20 / this.cellM);    // 20m → 4 cells at 5m
-      // Tries one stack id per (kind, idx) pair so picked stacks stay picked.
-      const tryStarterStack = (itemId, qty, idx) => {
-        const id = `starter_${itemId}_${idx}`;
-        if (this.save.picked && this.save.picked.includes(id)) return;
-        for (let attempt = 0; attempt < 30; attempt++) {
-          const dx = Math.floor((rng() - 0.5) * 2 * (RADIUS_CELLS + 1));
-          const dy = Math.floor((rng() - 0.5) * 2 * (RADIUS_CELLS + 1));
-          if (Math.abs(dx) + Math.abs(dy) < 2) continue;   // not directly under player
-          const cx = startCellIX + dx, cy = startCellIY + dy;
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          if (!SOFT_GROUND.has(entry.grid[cy * N + cx])) continue;
-          const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-          // Skip cells already occupied by a chest/house/tree/etc.
-          const blocked = entry.objects.some(o =>
-            (o.x - wmx) * (o.x - wmx) + (o.y - wmy) * (o.y - wmy) < 4 * 4);
-          if (blocked) continue;
-          entry.objects.push({ kind: 'groundstack', itemId, qty, x: wmx, y: wmy, id });
-          return;
-        }
-      };
-      // Two piles of each so the player isn't stuck if one spawns behind a
-      // tree. Wood × {2, 3}, rockfruit × {2, 3}. Skip in test mode — the
-      // groundstack handler runs before planted/till and would steal taps
-      // away from cell-tests that operate near the player spawn.
-      if (!window.__TEST_MODE) {
-        tryStarterStack('wood',      2, 0);
-        tryStarterStack('wood',      3, 1);
-        tryStarterStack('rockfruit', 2, 0);
-        tryStarterStack('rockfruit', 3, 1);
-      }
-    }
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time
@@ -1243,14 +1201,19 @@ class MapScene extends Phaser.Scene {
       // sit in a clean tutorial pocket, close enough that the surrounding
       // streets / wilderness still feel populated.
       const CLEAR_R = 10;
-      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree']);
-      entry.objects = entry.objects.filter(o => {
-        if (!STRIP_KINDS.has(o.kind)) return true;
-        const oIx = Math.floor((o.x - tx0) / this.cellM);
-        const oIy = Math.floor((o.y - ty0) / this.cellM);
-        const d = Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY));
-        return d > CLEAR_R;
-      });
+      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
+      const _nearSpawn = (wx, wy) => {
+        const oIx = Math.floor((wx - tx0) / this.cellM);
+        const oIy = Math.floor((wy - ty0) / this.cellM);
+        return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
+      };
+      entry.objects = entry.objects.filter(o =>
+        !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
+      // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
+      // any within the tutorial pocket too so spawn is free of pickable scrub.
+      if (Array.isArray(entry.wildplants)) {
+        entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
+      }
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
       // see X's frequently instead of stumbling onto one a session.
