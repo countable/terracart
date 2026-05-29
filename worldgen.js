@@ -487,12 +487,56 @@
               buildingPolys.push({ ring, areaM2, tier });
             }
           } else {
-            if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+            // Special case: swimming-pool polygons (whether they come in via the
+            // water layer, the landuse layer, or the poi layer) should ALWAYS
+            // become WATER terrain regardless of the layer's classifier — pools
+            // are blue-painted holes in the suburb. Same goes for any layer
+            // feature tagged with subclass=swimming_pool.
+            const subCls = f.tags.class || f.tags.subclass;
+            if (subCls === 'swimming_pool' || subCls === 'pool') {
+              paintPolygon(grid, w, h, f.geom, T.WATER, mvtToCell);
+            } else if (t != null) {
+              paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+            }
 
             // Per-polygon debris/decor share one centroid-derived key
             // so a given polygon looks the same across reloads.
             const c0 = ringCentroid(f.geom[0]);
             const polyKey = ((Math.round(c0.x) * 73856093) ^ (Math.round(c0.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
+
+            // ── Bucket J: rock-burst spawn for industrial / military /
+            // quarry polygons. We pepper the polygon with mineralrock T1
+            // objects at high density (up to 100 per polygon), giving the
+            // player a reason to bring a pickaxe to these zones. Density is
+            // capped per-polygon area so a tiny quarry doesn't get 100 rocks
+            // on top of each other.
+            if (name === 'landuse' && (subCls === 'industrial' ||
+                subCls === 'military' || subCls === 'quarry' ||
+                subCls === 'brownfield')) {
+              const bb = bboxOf(f.geom);
+              const areaM2 = (bb.maxX - bb.minX) * (bb.maxY - bb.minY) * mvtToM * mvtToM;
+              // ~1 rock per 25 m², capped at 100 — a quarter-acre quarry
+              // gets ~40 rocks, a big industrial estate hits the cap.
+              const target = Math.min(100, Math.max(5, Math.floor(areaM2 / 25)));
+              const rng2 = makeRng((polyKey ^ 0xC0FFEE57) >>> 0);   /* fixed salt — different from longgrass / nut streams */
+              let placed = 0, attempts = 0;
+              while (placed < target && attempts < target * 6) {
+                attempts++;
+                const jx = bb.minX + rng2() * (bb.maxX - bb.minX);
+                const jy = bb.minY + rng2() * (bb.maxY - bb.minY);
+                if (!pointInRings(f.geom, jx, jy)) continue;
+                const m = toMeters(jx, jy);
+                const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
+                const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                // Tier 1 mineral rock — the cheap one. Sprinkle different
+                // tiers occasionally (5 % each up to T3) for variety.
+                const r = rng2();
+                const requiredTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
+                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                  id: `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                placed++;
+              }
+            }
 
             // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
             const debrisCrop = DEBRIS_CROP[t];
@@ -641,8 +685,8 @@
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.35) continue;   // 35 % of pivots fire a cluster
-                  const clusterN = 5 + Math.floor(resRng() * 5);  // 5..9 rocks per cluster
+                  if (resRng() > 0.45) continue;   // 45 % of pivots fire a cluster
+                  const clusterN = 6 + Math.floor(resRng() * 5);  // 6..10 rocks per cluster
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
@@ -715,6 +759,16 @@
           if (t == null) continue;
           const wCells = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell);
+        } else if (f.type === 2 && name === 'waterway') {
+          // Streams / rivers / drains carve a 1–2 cell line of WATER. Rivers
+          // get 2 cells wide, streams + drains stay at 1 — this lets the
+          // bigger named waterways read as something you'd swim across vs a
+          // narrow ditch you can almost step over.
+          const cls = f.tags.class || '';
+          if (cls === 'stream' || cls === 'river' || cls === 'drain' || cls === 'canal') {
+            const wCells = cls === 'river' || cls === 'canal' ? 2 : 1;
+            for (const line of f.geom) paintLine(grid, w, h, line, T.WATER, wCells, mvtToCell);
+          }
         } else if (f.type === 1 && name === 'poi') {
           // POI points → a generic chest (single sprite, no themed subkinds).
           // Only spawn for "useful" POI classes.  Parking POIs are diverted to treasure marks instead.
@@ -733,6 +787,22 @@
             'park','garden','playground','pitch',
             // low-tier street furniture: heavy T1 seed drops
             'bus','fuel','lodging','gate',
+            // ── New batch — daily-tap civic services (lowtier)
+            'waste_basket','post','recycling','drinking_water','toilets',
+            // ── Athletic facilities (park-class chests)
+            'sports_centre','yoga','swimming','swimming_pool','bowls',
+            'running','ice_rink','stadium',
+            // ── Restful shelters (lowtier chest + safe rest spot)
+            'shelter','dog_park','picnic_site',
+            // ── Cultural plaques (civic chests)
+            'art_gallery','information','monument','cemetery','cinema','theatre',
+            // ── Authority buildings (civic chests, high-tier feel)
+            'police','fire_station','harbor',
+            // ── Bike-related: bicycle_parking + atm get the COIN-BURST
+            // mechanic via a separate render path (see render.js); they
+            // still spawn as objects here so cross-tile dedupe + persistent
+            // ids work.
+            'bicycle_parking','motorcycle_parking','atm',
           ]);
           // Snap POI-derived features to the LOCAL-TILE cell centre — same basis the
           // grid uses (tileEdgeM/cellsPerEdge, which differs slightly from 5m). This
@@ -768,6 +838,24 @@
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
             objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
+            // Garden POIs get a flower burst — up to 8 flora decorations
+            // scattered in a 3-cell ring around the chest. Pure decoration
+            // (flora kind isn't tappable on its own), pollination + the
+            // visual cue make the chest read as a real garden.
+            if (cls === 'garden') {
+              const FLOWER_VARIANTS = 4;
+              const burstSeed = ((Math.round(cx) * 374761393) ^ (Math.round(cy) * 668265263)) >>> 0;
+              const brng = makeRng(burstSeed);
+              for (let i = 0; i < 8; i++) {
+                const ang = brng() * Math.PI * 2;
+                const r   = (1 + brng() * 2) * cellWidthM;   // 1–3 cells out
+                const fx  = snap(cx + Math.cos(ang) * r);
+                const fy  = snap(cy + Math.sin(ang) * r);
+                objects.push({ kind: 'flora', deco: 'flower', x: fx, y: fy,
+                  variant: Math.floor(brng() * FLOWER_VARIANTS),
+                  id: `gb_${Math.round(fx)}_${Math.round(fy)}` });
+              }
+            }
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -1028,25 +1116,58 @@
       // column off from where it actually sits on the painted grid.
       // Use the same basis the grid was painted with.
       const _mrCellW = tileEdgeM / w;
+      // Reusable Chebyshev "is a road within R cells?" probe.
+      const _mrNearRoadWithin = (ix, iy, R) => {
+        for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            const nx = ix + dx, ny = iy + dy;
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            if (_mrIsRoad(nx, ny)) return true;
+          }
+        }
+        return false;
+      };
+      // Houses are placed inside building footprints — always road-adjacent
+      // by virtue of OSM data and never something the player wades into a
+      // back yard for. Keep them exempt from the residential proximity
+      // check below.
+      const _mrSkipKind = (k) => k === 'house' || k === 'tower';
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
-        if (o.kind !== 'mineralrock') continue;
+        if (_mrSkipKind(o.kind)) continue;
         const ix = Math.floor((o.x - tileOriginMx) / _mrCellW);
         const iy = Math.floor((o.y - tileOriginMy) / _mrCellW);
-        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile rocks belong to a neighbour pass
-        if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
-        if (o._residential) {
-          let near = false;
-          for (let dy = -1; dy <= 1 && !near; dy++) {
-            for (let dx = -1; dx <= 1 && !near; dx++) {
-              const nx = ix + dx, ny = iy + dy;
-              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-              if (_mrIsRoad(nx, ny)) near = true;
-            }
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile objects belong to a neighbour pass
+        const here = grid[iy * w + ix];
+        if (o.kind === 'mineralrock') {
+          if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
+          if (o._residential) {
+            // Residential rocks must be 0..1 cells from a road (kerb / driveway).
+            if (!_mrNearRoadWithin(ix, iy, 1)) { objects.splice(i, 1); continue; }
           }
-          if (!near) { objects.splice(i, 1); continue; }
+          delete o._residential;
+          continue;
         }
-        delete o._residential;
+        // Every OTHER object that landed on a residential cell must be
+        // within Chebyshev 3 of a road — this stops chests, fruit trees,
+        // POI props and other interactables from baiting the player into
+        // someone's back yard. Forts, castles, houses and towers are
+        // already exempt above.
+        if (here === T.RESIDENTIAL) {
+          if (!_mrNearRoadWithin(ix, iy, 3)) { objects.splice(i, 1); continue; }
+        }
+      }
+      // Same proximity rule for the parallel `wildplants` list — any wild
+      // pickup on a residential cell must be within 3 of a road. (DEBRIS_CROP
+      // no longer seeds residential, but cross-polygon overlap can still
+      // drop a shrub or longgrass tuft onto a residential cell.)
+      for (let i = wildplants.length - 1; i >= 0; i--) {
+        const wp = wildplants[i];
+        const ix = Math.floor((wp.x - tileOriginMx) / _mrCellW);
+        const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
+        if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
+        if (!_mrNearRoadWithin(ix, iy, 3)) wildplants.splice(i, 1);
       }
     }
 
