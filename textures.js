@@ -14,9 +14,14 @@
 // Terrain class id → { variants, draw(ctx, size, rng) }. Each variant becomes
 // a Phaser canvas texture keyed `biome${type}_${v}` via makeBiomeTextures.
 const BIOME_TEX = {
-  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
+  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
   1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
   2:  { variants: 2, draw: drawSandTex },         // sand: fine grain
+  // WATER (type 3) is rendered via the cardinal-Wang autotile in render.js,
+  // pulling frames out of the 'terrains' sheet (see WATER_AUTOTILE below).
+  // The procedural drawWaterTex stays as a fallback for tilled-water (which
+  // shouldn't exist) and as the texture for PIER cells (23) since the pier
+  // overlay needs a water-coloured base under the planks.
   3:  { variants: 2, draw: drawWaterTex },        // water: ripples
   4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
@@ -30,7 +35,43 @@ const BIOME_TEX = {
   18: { variants: 2, draw: drawGrassTex },        // PLAYGROUND
   19: { variants: 2, draw: drawGrassTex },        // PITCH
   21: { variants: 2, draw: drawGrassTex },        // GOLF
+  // PIER (type 23) — reuse the water ripple as base texture; render.js
+  // overlays the wooden plank sprite on top via the cobblePool. Without
+  // this entry the cell would fall back to bare colour with no ripple,
+  // breaking visual continuity with adjacent WATER cells.
+  23: { variants: 2, draw: drawWaterTex },
 };
+
+// === Water autotile (cardinal Wang) =====================================
+// Cardinal-neighbor 4-bit mask → frame index in the 'terrains' spritesheet
+// (Objects/Terrains_16x16.png, 32 cols × 23 rows of 16×16 frames).
+// Mask bit assignment: N=1, E=2, S=4, W=8. Bit is set when that neighbor
+// is the SAME terrain (water). The 3×3 Wang block at sheet cols 16-18,
+// rows 0-2 covers 9 of the 16 possible mask values; the remaining 7 (0, 1,
+// 2, 4, 5, 8, 10 — peninsulas, strips, isolated cells) fall back to the
+// fully-surrounded centre fill (mask 15). For most viewports those rare
+// configurations are <5 % of water cells, so the fallback is acceptable.
+//
+// render.js' noisePool branch reads WATER_AUTOTILE_FRAME[mask] and calls
+// noiseImage.setTexture('terrains', frame). Keep this table in sync with
+// the sheet layout if the asset is ever swapped.
+const TERRAINS_COLS = 32;
+const _wf = (col, row) => row * TERRAINS_COLS + col;
+const WATER_AUTOTILE_FRAME = {
+  3:  _wf(16, 2),  // 0b0011 NE present, SW absent → BL outer corner
+  6:  _wf(16, 0),  // 0b0110 SE present, NW absent → TL outer corner
+  7:  _wf(16, 1),  // 0b0111 W absent only → left edge
+  9:  _wf(18, 2),  // 0b1001 NW present, SE absent → BR outer corner
+  11: _wf(17, 2),  // 0b1011 S absent only → bottom edge
+  12: _wf(18, 0),  // 0b1100 SW present, NE absent → TR outer corner
+  13: _wf(18, 1),  // 0b1101 E absent only → right edge
+  14: _wf(17, 0),  // 0b1110 N absent only → top edge
+  15: _wf(17, 1),  // 0b1111 all neighbours water → centre fill
+};
+// Frame to use when mask isn't in the table — solid water centre fill.
+// Keeps peninsula / strip / isolated cells from going invisible; they read
+// as plain water without the proper edge art (acceptable for first pass).
+const WATER_AUTOTILE_FALLBACK = WATER_AUTOTILE_FRAME[15];
 
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0xc7973f;        // warm yellow-brown

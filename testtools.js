@@ -411,6 +411,11 @@
     sv.brokenRocks = [];
     sv.foundTreasures = [];
     sv.scarecrows = [];
+    // Per-creature produce cooldown (lastProduce[id] = epoch ms). Without
+    // clearing this, a chicken/cow that yielded an egg/milk earlier in
+    // the test run refuses to be fed again for an hour, breaking the
+    // "feeding plant produce yields an egg" tests.
+    sv.lastProduce = {};
     sv.inv = [];
     sv.selSlot = -1;
     sv.energy = sv.maxEnergy ?? 100;
@@ -423,6 +428,13 @@
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind === 'tree') o.chopped = false;
+      }
+      // Clear the in-memory produce-cooldown timestamp on every creature so
+      // tests that re-feed a chicken/cow don't hit the 1-hour cooldown set
+      // by a prior tap. save.lastProduce was zeroed above; this is the
+      // mirror that lives on the creature object itself.
+      for (const c of (e.creatures || [])) {
+        if (c._lastProduceT) c._lastProduceT = 0;
       }
     }
     // Teleport back to the sandbox player plot so all "nearest X" lookups

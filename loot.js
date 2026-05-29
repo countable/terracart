@@ -141,6 +141,23 @@ const POI_CATEGORY = {
   fountain: 'park',
   // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
   bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
+  // ── Daily-tap civic services — heavy T1
+  waste_basket: 'lowtier', post: 'lowtier', recycling: 'lowtier',
+  drinking_water: 'lowtier', toilets: 'lowtier',
+  // ── Restful shelters — small reward, frequent
+  shelter: 'lowtier', picnic_site: 'lowtier',
+  // ── Bike / ATM — special coin-burst handlers (see app.js); the chest
+  // category is only consulted if the coin burst is on cooldown.
+  bicycle_parking: 'lowtier', motorcycle_parking: 'lowtier', atm: 'lowtier',
+  // ── Athletic facilities — park-class T2 chest, fits the "leisure" feel
+  sports_centre: 'park', yoga: 'park', swimming: 'park',
+  swimming_pool: 'park', bowls: 'park', running: 'park',
+  ice_rink: 'park', stadium: 'park', dog_park: 'park',
+  // ── Cultural plaques — civic T3 chest, dense lore
+  art_gallery: 'civic', information: 'civic', monument: 'civic',
+  cemetery: 'civic', cinema: 'civic', theatre: 'civic',
+  // ── Authority buildings — civic T3 chests
+  police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
 // `drops`:
 //   'seed'    → always a seed (planting material)
@@ -221,14 +238,14 @@ function getLootConfig(poiClass) {
 // Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
 // 10% one uncommon seed, 5% one rare seed.
 function pickTreasure(rng) {
-  const r = (rng ?? Math.random)();
+  const R = rng ?? Math.random;
+  const r = R();
   const seedsOfTier = (t) => Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === t);
-  const pickFrom = (pool) => pool[Math.floor((rng ?? Math.random)() * pool.length)];
-  if (r < 0.05) return { kind: 'seed', id: pickFrom(seedsOfTier(3)), n: 1 };
-  if (r < 0.15) return { kind: 'seed', id: pickFrom(seedsOfTier(2)), n: 1 };
+  if (r < 0.05) return { kind: 'seed', id: pickFromArray(seedsOfTier(3), R), n: 1 };
+  if (r < 0.15) return { kind: 'seed', id: pickFromArray(seedsOfTier(2), R), n: 1 };
   // 85% — coin flip between common seed and $1.
-  if ((rng ?? Math.random)() < 0.5) return { kind: 'money', amount: 1 };
-  return { kind: 'seed', id: pickFrom(seedsOfTier(1)), n: 1 };
+  if (R() < 0.5) return { kind: 'money', amount: 1 };
+  return { kind: 'seed', id: pickFromArray(seedsOfTier(1), R), n: 1 };
 }
 
 // Ring relic: per-tier 5% chance to bump rolled tier up by 1 (cap at 3).
@@ -236,27 +253,28 @@ function pickTreasure(rng) {
 // of the category's normal weights / yield. relics is save.relics (may be null
 // in tests / older saves) — read defensively.
 function pickLoot(rng, poiClass, relics) {
+  const R = rng ?? Math.random;
   const cfg = getLootConfig(poiClass);
-  const r = (rng ?? Math.random)();
+  const r = R();
   let tier = 1, acc = 0;
   for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
   // Ring tier-up roll. Skip for flora (already T3-leaning) and lowtier (its
   // yieldOverride assumes the original tier).
   if (relics && typeof ringTierBoost === 'function' && tier < 3 && !cfg.onlyFlowers && !cfg.yieldOverride) {
-    if ((rng ?? Math.random)() < ringTierBoost(relics)) tier += 1;
+    if (R() < ringTierBoost(relics)) tier += 1;
   }
   let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
   if (cfg.onlyFlowers) {
     const flowers = pool.filter(s => FLOWER_SEEDS.has(s));
     if (flowers.length) pool = flowers;
   }
-  const seedId = pool[Math.floor((rng ?? Math.random)() * pool.length)];
+  const seedId = pickFromArray(pool, R);
   // Seed-vs-produce decision: per category mode. 'mixed' flips a coin each roll
   // weighted by cfg.produceP (default 0.5) so the same chest type yields both
   // kinds of drops over time — no more "shop chest = always seeds".
   let asProduce = cfg.drops === 'produce';
   if (cfg.drops === 'mixed') {
-    asProduce = (rng ?? Math.random)() < (cfg.produceP ?? 0.5);
+    asProduce = R() < (cfg.produceP ?? 0.5);
   }
   const id = asProduce ? seedId.replace(/_seed$/, '') : seedId;
   let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
@@ -346,7 +364,7 @@ function pickChestRelic(rng, progress, currentRelics, chestT = 2, currentArmor =
     ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
     ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
   ];
-  const sp = slotPool[Math.floor(random() * slotPool.length)];
+  const sp = pickFromArray(slotPool, random);
   const cur = sp.kind === 'relic'
     ? (currentRelics?.[sp.slot]?.tier ?? 0)
     : (currentArmor?.[sp.slot]?.tier ?? 0);

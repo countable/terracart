@@ -81,9 +81,15 @@
        Cache-bust everything so test runs always pick up the latest edits without
        needing to clear the browser cache. -->
   <script>
+    // Mirror index.html's script order. Drift = silent test failures
+     // because a required global is missing. tilemap.js was folded back
+     // into other modules; sandbox.js + testtools.js were added — keep
+     // this list in sync when index.html changes.
     document.write([
-      '/phaser.js', '/mvt.js', '/coords.js', '/worldgen.js', '/tilemap.js', '/crops.js',
-      '/textures.js', '/save.js', '/items.js', '/shops.js', '/rarity.js', '/loot.js', '/interact.js', '/render.js', '/assets.js', '/app.js',
+      '/phaser.js', '/mvt.js', '/util.js', '/coords.js', '/worldgen.js', '/crops.js',
+      '/textures.js', '/save.js', '/items.js', '/shops.js', '/rarity.js',
+      '/loot.js', '/interact.js', '/render.js', '/assets.js',
+      '/sandbox.js', '/testtools.js', '/app.js',
     ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
   </script>
 

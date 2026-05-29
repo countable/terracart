@@ -3029,7 +3029,10 @@ class MapScene extends Phaser.Scene {
     }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
-    const offer = this.buildShopOffer(id, baseValue);
+    // Markets are cash-only storefronts — they SELL produce for money. Barter
+    // is reserved for the dedicated 'trader' shop kind (presentTraderOffer
+    // above). Plain houses still roll the mixed money/barter offer.
+    const offer = this.buildShopOffer(id, baseValue, { forceMoney: shopType === 'market' });
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -4117,6 +4120,8 @@ class MapScene extends Phaser.Scene {
 
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
   // 1/3 chance: shop wants 2x value in cash. 2/3: barter for an inventory item.
+  // opts.forceMoney pins it to the cash branch — used by markets, which are
+  // cash-only storefronts (barter is the 'trader' shop kind's job).
   // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
   // qualify too — otherwise early-game players almost never see a barter, since
   // wild rockfruit/shrub/longgrass at $1-2 fall below higher thresholds.
@@ -4125,8 +4130,8 @@ class MapScene extends Phaser.Scene {
   // the player learns "this shop wants rockfruit" and can come back with it.
   // (Traders take a different path in presentTraderOffer — qty-scaled barter
   // with a re-roll button.)
-  buildShopOffer(id, baseValue) {
-    const wantMoney = Math.random() < 1/3;
+  buildShopOffer(id, baseValue, opts = {}) {
+    const wantMoney = opts.forceMoney || Math.random() < 1/3;
     // Bow / Staff relics shrink the markup. Without either, the range stays
     // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
     const { lo, hi } = (typeof buyMarkupRange === 'function')

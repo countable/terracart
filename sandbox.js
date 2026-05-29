@@ -87,6 +87,7 @@
       creatures,
       parkingTreasures: [],
       roadLetters: {},
+      pathNames: {},
       treasure: null,
       tileEdgeM,
       cellsPerEdge,
@@ -436,6 +437,7 @@
     20: 'WETLAND',
     21: 'GOLF',
     22: 'ORCHARD',
+    23: 'PIER',
   };
 
   // Lay out the biome plots into the tile's grid + populate every plot with

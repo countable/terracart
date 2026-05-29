@@ -15,20 +15,26 @@ function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
 }
 
+// Pixel size of one game cell in z=14 tile-pixel space. One tile is
+// WorldGen.TILE_PX (256) px wide and holds scene.cellsPerTile cells.
+function cellPxSize(scene) {
+  return WorldGen.TILE_PX / scene.cellsPerTile;
+}
+
 function worldMetersToAbsCell(scene, wmx, wmy) {
   const wx = scene.originPx.x + (wmx - scene.startWorldM.x) / scene.mPerPx;
   const wy = scene.originPx.y + (wmy - scene.startWorldM.y) / scene.mPerPx;
-  const cellPxSize = 256 / scene.cellsPerTile;
+  const cps = cellPxSize(scene);
   return {
-    cellIX: Math.floor(wx / cellPxSize),
-    cellIY: Math.floor(wy / cellPxSize),
+    cellIX: Math.floor(wx / cps),
+    cellIY: Math.floor(wy / cps),
   };
 }
 
 function absCellCenterMeters(scene, cellIX, cellIY) {
-  const cellPxSize = 256 / scene.cellsPerTile;
-  const wx = (cellIX + 0.5) * cellPxSize;
-  const wy = (cellIY + 0.5) * cellPxSize;
+  const cps = cellPxSize(scene);
+  const wx = (cellIX + 0.5) * cps;
+  const wy = (cellIY + 0.5) * cps;
   return {
     x: scene.startWorldM.x + (wx - scene.originPx.x) * scene.mPerPx,
     y: scene.startWorldM.y + (wy - scene.originPx.y) * scene.mPerPx,
@@ -48,10 +54,10 @@ function cellKeyFromWorldMeters(scene, wmx, wmy) {
 function playerReachCell(scene) {
   const wx = scene.originPx.x + scene.playerM.x / scene.mPerPx;
   const wy = scene.originPx.y + (scene.playerM.y + scene.feetOffsetM) / scene.mPerPx;
-  const cellPxSize = 256 / scene.cellsPerTile;
+  const cps = cellPxSize(scene);
   return {
-    cellIX: Math.floor(wx / cellPxSize),
-    cellIY: Math.floor(wy / cellPxSize),
+    cellIX: Math.floor(wx / cps),
+    cellIY: Math.floor(wy / cps),
   };
 }
 
