@@ -36,6 +36,16 @@
     WETLAND: 20,         // GRASSLAND — marshy area
     GOLF: 21,            // GRASSLAND — golf course
     ORCHARD: 22,         // FOREST — fruit trees
+    // PIER: wooden walkway over water (OSM transportation:pier). Treated as a
+    // distinct terrain code rather than a per-cell overlay on WATER so the
+    // dozens of "type === WATER" gates around the codebase (creature wander
+    // rejection, watering-can refill, fishing taps, mineralrock blocking,
+    // building-zone scoring) don't each need to special-case "...unless it's
+    // a pier cell". Walkable (not in any building/water blocking set),
+    // non-tillable, not a road tier (so no road-letter labels or path-stone
+    // activation). Rendered by drawing a base water tile + plank sprite
+    // overlay via the cobblePool — see render.js PIER_FRAME.
+    PIER: 23,
   };
   // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
   // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
@@ -134,6 +144,10 @@
     if (['secondary', 'tertiary'].includes(c)) return T.ROAD_MD;
     if (['minor', 'service', 'street'].includes(c)) return T.ROAD;
     if (['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps'].includes(c)) return T.PATH;
+    // Piers: wooden walkways over water. Painted as T.PIER so render.js can
+    // overlay the plank sprite and walkability gates don't lump them in with
+    // roads or treat them as water.
+    if (c === 'pier') return T.PIER;
     return T.ROAD;
   }
   function roadWidthM(tags) {
@@ -143,6 +157,8 @@
     if (c === 'secondary') return 8;
     if (c === 'tertiary') return 7;
     if (c === 'minor' || c === 'street' || c === 'service') return 5;
+    // Piers are narrow wooden walkways — keep them single-cell.
+    if (c === 'pier') return 2;
     return 3;
   }
 
@@ -155,6 +171,10 @@
     [T.FARMLAND]: 3,
     [T.RESIDENTIAL]: 4, [T.COMMERCIAL]: 4, [T.INDUSTRIAL]: 4,
     [T.WATER]: 5,
+    // PIER sits just above WATER so pier lines win where they overlap a
+    // water polygon (which is the whole point — they're walkways over water),
+    // but below roads/buildings so a road bridge crossing the pier still wins.
+    [T.PIER]: 5.5,
     [T.PATH]: 6, [T.ROAD]: 7, [T.ROAD_MD]: 7.1, [T.ROAD_LG]: 7.2,
     [T.BUILDING]: 8, [T.BUILDING_MED]: 8, [T.BUILDING_LARGE]: 8,
   };
@@ -561,10 +581,24 @@
             const florax = FLORA_BY_TYPE[t];
             if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.dMin, florax.dMax);
 
-            // Scattered Maple Trees on wood/forest landcover.
+            // Scattered Trees on wood/forest landcover. Each polygon picks ONE
+            // species (maple/pine/oak/birch) so a single forest reads as a
+            // single woodland type instead of a jumbled mix. We have only the
+            // Maple sprite sheet on disk, so species variety is delivered as a
+            // stable per-polygon TINT applied at render time — variant still
+            // picks the growth-stage frame inside that sheet for visual mix.
             if (name === 'landcover') {
               const cls = f.tags.class || f.tags.subclass;
               if (cls === 'wood' || cls === 'forest') {
+                // Species table — tint chosen to read distinctly against the
+                // bright maple base art. Maple = white (no tint).
+                const TREE_SPECIES = [
+                  { species: 'maple',  tint: 0xffffff },
+                  { species: 'pine',   tint: 0x7fb88a }, // blue-green conifer
+                  { species: 'oak',    tint: 0xc9a36b }, // warm tan/olive
+                  { species: 'birch',  tint: 0xe6e6c8 }, // pale yellow-green
+                ];
+                const sp = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
                 const bb = bboxOf(f.geom);
                 const stepMvt = 8 / mvtToM; // ~one candidate per 8m
                 for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
@@ -576,7 +610,9 @@
                       // Snap tree to cell centre too — keeps the forest from looking jittery.
                       const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
                       const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
-                      objects.push({ kind: 'tree', x: cx, y: cy, variant: 1 + Math.floor(rng() * 4) });
+                      objects.push({ kind: 'tree', x: cx, y: cy,
+                        variant: 1 + Math.floor(rng() * 4),
+                        species: sp.species, tint: sp.tint });
                     }
                   }
                 }
@@ -849,24 +885,11 @@
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
             objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
-            // Garden POIs get a flower burst — up to 8 flora decorations
-            // scattered in a 3-cell ring around the chest. Pure decoration
-            // (flora kind isn't tappable on its own), pollination + the
-            // visual cue make the chest read as a real garden.
-            if (cls === 'garden') {
-              const FLOWER_VARIANTS = 4;
-              const burstSeed = ((Math.round(cx) * 374761393) ^ (Math.round(cy) * 668265263)) >>> 0;
-              const brng = makeRng(burstSeed);
-              for (let i = 0; i < 8; i++) {
-                const ang = brng() * Math.PI * 2;
-                const r   = (1 + brng() * 2) * cellWidthM;   // 1–3 cells out
-                const fx  = snap(cx + Math.cos(ang) * r);
-                const fy  = snap(cy + Math.sin(ang) * r);
-                objects.push({ kind: 'flora', deco: 'flower', x: fx, y: fy,
-                  variant: Math.floor(brng() * FLOWER_VARIANTS),
-                  id: `gb_${Math.round(fx)}_${Math.round(fy)}` });
-              }
-            }
+            // (Garden flower burst is emitted AFTER the chest relocation
+            // pass below — see the `if (cls === 'garden')` block after the
+            // onBuilding / offsetForPlacement branches. Doing it here would
+            // (a) break the `lastChest = objects[objects.length-1]` lookup
+            // and (b) position floras around the un-relocated chest.)
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -1007,6 +1030,42 @@
                 lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
               }
             }
+            // Garden POIs get a flower burst — 6–8 flora decorations scattered
+            // in a 1–3 cell ring around the chest's FINAL position. Emitted
+            // here (after relocation) so positions reflect the actual chest
+            // cell, and after the `lastChest` lookups above so we don't break
+            // them by pushing non-chest objects on top of the stack.
+            //
+            // Each flora carries `_ix`/`_iy` because the unified occupancy
+            // post-pass (below) reads `grid[o._iy * w + o._ix]` to gate flora
+            // by terrain. Without those, every burst flora was being dropped
+            // (grid[NaN] = undefined, fails FLORA_OK).
+            if (cls === 'garden') {
+              const FLOWER_VARIANTS = 4;
+              // Use the chest's final cell as the burst centre. After the
+              // branches above, cellIX/cellIY point at the chest cell (either
+              // the building-perimeter cell or the road-offset placement).
+              const chestObj = objects[objects.length - 1];
+              const chestX = (chestObj && chestObj.kind === 'chest') ? chestObj.x : cx;
+              const chestY = (chestObj && chestObj.kind === 'chest') ? chestObj.y : cy;
+              const burstSeed = ((Math.round(chestX) * 374761393) ^ (Math.round(chestY) * 668265263)) >>> 0;
+              const brng = makeRng(burstSeed);
+              const burstN = 6 + Math.floor(brng() * 3);   // 6..8
+              for (let i = 0; i < burstN; i++) {
+                const ang = brng() * Math.PI * 2;
+                const r   = (1 + brng() * 2) * cellWidthM;   // 1–3 cells out
+                const fx  = snap(chestX + Math.cos(ang) * r);
+                const fy  = snap(chestY + Math.sin(ang) * r);
+                // Compute the local-tile cell index for the post-pass filter.
+                const fIx = Math.floor((fx - tileOriginMx) / mvtToM * mvtToCell);
+                const fIy = Math.floor((fy - tileOriginMy) / mvtToM * mvtToCell);
+                if (fIx < 0 || fIy < 0 || fIx >= w || fIy >= h) continue;
+                objects.push({ kind: 'flora', deco: 'flower', x: fx, y: fy,
+                  variant: Math.floor(brng() * FLOWER_VARIANTS),
+                  _ix: fIx, _iy: fIy,
+                  id: `gb_${Math.round(fx)}_${Math.round(fy)}` });
+              }
+            }
             // No synthesized pad when the POI dissolved a building (the building IS the pad).
             if (!onBuilding) {
               if (PARK_FAMILY.has(cls)) {
@@ -1112,7 +1171,7 @@
       const _mrIsBlocked = (ix, iy) => {
         const tc = grid[iy * w + ix];
         return tc === T.ROAD     || tc === T.ROAD_LG || tc === T.ROAD_MD
-            || tc === T.PATH     || tc === T.WATER
+            || tc === T.PATH     || tc === T.WATER    || tc === T.PIER
             || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       };
       const _mrIsRoad = (ix, iy) => {
@@ -1167,16 +1226,17 @@
           continue;
         }
         // Every OTHER object that landed on a residential cell must be
-        // within Chebyshev 3 of a road — this stops chests, fruit trees,
+        // within Chebyshev 2 of a road — this stops chests, fruit trees,
         // POI props and other interactables from baiting the player into
-        // someone's back yard. Forts, castles, houses and towers are
-        // already exempt above.
+        // someone's back yard. (Was 3; tightened to 2 per user feedback —
+        // 3 cells deep into a lot still feels like trespassing.) Forts,
+        // castles, houses and towers are already exempt above.
         if (here === T.RESIDENTIAL) {
-          if (!_mrNearRoadWithin(ix, iy, 3)) { objects.splice(i, 1); continue; }
+          if (!_mrNearRoadWithin(ix, iy, 2)) { objects.splice(i, 1); continue; }
         }
       }
       // Same proximity rule for the parallel `wildplants` list — any wild
-      // pickup on a residential cell must be within 3 of a road. (DEBRIS_CROP
+      // pickup on a residential cell must be within 2 of a road. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
       for (let i = wildplants.length - 1; i >= 0; i--) {
@@ -1185,7 +1245,19 @@
         const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!_mrNearRoadWithin(ix, iy, 3)) wildplants.splice(i, 1);
+        if (!_mrNearRoadWithin(ix, iy, 2)) wildplants.splice(i, 1);
+      }
+      // Parking-treasure X marks live in a third array (parkingTreasures)
+      // and were missed by both filters above. Apply the same residential
+      // rule — a buried-X on a residential cell must be ≤ 2 from a road,
+      // else drop. Non-residential parking lots (the typical case) stay.
+      for (let i = parkingTreasures.length - 1; i >= 0; i--) {
+        const t = parkingTreasures[i];
+        const ix = Math.floor((t.x - tileOriginMx) / _mrCellW);
+        const iy = Math.floor((t.y - tileOriginMy) / _mrCellW);
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
+        if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
+        if (!_mrNearRoadWithin(ix, iy, 2)) parkingTreasures.splice(i, 1);
       }
     }
 
