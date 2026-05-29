@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>satextract</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  html, body, #map { height: 100%; margin: 0; }
+  .legend { background: rgba(255,255,255,0.92); padding: 8px 12px;
+            font: 12px/1.4 system-ui, sans-serif; border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .legend .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%;
+                 border: 1px solid #333; }
+  .popup-tags { font-family: ui-monospace, monospace; font-size: 11px;
+                white-space: pre-wrap; max-width: 260px; max-height: 180px;
+                overflow: auto; background: #f6f6f6; padding: 4px;
+                border-radius: 4px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const FEATURES = {"type":"FeatureCollection","bbox":[-119.4841882747779,49.8572999973,-119.4758117252221,49.8627000027],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4815712637137,49.86249346659001]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.473,"w_m":65.06,"h_m":25.65}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47872455980814,49.86045274893761]},"properties":{"source":"grounding_dino","kind":"tennis court court","score":0.464,"w_m":195.17,"h_m":195.31}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47965445051977,49.859532952827266]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.449,"w_m":62.49,"h_m":37.35}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48358806470424,49.86070626990886]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.442,"w_m":6.73,"h_m":10.03}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47965964359582,49.859708896092314]},"properties":{"source":"grounding_dino","kind":"swimming pool","score":0.438,"w_m":61.52,"h_m":30.69}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47778578358339,49.859206485708036]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.424,"w_m":9.09,"h_m":7.55}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47924739178234,49.86115101285915]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.418,"w_m":22.16,"h_m":12.38}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47852414150475,49.85758444011536]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.418,"w_m":20.22,"h_m":16.58}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47650691920899,49.85868218529714]},"properties":{"source":"grounding_dino","kind":"tennis court court","score":0.41,"w_m":124.3,"h_m":121.38}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48095208773793,49.860452458504525]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.402,"w_m":195.11,"h_m":194.97}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48318539373759,49.85739727304747]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.399,"w_m":195.62,"h_m":81.98}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47637951239813,49.85907997566916]},"properties":{"source":"grounding_dino","kind":"trash bin","score":0.396,"w_m":5.05,"h_m":6.49}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48404971214131,49.857247320899994]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.394,"w_m":9.81,"h_m":6.19}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4804478766855,49.861108434721906]},"properties":{"source":"grounding_dino","kind":"picnic table","score":0.393,"w_m":13.96,"h_m":8.53}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47872027345511,49.85739937884676]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.388,"w_m":195.27,"h_m":82.41}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47872223423929,49.861891278204666]},"properties":{"source":"grounding_dino","kind":"tennis court court","score":0.385,"w_m":195.59,"h_m":194.71}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47872563312558,49.859014701127144]},"properties":{"source":"grounding_dino","kind":"tennis court court","score":0.383,"w_m":194.47,"h_m":194.61}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48148679938186,49.85950231052261]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.382,"w_m":78.86,"h_m":25.57}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48095499308238,49.85774006470289]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.38,"w_m":195.13,"h_m":157.75}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47934145071258,49.86127917350655]},"properties":{"source":"grounding_dino","kind":"picnic tablester","score":0.379,"w_m":14.21,"h_m":8.57}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48412721605564,49.86076884108719]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.377,"w_m":6.52,"h_m":8.54}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47674681783155,49.86104643766606]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.376,"w_m":15.59,"h_m":7.99}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48387657367903,49.857153434727984]},"properties":{"source":"grounding_dino","kind":"dumpster trash bin","score":0.373,"w_m":7.31,"h_m":8.72}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48170799041918,49.860852907963476]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.372,"w_m":64.37,"h_m":21.12}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48318556158029,49.861893270229146]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.361,"w_m":195.11,"h_m":194.67}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47674683471917,49.8604508094103]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.36,"w_m":158.58,"h_m":195.01}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48137963752743,49.86036322950855]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.358,"w_m":6.92,"h_m":9.55}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48433790147419,49.86075824805224]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.358,"w_m":6.36,"h_m":9.38}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48424769051485,49.861226007130654]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.356,"w_m":43.23,"h_m":24.52}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48154853050255,49.858552265278796]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.352,"w_m":6.55,"h_m":4.22}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48318666260548,49.860451391965036]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.349,"w_m":195.44,"h_m":194.87}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47674960835457,49.861891644110955]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.344,"w_m":158.24,"h_m":195.48}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47790742759025,49.85986816779004]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.34,"w_m":7.07,"h_m":6.91}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47778248924291,49.85910628540343]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.34,"w_m":10.73,"h_m":16.26}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47581398751936,49.862241741016256]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.338,"w_m":10.5,"h_m":10.92}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47679509517911,49.85969442275988]},"properties":{"source":"grounding_dino","kind":"dumpster trash bin","score":0.336,"w_m":32.88,"h_m":27.62}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48095460001696,49.85901482729832]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.336,"w_m":195.33,"h_m":194.48}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48217199935925,49.85750686818299]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.334,"w_m":21.42,"h_m":24.04}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.482022030802,49.8577042522521]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.33,"w_m":6.85,"h_m":5.91}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48318429660048,49.85901421860551]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.329,"w_m":195.33,"h_m":194.79}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47757619705669,49.85855830677726]},"properties":{"source":"grounding_dino","kind":"pool trampoline","score":0.326,"w_m":28.82,"h_m":94.47}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47679457536196,49.85961517108939]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.325,"w_m":33.07,"h_m":45.49}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47844706532123,49.85854133951968]},"properties":{"source":"grounding_dino","kind":"swimming pool","score":0.324,"w_m":86.34,"h_m":88.22}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47924729578745,49.861177004864615]},"properties":{"source":"grounding_dino","kind":"swimming pool","score":0.323,"w_m":46.41,"h_m":30.43}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47674836740418,49.85738307103067]},"properties":{"source":"grounding_dino","kind":"pool tennis court","score":0.323,"w_m":158.91,"h_m":78.84}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47674869324658,49.86098015484295]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.32,"w_m":158.43,"h_m":22.68}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47933752834615,49.86127966275971]},"properties":{"source":"grounding_dino","kind":"picnic table","score":0.32,"w_m":18.06,"h_m":12.22}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47671754260227,49.859372889448736]},"properties":{"source":"grounding_dino","kind":"dumpster trash bin","score":0.317,"w_m":7.8,"h_m":7.97}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47676883692338,49.86017285929389]},"properties":{"source":"grounding_dino","kind":"pool","score":0.317,"w_m":72.09,"h_m":81.12}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4775955058033,49.85868773610156]},"properties":{"source":"grounding_dino","kind":"playground equipment","score":0.314,"w_m":37.1,"h_m":123.55}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47716254637498,49.86202023088363]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.313,"w_m":20.97,"h_m":48.1}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47911933922114,49.861692470456504]},"properties":{"source":"grounding_dino","kind":"solar panel","score":0.313,"w_m":48.53,"h_m":25.79}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48012166840272,49.85968341061319]},"properties":{"source":"grounding_dino","kind":"pool","score":0.312,"w_m":76.59,"h_m":24.76}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48220674140657,49.85757484253626]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.31,"w_m":15.89,"h_m":8.9}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48358094925425,49.86063123666987]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.306,"w_m":7.96,"h_m":7.6}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47932136731652,49.85736146125292]},"properties":{"source":"grounding_dino","kind":"picnic table","score":0.305,"w_m":6.25,"h_m":6.95}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48095446892694,49.86189181781684]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.305,"w_m":195.39,"h_m":194.51}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48283928833916,49.862616195970084]},"properties":{"source":"grounding_dino","kind":"satellite dish","score":0.305,"w_m":9.36,"h_m":13.15}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48361649793696,49.86095884230152]},"properties":{"source":"grounding_dino","kind":"##poline picnic table","score":0.304,"w_m":18.96,"h_m":13.42}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4812647660001,49.8580875711622]},"properties":{"source":"grounding_dino","kind":"parked car","score":0.304,"w_m":7.09,"h_m":5.96}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48407660765497,49.860953649993775]},"properties":{"source":"grounding_dino","kind":"satellite dish","score":0.301,"w_m":10.38,"h_m":8.17}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48150379800836,49.8584662869821]},"properties":{"source":"grounding_dino","kind":"swimming pool","score":0.3,"w_m":56.67,"h_m":13.69}}]};
+const COLORS = {
+  osm: "#3b82f6",
+  deepforest: "#22c55e",
+  grounding_dino: "#f59e0b",
+};
+
+const map = L.map("map");
+const esri = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom: 20, attribution: "Esri World Imagery" }
+);
+const osm = L.tileLayer(
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  { maxZoom: 19, attribution: "© OpenStreetMap" }
+);
+esri.addTo(map);
+L.control.layers({ "Esri Imagery": esri, "OSM": osm }, {}).addTo(map);
+
+const counts = {};
+const layer = L.geoJSON(FEATURES, {
+  pointToLayer: (f, latlng) => {
+    const src = (f.properties || {}).source || "unknown";
+    counts[src] = (counts[src] || 0) + 1;
+    return L.circleMarker(latlng, {
+      radius: 5,
+      color: "#000",
+      weight: 1,
+      fillColor: COLORS[src] || "#888",
+      fillOpacity: 0.85,
+    });
+  },
+  onEachFeature: (f, lyr) => {
+    const p = f.properties || {};
+    const score = p.score != null
+      ? ` <span style="opacity:0.6">(${(p.score * 100).toFixed(0)}%)</span>`
+      : "";
+    const tags = p.tags
+      ? `<div class="popup-tags">${JSON.stringify(p.tags, null, 2)}</div>`
+      : "";
+    lyr.bindPopup(
+      `<b>${p.kind || "?"}</b>${score}<br>` +
+      `<small style="opacity:0.7">${p.source || ""}</small>${tags}`
+    );
+  },
+}).addTo(map);
+
+if (FEATURES.features && FEATURES.features.length) {
+  map.fitBounds(layer.getBounds(), { padding: [24, 24] });
+} else if (FEATURES.bbox) {
+  const [w, s, e, n] = FEATURES.bbox;
+  map.fitBounds([[s, w], [n, e]]);
+} else {
+  map.setView([0, 0], 2);
+}
+
+const legend = L.control({ position: "topright" });
+legend.onAdd = () => {
+  const div = L.DomUtil.create("div", "legend");
+  let html = "<b>satextract</b><br>";
+  const all = Object.keys(COLORS);
+  for (const src of all) {
+    if (counts[src]) {
+      html += `<div class="row"><span class="dot" style="background:${COLORS[src]}"></span>${src} (${counts[src]})</div>`;
+    }
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  html += `<div style="margin-top:4px;opacity:0.7">${total} feature${total === 1 ? "" : "s"}</div>`;
+  div.innerHTML = html;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>

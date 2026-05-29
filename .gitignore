@@ -4,5 +4,5 @@ node_modules/
 .DS_Store
 Thumbs.db
 tmp_inspect/
-analyze_crops.py
+tools/analyze_crops.py
 Sprites

@@ -14,7 +14,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- All asset paths in app.js are relative ("Character/Idle.png", etc.),
+  <!-- All asset paths in the source are relative ("assets/Character/Idle.png", etc.),
        so resolve every URL on this page against the project root. Script
        srcs and the fixture fetch path below use absolute `/test/...` to
        compensate. -->
@@ -86,10 +86,10 @@
      // into other modules; sandbox.js + testtools.js were added — keep
      // this list in sync when index.html changes.
     document.write([
-      '/phaser.js', '/mvt.js', '/util.js', '/coords.js', '/worldgen.js', '/crops.js',
-      '/textures.js', '/save.js', '/items.js', '/shops.js', '/rarity.js',
-      '/loot.js', '/interact.js', '/render.js', '/assets.js',
-      '/sandbox.js', '/testtools.js', '/app.js',
+      '/vendor/phaser.js', '/src/mvt.js', '/src/util.js', '/src/coords.js', '/src/worldgen.js', '/src/crops.js',
+      '/src/textures.js', '/src/save.js', '/src/items.js', '/src/shops.js', '/src/rarity.js',
+      '/src/loot.js', '/src/interact.js', '/src/render.js', '/src/assets.js',
+      '/src/sandbox.js', '/src/testtools.js', '/src/app.js',
     ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
   </script>
 

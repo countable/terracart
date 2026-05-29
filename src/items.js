@@ -13,7 +13,7 @@
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   SEED_TIER, FLOWER_SEEDS  (loot tier config; co-located with the crops they describe)
 
-// Crops sheet (Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
+// Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
 // Inventory icons: col 7 = produce, col 8 = seed.
 const CROP_ROW = {
@@ -639,9 +639,9 @@ function gearAssetPath(kind, slot, tier) {
   // Ring + amulet live under Extras (single icon, tier shown as a badge).
   // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
   if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet' || slot === 'bags')) {
-    return `Icons/RPG icons/Extras/${def.icon}`;
+    return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
-  return `Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
+  return `assets/Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
 }
 function gearName(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];

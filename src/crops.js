@@ -49,7 +49,7 @@
   }));
 
   window.SpringCrops = {
-    SHEET: 'Objects/Spring Crops.png',
+    SHEET: 'assets/Objects/Spring Crops.png',
     FRAME_W: 16,
     FRAME_H: 16,
     COLS: 14,

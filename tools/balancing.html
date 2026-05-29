@@ -89,8 +89,8 @@
   <!-- cache-bust on every load so balancing edits show up without clearing cache. -->
   <script>
     document.write([
-      'mvt.js', 'coords.js', 'worldgen.js', 'crops.js',
-      'items.js', 'shops.js', 'rarity.js', 'loot.js',
+      '../src/mvt.js', '../src/coords.js', '../src/worldgen.js', '../src/crops.js',
+      '../src/items.js', '../src/shops.js', '../src/rarity.js', '../src/loot.js',
     ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
   </script>
   <script>

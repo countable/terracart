@@ -9,19 +9,19 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v7';
+const SHELL_VERSION = 'shell-v8';
 const TILE_CACHE    = 'tiles-v1';
 
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './phaser.js',
-  './mvt.js',
-  './worldgen.js',
-  './crops.js',
-  './textures.js',
-  './app.js',
+  './vendor/phaser.js',
+  './src/mvt.js',
+  './src/worldgen.js',
+  './src/crops.js',
+  './src/textures.js',
+  './src/app.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -100,11 +100,23 @@ self.addEventListener('fetch', (event) => {
         }
       }
       const cached = await cache.match(req);
-      const networkPromise = fetch(req).then((resp) => {
+      if (cached) {
+        // Serve cache instantly, refresh in the background (stale-while-revalidate).
+        event.waitUntil(fetch(req).then((resp) => {
+          if (resp.ok) cache.put(req, resp.clone());
+        }).catch(() => {}));
+        return cached;
+      }
+      // Not cached → go to network. NEVER resolve respondWith() with undefined:
+      // on a network failure return a real error Response so the browser can
+      // surface a normal load error instead of throwing a SW invariant.
+      try {
+        const resp = await fetch(req);
         if (resp.ok) cache.put(req, resp.clone());
         return resp;
-      }).catch(() => cached);
-      return cached || networkPromise;
+      } catch {
+        return new Response('', { status: 504, statusText: 'offline' });
+      }
     })());
     return;
   }

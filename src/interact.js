@@ -779,7 +779,11 @@ const TAP_HANDLERS = [
             }
             persistSave(save);
             const item = ITEM_BY_ID[flashId];
-            scene.flash(`🪨 ${item?.name || flashId}`, sx, sy);
+            // Show the real loot icon (copper bar, rockfruit, gem) via flashLoot,
+            // exactly like every other pickup. The old text-only `flash` baked a
+            // literal 🪨 emoji into the string, so the splash rendered the rock
+            // glyph instead of the copper-bar icon the player actually mined.
+            scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
             return;
           }
           // Ore-bearing rock — exactly ONE bar of the indicated type, plus
@@ -807,7 +811,9 @@ const TAP_HANDLERS = [
           }
           persistSave(save);
           const item = ITEM_BY_ID[flashId];
-          scene.flash(`💎 ${item?.name || flashId}`, sx, sy);
+          // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
+          // showed a gem glyph instead of the mined bar/gem icon).
+          scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
         }, durMs);
         return true;
       }
@@ -1096,7 +1102,12 @@ const TAP_HANDLERS = [
   { name: 'can-refill', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== 3) return false;          // not water
-    if (!save.relics?.can) return false;         // no can equipped
+    if (!save.relics?.can) return false;         // no can owned
+    // Neither the can nor the rod is a selectable inventory item, so a bare
+    // water tap is ambiguous when the player owns both. A rod wins — water
+    // taps cast a line (see 'fishing' below), and the cast tops the can up
+    // for free, so a rod owner loses nothing by skipping this handler.
+    if (save.relics?.rod) return false;
     save.canCharges = 50;
     ctx.dirty = true;
     scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
@@ -1115,6 +1126,10 @@ const TAP_HANDLERS = [
       return true;
     }
     if (!scene.spendEnergy(5, sx, sy)) return true;
+    // The rod owns water taps, so a rod owner can't reach 'can-refill'. Top
+    // the can up here as part of the cast (the line's in the water anyway)
+    // so owning a rod never costs you your watering charges.
+    if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 1;
       // Per user: most of the wait results in nothing on a low-tier rod,

@@ -44,7 +44,7 @@ const BIOME_TEX = {
 
 // === Water autotile (cardinal Wang) =====================================
 // Cardinal-neighbor 4-bit mask → frame index in the 'terrains' spritesheet
-// (Objects/Terrains_16x16.png, 32 cols × 23 rows of 16×16 frames).
+// (assets/Objects/Terrains_16x16.png, 32 cols × 23 rows of 16×16 frames).
 // Mask bit assignment: N=1, E=2, S=4, W=8. Bit is set when that neighbor
 // is the SAME terrain (water). The 3×3 Wang block at sheet cols 16-18,
 // rows 0-2 covers 9 of the 16 possible mask values; the remaining 7 (0, 1,

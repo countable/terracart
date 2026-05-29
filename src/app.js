@@ -133,10 +133,10 @@ class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
   preload() {
-    this.load.spritesheet('idle', 'Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('walk', 'Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('trees','Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
-    this.load.image('house', 'Objects/House.png');
+    this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
+    this.load.image('house', 'assets/Objects/House.png');
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
     this.load.once('filecomplete-image-house', () => {
@@ -148,7 +148,7 @@ class MapScene extends Phaser.Scene {
     // given key. The resulting 32×32 frame was actually a 2×2 grid of
     // 16×16 chickens, so every spawned creature rendered as four. Don't
     // re-add this line — let ASSETS own the framing.
-    this.load.spritesheet('cow',     'Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('cow',     'assets/Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
     // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
     // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
     // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
@@ -156,17 +156,17 @@ class MapScene extends Phaser.Scene {
     // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
     // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
     // sheets from those folders if we ever want colour variety.
-    this.load.spritesheet('cat', 'Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('dog', 'Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('cat', 'assets/Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('dog', 'assets/Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
     // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
     // Frames: 0 = closed, 1 = open.
-    this.load.spritesheet('chest',   'Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
+    this.load.spritesheet('chest',   'assets/Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
     // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
     // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
-    this.load.spritesheet('crops',   'Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('crops',   'assets/Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
     // Spring Crops sheet (224×128, 14×8 of 16×16 frames). Used by crops whose
     // art lives here (e.g. potato) — see CROP_SPRITE override below.
-    this.load.spritesheet('springcrops', 'Objects/Spring Crops.png',  { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('springcrops', 'assets/Objects/Spring Crops.png',  { frameWidth: 16, frameHeight: 16 });
     // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
     this.load.once('filecomplete-spritesheet-crops', () => {
       const tex = this.textures.get('crops');
@@ -187,7 +187,7 @@ class MapScene extends Phaser.Scene {
       // Now that the alpha-keyed 'crops' image is available, bake per-crop plaque textures.
       makePlaqueTextures(this);
     });
-    this.load.spritesheet('cobble',  'Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('cobble',  'assets/Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     // Walk the ASSETS catalog (assets.js) so wilderness textures, gem
     // icons, scarecrow, shell sheet, etc. all preload. Without this loop
     // every reference in render.js / renderItemIcon falls back to the
@@ -500,6 +500,11 @@ class MapScene extends Phaser.Scene {
     // of the three). Ground stacks pick a frame based on the stack's
     // qty (see render.js groundstack branch).
     window.ITEM_DATA_URLS.wood      = bakeSheetFrame('wood', 2, 16, 16);
+    // Scarecrow — the placeable item shares the world sprite (32×32 single
+    // image). Without this bake its inventory / shop / pickup-toast icon fell
+    // back to the item.icon emoji (a 🪦 headstone), so the held item looked
+    // nothing like what gets planted. Bake the frame so all surfaces match.
+    window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
     // Shape-based concrete pads under POI chests. One texture per unique shape
     // (square3 / square2 / cross / triangle); the POI's class picks the shape
     // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
@@ -3130,27 +3135,44 @@ class MapScene extends Phaser.Scene {
   // memoize in save.starterShopId so reloads + roaming keep the same shop.
   isStarterShop(house) {
     if (!house || !house.id) return false;
-    if (this.save.starterShopId == null) {
-      const nearestId = this.findStarterHouseId();
-      if (nearestId) this.save.starterShopId = nearestId;
-    }
+    this.ensureStarterShopId();
     return this.save.starterShopId === house.id;
   }
 
-  // Find the house nearest startWorldM among all loaded objects. Returns the
-  // house id, or null if no house is loaded yet.
-  findStarterHouseId() {
-    let bestId = null, bestD2 = Infinity;
+  // Resolve (and self-heal) save.starterShopId: the player's Home is the
+  // house nearest spawn. The catch is tiles stream in asynchronously, so the
+  // nearest house among *currently loaded* tiles can be kilometres away
+  // before the spawn tile arrives. Memoizing that gives the player a "home"
+  // across town — and (pre-fix) a stale, far id persisted to the save, so the
+  // trailer sprite never appears near spawn. Guard against it: only accept a
+  // candidate within one tile of spawn (Home is adjacent — a house tiles away
+  // just means the spawn tile hasn't loaded yet), and replace a memoized id
+  // that is missing or implausibly far so old broken saves repair themselves.
+  // Cheap after it locks in via the _starterShopOk early-out; called both
+  // lazily (isStarterShop) and every frame from Render.drawObjects.
+  ensureStarterShopId() {
+    if (this._starterShopOk) return;
+    const homeR = this.cellM * this.cellsPerTile;   // ~one tile edge in metres
+    const homeR2 = homeR * homeR;
+    const sx = this.startWorldM.x, sy = this.startWorldM.y;
+    const cur = this.save.starterShopId;
+    let nearestId = null, nearestD2 = Infinity, curD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
-        if (o.kind !== 'house') continue;
-        if (!o.id) continue;
-        const dx = o.x - this.startWorldM.x, dy = o.y - this.startWorldM.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
+        if (o.kind !== 'house' || !o.id) continue;
+        const dx = o.x - sx, dy = o.y - sy, d2 = dx * dx + dy * dy;
+        if (d2 < nearestD2) { nearestD2 = d2; nearestId = o.id; }
+        if (o.id === cur) curD2 = d2;
       }
     }
-    return bestId;
+    // No house near spawn yet — the home tile is still streaming. Try again
+    // next frame; leave any existing memo untouched.
+    if (nearestId == null || nearestD2 > homeR2) return;
+    // Adopt the near-home house when there's no memo, or the memo points
+    // nowhere near spawn (unloaded or a stale cross-town id). A memo that's
+    // already within range is left alone so we don't flip-flop.
+    if (cur == null || curD2 > homeR2) this.save.starterShopId = nearestId;
+    this._starterShopOk = true;
   }
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
@@ -3170,11 +3192,9 @@ class MapScene extends Phaser.Scene {
 
   findStarterBlacksmithId() {
     // Resolve the starter shop first — needed both to anchor the search and
-    // to exclude it from the candidate list.
-    if (this.save.starterShopId == null) {
-      const sid = this.findStarterHouseId();
-      if (sid) this.save.starterShopId = sid;
-    }
+    // to exclude it from the candidate list. Goes through the guarded
+    // resolver so a half-streamed map can't anchor the smithy across town.
+    this.ensureStarterShopId();
     const starterId = this.save.starterShopId;
     // Anchor the distance search at the starter house's world position when
     // it's loaded; otherwise fall back to the player's spawn so the choice
@@ -3785,7 +3805,7 @@ class MapScene extends Phaser.Scene {
         const ICON_SIZE = 96;            // big icon slot in the reward modal
         const SCALE = ICON_SIZE / 48;    // scale the 48-wide frame up to ICON_SIZE
         const iconHTML = `<span style="display:inline-block;width:${ICON_SIZE}px;height:${64 * SCALE}px;`
-          + `background-image:url('Objects/Wilderness/Water fountain.png');`
+          + `background-image:url('assets/Objects/Wilderness/Water fountain.png');`
           + `background-size:${192 * SCALE}px ${128 * SCALE}px;`
           + `background-position:-${fcol * ICON_SIZE}px -${frow * 64 * SCALE}px;`
           + `image-rendering:pixelated"></span>`;
@@ -3958,7 +3978,11 @@ class MapScene extends Phaser.Scene {
     for (const k in entry.pathNames) if (entry.pathNames[k] === name) total++;
     if (rec.stones.length >= total) {
       rec.done = true;
-      this._firePathCompletionReward(name);
+      // Only reward trails of real length. Every path cell is now named
+      // (worldgen flood-fill), so without this floor a 1–2 cell footpath stub
+      // would pop the full fanfare. 8 cells ≈ 40 m — a trail worth walking.
+      const MIN_TRAIL = 8;
+      if (total >= MIN_TRAIL) this._firePathCompletionReward(name);
     }
     persistSave(this.save);
     return true;
@@ -3973,7 +3997,9 @@ class MapScene extends Phaser.Scene {
     const reward = (typeof pickReward === 'function')
       ? pickReward('chest:lowtier', this.save, undefined, { tier: 4 })
       : null;
-    const title = name.toUpperCase();
+    // Unnamed trails carry a synthetic "trail#<tile>_<n>" key (worldgen
+    // flood-fill) — show a generic title rather than the raw id.
+    const title = name.startsWith('trail#') ? 'HIDDEN TRAIL' : name.toUpperCase();
     if (!reward) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -4299,51 +4325,51 @@ class MapScene extends Phaser.Scene {
       // request like { sheet: 'gems', frame: 4 } rendered as rainberry
       // stage 4 (the "berry bush" the user reported on sapphire offers).
       const SHEETS = {
-        crops:       { url: 'Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
-        springcrops: { url: 'Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
-        gems:        { url: 'Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
-        coal_icon:   { url: 'Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+        crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
+        springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
+        gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
+        coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
         // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
         // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
         // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
         // Without this entry, every bar fell through to crops.png frame 0 and
         // rendered as a grass sprout in shrine / smith trade modals.
-        bars:        { url: 'Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
+        bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
         // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
-        icon_egg:    { url: 'Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
-        icon_milk:   { url: 'Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
+        icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
+        icon_milk:   { url: 'assets/Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
         // Orchard fruit — 32×16 each (frame 0 = whole fruit).
-        icon_apple:   { url: 'Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_cherry:  { url: 'Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_peach:   { url: 'Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_banana:  { url: 'Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_orange:  { url: 'Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_mango:   { url: 'Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_coconut: { url: 'Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        icon_apricot: { url: 'Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
+        icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
+        icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
         // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
         // smallmouth bass icon (same family, just smaller fiction).
-        icon_minnow:     { url: 'Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
-        icon_bass:       { url: 'Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
-        icon_trout:      { url: 'Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
-        icon_salmon:     { url: 'Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
-        icon_goldenfish: { url: 'Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+        icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
+        icon_bass:       { url: 'assets/Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
+        icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
+        icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
+        icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
         // Consumables + wilderness drops.
-        icon_flute:    { url: 'Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
-        icon_book:     { url: 'Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
-        icon_meat:     { url: 'Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
-        icon_pelt:     { url: 'Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
-        icon_feather:  { url: 'Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
+        icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
+        icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+        icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+        icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
+        icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
         // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
         // cowrie used as the inventory icon.
-        shell_sheet:   { url: 'Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
+        shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
         // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
         // (top-left grass tuft) backs the longgrass inventory icon now
         // that the procedural sprite has been retired.
-        props:         { url: 'Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+        props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
         // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
         // is the brown leather boot used as the fishing-junk inventory icon.
-        pickup:        { url: 'Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
+        pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;
@@ -4597,22 +4623,33 @@ class MapScene extends Phaser.Scene {
     this.syncGhostPad();
     this.syncDebugPad();
     const relics = this.save.relics || {};
+    const armor = this.save.armor || {};
     const order = ['pick','axe','sword','bow','staff','ring','amulet'];
+    const armorOrder = ['helmet','chest','legs','boots'];
     document.getElementById('relic-row')?.remove();
-    const owned = order.filter(s => relics[s]);
-    if (!owned.length) return;
+    const ownedRelics = order.filter(s => relics[s]);
+    const ownedArmor = armorOrder.filter(s => armor[s]);
+    if (!ownedRelics.length && !ownedArmor.length) return;
     const row = document.createElement('div');
     row.id = 'relic-row';
     // position:fixed + appended to <body> for the same reason as the inv bar
     // (see buildInventoryDOM): a fixed element inside transformed #game would
     // anchor to #game, not the viewport.
-    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:calc(var(--phone-right, 0px) + 8px);display:flex;gap:4px;padding:4px 6px;background:#000a;border:2px solid #444;border-radius:8px;z-index:7;pointer-events:none;';
-    for (const slot of owned) {
+    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:calc(var(--phone-right, 0px) + 8px);display:flex;gap:4px;padding:4px 6px;background:#000a;border-radius:8px;z-index:7;pointer-events:none;';
+    const addIcon = (kind, slot, tier) => {
       const wrap = document.createElement('span');
       wrap.style.cssText = 'display:inline-block;line-height:0;';
-      wrap.innerHTML = this.gearIconHTML('relic', slot, relics[slot].tier, 20);
+      wrap.innerHTML = this.gearIconHTML(kind, slot, tier, 20);
       row.appendChild(wrap);
+    };
+    for (const slot of ownedRelics) addIcon('relic', slot, relics[slot].tier);
+    // Thin divider between the relic group and the armor group when both exist.
+    if (ownedRelics.length && ownedArmor.length) {
+      const sep = document.createElement('span');
+      sep.style.cssText = 'align-self:stretch;width:1px;background:#666;margin:0 1px;';
+      row.appendChild(sep);
     }
+    for (const slot of ownedArmor) addIcon('armor', slot, armor[slot].tier);
     document.body.appendChild(row);
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
@@ -5065,7 +5102,7 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffd866;font:11px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffd866;font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();

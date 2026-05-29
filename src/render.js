@@ -144,7 +144,7 @@ Render.drawCells = function drawCells(scene) {
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // Reuses the cobblePool slot for the overlay sprite but swaps its texture
-  // from 'cobble' to 'pier' (Objects/Wilderness/Bridge Beach.png, 8×14 of
+  // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
   // 16×16 frames). Frame 33 = row 4 col 1 = the middle plank of one of the
   // standalone 3-cell horizontal bridges in the lower half of the sheet
   // (clean planks, no end-caps, no railing posts). Pier cells are NOT roads
@@ -308,8 +308,25 @@ Render.drawCells = function drawCells(scene) {
           texKey = 'terrains';
           texFrame = WATER_AUTOTILE_FRAME[mask] ?? WATER_AUTOTILE_FALLBACK;
         } else {
-          const spec = BIOME_TEX[type];
-          if (spec) texKey = `biome${type}_${Math.abs(h) % spec.variants}`;
+          // PATH cells render the biome they were painted over (recorded in
+          // worldgen's pathUnder) so a footpath reads as stepping-stones on the
+          // existing ground rather than carving out a path-coloured patch. The
+          // cobble pebble overlay still draws on top (cobblePool below). Falls
+          // back to the path's own base if there's no record or the under-biome
+          // has no texture (e.g. commercial/industrial concrete pads).
+          let baseType = type;
+          if (type === PATH) {
+            const N = scene.cellsPerTile;
+            const txp = Math.floor(absCellIX / N);
+            const typ = Math.floor(absCellIY / N);
+            const lix = absCellIX - txp * N;
+            const liy = absCellIY - typ * N;
+            const e = WorldGen.tileCache.get(`${WorldGen.Z}/${txp}/${typ}`);
+            const u = e && e.pathUnder && e.pathUnder[`${lix}_${liy}`];
+            if (u != null && BIOME_TEX[u]) baseType = u;
+          }
+          const spec = BIOME_TEX[baseType];
+          if (spec) texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
         }
         if (texKey) {
           if (texFrame !== undefined) ns.setTexture(texKey, texFrame);
@@ -689,11 +706,13 @@ Render.drawCells = function drawCells(scene) {
 };
 
 Render.drawObjects = function drawObjects(scene) {
-  // Resolve the starter shop id as soon as any tile with houses has loaded,
-  // so the yellow tint can apply on first render (rather than waiting for the
-  // player to actually tap a house). Cheap once memoized — early-out is the
-  // null check inside ensureStarterShopId.
-  if (!scene.save.starterShopId && scene.ensureStarterShopId) scene.ensureStarterShopId();
+  // Resolve the starter shop id as soon as the spawn tile's houses have
+  // loaded, so the trailer sprite + Home tint apply on first render (rather
+  // than waiting for the player to tap a house). Runs every frame until it
+  // locks in — not just while the id is unset — so a stale/far memo from an
+  // older save repairs itself. Cheap once locked (the _starterShopOk early-
+  // out inside ensureStarterShopId).
+  if (scene.ensureStarterShopId) scene.ensureStarterShopId();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -897,7 +916,12 @@ Render.drawObjects = function drawObjects(scene) {
         // 0.6 so they look like neighbours from the same village.
         return role === 'fort' ? 0.35 : 0.6;
       } },
-    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0 },
+    // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
+    // ~2/3 of a cell up into the tile above — leaving its collision cell (the
+    // castle wall it stands on) exposed as an empty-looking blocked space below
+    // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
+    // trees — so the tower stands inside its own single cell.
+    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 32×32 image with the pole base at the bottom of the
     // sprite; origin (0.5, 1) anchors that base on the placement cell.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },

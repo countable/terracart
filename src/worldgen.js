@@ -180,10 +180,20 @@
   };
 
   // --- Rasterization helpers ---
-  function paintCell(grid, w, h, cx, cy, type) {
+  // `under` (optional): a map keyed "cx_cy" that records the biome a cell
+  // held *before* this paint overwrote it. Only passed when painting PATH —
+  // it lets render draw the surrounding biome under the sparse path pebbles
+  // instead of a path-specific base, so a footpath doesn't carve a visibly
+  // different patch out of the grass/park it crosses. We skip the record when
+  // the previous value was already PATH (overlapping path lines) so the real
+  // under-biome from the first stamp isn't clobbered with PATH.
+  function paintCell(grid, w, h, cx, cy, type, under) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return;
     const i = cy * w + cx;
-    if (PRIO[type] >= PRIO[grid[i]]) grid[i] = type;
+    if (PRIO[type] >= PRIO[grid[i]]) {
+      if (under && grid[i] !== type) under[`${cx}_${cy}`] = grid[i];
+      grid[i] = type;
+    }
   }
   function paintPolygon(grid, w, h, rings, type, mvtToCell) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
@@ -224,7 +234,7 @@
       }
     }
   }
-  function paintLine(grid, w, h, line, type, widthCells, mvtToCell) {
+  function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under) {
     // Stamp a disk of radius widthCells/2 along the polyline using Bresenham segments.
     const r = Math.max(0, Math.floor(widthCells / 2));
     for (let i = 1; i < line.length; i++) {
@@ -237,7 +247,7 @@
       let err = dx + dy;
       while (true) {
         for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
-          if (ox * ox + oy * oy <= r * r) paintCell(grid, w, h, x0 + ox, y0 + oy, type);
+          if (ox * ox + oy * oy <= r * r) paintCell(grid, w, h, x0 + ox, y0 + oy, type, under);
         }
         if (x0 === x1 && y0 === y1) break;
         const e2 = 2 * err;
@@ -402,6 +412,9 @@
     const objects = [];
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
+    // "cx_cy" → biome code a PATH cell overwrote (see paintCell). Render uses
+    // it to draw the under-path biome so paths don't change the ground.
+    const pathUnder = {};
     const rng = makeRng(tx * 73856093 ^ ty * 19349663);
 
     // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
@@ -479,6 +492,26 @@
       y: tileOriginMy + my * mvtToM,
     });
 
+    // Snap an mvt-space point to THIS tile's local cell grid — the same grid
+    // the terrain `grid[]`, wildplants (spawnDebris) and flora (spawnFlora)
+    // already use. Every placed object must share this one grid: structs
+    // (trees / rocks / fruit trees / houses) used to snap to a GLOBAL 5 m grid
+    // anchored at the world origin, which is offset from this tile-local grid
+    // by a sub-cell fraction. That misalignment meant a tree and a wildplant
+    // sitting in the "same" spot could quantise into different occupancy cells,
+    // so the unified occupancy pass failed to dedupe them and both survived.
+    // Local cells are also fully contained within the tile (indices 0..w/h-1),
+    // so no two tiles ever emit an object for the same physical cell.
+    const snapCell = (mx, my) => {
+      const ix = Math.floor(mx * mvtToCell);
+      const iy = Math.floor(my * mvtToCell);
+      return {
+        ix, iy,
+        cx: tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM,
+        cy: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
+      };
+    };
+
     const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
@@ -545,9 +578,7 @@
                 const jx = bb.minX + rng2() * (bb.maxX - bb.minX);
                 const jy = bb.minY + rng2() * (bb.maxY - bb.minY);
                 if (!pointInRings(f.geom, jx, jy)) continue;
-                const m = toMeters(jx, jy);
-                const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
-                const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                const { cx, cy } = snapCell(jx, jy);
                 // Tier 1 mineral rock — the cheap one. Sprinkle different
                 // tiers occasionally (5 % each up to T3) for variety.
                 const r = rng2();
@@ -597,10 +628,10 @@
                     const jx = xx + (rng() - 0.5) * stepMvt;
                     const jy = yy + (rng() - 0.5) * stepMvt;
                     if (pointInRings(f.geom, jx, jy)) {
-                      const m = toMeters(jx, jy);
-                      // Snap tree to cell centre too — keeps the forest from looking jittery.
-                      const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
-                      const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                      // Snap to the tile cell grid (shared with rocks/wildplants/
+                      // flora) so the occupancy pass can dedupe — and it keeps the
+                      // forest from looking jittery.
+                      const { cx, cy } = snapCell(jx, jy);
                       // Stable per-cell id so chop tracking can target an
                       // individual tree. Pre-fix, every forest tree spawned
                       // with `id === undefined`; pushing one undefined into
@@ -628,11 +659,7 @@
                 for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                   for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
                     if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
-                    const m = toMeters(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
-                    const ix = Math.floor(m.x / CELL_M);
-                    const iy = Math.floor(m.y / CELL_M);
-                    const cx = (ix + 0.5) * CELL_M;
-                    const cy = (iy + 0.5) * CELL_M;
+                    const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
                     objects.push({ kind: 'fruittree', x: cx, y: cy, species,
                       id: `ft_${tx}_${ty}_${ix}_${iy}` });
                   }
@@ -670,11 +697,7 @@
             // correctness.
             const _pushMineralrock = (rng, jx, jy, tierW, totalW, residential) => {
               if (!pointInRings(f.geom, jx, jy)) return;
-              const m = toMeters(jx, jy);
-              const ix = Math.floor(m.x / CELL_M);
-              const iy = Math.floor(m.y / CELL_M);
-              const cx = (ix + 0.5) * CELL_M;
-              const cy = (iy + 0.5) * CELL_M;
+              const { cx, cy } = snapCell(jx, jy);
               if (rng() < _CAVE_ROCK_P) {
                 const caveVariant = Math.floor(rng() * _CAVE_VARIANTS);
                 objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
@@ -802,7 +825,10 @@
           const t = classifyLine(name, f.tags);
           if (t == null) continue;
           const wCells = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
-          for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell);
+          // Only PATH records its under-biome — roads/piers fully cover their
+          // cell so the base never shows, and skipping them keeps pathUnder small.
+          const under = t === T.PATH ? pathUnder : undefined;
+          for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell, under);
         } else if (f.type === 2 && name === 'waterway') {
           // Streams / rivers / drains carve a 1–2 cell line of WATER. Rivers
           // get 2 cells wide, streams + drains stay at 1 — this lets the
@@ -1137,12 +1163,14 @@
           if (bp.tier === T.BUILDING_LARGE) continue;
           const c = ringCentroid(bp.ring);
           const m = toMeters(c.x, c.y);
-          // Snap house sprite to the 5m cell centre so a row of houses
-          // lines up cleanly.
+          // Position the house sprite on this tile's cell grid (shared with
+          // every other object) so the occupancy pass dedupes it against
+          // trees / rocks / etc and a row of houses still lines up cleanly.
+          const { cx, cy } = snapCell(c.x, c.y);
+          // The address (→ shop type) stays keyed to the GLOBAL 5 m cell so a
+          // house keeps the same shop role regardless of grid changes.
           const ix = Math.floor(m.x / CELL_M);
           const iy = Math.floor(m.y / CELL_M);
-          const cx = (ix + 0.5) * CELL_M;
-          const cy = (iy + 0.5) * CELL_M;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
           const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
           // Synthetic 3-digit street address derived from cell coords. Houses
@@ -1446,6 +1474,50 @@
         }
       }
     }
+    // Flood-fill every PATH cell into 4-connected components and give each
+    // component ONE name, stamped onto all its cells. The centerline march
+    // above only names cells lying exactly on the transportation_name polyline,
+    // so wide paths had bare cells and unnamed footpaths had none at all —
+    // tapping those did nothing (no blue, no claim). Now every path stone is
+    // claimable: a component reuses the real OSM name if any of its cells
+    // caught one above, otherwise gets a synthetic per-tile id (so two
+    // unnamed trails in one tile stay distinct in save.pathStones).
+    {
+      const seen = new Uint8Array(w * h);
+      const stack = [];
+      let synthSeq = 0;
+      for (let s = 0; s < w * h; s++) {
+        if (seen[s] || grid[s] !== T.PATH) continue;
+        const cells = [];
+        let realName = null;
+        stack.length = 0;
+        stack.push(s);
+        seen[s] = 1;
+        while (stack.length) {
+          const idx = stack.pop();
+          const cx = idx % w, cy = (idx - cx) / w;
+          cells.push(idx);
+          const nm = pathNames[`${cx}_${cy}`];
+          if (realName == null && nm) realName = nm;
+          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cx + ddx, ny = cy + ddy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const ni = ny * w + nx;
+            if (seen[ni] || grid[ni] !== T.PATH) continue;
+            seen[ni] = 1;
+            stack.push(ni);
+          }
+        }
+        // Synthetic names carry a 'trail#' prefix so app.js can show a generic
+        // title for them instead of the ugly id. Real OSM names pass through.
+        const name = realName || `trail#${tx}_${ty}_${synthSeq++}`;
+        for (const idx of cells) {
+          const cx = idx % w, cy = (idx - cx) / w;
+          pathNames[`${cx}_${cy}`] = name;
+        }
+      }
+    }
+
     // Dedup nearby same-name chests inside this tile. OSM frequently has multiple
     // POI points for one physical place (e.g. an entrance + main label + amenity).
     // Group by normalized name, then drop any chest within DEDUP_M of an already-
@@ -1463,7 +1535,7 @@
       keepers.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames };
+    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
   }
 
   function tileEdgeMeters(lat) {
@@ -1488,7 +1560,7 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, objects, wildplants, parkingTreasures, roadLetters, pathNames } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, objects, wildplants, parkingTreasures, roadLetters, pathNames, pathUnder } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner).
@@ -1552,6 +1624,7 @@
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLetters = roadLetters || {};
       entry.pathNames   = pathNames   || {};
+      entry.pathUnder   = pathUnder   || {};
       entry.layers = layers;
 
       // Inject pre-extracted Overpass trees + tree_row bushes for this tile.
@@ -1579,6 +1652,16 @@
           const liy = Math.floor((wy - y * tileEdgeM) / mPerCell);
           return `${lix}_${liy}`;
         };
+        // Re-centre an injected feature onto THIS tile's local cell grid. The
+        // bins were snapped to the global 5 m grid at fetch time, but every
+        // other object on the tile sits on the local grid (tileEdgeM/cpe,
+        // anchored at the tile origin) — leaving these on the global grid would
+        // reintroduce the sub-cell misalignment that lets a tree and a rock in
+        // the "same" cell both survive the occupancy check.
+        const localCentre = (wx, wy) => ({
+          x: x * tileEdgeM + (Math.floor((wx - x * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
+          y: y * tileEdgeM + (Math.floor((wy - y * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
+        });
         const occupied = new Set();
         for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
         for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
@@ -1587,6 +1670,8 @@
           const k = cellKeyOf(t.x, t.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
+          const c = localCentre(t.x, t.y);
+          t.x = c.x; t.y = c.y;
           entry.objects.push(t);
         }
         for (const s of bin.shrubs) {
@@ -1594,6 +1679,8 @@
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
+          const c = localCentre(s.x, s.y);
+          s.x = c.x; s.y = c.y;
           entry.wildplants.push(s);
         }
       }

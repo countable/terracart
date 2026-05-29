@@ -248,15 +248,26 @@
       save.scarecrows.push({ x, y });
     }
 
-    // ── Placed rockfruit-rock in the GRASS plot (gx=0 gy=0). Tap with a
-    //    pickaxe to run the work-wheel and revert it to grass + drop a
-    //    rockfruit back into the inventory.
+    // ── Rock pen around the GRASS barnyard plot (gx=0 gy=0): a full
+    //    perimeter ring of placed rockfruit-rocks. wanderCreatures()
+    //    skips any cell in placedRockSet, so the ring contains the herd in
+    //    the 3×3 interior. The player isn't blocked by rock terrain, so
+    //    they can still step in to milk / catch / pet — and pickaxing a
+    //    rock opens a gate (and drops a rockfruit back to the inventory).
     {
-      const { cellIX, cellIY } = plotCell(0, 0, 4, 0);
-      const key = `${cellIX}_${cellIY}`;
-      if (!scene.placedRockSet.has(key)) {
-        scene.placedRockSet.add(key);
-        save.placedRocks.push(key);
+      const addRock = (dx, dy) => {
+        const { cellIX, cellIY } = plotCell(0, 0, dx, dy);
+        const key = `${cellIX}_${cellIY}`;
+        if (!scene.placedRockSet.has(key)) {
+          scene.placedRockSet.add(key);
+          save.placedRocks.push(key);
+        }
+      };
+      for (let d = 0; d < PLOT_W; d++) {
+        addRock(d, 0);            // top edge
+        addRock(d, PLOT_W - 1);   // bottom edge
+        addRock(0, d);            // left edge
+        addRock(PLOT_W - 1, d);   // right edge
       }
     }
 
@@ -294,6 +305,30 @@
         kind: 'shrine', x, y,
         id: `sandbox_shrine_${cellIX}_${cellIY}`,
       });
+    }
+
+    // ── Coin drops (kind:'coindrop') in the PLAYER plot so the coin-pickup
+    //    tap path (interact.js 'coindrop' handler) is exercisable. In the
+    //    real game these spawn in an ATM / bike-parking burst and expire
+    //    after 60s; here we omit expiresAt so they persist across reloads
+    //    for testing. They live in entry.coinDrops, not objects[].
+    if (parkEntry) {
+      parkEntry.coinDrops = parkEntry.coinDrops || [];
+      let pgx = 0, pgy = 0;
+      for (let gy = 0; gy < GRID_H; gy++) {
+        for (let gx = 0; gx < GRID_W; gx++) {
+          if (PLOT_LAYOUT[gy][gx] === -1) { pgx = gx; pgy = gy; }
+        }
+      }
+      const coinAt = (dx, dy) => {
+        const { cellIX, cellIY } = plotCell(pgx, pgy, dx, dy);
+        const { x, y } = cellCenter(cellIX, cellIY);
+        parkEntry.coinDrops.push({ kind: 'coindrop', x, y,
+          id: `sandbox_coin_${cellIX}_${cellIY}` });
+      };
+      // North of spawn (the player stands at plot-centre 2,2): one in reach
+      // (2,1) and two a step away (1,0)/(3,0) so they read as a little burst.
+      coinAt(2, 1); coinAt(1, 0); coinAt(3, 0);
     }
 
     // ── An extra treasure-X south-west of spawn, two cells away — within
@@ -463,6 +498,21 @@
             grid[iy * cellsPerEdge + ix] = terrain;
           }
         }
+        // PIER (terrain 23) — there's no spare plot in PLOT_LAYOUT for it, so
+        // lay a 1-cell-wide plank walkway across the WATER plot's middle row.
+        // Pier cells are walkable (the player isn't blocked the way water/9/11/
+        // 12 are) while the surrounding water stays solid, so you can stride
+        // out over the water on the planks. The row connects to the walkable
+        // SAND plot on the left and FARMLAND on the right — a beach pier. This
+        // exercises the pier overlay render path (render.js PIER_FRAME).
+        if (biome === 3) {
+          const midDy = Math.floor(PLOT_W / 2);
+          for (let dx = 0; dx < PLOT_W; dx++) {
+            const ix = ix0 + dx, iy = iy0 + midDy;
+            if (ix < 0 || iy < 0 || ix >= cellsPerEdge || iy >= cellsPerEdge) continue;
+            grid[iy * cellsPerEdge + ix] = 23;   // PIER
+          }
+        }
         populatePlot(biome, ix0, iy0, gx, gy, { objects, wildplants, creatures, wmAt, baseId });
       }
     }
@@ -492,10 +542,14 @@
       objects.push({ kind: 'flora', x, y, deco: 'flower', variant,
         id: `${baseId}_fl_${plotTag}_${variant}_${dx}_${dy}` });
     };
-    const pushTree = (variant, dx, dy) => {
+    const pushTree = (variant, dx, dy, species) => {
       const { x, y } = at(dx, dy);
-      objects.push({ kind: 'tree', x, y, variant,
-        id: `${baseId}_tree_${plotTag}_${variant}_${dx}_${dy}` });
+      const o = { kind: 'tree', x, y, variant,
+        id: `${baseId}_tree_${plotTag}_${species || variant}_${dx}_${dy}` };
+      // Non-maple species render their own full canopy+trunk sheet (the
+      // render tree spec ignores `variant` for them, always frame 3).
+      if (species) o.species = species;
+      objects.push(o);
     };
     const pushChest = (poiClass, name, dx, dy) => {
       const { x, y } = at(dx, dy);
@@ -534,33 +588,48 @@
     };
 
     switch (biome) {
-      case 0: {   // GRASS — small herd + flowers + longgrass
-        pushCreature('chicken', 0, 0, 1);
-        pushCreature('chicken', 4, 1, 2);
-        pushCreature('cow',     2, 2, 1);
-        pushCreature('cat',     0, 4, 1);
-        pushCreature('dog',     4, 4, 1);
-        pushFlora(0, 1, 1); pushFlora(1, 3, 1);
-        pushFlora(2, 1, 3); pushFlora(3, 3, 3);
-        pushWildplant('longgrass', 2, 0);
-        // Two ground stacks so the wood pickup interaction is exercisable
-        // in the sandbox without first walking to a real-tile spawn.
-        pushWood(1, 0, 2);
-        pushWood(3, 0, 3);
-        pushWildplant('longgrass', 2, 4);
-        // A bonus chest in the duplicate-grass plot at (4, 4) — see
-        // PLOT_LAYOUT. Uses the 'playground' POI class so the line3v pad
-        // shape gets a sample.
-        if (gx === 4 && gy === 4) {
-          pushChest('playground', 'Sandbox Chest', PLOT_MID, PLOT_MID);
+      case 0: {   // GRASS — the (0,0) plot is a rock-penned barnyard; the
+        // duplicate grass plot at (4,4) carries the flowers / longgrass /
+        // wood / bonus chest.
+        if (gx === 0 && gy === 0) {
+          // Herd lives in the 3×3 interior. seedSandboxState() rings the
+          // plot's perimeter with placed rocks; wanderCreatures() skips
+          // placedRockSet cells, so the ring physically pens the animals.
+          pushCreature('chicken', 1, 1, 1);
+          pushCreature('chicken', 3, 1, 2);
+          pushCreature('cow',     2, 2, 1);
+          pushCreature('cat',     1, 3, 1);
+          pushCreature('dog',     3, 3, 1);
+        } else {
+          pushFlora(0, 1, 1); pushFlora(1, 3, 1);
+          pushFlora(2, 1, 3); pushFlora(3, 3, 3);
+          pushWildplant('longgrass', 2, 0);
+          // Two ground stacks so the wood pickup interaction is exercisable
+          // in the sandbox without first walking to a real-tile spawn.
+          pushWood(1, 0, 2);
+          pushWood(3, 0, 3);
+          pushWildplant('longgrass', 2, 4);
+          // A bonus chest in the duplicate-grass plot at (4, 4) — see
+          // PLOT_LAYOUT. Uses the 'playground' POI class so the line3v pad
+          // shape gets a sample.
+          if (gx === 4 && gy === 4) {
+            pushChest('playground', 'Sandbox Chest', PLOT_MID, PLOT_MID);
+          }
         }
         break;
       }
-      case 1: {   // FOREST — every tree variant, shrubs, nuts, wild fauna.
+      case 1: {   // FOREST — every tree variant + species, shrubs, nuts, wild fauna.
         for (let v = 0; v < 5; v++) {
-          const dx = (v % 5);   // line them up on the top row of the plot
+          const dx = (v % 5);   // line up maple growth stages on the top row
           pushTree(v, dx, 0);
         }
+        // The three non-maple species, one per cell on row 1, so all four
+        // tree sheets (maple stages above + pine/birch/mahogany) render in
+        // the sandbox. Spaced 2 cells apart to stay clear of the shrubs
+        // on row 2 and keep one interactable per cell.
+        pushTree(2, 0, 1, 'pine');
+        pushTree(2, 2, 1, 'birch');
+        pushTree(2, 4, 1, 'mahogany');
         pushWildplant('shrub', 0, 2);
         pushWildplant('shrub', 4, 2);
         pushWildplant('nut',   1, 4);
