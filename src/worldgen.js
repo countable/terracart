@@ -1688,12 +1688,20 @@
           x: x * tileEdgeM + (Math.floor((wx - x * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
           y: y * tileEdgeM + (Math.floor((wy - y * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
         });
+        // Occupancy set — seed from everything rasterizeTile already placed so
+        // injected features (and the stream water below) never land on an
+        // existing interactable. Built BEFORE stream painting so we don't flood
+        // a cell that already hosts a rasterized tree / rock / house / chest.
+        const occupied = new Set();
+        for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
+        for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
         // Streams (OSM waterway=stream) reach the sidecar as single centroid
         // points (the LineString was reduced upstream). Stamp a small 3×3 water
         // patch over each centroid so the stream reads as water on the map —
         // but only over SOFT ground, never roads / buildings / pads / rock /
-        // existing water. Painted BEFORE the object injections below so the
-        // onWater() guards skip trees/poles that would land in the new water.
+        // existing water, and never a cell already holding a placed object.
+        // Painted BEFORE the object injections below so the onWater() guards
+        // skip trees/poles that would land in the new water.
         const STREAM_BLOCK = new Set([
           T.WATER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH, T.PIER,
           T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
@@ -1706,14 +1714,12 @@
             for (let dx = -1; dx <= 1; dx++) {
               const nx = lix + dx, ny = liy + dy;
               if (nx < 0 || ny < 0 || nx >= cpe || ny >= cpe) continue;
+              if (occupied.has(`${nx}_${ny}`)) continue;   // don't flood a placed object's cell
               const idx = ny * cpe + nx;
               if (!STREAM_BLOCK.has(grid[idx])) grid[idx] = T.WATER;
             }
           }
         }
-        const occupied = new Set();
-        for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
-        for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
         for (const t of bin.trees) {
           if (onWater(t.x, t.y)) continue;
           const k = cellKeyOf(t.x, t.y);
@@ -1758,6 +1764,7 @@
         // chests additionally scatter a small decorative flower burst.
         const FLOWER_VARIANTS = 4;
         for (const ch of (bin.chests || [])) {
+          if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1778,7 +1785,9 @@
               const c2 = localCentre(ch.x + Math.cos(ang) * rad, ch.y + Math.sin(ang) * rad);
               entry.objects.push({ kind: 'flora', deco: 'flower',
                 x: c2.x, y: c2.y, variant: Math.floor(brng() * FLOWER_VARIANTS),
-                id: `gb_${Math.round(c2.x)}_${Math.round(c2.y)}` });
+                // index `i` keeps the id unique when two burst flowers snap to
+                // the same cell (else picking one silently consumes both).
+                id: `gb_${Math.round(c2.x)}_${Math.round(c2.y)}_${i}` });
             }
           }
         }
@@ -1789,6 +1798,13 @@
         for (const pk of (bin.parking || [])) {
           const c = localCentre(pk.x, pk.y);
           pk.x = c.x; pk.y = c.y;
+          // Skip if an X already sits within ~8m — the MVT parking path fills
+          // the SAME array (before this injection) and snaps on a slightly
+          // different basis, so the same lot present in both sources would
+          // otherwise drop two separately-claimable treasures.
+          const dupe = entry.parkingTreasures.some(t =>
+            (t.x - pk.x) * (t.x - pk.x) + (t.y - pk.y) * (t.y - pk.y) <= 8 * 8);
+          if (dupe) continue;
           entry.parkingTreasures.push(pk);
         }
       }

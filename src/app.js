@@ -3149,23 +3149,23 @@ class MapScene extends Phaser.Scene {
   // origin was the old bug: a player who starts far from START_LAT got a
   // trailer dropped near the origin, off-screen, so it never appeared.
   //
-  // Once a GPS fix is in:
-  //   • adopt the nearest house within HOME_CELL_R (30) cells as the trailer, or
-  //   • if no house is that close, synthesize a trailer under the player.
-  // The radius is generous (~150 m) on purpose: the player rarely spawns dead-
-  // centre on their house — GPS drift plus the house's recorded cell-centre put
-  // them "slightly outside", so a tight radius (this used to be 5 cells / 25 m)
-  // dropped a synthetic trailer on the street instead of adopting their actual
-  // house. 150 m covers a residential block while staying well short of an off-
-  // screen, cross-town pick. Tiles stream in asynchronously, so we wait for the
-  // player's own tile to be ready before concluding "nothing nearby" (30 cells
-  // is still far smaller than a tile, so the player's tile — plus the 3×3
-  // ensureTilesAround keeps around it — fully covers the radius). A previously
-  // chosen home that is still
-  // loaded is kept so the trailer is stable across roaming and reloads, while a
-  // stale origin-anchored memo (whose tile never loads near the new spawn)
-  // self-heals. Cheap after it locks in via the _starterShopOk early-out;
-  // called lazily (isStarterShop) and every frame from Render.drawObjects.
+  // Once a GPS fix is in, the rule is "what you can see is home":
+  //   • if any house is visible ON-SCREEN, adopt the nearest one as the trailer;
+  //   • if NO house is on-screen, synthesize a trailer under the player.
+  // "On-screen" = within the VIEW_CELLS-square map viewport centred on the
+  // player (HALF_VIEW_M each way). This replaces an earlier fixed-metres radius:
+  // tying it to the viewport means the player always either sees the house that
+  // became their trailer, or gets one dropped on themselves — never a Home left
+  // sitting off-screen that they can't find. Tiles stream in asynchronously, so
+  // before concluding "nothing on-screen" we wait for every tile the viewport
+  // overlaps to be ready (the viewport is far smaller than a tile, so that's the
+  // player's own tile, plus its neighbours when they sit near a tile edge — all
+  // kept loaded by the 3×3 ensureTilesAround). A previously chosen home that is
+  // still loaded is kept so the trailer is stable across roaming and reloads
+  // (even once it scrolls off-screen), while a stale origin-anchored memo (whose
+  // tile never loads near the new spawn) self-heals. Cheap after it locks in via
+  // the _starterShopOk early-out; called lazily (isStarterShop) and every frame
+  // from Render.drawObjects.
   ensureStarterShopId() {
     if (this._starterShopOk) return;
     // A synthetic trailer from a prior session — restore it and lock in.
@@ -3182,37 +3182,48 @@ class MapScene extends Phaser.Scene {
     if (!anchor) return;                       // no fix yet — wait for one
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
-    const HOME_CELL_R = 30;   // ~150 m: catch the player's house even when they spawn just outside it
-    const homeR = this.cellM * HOME_CELL_R;
-    const homeR2 = homeR * homeR;
+    // "On-screen" = within the visible map viewport (a VIEW_CELLS square centred
+    // on the player). Half-extent each way, in world metres.
+    const HALF_VIEW_M = (VIEW_CELLS / 2) * this.cellM;
     const cur = this.save.starterShopId;
     let nearestId = null, nearestD2 = Infinity, curFound = false;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'house' || !o.id) continue;
-        const dx = o.x - ax, dy = o.y - ay, d2 = dx * dx + dy * dy;
+        if (o.id === cur) curFound = true;       // track the current Home anywhere (roaming)
+        const dx = o.x - ax, dy = o.y - ay;
+        // Only houses inside the viewport count toward "the nearest visible one".
+        if (Math.abs(dx) > HALF_VIEW_M || Math.abs(dy) > HALF_VIEW_M) continue;
+        const d2 = dx * dx + dy * dy;
         if (d2 < nearestD2) { nearestD2 = d2; nearestId = o.id; }
-        if (o.id === cur) curFound = true;
       }
     }
-    // An existing home that is still loaded → keep it (stable across roaming).
-    // A stale far memo simply isn't loaded near the new spawn, so curFound is
-    // false and we re-resolve below.
+    // An existing home that is still loaded → keep it (stable across roaming,
+    // even once it scrolls off-screen). A stale far memo simply isn't loaded near
+    // the new spawn, so curFound is false and we re-resolve below.
     if (cur != null && curFound) { this._starterShopOk = true; return; }
-    // Adopt the nearest house when it's within the home radius.
-    if (nearestId != null && nearestD2 <= homeR2) {
+    // A house is visible on-screen → adopt the nearest one as the trailer.
+    if (nearestId != null) {
       this.save.starterShopId = nearestId;
       this.save.starterTrailer = null;         // drop any prior synthetic trailer
       this._starterShopOk = true;
       return;
     }
-    // No house within HOME_CELL_R cells. Don't synthesize until the player's
-    // own tile is ready — otherwise we might be staring at a half-streamed map
-    // and would drop a trailer on top of a house that simply hadn't arrived.
-    const ptx = Math.floor((this.originPx.x + anchor.x / this.mPerPx) / WorldGen.TILE_PX);
-    const pty = Math.floor((this.originPx.y + anchor.y / this.mPerPx) / WorldGen.TILE_PX);
-    const ptile = WorldGen.tileCache.get(`${WorldGen.Z}/${ptx}/${pty}`);
-    if (!ptile || (ptile.status && ptile.status !== 'ready')) return;
+    // No house on-screen. Don't synthesize until every tile the viewport overlaps
+    // is ready — otherwise we might be staring at a half-streamed map and would
+    // drop a trailer on top of a house that simply hadn't arrived. The viewport
+    // is tiny next to a tile, so this is the player's own tile, plus its
+    // neighbours when they sit near a tile edge (all kept loaded by
+    // ensureTilesAround). Check the four viewport corners.
+    const tileReadyAt = (offMx, offMy) => {
+      const tx = Math.floor((this.originPx.x + (anchor.x + offMx) / this.mPerPx) / WorldGen.TILE_PX);
+      const ty = Math.floor((this.originPx.y + (anchor.y + offMy) / this.mPerPx) / WorldGen.TILE_PX);
+      const t = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      return t && (!t.status || t.status === 'ready');
+    };
+    for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
+      for (const oy of [-HALF_VIEW_M, HALF_VIEW_M])
+        if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
     // Drop a trailer under the player.
     this._makeStarterTrailer(ax, ay);
     this.save.starterShopId = this.save.starterTrailer.id;
