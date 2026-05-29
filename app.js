@@ -1164,18 +1164,18 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Six starter crates: three of 5 wood (tree) for restoring a plain
-      // house, three of 5 rockfruit for restoring a themed shop — interleaved
-      // so the trail alternates. 5-per-crate keeps each pickup within the
-      // no-bag stack cap (9) so nothing overflows. Fixed contents instead of
-      // the unified rarity picker — the player gets exactly what they need to
-      // bootstrap the restoration loop.
+      // Six starter crates: three of 5 wood for restoring a plain house,
+      // three of 5 rockfruit for restoring a themed shop — interleaved so the
+      // trail alternates. 5-per-crate keeps each pickup within the no-bag stack
+      // cap (9) so nothing overflows. Fixed contents instead of the unified
+      // rarity picker — the player gets exactly what they need to bootstrap the
+      // restoration loop.
       const STARTER_LOOT = [
-        { id: 'tree',      qty: 5 },
+        { id: 'wood',      qty: 5 },
         { id: 'rockfruit', qty: 5 },
-        { id: 'tree',      qty: 5 },
+        { id: 'wood',      qty: 5 },
         { id: 'rockfruit', qty: 5 },
-        { id: 'tree',      qty: 5 },
+        { id: 'wood',      qty: 5 },
         { id: 'rockfruit', qty: 5 },
       ];
       const COUNT = STARTER_LOOT.length;
