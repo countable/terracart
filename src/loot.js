@@ -72,6 +72,19 @@ const POI_CLASS_FALLBACK = {
   beer:             'Alehouse',
   grocery:          'Grocer',
   restaurant:       'Tavern',
+  // satextract OSM street furniture (sidecar-only POIs) — fallback descriptors
+  // so the unnamed box chests read as a place rather than a blank label.
+  memorial:         'Memorial',
+  swimming_pool:    'Bathing Pool',
+  bicycle_parking:  'Bicycle Stand',
+  traffic_signals:  'Signal Post',
+  stop:             'Stop Post',
+  crossing:         'Crossing',
+  picnic_table:     'Picnic Table',
+  carport:          'Cart Shed',
+  fence:            'Fence Post',
+  powerline:        'Power Line',
+  tower:            'Watch Tower',
 };
 
 const RUSTIC_CACHE = new Map();
@@ -113,7 +126,18 @@ const SEED_TIER_INFO = {
   3: { label: 'RARE!',    color: '#ff8aff' },
 };
 function tierInfo(id) {
-  return SEED_TIER_INFO[SEED_TIER[id] || 1];
+  // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickLoot
+  // returns bare produce ids (e.g. 'gemfruit', 'pairy') which never appear in
+  // SEED_TIER (it's keyed by `${crop}_seed` only), so the old
+  // `SEED_TIER[id] || 1` collapsed every produce reward to tier-1 "common".
+  // ITEM_BY_ID[id].baseTier carries the real rarity for both the seed and its
+  // produce (filled for every catalog entry in items.js), so prefer it and
+  // fall back to SEED_TIER for raw seed ids / unknowns. SEED_TIER_INFO only
+  // defines 1..3, while baseTier climbs to 7 (flowers/bars), so clamp.
+  const raw = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.baseTier)
+    || SEED_TIER[id] || 1;
+  const tier = Math.min(3, Math.max(1, raw));
+  return SEED_TIER_INFO[tier];
 }
 
 // POI class → category, drives chest loot type (produce vs seed) and tier weights.
@@ -124,8 +148,11 @@ const POI_CATEGORY = {
   supermarket: 'food', convenience: 'food',
   // commerce: common-weighted seed drops
   alcohol_shop: 'commerce', beer: 'commerce', shop: 'commerce',
-  // florist / garden_centre: rare-weighted FLOWER seeds (uses 'flora' category)
-  florist: 'flora', garden_centre: 'flora',
+  // florist / garden_centre / garden: rare-weighted FLOWER seeds ('flora'
+  // category). A garden POI is literally a flora source, so it drops a random
+  // flower seed (ice/fire/sunflower) and gets the worldgen flower-burst
+  // decoration. (garden was 'park' — promoted so it hands out flower seeds.)
+  florist: 'flora', garden_centre: 'flora', garden: 'flora',
   // farm: rare-weighted seed drops, any tier
   farm: 'farm',
   // civic/educational: rare-weighted seed drops
@@ -135,12 +162,20 @@ const POI_CATEGORY = {
   books: 'civic', pet: 'civic',
   // healthcare: mid-weighted seed drops
   pharmacy: 'health', hospital: 'health', dentist: 'health',
-  // parks: T2-leaning seed drops
-  park: 'park', garden: 'park', playground: 'park', pitch: 'park',
+  // parks: T2-leaning seed drops (garden moved to 'flora' above)
+  park: 'park', playground: 'park', pitch: 'park',
   // fountain: special — drops nothing useful; treat as common-seed for now
   fountain: 'park',
   // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
   bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
+  // ── satextract OSM point features → low-tier street furniture. These reach
+  // the game only via the Overpass sidecar (data/satextract_osm.geojson), not
+  // the MVT poi layer, so they're wired here as plain lowtier box chests.
+  // ('powerline' = OSM power=line way centroid; 'tower' is the chest poiClass
+  // for man_made=tower — distinct from the castle 'tower' OBJECT kind.)
+  traffic_signals: 'lowtier', stop: 'lowtier', crossing: 'lowtier',
+  picnic_table: 'lowtier', carport: 'lowtier', fence: 'lowtier',
+  powerline: 'lowtier', tower: 'lowtier',
   // ── Daily-tap civic services — heavy T1
   waste_basket: 'lowtier', post: 'lowtier', recycling: 'lowtier',
   drinking_water: 'lowtier', toilets: 'lowtier',

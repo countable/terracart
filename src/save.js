@@ -65,10 +65,6 @@ function disableSave() {
 function addMoney(save, delta) {
   save.money = (save.money ?? 0) + delta;
 }
-function getSelectedItem(save) {
-  const sel = save.inv?.[save.selSlot];
-  return sel ? (typeof ITEM_BY_ID !== 'undefined' ? ITEM_BY_ID[sel.id] : null) : null;
-}
 function getSelectedSlot(save) {
   return save.inv?.[save.selSlot] || null;
 }

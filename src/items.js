@@ -9,7 +9,7 @@
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
 //   SPRING_CROPS_COLS, CROP_SPRITE, inventoryIconSource
-//   CROP_NAMES, ITEMS, ITEM_BY_ID, LOOTABLE_IDS
+//   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   SEED_TIER, FLOWER_SEEDS  (loot tier config; co-located with the crops they describe)
 
@@ -156,7 +156,8 @@ function inventoryIconSource(itemId) {
     // cell. Shells use the variants path in the renderer.
     return { sheet: ov.sheet, frame: ov.frame ?? 0 };
   }
-  if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * 9 + 8 };
+  // Generic seed bag = col SEEDBOX_COL, row 15 of crops.png (== 15*9 + 8 = 143).
+  if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
   if (item.kind === 'produce') {
     const row = CROP_ROW[cropKey];
     if (row == null) return null;
@@ -340,8 +341,6 @@ for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-// Chests drop only seeds.
-const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
 
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST. Prices are tuned to how easy each item is

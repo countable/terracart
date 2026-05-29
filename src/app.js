@@ -8,6 +8,10 @@
 
 const START_LON = -119.47870;
 const START_LAT = 49.85438;
+// Meters per degree of latitude (≈ constant everywhere). Longitude meters
+// additionally scale by cos(latitude). Used by the GPS watcher and the
+// debug-HUD lat/lon recompute.
+const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
@@ -869,8 +873,8 @@ class MapScene extends Phaser.Scene {
       this.gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude } = pos.coords;
-          const dxM = (longitude - START_LON) * 111320 * Math.cos(START_LAT * Math.PI / 180);
-          const dyM = -(latitude - START_LAT) * 111320;
+          const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);
+          const dyM = -(latitude - START_LAT) * METERS_PER_DEG_LAT;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
           // Debug controls — or a manual-control takeover this session (WASD /
@@ -1922,7 +1926,6 @@ class MapScene extends Phaser.Scene {
         const FOLLOW_GAP = 1.5 * this.cellM;
         const isScared = c._scaredUntilT && c._scaredUntilT > now;
         const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
-        const cropTarget = null;   // generic wanderers don't crop-target
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const homeRadius = isTame ? 1.5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
@@ -1936,10 +1939,6 @@ class MapScene extends Phaser.Scene {
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
           } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
-          } else if (cropTarget) {
-            // Haphazard advance toward the targeted crop.
-            const dxc = cropTarget.x - c.x, dyc = cropTarget.y - c.y;
-            angle = Math.atan2(dyc, dxc) + (Math.random() - 0.5) * 1.2;
           } else if (homeBias) {
             angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
           } else {
@@ -2227,11 +2226,6 @@ class MapScene extends Phaser.Scene {
   // only the daily-cap dictionary persists.
   _coinBurstDayKey() {
     return new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  }
-  _isCoinBurstClaimedToday(id) {
-    const m = this.save.coinBurstClaimed;
-    if (!m) return false;
-    return m[id + this._coinBurstDayKey()] === 1;
   }
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = this._coinBurstDayKey();
@@ -2590,8 +2584,8 @@ class MapScene extends Phaser.Scene {
     }
     const gps = this.gpsAvailable ? 'waiting' : 'wasd';
     const pc = this.playerToWorldCell();
-    const lat = START_LAT + (-this.playerM.y) / 111320;
-    const lon = START_LON + this.playerM.x / (111320 * Math.cos(START_LAT * Math.PI / 180));
+    const lat = START_LAT + (-this.playerM.y) / METERS_PER_DEG_LAT;
+    const lon = START_LON + this.playerM.x / (METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180));
     const loaded = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
     this.hud.textContent =
       `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
@@ -2654,6 +2648,19 @@ class MapScene extends Phaser.Scene {
   // Play a flute (consumed): every wandering chicken / cow within 30m has its
   // home position re-anchored to ~5m from the player so they wander toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
+  // Shared tail for modal-feedback consumables (flute, book): consume the
+  // selected item, persist, rebuild the inventory bar, and pop a message
+  // modal. Returns true so callers can `return this._finishConsumable(...)`.
+  // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
+  // (before computing side-effects) and gives flash feedback + energy DOM.
+  _finishConsumable(title, body) {
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.showMessageModal({ title, body });
+    return true;
+  }
+
   playFlute() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'flute' || (sel.count ?? 0) <= 0) return false;
@@ -2678,14 +2685,10 @@ class MapScene extends Phaser.Scene {
         lured++;
       }
     }
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    this.showMessageModal({
-      title: '🪈 You play the flute',
-      body: lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer.` : 'Nothing stirs nearby.',
-    });
-    return true;
+    return this._finishConsumable(
+      '🪈 You play the flute',
+      lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer.` : 'Nothing stirs nearby.',
+    );
   }
 
   // Read a book (consumed): pick a random tip from PLAY_TIPS, OR — 50% of the
@@ -2721,11 +2724,7 @@ class MapScene extends Phaser.Scene {
       const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
       body = `"${tip}"`;
     }
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    this.showMessageModal({ title, body });
-    return true;
+    return this._finishConsumable(title, body);
   }
 
   eatSelected() {
@@ -2998,7 +2997,6 @@ class MapScene extends Phaser.Scene {
           }
           persistSave(this.save);
           this.buildInventoryDOM();
-          if (this.updateMoneyDOM) this.updateMoneyDOM();
           this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
         },
       });
@@ -3128,7 +3126,6 @@ class MapScene extends Phaser.Scene {
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        if (this.updateMoneyDOM) this.updateMoneyDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
         this.flashLoot(`🪙 ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
@@ -3153,12 +3150,18 @@ class MapScene extends Phaser.Scene {
   // trailer dropped near the origin, off-screen, so it never appeared.
   //
   // Once a GPS fix is in:
-  //   • adopt the nearest house within HOME_CELL_R (5) cells as the trailer, or
+  //   • adopt the nearest house within HOME_CELL_R (30) cells as the trailer, or
   //   • if no house is that close, synthesize a trailer under the player.
-  // Tiles stream in asynchronously, so we wait for the player's own tile to be
-  // ready before concluding "nothing nearby" (5 cells is far smaller than a
-  // tile, so the player's tile — plus the 3×3 ensureTilesAround keeps around
-  // it — fully covers the radius). A previously chosen home that is still
+  // The radius is generous (~150 m) on purpose: the player rarely spawns dead-
+  // centre on their house — GPS drift plus the house's recorded cell-centre put
+  // them "slightly outside", so a tight radius (this used to be 5 cells / 25 m)
+  // dropped a synthetic trailer on the street instead of adopting their actual
+  // house. 150 m covers a residential block while staying well short of an off-
+  // screen, cross-town pick. Tiles stream in asynchronously, so we wait for the
+  // player's own tile to be ready before concluding "nothing nearby" (30 cells
+  // is still far smaller than a tile, so the player's tile — plus the 3×3
+  // ensureTilesAround keeps around it — fully covers the radius). A previously
+  // chosen home that is still
   // loaded is kept so the trailer is stable across roaming and reloads, while a
   // stale origin-anchored memo (whose tile never loads near the new spawn)
   // self-heals. Cheap after it locks in via the _starterShopOk early-out;
@@ -3179,7 +3182,7 @@ class MapScene extends Phaser.Scene {
     if (!anchor) return;                       // no fix yet — wait for one
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
-    const HOME_CELL_R = 5;
+    const HOME_CELL_R = 30;   // ~150 m: catch the player's house even when they spawn just outside it
     const homeR = this.cellM * HOME_CELL_R;
     const homeR2 = homeR * homeR;
     const cur = this.save.starterShopId;
@@ -3430,7 +3433,6 @@ class MapScene extends Phaser.Scene {
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        if (this.updateMoneyDOM) this.updateMoneyDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
       },
     });
@@ -3599,6 +3601,31 @@ class MapScene extends Phaser.Scene {
     return { ...pick, price };
   }
 
+  // Build the "Re-roll" secondary button shared by the relic and blacksmith
+  // offers. Both pivot the same seed lane (curState.rerolls) and pull the next
+  // target from peekOrBuildRelicOffer; they differ only in the "nothing left"
+  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls.
+  // (The trader offer's re-roll is structurally different — it has no peek
+  // step — so it stays inline in presentTraderOffer.)
+  _makeRerollSecondary(house, sx, sy, emptyMsg, present) {
+    const curState = house?.id ? this.shopBucketState(house) : null;
+    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
+    return {
+      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+      disabled: (this.save.money ?? 0) < rerollCost,
+      onClick: () => {
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
+        if (curState) curState.rerolls += 1;
+        const next = this.peekOrBuildRelicOffer(house);
+        if (!next) { this.flash(emptyMsg, sx, sy); return; }
+        addMoney(this.save, -rerollCost);
+        persistSave(this.save);
+        this.updateHUD();
+        present(next);
+      },
+    };
+  }
+
   // Present a relic/armor offer. Re-roll is only shown at castles — regular
   // houses + the starter shop hide it. The offer is derived from the bucket
   // seed via peekOrBuildRelicOffer, so no per-tap persistence is needed; the
@@ -3609,8 +3636,6 @@ class MapScene extends Phaser.Scene {
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
-    const curState = house?.id ? this.shopBucketState(house) : null;
-    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'relic'),
       get: `${iconHtml} ${name}`,
@@ -3642,22 +3667,12 @@ class MapScene extends Phaser.Scene {
         this.updateHUD();
         this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
       },
-      secondary: allowReroll ? {
-        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
-        disabled: (this.save.money ?? 0) < rerollCost,
-        onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
-          // Pivot the seed lane so the next peekOrBuildRelicOffer returns
-          // something else — no per-house cache to invalidate.
-          if (curState) curState.rerolls += 1;
-          const next = this.peekOrBuildRelicOffer(house);
-          if (!next) { this.flash('Stalls are empty for now.', sx, sy); return; }
-          addMoney(this.save, -rerollCost);
-          persistSave(this.save);
-          this.updateHUD();
-          this.presentRelicOffer(sx, sy, next, recordDeal, house, true);
-        },
-      } : undefined,
+      // Pivot the seed lane so the next peekOrBuildRelicOffer returns
+      // something else — no per-house cache to invalidate.
+      secondary: allowReroll
+        ? this._makeRerollSecondary(house, sx, sy, 'Stalls are empty for now.',
+            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true))
+        : undefined,
     });
   }
 
@@ -3883,8 +3898,10 @@ class MapScene extends Phaser.Scene {
           ? `Unlocked: ${this.iconSpanHTML(newTransform.input)} ${ITEM_BY_ID[newTransform.input]?.name} → ${this.iconSpanHTML(newTransform.output)} ${ITEM_BY_ID[newTransform.output]?.name}`
           : 'the shrine hums at full power';
         // 64×85 fountain frame for the new level (row-major over 4×2 grid,
-        // 48×64 each — scaled up 1.78× for the big icon slot).
-        const frame = Math.min(7, newLvl) - 1;
+        // 48×64 each — scaled up 1.78× for the big icon slot). newLvl tops out
+        // at 6 (shrineLevelUpCost returns null past L5), so frame is 1..5 —
+        // well inside the 8-frame (0..7) sheet. Clamp to the L6 cap defensively.
+        const frame = Math.min(6, newLvl) - 1;
         const fcol = frame % 4, frow = Math.floor(frame / 4);
         const ICON_SIZE = 96;            // big icon slot in the reward modal
         const SCALE = ICON_SIZE / 48;    // scale the 48-wide frame up to ICON_SIZE
@@ -3979,7 +3996,6 @@ class MapScene extends Phaser.Scene {
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        if (this.updateMoneyDOM) this.updateMoneyDOM();
         this.flashLoot(
           `🪙 ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
@@ -4087,7 +4103,6 @@ class MapScene extends Phaser.Scene {
     if (!reward) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
-      if (this.updateMoneyDOM) this.updateMoneyDOM();
       this.showChestRewardModal({
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
@@ -4110,7 +4125,6 @@ class MapScene extends Phaser.Scene {
       });
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
-      if (this.updateMoneyDOM) this.updateMoneyDOM();
       this.showChestRewardModal({
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
@@ -4136,7 +4150,6 @@ class MapScene extends Phaser.Scene {
     }
     if (reward.consolation > 0) {
       addMoney(this.save, reward.consolation);
-      if (this.updateMoneyDOM) this.updateMoneyDOM();
     }
   }
 
@@ -4226,27 +4239,14 @@ class MapScene extends Phaser.Scene {
       const itm = ITEM_BY_ID[r.id];
       return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
     }).join(' + ');
-    // Re-roll mirrors the relic-offer flow: cost = 5 × 2^rerolls (climbs
-    // fast so it's a real decision), bumps curState.rerolls so the next
+    // Re-roll mirrors the relic-offer flow (shared via _makeRerollSecondary):
+    // cost = 5 × 2^rerolls, bumps curState.rerolls so the next
     // peekOrBuildRelicOffer returns a different forge target. Suppressed for
     // the starter blacksmith — the wooden-tool queue is sequential, not
     // random, so there's nothing to re-roll into.
-    const curState = house?.id ? this.shopBucketState(house) : null;
-    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
-    const secondary = opts.noReroll ? undefined : {
-      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
-      disabled: (this.save.money ?? 0) < rerollCost,
-      onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
-        if (curState) curState.rerolls += 1;
-        const next = this.peekOrBuildRelicOffer(house);
-        if (!next) { this.flash('nothing else to forge', sx, sy); return; }
-        addMoney(this.save, -rerollCost);
-        persistSave(this.save);
-        this.updateHUD();
-        this.presentBlacksmithOffer(sx, sy, next, recordDeal, house);
-      },
-    };
+    const secondary = opts.noReroll ? undefined
+      : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
+          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house));
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'forge'),
       get: `${iconHtml} ${name}`,

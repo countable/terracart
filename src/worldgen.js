@@ -9,6 +9,16 @@
   const CELL_M = 5;             // game cell size in meters
   const TILE_URL = 'https://tiles.openfreemap.org/planet/20260520_001001_pt/{z}/{x}/{y}.pbf';
 
+  // Spatial-hash multipliers. The (HASH_MUL_X, HASH_MUL_Y) pair is the classic
+  // 2D integer hash used to derive stable per-coordinate seeds (poly keys, tile
+  // rng, addresses, satextract tree seeds). (BURST_MUL_X, BURST_MUL_Y) is a
+  // second independent pair used for the garden flower-burst seed. Renamed from
+  // bare literals — values are byte-identical to the originals.
+  const HASH_MUL_X = 73856093;
+  const HASH_MUL_Y = 19349663;
+  const BURST_MUL_X = 374761393;
+  const BURST_MUL_Y = 668265263;
+
   // Terrain class enum (uint8). 0 = unknown/grass default.
   const T = {
     GRASS: 0,
@@ -379,7 +389,7 @@
   const DEBRIS_MIN = 0.05;
   const DEBRIS_MAX = 0.30;
   // Polygon classes that may grow tufts of harvestable long grass.
-  const LONGGRASS_TYPES = new Set([0, 6, 15, 18, 19, 21]); // GRASS, PARK, SCHOOL, PLAYGROUND, PITCH, GOLF
+  const LONGGRASS_TYPES = new Set([T.GRASS, T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF]); // 0, 6, 15, 18, 19, 21
   const LONGGRASS_MAX_DENSITY = 0.15;
   const LONGGRASS_RNG_SALT = 0x5a17b105;
   // Salt for the rare-nut RNG stream in forests — independent of the shrub stream
@@ -417,7 +427,7 @@
     // "cx_cy" → biome code a PATH cell overwrote (see paintCell). Render uses
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
-    const rng = makeRng(tx * 73856093 ^ ty * 19349663);
+    const rng = makeRng(tx * HASH_MUL_X ^ ty * HASH_MUL_Y);
 
     // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
     // very low density. Snapped to the local cell grid like debris, but stored
@@ -441,8 +451,7 @@
           const localIY = Math.floor(yy * mvtToCell);
           if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
           if (prng() < density) {
-            const cx = tileOriginMx + (localIX + 0.5) * (1 / mvtToCell) * mvtToM;
-            const cy = tileOriginMy + (localIY + 0.5) * (1 / mvtToCell) * mvtToM;
+            const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
             const variant = (deco === 'flower') ? polyVariant : Math.floor(prng() * variants);
             // Stable id keyed on tile + local cell so save.picked persists across reloads.
             objects.push({
@@ -475,8 +484,7 @@
           const localIY = Math.floor(yy * mvtToCell);
           if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
           // Absolute world meters for game positioning — at the local cell center.
-          const cx = tileOriginMx + (localIX + 0.5) * (1 / mvtToCell) * mvtToM;
-          const cy = tileOriginMy + (localIY + 0.5) * (1 / mvtToCell) * mvtToM;
+          const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
           if (prng() < density) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
             wildplants.push({ x: cx, y: cy, crop, _ix: localIX, _iy: localIY,
@@ -494,6 +502,13 @@
       y: tileOriginMy + my * mvtToM,
     });
 
+    // Local-cell index (ix, iy) -> absolute world-meter coordinates of that
+    // cell's CENTRE. Same arithmetic the grid/snapCell/object placement all
+    // share; extracted so the byte-identical expression isn't repeated ~7×.
+    const cellCenterMeters = (ix, iy) => ({
+      mx: tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM,
+      my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
+    });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
     // the terrain `grid[]`, wildplants (spawnDebris) and flora (spawnFlora)
     // already use. Every placed object must share this one grid: structs
@@ -507,11 +522,8 @@
     const snapCell = (mx, my) => {
       const ix = Math.floor(mx * mvtToCell);
       const iy = Math.floor(my * mvtToCell);
-      return {
-        ix, iy,
-        cx: tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM,
-        cy: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
-      };
+      const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+      return { ix, iy, cx, cy };
     };
 
     const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
@@ -557,7 +569,7 @@
             // Per-polygon debris/decor share one centroid-derived key
             // so a given polygon looks the same across reloads.
             const c0 = ringCentroid(f.geom[0]);
-            const polyKey = ((Math.round(c0.x) * 73856093) ^ (Math.round(c0.y) * 19349663) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
+            const polyKey = ((Math.round(c0.x) * HASH_MUL_X) ^ (Math.round(c0.y) * HASH_MUL_Y) ^ (tx * 83492791) ^ (ty * 12345)) >>> 0;
 
             // ── Bucket J: rock-burst spawn for industrial / military /
             // quarry polygons. We pepper the polygon with mineralrock T1
@@ -924,7 +936,7 @@
             // point lands on or right next to a building, slide it to the nearest non-
             // building cell — preferring one next to a road/path (so the player can
             // actually reach the chest).
-            const KEEP = new Set([3, 7, 8, 9, 11, 12, 13, 14]); // water, roads, path, all buildings
+            const KEEP = new Set([T.WATER, T.ROAD, T.PATH, T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.ROAD_LG, T.ROAD_MD]); // 3, 7, 8, 9, 11, 12, 13, 14: water, roads, path, all buildings
             const BUILDING = (gt) => gt === T.BUILDING || gt === T.BUILDING_MED || gt === T.BUILDING_LARGE;
             const ROAD_OR_PATH = (gt) => gt === T.ROAD || gt === T.ROAD_MD || gt === T.ROAD_LG || gt === T.PATH;
             const cellIdxOf = (ix, iy) => iy * w + ix;
@@ -1039,8 +1051,7 @@
                 }
                 if (bestPerim) { finalIX = bestPerim.ix; finalIY = bestPerim.iy; }
               }
-              const adjustedMx = tileOriginMx + (finalIX + 0.5) * (1 / mvtToCell) * mvtToM;
-              const adjustedMy = tileOriginMy + (finalIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              const { mx: adjustedMx, my: adjustedMy } = cellCenterMeters(finalIX, finalIY);
               const lastChest = objects[objects.length - 1];
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
@@ -1051,8 +1062,7 @@
               const placement = offsetForPlacement(cellIX, cellIY);
               cellIX = placement.ix;
               cellIY = placement.iy;
-              const adjustedMx = tileOriginMx + (cellIX + 0.5) * (1 / mvtToCell) * mvtToM;
-              const adjustedMy = tileOriginMy + (cellIY + 0.5) * (1 / mvtToCell) * mvtToM;
+              const { mx: adjustedMx, my: adjustedMy } = cellCenterMeters(cellIX, cellIY);
               const lastChest = objects[objects.length - 1];
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
@@ -1077,7 +1087,7 @@
               const chestObj = objects[objects.length - 1];
               const chestX = (chestObj && chestObj.kind === 'chest') ? chestObj.x : cx;
               const chestY = (chestObj && chestObj.kind === 'chest') ? chestObj.y : cy;
-              const burstSeed = ((Math.round(chestX) * 374761393) ^ (Math.round(chestY) * 668265263)) >>> 0;
+              const burstSeed = ((Math.round(chestX) * BURST_MUL_X) ^ (Math.round(chestY) * BURST_MUL_Y)) >>> 0;
               const brng = makeRng(burstSeed);
               const burstN = 6 + Math.floor(brng() * 3);   // 6..8
               for (let i = 0; i < burstN; i++) {
@@ -1126,7 +1136,7 @@
               }
             }
             if (shapeOffsets) {
-              const poiKey = ((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0;
+              const poiKey = ((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0;
               const prng = makeRng(poiKey ^ 0xfade5a17);
               const shrubDensity = 0.18;
               const longgrassDensity = 0.10;
@@ -1138,8 +1148,7 @@
                 grid[idx] = padType;
                 if (spawnGreenery) {
                   const r1 = prng(), r2 = prng();
-                  const cellCenterMx = tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM;
-                  const cellCenterMy = tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM;
+                  const { mx: cellCenterMx, my: cellCenterMy } = cellCenterMeters(ix, iy);
                   if (r1 < shrubDensity) {
                     wildplants.push({ x: cellCenterMx, y: cellCenterMy, crop: 'shrub',
                       _ix: ix, _iy: iy, id: `wp_${tx}_${ty}_${ix}_${iy}_pp` });
@@ -1181,7 +1190,7 @@
           const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
           // Synthetic 3-digit street address derived from cell coords. Houses
           // whose address ends in 9 become blacksmiths (~10% of houses).
-          const address = (((ix * 73856093) ^ (iy * 19349663)) >>> 0) % 1000;
+          const address = (((ix * HASH_MUL_X) ^ (iy * HASH_MUL_Y)) >>> 0) % 1000;
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
       }
@@ -1303,14 +1312,14 @@
     // Anything else (road, building, water, path, cement) → drop.
     // COMMERCIAL (16) / INDUSTRIAL (17) are the synthesized concrete pads — kept
     // out of GROUND so debris doesn't end up sitting on a hospital/school slab.
-    const GROUND = new Set([5, 6, 1, 0, 2, 4, 10, 15, 18, 19, 20, 21, 22]);
-    const FOREST_PARK_GRASS = new Set([1, 6, 0, 15, 18, 19, 20, 21]);
-    const GRASSLAND_FAMILY  = new Set([0, 6, 15, 18, 19, 21]);
+    const GROUND = new Set([T.RESIDENTIAL, T.PARK, T.FOREST, T.GRASS, T.SAND, T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF, T.ORCHARD]); // 5, 6, 1, 0, 2, 4, 10, 15, 18, 19, 20, 21, 22
+    const FOREST_PARK_GRASS = new Set([T.FOREST, T.PARK, T.GRASS, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF]); // 1, 6, 0, 15, 18, 19, 20, 21
+    const GRASSLAND_FAMILY  = new Set([T.GRASS, T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF]); // 0, 6, 15, 18, 19, 21
     const CROP_ALLOWED = {
       shrub:     FOREST_PARK_GRASS,
       longgrass: GRASSLAND_FAMILY,
-      nut:       new Set([1]),                  // forest only
-      mushroom:  new Set([1, 5]),               // forest + residential yards
+      nut:       new Set([T.FOREST]),                  // forest only (1)
+      mushroom:  new Set([T.FOREST, T.RESIDENTIAL]),   // forest + residential yards (1, 5)
       // rockfruit + anything else → GROUND fallback
     };
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
@@ -1329,8 +1338,7 @@
         if (!isPerim) continue;
         const absX = tx * w + ix, absY = ty * w + iy;
         if (((absX + absY * 13) % 5 + 5) % 5 !== 0) continue;
-        const cx = tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM;
-        const cy = tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM;
+        const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
         objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}` });
       }
     }
@@ -1390,7 +1398,7 @@
     //    farmland AND on a cell that isn't already claimed.
     const florae = objects.filter(o => o.kind === 'flora');
     const keptFlora = [];
-    const FLORA_OK = new Set([2, 4, 10, ...FOREST_PARK_GRASS]);
+    const FLORA_OK = new Set([T.SAND, T.FARMLAND, T.ROCK, ...FOREST_PARK_GRASS]); // 2, 4, 10 + FOREST_PARK_GRASS
     // Per-deco terrain gate. Mushroom decals are residential-only (they must
     // never bleed onto the grassy FLORA_OK set); flowers use the default set.
     const FLORA_ALLOWED = { mushroom: new Set([T.RESIDENTIAL]) };
@@ -1544,7 +1552,6 @@
     // kept chest of the same name. Unnamed chests are left untouched.
     const DEDUP_M = 80;
     const byName = new Map();
-    const keepers = [];
     for (const o of objects) {
       if (o.kind !== 'chest' || !o.name) { continue; }
       const key = o.name.trim().toLowerCase();
@@ -1552,7 +1559,6 @@
       const tooClose = prev && prev.some(p => Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M);
       if (tooClose) { o._drop = true; continue; }
       (byName.get(key) || byName.set(key, []).get(key)).push(o);
-      keepers.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
     return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
@@ -1682,6 +1688,29 @@
           x: x * tileEdgeM + (Math.floor((wx - x * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
           y: y * tileEdgeM + (Math.floor((wy - y * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
         });
+        // Streams (OSM waterway=stream) reach the sidecar as single centroid
+        // points (the LineString was reduced upstream). Stamp a small 3×3 water
+        // patch over each centroid so the stream reads as water on the map —
+        // but only over SOFT ground, never roads / buildings / pads / rock /
+        // existing water. Painted BEFORE the object injections below so the
+        // onWater() guards skip trees/poles that would land in the new water.
+        const STREAM_BLOCK = new Set([
+          T.WATER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH, T.PIER,
+          T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+        ]);
+        for (const st of (bin.streams || [])) {
+          const lix = Math.floor((st.x - x * tileEdgeM) / mPerCell);
+          const liy = Math.floor((st.y - y * tileEdgeM) / mPerCell);
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = lix + dx, ny = liy + dy;
+              if (nx < 0 || ny < 0 || nx >= cpe || ny >= cpe) continue;
+              const idx = ny * cpe + nx;
+              if (!STREAM_BLOCK.has(grid[idx])) grid[idx] = T.WATER;
+            }
+          }
+        }
         const occupied = new Set();
         for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
         for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
@@ -1711,6 +1740,56 @@
           const c = localCentre(p.x, p.y);
           p.x = c.x; p.y = c.y;
           entry.objects.push(p);
+        }
+        // Wells (OSM amenity=fountain) → a tappable well object that refills the
+        // watering can (interact.js 'well' branch), rendered as the well sprite.
+        for (const wl of (bin.wells || [])) {
+          if (onWater(wl.x, wl.y)) continue;
+          const k = cellKeyOf(wl.x, wl.y);
+          if (occupied.has(k)) continue;
+          occupied.add(k);
+          const c = localCentre(wl.x, wl.y);
+          wl.x = c.x; wl.y = c.y;
+          entry.objects.push(wl);
+        }
+        // POI chests (bus stops, signals, crossings, gates, towers, pitches,
+        // gardens, bicycle racks, …). poiClass drives loot / tier / label /
+        // coin-burst via loot.js + the render/interact chest paths. Garden
+        // chests additionally scatter a small decorative flower burst.
+        const FLOWER_VARIANTS = 4;
+        for (const ch of (bin.chests || [])) {
+          const k = cellKeyOf(ch.x, ch.y);
+          if (occupied.has(k)) continue;
+          occupied.add(k);
+          const c = localCentre(ch.x, ch.y);
+          ch.x = c.x; ch.y = c.y;
+          const isGarden = ch.garden;
+          delete ch.garden;   // internal flag — don't leak into the chest object
+          entry.objects.push(ch);
+          if (isGarden) {
+            // 6–8 flowers in a 1–3 cell ring around the chest. Decorative flora
+            // (same kind the MVT garden burst emits) — pickable as 'flowers'.
+            const burstSeed = ((Math.round(ch.x) * BURST_MUL_X) ^ (Math.round(ch.y) * BURST_MUL_Y)) >>> 0;
+            const brng = makeRng(burstSeed);
+            const burstN = 6 + Math.floor(brng() * 3);
+            for (let i = 0; i < burstN; i++) {
+              const ang = brng() * Math.PI * 2;
+              const rad = (1 + brng() * 2) * mPerCell;
+              const c2 = localCentre(ch.x + Math.cos(ang) * rad, ch.y + Math.sin(ang) * rad);
+              entry.objects.push({ kind: 'flora', deco: 'flower',
+                x: c2.x, y: c2.y, variant: Math.floor(brng() * FLOWER_VARIANTS),
+                id: `gb_${Math.round(c2.x)}_${Math.round(c2.y)}` });
+            }
+          }
+        }
+        // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
+        // spot" mark, claimed via the treasure handler (same array the MVT
+        // parking path fills). No per-cell occupancy — X marks sit under the
+        // terrain and don't block other interactables.
+        for (const pk of (bin.parking || [])) {
+          const c = localCentre(pk.x, pk.y);
+          pk.x = c.x; pk.y = c.y;
+          entry.parkingTreasures.push(pk);
         }
       }
 
@@ -1752,7 +1831,6 @@
   // ones belonging to the tile it just built. Projection uses the SAME
   // (tx * tileEdgeM + localOffset) basis as rasterizeTile so positions line up.
   let _satextractPromise = null;
-  let _satextractBins = null;   // Map "tx_ty" -> { trees:[], shrubs:[] }
 
   function ensureSatextract(lat) {
     if (_satextractPromise) return _satextractPromise;
@@ -1780,12 +1858,33 @@
         const binFor = (tx, ty) => {
           const k = `${tx}_${ty}`;
           let b = bins.get(k);
-          if (!b) { b = { trees: [], shrubs: [], poles: [] }; bins.set(k, b); }
+          if (!b) {
+            b = { trees: [], shrubs: [], poles: [],
+                  wells: [], chests: [], parking: [], streams: [] };
+            bins.set(k, b);
+          }
           return b;
         };
         // OSM kinds we render as the decorative stone pillar (utility poles /
         // posts). All vertical post-like point features — no interaction.
         const POLE_KINDS = new Set(['pole', 'mast', 'bollard', 'street_lamp']);
+        // Sidecar POI kind → in-game chest poiClass. Each becomes a tappable
+        // chest; poiClass drives loot / tier / label / pad / coin-burst via
+        // loot.js + the render & interact chest paths (see POI_CATEGORY there).
+        //   bus_stop → 'bus' (existing lowtier class, "Stagecoach Stop" label)
+        //   line     → 'powerline' (power=line way centroid)
+        //   tower    → 'tower' POICLASS (lowtier chest) — note this is the chest's
+        //              poiClass, NOT the castle 'tower' OBJECT kind.
+        //   garden   → 'flora' loot (random flower seed) + a flower burst.
+        //   bicycle_parking → coin-burst "treasure hunt" chest (interact.js).
+        const SX_CHEST_POI = {
+          bus_stop: 'bus', traffic_signals: 'traffic_signals', stop: 'stop',
+          crossing: 'crossing', picnic_table: 'picnic_table', memorial: 'memorial',
+          gate: 'gate', carport: 'carport', fence: 'fence', line: 'powerline',
+          tower: 'tower', pitch: 'pitch', swimming_pool: 'swimming_pool',
+          playground: 'playground', bicycle_parking: 'bicycle_parking',
+          garden: 'garden',
+        };
         if (gj && gj.features) for (const f of gj.features) {
           const g = f.geometry;
           if (!g || g.type !== 'Point') continue;
@@ -1804,7 +1903,7 @@
             // osm_id; DeepForest trees have none, so derive a stable seed from
             // the snapped cell so a given tree always renders the same.
             const seed = osmId ||
-              (((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0);
+              (((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0);
             binFor(p.tx, p.ty).trees.push({
               kind: 'tree', x: cx, y: cy,
               variant: 1 + (seed % 4),
@@ -1842,12 +1941,50 @@
                 x: cx, y: cy, crop: 'shrub', id: `sxbush_${osmId}_${i}`,
               });
             }
+          } else if (kind === 'fountain') {
+            // amenity=fountain → a well (water source). Snapped to the cell grid
+            // like trees; rendered + interacted as a 'well' object.
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).wells.push({
+              kind: 'well', x: cx, y: cy,
+              id: `well_${osmId || (Math.round(cx) + '_' + Math.round(cy))}`,
+            });
+          } else if (kind === 'parking') {
+            // amenity=parking → a buried-treasure X (claimed via the treasure
+            // handler), matching the MVT parking path's parkingTreasures.
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).parking.push({
+              x: cx, y: cy, id: `t_park_${Math.round(cx)}_${Math.round(cy)}`,
+            });
+          } else if (kind === 'stream') {
+            // waterway=stream centroid → a small water patch (painted in loadTile).
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).streams.push({ x: cx, y: cy });
+          } else if (SX_CHEST_POI[kind]) {
+            // Everything else we care about becomes a POI chest.
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            const tags = (f.properties && f.properties.tags) || {};
+            binFor(p.tx, p.ty).chests.push({
+              kind: 'chest', x: cx, y: cy,
+              poiClass: SX_CHEST_POI[kind],
+              name: tags.name || '',
+              // Garden chests scatter a flower burst at injection time.
+              garden: kind === 'garden' || undefined,
+              id: `sxc_${osmId || (Math.round(cx) + '_' + Math.round(cy))}`,
+            });
           }
         }
-        _satextractBins = bins;
         return bins;
       })
-      .catch(() => { _satextractBins = new Map(); return _satextractBins; });
+      .catch(() => new Map());
     return _satextractPromise;
   }
 

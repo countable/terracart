@@ -1,5 +1,12 @@
 # Function inventory
 
+> ⚠️ **Stale snapshot.** This is an old generated survey that predates the
+> `render.js` / `interact.js` extraction from `app.js`. File sizes, function
+> locations, and LOC counts below no longer match the source (e.g. `drawCells`/
+> `drawObjects`/`handleWorldTap` now live in `render.js`/`interact.js`, app.js is
+> ~5200 lines, and `crops.js` has been deleted). Treat it as historical context,
+> not ground truth — regenerate before relying on it.
+
 Generated survey of every function across the JS source files.
 LOC counts opening brace through matching close (inclusive).
 Tiny nested closures inside larger functions are intentionally skipped.
@@ -124,7 +131,6 @@ Tiny nested closures inside larger functions are intentionally skipped.
 | readString      | Read UTF-8 string with length prefix                 |   7 |
 | readDouble      | Read 64-bit double from buffer                       |   5 |
 | readFloat       | Read 32-bit float from buffer                        |   5 |
-| readBytes       | Read byte slice with length prefix                   |   5 |
 | skip            | Skip field by wire type                              |   6 |
 | readValue       | Parse protobuf Value message (oneof)                 |  16 |
 | decodeGeometry  | Decode MVT command stream to point/line rings        |  32 |

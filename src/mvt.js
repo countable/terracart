@@ -47,12 +47,6 @@
     this.pos += 4;
     return v;
   };
-  Reader.prototype.readBytes = function () {
-    const len = this.readVarint();
-    const b = this.buf.subarray(this.pos, this.pos + len);
-    this.pos += len;
-    return b;
-  };
   Reader.prototype.skip = function (wire) {
     if (wire === 0) this.readVarint();
     else if (wire === 1) this.pos += 8;

@@ -51,6 +51,11 @@
 
 const Render = {};
 
+// Fallback fill for cells whose terrain type has no COLORS entry (and for the
+// diagonal-neighbour colour painted into rounded corners). Matches the grass
+// tone so an unmapped type reads as a green field rather than a black gap.
+const GRASS_FALLBACK_COLOR = 0x5fa84a;
+
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -198,7 +203,7 @@ Render.drawCells = function drawCells(scene) {
       // the dimmed mineralrock sprite alone signals "spent".
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
-      let color = COLORS[type] ?? 0x5fa84a;
+      let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
       if (isRoad(type)) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
@@ -222,10 +227,10 @@ Render.drawCells = function drawCells(scene) {
         if (ts_ !== type && te !== type && tse !== type) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        if (tl) { g.fillStyle(COLORS[tnw] ?? 0x5fa84a, 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
-        if (tr) { g.fillStyle(COLORS[tne] ?? 0x5fa84a, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
-        if (bl) { g.fillStyle(COLORS[tsw] ?? 0x5fa84a, 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-        if (br) { g.fillStyle(COLORS[tse] ?? 0x5fa84a, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        if (tl) { g.fillStyle(COLORS[tnw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
+        if (tr) { g.fillStyle(COLORS[tne] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
+        if (bl) { g.fillStyle(COLORS[tsw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        if (br) { g.fillStyle(COLORS[tse] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
       }
       g.fillStyle(color, 1);
       if (tl || tr || bl || br) {
@@ -718,6 +723,14 @@ Render.drawObjects = function drawObjects(scene) {
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
+  // Per-object screen projection: world-meter delta (dx, dy from the player)
+  // → screen pixels. Every sprite/label/diamond in this pass shares the exact
+  // same projection, so define it once here (viewCenterX/Y, cellM, CELL_PX are
+  // all in scope for the whole function).
+  const project = (dx, dy) => ({
+    sx: scene.viewCenterX + (dx / scene.cellM) * CELL_PX,
+    sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
+  });
   const objList = [], creatureList = [], plantedList = [];
   const pickedSet = new Set(scene.save.picked || []);
   // Cross-tile POI dedupe — MVT duplicates the same POI across adjacent tile borders, and
@@ -850,12 +863,6 @@ Render.drawObjects = function drawObjects(scene) {
   const _chestIsBox = (o) => {
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
-  };
-  // Cheap deterministic hash on a string id — used for mineralrock column pick.
-  const _idHash = (id) => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return h;
   };
   const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
@@ -1015,6 +1022,12 @@ Render.drawObjects = function drawObjects(scene) {
     // cell's front edge. Purely decorative: no interact.js branch matches
     // 'pole', so taps fall through.
     pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
+    // Stone well — decorative landmark for OSM amenity=fountain points. The
+    // 48×32 sprite at scale 1.3 reads as a ~2-cell-wide well; foot-anchored
+    // near the base (dyPx nudges it down toward the cell's front edge like a
+    // tree) so it stands inside its own cell. Tapping it refills the watering
+    // can (interact.js 'well' branch).
+    well:   { key: 'well', origin: [0.5, 0.9], scale: 1.3, dyPx: CELL_PX * 0.25 },
     // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
     // shrine level (row-major across the 4×2 grid) so the fountain visibly
     // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
@@ -1049,8 +1062,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
-      const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-      const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+      const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
       let w = CELL_PX * 1.5, dyFoot = 5;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
@@ -1063,8 +1075,7 @@ Render.drawObjects = function drawObjects(scene) {
   }
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
@@ -1114,8 +1125,7 @@ Render.drawObjects = function drawObjects(scene) {
   }
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
@@ -1145,15 +1155,13 @@ Render.drawObjects = function drawObjects(scene) {
   // tablet rather than floating on its surface.
   const LABEL_STROKE   = 'rgb(182,185,191)';
   const LABEL_STROKE_W = 1;
-  const LABEL_GLOW     = null;                     // no halo
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
   let li = 0;
   for (const item of chestLabels) {
     const { o, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     let tx = scene.chestLabelPool[li];
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
@@ -1234,8 +1242,8 @@ Render.drawObjects = function drawObjects(scene) {
   const _houseProduceWanted = (o) => {
     if (!o || o.kind !== 'house' || o.tier !== 9) return null;
     if (_houseRole(o) === 'wreck') return null;                          // hidden until restored
-    if (scene.save.starterShopId === o.id) return null;                 // Home
-    if (scene.save.starterBlacksmithId === o.id) return null;           // starter smithy
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return null;             // Home
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return null; // starter smithy
     if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return null; // specialty shop
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length ? wanted : null;
@@ -1268,8 +1276,7 @@ Render.drawObjects = function drawObjects(scene) {
   let sli = 0;
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     let tx = scene.shopLabelPool[sli];
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
@@ -1328,8 +1335,7 @@ Render.drawObjects = function drawObjects(scene) {
       for (const it of filteredObj) {
         const wanted = _houseProduceWanted(it.o);
         if (!wanted) continue;
-        const sx = scene.viewCenterX + (it.dx / scene.cellM) * CELL_PX;
-        const sy = scene.viewCenterY + (it.dy / scene.cellM) * CELL_PX;
+        const { sx, sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
@@ -1390,8 +1396,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
       // Small, quiet label — italic sans-serif at 8 px on a parchment-cream
@@ -1436,8 +1441,7 @@ Render.drawObjects = function drawObjects(scene) {
   g.clear();
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     const tier = chestTier(o.poiClass);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
@@ -1491,8 +1495,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.coinPool && scene.coinContainer) {
     Render.renderPool(scene, scene.coinPool, scene.coinContainer, coinList, (s, item) => {
       const { c, dx, dy } = item;
-      const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-      const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+      const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'coin_drop');
       // Tiny pulse: scale oscillates ~0.9..1.1 over ~800ms based on now+id-hash
       // so each coin breathes out of phase with its neighbours.
@@ -1508,8 +1511,7 @@ Render.drawObjects = function drawObjects(scene) {
 
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -1594,8 +1596,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.plantedContainer.add(t);
       scene.plantedTimerPool.push(t);
     }
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     const remaining = STAGE_HOLD_MS - (now - p.watered_t);
     const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
     // Bottom-right of the tile, inset 1px so the badge sits just inside the
@@ -1616,8 +1617,7 @@ Render.drawObjects = function drawObjects(scene) {
   let hi = 0;
   for (const item of tameList) {
     const { c, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     let t = scene._petHeartPool[hi];
     if (!t) {
       t = scene.add.text(0, 0, '💗', { font: '10px ui-monospace, monospace' })
@@ -1635,8 +1635,7 @@ Render.drawObjects = function drawObjects(scene) {
 
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
-    const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { sx, sy } = project(dx, dy);
     if (c.kind === 'cow') {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
       // Cow is the biggest farm animal — needs to read larger than the

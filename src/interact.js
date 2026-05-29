@@ -13,7 +13,7 @@
 // Depends on:
 //   app.js       — MapScene methods (flash, flashLoot, addToInv, shopInteract,
 //                  catchCreature, screenToWorldMeters, cellAt, worldMetersToAbsCell,
-//                  absCellCenterMeters, buildInventoryDOM, updateMoneyDOM);
+//                  absCellCenterMeters, buildInventoryDOM);
 //                  module-level helpers (distM2, isTillable);
 //                  reach constants (REACH_*).
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
@@ -67,6 +67,57 @@ function tooFar(ctx, x, y) {
     return true;
   }
   return false;
+}
+
+// Named terrain-type codes. Mirrors WorldGen.T (the uint8 cell.type enum from
+// worldgen.js) so the inline `cell.type === N` comparisons in the handlers
+// below read by name instead of by magic integer. Values are identical to the
+// shared enum; we snapshot the members interact.js actually compares against.
+// (WorldGen is a runtime global — same source these handlers already read
+// WorldGen.tileCache / .Z / .forEachItem from.)
+const TERRAIN = {
+  WATER: WorldGen.T.WATER,                   // 3
+  ROAD: WorldGen.T.ROAD,                     // 7
+  PATH: WorldGen.T.PATH,                     // 8
+  BUILDING: WorldGen.T.BUILDING,             // 9
+  ROCK: WorldGen.T.ROCK,                     // 10
+  BUILDING_MED: WorldGen.T.BUILDING_MED,     // 11
+  BUILDING_LARGE: WorldGen.T.BUILDING_LARGE, // 12
+  ROAD_LG: WorldGen.T.ROAD_LG,               // 13
+  ROAD_MD: WorldGen.T.ROAD_MD,               // 14
+};
+
+// Shared "drop a held item onto an empty tillable cell" path for the
+// place-scarecrow / place-rock handlers — they were ~95% identical (same
+// tilled/occupied guards, same 0.1m overlap epsilon against save.planted,
+// same consume → persist → flash). Differences are passed in:
+//   itemId     — the selected inventory id that arms this placement
+//   energyKey  — optional ENERGY_COST key spent on success (rock costs energy,
+//                scarecrow is free); spend failure consumes the tap (returns
+//                true) without placing, exactly like the inline version did
+//   extraGuard — optional predicate (ctx) ⇒ bool; an additional "already
+//                occupied" check beyond the planted-overlap one (scarecrow
+//                also rejects an existing scarecrow on the cell)
+//   place      — performs the actual placement + persistence side effects
+//   flashMsg   — the success flash text
+// Returns the handler result (false = not this handler, true = consumed).
+function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg }) {
+  const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
+  const sel = getSelectedSlot(save);
+  const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+  if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
+        isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
+        (!extraGuard || extraGuard(ctx)) &&
+        !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) {
+    return false;
+  }
+  if (energyKey && !scene.spendEnergy(ENERGY_COST?.[energyKey] ?? 0, sx, sy)) return true;
+  place(ctx);
+  consumeSelected(save);
+  ctx.dirty = true;
+  scene.buildInventoryDOM();
+  scene.flash(flashMsg, sx, sy);
+  return true;
 }
 
 const TAP_HANDLERS = [
@@ -123,7 +174,7 @@ const TAP_HANDLERS = [
 
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
-    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
+    const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!tr || found.has(tr.id)) return false;
@@ -147,7 +198,6 @@ const TAP_HANDLERS = [
         // is missing or the pool is empty.
         addMoney(save, 1);
         scene.flashLoot('✕ → $1', '#ffd96b');
-        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
       } else if (reward.kind === 'item') {
         scene.addToInv(reward.id, reward.qty);
         const item = ITEM_BY_ID[reward.id];
@@ -161,14 +211,12 @@ const TAP_HANDLERS = [
       } else if (reward.kind === 'gold') {
         addMoney(save, reward.amount);
         scene.flashLoot(`✕ → $${reward.amount}`, '#ffd96b');
-        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
       }
       // Consolation coins for any qty bumps the picker couldn't apply
       // (bracket at cap or single-stack class). Small gold trickle alongside
       // the main loot — never replaces it.
       if (reward && reward.consolation > 0) {
         addMoney(save, reward.consolation);
-        if (scene.updateMoneyDOM) scene.updateMoneyDOM();
         scene.flash(`+$${reward.consolation}`, sx, sy + 16);
       }
       ctx.dirty = true;
@@ -308,7 +356,6 @@ const TAP_HANDLERS = [
     // milk OR any fish). Normalise to a Set so the membership check below
     // doesn't need to branch on type.
     const wantRaw = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
-    const wantSet = wantRaw ? new Set(Array.isArray(wantRaw) ? wantRaw : [wantRaw]) : null;
     const wantPrimary = wantRaw ? (Array.isArray(wantRaw) ? wantRaw[0] : wantRaw) : null;
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
@@ -361,8 +408,8 @@ const TAP_HANDLERS = [
     }
 
     // 1. Favourite → catch. animalLikesFood handles the chicken-eats-any-
-    // seed special case so wantSet (built from ANIMAL_FOOD) doesn't have
-    // to enumerate every crop_seed id.
+    // seed special case so the catch check (built from ANIMAL_FOOD) doesn't
+    // have to enumerate every crop_seed id.
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
     if (sel && likes && (sel.count ?? 0) > 0) {
@@ -451,7 +498,7 @@ const TAP_HANDLERS = [
 
   // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
   { name: 'wildplant', try: (ctx) => {
-    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
+    const { scene, save, wm, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
     const bestWp = findClosestItem('wildplants', wm.x, wm.y, REACH_WILDPLANT_M,
       (wp) => !pickedSet.has(wp.id));
@@ -549,7 +596,6 @@ const TAP_HANDLERS = [
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
     addMoney(save, 1);
-    if (scene.updateMoneyDOM) scene.updateMoneyDOM();
     scene.flash('+$1', sx, sy);
     ctx.dirty = true;   // money changed — persist
     return true;
@@ -557,7 +603,7 @@ const TAP_HANDLERS = [
 
   // 1b) World objects: chest open, tree flavor, house shop.
   { name: 'object', try: (ctx) => {
-    const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
+    const { scene, save, wm, sx, sy } = ctx;
     const openedSetTap = new Set(save.opened);
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
@@ -590,7 +636,7 @@ const TAP_HANDLERS = [
       // are taller than the default 3.5m hit zone (fountain is ~9m tall in
       // world units), so a tap on the visible top of the sprite would otherwise
       // miss-and-fall-through to the till handler under it.
-      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine') ? REACH_HOUSE_M : REACH_OBJECT_M;
+      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
@@ -664,7 +710,6 @@ const TAP_HANDLERS = [
             addMoney(save, reward.amount);
             save.opened.push(o.id);
             ctx.dirty = true;
-            if (scene.updateMoneyDOM) scene.updateMoneyDOM();
             const gearKind = reward.gearKind || 'relic';
             const name = (typeof gearName === 'function')
               ? gearName(gearKind, reward.slot, reward.tier)
@@ -694,6 +739,20 @@ const TAP_HANDLERS = [
           iconHTML, name: lootName, qty: loot.n > 1 ? `× ${loot.n}` : null,
           color: lootColor,
         });
+        return true;
+      }
+      if (o.kind === 'well') {
+        // Fountain / well (OSM amenity=fountain) — a water source on dry land.
+        // Tapping it tops the watering can up to full, exactly like tapping a
+        // WATER tile via the 'can-refill' handler. No can owned yet → a flavour
+        // flash so the well still reads as interactive (and hints at its use).
+        if (!save.relics?.can) {
+          scene.flash('Cool, clear water. (need a watering can)', sx, sy);
+          return true;
+        }
+        save.canCharges = 50;
+        ctx.dirty = true;
+        scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
         return true;
       }
       if (o.kind === 'tree') {
@@ -887,7 +946,7 @@ const TAP_HANDLERS = [
   // a no-op if the cell isn't a named path or is already claimed.
   { name: 'path-stone', try: (ctx) => {
     const { scene, cellIX, cellIY, cwmx, cwmy, cell } = ctx;
-    if (!cell || cell.type !== 8 /* PATH */) return false;
+    if (!cell || cell.type !== TERRAIN.PATH) return false;
     const ctx_tx = Math.floor(cwmx / scene.tileEdgeM);
     const ctx_ty = Math.floor(cwmy / scene.tileEdgeM);
     if (typeof scene._activatePathStone === 'function') {
@@ -990,46 +1049,36 @@ const TAP_HANDLERS = [
   }},
 
   // 2-place-scarecrow) With scarecrow selected, drop one on an empty tillable cell.
-  { name: 'place-scarecrow', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    const sel = getSelectedSlot(save);
-    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!(selItem && selItem.id === 'scarecrow' && (sel.count ?? 0) > 0 &&
-          isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
-          !(save.scarecrows || []).some(s => Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1) &&
-          !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) return false;
-    save.scarecrows = save.scarecrows || [];
-    save.scarecrows.push({ x: cwmx, y: cwmy });
-    consumeSelected(save);
-    ctx.dirty = true;
-    scene.buildInventoryDOM();
-    scene.flash('🪦 The scarecrow watches.', sx, sy);
-    return true;
-  }},
+  { name: 'place-scarecrow', try: (ctx) => placeOnEmptyCell(ctx, {
+    itemId: 'scarecrow',
+    // Scarecrow placement is free (no energyKey). Extra guard: refuse if a
+    // scarecrow already sits on this cell (rock has no such per-cell list to
+    // check — placedRockSet membership is implied by the tilled/planted gates).
+    extraGuard: ({ save, cwmx, cwmy }) =>
+      !(save.scarecrows || []).some(s => Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
+    place: ({ save, cwmx, cwmy }) => {
+      save.scarecrows = save.scarecrows || [];
+      save.scarecrows.push({ x: cwmx, y: cwmy });
+    },
+    flashMsg: '🪦 The scarecrow watches.',
+  })},
 
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.
-  { name: 'place-rock', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    const sel = getSelectedSlot(save);
-    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!(selItem && selItem.id === 'rockfruit' && (sel.count ?? 0) > 0 &&
-          isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
-          !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) return false;
-    if (!scene.spendEnergy(ENERGY_COST?.rockPlace ?? 0, sx, sy)) return true;
-    scene.placedRockSet.add(cellKey);
-    save.placedRocks = [...scene.placedRockSet];
-    consumeSelected(save);
-    ctx.dirty = true;
-    scene.buildInventoryDOM();
-    scene.flash('🪨 Stone set.', sx, sy);
-    return true;
-  }},
+  { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {
+    itemId: 'rockfruit',
+    energyKey: 'rockPlace',
+    place: ({ scene, save, cellKey }) => {
+      scene.placedRockSet.add(cellKey);
+      save.placedRocks = [...scene.placedRockSet];
+    },
+    flashMsg: '🪨 Stone set.',
+  })},
 
   // 2-rock) Tap a natural rock cell → break it. Requires a pickaxe relic;
   // costs energy (mitigated by pick tier).
   { name: 'rock', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    if (cell.type !== 10) return false;
+    if (cell.type !== TERRAIN.ROCK) return false;
     if (scene.brokenRockSet.has(cellKey)) {
       scene.flash('Rubble — nothing salvageable.', sx, sy);
       return true;
@@ -1055,9 +1104,9 @@ const TAP_HANDLERS = [
       else if (r < 0.008)   { scene.addToInv('ruby', 1);              msg = '💥 → ✨ ruby'; }
       else if (r < 0.025)   { scene.addToInv('sapphire', 1);          msg = '💥 → ✨ sapphire'; }
       else if (r < 0.030)   { scene.addToInv('gemfruit', 1);          msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.040)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
+      else if (r < 0.040)   { addMoney(save, 25); msg = '💥 → $25'; }
       else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
-      else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
+      else if (r < 0.130)   { addMoney(save,  5); msg = '💥 → $5'; }
       else if (r < 0.430)   { scene.addToInv('coal', randInt(1, 2)); msg = '💥 → coal'; }
       else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
       persistSave(save);
@@ -1129,7 +1178,7 @@ const TAP_HANDLERS = [
   // bank that gives +2 tiers of quality bonus on the next 50 watering events.
   { name: 'can-refill', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
-    if (cell.type !== 3) return false;          // not water
+    if (cell.type !== TERRAIN.WATER) return false;          // not water
     if (!save.relics?.can) return false;         // no can owned
     // Neither the can nor the rod is a selectable inventory item, so a bare
     // water tap is ambiguous when the player owns both. A rod wins — water
@@ -1148,7 +1197,7 @@ const TAP_HANDLERS = [
   // BEFORE flavor so the water-tap doesn't get eaten by the 'water' label.
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
-    if (cell.type !== 3) return false;
+    if (cell.type !== TERRAIN.WATER) return false;
     if (!save.relics?.rod) {
       scene.flash('You watch the ripples for a while.', sx, sy);
       return true;
@@ -1233,12 +1282,12 @@ const TAP_HANDLERS = [
     const { scene, sx, sy, cell } = ctx;
     if (isTillable(cell.type)) return false;
     const t = cell.type;
-    const flavor = t === 3  ? 'water'
-                 : (t === 9 || t === 11 || t === 12) ? 'building'
-                 : t === 13 ? 'highway'
-                 : t === 14 ? 'avenue'
-                 : t === 7  ? 'road'
-                 : t === 8  ? 'path'
+    const flavor = t === TERRAIN.WATER ? 'water'
+                 : (t === TERRAIN.BUILDING || t === TERRAIN.BUILDING_MED || t === TERRAIN.BUILDING_LARGE) ? 'building'
+                 : t === TERRAIN.ROAD_LG ? 'highway'
+                 : t === TERRAIN.ROAD_MD ? 'avenue'
+                 : t === TERRAIN.ROAD    ? 'road'
+                 : t === TERRAIN.PATH    ? 'path'
                  : '·';
     scene.flash(flavor, sx, sy);
     return true;
