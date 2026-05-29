@@ -14,7 +14,7 @@ const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 
 // --- Debug ---
-// Arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
+// WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
 
@@ -220,10 +220,10 @@ class MapScene extends Phaser.Scene {
       {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
         money: STARTING_MONEY, buyIndex: 0,
-        // inv is array of {id, count} — seeds-only per spec; planting decrements count.
-        inv: [
-          { id: 'potato_seed', count: 10 },
-        ],
+        // inv is array of {id, count} — seeds-only per spec; planting decrements
+        // count. Starts empty: the player's first potato seeds come from a
+        // starter crate on the spawn trail (see STARTER_LOOT below).
+        inv: [],
         selSlot: 0,
         invPage: 0,
       },
@@ -1164,19 +1164,21 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Six starter crates: three of 5 wood for restoring a plain house,
+      // Seven starter crates: one of 9 potato seeds (the player's first crop —
+      // inventory starts empty), three of 5 wood for restoring a plain house,
       // three of 5 rockfruit for restoring a themed shop — interleaved so the
-      // trail alternates. 5-per-crate keeps each pickup within the no-bag stack
-      // cap (9) so nothing overflows. Fixed contents instead of the unified
-      // rarity picker — the player gets exactly what they need to bootstrap the
+      // trail alternates. Per-crate counts stay within the no-bag stack cap (9)
+      // so nothing overflows. Fixed contents instead of the unified rarity
+      // picker — the player gets exactly what they need to bootstrap the
       // restoration loop.
       const STARTER_LOOT = [
-        { id: 'wood',      qty: 5 },
-        { id: 'rockfruit', qty: 5 },
-        { id: 'wood',      qty: 5 },
-        { id: 'rockfruit', qty: 5 },
-        { id: 'wood',      qty: 5 },
-        { id: 'rockfruit', qty: 5 },
+        { id: 'potato_seed', qty: 9 },
+        { id: 'wood',        qty: 5 },
+        { id: 'rockfruit',   qty: 5 },
+        { id: 'wood',        qty: 5 },
+        { id: 'rockfruit',   qty: 5 },
+        { id: 'wood',        qty: 5 },
+        { id: 'rockfruit',   qty: 5 },
       ];
       const COUNT = STARTER_LOOT.length;
       const usedSeats = new Set();          // 'cx,cy' of cells already holding a crate
@@ -1457,13 +1459,17 @@ class MapScene extends Phaser.Scene {
     }
     let vx = 0, vy = 0;
     const k = this.keys;
-    if (k.A.isDown) vx -= 1;
-    if (k.D.isDown) vx += 1;
-    if (k.W.isDown) vy -= 1;
-    if (k.S.isDown) vy += 1;
-    // Arrow keys: DEBUG_SPEED_MUL × speed for fast debug travel (gated on DEBUG).
+    let wasd = false;
+    if (k.A.isDown) { vx -= 1; wasd = true; }
+    if (k.D.isDown) { vx += 1; wasd = true; }
+    if (k.W.isDown) { vy -= 1; wasd = true; }
+    if (k.S.isDown) { vy += 1; wasd = true; }
+    // WASD and arrow keys move at the same speed: DEBUG_SPEED_MUL × walk speed
+    // for fast debug travel (gated on DEBUG). Kept in sync so the two keyboard
+    // schemes feel identical.
     let speedMul = 1;
     if (DEBUG) {
+      if (wasd) speedMul = DEBUG_SPEED_MUL;
       if (k.LEFT.isDown)  { vx -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.RIGHT.isDown) { vx += 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
