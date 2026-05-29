@@ -918,7 +918,12 @@ Render.drawObjects = function drawObjects(scene) {
                 return Phaser.Math.Clamp(o.variant || 2, 0, 4);
               },
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
-              scale:  (o) => (o.species && o.species !== 'maple') ? 0.62 : 0.85 },
+              scale:  (o) => (o.species && o.species !== 'maple') ? 0.62 : 0.85,
+              // sy is the cell CENTRE; a foot-anchored tree there leaves its
+              // trunk base mid-cell so the canopy spills up into the tile
+              // above. Nudge the foot down to the cell's front (bottom) edge
+              // so each tree stands inside its own cell.
+              dyPx: CELL_PX * 0.5 },
     chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
