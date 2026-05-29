@@ -686,7 +686,7 @@
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
                   if (resRng() > 0.45) continue;   // 45 % of pivots fire a cluster
-                  const clusterN = 6 + Math.floor(resRng() * 5);  // 6..10 rocks per cluster
+                  const clusterN = 25 + Math.floor(resRng() * 16);   // 25..40 rocks per cluster (residential rocks survive the road-adjacency filter at a lower rate, so input has to overshoot)
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
@@ -719,7 +719,7 @@
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
                   if (indRng() > 0.80) continue;   // 80 % of pivots fire — "lots"
-                  const clusterN = 6 + Math.floor(indRng() * 6);   // 6..11 rocks per cluster
+                  const clusterN = 18 + Math.floor(indRng() * 16);   // 18..33 rocks per cluster (3× the prior 6..11)
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (indRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (indRng() - 0.5) * 2 * clusterR;
@@ -745,11 +745,22 @@
                 totalW += w;
                 tierW.push(totalW);
               }
+              const clusterR = 5 / mvtToM;       // ~5 m cluster radius
               for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                  if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+                  const cxMvt = xx + stepMvt * 0.5;
+                  const cyMvt = yy + stepMvt * 0.5;
+                  if (!pointInRings(f.geom, cxMvt, cyMvt)) continue;
                   if (rockRng() > 0.55) continue;   // 55% chance per candidate
-                  _pushMineralrock(rockRng, xx + stepMvt * 0.5, yy + stepMvt * 0.5, tierW, totalW);
+                  // Triple-up: 3 rocks per fired candidate, slight jitter
+                  // inside ~5 m so they read as a small pile rather than
+                  // a single boulder. Brings wilderness ROCK density in
+                  // line with the residential / industrial cluster bump.
+                  for (let k = 0; k < 3; k++) {
+                    const jx = cxMvt + (rockRng() - 0.5) * 2 * clusterR;
+                    const jy = cyMvt + (rockRng() - 0.5) * 2 * clusterR;
+                    _pushMineralrock(rockRng, jx, jy, tierW, totalW);
+                  }
                 }
               }
             }
@@ -1141,9 +1152,16 @@
         const here = grid[iy * w + ix];
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
-          if (o._residential) {
-            // Residential rocks must be 0..1 cells from a road (kerb / driveway).
-            if (!_mrNearRoadWithin(ix, iy, 1)) { objects.splice(i, 1); continue; }
+          // Any rock whose FINAL cell turned out to be residential must be
+          // kerb-tight (Chebyshev ≤ 1 from a road) — terrain-based, NOT
+          // tied to which polygon spawned the rock. A wilderness ROCK or
+          // INDUSTRIAL cluster can drop a rock that ends up on a
+          // residential cell after the grid is fully painted, and the
+          // player will see "rock in residential, far from road" all the
+          // same. The _residential flag is preserved for telemetry but
+          // no longer drives the check.
+          if (here === T.RESIDENTIAL && !_mrNearRoadWithin(ix, iy, 1)) {
+            objects.splice(i, 1); continue;
           }
           delete o._residential;
           continue;
