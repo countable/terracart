@@ -321,13 +321,17 @@ class MapScene extends Phaser.Scene {
     // Starter-tools gift: old starter shop used to stock a wood pick + axe
     // until each was bought. That shop is gone now, but the player still
     // needs the tools to collect wood + rockfruit (the restoration
-    // materials) on day one. Gift them directly once per save.
-    if (!this.save.starterToolsGifted) {
-      this.save.relics = this.save.relics || {};
-      if (!this.save.relics.pick) this.save.relics.pick = { tier: 1 };
-      if (!this.save.relics.axe)  this.save.relics.axe  = { tier: 1 };
-      this.save.starterToolsGifted = true;
-    }
+    // materials) on day one. Gift them directly.
+    //
+    // NOTE: this is intentionally NOT gated behind starterToolsGifted. The
+    // axe gift was added AFTER many saves already had starterToolsGifted=true,
+    // so those players could never chop. Ensuring pick + axe always exist (a
+    // no-op once both are present) backfills the axe for older saves while
+    // still never overwriting a tool the player has already upgraded.
+    this.save.relics = this.save.relics || {};
+    if (!this.save.relics.pick) this.save.relics.pick = { tier: 1 };
+    if (!this.save.relics.axe)  this.save.relics.axe  = { tier: 1 };
+    this.save.starterToolsGifted = true;
     // Soft cap on unbounded "history" save fields. A heavy player who walks
     // for hours can balloon these to MBs and silently break localStorage
     // writes (quota exceeded). Keeping the MOST RECENT N entries means the
@@ -503,6 +507,9 @@ class MapScene extends Phaser.Scene {
     this.plantedContainer = this.add.container(0, 0);
     // Pads (3x3 concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
+    // Soft contact shadows under buildings — drawn just below the object
+    // sprites so a house/tower visibly sits ON the ground instead of floating.
+    this.shadowContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
@@ -589,6 +596,26 @@ class MapScene extends Phaser.Scene {
       cg.destroy();
     }
 
+    // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
+    // Drawn as concentric ellipses of decreasing alpha so the edge feathers
+    // out instead of hard-cutting. 64×32 texture; render.js scales per object.
+    if (!this.textures.exists('bldg_shadow')) {
+      const sg = this.make.graphics({ x: 0, y: 0, add: false });
+      const cx = 32, cy = 16, rings = 12;
+      for (let i = rings; i >= 1; i--) {
+        const t = i / rings;                 // 1 at outer rim, →0 at centre
+        const rx = 30 * t, ry = 15 * t;
+        // Alpha builds toward the centre: outer rings barely visible.
+        sg.fillStyle(0x000000, 0.05 + 0.16 * (1 - t));
+        sg.fillEllipse(cx, cy, rx * 2, ry * 2);
+      }
+      sg.generateTexture('bldg_shadow', 64, 32);
+      sg.destroy();
+    }
+    // Shadow pool — one sprite per visible building. Sized to the worst case
+    // (every object cell could be a building); reuses the object pool budget.
+    this.shadowPool = [];
+
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
     maskG.fillStyle(0xffffff);
@@ -601,6 +628,7 @@ class MapScene extends Phaser.Scene {
     this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
+    this.shadowContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
@@ -1114,82 +1142,105 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
+      // Six starter crates: three of 5 wood (tree) for restoring a plain
+      // house, three of 5 rockfruit for restoring a themed shop — interleaved
+      // so the trail alternates. 5-per-crate keeps each pickup within the
+      // no-bag stack cap (9) so nothing overflows. Fixed contents instead of
+      // the unified rarity picker — the player gets exactly what they need to
+      // bootstrap the restoration loop.
+      const STARTER_LOOT = [
+        { id: 'tree',      qty: 5 },
+        { id: 'rockfruit', qty: 5 },
+        { id: 'tree',      qty: 5 },
+        { id: 'rockfruit', qty: 5 },
+        { id: 'tree',      qty: 5 },
+        { id: 'rockfruit', qty: 5 },
+      ];
+      const COUNT = STARTER_LOOT.length;
+      const usedSeats = new Set();          // 'cx,cy' of cells already holding a crate
+      const placedIdx = new Set();          // loot indices successfully seated
+      const MIN_GAP = 3;                    // Chebyshev spacing between consecutive crates
+      const seatCrate = (cx, cy, i) => {
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        entry.extraTreasures.push({
+          x: wmx, y: wmy, n: i + 1,
+          starterLoot: STARTER_LOOT[i],
+          id: `treasure_start_${tx}_${ty}_${i + 1}`,
+        });
+        usedSeats.add(cx + ',' + cy);
+        placedIdx.add(i);
+      };
       if (roadCell) {
-        // Detect the road's direction by checking which neighbour is also
-        // a road. Fall back to east if the road is a one-cell stub.
-        let roadDir = [1, 0];
-        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-          const nx = roadCell.cx + ddx, ny = roadCell.cy + ddy;
-          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
-          if (ROAD_TYPES.has(entry.grid[ny * N + nx])) { roadDir = [ddx, ddy]; break; }
+        // BFS-collect connected road cells from the nearest road cell, in
+        // nearest-first order, then seat crates on walkable, non-road
+        // neighbours spaced at least MIN_GAP apart. Following the road's
+        // shape (rather than a fixed straight line) means crates keep
+        // getting placed even when the street curves or branches.
+        const roadCells = [];
+        const rVisited = new Set();
+        const rQueue = [[roadCell.cx, roadCell.cy]];
+        rVisited.add(roadCell.cx + ',' + roadCell.cy);
+        while (rQueue.length > 0 && roadCells.length < 120) {
+          const [cx, cy] = rQueue.shift();
+          if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+          if (!ROAD_TYPES.has(entry.grid[cy * N + cx])) continue;
+          roadCells.push([cx, cy]);
+          for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+            const k = (cx + ddx) + ',' + (cy + ddy);
+            if (!rVisited.has(k)) { rVisited.add(k); rQueue.push([cx + ddx, cy + ddy]); }
+          }
         }
-        // Walk along the road and seat a crate on the first walkable,
-        // non-road neighbour at each step. Just 2 starter crates: one
-        // packed with 15 wood (15× tree) for restoring a plain house, and
-        // one packed with 15 rockfruit for restoring a themed shop. Fixed
-        // contents instead of the unified rarity picker — the player gets
-        // exactly what they need to bootstrap the restoration loop.
-        const STARTER_LOOT = [
-          { id: 'tree',      qty: 15 },
-          { id: 'rockfruit', qty: 15 },
-        ];
-        const STEP = 4, COUNT = STARTER_LOOT.length;
-        const placed = [];
-        for (let i = 0; i < COUNT; i++) {
-          const rcx = roadCell.cx + roadDir[0] * i * STEP;
-          const rcy = roadCell.cy + roadDir[1] * i * STEP;
-          if (rcx < 0 || rcx >= N || rcy < 0 || rcy >= N) break;
-          if (!ROAD_TYPES.has(entry.grid[rcy * N + rcx])) break;   // road ended
+        let nextIdx = 0;
+        let lastSeat = null;
+        for (const [rcx, rcy] of roadCells) {
+          if (nextIdx >= COUNT) break;
           let seat = null;
           for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
             const nx = rcx + adx, ny = rcy + ady;
             if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
             const tt = entry.grid[ny * N + nx];
             if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
+            if (usedSeats.has(nx + ',' + ny)) continue;
+            // Enforce a minimum gap from the previous crate so the trail
+            // spreads out instead of clustering on adjacent road cells.
+            if (lastSeat &&
+                Math.max(Math.abs(nx - lastSeat.nx), Math.abs(ny - lastSeat.ny)) < MIN_GAP) continue;
             seat = { nx, ny }; break;
           }
           if (!seat) continue;
-          const wmx = tx * this.tileEdgeM + (seat.nx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (seat.ny + 0.5) * this.cellM;
-          entry.extraTreasures.push({
-            x: wmx, y: wmy, n: i + 1,
-            starterLoot: STARTER_LOOT[i],
-            id: `treasure_start_${tx}_${ty}_${i + 1}`,
-          });
-          placed.push(i + 1);
+          seatCrate(seat.nx, seat.ny, nextIdx);
+          lastSeat = seat;
+          nextIdx++;
         }
-        if (placed.length === 0) roadCell = null;
       }
-      if (!roadCell) {
-        // No road within 15 cells — drop the two starter crates in a
-        // tight ring around the spawn point on walkable cells. Same
-        // fixed loot as the road-trail path so the player gets exactly
-        // 15 wood + 15 rockfruit either way.
-        const STARTER_LOOT_FALLBACK = [
-          { id: 'tree',      qty: 15 },
-          { id: 'rockfruit', qty: 15 },
-        ];
-        const RING = [[2, 0], [-2, 0]];
-        for (let i = 0; i < STARTER_LOOT_FALLBACK.length; i++) {
-          const [bdx, bdy] = RING[i];
-          let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
-          for (let step = 0; step < 5; step++) {
-            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
-            const t = entry.grid[ncy * N + ncx];
-            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t)) break;
-            ncx += Math.sign(bdx);
-            ncy += Math.sign(bdy);
+      // Fill any crates the road couldn't host (no road found, or the road
+      // ran out of walkable shoulders) in a tight ring around the spawn
+      // point on walkable cells. Guarantees the player always gets all six
+      // = 15 wood + 15 rockfruit (in 5-stacks).
+      if (placedIdx.size < COUNT) {
+        const RING = [[2, 0], [-2, 0], [0, 2], [0, -2], [3, 0], [-3, 0],
+                      [2, 2], [-2, -2], [2, -2], [-2, 2]];
+        let ringPos = 0;
+        for (let i = 0; i < COUNT; i++) {
+          if (placedIdx.has(i)) continue;
+          let seated = false;
+          while (ringPos < RING.length && !seated) {
+            const [bdx, bdy] = RING[ringPos++];
+            let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
+            for (let step = 0; step < 5; step++) {
+              if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
+              const t = entry.grid[ncy * N + ncx];
+              if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !usedSeats.has(ncx + ',' + ncy)) break;
+              ncx += Math.sign(bdx) || 0;
+              ncy += Math.sign(bdy) || 0;
+            }
+            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
+            const tt = entry.grid[ncy * N + ncx];
+            if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || usedSeats.has(ncx + ',' + ncy)) continue;
+            seatCrate(ncx, ncy, i);
+            seated = true;
           }
-          if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
-          const tt = entry.grid[ncy * N + ncx];
-          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt)) continue;
-          const wmx = tx * this.tileEdgeM + (ncx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
-          entry.extraTreasures.push({
-            x: wmx, y: wmy, n: i + 1,
-            starterLoot: STARTER_LOOT_FALLBACK[i],
-            id: `treasure_start_${tx}_${ty}_${i + 1}`,
-          });
         }
       }
       // Clear the immediate spawn area of natural mineralrocks and trees
