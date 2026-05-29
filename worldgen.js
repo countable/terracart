@@ -47,6 +47,38 @@
     return T.BUILDING;
   }
 
+  // Per-tile distribution-floor enforcement. Per user balance pass: every
+  // tile should have AT LEAST 20% small houses, 8% forts, and 2% castles.
+  // If the default thresholds don't hit those minima on this tile's actual
+  // area distribution, promote/demote by area-rank until they do — biggest
+  // buildings get the biggest tier. n < 5 skips (too few to enforce
+  // meaningfully); 5 ≤ n < 25 only enforces fort + small (round(n*0.02) = 0).
+  // Mutates each entry's `.tier`.
+  function enforceBuildingDistribution(polys) {
+    const n = polys.length;
+    if (n < 5) return;
+    const needLarge = Math.max(0, Math.round(n * 0.02));
+    const needMed   = Math.max(0, Math.round(n * 0.08));
+    const needSmall = Math.max(0, Math.round(n * 0.20));
+    // Count current
+    let cLarge = 0, cMed = 0, cSmall = 0;
+    for (const p of polys) {
+      if (p.tier === T.BUILDING_LARGE) cLarge++;
+      else if (p.tier === T.BUILDING_MED) cMed++;
+      else cSmall++;
+    }
+    if (cLarge >= needLarge && cMed >= needMed && cSmall >= needSmall) return;
+    // Rank by area descending and FORCE the top / bottom bands. Buildings
+    // outside the forced bands keep their default tier — the floors are
+    // "at least", so naturally-large mid-tier buildings stay where they were.
+    const byArea = [...polys].sort((a, b) => b.areaM2 - a.areaM2);
+    for (let i = 0; i < byArea.length; i++) {
+      if (i < needLarge) byArea[i].tier = T.BUILDING_LARGE;
+      else if (i < needLarge + needMed) byArea[i].tier = T.BUILDING_MED;
+      else if (i >= byArea.length - needSmall) byArea[i].tier = T.BUILDING;
+    }
+  }
+
   // --- Mercator helpers ---
   function lonLatToWorldPx(lon, lat, z) {
     const n = (1 << z) * TILE_PX;
@@ -303,7 +335,10 @@
   // Map terrain type → wild "debris" crop spawned in polygons of that type.
   // Each polygon gets its own stable density in [DEBRIS_MIN, DEBRIS_MAX].
   const DEBRIS_CROP = {
-    5:  'rockfruit', // RESIDENTIAL
+    // Residential no longer spawns rockfruit debris — the cave mineralrock
+    // clusters (worldgen mineralrock helper, T.RESIDENTIAL branch) are now
+    // the canonical urban stone source. Wild rockfruit on sidewalks read
+    // as litter; cave-rock piles read as a quarry corner.
     6:  'shrub',     // PARK
     1:  'shrub',     // FOREST
     2:  'shell',     // SAND — beaches grow shells as common debris
@@ -431,35 +466,25 @@
     for (const name of order) {
       const layer = layersByName[name];
       if (!layer) continue;
+      // Building rings get COLLECTED first, then re-tiered against the
+      // tile's full distribution before any painting happens. Painting
+      // ring-by-ring (the old behaviour) made the per-tile-floor pass
+      // impossible because by the time we knew the counts, the grid was
+      // already coloured. So: collect → enforce mins → paint + objectify.
+      const buildingPolys = [];
       for (const f of layer.features) {
         if (f.type === 3) { // polygon
           let t = classifyPolygon(name, f.tags);
 
           // Building polygons get tiered by area + render_height so schools/malls/civic read
-          // as a different color from single-family houses. Painted ring-by-ring.
+          // as a different color from single-family houses.
           if (name === 'building') {
             for (const ring of f.geom) {
               if (ring.length < 3) continue;
               const areaM2 = Math.abs(ringSignedArea(ring)) * mvtToM * mvtToM;
               if (areaM2 < 8) continue;
               const tier = buildingTier(areaM2, f.tags.render_height);
-              paintPolygon(grid, w, h, [ring], tier, mvtToCell);
-              // Civic / industrial slabs (schools, malls, hospitals) read as a cement pad —
-              // a residential house roof on top of one looks wrong, so skip the sprite.
-              if (tier === T.BUILDING_LARGE) continue;
-              const c = ringCentroid(ring);
-              const m = toMeters(c.x, c.y);
-              // Snap house sprite to the 5m cell centre so a row of houses lines up cleanly.
-              const ix = Math.floor(m.x / CELL_M);
-              const iy = Math.floor(m.y / CELL_M);
-              const cx = (ix + 0.5) * CELL_M;
-              const cy = (iy + 0.5) * CELL_M;
-              // Stable id for per-house shop state (deal rate-limit, future ledger).
-              const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
-              // Synthetic 3-digit street address derived from cell coords. Houses
-              // whose address ends in 9 become blacksmiths (~10% of houses).
-              const address = (((ix * 73856093) ^ (iy * 19349663)) >>> 0) % 1000;
-              objects.push({ kind: 'house', x: cx, y: cy, area: areaM2, tier, id, address });
+              buildingPolys.push({ ring, areaM2, tier });
             }
           } else {
             if (t != null) paintPolygon(grid, w, h, f.geom, t, mvtToCell);
@@ -554,8 +579,12 @@
             // Also: never spawn on a BUILDING cell, even if the polygon
             // happens to overlap (residential polygons often contain
             // painted building footprints).
-            const _CAVE_ROCK_P = 0.50;
-            const _CAVE_VARIANTS = 11 * 3;   // rows 14, 15, 16 (3 rows × 11 cols)
+            const _CAVE_ROCK_P = 0.70;
+            const _CAVE_VARIANTS = 11;       // row 16 only — see render.js
+            const _isRoadCell = (ix, iy) => {
+              const tc = grid[iy * w + ix];
+              return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
+            };
             // Cells that REFUSE a rock spawn even if the polygon overlaps
             // them. Roads, paths, water, and every building footprint —
             // rocks plopped on a sidewalk or in the middle of a road look
@@ -566,7 +595,22 @@
                   || tc === T.PATH     || tc === T.WATER
                   || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
             };
-            const _pushMineralrock = (rng, jx, jy, tierW, totalW) => {
+            // Residential rocks must sit ON OR WITHIN 1 cell of a road (so
+            // a rock pile reads as a curbside / driveway feature). Walk
+            // the 3×3 neighbourhood; pass if any is a road type. The spawn
+            // cell itself can't be a road (blocked above), so the rock
+            // ends up adjacent to one or up to 1 cell away.
+            const _nearRoad = (ix, iy) => {
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  const nx = ix + dx, ny = iy + dy;
+                  if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                  if (_isRoadCell(nx, ny)) return true;
+                }
+              }
+              return false;
+            };
+            const _pushMineralrock = (rng, jx, jy, tierW, totalW, requireNearRoad) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const m = toMeters(jx, jy);
               const ix = Math.floor(m.x / CELL_M);
@@ -579,6 +623,9 @@
               const localIy = iy - ty * h;
               if (localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
                   && _isBlockedCell(localIx, localIy)) return;
+              if (requireNearRoad
+                  && localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
+                  && !_nearRoad(localIx, localIy)) return;
               const cx = (ix + 0.5) * CELL_M;
               const cy = (iy + 0.5) * CELL_M;
               if (rng() < _CAVE_ROCK_P) {
@@ -607,19 +654,20 @@
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const bb = bboxOf(f.geom);
-              const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m (was 30)
+              const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
-              // Tier curve 1/2^(t-1) — same dropoff as wilderness ROCK so T3+
-              // ore actually appears (under 1/3^(t-1) town rocks were 95 %
-              // copper-only and a wood pick mined everything). Still skewed
-              // low: T1 ~50 % → T7 ~0.8 % of the ore subset.
+              // Explicit tier weights for residential — user-tuned to hit:
+              //   ~70 %   vanilla cave  (handled at the helper, not here)
+              //   ~20 %   copper        T1 + T2 of the ore subset
+              //   ~8  %   iron          T3
+              //   ~3  %   gold          T4
+              //   ~5  %   crystals      T5 + T6 + T7
+              // Of TOTAL rock count. Within the 30 % ore subset that's
+              // copper 0.55, iron 0.22, gold 0.08, crystals 0.14.
+              const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
               const tierW = [];
               let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(2, t2 - 1);
-                totalW += w;
-                tierW.push(totalW);
-              }
+              for (const w of weights) { totalW += w; tierW.push(totalW); }
               for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
                   if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
@@ -628,7 +676,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(resRng, jx, jy, tierW, totalW);
+                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* requireNearRoad */ true);
                   }
                 }
               }
@@ -946,6 +994,36 @@
               }
             }
           }
+        }
+      }
+      // Building distribution post-process — runs ONCE per layer, but only
+      // does work when this layer is 'building'. After collecting every
+      // building ring (above), enforce the per-tile floors (≥20% small,
+      // ≥8% fort, ≥2% castle) by re-tiering by area-rank where needed.
+      // Then paint + push house objects (LARGE gets a cement pad with no
+      // sprite; everything else gets a 'house' object).
+      if (name === 'building' && buildingPolys.length) {
+        enforceBuildingDistribution(buildingPolys);
+        for (const bp of buildingPolys) {
+          paintPolygon(grid, w, h, [bp.ring], bp.tier, mvtToCell);
+          // Civic / industrial slabs (schools / malls / hospitals) read as a
+          // cement pad — a residential house roof on top of one looks wrong,
+          // so skip the sprite.
+          if (bp.tier === T.BUILDING_LARGE) continue;
+          const c = ringCentroid(bp.ring);
+          const m = toMeters(c.x, c.y);
+          // Snap house sprite to the 5m cell centre so a row of houses
+          // lines up cleanly.
+          const ix = Math.floor(m.x / CELL_M);
+          const iy = Math.floor(m.y / CELL_M);
+          const cx = (ix + 0.5) * CELL_M;
+          const cy = (iy + 0.5) * CELL_M;
+          // Stable id for per-house shop state (deal rate-limit, future ledger).
+          const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
+          // Synthetic 3-digit street address derived from cell coords. Houses
+          // whose address ends in 9 become blacksmiths (~10% of houses).
+          const address = (((ix * 73856093) ^ (iy * 19349663)) >>> 0) % 1000;
+          objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
       }
     }

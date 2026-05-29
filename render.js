@@ -811,26 +811,25 @@ Render.drawObjects = function drawObjects(scene) {
                 s.setAlpha(picked ? 0.55 : 1);
               } },
     mineralrock: { key: 'mineralrock',
-              // Sheet: 11 cols × 17 rows = 187 frames.
-              //   CAVE rocks (o.caveVariant set, no ore) → bottom three rows
-              //     (14, 15, 16) which are plain stone art. Variant is rolled
-              //     at worldgen time so a given rock is visually stable.
-              //   ORE rocks (o.yieldTier set) → row = (yieldTier - 1) × 2
-              //     so T1=row 0, T2=row 2 … T7=row 12.
-              // Col is hashed mod 10 (not the full 11) because sheet col 10
-              // is blank on rows 10 + 12 — a rock that hashed there rendered
-              // as an empty square. Cave rows are full 11 cols but we stay
-              // with mod 10 for symmetry.
+              // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
+              // to the SMALL rock variants only — rows 8/10/12 etc. have
+              // boulder-sized art that visibly bleeds past the 16 × 16 frame
+              // when the sprite renders at scale 1.6, so a T6/T7 ore rock
+              // appeared cropped. Two safe rows:
+              //   CAVE  → row 16  (small scattered stones, 11 colour vars)
+              //   ORE   → row 0   (small gem-on-pebble, 11 colour vars)
+              // Both produce visually compact rocks; col varies by tier
+              // (ore) or id-hash (cave) for tier-distinct gems / surface
+              // variety. Col stays in 0..10 because both rows are fully
+              // populated across the 11 columns.
               frame: (o) => {
                 if (o.caveVariant != null) {
-                  const caveRow = 14 + Math.floor(o.caveVariant / MINERALROCK_COLS);
                   const caveCol = o.caveVariant % MINERALROCK_COLS;
-                  return Math.min(16, caveRow) * MINERALROCK_COLS + Math.min(10, caveCol);
+                  return 16 * MINERALROCK_COLS + caveCol;
                 }
                 const tier = o.yieldTier || o.requiredTier || 1;
-                const row = Math.min(16, (tier - 1) * 2);
-                const col = _idHash(o.id || '') % 10;
-                return row * MINERALROCK_COLS + col;
+                const col = (tier - 1) % MINERALROCK_COLS;
+                return 0 * MINERALROCK_COLS + col;
               },
               // Origin (0.5, 0.5) — centre the sprite in its cell. The
               // previous (0.5, 0.9) foot-anchor was meant for standing
