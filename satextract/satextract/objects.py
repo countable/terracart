@@ -95,14 +95,28 @@ def detect_objects(image, origin_px, zoom, prompts=None,
         inputs = processor(images=crop, text=text, return_tensors="pt").to(device)
         with torch.no_grad():
             outputs = model(**inputs)
-        results = processor.post_process_grounded_object_detection(
-            outputs,
-            inputs.input_ids,
-            box_threshold=box_threshold,
-            text_threshold=text_threshold,
-            target_sizes=[crop.size[::-1]],
-        )[0]
-        for box, score, label in zip(results["boxes"], results["scores"], results["labels"]):
+        # transformers ≥ 4.40 renamed the threshold kwargs:
+        # box_threshold → threshold, text_threshold dropped from this fn.
+        # Try the new signature first, fall back to the old one.
+        try:
+            results = processor.post_process_grounded_object_detection(
+                outputs,
+                inputs.input_ids,
+                threshold=box_threshold,
+                text_threshold=text_threshold,
+                target_sizes=[crop.size[::-1]],
+            )[0]
+        except TypeError:
+            results = processor.post_process_grounded_object_detection(
+                outputs,
+                inputs.input_ids,
+                box_threshold=box_threshold,
+                text_threshold=text_threshold,
+                target_sizes=[crop.size[::-1]],
+            )[0]
+        # Newer API uses `text_labels` instead of `labels`.
+        label_key = "text_labels" if "text_labels" in results else "labels"
+        for box, score, label in zip(results["boxes"], results["scores"], results[label_key]):
             bx0, by0, bx1, by1 = [float(v) for v in box.tolist()]
             all_dets.append({
                 "box": (bx0 + x0, by0 + y0, bx1 + x0, by1 + y0),

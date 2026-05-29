@@ -24,11 +24,13 @@ def detect_trees(image, origin_px, zoom, score_thresh=0.30,
         model.use_release()
 
     arr = np.array(image)
+    # DeepForest >= 2.x dropped the `return_plot` kwarg — predict_tile now
+    # always returns a DataFrame of boxes. Older callers that passed it
+    # crash with `TypeError: unexpected keyword argument 'return_plot'`.
     boxes = model.predict_tile(
         image=arr,
         patch_size=patch_size,
         patch_overlap=patch_overlap,
-        return_plot=False,
     )
 
     feats = []
