@@ -672,13 +672,11 @@ class MapScene extends Phaser.Scene {
     this._poiTpVisited = new Set();
     this._poiTpFirst = 'Windermere Park';
     this.input.keyboard.on('keydown-SPACE', () => this.teleportNextPoi());
-    // Debug: T cycles through tree species (maple → pine → birch → mahogany)
-    // and teleports to the densest grove of that species across loaded tiles.
-    // Useful for visually QA-ing per-polygon species variety without walking
-    // the map. No game-state side effects beyond the teleport itself.
-    this._treeTpSpecies = ['maple', 'pine', 'birch', 'mahogany'];
-    this._treeTpIdx = 0;
-    this.input.keyboard.on('keydown-T', () => this.teleportNextTreeGrove());
+    // Debug: T hops to the next-nearest INDIVIDUAL tree (the standalone OSM
+    // street / yard trees wired in from the satextract sidecar, flagged
+    // `individual:true`), cycling outward by distance so repeated presses
+    // walk you through them. No game-state side effects beyond the teleport.
+    this.input.keyboard.on('keydown-T', () => this.teleportNextIndividualTree());
 
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
@@ -933,7 +931,7 @@ class MapScene extends Phaser.Scene {
   playerToWorldCell() {
     const wx = this.originPx.x + this.playerM.x / this.mPerPx;
     const wy = this.originPx.y + this.playerM.y / this.mPerPx;
-    const tilePx = 256;
+    const tilePx = WorldGen.TILE_PX;
     const tx = Math.floor(wx / tilePx);
     const ty = Math.floor(wy / tilePx);
     const cellPxSize = tilePx / this.cellsPerTile;
@@ -1127,13 +1125,13 @@ class MapScene extends Phaser.Scene {
         }
         // Walk along the road and seat a crate on the first walkable,
         // non-road neighbour at each step. Just 2 starter crates: one
-        // packed with 5 wood (5× tree) for restoring a plain house, and
-        // one packed with 5 rockfruit for restoring a themed shop. Fixed
+        // packed with 15 wood (15× tree) for restoring a plain house, and
+        // one packed with 15 rockfruit for restoring a themed shop. Fixed
         // contents instead of the unified rarity picker — the player gets
         // exactly what they need to bootstrap the restoration loop.
         const STARTER_LOOT = [
-          { id: 'tree',      qty: 5 },
-          { id: 'rockfruit', qty: 5 },
+          { id: 'tree',      qty: 15 },
+          { id: 'rockfruit', qty: 15 },
         ];
         const STEP = 4, COUNT = STARTER_LOOT.length;
         const placed = [];
@@ -1166,10 +1164,10 @@ class MapScene extends Phaser.Scene {
         // No road within 15 cells — drop the two starter crates in a
         // tight ring around the spawn point on walkable cells. Same
         // fixed loot as the road-trail path so the player gets exactly
-        // 5 wood + 5 rockfruit either way.
+        // 15 wood + 15 rockfruit either way.
         const STARTER_LOOT_FALLBACK = [
-          { id: 'tree',      qty: 5 },
-          { id: 'rockfruit', qty: 5 },
+          { id: 'tree',      qty: 15 },
+          { id: 'rockfruit', qty: 15 },
         ];
         const RING = [[2, 0], [-2, 0]];
         for (let i = 0; i < STARTER_LOOT_FALLBACK.length; i++) {
@@ -2188,9 +2186,11 @@ class MapScene extends Phaser.Scene {
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
     const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
-    const tx = Math.floor(wx / 256), ty = Math.floor(wy / 256);
-    const ix = Math.floor((wx - tx * 256) / (256 / this.cellsPerTile));
-    const iy = Math.floor((wy - ty * 256) / (256 / this.cellsPerTile));
+    const TILE_PX = WorldGen.TILE_PX;
+    const cps = TILE_PX / this.cellsPerTile;
+    const tx = Math.floor(wx / TILE_PX), ty = Math.floor(wy / TILE_PX);
+    const ix = Math.floor((wx - tx * TILE_PX) / cps);
+    const iy = Math.floor((wy - ty * TILE_PX) / cps);
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
     const loaded = !!(entry && entry.grid);
     return { tx, ty, ix, iy, loaded, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
@@ -2227,39 +2227,38 @@ class MapScene extends Phaser.Scene {
   // species trees within 50 m." If no trees of the current species are
   // loaded, skip to the next species in the cycle so the key never
   // silently no-ops on a thin forest.
-  teleportNextTreeGrove() {
-    const species = this._treeTpSpecies;
-    const N = species.length;
-    let attempted = 0;
-    while (attempted < N) {
-      const target = species[this._treeTpIdx];
-      this._treeTpIdx = (this._treeTpIdx + 1) % N;
-      attempted++;
-      const cands = [];
-      WorldGen.forEachItem('objects', (o) => {
-        if (o.kind !== 'tree') return;
-        const s = o.species || 'maple';
-        if (s === target) cands.push(o);
-      });
-      if (!cands.length) continue;
-      // Pick the tree with the most same-species neighbours within 50 m.
-      let best = null, bestScore = -1;
-      for (const a of cands) {
-        let s = 0;
-        for (const b of cands) {
-          const dx = b.x - a.x, dy = b.y - a.y;
-          if (dx * dx + dy * dy < 50 * 50) s++;
-        }
-        if (s > bestScore) { bestScore = s; best = a; }
-      }
-      this.playerM.x = best.x - this.startWorldM.x;
-      this.playerM.y = best.y - this.startWorldM.y + 4;
-      this.gpsM = { x: this.playerM.x, y: this.playerM.y };
-      this._ease = null;
-      this.flash(`→ ${target} grove (${bestScore})`, this.viewCenterX, this.viewCenterY - 40);
+  teleportNextIndividualTree() {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    if (!this._indivTreeVisited) this._indivTreeVisited = new Set();
+    // Gather every standalone OSM tree across currently-loaded tiles.
+    const all = [];
+    WorldGen.forEachItem('objects', (o) => {
+      if (o.kind === 'tree' && o.individual) all.push(o);
+    });
+    if (!all.length) {
+      this.flash('no individual trees loaded yet', this.viewCenterX, this.viewCenterY - 40);
       return;
     }
-    this.flash('no tree groves loaded yet', this.viewCenterX, this.viewCenterY - 40);
+    // Cycle outward: hop to the nearest tree we haven't visited yet. Once we've
+    // seen them all, wrap around so the key keeps working. Because each hop
+    // measures distance from the *new* position, repeated presses naturally
+    // walk you through a cluster rather than ping-ponging.
+    let pool = all.filter(o => !this._indivTreeVisited.has(o.id));
+    if (!pool.length) { this._indivTreeVisited.clear(); pool = all; }
+    let best = null, bestD = Infinity;
+    for (const o of pool) {
+      const dx = o.x - px, dy = o.y - py;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = o; }
+    }
+    this._indivTreeVisited.add(best.id);
+    this.playerM.x = best.x - this.startWorldM.x;
+    this.playerM.y = best.y - this.startWorldM.y + 4;
+    this.gpsM = { x: this.playerM.x, y: this.playerM.y };
+    this._ease = null;
+    this.flash(`→ ${best.species || 'tree'} (${this._indivTreeVisited.size}/${all.length})`,
+               this.viewCenterX, this.viewCenterY - 40);
   }
 
   teleportNextPoi() {

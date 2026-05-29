@@ -1653,6 +1653,9 @@
               variant: 1 + (osmId % 4),
               species: TREE_SPECIES[osmId % TREE_SPECIES.length],
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
+              // Flag standalone OSM trees (street / yard) so the T-key teleport
+              // can hop between them, distinct from dense forest-grove trees.
+              individual: true,
             });
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
