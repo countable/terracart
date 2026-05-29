@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>satextract</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  html, body, #map { height: 100%; margin: 0; }
+  .legend { background: rgba(255,255,255,0.92); padding: 8px 12px;
+            font: 12px/1.4 system-ui, sans-serif; border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .legend .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%;
+                 border: 1px solid #333; }
+  .popup-tags { font-family: ui-monospace, monospace; font-size: 11px;
+                white-space: pre-wrap; max-width: 260px; max-height: 180px;
+                overflow: auto; background: #f6f6f6; padding: 4px;
+                border-radius: 4px; margin-top: 4px; }
+  .kind-label { background: rgba(0,0,0,0.6); color: #fff; border: none;
+                box-shadow: none; padding: 0 4px; border-radius: 3px;
+                font: 11px/1.4 system-ui, sans-serif; white-space: nowrap; }
+  .kind-label::before { display: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const FEATURES = {"type":"FeatureCollection","bbox":[-119.48283618725074,49.851674997299995,-119.47446061274925,49.8570750027],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4746452922783,49.85392309261635]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.404,"w_m":55.41,"h_m":98.55,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47440884909838,49.856081050805855]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.402,"w_m":21.64,"h_m":98.32,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47440567840204,49.85680144767795]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.398,"w_m":21.28,"h_m":98.56,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47464419893976,49.85320696331641]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.387,"w_m":55.44,"h_m":98.32,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4799239860663,49.85186227412223]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.386,"w_m":97.8,"h_m":76.54,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47561160372516,49.85472477524877]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.366,"w_m":75.44,"h_m":26.51,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47548105130636,49.852484086175444]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.36,"w_m":71.22,"h_m":98.45,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47657661362882,49.85184739878701]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.357,"w_m":98.33,"h_m":80.04,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47768532141936,49.85184784093568]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.354,"w_m":96.84,"h_m":79.99,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47880726140284,49.85392270767719]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.345,"w_m":98.53,"h_m":98.56,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47992346596266,49.85536181936332]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.344,"w_m":98.51,"h_m":98.54,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4799234631796,49.85464129344918]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.34,"w_m":98.47,"h_m":98.53,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48190219230128,49.85301239344437]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.337,"w_m":33.49,"h_m":35.57,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48215492051531,49.853923028349875]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.335,"w_m":98.52,"h_m":98.52,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47522203287917,49.855603206383584]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.334,"w_m":25.25,"h_m":45.1,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48215494214537,49.853203081648175]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.334,"w_m":98.54,"h_m":98.51,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48103956865452,49.85248299453644]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.33,"w_m":98.45,"h_m":98.16,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47546040882344,49.85380066225623]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.33,"w_m":98.38,"h_m":70.87,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48215508428575,49.85686563281236]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.327,"w_m":98.51,"h_m":83.89,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47880820289356,49.85184607044345]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.325,"w_m":98.48,"h_m":79.65,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48022730806997,49.85248605590714]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.323,"w_m":55.55,"h_m":98.2,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47447877732543,49.85464402045236]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.319,"w_m":30.79,"h_m":98.53,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47956984245138,49.855483538556534]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.318,"w_m":24.72,"h_m":17.05,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48004150200632,49.855660223262554]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.318,"w_m":15.06,"h_m":20.6,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4795709248956,49.85561781561469]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.317,"w_m":15.21,"h_m":17.06,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47769257444634,49.85320302591719]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.315,"w_m":98.16,"h_m":98.14,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47558728384593,49.8558157707654]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.315,"w_m":79.29,"h_m":39.44,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47546078641835,49.85679988898883]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.314,"w_m":98.48,"h_m":98.54,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48193156325942,49.85248292827574]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.313,"w_m":65.96,"h_m":97.99,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47464426406015,49.85248551748295]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.312,"w_m":55.44,"h_m":98.57,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47580467320108,49.851847611994685]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.311,"w_m":49.33,"h_m":80.07,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47663254705503,49.85488696699221]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.31,"w_m":19.93,"h_m":15.58,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47769150792283,49.852485832913914]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.31,"w_m":98.56,"h_m":98.23,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.47546020911886,49.855359925412415]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.309,"w_m":98.48,"h_m":98.47,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4784034206532,49.8522998450485]},"properties":{"source":"grounding_dino","kind":"tennis court","score":0.307,"w_m":40.18,"h_m":57.23,"raw_kind":"tennis court"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48121754437125,49.85416433027429]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.306,"w_m":23.47,"h_m":19.66,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.48149576930746,49.855003144806]},"properties":{"source":"grounding_dino","kind":"pergola","score":0.302,"w_m":19.79,"h_m":18.04,"raw_kind":"pergola"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.474585,49.857063]},"properties":{"source":"osm","kind":"bus_stop","osm_id":8564531833,"osm_type":"node","tags":{"bus":"yes","highway":"bus_stop","name":"Gordon at Lanfranco","public_transport":"platform","ref":"140025","source":"BC Transit Open Data"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4826497,49.8532448]},"properties":{"source":"osm","kind":"pole","osm_id":9672253240,"osm_type":"node","tags":{"line_attachment":"anchor","material":"wood","operator":"FortisBC","operator:wikidata":"Q5472663","power":"pole"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4821499,49.8527439]},"properties":{"source":"osm","kind":"pole","osm_id":9672253241,"osm_type":"node","tags":{"line_attachment":"anchor","material":"wood","operator":"FortisBC","operator:wikidata":"Q5472663","power":"pole"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4817558,49.8523472]},"properties":{"source":"osm","kind":"pole","osm_id":9672253242,"osm_type":"node","tags":{"line_attachment":"anchor","material":"wood","operator":"FortisBC","operator:wikidata":"Q5472663","power":"pole"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4812284,49.8521415]},"properties":{"source":"osm","kind":"pole","osm_id":9672253243,"osm_type":"node","tags":{"line_attachment":"anchor","material":"wood","operator":"FortisBC","operator:wikidata":"Q5472663","power":"pole"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4805089,49.851852]},"properties":{"source":"osm","kind":"pole","osm_id":9672253244,"osm_type":"node","tags":{"line_attachment":"anchor","material":"wood","operator":"FortisBC","operator:wikidata":"Q5472663","power":"pole"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4805687,49.8520444]},"properties":{"source":"osm","kind":"crossing","osm_id":10766872071,"osm_type":"node","tags":{"highway":"crossing"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4720976,49.8472255]},"properties":{"source":"osm","kind":"line","osm_id":1052458889,"osm_type":"way","tags":{"cables":"3","frequency":"60","operator":"FortisBC","operator:wikidata":"Q5472663","power":"line","ref":"51L","voltage":"138000"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4812736,49.8524556]},"properties":{"source":"osm","kind":"parking","osm_id":1157074292,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4805296,49.8523532]},"properties":{"source":"osm","kind":"parking","osm_id":1157074293,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4770393,49.8517315]},"properties":{"source":"osm","kind":"parking","osm_id":1157074295,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4771157,49.8523805]},"properties":{"source":"osm","kind":"parking","osm_id":1157074296,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4768546,49.8519369]},"properties":{"source":"osm","kind":"parking","osm_id":1157074297,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4755577,49.8537886]},"properties":{"source":"osm","kind":"parking","osm_id":1157074298,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4767712,49.8535916]},"properties":{"source":"osm","kind":"parking","osm_id":1157074299,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4775696,49.8531518]},"properties":{"source":"osm","kind":"parking","osm_id":1157074300,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4779142,49.8527773]},"properties":{"source":"osm","kind":"parking","osm_id":1157074301,"osm_type":"way","tags":{"amenity":"parking","parking":"surface"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4819648,49.8530667]},"properties":{"source":"osm","kind":"pitch","osm_id":1157074302,"osm_type":"way","tags":{"leisure":"pitch","sport":"basketball"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4818281,49.8529298]},"properties":{"source":"osm","kind":"pitch","osm_id":1157074303,"osm_type":"way","tags":{"leisure":"pitch","sport":"basketball"}}},{"type":"Feature","geometry":{"type":"Point","coordinates":[-119.4800582,49.852801]},"properties":{"source":"osm","kind":"playground","osm_id":1157074304,"osm_type":"way","tags":{"leisure":"playground"}}}]};
+const LABELS = true;
+const COLORS = {
+  osm: "#3b82f6",
+  deepforest: "#22c55e",
+  grounding_dino: "#f59e0b",
+};
+
+const map = L.map("map");
+const esri = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom: 20, attribution: "Esri World Imagery" }
+);
+const osm = L.tileLayer(
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  { maxZoom: 19, attribution: "© OpenStreetMap" }
+);
+esri.addTo(map);
+L.control.layers({ "Esri Imagery": esri, "OSM": osm }, {}).addTo(map);
+
+const counts = {};
+const layer = L.geoJSON(FEATURES, {
+  pointToLayer: (f, latlng) => {
+    const src = (f.properties || {}).source || "unknown";
+    counts[src] = (counts[src] || 0) + 1;
+    return L.circleMarker(latlng, {
+      radius: 5,
+      color: "#000",
+      weight: 1,
+      fillColor: COLORS[src] || "#888",
+      fillOpacity: 0.85,
+    });
+  },
+  onEachFeature: (f, lyr) => {
+    const p = f.properties || {};
+    const score = p.score != null
+      ? ` <span style="opacity:0.6">(${(p.score * 100).toFixed(0)}%)</span>`
+      : "";
+    const tags = p.tags
+      ? `<div class="popup-tags">${JSON.stringify(p.tags, null, 2)}</div>`
+      : "";
+    lyr.bindPopup(
+      `<b>${p.kind || "?"}</b>${score}<br>` +
+      `<small style="opacity:0.7">${p.source || ""}</small>${tags}`
+    );
+    if (LABELS) {
+      lyr.bindTooltip(p.kind || "?", {
+        permanent: true, direction: "right", offset: [6, 0],
+        className: "kind-label", opacity: 1,
+      });
+    }
+  },
+}).addTo(map);
+
+if (FEATURES.features && FEATURES.features.length) {
+  map.fitBounds(layer.getBounds(), { padding: [24, 24] });
+} else if (FEATURES.bbox) {
+  const [w, s, e, n] = FEATURES.bbox;
+  map.fitBounds([[s, w], [n, e]]);
+} else {
+  map.setView([0, 0], 2);
+}
+
+const legend = L.control({ position: "topright" });
+legend.onAdd = () => {
+  const div = L.DomUtil.create("div", "legend");
+  let html = "<b>satextract</b><br>";
+  const all = Object.keys(COLORS);
+  for (const src of all) {
+    if (counts[src]) {
+      html += `<div class="row"><span class="dot" style="background:${COLORS[src]}"></span>${src} (${counts[src]})</div>`;
+    }
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  html += `<div style="margin-top:4px;opacity:0.7">${total} feature${total === 1 ? "" : "s"}</div>`;
+  div.innerHTML = html;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
