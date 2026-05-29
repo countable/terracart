@@ -812,20 +812,18 @@ Render.drawObjects = function drawObjects(scene) {
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
-              // to the SMALL rock variants only — rows 8/10/12 etc. have
-              // boulder-sized art that visibly bleeds past the 16 × 16 frame
-              // when the sprite renders at scale 1.6, so a T6/T7 ore rock
-              // appeared cropped. Two safe rows:
-              //   CAVE  → row 16  (small scattered stones, 11 colour vars)
-              //   ORE   → row 0   (small gem-on-pebble, 11 colour vars)
-              // Both produce visually compact rocks; col varies by tier
-              // (ore) or id-hash (cave) for tier-distinct gems / surface
-              // variety. Col stays in 0..10 because both rows are fully
-              // populated across the 11 columns.
+              // to the SMALL rock variants only — other rows have boulder-
+              // sized art that visibly bleeds past the 16 × 16 frame at
+              // scale 1.6. Two safe pickranges:
+              //   CAVE → row 15, cols 3..6 (the four "nice vanilla" rocks
+              //                              the user identified; 4 vars)
+              //   ORE  → row 0,  col by tier (small gem-on-pebble, 11 vars)
+              // Both produce visually compact rocks; ore col varies by tier
+              // for distinct gem colours.
               frame: (o) => {
                 if (o.caveVariant != null) {
-                  const caveCol = o.caveVariant % MINERALROCK_COLS;
-                  return 16 * MINERALROCK_COLS + caveCol;
+                  const caveCol = 3 + (o.caveVariant % 4);   // 3..6
+                  return 15 * MINERALROCK_COLS + caveCol;
                 }
                 const tier = o.yieldTier || o.requiredTier || 1;
                 const col = (tier - 1) % MINERALROCK_COLS;

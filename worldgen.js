@@ -580,7 +580,7 @@
             // happens to overlap (residential polygons often contain
             // painted building footprints).
             const _CAVE_ROCK_P = 0.70;
-            const _CAVE_VARIANTS = 11;       // row 16 only — see render.js
+            const _CAVE_VARIANTS = 4;        // row 15 cols 3..6 — see render.js
             const _isRoadCell = (ix, iy) => {
               const tc = grid[iy * w + ix];
               return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
