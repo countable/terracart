@@ -1020,11 +1020,19 @@
         const tc = grid[iy * w + ix];
         return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
       };
+      // The grid is indexed in the TILE's cell basis — cell width =
+      // tileEdgeM / cellsPerEdge, NOT the global CELL_M (5 m). Round-up
+      // from cellsPerEdge × CELL_M to tileEdgeM produces ~0.03 m of
+      // drift per cell, which accumulates to ~1.5 m by the far edge of
+      // a 50-cell tile — enough to put the rock's "lookup cell" one
+      // column off from where it actually sits on the painted grid.
+      // Use the same basis the grid was painted with.
+      const _mrCellW = tileEdgeM / w;
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
         if (o.kind !== 'mineralrock') continue;
-        const ix = Math.floor(o.x / CELL_M) - tx * w;
-        const iy = Math.floor(o.y / CELL_M) - ty * h;
+        const ix = Math.floor((o.x - tileOriginMx) / _mrCellW);
+        const iy = Math.floor((o.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile rocks belong to a neighbour pass
         if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
         if (o._residential) {
