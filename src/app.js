@@ -2334,8 +2334,9 @@ class MapScene extends Phaser.Scene {
     this.addToInv(c.kind, yieldN, true);
     persistSave(this.save);
     const item = ITEM_BY_ID[c.kind];
-    // Animals have no Crops.png sprite, so the emoji icon stays as a fallback.
-    this.flashLoot(`+${yieldN} ${item?.icon || ''} ${c.kind}`, '#a7ffb0', 1, c.kind);
+    // flashLoot draws the item's sprite (from the itemId arg) beside the text,
+    // so the text carries the name only — no emoji standing in for the item.
+    this.flashLoot(`+${yieldN} ${item?.name || c.kind}`, '#a7ffb0', 1, c.kind);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -3139,40 +3140,111 @@ class MapScene extends Phaser.Scene {
     return this.save.starterShopId === house.id;
   }
 
-  // Resolve (and self-heal) save.starterShopId: the player's Home is the
-  // house nearest spawn. The catch is tiles stream in asynchronously, so the
-  // nearest house among *currently loaded* tiles can be kilometres away
-  // before the spawn tile arrives. Memoizing that gives the player a "home"
-  // across town — and (pre-fix) a stale, far id persisted to the save, so the
-  // trailer sprite never appears near spawn. Guard against it: only accept a
-  // candidate within one tile of spawn (Home is adjacent — a house tiles away
-  // just means the spawn tile hasn't loaded yet), and replace a memoized id
-  // that is missing or implausibly far so old broken saves repair themselves.
-  // Cheap after it locks in via the _starterShopOk early-out; called both
-  // lazily (isStarterShop) and every frame from Render.drawObjects.
+  // Resolve (and self-heal) save.starterShopId: the player's Home. Home is the
+  // house nearest the player's ACTUAL location — their first GPS fix — NOT the
+  // fixed map origin (startWorldM, anchored at START_LAT/LON). Anchoring on the
+  // origin was the old bug: a player who starts far from START_LAT got a
+  // trailer dropped near the origin, off-screen, so it never appeared.
+  //
+  // Once a GPS fix is in:
+  //   • adopt the nearest house within HOME_CELL_R (5) cells as the trailer, or
+  //   • if no house is that close, synthesize a trailer under the player.
+  // Tiles stream in asynchronously, so we wait for the player's own tile to be
+  // ready before concluding "nothing nearby" (5 cells is far smaller than a
+  // tile, so the player's tile — plus the 3×3 ensureTilesAround keeps around
+  // it — fully covers the radius). A previously chosen home that is still
+  // loaded is kept so the trailer is stable across roaming and reloads, while a
+  // stale origin-anchored memo (whose tile never loads near the new spawn)
+  // self-heals. Cheap after it locks in via the _starterShopOk early-out;
+  // called lazily (isStarterShop) and every frame from Render.drawObjects.
   ensureStarterShopId() {
     if (this._starterShopOk) return;
-    const homeR = this.cellM * this.cellsPerTile;   // ~one tile edge in metres
+    // A synthetic trailer from a prior session — restore it and lock in.
+    if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
+      this.ensureStarterTrailerObject();
+      this._starterShopOk = true;
+      return;
+    }
+    // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
+    // frame). Sandbox / debug-control sessions have no GPS — fall back to the
+    // player's current position so Home still resolves.
+    const anchor = this.gpsM
+      || ((this._sandboxMode || this.save.debugControls) ? this.playerM : null);
+    if (!anchor) return;                       // no fix yet — wait for one
+    const ax = this.startWorldM.x + anchor.x;
+    const ay = this.startWorldM.y + anchor.y;
+    const HOME_CELL_R = 5;
+    const homeR = this.cellM * HOME_CELL_R;
     const homeR2 = homeR * homeR;
-    const sx = this.startWorldM.x, sy = this.startWorldM.y;
     const cur = this.save.starterShopId;
-    let nearestId = null, nearestD2 = Infinity, curD2 = Infinity;
+    let nearestId = null, nearestD2 = Infinity, curFound = false;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'house' || !o.id) continue;
-        const dx = o.x - sx, dy = o.y - sy, d2 = dx * dx + dy * dy;
+        const dx = o.x - ax, dy = o.y - ay, d2 = dx * dx + dy * dy;
         if (d2 < nearestD2) { nearestD2 = d2; nearestId = o.id; }
-        if (o.id === cur) curD2 = d2;
+        if (o.id === cur) curFound = true;
       }
     }
-    // No house near spawn yet — the home tile is still streaming. Try again
-    // next frame; leave any existing memo untouched.
-    if (nearestId == null || nearestD2 > homeR2) return;
-    // Adopt the near-home house when there's no memo, or the memo points
-    // nowhere near spawn (unloaded or a stale cross-town id). A memo that's
-    // already within range is left alone so we don't flip-flop.
-    if (cur == null || curD2 > homeR2) this.save.starterShopId = nearestId;
+    // An existing home that is still loaded → keep it (stable across roaming).
+    // A stale far memo simply isn't loaded near the new spawn, so curFound is
+    // false and we re-resolve below.
+    if (cur != null && curFound) { this._starterShopOk = true; return; }
+    // Adopt the nearest house when it's within the home radius.
+    if (nearestId != null && nearestD2 <= homeR2) {
+      this.save.starterShopId = nearestId;
+      this.save.starterTrailer = null;         // drop any prior synthetic trailer
+      this._starterShopOk = true;
+      return;
+    }
+    // No house within HOME_CELL_R cells. Don't synthesize until the player's
+    // own tile is ready — otherwise we might be staring at a half-streamed map
+    // and would drop a trailer on top of a house that simply hadn't arrived.
+    const ptx = Math.floor((this.originPx.x + anchor.x / this.mPerPx) / WorldGen.TILE_PX);
+    const pty = Math.floor((this.originPx.y + anchor.y / this.mPerPx) / WorldGen.TILE_PX);
+    const ptile = WorldGen.tileCache.get(`${WorldGen.Z}/${ptx}/${pty}`);
+    if (!ptile || (ptile.status && ptile.status !== 'ready')) return;
+    // Drop a trailer under the player.
+    this._makeStarterTrailer(ax, ay);
+    this.save.starterShopId = this.save.starterTrailer.id;
     this._starterShopOk = true;
+  }
+
+  // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
+  // centre like every real placed object. Worldgen never emits this object, so
+  // its position is persisted to save.starterTrailer and re-injected into the
+  // owning tile on every load by ensureStarterTrailerObject().
+  _makeStarterTrailer(wmx, wmy) {
+    const cellPx = WorldGen.TILE_PX / this.cellsPerTile;
+    const snap = (wm) => (Math.floor((wm / this.mPerPx) / cellPx) + 0.5) * cellPx * this.mPerPx;
+    const x = snap(wmx), y = snap(wmy);
+    const id = 'starter_trailer';
+    const address = ((Math.round(x) ^ Math.round(y)) >>> 0) % 1000;
+    // tier = T.BUILDING (a plain small house); the starter role overrides the
+    // wreck/shop skin in the renderer, so it draws as the trailer regardless.
+    this.save.starterTrailer = { id, x, y, tier: WorldGen.T.BUILDING, address };
+    this._starterTrailerObj = null;            // force a rebuild on next inject
+    this.ensureStarterTrailerObject();
+  }
+
+  // Keep the synthetic trailer present in its owning tile's object list. Runs
+  // every frame (cheap) so the trailer survives reloads and tile eviction —
+  // worldgen output never contains it, so without this it would vanish.
+  ensureStarterTrailerObject() {
+    const st = this.save.starterTrailer;
+    if (!st) return;
+    // Rebuild the in-memory object after a reload (or position change).
+    if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
+      this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
+        tier: st.tier, id: st.id, address: st.address, _synthetic: true };
+    }
+    const obj = this._starterTrailerObj;
+    const tx = Math.floor((obj.x / this.mPerPx) / WorldGen.TILE_PX);
+    const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
+    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    if (!entry || !entry.objects) return;      // owning tile not loaded yet
+    for (const o of entry.objects) { if (o.id === obj.id) return; }   // already in
+    entry.objects.push(obj);
   }
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
@@ -3310,8 +3382,8 @@ class MapScene extends Phaser.Scene {
     const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
-      const icons = wanted.map(id => ITEM_BY_ID[id]?.icon || '?').join(' ');
-      this.flash(`wants the set ${icons}`, sx, sy);
+      const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
+      this.flash(`wants the set: ${names}`, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price.
@@ -3897,7 +3969,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
         this.flashLoot(
-          `🪙 ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.icon || ''}`,
+          `🪙 ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
         );
       },
@@ -4265,7 +4337,7 @@ class MapScene extends Phaser.Scene {
       return {
         kind: 'item',
         label: `1× ${this.iconSpanHTML(wish)} ${wishItem?.name || wish}`,
-        shortGain: `−1 ${wishItem?.icon || ''}`,
+        shortGain: `−1 ${wishItem?.name || wish}`,
         shortDenial: `no ${wishItem?.name || wish}`,
         canAfford: () => false,
         consume: () => {},   // never called (canAfford is false)
@@ -4276,7 +4348,7 @@ class MapScene extends Phaser.Scene {
     return {
       kind: 'item',
       label: `1× ${this.iconSpanHTML(pick.id)} ${pickItem?.name || pick.id}`,
-      shortGain: `−1 ${pickItem?.icon || ''}`,
+      shortGain: `−1 ${pickItem?.name || pick.id}`,
       shortDenial: `no ${pickItem?.name || pick.id}`,
       canAfford: () => {
         const cur = (this.save.inv || []).find(s => s && s.id === pick.id);
@@ -4384,14 +4456,17 @@ class MapScene extends Phaser.Scene {
       if (css) {
         el.style.cssText = css;
       } else {
-        el.textContent = item?.icon || '·';
+        // No sprite source resolved — show a neutral placeholder, never an
+        // item-emoji (every catalogued item has a real sprite; a bare dot
+        // here surfaces a missing icon source instead of masking it).
+        el.textContent = '·';
         el.style.cssText = `display:inline-block;font-size:${Math.round(sizePx * 0.9)}px;line-height:${sizePx}px;`;
       }
       return el;
     }
     // Inline string form (used inside modal cost/get text).
     if (css) return `<span style="${css}"></span>`;
-    return item?.icon || '?';
+    return '?';
   }
 
   iconSpanHTML(itemId, sizePx = 20) {

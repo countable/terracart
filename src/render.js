@@ -713,6 +713,9 @@ Render.drawObjects = function drawObjects(scene) {
   // older save repairs itself. Cheap once locked (the _starterShopOk early-
   // out inside ensureStarterShopId).
   if (scene.ensureStarterShopId) scene.ensureStarterShopId();
+  // Re-inject the synthetic starter trailer (if any) into its owning tile —
+  // worldgen never emits it, so it must be re-added after reloads / eviction.
+  if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -942,7 +945,17 @@ Render.drawObjects = function drawObjects(scene) {
                 return Phaser.Math.Clamp(o.variant || 2, 0, 4);
               },
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
-              scale:  (o) => (o.species && o.species !== 'maple') ? 0.62 : 0.85,
+              scale:  (o) => {
+                const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+                // DeepForest trees carry a crown diameter (m); scale the sprite
+                // around a 5 m reference (the median detection) so small crowns
+                // read smaller and big ones bigger. Clamp 0.8–1.6 so tiny
+                // detections stay visible and huge ones don't dominate. OSM
+                // trees have no crown_m and keep the flat species scale.
+                if (o.crown_m == null) return base;
+                const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
+                return base * mul;
+              },
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
@@ -997,6 +1010,12 @@ Render.drawObjects = function drawObjects(scene) {
     // centre the sprite in the cell so the petals land where the cell does.
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
               origin: [0.5, 0.5],  scale: 1.8 },
+    // Stone pillar — decorative stand-in for OSM utility poles / posts. The
+    // 16×48 sprite is scaled to ~one cell tall (48 × 0.65 ≈ 31px ≈ CELL_PX) so
+    // it fits inside a single square cell instead of towering over its
+    // neighbours, foot-anchored near the cell's front edge. Purely decorative:
+    // no interact.js branch matches 'pole', so taps fall through.
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 0.65, dyPx: CELL_PX * 0.4 },
     // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
     // shrine level (row-major across the 4×2 grid) so the fountain visibly
     // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
@@ -1200,16 +1219,27 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 12) return `Castle ${roman}`;
     if (o.tier === 11) return `Fort ${roman}`;
     if (o.tier === 9) {
-      // Plain residential — the sign doubles as a delivery plaque listing the
-      // 2-3 produce this household will buy at full price (see
-      // MapScene.wantedProduce / presentDeliveryOffer).
+      // Plain residential — the delivery wishlist (2-3 produce this household
+      // buys at full price) is drawn as item ICONS by the DOM produce-sign
+      // overlay below, not as emoji text. Fall back to a plain "House III"
+      // label only when there's no wishlist to show.
       const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
-      if (wanted.length && typeof ITEM_BY_ID !== 'undefined') {
-        return wanted.map(id => ITEM_BY_ID[id]?.icon || '?').join(' ');
-      }
+      if (wanted.length) return null;   // the icon plaque handles it
       return `House ${roman}`;
     }
     return null;
+  };
+  // The residential wishlist a house should show as an ICON plaque, or null.
+  // Mirrors the gating in _houseSignText's tier-9 branch so each house gets
+  // exactly one of {text sign, icon plaque, nothing}.
+  const _houseProduceWanted = (o) => {
+    if (!o || o.kind !== 'house' || o.tier !== 9) return null;
+    if (_houseRole(o) === 'wreck') return null;                          // hidden until restored
+    if (scene.save.starterShopId === o.id) return null;                 // Home
+    if (scene.save.starterBlacksmithId === o.id) return null;           // starter smithy
+    if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return null; // specialty shop
+    const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
+    return wanted.length ? wanted : null;
   };
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
@@ -1267,6 +1297,70 @@ Render.drawObjects = function drawObjects(scene) {
     sli++;
   }
   hidePoolFrom(scene.shopLabelPool, sli);
+
+  // Residential delivery plaques — the wanted-produce wishlist drawn as real
+  // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's
+  // loot icon: pooled <div>s appended to <body> (NOT #game, whose CSS
+  // transform would become the containing block for position:fixed) and
+  // projected over each house foot every frame against #game's scaled rect.
+  // Icon contents are (re)built only when a house's wishlist or the display
+  // scale changes; thereafter we just reposition. Cheap per frame.
+  {
+    const gameEl = document.getElementById('game');
+    scene._produceSignPool = scene._produceSignPool || [];
+    const pool = scene._produceSignPool;
+    // Remove the DOM nodes when the scene tears down (Phaser pools die with
+    // the scene, but these live in <body>, so clean them up explicitly).
+    if (gameEl && !scene._produceSignCleanup) {
+      scene._produceSignCleanup = true;
+      const drop = () => { for (const s of pool) s.el && s.el.remove(); pool.length = 0; };
+      scene.events.once('shutdown', drop);
+      scene.events.once('destroy', drop);
+    }
+    let psi = 0;
+    if (gameEl) {
+      const rect = gameEl.getBoundingClientRect();
+      const scale = rect.width / W;            // uniform CSS scale (W = game px width)
+      const ICON_GAME = 13;                    // per-icon side in game px
+      const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
+      for (const it of filteredObj) {
+        const wanted = _houseProduceWanted(it.o);
+        if (!wanted) continue;
+        const sx = scene.viewCenterX + (it.dx / scene.cellM) * CELL_PX;
+        const sy = scene.viewCenterY + (it.dy / scene.cellM) * CELL_PX;
+        let slot = pool[psi];
+        if (!slot) {
+          const el = document.createElement('div');
+          el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:2px;'
+            + 'padding:2px 3px;background:rgba(0,0,0,0.55);border-radius:4px;'
+            + 'pointer-events:none;z-index:4;will-change:transform;';
+          document.body.appendChild(el);
+          slot = { el, key: null };
+          pool.push(slot);
+        }
+        // Rebuild icons only when the wishlist or icon size changes — the
+        // produce set is memoized per house, so this is normally a no-op.
+        const key = it.o.id + '|' + wanted.join(',') + '|' + sizePx;
+        if (slot.key !== key) {
+          slot.el.replaceChildren();
+          for (const id of wanted) {
+            const ic = scene.renderItemIcon ? scene.renderItemIcon(id, sizePx, 'block') : null;
+            if (ic) slot.el.appendChild(ic);
+          }
+          slot.key = key;
+        }
+        // Centre the plaque on the house foot, just below it (matches the
+        // text sign's sy+7). translateX(-50%) centres without a scale term
+        // because the icons are already sized in screen px.
+        const px = rect.left + sx * scale;
+        const py = rect.top  + (sy + 7) * scale;
+        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translateX(-50%)`;
+        slot.el.style.display = 'flex';
+        psi++;
+      }
+    }
+    for (; psi < pool.length; psi++) pool[psi].el.style.display = 'none';
+  }
 
   // Per-house readiness pip — sits just above each house / tower sprite and
   // shows either "✓ open" (this shop can take a deal right now) or "Xm"

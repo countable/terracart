@@ -928,7 +928,7 @@ const TAP_HANDLERS = [
     consumeSelected(save, flockSize);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash(`released ${flockSize}× ${item.icon || ''} ${item.id}`, sx, sy);
+    scene.flash(`released ${flockSize}× ${item.name || item.id}`, sx, sy);
     return true;
   }},
 
@@ -1073,8 +1073,8 @@ const TAP_HANDLERS = [
       save.harvested = save.harvested || {};
       save.harvested[p.crop] = (save.harvested[p.crop] || 0) + 1;
       ctx.dirty = true;
-      const cropIcon = ITEM_BY_ID[p.crop]?.icon || '';
-      // Sprite shows the crop — drop the wheat / cropIcon emojis from the text.
+      // flashLoot draws the crop sprite from the itemId arg — the text stays
+      // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
       return true;
     }
