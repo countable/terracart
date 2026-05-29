@@ -582,23 +582,14 @@
             if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.dMin, florax.dMax);
 
             // Scattered Trees on wood/forest landcover. Each polygon picks ONE
-            // species (maple/pine/oak/birch) so a single forest reads as a
-            // single woodland type instead of a jumbled mix. We have only the
-            // Maple sprite sheet on disk, so species variety is delivered as a
-            // stable per-polygon TINT applied at render time — variant still
-            // picks the growth-stage frame inside that sheet for visual mix.
+            // species (maple/pine/birch/mahogany) so a single forest reads as a
+            // single woodland type instead of a jumbled mix. Each species has
+            // its own real sprite sheet (no tint pass needed).
             if (name === 'landcover') {
               const cls = f.tags.class || f.tags.subclass;
               if (cls === 'wood' || cls === 'forest') {
-                // Species table — tint chosen to read distinctly against the
-                // bright maple base art. Maple = white (no tint).
-                const TREE_SPECIES = [
-                  { species: 'maple',  tint: 0xffffff },
-                  { species: 'pine',   tint: 0x7fb88a }, // blue-green conifer
-                  { species: 'oak',    tint: 0xc9a36b }, // warm tan/olive
-                  { species: 'birch',  tint: 0xe6e6c8 }, // pale yellow-green
-                ];
-                const sp = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+                const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+                const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
                 const bb = bboxOf(f.geom);
                 const stepMvt = 8 / mvtToM; // ~one candidate per 8m
                 for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
@@ -610,9 +601,15 @@
                       // Snap tree to cell centre too — keeps the forest from looking jittery.
                       const cx = (Math.floor(m.x / CELL_M) + 0.5) * CELL_M;
                       const cy = (Math.floor(m.y / CELL_M) + 0.5) * CELL_M;
+                      // Stable per-cell id so chop tracking can target an
+                      // individual tree. Pre-fix, every forest tree spawned
+                      // with `id === undefined`; pushing one undefined into
+                      // save.chopped made `choppedSet.has(undefined)` match
+                      // every other tree → felling one cleared the grove.
                       objects.push({ kind: 'tree', x: cx, y: cy,
                         variant: 1 + Math.floor(rng() * 4),
-                        species: sp.species, tint: sp.tint });
+                        species,
+                        id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
                     }
                   }
                 }
@@ -1556,6 +1553,29 @@
       entry.roadLetters = roadLetters || {};
       entry.pathNames   = pathNames   || {};
       entry.layers = layers;
+
+      // Inject pre-extracted Overpass trees + tree_row bushes for this tile.
+      // These bypass the in-tile occupancy/biome filters on purpose — they are
+      // real-world features and should appear where OSM says they are — but we
+      // still skip any that land on a water cell (a tree mid-lake reads wrong).
+      const sx = await ensureSatextract(lat);
+      const bin = sx && sx.get(`${x}_${y}`);
+      if (bin) {
+        const cpe = entry.cellsPerEdge;
+        const mPerCell = tileEdgeM / cpe;
+        const onWater = (wx, wy) => {
+          const lix = Math.floor((wx - x * tileEdgeM) / mPerCell);
+          const liy = Math.floor((wy - y * tileEdgeM) / mPerCell);
+          if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
+          return grid[liy * cpe + lix] === T.WATER;
+        };
+        for (const t of bin.trees) {
+          if (!onWater(t.x, t.y)) entry.objects.push(t);
+        }
+        const bushes = bin.shrubs.filter(s => !onWater(s.x, s.y));
+        if (bushes.length) entry.wildplants = entry.wildplants.concat(bushes);
+      }
+
       entry.status = 'ready';
       entry.fromCache = fromCache;
       return entry;
@@ -1582,6 +1602,82 @@
     return { x, y };
   }
 
+  // --- satextract sidecar: individual OSM trees + tree_row clusters ---------
+  // The OpenFreeMap MVT feed carries no `natural` / `barrier` layer, so real
+  // street/yard trees and hedgerows never reach the game. We wire in a
+  // pre-extracted Overpass sidecar (data/satextract_osm.geojson) instead:
+  //   • each natural=tree point  -> a single choppable `tree` object
+  //   • each tree_row centroid   -> a ~5-bush `shrub` wildplant cluster
+  //     ("covered with bushes" — the LineString geometry was reduced to a
+  //      centroid Point upstream, so we scatter a small disc of bushes).
+  // Features are binned by their z14 tile so loadTile can inject only the
+  // ones belonging to the tile it just built. Projection uses the SAME
+  // (tx * tileEdgeM + localOffset) basis as rasterizeTile so positions line up.
+  let _satextractPromise = null;
+  let _satextractBins = null;   // Map "tx_ty" -> { trees:[], shrubs:[] }
+
+  function ensureSatextract(lat) {
+    if (_satextractPromise) return _satextractPromise;
+    const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+    const tileEdgeM = tileEdgeMeters(lat);
+    const project = (lon, lat0) => {
+      const px = lonLatToWorldPx(lon, lat0, Z);
+      const fx = px.x / TILE_PX, fy = px.y / TILE_PX;
+      return {
+        tx: Math.floor(fx), ty: Math.floor(fy),
+        wmx: fx * tileEdgeM, wmy: fy * tileEdgeM,
+      };
+    };
+    _satextractPromise = fetch('data/satextract_osm.geojson')
+      .then(r => (r.ok ? r.json() : null))
+      .then(gj => {
+        const bins = new Map();
+        const binFor = (tx, ty) => {
+          const k = `${tx}_${ty}`;
+          let b = bins.get(k);
+          if (!b) { b = { trees: [], shrubs: [] }; bins.set(k, b); }
+          return b;
+        };
+        if (gj && gj.features) for (const f of gj.features) {
+          const g = f.geometry;
+          if (!g || g.type !== 'Point') continue;
+          const kind = f.properties && f.properties.kind;
+          const osmId = (f.properties && f.properties.osm_id) || 0;
+          const [lon, lat0] = g.coordinates;
+          if (kind === 'tree') {
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).trees.push({
+              kind: 'tree', x: cx, y: cy,
+              variant: 1 + (osmId % 4),
+              species: TREE_SPECIES[osmId % TREE_SPECIES.length],
+              id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
+            });
+          } else if (kind === 'tree_row') {
+            // Scatter ~5 bushes in a small disc around the row centroid.
+            const rng = makeRng((osmId ^ 0xB005FACE) >>> 0);
+            const mPerLat = 110540, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+            for (let i = 0; i < 5; i++) {
+              const ang = rng() * Math.PI * 2;
+              const rad = 2 + rng() * 10;   // 2–12 m from the centroid
+              const p = project(lon + (rad * Math.cos(ang)) / mPerLon,
+                                lat0 + (rad * Math.sin(ang)) / mPerLat);
+              const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+              const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+              binFor(p.tx, p.ty).shrubs.push({
+                x: cx, y: cy, crop: 'shrub', id: `sxbush_${osmId}_${i}`,
+              });
+            }
+          }
+        }
+        _satextractBins = bins;
+        return bins;
+      })
+      .catch(() => { _satextractBins = new Map(); return _satextractBins; });
+    return _satextractPromise;
+  }
+
   // Iterate every item across every cached tile's `prop` array. Tiles missing
   // the property are skipped. fn(item, entry) — return any truthy value to
   // short-circuit (the return value is propagated back to the caller).
@@ -1603,7 +1699,7 @@
   // shops.js; the only thing worldgen owns here is the address field itself.
 
   global.WorldGen = {
-    Z, CELL_M, T, TILE_URL,
+    Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem,

@@ -156,6 +156,36 @@
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
+    /* First-load story intro — shown once, right after the safety splash,
+       only when there is no prior intro flag (fresh save). Mirrors the
+       safety box styling. */
+    #story {
+      position: fixed; inset: 0; z-index: 101;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #story .box {
+      max-width: 320px; background: #1a1612; color: #fff;
+      border: 2px solid #c8a64a; border-radius: 12px;
+      padding: 22px 20px; text-align: center;
+      font: 15px ui-monospace, monospace; line-height: 1.5;
+    }
+    #story .art {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 10px; min-height: 150px; margin-bottom: 16px;
+    }
+    #story .art img {
+      image-rendering: pixelated;
+      height: 150px; width: auto;
+    }
+    #story .art.wrecks img { height: 120px; }
+    #story p { margin: 0 0 18px; min-height: 3em; }
+    #story button {
+      background: #c8a64a; color: #1a1612; border: 0;
+      padding: 12px 22px; border-radius: 8px;
+      font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -185,6 +215,13 @@
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:#ffd96b;">Welcome to Pocket Acres</h2>
       <p>Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <button id="safety-dismiss">Get my location</button>
+    </div>
+  </div>
+  <div id="story" style="display:none">
+    <div class="box">
+      <div class="art" id="story-art"></div>
+      <p id="story-text"></p>
+      <button id="story-next">Next</button>
     </div>
   </div>
   <script>
@@ -310,7 +347,59 @@
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
+      // First-load story beat. Only on a truly fresh start (no introSeen
+      // flag — wiped by Reset save, so a reset also replays the intro).
+      try {
+        if (!localStorage.getItem('terracart.introSeen')) startStory();
+      } catch { /* localStorage blocked — just skip the intro */ }
     });
+    // Two-slide opening story shown once after the safety splash. Slide 1
+    // is the player's trailer ("You wake up…"), slide 2 is the wrecked
+    // neighbourhood ("…time to rebuild!"). Pure DOM overlay — the game runs
+    // underneath; clicking through it just hides the overlay.
+    const STORY_SLIDES = [
+      {
+        art: '<img src="Objects/Houses/trailer.png" alt="">',
+        wrecks: false,
+        text: 'You wake up in your trailer…',
+        btn: 'Next',
+      },
+      {
+        art: '<img src="Objects/Houses/Wreck.png" alt="">'
+           + '<img src="Objects/Houses/Wreck.png" alt="">'
+           + '<img src="Objects/Houses/Wreck.png" alt="">',
+        wrecks: true,
+        text: '…to see the remains of your neighbourhood. Time to rebuild!',
+        btn: "Let's go",
+      },
+    ];
+    function startStory() {
+      const overlay = document.getElementById('story');
+      const artEl = document.getElementById('story-art');
+      const textEl = document.getElementById('story-text');
+      const btn = document.getElementById('story-next');
+      if (!overlay || !artEl || !textEl || !btn) return;
+      let i = 0;
+      const render = () => {
+        const s = STORY_SLIDES[i];
+        artEl.className = 'art' + (s.wrecks ? ' wrecks' : '');
+        artEl.innerHTML = s.art;
+        textEl.textContent = s.text;
+        btn.textContent = s.btn;
+      };
+      const advance = () => {
+        i++;
+        if (i >= STORY_SLIDES.length) {
+          try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
+          overlay.remove();
+          return;
+        }
+        render();
+      };
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); advance(); });
+      render();
+      overlay.style.display = 'flex';
+    }
     // Full nuke: save data + service worker + every offline cache. We do
     // the SW / caches sweep too so a stale app shell can't survive a reset
     // — the player (and devs chasing weird behaviour) gets a truly clean
@@ -378,8 +467,9 @@
   </script>
   <script src="phaser.js"></script>
   <script src="mvt.js"></script>
-  <script src="coords.js?v=112"></script>
-  <script src="worldgen.js?v=149"></script>
+  <script src="util.js?v=1"></script>
+  <script src="coords.js?v=113"></script>
+  <script src="worldgen.js?v=151"></script>
   <script src="crops.js?v=111"></script>
   <script src="textures.js?v=134"></script>
   <script src="save.js?v=112"></script>
