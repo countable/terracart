@@ -2092,6 +2092,35 @@ test('work-progress: tap within 150ms of start does NOT cancel; later tap cancel
   assert.falsy(scene._workProgress, 'tap after grace window cancels the wheel');
 });
 
+// CANCEL REFUND — energy is charged up-front when a mine/break/cast starts, but
+// bailing out of the wheel (any tap after the 150ms grace) must give it back.
+// Regression: cancelling used to silently eat the energy.
+test('work-progress: cancelling a mine refunds the up-front energy', (scene) => {
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.pick = { tier: 1 };
+  scene.save.energy = 100;
+  scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
+  let target = null;
+  for (let d = 1; d < 30 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
+      const wx = scene.startWorldM.x + dx * scene.cellM;
+      const wy = scene.startWorldM.y + dy * scene.cellM;
+      const c = scene.cellAt(wx, wy);
+      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
+    }
+  }
+  if (!target) return; // no rock loaded — skip
+  teleport(scene, target.wx, target.wy);
+  tapWorld(scene, target.wx, target.wy);
+  assert.lt(scene.save.energy, 100, 'energy charged up-front when mining starts');
+  assert.truthy(scene._workProgress, 'work wheel running');
+  // Backdate past the grace window, then tap to bail out.
+  scene._workProgress.startT = performance.now() - 500;
+  tapWorld(scene, target.wx, target.wy);
+  assert.falsy(scene._workProgress, 'tap cancelled the wheel');
+  assert.eq(scene.save.energy, 100, 'cancelling refunded the energy');
+});
+
 // SANDBOX MODULE — detect() reads the URL query; install() pre-populates
 // WorldGen.tileCache with a synthetic tile covering every biome the game
 // can render. The install is non-destructive on cached tiles, so it's safe

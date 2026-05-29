@@ -186,7 +186,12 @@ const ASSETS = {
   // Wreck: every tier-9 small house starts out as one of these until the
   // player brings the restoration materials. Single sprite shared across
   // all roles — what the wreck WILL become is hidden until restoration.
-  house_wreck:      { kind: 'image', path: 'assets/Objects/Houses/Wreck.png' },
+  // ?v= cache-bust: Wreck.png was re-cropped (trimmed 14px of empty bottom
+  // padding so the foot-anchor seats it on the ground instead of floating
+  // above its shadow). Bump this when the art changes again — the service
+  // worker + browser HTTP cache key on the full URL, so the new query forces
+  // a fresh fetch instead of serving the stale image.
+  house_wreck:      { kind: 'image', path: 'assets/Objects/Houses/Wreck.png?v=1' },
 };
 
 window.ASSETS = ASSETS;

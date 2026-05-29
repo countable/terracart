@@ -129,7 +129,7 @@ const TAP_HANDLERS = [
     const wp = ctx.scene._workProgress;
     if (!wp) return false;
     if (performance.now() - (wp.startT || 0) < 150) return true;   // swallow, don't cancel
-    ctx.scene.cancelWorkProgress();
+    ctx.scene.abortWorkProgress();   // refund any up-front energy — bailing costs nothing
     return true;
   }},
 
@@ -300,11 +300,34 @@ const TAP_HANDLERS = [
       const isHuntable = target.kind === 'crow' || target.kind === 'deer';
       if (isHuntable) {
         if (!hasWeapon) {
-          // Scare the creature instead of catching it — it'll flee for 60 s
+          // Scare the creature instead of catching it — it flees for SCARE_MS
           // (wanderCreatures inverts its angle toward the player while
-          // _scaredUntilT is in the future), then drift back home.
-          target._scaredUntilT = performance.now() + 60 * 1000;
-          scene.flash(`${target.kind === 'crow' ? '🪶' : '🦌'} runs away`, sx, sy);
+          // _scaredUntilT is in the future), then drifts back home.
+          //
+          // For CROWS this is a flock "shoo": the tapped bird AND every other
+          // wild crow within SHOO_R scatters at once. Scaring a single crow
+          // felt useless — the rest of the flock kept circling the field and
+          // the pest-pump refilled the gap within seconds — so one tap now
+          // clears the whole neighbourhood. SCARE_MS (90 s) matches the
+          // pest-respawn interval so a shoo buys a full quiet window.
+          const SCARE_MS = 90 * 1000;
+          const until = performance.now() + SCARE_MS;
+          target._scaredUntilT = until;
+          let shooed = 1;
+          if (target.kind === 'crow') {
+            const SHOO_R2 = (6 * scene.cellM) * (6 * scene.cellM);
+            WorldGen.forEachItem('creatures', (other) => {
+              if (other === target || other.kind !== 'crow') return;
+              if (typeof other.id === 'string' && other.id.startsWith('released_')) return;
+              if (save.caught.includes(other.id)) return;
+              const dx = other.x - target.x, dy = other.y - target.y;
+              if (dx * dx + dy * dy <= SHOO_R2) { other._scaredUntilT = until; shooed++; }
+            });
+          }
+          const msg = target.kind === 'crow'
+            ? (shooed > 1 ? `🪶 flock scatters ×${shooed}` : '🪶 runs away')
+            : '🦌 runs away';
+          scene.flash(msg, sx, sy);
           ctx.dirty = true;
           return true;
         }
@@ -937,7 +960,7 @@ const TAP_HANDLERS = [
           // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
           // showed a gem glyph instead of the mined bar/gem icon).
           scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
-        }, durMs);
+        }, durMs, cost);   // cost = refund if the player cancels mid-mine
         return true;
       }
     }
@@ -1147,7 +1170,7 @@ const TAP_HANDLERS = [
       else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
-    }, durMs);
+    }, durMs, cost);   // cost = refund if the player cancels mid-break
     return true;
   }},
 
@@ -1309,7 +1332,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, 7000);
+    }, 7000, 5);   // 5 = refund if the player cancels the cast
     return true;
   }},
 

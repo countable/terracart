@@ -1092,13 +1092,14 @@ class MapScene extends Phaser.Scene {
     // Wilderness fauna:
     //   rabbit    → grass / forest / park (skittish, wide)
     //   deer      → forest + park (rare, weapon-gated)
-    //   crow      → global — smart birds, MORE common per user; ~70/tile
+    //   crow      → global — smart birds; ~35/tile (eased from ~70: that
+    //               density made every field swarm while farming)
     //   butterfly → park / forest (flower-rich biomes)
     const rabbitN = 30 + Math.floor(rng() * 20);
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
-    const crowN = 60 + Math.floor(rng() * 25);
+    const crowN = 30 + Math.floor(rng() * 15);
     for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
     const butterflyN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
@@ -1784,12 +1785,26 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Work-progress wheel (rock-break / tree-chop) ---
-  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000) {
-    this._workProgress = { worldX, worldY, onComplete, durationMs, startT: performance.now() };
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0) {
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
   }
+  // Clear the wheel WITHOUT refunding energy. Used by the completion path and
+  // test helpers — the work actually finished, so the up-front spend was earned.
   cancelWorkProgress() {
     this._workProgress = null;
     this._workProgressGfx?.clear();
+  }
+  // Player bailed on an in-flight mine/chop/cast (any tap aborts the wheel).
+  // Refund the energy that was charged up-front when the action started, so
+  // cancelling costs nothing, then clear. Clamp to max in case energy changed
+  // (e.g. offline rest fired while the tab was backgrounded mid-wheel).
+  abortWorkProgress() {
+    const wp = this._workProgress;
+    if (wp && wp.energyRefund > 0) {
+      this.save.energy = Math.min(this.getMaxEnergy(), (this.save.energy ?? 0) + wp.energyRefund);
+      this.updateEnergyDOM();
+    }
+    this.cancelWorkProgress();
   }
   _drawWorkProgress() {
     const wp = this._workProgress;
@@ -1834,12 +1849,15 @@ class MapScene extends Phaser.Scene {
     // a chicken just entering the viewport is already mid-step.
     const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
-    // Pest spawn: if the player has any planted crop and the player's
-    // 3×3 tile neighbourhood contains < 2 wild crows, spawn one off-screen
-    // every ~30 s. The crow's wander loop targets the nearest crop and
-    // destroys it on contact (see below).
+    // Pest spawn: if the player has any planted crop and there are NO wild
+    // crows already near the player, spawn one off-screen every ~90 s. The
+    // crow's wander loop targets the nearest crop and destroys it on contact
+    // (see below). Eased from "top up to 2 every 30 s" — that relentless pump
+    // made crops unfarmable: you'd shoo a bird and another arrived seconds
+    // later. Now the pump only backfills an emptied field, and slowly, so a
+    // flock-shoo (interact.js) actually buys a quiet window.
     this._lastPestT = this._lastPestT || 0;
-    if (this.save.planted && this.save.planted.length > 0 && now - this._lastPestT > 30000) {
+    if (this.save.planted && this.save.planted.length > 0 && now - this._lastPestT > 90000) {
       this._lastPestT = now;
       // Count nearby wild (non-released, not-yet-caught) crows.
       let wildCrows = 0;
@@ -1850,7 +1868,7 @@ class MapScene extends Phaser.Scene {
         const dx = c.x - px, dy = c.y - py;
         if (dx * dx + dy * dy <= RANGE_SQ) wildCrows++;
       });
-      if (wildCrows < 2) {
+      if (wildCrows < 1) {
         const pc = this.playerToWorldCell();
         const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
         if (entry && entry.creatures) {

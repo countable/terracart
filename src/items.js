@@ -475,7 +475,6 @@ const FOOD_ENERGY = {
   rainberry: 12,   // also waters all crops within 20m
   pairy:     12,   // also shows the nearest undiscovered chest for 5 min
   gemfruit:  20,
-  rockfruit: 20,
   coffee:    35,
   iceflower:  60,
   fireflower: 90,
