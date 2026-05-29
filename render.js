@@ -70,6 +70,19 @@ function screenToWorldMeters(scene, sx, sy) {
   };
 }
 
+// Hide every pooled sprite from startIdx onward — the trailing slots a render
+// pass didn't reuse this frame. Centralizes the "drain the rest of the pool"
+// loop that each manual render block repeats.
+function hidePoolFrom(pool, startIdx) {
+  for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
+}
+
+// Swap a sprite's texture only when it differs — skips Phaser's redundant
+// texture-rebind work on the common frame where the key is unchanged.
+function setTextureIfDifferent(s, key) {
+  if (s.texture.key !== key) s.setTexture(key);
+}
+
 Render.renderPool = function renderPool(scene, pool, container, list, configure) {
   let i = 0;
   for (const item of list) {
@@ -83,7 +96,7 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
     configure(s, item);
     i++;
   }
-  for (; i < pool.length; i++) pool[i].setVisible(false);
+  hidePoolFrom(pool, i);
 };
 
 Render.drawCells = function drawCells(scene) {
@@ -984,7 +997,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (!spec) return;
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
-    if (s.texture.key !== texKey) s.setTexture(texKey);
+    setTextureIfDifferent(s, texKey);
     if (spec.frame !== undefined) {
       const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== f) s.setFrame(f);
@@ -1030,7 +1043,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { o, dx, dy, texKey, shape } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    if (s.texture.key !== texKey) s.setTexture(texKey);
+    setTextureIfDifferent(s, texKey);
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -1099,7 +1112,7 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setAlpha(1);
     li++;
   }
-  for (; li < scene.chestLabelPool.length; li++) scene.chestLabelPool[li].setVisible(false);
+  hidePoolFrom(scene.chestLabelPool, li);
 
   // Specialty-shop labels above small-house shops (markets / blacksmiths /
   // traders). Plain coloured glyphs with a dark stroke + hard drop shadow —
@@ -1198,7 +1211,7 @@ Render.drawObjects = function drawObjects(scene) {
       .setVisible(true);
     sli++;
   }
-  for (; sli < scene.shopLabelPool.length; sli++) scene.shopLabelPool[sli].setVisible(false);
+  hidePoolFrom(scene.shopLabelPool, sli);
 
   // Per-house readiness pip — sits just above each house / tower sprite and
   // shows either "✓ open" (this shop can take a deal right now) or "Xm"
@@ -1218,8 +1231,12 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof scene.shopReadiness !== 'function') break;
     const info = scene.shopReadiness(o);
     // Unlimited-deal shops never need a "busy" badge; the absence of a pip
-    // is itself the signal that they're always open.
+    // is itself the signal that they're always open. (Castles/towers and the
+    // starter blacksmith report dealCap === Infinity here.)
     if (info.dealCap === Infinity) continue;
+    // The player's own starting building (home / trailer) isn't a timed shop
+    // to the player — no open/busy pip on your own house.
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
@@ -1258,7 +1275,7 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setShadow(1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
     hri++;
   }
-  for (; hri < scene.shopReadyPool.length; hri++) scene.shopReadyPool[hri].setVisible(false);
+  hidePoolFrom(scene.shopReadyPool, hri);
 
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
@@ -1325,7 +1342,7 @@ Render.drawObjects = function drawObjects(scene) {
       const { c, dx, dy } = item;
       const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
       const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-      if (s.texture.key !== 'coin_drop') s.setTexture('coin_drop');
+      setTextureIfDifferent(s, 'coin_drop');
       // Tiny pulse: scale oscillates ~0.9..1.1 over ~800ms based on now+id-hash
       // so each coin breathes out of phase with its neighbours.
       const idH = (c.id || '').length * 2654435761;
@@ -1346,7 +1363,7 @@ Render.drawObjects = function drawObjects(scene) {
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
       const frame = (CROP_ROW['rockfruit'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
-      if (s.texture.key !== 'crops') s.setTexture('crops');
+      setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
       s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
       return;
@@ -1360,7 +1377,7 @@ Render.drawObjects = function drawObjects(scene) {
       // shell / pebble / etc. but the field reads as varied. ov.frame
       // overrides the default 0 — needed for sheets whose first cell
       // is empty (mushroom_world's frame 0 is fully transparent).
-      if (s.texture.key !== ov.sheet) s.setTexture(ov.sheet);
+      setTextureIfDifferent(s, ov.sheet);
       if (ov.variants && ov.variants > 1) {
         // Hash off the wildplant's stable _ix/_iy (or wildId for picked
         // entries) so the variant survives reloads.
@@ -1373,13 +1390,13 @@ Render.drawObjects = function drawObjects(scene) {
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
       const frame = ov.row * SPRING_CROPS_COLS + stage;
-      if (s.texture.key !== 'springcrops') s.setTexture('springcrops');
+      setTextureIfDifferent(s, 'springcrops');
       s.setFrame(frame);
     } else {
       const row = CROP_ROW[p.crop] ?? 1;
       // In-world growth uses cols 0..5 of the crop's row.
       const frame = row * CROPS_SHEET_COLS + stage;
-      if (s.texture.key !== 'crops') s.setTexture('crops');
+      setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
     }
     // 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
@@ -1435,7 +1452,7 @@ Render.drawObjects = function drawObjects(scene) {
      .setVisible(true);
     ti++;
   }
-  for (; ti < scene.plantedTimerPool.length; ti++) scene.plantedTimerPool[ti].setVisible(false);
+  hidePoolFrom(scene.plantedTimerPool, ti);
 
   // Heart overlay — a small 💗 floats above every tame (released_) creature
   // so the player can spot their pets at a glance. Pool is created lazily.
@@ -1459,7 +1476,7 @@ Render.drawObjects = function drawObjects(scene) {
     t.setPosition(Math.round(sx), Math.round(sy) - 22).setVisible(true);
     hi++;
   }
-  for (; hi < scene._petHeartPool.length; hi++) scene._petHeartPool[hi].setVisible(false);
+  hidePoolFrom(scene._petHeartPool, hi);
 
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;

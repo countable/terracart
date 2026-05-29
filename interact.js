@@ -45,6 +45,30 @@ function consumeSelected(save, n = 1) {
   }
 }
 
+// Nearest item in a WorldGen layer to (px, py) within reachM that passes
+// `accept`, or null. Centralizes the bestD2 scan every "tap the closest X"
+// handler repeats. `accept` may be omitted to consider all items.
+function findClosestItem(layer, px, py, reachM, accept) {
+  let best = null, bestD2 = reachM * reachM;
+  WorldGen.forEachItem(layer, (item) => {
+    if (accept && !accept(item)) return;
+    const d2 = distM2(item.x, item.y, px, py);
+    if (d2 < bestD2) { bestD2 = d2; best = item; }
+  });
+  return best;
+}
+
+// Shared "too far to reach from the player's cell" guard. Flashes and returns
+// true when (x, y) is beyond REACH_FAR_M of the player cell centre, so callers
+// do `if (tooFar(ctx, x, y)) return 'far';`.
+function tooFar(ctx, x, y) {
+  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) {
+    ctx.scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    return true;
+  }
+  return false;
+}
+
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
   // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
@@ -104,7 +128,7 @@ const TAP_HANDLERS = [
     const tryClaim = (tr) => {
       if (!tr || found.has(tr.id)) return false;
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
-      if (distM2(tr.x, tr.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
+      if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
       // Starter crates carry a fixed `starterLoot` payload (5 wood / 5
       // rockfruit) so the player gets a deterministic head start on the
@@ -190,12 +214,8 @@ const TAP_HANDLERS = [
   // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    let target = null, bestD2 = REACH_CREATURE_M * REACH_CREATURE_M;
-    WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id)) return;
-      const d2 = distM2(c.x, c.y, wm.x, wm.y);
-      if (d2 < bestD2) { bestD2 = d2; target = c; }
-    });
+    const target = findClosestItem('creatures', wm.x, wm.y, REACH_CREATURE_M,
+      (c) => !save.caught.includes(c.id));
     if (!target) return false;
     // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
     // relic equipped (sword / bow / staff — hunting is hunting); crow /
@@ -241,7 +261,7 @@ const TAP_HANDLERS = [
         if (r.sword) weapons.push('🗡');
         if (r.bow)   weapons.push('🏹');
         if (r.staff) weapons.push('🪄');
-        const wepIcon = weapons[Math.floor(Math.random() * weapons.length)] || '⚔';
+        const wepIcon = pickFromArray(weapons) || '⚔';
         const cost = Math.max(1, (ENERGY_COST?.catch ?? 0));
         if (!scene.spendEnergy(cost, sx, sy)) return true;
         const dropId = target.kind === 'crow' ? 'crow_feather' : 'meat';
@@ -410,15 +430,11 @@ const TAP_HANDLERS = [
   { name: 'wildplant', try: (ctx) => {
     const { scene, save, wm, pCellCx, pCellCy, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
-    let bestWp = null, bestD2 = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-    WorldGen.forEachItem('wildplants', (wp) => {
-      if (pickedSet.has(wp.id)) return;
-      const d2 = distM2(wp.x, wp.y, wm.x, wm.y);
-      if (d2 < bestD2) { bestD2 = d2; bestWp = wp; }
-    });
+    const bestWp = findClosestItem('wildplants', wm.x, wm.y, REACH_WILDPLANT_M,
+      (wp) => !pickedSet.has(wp.id));
     if (bestWp) {
       const wp = bestWp;
-      if (distM2(wp.x, wp.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
+      if (tooFar(ctx, wp.x, wp.y)) return 'far';
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
       //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
@@ -463,16 +479,11 @@ const TAP_HANDLERS = [
       return true;
     }
     // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
-    let bestF = null, bestD2F = REACH_WILDPLANT_M * REACH_WILDPLANT_M;
-    WorldGen.forEachItem('objects', (o) => {
-      if (o.kind !== 'flora' || o.deco !== 'flower') return;
-      if (pickedSet.has(o.id)) return;
-      const d2 = distM2(o.x, o.y, wm.x, wm.y);
-      if (d2 < bestD2F) { bestD2F = d2; bestF = o; }
-    });
+    const bestF = findClosestItem('objects', wm.x, wm.y, REACH_WILDPLANT_M,
+      (o) => o.kind === 'flora' && o.deco === 'flower' && !pickedSet.has(o.id));
     if (bestF) {
       const o = bestF;
-      if (distM2(o.x, o.y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
+      if (tooFar(ctx, o.x, o.y)) return 'far';
       save.picked = [...pickedSet, o.id];
       scene.addToInv('flowers', 1);
       ctx.dirty = true;
@@ -553,9 +564,7 @@ const TAP_HANDLERS = [
       // miss-and-fall-through to the till handler under it.
       const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
-      if (distM2(o.x, o.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) {
-        scene.flash('Just out of reach.', sx, sy); return 'far';
-      }
+      if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the
         // forEachItem here walks all objects regardless of save state, so
@@ -654,7 +663,7 @@ const TAP_HANDLERS = [
         const iconHTML = scene.iconSpanHTML
           ? scene.iconSpanHTML(loot.id, 64) : '';
         scene.showChestRewardModal({
-          iconHTML, name: lootName, sub: loot.n > 1 ? `× ${loot.n}` : null,
+          iconHTML, name: lootName, qty: loot.n > 1 ? `× ${loot.n}` : null,
           color: lootColor,
         });
         return true;
@@ -674,7 +683,7 @@ const TAP_HANDLERS = [
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
           // Trees drop 2-3 wood logs (more generous than the shrub's 1).
-          scene.addToInv('wood', 2 + Math.floor(Math.random() * 2));
+          scene.addToInv('wood', randInt(2, 3));
           persistSave(save);
           scene.flash('🌲 Felled.', sx, sy);
         }, durMs);
@@ -701,7 +710,7 @@ const TAP_HANDLERS = [
           return true;
         }
         save.picked = [...pickedSet, o.id];
-        scene.addToInv(o.species, 1 + Math.floor(Math.random() * 2));
+        scene.addToInv(o.species, randInt(1, 2));
         ctx.dirty = true;
         const item = ITEM_BY_ID[o.species];
         scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
@@ -758,7 +767,7 @@ const TAP_HANDLERS = [
             // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
             // cave can yield multiple low-tier bars, while T7 lucky
             // strikes stay genuinely rare (~1 in 100).
-            const qty = 1 + Math.floor(Math.random() * 3);
+            const qty = randInt(1, 3);
             scene.addToInv('rockfruit', qty);
             if (Math.random() < 0.15) scene.addToInv('coal', 1);
             let flashId = 'rockfruit';
@@ -777,7 +786,7 @@ const TAP_HANDLERS = [
           // a coal nugget and a tier-rolled gem on T4+. Bar count is no
           // longer randomised (was 2-3) — every iron rock gives one iron,
           // every gold rock gives one gold. Predictable yield per swing.
-          scene.addToInv('coal', 1 + Math.floor(Math.random() * 2));
+          scene.addToInv('coal', randInt(1, 2));
           const t = o.yieldTier || 1;
           const primaryBar = BARS[t] || 'copper_bar';
           scene.addToInv(primaryBar, 1);
@@ -787,7 +796,7 @@ const TAP_HANDLERS = [
           const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
           const gems = GEM_BY_TIER[t];
           if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
-            const gemId = gems[Math.floor(Math.random() * gems.length)];
+            const gemId = pickFromArray(gems);
             scene.addToInv(gemId, 1);
             flashId = gemId;
           }
@@ -866,13 +875,9 @@ const TAP_HANDLERS = [
   { name: 'building-zone', try: (ctx) => {
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
     if (!BUILDING_TYPES.has(cell.type)) return false;
-    let best = null, bestD2 = Infinity;
-    WorldGen.forEachItem('objects', (o) => {
-      if (o.kind !== 'house' && o.kind !== 'tower') return;
-      const d2 = (o.x - cwmx) * (o.x - cwmx) + (o.y - cwmy) * (o.y - cwmy);
-      if (d2 < bestD2) { bestD2 = d2; best = o; }
-    });
-    if (!best || bestD2 > 30 * 30) return false;
+    const best = findClosestItem('objects', cwmx, cwmy, 30,
+      (o) => o.kind === 'house' || o.kind === 'tower');
+    if (!best) return false;
     scene.shopInteract(sx, sy, best);
     return true;
   }},
@@ -1019,7 +1024,7 @@ const TAP_HANDLERS = [
       else if (r < 0.040)   { addMoney(save, 25); scene.updateMoneyDOM?.(); msg = '💥 → $25'; }
       else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
       else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
-      else if (r < 0.430)   { scene.addToInv('coal', 1 + Math.floor(Math.random() * 2)); msg = '💥 → coal'; }
+      else if (r < 0.430)   { scene.addToInv('coal', randInt(1, 2)); msg = '💥 → coal'; }
       else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rockfruit seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
@@ -1052,7 +1057,7 @@ const TAP_HANDLERS = [
       // Each quality tier raises the extra-seed chance by 10% (base 25%) and
       // adds +floor(qual/3) to the produce yield.
       const qual = p.canBoost || 0;
-      const yieldN = 1 + Math.floor(Math.random() * 3) + Math.floor(qual / 3);
+      const yieldN = randInt(1, 3) + Math.floor(qual / 3);
       scene.addToInv(p.crop, yieldN);
       const gotSeed = Math.random() < (0.25 + qual * 0.10);
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
@@ -1130,8 +1135,8 @@ const TAP_HANDLERS = [
       if (Math.random() < 0.02) {
         const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
         if (slots.length) {
-          const slot = slots[Math.floor(Math.random() * slots.length)];
-          const relicTier = 1 + Math.floor(Math.random() * tier);
+          const slot = pickFromArray(slots);
+          const relicTier = randInt(1, tier);
           save.relicsCaught = save.relicsCaught || [];
           save.relicsCaught.push({ slot, tier: relicTier, t: Date.now() });
           const cur = save.relics?.[slot];

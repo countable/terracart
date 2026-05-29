@@ -3868,7 +3868,7 @@ class MapScene extends Phaser.Scene {
         header: `${title} complete`,
         iconHTML,
         name: item?.name || reward.id,
-        sub: reward.qty > 1 ? `× ${reward.qty}` : null,
+        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
         color,
       });
     } else if (reward.kind === 'gold') {
@@ -4662,7 +4662,7 @@ class MapScene extends Phaser.Scene {
   //                          for stacks, or a relic-equipped tagline).
   //   color         string? → tier colour for the name (defaults gold).
   //   onDismiss     fn?    → called after the modal closes.
-  showChestRewardModal({ iconHTML, name, sub, color = '#ffe066', onDismiss, header = 'From the chest' }) {
+  showChestRewardModal({ iconHTML, name, sub, qty, color = '#ffe066', onDismiss, header = 'From the chest' }) {
     document.getElementById('chest-reward-modal')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'chest-reward-modal';
@@ -4695,6 +4695,12 @@ class MapScene extends Phaser.Scene {
       `border:3px solid ${color};border-radius:14px;padding:22px 22px 14px;` +
       'font:14px ui-monospace,monospace;text-align:center;' +
       'animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);';
+    // `qty` (e.g. "× 5") renders as a bold, full-size, coloured line so the
+    // amount the player just received reads at a glance. `sub` stays the
+    // quiet descriptive line ("equipped", "already owned", flavour text).
+    const qtyHtml = qty
+      ? `<div style="margin-top:6px;font-size:22px;font-weight:700;color:${color};line-height:1.1">${qty}</div>`
+      : '';
     const subHtml = sub
       ? `<div style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
@@ -4702,6 +4708,7 @@ class MapScene extends Phaser.Scene {
       `<div style="opacity:.6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${header}</div>` +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
+      qtyHtml +
       subHtml +
       '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>';
     const close = () => {
