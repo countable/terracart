@@ -256,6 +256,15 @@ class MapScene extends Phaser.Scene {
     // save.shrine = { id, x, y } once spawned; null until then.
     if (this.save.shrine === undefined)           this.save.shrine = null;
     if (this.save.shrineLevel === undefined)      this.save.shrineLevel = 1;
+    // Self-heal pre-fix save state: pre-fix, forest trees spawned without
+    // an `id` field, so chopping one pushed `undefined` into save.chopped.
+    // A `choppedSet.has(undefined)` lookup then matched every other tree
+    // (also id-less) and wiped the whole grove. Strip any falsy entries on
+    // load so old saves recover automatically.
+    if (Array.isArray(this.save.chopped)) {
+      const cleaned = this.save.chopped.filter(id => !!id);
+      if (cleaned.length !== this.save.chopped.length) this.save.chopped = cleaned;
+    }
     // POIs span tile seams (worldgen replicates them across up to 4
     // neighbouring tile entries). When the shrine REPLACES a POI we need
     // to suppress that chest id everywhere it appears, not just on the
@@ -1158,18 +1167,23 @@ class MapScene extends Phaser.Scene {
           if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
           if (ROAD_TYPES.has(entry.grid[ny * N + nx])) { roadDir = [ddx, ddy]; break; }
         }
-        // Walk along the road and seat an X on the first walkable, non-road
-        // neighbour at each step (kerbside). 4 X marks, ~3 cells apart,
-        // numbered 1..4 so the player follows the trail in order.
-        const STEP = 3, COUNT = 4;
+        // Walk along the road and seat a crate on the first walkable,
+        // non-road neighbour at each step. Just 2 starter crates: one
+        // packed with 5 wood (5× tree) for restoring a plain house, and
+        // one packed with 5 rockfruit for restoring a themed shop. Fixed
+        // contents instead of the unified rarity picker — the player gets
+        // exactly what they need to bootstrap the restoration loop.
+        const STARTER_LOOT = [
+          { id: 'tree',      qty: 5 },
+          { id: 'rockfruit', qty: 5 },
+        ];
+        const STEP = 4, COUNT = STARTER_LOOT.length;
         const placed = [];
         for (let i = 0; i < COUNT; i++) {
           const rcx = roadCell.cx + roadDir[0] * i * STEP;
           const rcy = roadCell.cy + roadDir[1] * i * STEP;
           if (rcx < 0 || rcx >= N || rcy < 0 || rcy >= N) break;
           if (!ROAD_TYPES.has(entry.grid[rcy * N + rcx])) break;   // road ended
-          // Walkable neighbour to drop the X on (prefer the side closer to
-          // spawn for the first one so the player sees it immediately).
           let seat = null;
           for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
             const nx = rcx + adx, ny = rcy + ady;
@@ -1183,22 +1197,24 @@ class MapScene extends Phaser.Scene {
           const wmy = ty * this.tileEdgeM + (seat.ny + 0.5) * this.cellM;
           entry.extraTreasures.push({
             x: wmx, y: wmy, n: i + 1,
+            starterLoot: STARTER_LOOT[i],
             id: `treasure_start_${tx}_${ty}_${i + 1}`,
           });
           placed.push(i + 1);
         }
-        // If somehow nothing got seated (road hugged by water/buildings),
-        // fall through to the no-road fallback below so the player still
-        // gets 4 boxes.
         if (placed.length === 0) roadCell = null;
       }
       if (!roadCell) {
-        // No road within 15 cells (or the kerb was unusable) — scatter
-        // 4 boxes in a tight ring around the spawn point on walkable cells.
-        // Each base offset walks outward another few cells if it lands on
-        // blocked / road terrain, so the boxes always come out usable.
-        const RING = [[2, 0], [-2, 0], [0, 2], [0, -2]];
-        for (let i = 0; i < 4; i++) {
+        // No road within 15 cells — drop the two starter crates in a
+        // tight ring around the spawn point on walkable cells. Same
+        // fixed loot as the road-trail path so the player gets exactly
+        // 5 wood + 5 rockfruit either way.
+        const STARTER_LOOT_FALLBACK = [
+          { id: 'tree',      qty: 5 },
+          { id: 'rockfruit', qty: 5 },
+        ];
+        const RING = [[2, 0], [-2, 0]];
+        for (let i = 0; i < STARTER_LOOT_FALLBACK.length; i++) {
           const [bdx, bdy] = RING[i];
           let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
           for (let step = 0; step < 5; step++) {
@@ -1215,10 +1231,26 @@ class MapScene extends Phaser.Scene {
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
           entry.extraTreasures.push({
             x: wmx, y: wmy, n: i + 1,
+            starterLoot: STARTER_LOOT_FALLBACK[i],
             id: `treasure_start_${tx}_${ty}_${i + 1}`,
           });
         }
       }
+      // Clear the immediate spawn area of natural mineralrocks and trees
+      // so the starter crates aren't visually competing with debris the
+      // player can't open. 10-cell Chebyshev radius (~50 m) around the
+      // spawn point — far enough that the crates and the player's home
+      // sit in a clean tutorial pocket, close enough that the surrounding
+      // streets / wilderness still feel populated.
+      const CLEAR_R = 10;
+      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree']);
+      entry.objects = entry.objects.filter(o => {
+        if (!STRIP_KINDS.has(o.kind)) return true;
+        const oIx = Math.floor((o.x - tx0) / this.cellM);
+        const oIy = Math.floor((o.y - ty0) / this.cellM);
+        const d = Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY));
+        return d > CLEAR_R;
+      });
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
       // see X's frequently instead of stumbling onto one a session.

@@ -104,14 +104,20 @@ const TAP_HANDLERS = [
     const tryClaim = (tr) => {
       if (!tr || found.has(tr.id)) return false;
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
-      if (distM2(tr.x, tr.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(tr.x, tr.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
       save.foundTreasures = [...found, tr.id];
-      // Treasure marks go through the unified rarity picker — class biased
-      // toward seed/produce/mineral/consumable, boostP low (most marks pay
-      // out small), relicCap 0 (mark never hands out a relic — that's what
-      // chests are for). Jackpot fanfare fires on any jackpot (+1 or more).
-      const reward = (typeof pickReward === 'function')
-        ? pickReward('treasure:default', save) : null;
+      // Starter crates carry a fixed `starterLoot` payload (5 wood / 5
+      // rockfruit) so the player gets a deterministic head start on the
+      // first restoration. Skip the rarity picker for these and synthesize
+      // the same shape pickReward returns so the rest of the flash /
+      // accept logic keeps working.
+      let reward;
+      if (tr.starterLoot) {
+        reward = { kind: 'item', id: tr.starterLoot.id, qty: tr.starterLoot.qty, jackpot: 0, consolation: 0 };
+      } else {
+        reward = (typeof pickReward === 'function')
+          ? pickReward('treasure:default', save) : null;
+      }
       if (!reward) {
         // Shouldn't happen — context exists — but bail safely if rarity.js
         // is missing or the pool is empty.
@@ -254,7 +260,7 @@ const TAP_HANDLERS = [
       // Bug-net path for butterflies; bare-handed catch for rabbits.
       const isFlying = target.kind === 'butterfly';
       if (isFlying && !save.relics?.bugnet) {
-        scene.flash('need a bug net', sx, sy);
+        scene.flash('It flits away on the breeze.', sx, sy);
         return true;
       }
       const baseCost = ENERGY_COST?.catch ?? 0;
@@ -376,18 +382,27 @@ const TAP_HANDLERS = [
     if (sel && isEdible && (sel.count ?? 0) > 0) {
       consumeSelected(save);
       scene.buildInventoryDOM();
-      scene.flashLoot(`🤢 yuck`, '#ff8a7a', 1, sel.id);
+      scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, sel.id);
       ctx.dirty = true;
       return true;
     }
-    // 4. Hint — show the primary favourite (first entry of the list) so the
-    // flash stays short. Cats list milk first so "want Milk" reads cleanly.
-    // Chickens accept ANY seed (no canonical favourite); their hint is the
-    // generic "want seed" instead of naming one specific crop.
-    let wantName;
-    if (target.kind === 'chicken') wantName = 'seed';
-    else wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
-    scene.flash(`want ${wantName}`, sx, sy);
+    // 4. Hint — give each species its own short flavoured cue so the wild
+    // hint reads as the animal's own behaviour, not a system requirement.
+    // Cats list milk first so "Sniffs for milk." reads cleanly; chickens
+    // accept ANY seed so theirs is "Cluck-cluck — wants seed."; everything
+    // else falls back to the generic "Eyes a X…".
+    let hint;
+    if (target.kind === 'chicken') {
+      hint = 'Cluck-cluck — wants seed.';
+    } else if (target.kind === 'cat') {
+      hint = 'Sniffs for milk.';
+    } else if (target.kind === 'dog') {
+      hint = 'Eyes meat hungrily…';
+    } else {
+      const wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
+      hint = `Eyes a ${wantName}…`;
+    }
+    scene.flash(hint, sx, sy);
     return true;
   }},
 
@@ -403,7 +418,7 @@ const TAP_HANDLERS = [
     });
     if (bestWp) {
       const wp = bestWp;
-      if (distM2(wp.x, wp.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(wp.x, wp.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
       //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
@@ -457,7 +472,7 @@ const TAP_HANDLERS = [
     });
     if (bestF) {
       const o = bestF;
-      if (distM2(o.x, o.y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('too far', sx, sy); return 'far'; }
+      if (distM2(o.x, o.y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) { scene.flash('Just out of reach.', sx, sy); return 'far'; }
       save.picked = [...pickedSet, o.id];
       scene.addToInv('flowers', 1);
       ctx.dirty = true;
@@ -465,6 +480,40 @@ const TAP_HANDLERS = [
       return true;
     }
     return false;
+  }},
+
+  // 1a") Coin drops (ATM / bicycle_parking burst). Closest coin within ~3m
+  // of the tap → +$1, splice it out of entry.coinDrops, mini flash. Runs
+  // BEFORE the 'object' handler so a coin sitting near a chest sprite still
+  // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
+  { name: 'coindrop', try: (ctx) => {
+    const { scene, save, wm, sx, sy } = ctx;
+    const REACH_COIN_M = 3;
+    const REACH2 = REACH_COIN_M * REACH_COIN_M;
+    let bestEntry = null, bestIdx = -1, bestD2 = REACH2;
+    // Scan the 3×3 tile neighbourhood around the player (same set the
+    // renderer walks) — coins only live in loaded tiles.
+    const pc = scene.playerToWorldCell();
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+        if (!entry || !entry.coinDrops) continue;
+        const now = Date.now();
+        for (let i = 0; i < entry.coinDrops.length; i++) {
+          const c = entry.coinDrops[i];
+          if (c.expiresAt && c.expiresAt <= now) continue;
+          const d2 = distM2(c.x, c.y, wm.x, wm.y);
+          if (d2 < bestD2) { bestD2 = d2; bestEntry = entry; bestIdx = i; }
+        }
+      }
+    }
+    if (!bestEntry) return false;
+    bestEntry.coinDrops.splice(bestIdx, 1);
+    addMoney(save, 1);
+    if (scene.updateMoneyDOM) scene.updateMoneyDOM();
+    scene.flash('+$1', sx, sy);
+    ctx.dirty = true;   // money changed — persist
+    return true;
   }},
 
   // 1b) World objects: chest open, tree flavor, house shop.
@@ -505,7 +554,7 @@ const TAP_HANDLERS = [
       const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine') ? REACH_HOUSE_M : REACH_OBJECT_M;
       if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
       if (distM2(o.x, o.y, pCellCx, pCellCy) > REACH_FAR_M * REACH_FAR_M) {
-        scene.flash('too far', sx, sy); return 'far';
+        scene.flash('Just out of reach.', sx, sy); return 'far';
       }
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the
@@ -521,7 +570,19 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'chest') {
-        if (save.opened.includes(o.id)) { scene.flash('already looted', sx, sy); return true; }
+        // Coin-burst POIs (ATM + bicycle parking) hijack the chest tap before
+        // the standard open-and-loot path. They never go into save.opened —
+        // they're gated by save.coinBurstClaimed[id+YYYYMMDD] so they refresh
+        // daily, and produce world-scattered coin pickups instead of inventory loot.
+        if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') {
+          if (typeof scene._coinBurstInteract === 'function') {
+            scene._coinBurstInteract(sx, sy, o);
+            return true;
+          }
+          // Fall through to default chest behaviour if the method isn't wired
+          // (defensive — keeps these POIs usable if app.js is out of sync).
+        }
+        if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
         // 10% chance to roll a relic reward instead of normal loot. The picker
         // is biased by the chest's TIER (lowtier → wood, flora → frost) and
         // gated by player harvests/cow catch. If the rolled slot/tier would be
@@ -605,7 +666,7 @@ const TAP_HANDLERS = [
         // cell — let the next handler claim the tap instead of consuming it
         // with a 'stump' flash that the player can't act on.
         if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
-        if (!save.relics?.axe) { scene.flash('need an axe', sx, sy); return true; }
+        if (!save.relics?.axe) { scene.flash('Bare hands. The bark holds.', sx, sy); return true; }
         const durMs = (typeof toolDurationMs === 'function')
           ? toolDurationMs(save.relics, 'axe') : 3000;
         scene.startWorkProgress(o.x, o.y, () => {
@@ -615,7 +676,7 @@ const TAP_HANDLERS = [
           // Trees drop 2-3 wood logs (more generous than the shrub's 1).
           scene.addToInv('wood', 2 + Math.floor(Math.random() * 2));
           persistSave(save);
-          scene.flash('🌲 chopped', sx, sy);
+          scene.flash('🌲 Felled.', sx, sy);
         }, durMs);
         return true;
       }
@@ -636,7 +697,7 @@ const TAP_HANDLERS = [
       if (o.kind === 'fruittree') {
         const pickedSet = new Set(save.picked || []);
         if (pickedSet.has(o.id)) {
-          scene.flash('not ripe yet', sx, sy);
+          scene.flash('Not ripe yet — give it time.', sx, sy);
           return true;
         }
         save.picked = [...pickedSet, o.id];
@@ -657,7 +718,21 @@ const TAP_HANDLERS = [
         const pickTier = save.relics?.pick?.tier || 0;
         const isCave = o.caveVariant != null;
         if (pickTier < o.requiredTier) {
-          scene.flash(`need T${o.requiredTier} pickaxe`, sx, sy);
+          // Flavour: name the player's CURRENT pick (the one that's too
+          // weak) rather than telling them what tier they'd need. Player
+          // already feels the "this one isn't enough" — naming their tool
+          // makes the failure read like an in-world moment instead of a
+          // game-system error.
+          let msg;
+          if (pickTier <= 0) {
+            msg = 'Bare hands just bounce off.';
+          } else {
+            const tName = (typeof TIER_BY_NUM !== 'undefined')
+              ? (TIER_BY_NUM[pickTier]?.name || `T${pickTier}`)
+              : `T${pickTier}`;
+            msg = `${tName} pick just bounces off.`;
+          }
+          scene.flash(msg, sx, sy);
           return true;
         }
         // Cave rocks are plain — quick (3s) and cheap (10 energy). Ore
@@ -751,7 +826,7 @@ const TAP_HANDLERS = [
     // visual reach silhouette in render.js, so a cell that's visually
     // lit is always tap-accepted — no FP / cell-centre / hypot drift.
     if (!cellInReach(scene, cellIX, cellIY)) {
-      scene.flash('too far', sx, sy); return true;
+      scene.flash('Just out of reach.', sx, sy); return true;
     }
     ctx.cell = cell;
     ctx.cellIX = cellIX;
@@ -760,6 +835,22 @@ const TAP_HANDLERS = [
     ctx.cwmy = cwmy;
     ctx.cellKey = cellKeyFromAbsCell(cellIX, cellIY);
     return false;
+  }},
+
+  // 2a-path) Path-stone tap. Tapping a named pedestrian-path cell claims
+  // it (same effect as stepping on it). Doesn't consume the tap — falls
+  // through so any other handler on the same cell still fires (e.g. a
+  // wildplant on the cell next to the path). The activation method is
+  // a no-op if the cell isn't a named path or is already claimed.
+  { name: 'path-stone', try: (ctx) => {
+    const { scene, cellIX, cellIY, cwmx, cwmy, cell } = ctx;
+    if (!cell || cell.type !== 8 /* PATH */) return false;
+    const ctx_tx = Math.floor(cwmx / scene.tileEdgeM);
+    const ctx_ty = Math.floor(cwmy / scene.tileEdgeM);
+    if (typeof scene._activatePathStone === 'function') {
+      scene._activatePathStone(ctx_tx, ctx_ty, cellIX, cellIY);
+    }
+    return false;   // don't consume — let downstream handlers run
   }},
 
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
@@ -804,7 +895,7 @@ const TAP_HANDLERS = [
     // non-flock animal) still release one at a time.
     const flockSize = item.id === 'chicken' ? 4 : 1;
     if ((sel.count ?? 0) < flockSize) {
-      scene.flash(`need ${flockSize} ${item.id}s`, sx, sy);
+      scene.flash(`Need ${flockSize} ${item.id}s for a flock.`, sx, sy);
       return true;
     }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
@@ -873,7 +964,7 @@ const TAP_HANDLERS = [
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash('🪦 placed', sx, sy);
+    scene.flash('🪦 The scarecrow watches.', sx, sy);
     return true;
   }},
 
@@ -891,7 +982,7 @@ const TAP_HANDLERS = [
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash('🪨 placed', sx, sy);
+    scene.flash('🪨 Stone set.', sx, sy);
     return true;
   }},
 
@@ -901,7 +992,7 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     if (cell.type !== 10) return false;
     if (scene.brokenRockSet.has(cellKey)) {
-      scene.flash('rubble', sx, sy);
+      scene.flash('Rubble — nothing salvageable.', sx, sy);
       return true;
     }
     // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
@@ -949,7 +1040,7 @@ const TAP_HANDLERS = [
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       ctx.dirty = true;
-      scene.flash('🌱 grew', sx, sy);
+      scene.flash('🌱 Watered.', sx, sy);
       return true;
     }
     if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
@@ -1003,7 +1094,7 @@ const TAP_HANDLERS = [
     if (!save.relics?.can) return false;         // no can equipped
     save.canCharges = 50;
     ctx.dirty = true;
-    scene.flash('🪣 can refilled (50 charges)', sx, sy);
+    scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
     return true;
   }},
 
@@ -1015,7 +1106,7 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== 3) return false;
     if (!save.relics?.rod) {
-      scene.flash('need a fishing rod', sx, sy);
+      scene.flash('You watch the ripples for a while.', sx, sy);
       return true;
     }
     if (!scene.spendEnergy(5, sx, sy)) return true;
@@ -1115,11 +1206,11 @@ const TAP_HANDLERS = [
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
-      scene.flash('un-tilled', sx, sy);
+      scene.flash('Soil loosened.', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
-      scene.flash('out of seeds', sx, sy);
+      scene.flash('That seed pouch is empty.', sx, sy);
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
