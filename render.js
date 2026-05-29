@@ -903,7 +903,10 @@ Render.drawObjects = function drawObjects(scene) {
     _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
-    // 32×32 sheets; frame 4 (row 0) is the mature canopy on each.
+    // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
+    // + root base — fits in one frame. Column 3 is a full mature green tree
+    // on every species sheet. Origin sits a touch above the very bottom
+    // because the 64px frame includes a few px of empty space under the roots.
     tree:   { key: (o) => {
                 if (o.species === 'pine')     return 'pine_tree';
                 if (o.species === 'birch')    return 'birch_tree';
@@ -911,10 +914,11 @@ Render.drawObjects = function drawObjects(scene) {
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
-                if (o.species && o.species !== 'maple') return 4;
+                if (o.species && o.species !== 'maple') return 3;
                 return Phaser.Math.Clamp(o.variant || 2, 0, 4);
               },
-              origin: [0.5, 0.95], scale: 0.85 },
+              origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
+              scale:  (o) => (o.species && o.species !== 'maple') ? 0.62 : 0.85 },
     chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
@@ -989,6 +993,27 @@ Render.drawObjects = function drawObjects(scene) {
       origin: [0.5, 0.9], scale: 1.8,
     },
   };
+  // Soft contact shadows under buildings (houses + towers). Rendered into
+  // shadowContainer — z-ordered just below objectsContainer — so each
+  // building reads as resting on the ground rather than floating. The shadow
+  // is a feathered dark ellipse placed at the building's ground foot, sized
+  // to the building footprint (forts widest, towers slimmest).
+  if (scene.shadowPool && scene.shadowContainer) {
+    const shadowList = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
+    Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
+      const { o, dx, dy } = item;
+      const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+      const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+      setTextureIfDifferent(s, 'bldg_shadow');
+      let w = CELL_PX * 1.5, dyFoot = 5;
+      if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 7; }
+      s.setOrigin(0.5, 0.5)
+       .setDisplaySize(w, w * 0.42)
+       .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
+       .setAlpha(0.5).setTint(0xffffff);
+    });
+  }
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
     const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
@@ -1015,7 +1040,8 @@ Render.drawObjects = function drawObjects(scene) {
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const dyPx = spec.dyPx || 0;
-    s.setOrigin(spec.origin[0], spec.origin[1])
+    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
+    s.setOrigin(origin[0], origin[1])
      .setScale(scl)
      .setPosition(Math.round(sx), Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);

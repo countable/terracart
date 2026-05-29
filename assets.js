@@ -51,6 +51,12 @@ const ASSETS = {
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
   cobble:      { kind: 'spritesheet', path: 'Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
+  // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
+  // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
+  // big multi-cell bridge structure; rows 4-13 are pairs of standalone 3-cell
+  // horizontal bridges. Renderer uses frame 33 (row 4, col 1) — the middle
+  // plank of a horizontal bridge with no end-caps — as the standard pier cell.
+  pier:        { kind: 'spritesheet', path: 'Objects/Wilderness/Bridge Beach.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
@@ -74,6 +80,17 @@ const ASSETS = {
   mango_tree:   { kind: 'spritesheet', path: 'Objects/Wilderness/Mango Tree.png',   frameWidth: 16, frameHeight: 48 },
   coconut_tree: { kind: 'spritesheet', path: 'Objects/Wilderness/Coconut tree.png', frameWidth: 16, frameHeight: 48 },
   apricot_tree: { kind: 'spritesheet', path: 'Objects/Wilderness/Apricot Tree.png', frameWidth: 16, frameHeight: 48 },
+  // Wood/forest tree species — the art is a growth-stage strip where each
+  // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
+  // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)
+  // holds separate ground decorations (snow piles / extra saplings). Slicing
+  // at 32×32 cut every tree in half — frame 4 showed canopy only, no trunk.
+  // Slicing 32×64 captures the WHOLE tree per column: Pine/Birch 256×96 → 8
+  // frames (cols 0–7), Mahogany 384×96 → 12 frames. Column index = growth
+  // stage; render.js uses col 3 (a full mature green tree on every sheet).
+  pine_tree:     { kind: 'spritesheet', path: 'Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 64 },
+  birch_tree:    { kind: 'spritesheet', path: 'Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 64 },
+  mahogany_tree: { kind: 'spritesheet', path: 'Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 64 },
   // Fantasy Mushroom sheet (96x288) — declared as spritesheet so renderer can pick any single 32x32 mushroom.
   mushroom_world: { kind: 'spritesheet', path: 'Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
@@ -97,6 +114,18 @@ const ASSETS = {
   // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
   // the procedural longgrass texture.
   props:       { kind: 'spritesheet', path: 'Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
+  // Terrains autotile sheet — 512×368 = 32 cols × 23 rows of 16×16 frames.
+  // Copied out of the gitignored Sprites/1_Terrains_16x16.png dump into tracked
+  // Objects/Terrains_16x16.png (same convention as the Wilderness art above).
+  // Contains clean 3×3 Wang autotile
+  // blocks for several overlays (brown soil, sand, water, wood planks, dirt)
+  // sitting on a green-grass base, plus 4 "extras" per overlay (peninsula /
+  // strip / isolated) further to the right. The render.js noisePool branch
+  // reads WATER_AUTOTILE_FRAME (in textures.js) to pick a frame per cell
+  // based on the cardinal-neighbour mask. Only WATER (type 3) uses the sheet
+  // today; SAND, FARMLAND, BUILDING_MED are easy follow-ups since every
+  // overlay shares the same 3×3 Wang geometry — just different col/row.
+  terrains: { kind: 'spritesheet', path: 'Objects/Terrains_16x16.png', frameWidth: 16, frameHeight: 16 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.
@@ -108,7 +137,30 @@ const ASSETS = {
   // from Sprites/unused/Objects/Props/wood.png) had water tinting in it
   // that read poorly on grass. Renderer picks frame = min(2, qty - 1)
   // so the variant cycles with stack size. Inventory icon uses frame 2.
-  wood:        { kind: 'spritesheet', path: 'Objects/wood.png', frameWidth: 16, frameHeight: 16 },
+  wood:        {
+    kind: 'spritesheet', path: 'Objects/wood.png', frameWidth: 16, frameHeight: 16,
+    // wood.png ships with a solid white background (RGB ≈ 248,248,248)
+    // that reads as a "white outline" around each log when rendered on
+    // the grass terrain. Alpha-key near-white pixels to transparent —
+    // same trick crops.png uses.
+    onLoad: (scene) => {
+      const tex = scene.textures.get('wood');
+      const src = tex.getSourceImage();
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < data.data.length; i += 4) {
+        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
+          data.data[i+3] = 0;
+        }
+      }
+      ctx.putImageData(data, 0, 0);
+      scene.textures.remove('wood');
+      scene.textures.addSpriteSheet('wood', c, { frameWidth: 16, frameHeight: 16 });
+    },
+  },
   // Themed-house sprites (sliced top-left out of NPC house sheets in
   // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the
   // generic tinted 'house' for a specific role — see render.js' house key
