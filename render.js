@@ -129,6 +129,15 @@ Render.drawCells = function drawCells(scene) {
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
+  // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
+  // Reuses the cobblePool slot for the overlay sprite but swaps its texture
+  // from 'cobble' to 'pier' (Objects/Wilderness/Bridge Beach.png, 8×14 of
+  // 16×16 frames). Frame 33 = row 4 col 1 = the middle plank of one of the
+  // standalone 3-cell horizontal bridges in the lower half of the sheet
+  // (clean planks, no end-caps, no railing posts). Pier cells are NOT roads
+  // (no road-letter labels) and NOT paths (no path-stone activation tint).
+  const PIER = 23;
+  const PIER_FRAME = 33;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
@@ -258,18 +267,46 @@ Render.drawCells = function drawCells(scene) {
       }
 
       // Procedural texture overlay for every ground cell.
+      // WATER (type 3) gets a Wang-autotile lookup instead of a procedural
+      // variant: the cardinal-neighbour mask picks one of 9 frames from the
+      // 'terrains' spritesheet so water-grass borders show hand-drawn edges
+      // instead of a hard colour cut. Rare mask values (peninsula / strip /
+      // isolated — 7 of 16) fall back to the centre fill. See
+      // WATER_AUTOTILE_FRAME in textures.js for the mapping.
+      //
+      // Seam caveat: T() returns 0 (grass) for unloaded neighbour tiles, so
+      // a water cell at a not-yet-loaded tile edge will briefly render the
+      // wrong edge frame until the adjacent MVT tile arrives. Self-corrects
+      // on the next frame after load — not worth special-casing today.
       {
         const ns = scene.noisePool[noiseIdx++];
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
         let texKey = null;
+        let texFrame; // undefined = use whole-image; defined = sheet frame index
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+        } else if (type === 3) {
+          const tn = T(col, row - 1), ts2 = T(col, row + 1);
+          const tw = T(col - 1, row), te = T(col + 1, row);
+          const mask = (tn === 3 ? 1 : 0)
+                     | (te === 3 ? 2 : 0)
+                     | (ts2 === 3 ? 4 : 0)
+                     | (tw === 3 ? 8 : 0);
+          texKey = 'terrains';
+          texFrame = WATER_AUTOTILE_FRAME[mask] ?? WATER_AUTOTILE_FALLBACK;
         } else {
           const spec = BIOME_TEX[type];
           if (spec) texKey = `biome${type}_${Math.abs(h) % spec.variants}`;
         }
         if (texKey) {
-          ns.setTexture(texKey)
+          if (texFrame !== undefined) ns.setTexture(texKey, texFrame);
+          else ns.setTexture(texKey);
+          // setTexture changes the sprite's intrinsic width/height to match
+          // the new frame. Procedural biome textures are baked at CELL_PX so
+          // the original setDisplaySize(CELL_PX, CELL_PX) still produces the
+          // right size, but the 'terrains' sheet frames are 16×16 — without
+          // re-applying displaySize, water cells would render at half size.
+          ns.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
         } else {
@@ -338,21 +375,49 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for PATH.
+      // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for
+      // PATH, wooden plank for PIER. All three share the cobblePool slot but
+      // PIER swaps the sprite's texture from 'cobble' to 'pier' (Bridge Beach).
       {
         const cs = scene.cobblePool[cobbleIdx++];
         // Single frame per type — no per-cell randomization, so a road of one
         // class reads as one consistent surface across all its cells.
-        const frame = isRoad(type) ? ROAD_FRAME[type]
+        const isPier = (type === PIER);
+        const frame = isPier ? PIER_FRAME
+                     : isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
           // Roads get bumped up 10% so the cobble cluster reads as a real
-          // surface texture instead of pixel speckle. Paths stay at cell size
-          // — a sparse pebble doesn't benefit from the same upscaling.
+          // surface texture instead of pixel speckle. Paths + piers stay at
+          // cell size — the plank art is meant to tile edge-to-edge across
+          // adjacent pier cells, so upscaling would break the seam.
           const size = isRoad(type) ? CELL_PX * 1.10 : CELL_PX;
+          // Named-path stones that the player has tapped / stepped onto
+          // pick up a blue tint to signal progress. _isPathStoneActive
+          // is null-safe (returns false in test mode or before save state
+          // exists), so this check is always cheap. PIER is excluded —
+          // piers are not named paths and the plank shouldn't tint blue.
+          let tint = 0xffffff;
+          if (type === PATH && typeof scene._isPathStoneActive === 'function') {
+            const { tx: ctx, ty: cty } = scene.playerToWorldCell();
+            // Cells outside the player's own tile fall back to the cell's
+            // tile coords — paths span tile seams, and we want consistent
+            // tinting across the boundary.
+            const N = scene.cellsPerTile;
+            const tx2 = Math.floor(absCellIX / N);
+            const ty2 = Math.floor(absCellIY / N);
+            if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
+              tint = 0x88aaff;   // soft blue
+            }
+          }
+          // Swap texture key — 'pier' for plank, 'cobble' for everything else.
+          // Pool sprites are created with the 'cobble' texture so reassign
+          // each frame; Phaser short-circuits if the key is already current.
+          cs.setTexture(isPier ? 'pier' : 'cobble', frame);
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+            .setTint(tint)
             .setVisible(true);
         } else {
           cs.setVisible(false);
@@ -566,6 +631,38 @@ Render.drawCells = function drawCells(scene) {
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
+  // Numbered starter-trail treasures render as box sprites + a small index
+  // label above the crate — clearer "go pick up these crates" affordance
+  // for first-time players than the scratched-X. Pooled to avoid per-frame
+  // alloc; unused slots are hidden between frames.
+  scene.starterBoxPool = scene.starterBoxPool || [];
+  scene.starterBoxLabelPool = scene.starterBoxLabelPool || [];
+  let boxIdx = 0;
+  const drawBox = (tr) => {
+    if (!tr || found.has(tr.id)) return;
+    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
+    const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+    const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    let s = scene.starterBoxPool[boxIdx];
+    if (!s) {
+      s = scene.add.image(0, 0, 'box').setOrigin(0.5, 0.9).setDepth(50);
+      scene.starterBoxPool.push(s);
+    }
+    s.setPosition(Math.round(cx), Math.round(cy)).setScale(1.2).setVisible(true);
+    let lbl = scene.starterBoxLabelPool[boxIdx];
+    if (!lbl) {
+      lbl = scene.add.text(0, 0, '', {
+        font: 'bold 9px ui-monospace, monospace',
+        color: '#fff', stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(51);
+      scene.starterBoxLabelPool.push(lbl);
+    }
+    lbl.setText(String(tr.n))
+       .setPosition(Math.round(cx), Math.round(cy) - 18)
+       .setVisible(true);
+    boxIdx++;
+  };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
   // gets expensive once a session has visited many tiles.
@@ -577,9 +674,18 @@ Render.drawCells = function drawCells(scene) {
         if (!entry) continue;
         drawX(entry.treasure);
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
-        if (entry.extraTreasures)   for (const tr of entry.extraTreasures)   drawX(tr);
+        if (entry.extraTreasures) {
+          for (const tr of entry.extraTreasures) {
+            if (tr.n != null) drawBox(tr);
+            else drawX(tr);
+          }
+        }
       }
     }
+  }
+  for (; boxIdx < scene.starterBoxPool.length; boxIdx++) {
+    scene.starterBoxPool[boxIdx].setVisible(false);
+    if (scene.starterBoxLabelPool[boxIdx]) scene.starterBoxLabelPool[boxIdx].setVisible(false);
   }
 };
 
@@ -796,12 +902,32 @@ Render.drawObjects = function drawObjects(scene) {
     // Placed scarecrow — 32×32 image with the pole base at the bottom of the
     // sprite; origin (0.5, 1) anchors that base on the placement cell.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },
-    tree:   { key: 'trees', frame: (o) => Phaser.Math.Clamp(o.variant || 2, 0, 4),
+    // Per-polygon species — maple uses the original 32×48 sheet with the
+    // variant->frame growth-stage pick. Pine/birch/mahogany use their own
+    // 32×32 sheets; frame 4 (row 0) is the mature canopy on each.
+    tree:   { key: (o) => {
+                if (o.species === 'pine')     return 'pine_tree';
+                if (o.species === 'birch')    return 'birch_tree';
+                if (o.species === 'mahogany') return 'mahogany_tree';
+                return 'trees'; // maple (default)
+              },
+              frame: (o) => {
+                if (o.species && o.species !== 'maple') return 4;
+                return Phaser.Math.Clamp(o.variant || 2, 0, 4);
+              },
               origin: [0.5, 0.95], scale: 0.85 },
     chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
-              frame: 0, origin: [0.5, 0.9], scale: 2.0 },
+              frame: 0, origin: [0.5, 0.9], scale: 2.0,
+              // Coin-burst POIs (bicycle_parking + atm) reuse the chest sprite
+              // but get a tint so the player can spot them: ATM = green, bike
+              // rack = gold. TODO: swap in a proper bike sprite if/when one
+              // lands in Sprites/Vehicles_16x16/ (currently only Tractor).
+              after: (s, o) => {
+                if (o.poiClass === 'atm') s.setTint(0x6fdc7a);
+                else if (o.poiClass === 'bicycle_parking') s.setTint(0xffcf3a);
+              } },
     fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
               origin: [0.5, 0.95], scale: 0.85,
               after: (s, o) => {
@@ -1182,6 +1308,48 @@ Render.drawObjects = function drawObjects(scene) {
     g.lineTo(cx, cy + r); g.lineTo(cx - r, cy);
     g.closePath();
     g.strokePath();
+  }
+
+  // ── Coin drops (ATM / bicycle_parking burst). Walked across the same
+  // 3×3-tile neighbourhood as objects/wildplants above. Expired coins
+  // (now >= expiresAt) are spliced out of the in-memory entry.coinDrops
+  // array right here at render time — they're ephemeral so we don't need
+  // a separate sweep timer.
+  const coinList = [];
+  const _coinNow = Date.now();
+  for (let dty = -1; dty <= 1; dty++) {
+    for (let dtx = -1; dtx <= 1; dtx++) {
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+      if (!entry || !entry.coinDrops || entry.coinDrops.length === 0) continue;
+      // Filter-out expired coins by rewriting the array in place.
+      let w = 0;
+      for (let r = 0; r < entry.coinDrops.length; r++) {
+        const c = entry.coinDrops[r];
+        if (c.expiresAt && c.expiresAt <= _coinNow) continue;
+        entry.coinDrops[w++] = c;
+        const dx = c.x - pWorldX, dy = c.y - pWorldY;
+        if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+        coinList.push({ c, dx, dy });
+      }
+      entry.coinDrops.length = w;
+    }
+  }
+  if (scene.coinPool && scene.coinContainer) {
+    Render.renderPool(scene, scene.coinPool, scene.coinContainer, coinList, (s, item) => {
+      const { c, dx, dy } = item;
+      const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
+      const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+      if (s.texture.key !== 'coin_drop') s.setTexture('coin_drop');
+      // Tiny pulse: scale oscillates ~0.9..1.1 over ~800ms based on now+id-hash
+      // so each coin breathes out of phase with its neighbours.
+      const idH = (c.id || '').length * 2654435761;
+      const phase = ((_coinNow + idH) % 800) / 800;     // 0..1
+      const pulse = 1.0 + 0.12 * Math.sin(phase * Math.PI * 2);
+      s.setOrigin(0.5, 0.5)
+       .setScale(1.5 * pulse)
+       .setPosition(Math.round(sx), Math.round(sy))
+       .setAlpha(1).setTint(0xffffff);
+    });
   }
 
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {

@@ -1188,11 +1188,36 @@ class MapScene extends Phaser.Scene {
           placed.push(i + 1);
         }
         // If somehow nothing got seated (road hugged by water/buildings),
-        // fall back to the legacy north-of-spawn X so the player isn't
-        // robbed of their starter loot.
-        if (placed.length === 0) entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
-      } else {
-        entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
+        // fall through to the no-road fallback below so the player still
+        // gets 4 boxes.
+        if (placed.length === 0) roadCell = null;
+      }
+      if (!roadCell) {
+        // No road within 15 cells (or the kerb was unusable) — scatter
+        // 4 boxes in a tight ring around the spawn point on walkable cells.
+        // Each base offset walks outward another few cells if it lands on
+        // blocked / road terrain, so the boxes always come out usable.
+        const RING = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+        for (let i = 0; i < 4; i++) {
+          const [bdx, bdy] = RING[i];
+          let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
+          for (let step = 0; step < 5; step++) {
+            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
+            const t = entry.grid[ncy * N + ncx];
+            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t)) break;
+            ncx += Math.sign(bdx);
+            ncy += Math.sign(bdy);
+          }
+          if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
+          const tt = entry.grid[ncy * N + ncx];
+          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt)) continue;
+          const wmx = tx * this.tileEdgeM + (ncx + 0.5) * this.cellM;
+          const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
+          entry.extraTreasures.push({
+            x: wmx, y: wmy, n: i + 1,
+            id: `treasure_start_${tx}_${ty}_${i + 1}`,
+          });
+        }
       }
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
