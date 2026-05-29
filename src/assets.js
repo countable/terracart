@@ -103,6 +103,11 @@ const ASSETS = {
   // At scale 1.0 it's exactly one cell (32px) tall, so it foot-anchors inside
   // a single square cell.
   pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png' },
+  // Stone well — 48×32 single image (Sprites Well_Usable_16x16: a roofed well
+  // with bucket). The in-game stand-in for OSM amenity=fountain points. Tapping
+  // it refills the watering can like a water tile (see interact.js 'well'
+  // branch). Foot-anchored near the base so it stands on its cell.
+  well:           { kind: 'image', path: 'assets/Objects/Wilderness/well.png' },
   // Magic Crafting Shrine — 192×128 = 4 cols × 2 rows of 48×64 water-fountain
   // variants. Each shrine level picks a different frame (row-major) so the
   // fountain visibly evolves: L1 → frame 0, L7 → frame 6. Anchored at
