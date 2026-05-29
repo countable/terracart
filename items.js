@@ -56,12 +56,14 @@ const CROP_SPRITE = {
   // 1 of crops.png (the pairy sprite) which looked like a fruit.
   shrub:     { sheet: 'props', custom: true, frame: 120 },
   // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
-  // (col=14, row=1) → index 1*22 + 14 = 36 is a small red-cap toadstool
-  // sized to fit a single cell. The previous Fantasy Mushroom sheet was
-  // 32×32 frames rendered at the wildplant scale of 2 → 64×64 display,
-  // i.e. twice the footprint of every other ground prop, which read as
-  // a "giant broken-looking" mushroom on commercial/industrial plots.
-  mushroom: { sheet: 'props', custom: true, frame: 36 },
+  // (col=13, row=1) → index 1*22 + 13 = 35 is the small red-cap toadstool
+  // sized to fit a single cell. (The cell one column to its right, frame
+  // 36, was the original pick but turned out to be a different prop that
+  // looked half-clipped at wildplant scale.) The previous Fantasy Mushroom
+  // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
+  // display, twice the footprint of every other ground prop, which read
+  // as a giant broken-looking mushroom on commercial/industrial plots.
+  mushroom: { sheet: 'props', custom: true, frame: 35 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -164,7 +166,7 @@ function inventoryIconSource(itemId) {
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
-  rockfruit: 'Rockfruit', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
+  rockfruit: 'Rock', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
   fireflower: 'Fireflower', sunflower: 'Sunflower',
   berry: 'Berry', cress: 'Cress', onion: 'Onion',
 };
@@ -454,10 +456,10 @@ const PLAY_TIPS = [
   'Tap a tilled empty cell with no seed selected to un-till it.',
   // World / map
   'Treasure X marks favour residential cells. Look there first.',
-  'Wild rockfruit grows in residential streets; shrubs in parks and woods.',
+  'Wild rock grows in residential streets; shrubs in parks and woods.',
   'Long grass only grows on plain grassland — never under trees.',
   // Combat / discovery
-  'Hold rockfruit and tap an empty tile to drop a stone fence.',
+  'Hold rock and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
   // Animal favourite foods — one tip per kind, so a Book read can reveal them.
   'Chickens come running for a juicy rainberry. Hold one to catch one.',

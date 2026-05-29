@@ -935,7 +935,7 @@ const TAP_HANDLERS = [
       save.placedRocks = [...scene.placedRockSet];
       scene.addToInv('rockfruit', 1);
       persistSave(save);
-      scene.flash('⛏ rockfruit', sx, sy);
+      scene.flash('⛏ rock', sx, sy);
     });
     return true;
   }},
@@ -1025,7 +1025,7 @@ const TAP_HANDLERS = [
       else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
       else if (r < 0.130)   { addMoney(save,  5); scene.updateMoneyDOM?.(); msg = '💥 → $5'; }
       else if (r < 0.430)   { scene.addToInv('coal', randInt(1, 2)); msg = '💥 → coal'; }
-      else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rockfruit seed'; }
+      else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
     }, durMs);
