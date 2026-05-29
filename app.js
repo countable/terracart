@@ -1977,16 +1977,19 @@ class MapScene extends Phaser.Scene {
 
   // Per-tick movement for wild crows. Three-phase state machine:
   //   PERCH      → still for 2–4.5 s
-  //   FLIGHT     → one eased burst over ~500–800 ms covering 2–5 cells
-  //   DESTROYING → perched on a planted crop with a 2 s arming timer that
-  //                eats the crop when it fires
+  //   FLIGHT     → one eased glide over ~800–1200 ms covering ~1–2.5 cells
+  //                (slow + short — crows used to be too fast / fly too far)
+  //   DESTROYING → committed to a planted crop; the crow must perch ON the
+  //                crop for 2 full cycles (hopping in place) before it eats.
   // The flight target is usually picked by ORBITING the nearest crop at
-  // radius 1.5–3.5 cells (so the crow looks like it's circling, casing
+  // radius ~0.75–1.75 cells (so the crow looks like it's circling, casing
   // the field). With ~30% probability the chosen orbit ring collapses
   // toward radius 0 — a "landing attempt" that may end with the crow's
-  // landed position inside the crop's cell, arming the destroy timer.
-  // Scaring or capturing the crow within the 2 s arming window cancels
-  // the destruction, giving the player a grace period.
+  // landed position inside the crop's cell, starting the 2-cycle pause.
+  // Once committed, the crow keeps hopping on the crop, decrementing the
+  // cycle counter each landing; it eats only when the counter hits 0.
+  // Scaring or capturing the crow during the pause cancels the
+  // destruction, giving the player a generous grace window.
   _wildCrowTick(c, now, px, py) {
     const isScared = c._scaredUntilT && c._scaredUntilT > now;
     // (1) Resolve any pending crop destruction. The destroy timer arms
@@ -1996,8 +1999,9 @@ class MapScene extends Phaser.Scene {
     if (c._destroyCropRef && this.save.planted.indexOf(c._destroyCropRef) < 0) {
       c._destroyCropRef = null;
       c._destroyAtT = null;
+      c._destroyCyclesLeft = 0;
     }
-    if (isScared) { c._destroyCropRef = null; c._destroyAtT = null; }
+    if (isScared) { c._destroyCropRef = null; c._destroyAtT = null; c._destroyCyclesLeft = 0; }
     if (c._destroyAtT != null && now >= c._destroyAtT) {
       const idx = c._destroyCropRef ? this.save.planted.indexOf(c._destroyCropRef) : -1;
       if (idx >= 0) {
@@ -2030,13 +2034,29 @@ class MapScene extends Phaser.Scene {
       c._faceFlip = (c._targetX - c._startX) < 0;
       if (!isScared && this.save.planted) {
         const NEAR2 = (this.cellM * 0.5) * (this.cellM * 0.5);
+        let landedOn = null;
         for (const pp of this.save.planted) {
           const ddx = pp.x - c.x, ddy = pp.y - c.y;
-          if (ddx * ddx + ddy * ddy <= NEAR2) {
-            c._destroyCropRef = pp;
-            c._destroyAtT = now + 2000;   // 2 s grace period
-            break;
+          if (ddx * ddx + ddy * ddy <= NEAR2) { landedOn = pp; break; }
+        }
+        if (landedOn) {
+          // Require the crow to pause for 2 full perch cycles ON the crop
+          // before it destroys it. The first landing starts the count; each
+          // subsequent landing on the SAME crop decrements it.
+          if (c._destroyCropRef === landedOn) {
+            c._destroyCyclesLeft = (c._destroyCyclesLeft || 1) - 1;
+          } else {
+            c._destroyCropRef = landedOn;
+            c._destroyCyclesLeft = 2;
           }
+          // When the pause is spent, arm the destroy timer to fire on the
+          // next resolution tick (step 1).
+          if (c._destroyCyclesLeft <= 0) c._destroyAtT = now;
+        } else {
+          // Drifted off the crop — abandon any in-progress pause.
+          c._destroyCropRef = null;
+          c._destroyCyclesLeft = 0;
+          c._destroyAtT = null;
         }
       }
       return;
@@ -2047,11 +2067,21 @@ class MapScene extends Phaser.Scene {
     // (6) Time to launch a new flight burst. Pick a target with up to
     // 6 attempts so we can reject water / buildings / scarecrow rings.
     let tx = c.x, ty = c.y, chosen = false;
+    const committed = !isScared && c._destroyCropRef &&
+      c._destroyCyclesLeft > 0 && this.save.planted &&
+      this.save.planted.indexOf(c._destroyCropRef) >= 0;
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
-      if (isScared) {
-        // Flee — fly away from the player, 4–6 cells, jittered.
+      if (committed) {
+        // Committed to a crop mid-pause — keep hopping in place ON the crop
+        // so each landing counts down a cycle toward destruction.
+        const ang = Math.random() * Math.PI * 2;
+        const r = Math.random() * 0.3 * this.cellM;
+        tx = c._destroyCropRef.x + Math.cos(ang) * r;
+        ty = c._destroyCropRef.y + Math.sin(ang) * r;
+      } else if (isScared) {
+        // Flee — fly away from the player, ~2–3 cells, jittered.
         const a = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.5;
-        const d = (4 + Math.random() * 2) * this.cellM;
+        const d = (2 + Math.random() * 1) * this.cellM;
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       } else if (this.save.planted && this.save.planted.length) {
@@ -2067,20 +2097,20 @@ class MapScene extends Phaser.Scene {
           const landAttempt = Math.random() < 0.30;
           const radius = landAttempt
             ? Math.random() * 0.4 * this.cellM
-            : (1.5 + Math.random() * 2.0) * this.cellM;
+            : (0.75 + Math.random() * 1.0) * this.cellM;
           const ang = Math.random() * Math.PI * 2;
           tx = nearest.x + Math.cos(ang) * radius;
           ty = nearest.y + Math.sin(ang) * radius;
         } else {
           const a = Math.random() * Math.PI * 2;
-          const d = (2 + Math.random() * 3) * this.cellM;
+          const d = (1 + Math.random() * 1.5) * this.cellM;
           tx = c.x + Math.cos(a) * d;
           ty = c.y + Math.sin(a) * d;
         }
       } else {
-        // No crops to harass — random roam, 2–5 cell hops.
+        // No crops to harass — random roam, ~1–2.5 cell hops.
         const a = Math.random() * Math.PI * 2;
-        const d = (2 + Math.random() * 3) * this.cellM;
+        const d = (1 + Math.random() * 1.5) * this.cellM;
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       }
@@ -2110,7 +2140,7 @@ class MapScene extends Phaser.Scene {
     c._startX = c.x; c._startY = c.y;
     c._targetX = tx; c._targetY = ty;
     c._flightT0 = now;
-    c._flightUntilT = now + 500 + Math.random() * 300;   // 500–800 ms burst
+    c._flightUntilT = now + 800 + Math.random() * 400;   // 800–1200 ms slow glide
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
   }
