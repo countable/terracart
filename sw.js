@@ -19,7 +19,6 @@ const SHELL_ASSETS = [
   './vendor/phaser.js',
   './src/mvt.js',
   './src/worldgen.js',
-  './src/crops.js',
   './src/textures.js',
   './src/app.js',
 ];
