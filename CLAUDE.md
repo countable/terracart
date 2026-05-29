@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+I am a new programmer on Clark's computer, named Ari.
+
+Please help me learn vibe coding and programming as I work on this project. Explain technical terms as you go, so I can follow along.
+Ask me questions to help me understand key concepts about software development using AI agents/assistants.
+
 ## Parallelism rules
 
 - **Don't use `git stash` or `git worktree`** for parallel work.

@@ -234,6 +234,10 @@ class MapScene extends Phaser.Scene {
       loadSave()
     );
     this.save.opened = this.save.opened || [];
+    // Chests left for later because the bag was full: { [chestId]: {id, n} }.
+    // The chest stays out of save.opened (so it still renders + reopens) and
+    // remembers exactly what it rolled, so reopening can't re-roll the loot.
+    this.save.chestHold = this.save.chestHold || {};
     this.save.tilled = this.save.tilled || [];
     if (this.save.money == null) this.save.money = STARTING_MONEY;
     if (this.save.buyIndex == null) this.save.buyIndex = 0;
@@ -4931,7 +4935,11 @@ class MapScene extends Phaser.Scene {
   //                          for stacks, or a relic-equipped tagline).
   //   color         string? → tier colour for the name (defaults gold).
   //   onDismiss     fn?    → called after the modal closes.
-  showChestRewardModal({ iconHTML, name, sub, qty, color = '#ffe066', onDismiss, header = 'From the chest' }) {
+  //   actions       array? → [{ label, primary?, onClick }]. When present the
+  //                          modal becomes a CHOICE (explicit buttons, no
+  //                          tap-to-dismiss) instead of a tap-to-continue
+  //                          acknowledgement — used for the bag-full chest open.
+  showChestRewardModal({ iconHTML, name, sub, qty, color = '#ffe066', onDismiss, header = 'From the chest', actions }) {
     document.getElementById('chest-reward-modal')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'chest-reward-modal';
@@ -4973,21 +4981,47 @@ class MapScene extends Phaser.Scene {
     const subHtml = sub
       ? `<div style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
+    const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
       `<div style="opacity:.6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${header}</div>` +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +
       subHtml +
-      '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>';
+      (hasActions ? '' : '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>');
     const close = () => {
       wrap.remove();
       if (typeof onDismiss === 'function') onDismiss();
     };
-    // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
-    // to acknowledge" not a "choose action" modal). stopPropagation on the
-    // box would otherwise let the player click-through it.
-    wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
+    if (hasActions) {
+      // Choice variant: explicit buttons, and NO tap-to-dismiss — the player
+      // must pick an action so the chest is never left half-resolved. Overlay
+      // clicks are inert (no close listener on wrap).
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap;';
+      for (const a of actions) {
+        const b = document.createElement('button');
+        b.innerHTML = a.label;
+        b.style.cssText =
+          'padding:9px 14px;border-radius:7px;font:700 12px ui-monospace,monospace;cursor:pointer;' +
+          (a.primary
+            ? `background:${color};color:#1a1612;border:0;`
+            : 'background:transparent;color:#ddd;border:2px solid #555;');
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          wrap.remove();
+          if (typeof a.onClick === 'function') a.onClick();
+          if (typeof onDismiss === 'function') onDismiss();
+        });
+        row.appendChild(b);
+      }
+      box.appendChild(row);
+    } else {
+      // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
+      // to acknowledge" not a "choose action" modal). stopPropagation on the
+      // box would otherwise let the player click-through it.
+      wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
+    }
     wrap.appendChild(box);
     (document.getElementById('game') || document.body).appendChild(wrap);
     // Sparkle burst around the modal — drives the "fanfare" feel. Spawned
@@ -5042,6 +5076,18 @@ class MapScene extends Phaser.Scene {
         wrap.appendChild(sp);
       }
     });
+  }
+
+  // How many more of `id` would fit right now (0 = full for that item).
+  // Mirrors addToInv's single-stack-per-id cap so a caller can detect overflow
+  // BEFORE committing — the chest open uses it to offer "leave it for later"
+  // instead of silently dropping loot that won't fit.
+  invRoomFor(id) {
+    const cap = (typeof stackCapForBags === 'function')
+      ? stackCapForBags(this.save.relics?.bags) : 9;
+    let have = 0;
+    for (const s of (this.save.inv || [])) if (s && s.id === id) have += (s.count || 0);
+    return Math.max(0, cap - have);
   }
 
   // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE

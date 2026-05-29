@@ -666,12 +666,17 @@ const TAP_HANDLERS = [
           // (defensive — keeps these POIs usable if app.js is out of sync).
         }
         if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+        // A chest the player previously opened but LEFT FOR LATER (bag was full)
+        // remembers exactly what it rolled: reopen serves that same loot, and we
+        // skip the relic re-roll below so leaving-and-reopening can't fish for a
+        // better drop.
+        const held = save.chestHold && save.chestHold[o.id];
         // 10% chance to roll a relic reward instead of normal loot. The picker
         // is biased by the chest's TIER (lowtier → wood, flora → frost) and
         // gated by player harvests/cow catch. If the rolled slot/tier would be
         // an upgrade → equip it. Otherwise → half its gold value as a
         // consolation (player always gets something useful).
-        if (Math.random() < 0.10) {
+        if (!held && Math.random() < 0.10) {
           const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
           const reward = (typeof pickChestRelic === 'function')
             ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
@@ -725,19 +730,50 @@ const TAP_HANDLERS = [
           }
           // reward is null (no allowed tiers — very early game) — fall through.
         }
-        const loot = pickLoot(undefined, o.poiClass, save.relics);
-        scene.addToInv(loot.id, loot.n);
-        save.opened.push(o.id);
-        ctx.dirty = true;
+        const loot = held ? { id: held.id, n: held.n }
+                          : pickLoot(undefined, o.poiClass, save.relics);
         const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
         const lootColor = tierInfo(loot.id).color;
         // Chest loot gets the full ceremony modal — quick-feedback flashLoot
         // is reserved for X-marks / harvest / mining (cheap repeating rewards).
         const iconHTML = scene.iconSpanHTML
           ? scene.iconSpanHTML(loot.id, 64) : '';
+        const qtyLabel = loot.n > 1 ? `× ${loot.n}` : null;
+        // If the loot won't fully fit, don't silently drop the overflow — let the
+        // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
+        // (chest kept, its exact contents remembered in save.chestHold). Modal
+        // buttons fire after this handler returns, so they persist themselves.
+        const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(loot.id) : Infinity;
+        if (loot.n > room) {
+          scene.showChestRewardModal({
+            iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
+            sub: room > 0
+              ? `Bag full — room for only ${room} of ${loot.n}.`
+              : 'Your bag is full.',
+            actions: [
+              { label: 'Leave for later', primary: true, onClick: () => {
+                save.chestHold = save.chestHold || {};
+                save.chestHold[o.id] = { id: loot.id, n: loot.n };
+                persistSave(save);
+                scene.flash?.('Left it in the chest.', sx, sy);
+              } },
+              { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
+                if (room > 0) scene.addToInv(loot.id, loot.n);   // takes `room`; bag-full flash covers the rest
+                save.opened.push(o.id);
+                if (save.chestHold) delete save.chestHold[o.id];
+                persistSave(save);
+              } },
+            ],
+          });
+          return true;
+        }
+        // Fits fully — take it and empty the chest.
+        scene.addToInv(loot.id, loot.n);
+        save.opened.push(o.id);
+        if (save.chestHold) delete save.chestHold[o.id];
+        ctx.dirty = true;
         scene.showChestRewardModal({
-          iconHTML, name: lootName, qty: loot.n > 1 ? `× ${loot.n}` : null,
-          color: lootColor,
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
         });
         return true;
       }

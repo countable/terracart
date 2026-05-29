@@ -183,7 +183,9 @@ const POI_CATEGORY = {
   shelter: 'lowtier', picnic_site: 'lowtier',
   // ── Bike / ATM — special coin-burst handlers (see app.js); the chest
   // category is only consulted if the coin burst is on cooldown.
-  bicycle_parking: 'lowtier', motorcycle_parking: 'lowtier', atm: 'lowtier',
+  // motorcycle_parking is diverted to a treasure X in worldgen (no chest), so
+  // it needs no loot category here.
+  bicycle_parking: 'lowtier', atm: 'lowtier',
   // ── Athletic facilities — park-class T2 chest, fits the "leisure" feel
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',

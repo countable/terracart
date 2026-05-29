@@ -1023,12 +1023,13 @@ Render.drawObjects = function drawObjects(scene) {
     // 'pole', so taps fall through.
     pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
-    // 48×32 sprite at scale 1.3 reads as a ~2-cell-wide well. sy is the cell
-    // CENTRE, so — like trees/tower — nudge the foot down by CELL_PX*0.5 to the
-    // cell's front edge so the well body sits inside its own cell instead of
-    // floating up into the tile above. Tapping it refills the watering can
-    // (interact.js 'well' branch).
-    well:   { key: 'well', origin: [0.5, 0.9], scale: 1.3, dyPx: CELL_PX * 0.5 },
+    // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
+    // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
+    // the well ~6px left of its cell. originX 0.41 centres the well art on the
+    // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
+    // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
+    // it doesn't overspill its cell. Tap refills the watering can (interact.js).
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 1.18, dyPx: CELL_PX * 0.18 },
     // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
     // shrine level (row-major across the 4×2 grid) so the fountain visibly
     // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.

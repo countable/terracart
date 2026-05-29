@@ -889,8 +889,9 @@
             // ── Bike-related: bicycle_parking + atm get the COIN-BURST
             // mechanic via a separate render path (see render.js); they
             // still spawn as objects here so cross-tile dedupe + persistent
-            // ids work.
-            'bicycle_parking','motorcycle_parking','atm',
+            // ids work. (motorcycle_parking is NOT here — like car parking it's
+            // diverted to a buried-treasure X below, not a chest.)
+            'bicycle_parking','atm',
           ]);
           // Snap POI-derived features to the LOCAL-TILE cell centre — same basis the
           // grid uses (tileEdgeM/cellsPerEdge, which differs slightly from 5m). This
@@ -903,8 +904,8 @@
             const localCell = Math.floor((v - origin) / cellWidthM);
             return origin + (localCell + 0.5) * cellWidthM;
           };
-          if (cls === 'parking') {
-            // Parking lots → guaranteed treasure X (no chest).
+          if (cls === 'parking' || cls === 'motorcycle_parking') {
+            // Car + motorcycle parking → guaranteed treasure X (no chest).
             for (const ring of f.geom) {
               const p = ring[0];
               const m = toMeters(p.x, p.y);
@@ -1749,6 +1750,7 @@
         }
         // Wells (OSM amenity=fountain) → a tappable well object that refills the
         // watering can (interact.js 'well' branch), rendered as the well sprite.
+        const _ROADISH = (tt) => tt === T.ROAD || tt === T.ROAD_MD || tt === T.ROAD_LG || tt === T.PATH;
         for (const wl of (bin.wells || [])) {
           if (onWater(wl.x, wl.y)) continue;
           const k = cellKeyOf(wl.x, wl.y);
@@ -1757,6 +1759,30 @@
           const c = localCentre(wl.x, wl.y);
           wl.x = c.x; wl.y = c.y;
           entry.objects.push(wl);
+          // A well supersedes a road/path tile it lands on — repaint the cell to
+          // the dominant soft neighbour biome (so it blends, not a hard grass
+          // square) and clear the cobble's road-letter / path-name so no glyph
+          // or path-stone tint shows under the well.
+          const lix = Math.floor((wl.x - x * tileEdgeM) / mPerCell);
+          const liy = Math.floor((wl.y - y * tileEdgeM) / mPerCell);
+          if (lix >= 0 && liy >= 0 && lix < cpe && liy < cpe && _ROADISH(grid[liy * cpe + lix])) {
+            const NONSOFT = new Set([T.WATER, T.PIER, T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE]);
+            const counts = {};
+            for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
+              if (!ddx && !ddy) continue;
+              const nnx = lix + ddx, nny = liy + ddy;
+              if (nnx < 0 || nny < 0 || nnx >= cpe || nny >= cpe) continue;
+              const nt = grid[nny * cpe + nnx];
+              if (_ROADISH(nt) || NONSOFT.has(nt)) continue;
+              counts[nt] = (counts[nt] || 0) + 1;
+            }
+            let best = T.GRASS, bestN = 0;
+            for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
+            grid[liy * cpe + lix] = best;
+            const ck = `${lix}_${liy}`;
+            if (entry.roadLetters) delete entry.roadLetters[ck];
+            if (entry.pathNames)   delete entry.pathNames[ck];
+          }
         }
         // POI chests (bus stops, signals, crossings, gates, towers, pitches,
         // gardens, bicycle racks, …). poiClass drives loot / tier / label /
