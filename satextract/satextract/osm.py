@@ -11,8 +11,17 @@ import urllib.request
 OVERPASS = "https://overpass-api.de/api/interpreter"
 
 # Tag selectors worth pulling for in-game props. Add / trim as needed.
+#
+# Curated for things suburban mappers ACTUALLY tag. Tags that exist in OSM
+# but are too sparse to be useful (e.g. `natural=rock`, `amenity=parking_space`
+# per-spot) are intentionally skipped — they'd inflate the query without
+# adding signal.
 DEFAULT_SELECTORS = [
+    # Vegetation
     'node["natural"="tree"]',
+    'way["natural"="tree_row"]',     # hedgerows, lined driveways
+    'way["natural"="shrubbery"]',
+    # Street furniture
     'node["amenity"="bench"]',
     'node["amenity"="waste_basket"]',
     'node["amenity"="waste_disposal"]',
@@ -22,28 +31,63 @@ DEFAULT_SELECTORS = [
     'node["amenity"="vending_machine"]',
     'node["amenity"="bicycle_parking"]',
     'node["amenity"="post_box"]',
+    'node["amenity"="telephone"]',
+    'node["amenity"="drinking_water"]',
+    'node["amenity"="shelter"]',     # bus / picnic shelters
+    # Leisure
     'node["leisure"="picnic_table"]',
     'node["leisure"="playground"]',
     'node["leisure"="fitness_station"]',
+    'way["leisure"="pitch"]',
+    'way["leisure"="playground"]',
+    'way["leisure"="swimming_pool"]',
+    'way["leisure"="garden"]',
+    # Heritage / signage
     'node["historic"]',
     'node["tourism"="artwork"]',
     'node["tourism"="information"]',
     'node["man_made"]',
+    'way["man_made"="storage_tank"]',
+    'way["man_made"="silo"]',
+    # Barriers / boundaries — fence is the big new one for suburban yards
     'node["barrier"="bollard"]',
     'node["barrier"="gate"]',
+    'way["barrier"="fence"]',
+    'way["barrier"="hedge"]',
+    'way["barrier"="wall"]',
+    'way["barrier"="retaining_wall"]',
+    # Lighting / signage / signals
     'node["highway"="street_lamp"]',
     'node["highway"="bus_stop"]',
     'node["highway"="traffic_signals"]',
+    'node["highway"="give_way"]',
+    'node["highway"="stop"]',
+    'node["highway"="crossing"]',
+    'node["highway"="speed_camera"]',
+    # Power infra
     'node["power"="tower"]',
     'node["power"="pole"]',
-    'way["leisure"="pitch"]',
-    'way["leisure"="playground"]',
-    'way["leisure"="swimming_pool"]',
+    'way["power"="line"]',
+    'way["power"="minor_line"]',
+    # Outbuildings — sheds + garages
+    'way["building"="shed"]',
+    'way["building"="garage"]',
+    'way["building"="carport"]',
+    'way["building"="greenhouse"]',
+    # Parking lots / driveways — useful as ground-cover hints (not per-spot)
+    'way["amenity"="parking"]',
+    # Waterways — small streams + drainage
+    'way["waterway"="stream"]',
+    'way["waterway"="ditch"]',
 ]
 
 KIND_KEYS = (
     "amenity", "leisure", "natural", "historic", "tourism",
     "man_made", "barrier", "highway", "power", "sport",
+    # Added: streams / creeks / culverts hit `waterway`, sheds / garages /
+    # carports hit `building`. Without these in the priority list those
+    # features came back tagged but with kind="unknown".
+    "waterway", "building",
 )
 
 

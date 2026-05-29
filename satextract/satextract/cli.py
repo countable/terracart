@@ -51,6 +51,12 @@ def main(argv=None):
                         "(overrides defaults)")
     p.add_argument("--viz", default=None,
                    help="path to write a self-contained Leaflet HTML viewer")
+    p.add_argument("--exclude_kinds", default=None,
+                   help="comma list of `kind` values to drop from the output "
+                        "(post-filter applied after every source runs). Useful "
+                        "for skipping MVT-overlap classes like bus_stop / pitch "
+                        "/ playground / gate that the game already gets from "
+                        "the vector-tile pipeline.")
     args = p.parse_args(argv)
 
     if args.bbox:
@@ -97,6 +103,13 @@ def main(argv=None):
             image, origin_px, args.zoom, prompts=prompts,
             progress=_progress("dino"),
         )
+
+    if args.exclude_kinds:
+        excl = {s.strip() for s in args.exclude_kinds.split(",") if s.strip()}
+        before = len(feats)
+        feats = [f for f in feats if f["properties"].get("kind") not in excl]
+        print(f"  dropped {before - len(feats)} features matching "
+              f"--exclude_kinds={','.join(sorted(excl))}", file=sys.stderr)
 
     fc = {
         "type": "FeatureCollection",
