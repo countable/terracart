@@ -3660,15 +3660,18 @@ class MapScene extends Phaser.Scene {
   // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
   // entries for forging the given (kind, slot, tier) relic/armor. Recipe
   // rules:
-  //   • Tools / weapons / armor / utility — pay `tier` × tier-matched bar.
-  //     T2..T4 bars (copper / iron / gold) are mined; T5..T7 bars
-  //     (platinum / crimson / frost) are SMELTED from their flowers, so the
-  //     flower bond is implicit through the bar requirement.
+  //   • Tools / weapons / armor / utility — pay max(5, tier) of the
+  //     tier-matched bar. The low tiers (T1 wood, T2 copper, T3 iron,
+  //     T4 gold, T5 platinum) all cost 5; crimson (T6) / frost (T7) keep
+  //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
+  //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
+  //     their flowers, so the flower bond is implicit through the bar req.
   //   • Jewelry slots (ring / staff / amulet) — geometric gem cost
   //     (1, 2, 4, 8, 16, 32 from T2..T7) of the slot-specific gem:
   //       ring → ruby, staff → emerald, amulet → sapphire
   //     plus 1 of the tier-matched bar.
-  // T1 wood gear is starter-shop-only and doesn't pass through here.
+  // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
+  // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
   blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
     const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
@@ -3687,7 +3690,7 @@ class MapScene extends Phaser.Scene {
         { id: bar, qty: 1 },
       ];
     }
-    return [{ id: bar, qty: tier }];
+    return [{ id: bar, qty: Math.max(5, tier) }];
   }
 
   // Bar smelting recipes — only T5+ bars can be smelted; T2-T4 are mined.
