@@ -581,61 +581,30 @@
             // painted building footprints).
             const _CAVE_ROCK_P = 0.70;
             const _CAVE_VARIANTS = 4;        // row 15 cols 3..6 — see render.js
-            const _isRoadCell = (ix, iy) => {
-              const tc = grid[iy * w + ix];
-              return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
-            };
-            // Cells that REFUSE a rock spawn even if the polygon overlaps
-            // them. Roads, paths, water, and every building footprint —
-            // rocks plopped on a sidewalk or in the middle of a road look
-            // glitchy and break traffic flow visually.
-            const _isBlockedCell = (ix, iy) => {
-              const tc = grid[iy * w + ix];
-              return tc === T.ROAD     || tc === T.ROAD_LG || tc === T.ROAD_MD
-                  || tc === T.PATH     || tc === T.WATER
-                  || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
-            };
-            // Residential rocks must sit ON OR WITHIN 1 cell of a road (so
-            // a rock pile reads as a curbside / driveway feature). Walk
-            // the 3×3 neighbourhood; pass if any is a road type. The spawn
-            // cell itself can't be a road (blocked above), so the rock
-            // ends up adjacent to one or up to 1 cell away.
-            const _nearRoad = (ix, iy) => {
-              for (let dy = -1; dy <= 1; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                  const nx = ix + dx, ny = iy + dy;
-                  if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                  if (_isRoadCell(nx, ny)) return true;
-                }
-              }
-              return false;
-            };
-            const _pushMineralrock = (rng, jx, jy, tierW, totalW, requireNearRoad) => {
+            // NOTE: we used to do an inline "blocked cell" / "near road"
+            // check here, but it was racy — the MVT polygon loop processes
+            // roads, buildings, and landuse in feature-order, so a
+            // residential polygon's mineralrock spawn might see a grid
+            // where roads haven't been painted yet. The cleanup pass at
+            // the end of the feature loop (search for "Post-pass:
+            // mineralrock cleanup") walks the finished grid and drops any
+            // rock on a blocked cell, plus any residential rock not
+            // adjacent to a road. Just spawn here; the filter handles
+            // correctness.
+            const _pushMineralrock = (rng, jx, jy, tierW, totalW, residential) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const m = toMeters(jx, jy);
               const ix = Math.floor(m.x / CELL_M);
               const iy = Math.floor(m.y / CELL_M);
-              // Convert world cell index back to local tile cell index for
-              // the blocked-cell check (grid is indexed by [iy * w + ix]
-              // in TILE space). Anything off-tile gets a free pass —
-              // adjacent tiles run their own spawner.
-              const localIx = ix - tx * w;
-              const localIy = iy - ty * h;
-              if (localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
-                  && _isBlockedCell(localIx, localIy)) return;
-              if (requireNearRoad
-                  && localIx >= 0 && localIx < w && localIy >= 0 && localIy < h
-                  && !_nearRoad(localIx, localIy)) return;
               const cx = (ix + 0.5) * CELL_M;
               const cy = (iy + 0.5) * CELL_M;
               if (rng() < _CAVE_ROCK_P) {
-                // Cave rock — pure stone, T1 pick OK.
                 const caveVariant = Math.floor(rng() * _CAVE_VARIANTS);
                 objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
-                  caveVariant, id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                  caveVariant, _residential: residential || undefined,
+                  id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
                 return;
               }
-              // Ore rock — roll yieldTier from the caller's CDF.
               const r = rng() * totalW;
               let yieldTier = 7;
               for (let i = 0; i < tierW.length; i++) {
@@ -643,6 +612,7 @@
               }
               const requiredTier = Math.max(1, yieldTier - 1);
               objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier, yieldTier,
+                _residential: residential || undefined,
                 id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
             };
 
@@ -676,7 +646,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (resRng() - 0.5) * 2 * clusterR;
                     const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* requireNearRoad */ true);
+                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* residential */ true);
                   }
                 }
               }
@@ -1027,6 +997,51 @@
         }
       }
     }
+    // Post-pass: mineralrock cleanup. The polygon feature loop processes
+    // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
+    // spawned by a residential polygon might have been placed on a cell
+    // that later got painted as a road / driveway / building. Walk every
+    // mineralrock now that the grid is final and drop:
+    //   (1) any whose cell became blocked terrain (road, path, water,
+    //       building of any tier)
+    //   (2) any flagged as residential whose 3×3 neighbourhood contains
+    //       no road cell (so residential rocks always read as a kerb or
+    //       driveway feature)
+    // Strip the temp _residential flag from survivors so it doesn't leak
+    // into save state or the render pipeline.
+    {
+      const _mrIsBlocked = (ix, iy) => {
+        const tc = grid[iy * w + ix];
+        return tc === T.ROAD     || tc === T.ROAD_LG || tc === T.ROAD_MD
+            || tc === T.PATH     || tc === T.WATER
+            || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+      };
+      const _mrIsRoad = (ix, iy) => {
+        const tc = grid[iy * w + ix];
+        return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
+      };
+      for (let i = objects.length - 1; i >= 0; i--) {
+        const o = objects[i];
+        if (o.kind !== 'mineralrock') continue;
+        const ix = Math.floor(o.x / CELL_M) - tx * w;
+        const iy = Math.floor(o.y / CELL_M) - ty * h;
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile rocks belong to a neighbour pass
+        if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
+        if (o._residential) {
+          let near = false;
+          for (let dy = -1; dy <= 1 && !near; dy++) {
+            for (let dx = -1; dx <= 1 && !near; dx++) {
+              const nx = ix + dx, ny = iy + dy;
+              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+              if (_mrIsRoad(nx, ny)) near = true;
+            }
+          }
+          if (!near) { objects.splice(i, 1); continue; }
+        }
+        delete o._residential;
+      }
+    }
+
     // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a residential
     // polygon may have had rockfruit dropped into a cell that later became road, OR a park
     // polygon's shrubs may have ended up under a residential overpaint. Per-crop ALLOWED
@@ -1143,6 +1158,13 @@
     // points the "wrong" way. Cells visited more than once skip the duplicate.
     // Stored as { "ix_iy": { char, angle } }.
     const roadLetters = {};
+    // pathNames[`${ix}_${iy}`] = full street name, recorded ONLY for PATH
+    // cells (terrain code 8). Drives the path-stone activation feature in
+    // app.js — tap or step on a path stone to "claim" it, fill every stone
+    // of one named path to trigger a treasure dialog. We deliberately
+    // store the FULL name (not just the first word the road-letters loop
+    // uses) so two paths sharing a first word still count as distinct.
+    const pathNames = {};
     const tnLayer = layersByName['transportation_name'];
     const ROAD_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
     if (tnLayer) {
@@ -1191,6 +1213,10 @@
                 // Space cells stay visually blank (no entry written) so the
                 // gap between repeats reads as cobble showing through.
                 if (ch !== ' ') roadLetters[key] = { char: ch, angle: ang };
+                // PATH cells additionally record the full street name so
+                // app.js can group stones by named path for the activation
+                // / completion-reward loop.
+                if (grid[iy * w + ix] === T.PATH) pathNames[key] = name;
                 letterIdx++;
                 lastKey = key;
               }
@@ -1221,7 +1247,7 @@
       keepers.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters };
+    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames };
   }
 
   function tileEdgeMeters(lat) {
@@ -1246,7 +1272,7 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, objects, wildplants, parkingTreasures, roadLetters } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, objects, wildplants, parkingTreasures, roadLetters, pathNames } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner).
@@ -1309,6 +1335,7 @@
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLetters = roadLetters || {};
+      entry.pathNames   = pathNames   || {};
       entry.layers = layers;
       entry.status = 'ready';
       entry.fromCache = fromCache;
