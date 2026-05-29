@@ -1,0 +1,566 @@
+{
+  "match_threshold_m": 25.0,
+  "min_score": 0.3,
+  "osm_total_features": 20,
+  "dino_total_detections": 60,
+  "dino_novel_total": 60,
+  "by_kind": [
+    {
+      "kind": "tennis court",
+      "detected": 15,
+      "mean_score": 0.35,
+      "osm_equivalent_kinds": [
+        "pitch"
+      ],
+      "osm_features_of_that_kind_here": 2,
+      "already_in_osm": 0,
+      "novel_gap": 15,
+      "novel_points": [
+        {
+          "lon": -119.479584,
+          "lat": 49.855141,
+          "score": 0.404,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.481813,
+          "lat": 49.855957,
+          "score": 0.383,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.481816,
+          "lat": 49.851488,
+          "score": 0.383,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.477348,
+          "lat": 49.852263,
+          "score": 0.382,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.479584,
+          "lat": 49.85658,
+          "score": 0.378,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.479581,
+          "lat": 49.853702,
+          "score": 0.377,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.47958,
+          "lat": 49.852263,
+          "score": 0.352,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.475514,
+          "lat": 49.85514,
+          "score": 0.346,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.479584,
+          "lat": 49.851489,
+          "score": 0.338,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.47735,
+          "lat": 49.853701,
+          "score": 0.332,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.481813,
+          "lat": 49.852264,
+          "score": 0.326,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.475151,
+          "lat": 49.852262,
+          "score": 0.316,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.477349,
+          "lat": 49.85658,
+          "score": 0.314,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.481813,
+          "lat": 49.853702,
+          "score": 0.309,
+          "raw": "tennis court"
+        },
+        {
+          "lon": -119.477348,
+          "lat": 49.85514,
+          "score": 0.306,
+          "raw": "tennis court"
+        }
+      ]
+    },
+    {
+      "kind": "picnic table",
+      "detected": 12,
+      "mean_score": 0.334,
+      "osm_equivalent_kinds": [
+        "picnic_table"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 12,
+      "novel_points": [
+        {
+          "lon": -119.48107,
+          "lat": 49.853803,
+          "score": 0.368,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.482097,
+          "lat": 49.851659,
+          "score": 0.366,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.476047,
+          "lat": 49.853796,
+          "score": 0.36,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.477614,
+          "lat": 49.851313,
+          "score": 0.358,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.482805,
+          "lat": 49.854696,
+          "score": 0.348,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.479031,
+          "lat": 49.851669,
+          "score": 0.335,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.480883,
+          "lat": 49.853882,
+          "score": 0.323,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.474992,
+          "lat": 49.856944,
+          "score": 0.323,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.476022,
+          "lat": 49.853793,
+          "score": 0.311,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.474834,
+          "lat": 49.855855,
+          "score": 0.309,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.476118,
+          "lat": 49.851737,
+          "score": 0.304,
+          "raw": "picnic table"
+        },
+        {
+          "lon": -119.481252,
+          "lat": 49.853731,
+          "score": 0.3,
+          "raw": "picnic table"
+        }
+      ]
+    },
+    {
+      "kind": "swimming pool",
+      "detected": 9,
+      "mean_score": 0.334,
+      "osm_equivalent_kinds": [
+        "swimming_pool"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 9,
+      "novel_points": [
+        {
+          "lon": -119.480011,
+          "lat": 49.851627,
+          "score": 0.393,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.480675,
+          "lat": 49.854394,
+          "score": 0.364,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.474659,
+          "lat": 49.853018,
+          "score": 0.335,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.475792,
+          "lat": 49.855779,
+          "score": 0.332,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.482184,
+          "lat": 49.853309,
+          "score": 0.323,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.477728,
+          "lat": 49.854619,
+          "score": 0.319,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.476983,
+          "lat": 49.852099,
+          "score": 0.318,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.475299,
+          "lat": 49.854732,
+          "score": 0.316,
+          "raw": "swimming pool"
+        },
+        {
+          "lon": -119.479364,
+          "lat": 49.851354,
+          "score": 0.306,
+          "raw": "swimming pool"
+        }
+      ]
+    },
+    {
+      "kind": "solar panel",
+      "detected": 8,
+      "mean_score": 0.369,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 8,
+      "novel_points": [
+        {
+          "lon": -119.475867,
+          "lat": 49.853065,
+          "score": 0.434,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.476906,
+          "lat": 49.851444,
+          "score": 0.403,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.477968,
+          "lat": 49.853732,
+          "score": 0.378,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.481396,
+          "lat": 49.854053,
+          "score": 0.369,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.479323,
+          "lat": 49.852317,
+          "score": 0.362,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.4794,
+          "lat": 49.852344,
+          "score": 0.346,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.475857,
+          "lat": 49.853002,
+          "score": 0.336,
+          "raw": "solar panel"
+        },
+        {
+          "lon": -119.4793,
+          "lat": 49.853501,
+          "score": 0.326,
+          "raw": "solar panel"
+        }
+      ]
+    },
+    {
+      "kind": "hot tub",
+      "detected": 2,
+      "mean_score": 0.326,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 2,
+      "novel_points": [
+        {
+          "lon": -119.476602,
+          "lat": 49.853275,
+          "score": 0.346,
+          "raw": "hot tub"
+        },
+        {
+          "lon": -119.478681,
+          "lat": 49.851342,
+          "score": 0.305,
+          "raw": "hot tub"
+        }
+      ]
+    },
+    {
+      "kind": "pergola",
+      "detected": 2,
+      "mean_score": 0.327,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 2,
+      "novel_points": [
+        {
+          "lon": -119.477263,
+          "lat": 49.852749,
+          "score": 0.343,
+          "raw": "pergola"
+        },
+        {
+          "lon": -119.47709,
+          "lat": 49.856935,
+          "score": 0.311,
+          "raw": "pergola"
+        }
+      ]
+    },
+    {
+      "kind": "storage tank",
+      "detected": 2,
+      "mean_score": 0.324,
+      "osm_equivalent_kinds": [
+        "silo",
+        "storage_tank"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 2,
+      "novel_points": [
+        {
+          "lon": -119.476125,
+          "lat": 49.851488,
+          "score": 0.329,
+          "raw": "storage tank"
+        },
+        {
+          "lon": -119.476205,
+          "lat": 49.852486,
+          "score": 0.319,
+          "raw": "storage tank"
+        }
+      ]
+    },
+    {
+      "kind": "satellite dish",
+      "detected": 2,
+      "mean_score": 0.316,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 2,
+      "novel_points": [
+        {
+          "lon": -119.482657,
+          "lat": 49.852342,
+          "score": 0.326,
+          "raw": "satellite dish"
+        },
+        {
+          "lon": -119.480533,
+          "lat": 49.85697,
+          "score": 0.306,
+          "raw": "satellite dish"
+        }
+      ]
+    },
+    {
+      "kind": "grain silo",
+      "detected": 2,
+      "mean_score": 0.319,
+      "osm_equivalent_kinds": [
+        "silo",
+        "storage_tank"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 2,
+      "novel_points": [
+        {
+          "lon": -119.480541,
+          "lat": 49.851539,
+          "score": 0.319,
+          "raw": "grain silo"
+        },
+        {
+          "lon": -119.481267,
+          "lat": 49.855035,
+          "score": 0.318,
+          "raw": "grain silo"
+        }
+      ]
+    },
+    {
+      "kind": "basketball court",
+      "detected": 1,
+      "mean_score": 0.393,
+      "osm_equivalent_kinds": [
+        "pitch"
+      ],
+      "osm_features_of_that_kind_here": 2,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.481813,
+          "lat": 49.855141,
+          "score": 0.393,
+          "raw": "basketball court"
+        }
+      ]
+    },
+    {
+      "kind": "garden shed",
+      "detected": 1,
+      "mean_score": 0.346,
+      "osm_equivalent_kinds": [
+        "shed"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.475375,
+          "lat": 49.851488,
+          "score": 0.346,
+          "raw": "garden shed"
+        }
+      ]
+    },
+    {
+      "kind": "sandbox",
+      "detected": 1,
+      "mean_score": 0.331,
+      "osm_equivalent_kinds": [
+        "playground"
+      ],
+      "osm_features_of_that_kind_here": 1,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.477335,
+          "lat": 49.851409,
+          "score": 0.331,
+          "raw": "sandbox"
+        }
+      ]
+    },
+    {
+      "kind": "water tank",
+      "detected": 1,
+      "mean_score": 0.329,
+      "osm_equivalent_kinds": [
+        "storage_tank"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.476231,
+          "lat": 49.85225,
+          "score": 0.329,
+          "raw": "water tank"
+        }
+      ]
+    },
+    {
+      "kind": "gazebo",
+      "detected": 1,
+      "mean_score": 0.319,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.481207,
+          "lat": 49.851577,
+          "score": 0.319,
+          "raw": "gazebo"
+        }
+      ]
+    },
+    {
+      "kind": "fire pit",
+      "detected": 1,
+      "mean_score": 0.302,
+      "osm_equivalent_kinds": [
+        "(none \u2014 OSM doesn't map this)"
+      ],
+      "osm_features_of_that_kind_here": 0,
+      "already_in_osm": 0,
+      "novel_gap": 1,
+      "novel_points": [
+        {
+          "lon": -119.47722,
+          "lat": 49.85162,
+          "score": 0.302,
+          "raw": "fire pit"
+        }
+      ]
+    }
+  ]
+}

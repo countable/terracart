@@ -31,7 +31,6 @@
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   crops.js     — (crop frame layouts via items.js)
 //   textures.js  — BIOME_TEX, TILLED_COLOR, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
@@ -1011,11 +1010,11 @@ Render.drawObjects = function drawObjects(scene) {
     flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
               origin: [0.5, 0.5],  scale: 1.8 },
     // Stone pillar — decorative stand-in for OSM utility poles / posts. The
-    // 16×48 sprite is scaled to ~one cell tall (48 × 0.65 ≈ 31px ≈ CELL_PX) so
-    // it fits inside a single square cell instead of towering over its
-    // neighbours, foot-anchored near the cell's front edge. Purely decorative:
-    // no interact.js branch matches 'pole', so taps fall through.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 0.65, dyPx: CELL_PX * 0.4 },
+    // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
+    // tall, so it sits inside a single square cell, foot-anchored near the
+    // cell's front edge. Purely decorative: no interact.js branch matches
+    // 'pole', so taps fall through.
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
     // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
     // shrine level (row-major across the 4×2 grid) so the fountain visibly
     // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
@@ -1313,7 +1312,10 @@ Render.drawObjects = function drawObjects(scene) {
     // the scene, but these live in <body>, so clean them up explicitly).
     if (gameEl && !scene._produceSignCleanup) {
       scene._produceSignCleanup = true;
-      const drop = () => { for (const s of pool) s.el && s.el.remove(); pool.length = 0; };
+      // Reset the guard on teardown so the listeners re-register if the scene
+      // is ever soft-restarted (no such path today, but cheap insurance —
+      // otherwise a restarted scene would leak its <body> overlays).
+      const drop = () => { for (const s of pool) s.el && s.el.remove(); pool.length = 0; scene._produceSignCleanup = false; };
       scene.events.once('shutdown', drop);
       scene.events.once('destroy', drop);
     }
@@ -1514,7 +1516,11 @@ Render.drawObjects = function drawObjects(scene) {
       const frame = (CROP_ROW['rockfruit'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
       setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
-      s.setOrigin(0.5, 0.85).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      // Centre on the rock cell (0.5, 0.5) — this is the produce icon, not a
+      // bottom-weighted stage-0 seed frame, so the foot-anchor (0.5, 0.85)
+      // used to float it ~11px above the cell centre (same fix as the planted
+      // sprites below).
+      s.setOrigin(0.5, 0.5).setScale(2).setPosition(Math.round(sx), Math.round(sy));
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);

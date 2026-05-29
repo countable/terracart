@@ -36,9 +36,11 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 
 // Per-crop sprite override. Crops listed here use Spring Crops.png (14×8 of 16×16,
 // 224×128 total) instead of Crops.png. Spring Crops layout on each crop's row:
-//   col 0  = seed (also used in-world for stage 0, "just planted")
+//   col 0  = "just planted" / stage 0 (in-world growth sprite)
 //   cols 1-4 = growth stages 1..4 (4 = mature, harvestable)
-//   col 8  = produce / fruit (inventory icon for harvested item)
+//   col 7  = seed INVENTORY icon, col 8 = produce INVENTORY icon
+// (the seed/produce *inventory* columns are 7/8 — see inventoryIconSource;
+// don't confuse col 0's in-world stage-0 sprite with the col-7 seed icon.)
 const SPRING_CROPS_COLS = 14;
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
@@ -170,16 +172,6 @@ const CROP_NAMES = {
   fireflower: 'Fireflower', sunflower: 'Sunflower',
   berry: 'Berry', cress: 'Cress', onion: 'Onion',
 };
-// Per-crop produce emoji — used in DOM modals / flash text where Phaser sprites
-// aren't easily embedded. The default 🌾 (sheaf-of-rice) looked like wheat for
-// every crop. These are picked to roughly match each crop's visual identity.
-const PRODUCE_EMOJI = {
-  rainberry:  '🫐',  pairy:     '🍐',  gemfruit:  '💎',
-  nut:        '🌰',  rockfruit: '🪨',  coffee:    '☕',
-  potato:     '🥔',  iceflower: '❄️',  fireflower: '🔥',
-  sunflower:  '🌻',
-  berry:      '🍓',  cress:     '🥬',  onion:     '🧅',
-};
 // === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
 // Tier reflects relative rarity / value, not stage / yield. A seed and its
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
@@ -230,45 +222,49 @@ const BASE_TIER = {
   sapphire: 4, ruby: 5, emerald: 6,
 };
 
+// NOTE: items carry NO `icon` (emoji) field — items always render as their
+// game-art sprite via renderItemIcon on every surface (map / inventory / shop /
+// toast / house sign). Emoji is reserved for non-item UI only. See
+// docs/QC_RULES.md §1. (Gear in RELIC_DEFS / ARMOR_DEFS keeps an `icon:` field,
+// but that's a PNG filename for gearAssetPath — not an emoji.)
 const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
-    id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c, icon: '🌱',
+    id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
   })),
   ...Object.keys(CROP_ROW).map(c => ({
     id: c, name: CROP_NAMES[c], kind: 'produce', crop: c,
-    icon: PRODUCE_EMOJI[c] || '🌾',
     baseTier: BASE_TIER[c] || 1,
   })),
   // Caught creatures stack in the inventory. Catching any wild animal —
   // including wilderness fauna (deer, rabbit, crow, butterfly) — puts the
   // live animal here; processing into meat / pelt / feather is a separate
   // step downstream.
-  { id: 'chicken',   name: 'Chicken',   kind: 'animal', icon: '🐔' },
-  { id: 'cow',       name: 'Cow',       kind: 'animal', icon: '🐄' },
-  { id: 'cat',       name: 'Cat',       kind: 'animal', icon: '🐱' },
-  { id: 'dog',       name: 'Dog',       kind: 'animal', icon: '🐶' },
-  { id: 'deer',      name: 'Deer',      kind: 'animal', icon: '🦌' },
-  { id: 'rabbit',    name: 'Rabbit',    kind: 'animal', icon: '🐇' },
-  { id: 'crow',      name: 'Crow',      kind: 'animal', icon: '🦅' },
-  { id: 'butterfly', name: 'Butterfly', kind: 'animal', icon: '🦋' },
+  { id: 'chicken',   name: 'Chicken',   kind: 'animal' },
+  { id: 'cow',       name: 'Cow',       kind: 'animal' },
+  { id: 'cat',       name: 'Cat',       kind: 'animal' },
+  { id: 'dog',       name: 'Dog',       kind: 'animal' },
+  { id: 'deer',      name: 'Deer',      kind: 'animal' },
+  { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
+  { id: 'crow',      name: 'Crow',      kind: 'animal' },
+  { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
-  { id: 'egg',  name: 'Egg',  kind: 'produce', icon: '🥚' },
-  { id: 'milk', name: 'Milk', kind: 'produce', icon: '🥛' },
+  { id: 'egg',  name: 'Egg',  kind: 'produce' },
+  { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   // Display name 'Fern' since the swap to Props.png's fern-frond sprite;
-  // id remains 'longgrass' for save / loot-table back-compat. icon stays
-  // 🌿 (the closest leaf emoji; no plain "fern" emoji in unicode).
-  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass', icon: '🌿' },
+  // id remains 'longgrass' for save / loot-table back-compat. In-world +
+  // inventory render the baked 'props' frame via ITEM_DATA_URLS.
+  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
-  { id: 'flowers', name: 'Flowers', kind: 'produce', icon: '🌼' },
+  { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Consumables — used on yourself (tap your own feet with one selected).
   // Flute: lures wandering chickens + cows within 30m toward you.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'flute', name: 'Flute', kind: 'consumable', icon: '🪈' },
-  { id: 'book',  name: 'Book',  kind: 'consumable', icon: '📖' },
+  { id: 'flute', name: 'Flute', kind: 'consumable' },
+  { id: 'book',  name: 'Book',  kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -277,46 +273,46 @@ const ITEMS = [
   // Animal byproducts — kind: 'produce' alongside egg / milk. Sit in the
   // produce pool of the rarity picker, not the mineral pool (which is
   // reserved for coal / gemstones).
-  { id: 'meat',         name: 'Meat',         kind: 'produce', icon: '🥩' },
-  { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce', icon: '🐇' },
-  { id: 'crow_feather', name: 'Crow Feather', kind: 'produce', icon: '🪶' },
+  { id: 'meat',         name: 'Meat',         kind: 'produce' },
+  { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
+  { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
   // Beach pickup — shells spawn as wildplant debris on sand cells
   // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
   // shell_sheet, hashed off the spawn cell coord.
-  { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell', icon: '🐚' },
+  { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell' },
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
-  { id: 'boot',         name: 'Old Boot',     kind: 'produce', icon: '🥾' },
+  { id: 'boot',         name: 'Old Boot',     kind: 'produce' },
   // Scarecrow — placeable on tillable cells. Wild crows and deer steer
   // around it (4-cell aversion radius in wanderCreatures). Stack of N can
   // be deployed across the farm.
-  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable', icon: '🪦' },
+  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
-  { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom', icon: '🍄' },
+  { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
   // dominant produce drop at higher tiers.
-  { id: 'minnow',     name: 'Minnow',     kind: 'produce', crop: 'minnow',     icon: '🐟', dropWeight: 0.4 },
-  { id: 'bass',       name: 'Bass',       kind: 'produce', crop: 'bass',       icon: '🐠', dropWeight: 0.4 },
-  { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      icon: '🐟', dropWeight: 0.4 },
-  { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     icon: '🍣', dropWeight: 0.4 },
-  { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', icon: '✨', dropWeight: 0.4 },
+  { id: 'minnow',     name: 'Minnow',     kind: 'produce', crop: 'minnow',     dropWeight: 0.4 },
+  { id: 'bass',       name: 'Bass',       kind: 'produce', crop: 'bass',       dropWeight: 0.4 },
+  { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      dropWeight: 0.4 },
+  { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
+  { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
   // Fruit from fruit trees in orchard tiles
-  { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple',   icon: '🍎' },
-  { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry',  icon: '🍒' },
-  { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach',   icon: '🍑' },
-  { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana',  icon: '🍌' },
-  { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange',  icon: '🍊' },
-  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango',   icon: '🥭' },
-  { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut', icon: '🥥' },
-  { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot', icon: '🍑' },
+  { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
+  { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
+  { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
+  { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
+  { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
+  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango' },
+  { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
+  { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
-  { id: 'coal',     name: 'Coal',     kind: 'mineral', icon: '⚫' },
-  { id: 'sapphire', name: 'Sapphire', kind: 'mineral', icon: '🔵' },
-  { id: 'ruby',     name: 'Ruby',     kind: 'mineral', icon: '🔴' },
-  { id: 'emerald',  name: 'Emerald',  kind: 'mineral', icon: '🟢' },
+  { id: 'coal',     name: 'Coal',     kind: 'mineral' },
+  { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
+  { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
+  { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
@@ -326,15 +322,15 @@ const ITEMS = [
   // saves + recipe references don't need to migrate.
   // wood is the T1 mineral — chopping a tree or harvesting a shrub drops it,
   // and the starter blacksmith uses it as the sole ingredient for every T1
-  // wooden tool. icon is the emoji fallback; in-world (ground stack +
-  // inventory bar) we render the 'wood' spritesheet via ITEM_DATA_URLS.
-  { id: 'wood',         name: 'Wood',     kind: 'mineral', icon: '🪵' },
-  { id: 'copper_bar',   name: 'Copper',   kind: 'mineral', icon: '🟫' },
-  { id: 'iron_bar',     name: 'Iron',     kind: 'mineral', icon: '⬜' },
-  { id: 'gold_bar',     name: 'Gold',     kind: 'mineral', icon: '🟨' },
-  { id: 'platinum_bar', name: 'Platinum', kind: 'mineral', icon: '⬛' },
-  { id: 'crimson_bar',  name: 'Crimson',  kind: 'mineral', icon: '🟥' },
-  { id: 'frost_bar',    name: 'Frost',    kind: 'mineral', icon: '🟦' },
+  // wooden tool. In-world (ground stack + inventory bar) it renders the
+  // 'wood' spritesheet via ITEM_DATA_URLS.
+  { id: 'wood',         name: 'Wood',     kind: 'mineral' },
+  { id: 'copper_bar',   name: 'Copper',   kind: 'mineral' },
+  { id: 'iron_bar',     name: 'Iron',     kind: 'mineral' },
+  { id: 'gold_bar',     name: 'Gold',     kind: 'mineral' },
+  { id: 'platinum_bar', name: 'Platinum', kind: 'mineral' },
+  { id: 'crimson_bar',  name: 'Crimson',  kind: 'mineral' },
+  { id: 'frost_bar',    name: 'Frost',    kind: 'mineral' },
 ];
 // Fill in baseTier for every entry that didn't set one explicitly (cleaner
 // than threading the lookup through each literal above). Anything missing
@@ -352,13 +348,12 @@ const LOOTABLE_IDS = ITEMS.filter(i => i.kind === 'seed').map(i => i.id);
 // to obtain. Produce range: wild-debris commons at $1, rarest T3 flower at $500.
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3, shrub_seed: 2,
+  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3,
   berry_seed: 3, cress_seed: 3, onion_seed: 3,
-  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12, tree_seed: 15,
+  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12,
   iceflower_seed: 30, fireflower_seed: 40, sunflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
-  shrub: 2,        // wild debris in parks/forests
   nut: 4,
   potato: 5,
   cress: 5,        // T1 kitchen-garden green
@@ -368,7 +363,6 @@ const PRICES = {
   pairy: 8,
   gemfruit: 25,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
-  tree: 50,        // T2, no wild source, slow grower
   iceflower: 150,  // T3 rare
   fireflower: 300, // T3 rare
   sunflower: 500,  // rarest — ceiling
@@ -474,7 +468,6 @@ const PLAY_TIPS = [
 const STARTING_ENERGY = 100;
 const FOOD_ENERGY = {
   longgrass:  2,
-  shrub:      4,
   nut:        8,
   potato:     8,
   cress:      6,   // leafy green — mild restore
@@ -485,7 +478,6 @@ const FOOD_ENERGY = {
   gemfruit:  20,
   rockfruit: 20,
   coffee:    35,
-  tree:      35,
   iceflower:  60,
   fireflower: 90,
   sunflower: 150,

@@ -45,9 +45,18 @@ sprite, not an error**.
       through `renderItemIcon`, but `ITEM_DATA_URLS` (baked snapshots:
       longgrass/chicken/cow/wood/fauna) takes priority over the sheet path — so a
       baked item can look right as a toast and wrong in a shop, or vice-versa.
-- [ ] **No accidental emoji fallback.** If `inventoryIconSource` returns `null`,
-      the icon silently becomes the `item.icon` emoji (or `·`/`?`). A new item
-      with no sprite source shows an emoji — intended only for animals.
+- [ ] **Items ALWAYS use game art, never emoji — in every context they appear.**
+      Hard rule. An item must render as its sprite on every surface: map, the
+      house delivery plaque, inventory/item bar, shop/trader/offer modals, and
+      pickup/flash toasts. Emoji is reserved for non-item UI only (energy ⚡,
+      currency 🪙, menu ☰, sparkle/burst effects). If a surface can't host a
+      Phaser sprite or CSS-background tile (e.g. plain-text Phaser toasts),
+      show the item's **name**, never its emoji. The `renderItemIcon` fallback
+      returns a neutral `·`/`?` (NOT `item.icon`) precisely so a missing sprite
+      source surfaces as a visible gap instead of silently masking as an emoji.
+      *(Real bugs: scarecrow showed a 🪦 headstone; catch/trade/release/harvest
+      toasts and house signs carried emoji item glyphs — all replaced with the
+      sprite or name.)*
 
 ## 2. Scale consistency (map)
 
@@ -115,7 +124,41 @@ sprite, not an error**.
       Compass/GPS permission is gated behind that click — don't move permission
       requests off it or auto-dismiss the splash.
 
-## 7. Before you commit
+## 7. Click targets & reachability (interaction)
+
+The symptom class: a target you can SEE, that looks in range, doesn't respond —
+or responds with a "too far" flash or the wrong action. Several distinct causes,
+all real bugs that have shipped here:
+
+- [ ] **Reach outline ⇔ tap-accept must agree.** `cellInReach()` is the single
+      source of truth for BOTH the lit reach silhouette (render.js) AND the tap
+      "too far" gate (interact.js). If a cell that's *inside the range indicator*
+      flashes "can't reach", or an unlit cell accepts a tap, the two callers have
+      diverged — never recompute reach independently in either place.
+- [ ] **Reach is FEET-anchored, not the sprite head.** `playerReachCell()` /
+      the tap proximity tests measure from the player's feet cell (`feetOffsetM`
+      ≈ 3.75 m south of the body), not the sprite centre. A tap on the visible
+      head can miss. Keep the tap target and the reach origin on the same anchor.
+- [ ] **Handler priority can swallow a valid tap.** `TAP_HANDLERS` is
+      priority-ordered; the first handler that returns `true` consumes the tap.
+      A creature within `REACH_CREATURE_M` (4 m) claims the tap before
+      wildplant/object/cell — so tapping a tree next to a chicken can flash
+      "needs Rainberry" instead of chopping. A passive handler can also shadow a
+      later one entirely. When adding/reordering handlers, confirm no visible,
+      in-range target becomes unreachable. *(Real bug: fishing was dead while a
+      watering can was owned — `can-refill` claimed every water tap first.)*
+- [ ] **No invisible cell collision.** A second interactable dropped on an
+      occupied cell becomes an untappable ghost (the tap resolves to the first).
+      Enforce one-per-cell at worldgen/injection time (see §3). The
+      `one-interactable-per-cell` test in `test/tests.js` guards this — run it.
+- [ ] **Coordinate basis stays consistent.** `cellAt()`,
+      `worldMetersToAbsCell()`, and the object's stored cell must agree, or a tap
+      lands on a neighbour cell. *(REG #11 chest-centre test guards chest coords;
+      a GPS-jump once put houses on the wrong cell. NOTE: these tile-iterating
+      tests are timing-flaky in the headless preview — re-run before trusting a
+      red.)*
+
+## 8. Before you commit
 
 - [ ] **Bump the `?v=NN` cache-bust** in `index.html` for every changed JS module
       (parent agent only — see CLAUDE.md). Stale cache = "my fix didn't work".

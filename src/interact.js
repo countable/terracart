@@ -217,6 +217,12 @@ const TAP_HANDLERS = [
     const target = findClosestItem('creatures', wm.x, wm.y, REACH_CREATURE_M,
       (c) => !save.caught.includes(c.id));
     if (!target) return false;
+    // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
+    // and the lit reach indicator). The 4m REACH_CREATURE_M above is tap-
+    // forgiveness measured from the TAP point, not the player — without this a
+    // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
+    // the reach outline ⇔ tap-accept invariant (QC §7).
+    if (tooFar(ctx, target.x, target.y)) return 'far';
     // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
     // relic equipped (sword / bow / staff — hunting is hunting); crow /
     // butterfly require the Bug Net. Drops are a fixed loot id, not the
@@ -332,13 +338,23 @@ const TAP_HANDLERS = [
       const isTreat = sel && (sel.count ?? 0) > 0
         && (likesTame || isPlantProduce);
       target._pettedUntilT = performance.now() + 10 * 60 * 1000;
+      // Mirror the boost expiry into the save as EPOCH ms (keyed by creature
+      // id, like save.lastProduce). Creatures are re-spawned from tile data on
+      // every reload and lose their in-memory _pettedUntilT (which is a
+      // performance.now value that also resets to ~0 on reload), so the produce
+      // path below reads this persisted copy — otherwise the +50% double-yield
+      // silently never survived a tile change or restart.
+      save.petBoost = save.petBoost || {};
+      save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
       if (target.kind === 'cat') {
         target._followUntilT = performance.now() + 5 * 60 * 1000;
       }
+      // Arming the boost is state worth persisting even when the pet was pet
+      // empty-handed (no treat consumed).
+      ctx.dirty = true;
       if (isTreat) {
         consumeSelected(save);
         scene.buildInventoryDOM();
-        ctx.dirty = true;
       }
       scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
       return true;
@@ -384,9 +400,16 @@ const TAP_HANDLERS = [
           return true;
         }
         consumeSelected(save);
-        const petted = target._pettedUntilT && target._pettedUntilT > performance.now();
+        // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
+        // and fall back to the in-memory timer for boosts armed this session.
+        save.petBoost = save.petBoost || {};
+        const petted = (save.petBoost[target.id] || 0) > Date.now()
+          || (target._pettedUntilT && target._pettedUntilT > performance.now());
         const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
-        if (petted) target._pettedUntilT = 0;   // consume the boost
+        if (petted) {                            // consume the boost (both copies)
+          delete save.petBoost[target.id];
+          target._pettedUntilT = 0;
+        }
         scene.addToInv(yieldId, yieldN);
         scene.buildInventoryDOM();
         scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
@@ -519,6 +542,11 @@ const TAP_HANDLERS = [
       }
     }
     if (!bestEntry) return false;
+    // Player-reach gate — the 3m REACH_COIN_M above is tap-precision from the
+    // tap point; without this a coin in a neighbour tile but outside the lit
+    // reach indicator could be grabbed (QC §7).
+    const coin = bestEntry.coinDrops[bestIdx];
+    if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
     addMoney(save, 1);
     if (scene.updateMoneyDOM) scene.updateMoneyDOM();

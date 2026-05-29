@@ -49,6 +49,19 @@ def main(argv=None):
     p.add_argument("--prompts", default=None,
                    help="comma list of Grounding DINO text prompts "
                         "(overrides defaults)")
+    p.add_argument("--model", default=None,
+                   help="Grounding DINO checkpoint for the `objects` source: "
+                        "'tiny' (default, fast) or 'base' (SwinB, much better "
+                        "quality, ~3-5x slower on CPU), or a full HF model id.")
+    p.add_argument("--box_threshold", type=float, default=0.30,
+                   help="objects: min box confidence (lower = more recall/noise)")
+    p.add_argument("--tile_size", type=int, default=1024,
+                   help="objects: crop edge in px. Smaller crops make objects "
+                        "fill more of the model input -> better small-object "
+                        "recall, at more wall-time.")
+    p.add_argument("--nms_class_agnostic", action="store_true",
+                   help="objects: also drop overlapping boxes of different "
+                        "labels (kills garbled multi-phrase duplicates).")
     p.add_argument("--viz", default=None,
                    help="path to write a self-contained Leaflet HTML viewer")
     p.add_argument("--exclude_kinds", default=None,
@@ -101,6 +114,8 @@ def main(argv=None):
             prompts = [s.strip() for s in args.prompts.split(",") if s.strip()]
         feats += objects.detect_objects(
             image, origin_px, args.zoom, prompts=prompts,
+            tile_size=args.tile_size, box_threshold=args.box_threshold,
+            model_id=args.model, nms_class_agnostic=args.nms_class_agnostic,
             progress=_progress("dino"),
         )
 
@@ -116,7 +131,7 @@ def main(argv=None):
         "bbox": [bbox[1], bbox[0], bbox[3], bbox[2]],
         "features": feats,
     }
-    with open(args.out, "w") as f:
+    with open(args.out, "w", encoding="utf-8") as f:
         json.dump(fc, f)
 
     if args.viz:

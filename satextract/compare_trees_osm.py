@@ -50,10 +50,11 @@ def main():
     df = _trees(feats, "deepforest")
     osm = _trees(feats, "osm")
 
-    # Greedy nearest-neighbour: for each OSM tree, find the closest detected
-    # tree within match_m. Each detected tree can only be claimed once.
+    # Greedy nearest-neighbour: for each OSM tree, claim the closest unused
+    # detected tree within match_m.
     matched_pairs = []
     used_df = set()
+    used_osm = set()
     for oi, o in enumerate(osm):
         best_i, best_d = None, None
         for di, d in enumerate(df):
@@ -64,6 +65,7 @@ def main():
                 best_i, best_d = di, dist
         if best_i is not None:
             used_df.add(best_i)
+            used_osm.add(oi)
             matched_pairs.append({
                 "osm": {"lon": o["lon"], "lat": o["lat"],
                         "osm_id": o["props"].get("osm_id")},
@@ -73,12 +75,7 @@ def main():
             })
 
     osm_only = [{"lon": o["lon"], "lat": o["lat"], "osm_id": o["props"].get("osm_id")}
-                for oi, o in enumerate(osm)
-                if oi not in {i for i, _ in enumerate(osm)
-                              if any(mp["osm"].get("osm_id") == o["props"].get("osm_id")
-                                     and mp["osm"]["lon"] == o["lon"]
-                                     and mp["osm"]["lat"] == o["lat"]
-                                     for mp in matched_pairs)}]
+                for oi, o in enumerate(osm) if oi not in used_osm]
     df_only = [{"lon": d["lon"], "lat": d["lat"], "score": d["props"].get("score")}
                for di, d in enumerate(df) if di not in used_df]
 

@@ -1350,10 +1350,21 @@
     //    These never get displaced — they claim their cells and everything else
     //    (wildplants, flora) must avoid those cells.
     //    Priority numbers are descending so the sort places higher-priority kinds
-    //    first; ties (e.g. house/tower) are stable.
+    //    first. Within one priority (e.g. house/tower, or two trees) the winner
+    //    of a contested cell must be fixed by data, not array order — JS sort
+    //    stability isn't guaranteed across engines, and an arbitrary tie-break
+    //    would let the same seed resolve a collision differently between reloads.
     const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, fruittree: 4, tree: 3, mineralrock: 2 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
-    structs.sort((a, b) => (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0));
+    structs.sort((a, b) => {
+      const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
+      if (dp) return dp;
+      // Deterministic tie-break: position (always defined from generation),
+      // then id as a final stable key.
+      if (a.x !== b.x) return a.x - b.x;
+      if (a.y !== b.y) return a.y - b.y;
+      return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+    });
     const keptStructs = [];
     for (const o of structs) {
       const k = cellKeyOfWorld(o.x, o.y);
@@ -1746,6 +1757,9 @@
   function ensureSatextract(lat) {
     if (_satextractPromise) return _satextractPromise;
     const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+    // DeepForest detections below this confidence are dropped on load. OSM
+    // trees carry no `score` and are always kept.
+    const SATEXTRACT_TREE_MIN_SCORE = 0.4;
     const tileEdgeM = tileEdgeMeters(lat);
     const project = (lon, lat0) => {
       const px = lonLatToWorldPx(lon, lat0, Z);
@@ -1759,7 +1773,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=2')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=4')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
@@ -1779,14 +1793,26 @@
           const osmId = (f.properties && f.properties.osm_id) || 0;
           const [lon, lat0] = g.coordinates;
           if (kind === 'tree') {
+            const props = f.properties || {};
+            // Drop low-confidence DeepForest detections. OSM trees have no
+            // score (undefined) and pass through untouched.
+            if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
             const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
             const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            // Species / growth-variant seed. OSM trees key off their stable
+            // osm_id; DeepForest trees have none, so derive a stable seed from
+            // the snapped cell so a given tree always renders the same.
+            const seed = osmId ||
+              (((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0);
             binFor(p.tx, p.ty).trees.push({
               kind: 'tree', x: cx, y: cy,
-              variant: 1 + (osmId % 4),
-              species: TREE_SPECIES[osmId % TREE_SPECIES.length],
+              variant: 1 + (seed % 4),
+              species: TREE_SPECIES[seed % TREE_SPECIES.length],
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
+              // DeepForest crown diameter (metres) → sprite size in render.js.
+              // Undefined for OSM trees, which fall back to the flat species scale.
+              crown_m: props.crown_m,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
               individual: true,

@@ -401,7 +401,13 @@ class MapScene extends Phaser.Scene {
     // sprite's geometric center. ~3.75m at the default CELL_PX/cellM.
     this.feetOffsetM = (24 / CELL_PX) * this.cellM;
     this.REACH_CELL_M = 16;   // cell taps: till / plant / water / harvest. 16m = √(5²+15²)+ε includes (±1,±3) / (±3,±1) cells.
-    this.REACH_OBJECT_M = 18; // object taps: chests, trees, houses, treasure
+    // NOTE: object/creature/wildplant taps do NOT use a scene-level reach —
+    // their distance gate is the global REACH_FAR_M (16m, == REACH_CELL_M, same
+    // feet-cell anchor) so the lit reach indicator and tap-accept stay in lock-
+    // step. A former `this.REACH_OBJECT_M = 18` was dead (never read; object
+    // taps use the global REACH_OBJECT_M=3.5 for tap-precision) and was removed
+    // — wiring an 18m object reach would let objects be tapped OUTSIDE the lit
+    // indicator. Keep object reach == cell reach.
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
@@ -3233,6 +3239,10 @@ class MapScene extends Phaser.Scene {
   ensureStarterTrailerObject() {
     const st = this.save.starterTrailer;
     if (!st) return;
+    // Only inject while the trailer is actually the active Home. If the player
+    // has since adopted a real house (starterShopId points elsewhere), a stale
+    // starterTrailer must not keep spawning a phantom trailer in the world.
+    if (this.save.starterShopId !== st.id) return;
     // Rebuild the in-memory object after a reload (or position change).
     if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
       this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
@@ -3295,16 +3305,15 @@ class MapScene extends Phaser.Scene {
     return bestId;
   }
 
-  // Recipes the starter blacksmith trades for wooden tools. rockfruit is
-  // wild residential debris (no tool needed); wood drops from ground stacks
-  // sprinkled near the starting area (no tool needed) AND from chopping
-  // shrubs (bare-handed slow chop) AND from chopping trees (axe). The pick
-  // recipe is light on wood so the player can craft it first using ground-
-  // stack wood + rockfruit, then stockpile more wood for axe + hoe.
+  // Recipes the starter blacksmith trades for wooden tools. Every T1 item
+  // costs a flat 5 wood — wood drops from ground stacks sprinkled near the
+  // starting area (no tool needed), from chopping shrubs (bare-handed slow
+  // chop), and from chopping trees (axe). The starter crate seeds the first
+  // 5 wood so the player can forge their first tool immediately.
   starterBlacksmithRecipe(slot) {
-    if (slot === 'pick') return [{ id: 'rockfruit', qty: 3 }, { id: 'wood', qty: 1 }];
-    if (slot === 'axe')  return [{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 3 }];
-    if (slot === 'hoe')  return [{ id: 'rockfruit', qty: 2 }, { id: 'wood', qty: 2 }];
+    if (slot === 'pick' || slot === 'axe' || slot === 'hoe') {
+      return [{ id: 'wood', qty: 5 }];
+    }
     return null;
   }
 
@@ -4140,16 +4149,11 @@ class MapScene extends Phaser.Scene {
     return !this.save.restoredHouses?.[house.id];
   }
 
-  // Restoration cost: themed tier-9 shops (blacksmith / market / trader,
-  // including the force-assigned starter blacksmith) need 5 rockfruit
-  // because they're more elaborate; plain residential needs 5 tree (wood).
+  // Restoration cost: every house repair costs a flat 5 stone (rockfruit —
+  // wild residential debris, gatherable bare-handed). Themed shops and plain
+  // residential alike rebuild from the same masonry.
   _wreckRestoreCost(house) {
-    const isThemed =
-      (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) ||
-      !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
-    return isThemed
-      ? { id: 'rockfruit', qty: 5, material: 'stone' }
-      : { id: 'wood',      qty: 5, material: 'wood' };
+    return { id: 'rockfruit', qty: 5, material: 'stone' };
   }
 
   presentWreckRestoreModal(sx, sy, house) {
@@ -4157,13 +4161,17 @@ class MapScene extends Phaser.Scene {
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
+    // "shop" if this wreck restores into a themed business, else "house".
+    const isThemed =
+      (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) ||
+      !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       title: 'Restore this wreck?',
-      get: `🛠 a working ${cost.material === 'stone' ? 'shop' : 'house'}`,
+      get: `🛠 a working ${isThemed ? 'shop' : 'house'}`,
       blurb: 'Hauls the rubble away and pulls back the boards.',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
@@ -4445,6 +4453,12 @@ class MapScene extends Phaser.Scene {
         // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
         // is the brown leather boot used as the fishing-junk inventory icon.
         pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
+        // wood — 48×16, 3 frames. MINERAL_ICON_SHEET.wood points here. In
+        // practice wood always renders via the baked ITEM_DATA_URLS snapshot
+        // (which alpha-keys the white bg), so this entry is a fallback: if the
+        // bake ever fails it renders wood (white bg and all) instead of
+        // silently falling through to SHEETS.crops → a grass sprout.
+        wood:          { url: 'assets/Objects/wood.png',                          cols: 3,  srcW: 48,  srcH: 16 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;

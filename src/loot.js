@@ -265,8 +265,13 @@ function pickLoot(rng, poiClass, relics) {
   }
   let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
   if (cfg.onlyFlowers) {
-    const flowers = pool.filter(s => FLOWER_SEEDS.has(s));
-    if (flowers.length) pool = flowers;
+    // Flower seeds live at tiers 4-6 (sunflower / fireflower / iceflower), so
+    // they never intersect the 1-3 `pool` rolled above — the old
+    // `pool.filter(FLOWER_SEEDS.has)` was always empty and flora chests
+    // silently fell back to ordinary seeds. Map the rolled flora tier onto the
+    // flower rarity ladder instead: tier 1 → lowest flower, tier 3 → highest.
+    const flowers = [...FLOWER_SEEDS].sort((a, b) => SEED_TIER[a] - SEED_TIER[b]);
+    pool = [flowers[Math.min(tier, flowers.length) - 1]];
   }
   const seedId = pickFromArray(pool, R);
   // Seed-vs-produce decision: per category mode. 'mixed' flips a coin each roll

@@ -6,3 +6,13 @@ Thumbs.db
 tmp_inspect/
 tools/analyze_crops.py
 Sprites
+
+# satextract local run artifacts (generated; not source)
+satextract/lightning_logs/
+satextract/satextract/runs/
+satextract/_merge_out.txt
+*.diff
+
+# Claude session-local state
+.claude/scheduled_tasks.lock
+.claude/worktrees/

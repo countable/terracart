@@ -26,6 +26,10 @@ _HTML = r"""<!doctype html>
                 white-space: pre-wrap; max-width: 260px; max-height: 180px;
                 overflow: auto; background: #f6f6f6; padding: 4px;
                 border-radius: 4px; margin-top: 4px; }
+  .kind-label { background: rgba(0,0,0,0.6); color: #fff; border: none;
+                box-shadow: none; padding: 0 4px; border-radius: 3px;
+                font: 11px/1.4 system-ui, sans-serif; white-space: nowrap; }
+  .kind-label::before { display: none; }
 </style>
 </head>
 <body>
@@ -33,6 +37,7 @@ _HTML = r"""<!doctype html>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const FEATURES = __FEATURES__;
+const LABELS = __LABELS__;
 const COLORS = {
   osm: "#3b82f6",
   deepforest: "#22c55e",
@@ -76,6 +81,12 @@ const layer = L.geoJSON(FEATURES, {
       `<b>${p.kind || "?"}</b>${score}<br>` +
       `<small style="opacity:0.7">${p.source || ""}</small>${tags}`
     );
+    if (LABELS) {
+      lyr.bindTooltip(p.kind || "?", {
+        permanent: true, direction: "right", offset: [6, 0],
+        className: "kind-label", opacity: 1,
+      });
+    }
   },
 }).addTo(map);
 
@@ -110,14 +121,20 @@ legend.addTo(map);
 """
 
 
-def render(feature_collection, out_path):
-    """feature_collection: dict (GeoJSON FeatureCollection) or path to one."""
+def render(feature_collection, out_path, labels=False):
+    """feature_collection: dict (GeoJSON FeatureCollection) or path to one.
+
+    labels=True prints each feature's `kind` as a permanent text label next to
+    its marker. Handy for sparse object overlays; leave off for dense layers
+    (e.g. hundreds of trees) where it turns into label soup.
+    """
     if isinstance(feature_collection, str):
-        with open(feature_collection) as f:
+        with open(feature_collection, encoding="utf-8") as f:
             fc = json.load(f)
     else:
         fc = feature_collection
     payload = json.dumps(fc, separators=(",", ":"))
-    html = _HTML.replace("__FEATURES__", payload)
-    with open(out_path, "w") as f:
+    html = (_HTML.replace("__FEATURES__", payload)
+                 .replace("__LABELS__", "true" if labels else "false"))
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)

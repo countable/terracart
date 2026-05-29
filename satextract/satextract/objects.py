@@ -29,14 +29,21 @@ DEFAULT_PROMPTS = [
 ]
 
 MODEL_ID = "IDEA-Research/grounding-dino-tiny"
+# Higher-quality alternative: SwinB backbone, much better precision/recall than
+# tiny at ~3-5x the CPU cost. Pass model_id=MODEL_BASE to detect_objects, or
+# --model base / --model IDEA-Research/grounding-dino-base on the CLI.
+MODEL_BASE = "IDEA-Research/grounding-dino-base"
+
+# Short aliases accepted on the CLI so callers don't have to type the org path.
+MODEL_ALIASES = {"tiny": MODEL_ID, "base": MODEL_BASE}
 
 
-def _load():
+def _load(model_id=MODEL_ID):
     import torch
     from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = AutoModelForZeroShotObjectDetection.from_pretrained(MODEL_ID).to(device)
+    processor = AutoProcessor.from_pretrained(model_id)
+    model = AutoModelForZeroShotObjectDetection.from_pretrained(model_id).to(device)
     return processor, model, device
 
 
@@ -53,11 +60,17 @@ def _iou(a, b):
     return inter / ua if ua > 0 else 0.0
 
 
-def _nms(dets, iou_thresh=0.5):
+def _nms(dets, iou_thresh=0.5, class_agnostic=False):
+    """Greedy NMS. By default only dedupes boxes that share a label; with
+    class_agnostic=True it also drops a lower-scoring box that heavily overlaps
+    a kept box of *any* label — useful for killing the garbled multi-phrase
+    duplicates Grounding DINO emits at one spot ("swimming pool" +
+    "swimming pool tennis court" on the same pool)."""
     dets = sorted(dets, key=lambda d: -d["score"])
     keep = []
     for d in dets:
-        if any(d["label"] == k["label"] and _iou(d["box"], k["box"]) > iou_thresh
+        if any((class_agnostic or d["label"] == k["label"])
+               and _iou(d["box"], k["box"]) > iou_thresh
                for k in keep):
             continue
         keep.append(d)
@@ -67,19 +80,21 @@ def _nms(dets, iou_thresh=0.5):
 def detect_objects(image, origin_px, zoom, prompts=None,
                    tile_size=1024, overlap=192,
                    box_threshold=0.30, text_threshold=0.25,
+                   model_id=None, nms_class_agnostic=False,
                    progress=None):
     try:
-        import torch  # noqa: F401
+        import torch
+        import transformers  # noqa: F401  (only checking importability here)
     except ImportError as e:
         raise RuntimeError(
             "Install with: pip install transformers torch torchvision pillow"
         ) from e
-    import torch
 
     prompts = prompts or DEFAULT_PROMPTS
     text = ". ".join(p.strip().lower() for p in prompts) + "."
 
-    processor, model, device = _load()
+    model_id = MODEL_ALIASES.get(model_id, model_id) or MODEL_ID
+    processor, model, device = _load(model_id)
 
     W, H = image.size
     step = tile_size - overlap
@@ -126,7 +141,7 @@ def detect_objects(image, origin_px, zoom, prompts=None,
         if progress:
             progress(i + 1, len(crops))
 
-    dets = _nms(all_dets)
+    dets = _nms(all_dets, class_agnostic=nms_class_agnostic)
 
     feats = []
     ox, oy = origin_px

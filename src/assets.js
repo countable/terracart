@@ -95,12 +95,13 @@ const ASSETS = {
   mushroom_world: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
-  // Stone pillar — 16×48 (1 cell wide × 3 tall) sliced from the gitignored
-  // Sprites/unused/Objects/Exterior/Deep Forest/Stone structures.png (col 4,
-  // rows 1-3: a clean fluted column with cap + stepped base). Used as a purely
-  // decorative stand-in for OSM utility poles / posts (power=pole, man_made=
-  // mast, barrier=bollard, highway=street_lamp) — no interaction. Same frame
-  // shape as the fruit-tree sheets, so it foot-anchors like a tree.
+  // Stone pillar — 16×32 (1 cell wide × 2 tall) sliced from the gitignored
+  // Sprites/unused/Objects/Exterior/Deep Forest/Stone structures.png (col 8,
+  // rows 9-10: the SHORT fluted column with cap + stepped base). Used as a
+  // purely decorative stand-in for OSM utility poles / posts (power=pole,
+  // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
+  // At scale 1.0 it's exactly one cell (32px) tall, so it foot-anchors inside
+  // a single square cell.
   pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png' },
   // Magic Crafting Shrine — 192×128 = 4 cols × 2 rows of 48×64 water-fountain
   // variants. Each shrine level picks a different frame (row-major) so the

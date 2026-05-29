@@ -9,11 +9,16 @@
     this.len = buf.length;
   }
   Reader.prototype.readVarint = function () {
+    // Accumulate with multiplication, not `<<`: JS bitwise ops are 32-bit, so a
+    // varint needing 5+ bytes (e.g. a uint64 feature id, or a packed int64
+    // value) would silently overflow/corrupt with `r |= (b & 0x7f) << s`.
+    // `* 2**s` stays exact up to 2^53 (Number.MAX_SAFE_INTEGER), which covers
+    // every id these tiles emit.
     let r = 0, s = 0, b;
     while (true) {
       b = this.buf[this.pos++];
-      r |= (b & 0x7f) << s;
-      if (!(b & 0x80)) return r >>> 0;
+      r += (b & 0x7f) * Math.pow(2, s);
+      if (!(b & 0x80)) return r;
       s += 7;
     }
   };
