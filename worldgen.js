@@ -1569,11 +1569,33 @@
           if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
           return grid[liy * cpe + lix] === T.WATER;
         };
+        // Injected OSM features skip the BIOME filter (they belong wherever
+        // the real world puts them) but must still honour one-interactable-
+        // per-cell: stacking two pickables on a cell is unreachable for the
+        // player. Seed the occupancy set from everything already placed, then
+        // drop any tree/bush that would land on a taken cell.
+        const cellKeyOf = (wx, wy) => {
+          const lix = Math.floor((wx - x * tileEdgeM) / mPerCell);
+          const liy = Math.floor((wy - y * tileEdgeM) / mPerCell);
+          return `${lix}_${liy}`;
+        };
+        const occupied = new Set();
+        for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
+        for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
         for (const t of bin.trees) {
-          if (!onWater(t.x, t.y)) entry.objects.push(t);
+          if (onWater(t.x, t.y)) continue;
+          const k = cellKeyOf(t.x, t.y);
+          if (occupied.has(k)) continue;
+          occupied.add(k);
+          entry.objects.push(t);
         }
-        const bushes = bin.shrubs.filter(s => !onWater(s.x, s.y));
-        if (bushes.length) entry.wildplants = entry.wildplants.concat(bushes);
+        for (const s of bin.shrubs) {
+          if (onWater(s.x, s.y)) continue;
+          const k = cellKeyOf(s.x, s.y);
+          if (occupied.has(k)) continue;
+          occupied.add(k);
+          entry.wildplants.push(s);
+        }
       }
 
       entry.status = 'ready';

@@ -412,6 +412,12 @@ class MapScene extends Phaser.Scene {
     this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
     this.gpsM = null;
     this.gpsAvailable = false;
+    // Set true the moment the player drives themselves with manual controls
+    // (WASD / arrow keys, SPACE-teleport, T-teleport). Once on, the GPS watcher
+    // stops snapping the player back to their real-world fix for the rest of
+    // the session. Session-scoped ONLY — never persisted — so a fresh load
+    // resumes live GPS tracking.
+    this._gpsManualOverride = false;
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
     // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
@@ -825,6 +831,21 @@ class MapScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', onVis);
   }
 
+  // Latch manual control: once the player moves themselves (keyboard, or a
+  // SPACE / T teleport) we stop letting GPS yank them back to their physical
+  // location for the rest of the session. Idempotent — safe to call every
+  // frame from the movement loop. Drops any in-flight GPS ease so the current
+  // manual move isn't fought. NOT persisted (session-scoped); a reload resumes
+  // live GPS.
+  disableGpsForSession() {
+    if (this._gpsManualOverride) return;
+    this._gpsManualOverride = true;
+    this._ease = null;
+    if (this.gpsAvailable) {
+      this.flash('GPS off — manual control', this.viewCenterX, this.viewCenterY - 40);
+    }
+  }
+
   // === GPS ===
   startGps() {
     // Sandbox mode parks the player at a synthetic biome-grid plot and uses
@@ -841,12 +862,13 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * 111320;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          // Debug controls take over movement entirely — skip the GPS-driven
-          // ease (and the silent body-warp under ghost mode) so the gold
-          // joystick / arrow keys aren't fighting the watcher. gpsM still
+          // Debug controls — or a manual-control takeover this session (WASD /
+          // arrow keys / SPACE / T teleport) — own movement entirely: skip the
+          // GPS-driven ease (and the silent body-warp under ghost mode) so the
+          // gold joystick / arrow keys aren't fighting the watcher. gpsM still
           // tracks so the HUD's gps-live check and the facing fallback below
           // keep working.
-          if (this.save.debugControls) {
+          if (this.save.debugControls || this._gpsManualOverride) {
             // intentionally no playerM / _bodyM write
           } else if (this._bodyM) {
             // While ghost mode is active, playerM IS the ghost; GPS updates
@@ -1447,6 +1469,11 @@ class MapScene extends Phaser.Scene {
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
+    // Keyboard movement (WASD / arrow keys) is a manual takeover — at this
+    // point vx/vy reflect only keyboard input (the ghost / debug-pad joystick
+    // overrides below come after), so any non-zero value means the player is
+    // driving themselves. Latch off GPS for the rest of the session.
+    if (vx || vy) this.disableGpsForSession();
     // Ghost-mode joystick: vec ∈ [-1,1], amulet-tier-scaled speed. Keyboard
     // movement is suppressed while the ghost is out so the two control
     // schemes don't fight. Energy is debited per cell of ghost travel —
@@ -2279,6 +2306,7 @@ class MapScene extends Phaser.Scene {
   // loaded, skip to the next species in the cycle so the key never
   // silently no-ops on a thin forest.
   teleportNextIndividualTree() {
+    this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     if (!this._indivTreeVisited) this._indivTreeVisited = new Set();
@@ -2313,6 +2341,7 @@ class MapScene extends Phaser.Scene {
   }
 
   teleportNextPoi() {
+    this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     // Distance-based dedupe: a POI represented multiple times within ~40m of each other

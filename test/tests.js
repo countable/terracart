@@ -39,7 +39,7 @@ test('picking a wildplant within reach adds to inventory and marks picked', (sce
   // now an async work-progress action and would only land mid-tick).
   const wp = findWildplant(w =>
     w.crop !== 'rockfruit' &&
-    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 50);
+    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter non-rockfruit wildplant');
   // Stand right on top of it.
   teleport(scene, wp.x, wp.y);
@@ -108,11 +108,12 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   scene.save.picked = [];
   scene.save.inv = [];
-  // Earlier tests relied on a wildplant ≤30 m from spawn, but starter-tile
-  // longgrass density now sometimes pushes the nearest one out to ~36 m.
-  // Bumped the search radius to 60 m to absorb that variance.
+  // The deliberately-cleared spawn pocket (plus OSM-bush placement) pushes
+  // the nearest wildplant out to ~73 m from origin. Distance is irrelevant to
+  // what this test checks (the too-far gate), so search wide enough to find a
+  // representative plant.
   const wp = findWildplant(w =>
-    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 60);
+    Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter wildplant');
   // Stand 25m away (well outside REACH_FAR_M = 16m, measured from player
   // cell centre) but tap on the plant.
