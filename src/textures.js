@@ -374,7 +374,7 @@ function drawFlora(ctx, kind, variant) {
 }
 
 function makeFloraTextures(scene) {
-  const SPECS = { flower: 4 };
+  const SPECS = { flower: 4, mushroom: 2 };
   for (const [kind, n] of Object.entries(SPECS)) {
     for (let v = 0; v < n; v++) {
       const key = `flora_${kind}_${v}`;

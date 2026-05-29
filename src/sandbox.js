@@ -186,12 +186,41 @@
     // so the test set is predictable across reloads.
     stockSandboxInventory(scene);
 
+    // Grant a full gear kit so every relic/armor-gated interaction is
+    // reachable without grinding (chop/mine/hunt/fish/net/till/water) and
+    // every gear icon renders on the HUD relic+armor rows and the Stats
+    // modal. Clobber-and-rebuild like the inv set.
+    grantSandboxGear(scene);
+
     // Seed runtime state that lives outside the tile entry — planted crops,
     // placed scarecrows / rocks, tame released pets, shrine, extra
     // treasures. These all live in save.* arrays and scene-side Sets, so
     // we mutate the scene directly. Clobber-and-rebuild like the inv set.
     seedSandboxState(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
                      cellsPerEdge, tileEdgeM, cellM);
+  }
+
+  // Equip one of every relic + armor piece at a mid tier. T3 is deliberate:
+  // it clears the gate on every interaction (any tier ≥1 unlocks the action)
+  // while still leaving the pickaxe BELOW the T4..T7 mineral rocks, so the
+  // "pick too weak → rejected" branch is still demonstrable on the high-tier
+  // rocks in the ROCK plot. Armor raises max energy, so re-derive it and top
+  // the bar up. Clobbered on every sandbox load for a predictable baseline.
+  function grantSandboxGear(scene) {
+    if (typeof RELIC_DEFS === 'undefined' || typeof ARMOR_DEFS === 'undefined') return;
+    const TIER = 3;
+    const relics = {};
+    for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: TIER };
+    scene.save.relics = relics;
+    const armor = {};
+    for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
+    scene.save.armor = armor;
+    if (typeof maxEnergyFromArmor === 'function') {
+      scene.save.maxEnergy = maxEnergyFromArmor(armor);
+    }
+    scene.save.energy = scene.save.maxEnergy || scene.save.energy;
+    if (typeof scene.updateHUD === 'function') scene.updateHUD();
+    if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
   // Drop runtime-state interactables into the sandbox plots: a row of crops
@@ -207,6 +236,19 @@
     save.placedRocks = save.placedRocks || [];
     save.scarecrows = save.scarecrows || [];
     save.tilled = save.tilled || [];
+    // Restore every house in the sandbox tile. Tier-9 houses render as a
+    // generic "wreck" sprite (no themed art, no sign) until the player feeds
+    // them restoration materials — so without this, the blacksmith / market /
+    // trader sprites, the shop/Home signs, AND the plain-house produce plaque
+    // would never appear in the sandbox. Mark them restored so every house
+    // role + sign surface is visible on load.
+    save.restoredHouses = save.restoredHouses || {};
+    {
+      const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+      for (const o of (centreEntry?.objects || [])) {
+        if (o.kind === 'house' && o.id) save.restoredHouses[o.id] = true;
+      }
+    }
     // Helper: world coords at the centre of an absolute cell.
     const cellCenter = (cellIX, cellIY) => ({
       x: centreTX * tileEdgeM + (cellIX + 0.5) * cellM,
@@ -452,7 +494,7 @@
     0:  'GRASS',
     1:  'FOREST',
     2:  'SAND',
-    3:  'WATER',
+    3:  'WATER+PIER',   // plot is water with a plank PIER walkway across its middle row
     4:  'FARMLAND',
     5:  'RESIDENT',
     6:  'PARK',
@@ -537,10 +579,10 @@
       wildplants.push({ x, y, crop, _ix: cellIX, _iy: cellIY,
         id: `${baseId}_wp_${plotTag}_${crop}_${dx}_${dy}` });
     };
-    const pushFlora = (variant, dx, dy) => {
+    const pushFlora = (variant, dx, dy, deco = 'flower') => {
       const { x, y } = at(dx, dy);
-      objects.push({ kind: 'flora', x, y, deco: 'flower', variant,
-        id: `${baseId}_fl_${plotTag}_${variant}_${dx}_${dy}` });
+      objects.push({ kind: 'flora', x, y, deco, variant,
+        id: `${baseId}_fl_${plotTag}_${deco}_${variant}_${dx}_${dy}` });
     };
     const pushTree = (variant, dx, dy, species) => {
       const { x, y } = at(dx, dy);
@@ -666,8 +708,15 @@
         pushChest('farm', 'Sandbox Farm', PLOT_MID, PLOT_MID);
         break;
       }
-      case 5: {   // RESIDENTIAL — rockfruit + three shop houses.
+      case 5: {   // RESIDENTIAL — rockfruit + three shop houses + mushrooms
+        // (both the decorative decals and pickable wild mushrooms now live in
+        // residential yards rather than grassland — see worldgen FLORA_BY_TYPE
+        // / CROP_ALLOWED).
         pushWildplant('rockfruit', 2, 2);
+        pushFlora(0, 1, 1, 'mushroom');      // big mushroom decal
+        pushFlora(1, 3, 1, 'mushroom');      // small mushroom decal
+        pushWildplant('mushroom', 0, 4);     // pickable wild mushroom
+        pushWildplant('mushroom', 4, 4);
         // Spread the three specialty houses to the corners of the plot.
         // Adjacent placement (1 cell apart) caused the REACH_HOUSE_M=6m
         // hitboxes to overlap, making the middle house unclickable behind
@@ -676,6 +725,11 @@
         pushHouse(0, 0, 9);   // blacksmith — top-left
         pushHouse(4, 0, 6);   // market     — top-right
         pushHouse(2, 4, 8);   // trader     — bottom-centre
+        // Plain residential (address 3 → no shopType): renders a delivery
+        // plaque of wanted-produce ICONS over the house (Render produce sign)
+        // and runs the full-set delivery flow. 10m from the corner shops so
+        // its REACH_HOUSE_M hit-zone stays clean.
+        pushHouse(2, 0, 3);
         break;
       }
       case 6: {   // PARK — shrubs + flowers + longgrass + cat/dog + flying

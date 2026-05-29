@@ -401,8 +401,10 @@
     [T.PITCH]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
     [T.PLAYGROUND]: { deco: 'flower', dMin: 0.015, dMax: 0.06 },
     [T.WETLAND]:    { deco: 'flower', dMin: 0.015, dMax: 0.06 },
+    // Mushroom decals belong to shady residential yards, not open grass fields.
+    [T.RESIDENTIAL]: { deco: 'mushroom', dMin: 0.01, dMax: 0.035 },
   };
-  const FLORA_VARIANTS = { flower: 4 };
+  const FLORA_VARIANTS = { flower: 4, mushroom: 2 };
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -750,6 +752,10 @@
                   }
                 }
               }
+              // Sparse pickable wild mushrooms in residential yards — same crop
+              // as the forest clusters but rarer. Independent RNG stream so they
+              // don't co-locate with the rock clusters above.
+              spawnDebris(f.geom, 'mushroom', (polyKey ^ 0x5EEDCAFE) >>> 0, 0.008, 0.025);
             }
 
             // Industrial mineral piles — old quarries, scrap yards, slag heaps.
@@ -1304,7 +1310,7 @@
       shrub:     FOREST_PARK_GRASS,
       longgrass: GRASSLAND_FAMILY,
       nut:       new Set([1]),                  // forest only
-      mushroom:  new Set([1]),                  // forest only
+      mushroom:  new Set([1, 5]),               // forest + residential yards
       // rockfruit + anything else → GROUND fallback
     };
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
@@ -1374,10 +1380,13 @@
     const florae = objects.filter(o => o.kind === 'flora');
     const keptFlora = [];
     const FLORA_OK = new Set([2, 4, 10, ...FOREST_PARK_GRASS]);
+    // Per-deco terrain gate. Mushroom decals are residential-only (they must
+    // never bleed onto the grassy FLORA_OK set); flowers use the default set.
+    const FLORA_ALLOWED = { mushroom: new Set([T.RESIDENTIAL]) };
     for (const o of florae) {
       const ct = grid[o._iy * w + o._ix];
       const cellKey = `${o._ix}_${o._iy}`;
-      if (!FLORA_OK.has(ct)) continue;
+      if (!(FLORA_ALLOWED[o.deco] || FLORA_OK).has(ct)) continue;
       if (occupiedCells.has(cellKey)) continue;
       occupiedCells.add(cellKey);
       delete o._ix; delete o._iy;
@@ -1683,6 +1692,15 @@
           s.x = c.x; s.y = c.y;
           entry.wildplants.push(s);
         }
+        for (const p of (bin.poles || [])) {
+          if (onWater(p.x, p.y)) continue;
+          const k = cellKeyOf(p.x, p.y);
+          if (occupied.has(k)) continue;
+          occupied.add(k);
+          const c = localCentre(p.x, p.y);
+          p.x = c.x; p.y = c.y;
+          entry.objects.push(p);
+        }
       }
 
       entry.status = 'ready';
@@ -1737,16 +1755,23 @@
         wmx: fx * tileEdgeM, wmy: fy * tileEdgeM,
       };
     };
-    _satextractPromise = fetch('data/satextract_osm.geojson')
+    // ?v bumps whenever data/satextract_osm.geojson is regenerated — the file
+    // name is otherwise stable, so without a cache-bust the browser serves a
+    // stale copy and freshly-extracted features (poles, relocated trees) never
+    // appear. Bump this when you re-run satextract.
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=2')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
         const binFor = (tx, ty) => {
           const k = `${tx}_${ty}`;
           let b = bins.get(k);
-          if (!b) { b = { trees: [], shrubs: [] }; bins.set(k, b); }
+          if (!b) { b = { trees: [], shrubs: [], poles: [] }; bins.set(k, b); }
           return b;
         };
+        // OSM kinds we render as the decorative stone pillar (utility poles /
+        // posts). All vertical post-like point features — no interaction.
+        const POLE_KINDS = new Set(['pole', 'mast', 'bollard', 'street_lamp']);
         if (gj && gj.features) for (const f of gj.features) {
           const g = f.geometry;
           if (!g || g.type !== 'Point') continue;
@@ -1765,6 +1790,16 @@
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
               individual: true,
+            });
+          } else if (POLE_KINDS.has(kind)) {
+            // Utility pole / post → decorative stone pillar. Snapped to the cell
+            // grid like trees; rendered via RENDER_SPEC.pole, no interaction.
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).poles.push({
+              kind: 'pole', x: cx, y: cy,
+              id: `pole_${osmId}`,
             });
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
