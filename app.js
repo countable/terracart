@@ -663,6 +663,13 @@ class MapScene extends Phaser.Scene {
     this._poiTpVisited = new Set();
     this._poiTpFirst = 'Windermere Park';
     this.input.keyboard.on('keydown-SPACE', () => this.teleportNextPoi());
+    // Debug: T cycles through tree species (maple → pine → birch → mahogany)
+    // and teleports to the densest grove of that species across loaded tiles.
+    // Useful for visually QA-ing per-polygon species variety without walking
+    // the map. No game-state side effects beyond the teleport itself.
+    this._treeTpSpecies = ['maple', 'pine', 'birch', 'mahogany'];
+    this._treeTpIdx = 0;
+    this.input.keyboard.on('keydown-T', () => this.teleportNextTreeGrove());
 
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
@@ -1111,13 +1118,82 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     };
-    // Force a guaranteed X ~10m north of the player's start (whichever tile
-    // contains the spawn). All four locals here were previously undefined and
-    // every tile load threw "sx is not defined" — see the tile-fetch warnings.
+    // Guaranteed starter trail: when this is the spawn tile, place 4 X
+    // marks along the nearest road instead of one X dangling 10 m north
+    // of the spawn point. The player walks out, sees a numbered breadcrumb
+    // along the kerb, and the onboarding is "follow the X's" instead of
+    // "go straight up". Falls back to the legacy north-of-spawn placement
+    // when no road exists within 15 cells of the spawn.
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const sx = this.startWorldM.x, sy = this.startWorldM.y;
-    if (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM) {
-      entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
+    const isStarterTile = (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM);
+    if (isStarterTile) {
+      const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
+      const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+      const spawnIX = Math.floor((sx - tx0) / this.cellM);
+      const spawnIY = Math.floor((sy - ty0) / this.cellM);
+      // BFS from the spawn cell for the nearest road cell within 15 cells.
+      let roadCell = null;
+      const visited = new Set();
+      const queue = [[spawnIX, spawnIY]];
+      visited.add(spawnIX + ',' + spawnIY);
+      while (queue.length > 0 && !roadCell) {
+        const [cx, cy] = queue.shift();
+        if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+        const dist = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
+        if (dist > 15) continue;
+        const t = entry.grid[cy * N + cx];
+        if (ROAD_TYPES.has(t)) { roadCell = { cx, cy }; break; }
+        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const k = (cx + ddx) + ',' + (cy + ddy);
+          if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
+        }
+      }
+      if (roadCell) {
+        // Detect the road's direction by checking which neighbour is also
+        // a road. Fall back to east if the road is a one-cell stub.
+        let roadDir = [1, 0];
+        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = roadCell.cx + ddx, ny = roadCell.cy + ddy;
+          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+          if (ROAD_TYPES.has(entry.grid[ny * N + nx])) { roadDir = [ddx, ddy]; break; }
+        }
+        // Walk along the road and seat an X on the first walkable, non-road
+        // neighbour at each step (kerbside). 4 X marks, ~3 cells apart,
+        // numbered 1..4 so the player follows the trail in order.
+        const STEP = 3, COUNT = 4;
+        const placed = [];
+        for (let i = 0; i < COUNT; i++) {
+          const rcx = roadCell.cx + roadDir[0] * i * STEP;
+          const rcy = roadCell.cy + roadDir[1] * i * STEP;
+          if (rcx < 0 || rcx >= N || rcy < 0 || rcy >= N) break;
+          if (!ROAD_TYPES.has(entry.grid[rcy * N + rcx])) break;   // road ended
+          // Walkable neighbour to drop the X on (prefer the side closer to
+          // spawn for the first one so the player sees it immediately).
+          let seat = null;
+          for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
+            const nx = rcx + adx, ny = rcy + ady;
+            if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+            const tt = entry.grid[ny * N + nx];
+            if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
+            seat = { nx, ny }; break;
+          }
+          if (!seat) continue;
+          const wmx = tx * this.tileEdgeM + (seat.nx + 0.5) * this.cellM;
+          const wmy = ty * this.tileEdgeM + (seat.ny + 0.5) * this.cellM;
+          entry.extraTreasures.push({
+            x: wmx, y: wmy, n: i + 1,
+            id: `treasure_start_${tx}_${ty}_${i + 1}`,
+          });
+          placed.push(i + 1);
+        }
+        // If somehow nothing got seated (road hugged by water/buildings),
+        // fall back to the legacy north-of-spawn X so the player isn't
+        // robbed of their starter loot.
+        if (placed.length === 0) entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
+      } else {
+        entry.treasure = { x: sx, y: sy - 10, id: `treasure_start_${tx}_${ty}` };
+      }
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
       // see X's frequently instead of stumbling onto one a session.
@@ -2126,6 +2202,46 @@ class MapScene extends Phaser.Scene {
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
   // walking outward by distance. First press preferentially seeks the named
   // POI in `_poiTpFirst` if it's loaded.
+  // Debug key T — cycle through tree species and teleport to the densest
+  // currently-loaded grove of each. Density = "this tree plus other same-
+  // species trees within 50 m." If no trees of the current species are
+  // loaded, skip to the next species in the cycle so the key never
+  // silently no-ops on a thin forest.
+  teleportNextTreeGrove() {
+    const species = this._treeTpSpecies;
+    const N = species.length;
+    let attempted = 0;
+    while (attempted < N) {
+      const target = species[this._treeTpIdx];
+      this._treeTpIdx = (this._treeTpIdx + 1) % N;
+      attempted++;
+      const cands = [];
+      WorldGen.forEachItem('objects', (o) => {
+        if (o.kind !== 'tree') return;
+        const s = o.species || 'maple';
+        if (s === target) cands.push(o);
+      });
+      if (!cands.length) continue;
+      // Pick the tree with the most same-species neighbours within 50 m.
+      let best = null, bestScore = -1;
+      for (const a of cands) {
+        let s = 0;
+        for (const b of cands) {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          if (dx * dx + dy * dy < 50 * 50) s++;
+        }
+        if (s > bestScore) { bestScore = s; best = a; }
+      }
+      this.playerM.x = best.x - this.startWorldM.x;
+      this.playerM.y = best.y - this.startWorldM.y + 4;
+      this.gpsM = { x: this.playerM.x, y: this.playerM.y };
+      this._ease = null;
+      this.flash(`→ ${target} grove (${bestScore})`, this.viewCenterX, this.viewCenterY - 40);
+      return;
+    }
+    this.flash('no tree groves loaded yet', this.viewCenterX, this.viewCenterY - 40);
+  }
+
   teleportNextPoi() {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
