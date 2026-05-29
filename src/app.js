@@ -84,6 +84,10 @@ const BUILDING_TYPES = new Set([9, 11, 12]);
 // player stands on a building cell. Slower than active food, fast enough to
 // matter — sitting for ~5 minutes recovers from empty.
 const INDOOR_FULL_REST_S = 300;
+// Resting AT Home (the starter shop / trailer) is much faster than any other
+// building — a full bar in 90s (~3.3× the indoor rate). The hearth bonus: your
+// own place recovers you quickly. See isRestingAtHome + the rest loop in update.
+const HOME_FULL_REST_S = 90;
 // Time-since-tab-close that grants the FULL energy bar back. Closing the tab
 // or backgrounding the app for an hour returns at 100% energy; shorter rests
 // are pro-rated linearly.
@@ -1601,9 +1605,15 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + restAnchor.y;
       const here = this.cellAt(pWX, pWY);
       const indoors = here.loaded && BUILDING_TYPES.has(here.type);
+      // Resting at Home fills the bar much faster (HOME_FULL_REST_S) than any
+      // other building. atHome also lets a synthetic trailer count as a rest
+      // spot — it paints no building cell underneath, so `indoors` is false
+      // there (see ensureStarterTrailerObject + isRestingAtHome).
+      const atHome = this.isRestingAtHome(pWX, pWY, indoors);
       const maxE = this.getMaxEnergy();
-      if (indoors && (this.save.energy ?? 0) < maxE) {
-        this._restAccrueE += maxE * (dt / INDOOR_FULL_REST_S);
+      if ((indoors || atHome) && (this.save.energy ?? 0) < maxE) {
+        const restS = atHome ? HOME_FULL_REST_S : INDOOR_FULL_REST_S;
+        this._restAccrueE += maxE * (dt / restS);
         const pip = Math.floor(this._restAccrueE);
         if (pip > 0) {
           this._restAccrueE -= pip;
@@ -3250,6 +3260,40 @@ class MapScene extends Phaser.Scene {
     this._makeStarterTrailer(ax, ay);
     this.save.starterShopId = this.save.starterTrailer.id;
     this._starterShopOk = true;
+  }
+
+  // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
+  // energy-rest rate. Home is either an adopted real house (which paints
+  // BUILDING cells into the grid) or a synthetic trailer dropped on open ground
+  // (which paints NO cell — see ensureStarterTrailerObject), so there are two
+  // cases:
+  //   • real house  → the player must be standing on a building cell (indoors)
+  //     AND the nearest loaded house to them must be Home, so a neighbour's
+  //     house next door doesn't read as Home.
+  //   • trailer     → the player must be standing on the trailer's own snapped
+  //     cell (there's no building cell to stand on, so `indoors` is false).
+  // The house scan only runs on indoor frames (rare — you have to be standing
+  // on a building), and ensureStarterShopId early-outs once Home is locked in.
+  isRestingAtHome(pWX, pWY, indoors) {
+    this.ensureStarterShopId();
+    const homeId = this.save.starterShopId;
+    if (!homeId) return false;
+    const st = this.save.starterTrailer;
+    if (st && st.id === homeId) {
+      const half = this.cellM / 2;     // within the trailer's snapped cell
+      return Math.abs(pWX - st.x) <= half && Math.abs(pWY - st.y) <= half;
+    }
+    if (!indoors) return false;        // real house only counts from inside it
+    let nearId = null, nearD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house' || !o.id) continue;
+        const dx = o.x - pWX, dy = o.y - pWY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearD2) { nearD2 = d2; nearId = o.id; }
+      }
+    }
+    return nearId === homeId;
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
