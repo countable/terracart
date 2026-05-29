@@ -2979,10 +2979,11 @@ class MapScene extends Phaser.Scene {
     const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
     const isFort = !!house && house.tier === 11;
     // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each picks 2-3 produce
-    // they'll buy (full price, no sword sellMul); they don't sell anything
-    // or do the old 10% relic swap. Their sign shows the wanted icons so
-    // the player can scout a street and bring matching produce.
+    // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
+    // produce and buys it as a bundle: one of each, full price, no sword
+    // sellMul. They don't sell anything or do the old 10% relic swap. Their
+    // sign shows the wanted icons so the player can scout a street and gather
+    // the matching set.
     if (!isCastle && !isFort && !shopType && !isStarterSmith && house) {
       this.presentDeliveryOffer(sx, sy, house, recordDeal);
       return;
@@ -3234,59 +3235,66 @@ class MapScene extends Phaser.Scene {
     return picks;
   }
 
-  // Delivery interaction. Tap a plain house with one of its wanted produce
-  // selected → sell at full PRICES[id] (no sword sellMul, no specialty bonus).
-  // Tap with anything else (or an empty selection) flashes the wanted icons
-  // so the player can see what this house actually wants.
+  // Delivery interaction. Plain houses buy a SET — they want one of EACH of
+  // their 2-3 wanted produce, delivered together. Tap with the full set in
+  // your bags → deliver 1 of each per set for the summed full price (no sword
+  // sellMul, no specialty bonus); the quantity selector lets you turn in
+  // multiple complete sets at once. Tap without the full set → flash the
+  // wanted icons so the player can see what to gather. Selling a single item
+  // type isn't accepted here; that keeps plain houses distinct from markets.
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
-    const sel = this.save.inv[this.save.selSlot];
-    const hasMatch = sel && sel.id && (sel.count ?? 0) > 0 && wanted.includes(sel.id);
-    if (!hasMatch) {
+    const invCount = (id) => {
+      const s = (this.save.inv || []).find(e => e && e.id === id);
+      return s ? (s.count ?? 0) : 0;
+    };
+    // Full set requires at least one of every wanted item. maxSets is how many
+    // complete sets the current bags can fulfil (0 if any item is missing).
+    const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
+    const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
+    if (!maxSets) {
       const icons = wanted.map(id => ITEM_BY_ID[id]?.icon || '?').join(' ');
-      this.flash(`wants ${icons}`, sx, sy);
+      this.flash(`wants the set ${icons}`, sx, sy);
       return;
     }
-    const sellId = sel.id;
-    const item = ITEM_BY_ID[sellId];
-    const unitPrice = Math.max(1, PRICES[sellId] ?? 1);
-    const maxQty = Math.max(1, sel.count | 0);
-    const iconHTML = this.iconSpanHTML(sellId);
-    const itemName = item?.name || sellId;
+    // Price of one complete set = sum of each wanted item's full price.
+    const setPrice = wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0);
     const fmt = (q) => ({
-      get: `+$${unitPrice * q}`,
-      cost: `${q}× ${iconHTML} ${itemName}`,
+      get: `+$${setPrice * q}`,
+      cost: `${q}× [ ${setIcons} ]`,
       canAfford: true,
     });
     const first = fmt(1);
     this.showOfferModal({
-      title: 'The household will take:',
+      title: 'The household wants the full set:',
       get: first.get,
       cost: first.cost,
       canAfford: true,
       acceptLabel: 'Deliver',
-      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+      quantity: { min: 1, max: maxSets, initial: 1, format: fmt },
       onAccept: (q) => {
-        const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-        if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
-        const cur = this.save.inv[idx];
-        const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
-        if (sold <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-        cur.count -= sold;
-        const gain = unitPrice * sold;
-        addMoney(this.save, gain);
-        if (cur.count <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
+        // Re-validate against live bags so a stale modal can't over-deliver.
+        const sets = Math.max(1, Math.min(q ?? 1,
+          wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
+        if (!sets || sets === Infinity) { this.flash('Set incomplete now.', sx, sy); return; }
+        for (const id of wanted) {
+          const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
+          if (idx < 0) continue;
+          const cur = this.save.inv[idx];
+          cur.count -= sets;
+          if (cur.count <= 0) this.save.inv.splice(idx, 1);
         }
+        if (this.save.selSlot >= this.save.inv.length) {
+          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        }
+        const gain = setPrice * sets;
+        addMoney(this.save, gain);
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.updateMoneyDOM) this.updateMoneyDOM();
-        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
       },
     });
   }
