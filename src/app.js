@@ -2558,7 +2558,10 @@ class MapScene extends Phaser.Scene {
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
   // dwellMul scales the hold + fade portion (chest opens use 1.25 for a longer read).
-  flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null) {
+  // iconEl: an optional pre-rendered 28px icon element. Used for forged GEAR
+  // (pick / axe / armor), whose art comes from gearIconHTML rather than the
+  // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
+  flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null, iconEl = null) {
     const x = this.viewCenterX, y = this.viewCenterY - 90;
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
@@ -2567,8 +2570,8 @@ class MapScene extends Phaser.Scene {
     // straight from disk via background-image. The DOM icon is appended
     // to <body> (matching the inventory bar's anchoring) and re-positioned
     // each frame against #game's CSS-scaled bounding rect.
-    const iconEl = itemId && this.renderItemIcon
-      ? this.renderItemIcon(itemId, 28, 'block') : null;
+    iconEl = iconEl || (itemId && this.renderItemIcon
+      ? this.renderItemIcon(itemId, 28, 'block') : null);
     const ICON_PX = 28;       // displayed icon side
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
@@ -4432,7 +4435,12 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 ${name}`, '#ffe066', 1.25);
+        // Splash the forged tool's own art (not a coin) — gear uses
+        // gearIconHTML, so render it into a throwaway span and hand the
+        // sized element to flashLoot.
+        const splashWrap = document.createElement('span');
+        splashWrap.innerHTML = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 28);
+        this.flashLoot(name, '#ffe066', 1.25, null, splashWrap.firstElementChild);
       },
     });
   }
