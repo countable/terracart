@@ -993,14 +993,12 @@ class MapScene extends Phaser.Scene {
       let deg = null;
       let absoluteThisEvent = false;
       if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: tilt-compensated and CW from true north. Empirically reads
-        // 90° behind where the device's top edge actually points when held
-        // in portrait — add +90 to align so phone-pointed direction
-        // matches the in-game facing arrow.
-        deg = (e.webkitCompassHeading + 90) % 360;
+        // iOS: tilt-compensated and CW from true north. Use directly.
+        deg = e.webkitCompassHeading % 360;
         absoluteThisEvent = true;
       } else if (e.absolute && typeof e.alpha === 'number') {
-        deg = (360 - e.alpha) % 360;  // alpha is CCW from north; flip
+        // alpha is CCW from north; flip to CW.
+        deg = (360 - e.alpha) % 360;
         absoluteThisEvent = true;
       } else if (typeof e.alpha === 'number' && !sawAbsolute) {
         // Best-effort non-absolute fallback — keep updating every event until
