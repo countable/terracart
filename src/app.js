@@ -166,7 +166,10 @@ function makePlaqueTextures(scene) {
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
 
-
+// Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
+// six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
+// (see starterSmithSlots) as the player's bootstrap tools.
+const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -360,6 +363,13 @@ class MapScene extends Phaser.Scene {
     // marked as restored on first load so Home is functional from day one.
     if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
       this.save.restoredHouses = {};
+    }
+    // Tributed-castles set: empty by default. Every castle (BUILDING_LARGE)
+    // starts occupied by corrupt residents who demand a one-time tribute —
+    // 10 of a random Tier-2 good (5 if it's a live animal) — before they'll
+    // open the vault. Mirrors the wreck-restore gate; see _isCastleUnappeased.
+    if (!this.save.tributedCastles || typeof this.save.tributedCastles !== 'object') {
+      this.save.tributedCastles = {};
     }
     // No starter-tools gift: the player begins tool-less and forges their
     // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
@@ -3092,6 +3102,13 @@ class MapScene extends Phaser.Scene {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
     }
+    // Castle → its corrupt post-apocalyptic residents demand a one-time tribute
+    // before they'll open the vault (the same locked-until-paid gate the wreck
+    // houses use, one tier up).
+    if (house && this._isCastleUnappeased && this._isCastleUnappeased(house)) {
+      this.presentCastleTributeModal(sx, sy, house);
+      return;
+    }
     // House routing:
     //   HOME (starter trailer)  → only SELL. Tap with nothing selected
     //                              just flashes "home sweet home"; tap
@@ -3220,9 +3237,10 @@ class MapScene extends Phaser.Scene {
       return;
     }
     if (shopType === 'blacksmith') {
-      // Starter blacksmith: walk the player through wooden pick → axe → hoe
-      // before falling through to the random-relic forge. Custom recipe (not
-      // bar-based) so blacksmithRecipe stays T2+ for every other smithy.
+      // Starter blacksmith: forge the two random wooden tools (see
+      // starterSmithSlots) one at a time before falling through to the
+      // random-relic forge. Custom recipe (not bar-based) so blacksmithRecipe
+      // stays T2+ for every other smithy.
       if (isStarterSmith) {
         const woodOffer = this.starterBlacksmithOffer();
         if (woodOffer) {
@@ -3563,23 +3581,42 @@ class MapScene extends Phaser.Scene {
     return bestId;
   }
 
+  // The two random wooden relics this smithy offers. Chosen once from
+  // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
+  // re-taps keep the same pair. (A migration concern: older saves that
+  // already forged pick/axe under the fixed queue just see whichever of the
+  // two they don't yet own — owned slots are skipped in starterBlacksmithOffer.)
+  starterSmithSlots() {
+    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
+      const pool = [...STARTER_SMITH_SLOTS];
+      // Fisher–Yates the pool, take the first two for a distinct random pair.
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      this.save.starterSmithSlots = [pool[0], pool[1]];
+      persistSave(this.save);
+    }
+    return this.save.starterSmithSlots;
+  }
+
   // Recipes the starter blacksmith trades for wooden tools. Every T1 item
   // costs a flat 5 wood — wood drops from ground stacks sprinkled near the
   // starting area (no tool needed), from chopping shrubs (bare-handed slow
   // chop), and from chopping trees (axe). The starter crate seeds the first
   // 5 wood so the player can forge their first tool immediately.
   starterBlacksmithRecipe(slot) {
-    if (slot === 'pick' || slot === 'axe' || slot === 'hoe') {
+    if (STARTER_SMITH_SLOTS.includes(slot)) {
       return [{ id: 'wood', qty: 5 }];
     }
     return null;
   }
 
-  // Next T1 wooden tool the player still needs, in pick → axe → hoe order.
-  // Returns null when all three are owned so the caller can fall through
-  // to the normal random-relic offer.
+  // Next of the two random wooden tools the player still needs. Returns null
+  // once both are owned so the caller falls through to the normal random-relic
+  // forge — the smithy keeps doing useful business after the starter pair.
   starterBlacksmithOffer() {
-    for (const slot of ['pick', 'axe', 'hoe']) {
+    for (const slot of this.starterSmithSlots()) {
       if (!(this.save.relics?.[slot]?.tier)) {
         return { kind: 'relic', slot, tier: 1 };
       }
@@ -4471,6 +4508,81 @@ class MapScene extends Phaser.Scene {
           });
         } else {
           this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+        }
+      },
+    });
+  }
+
+  // True iff `house` is a castle (BUILDING_LARGE / tower) whose corrupt
+  // residents haven't been paid their one-time tribute yet. The castle analogue
+  // of _isHouseWreck. Id-less castles (rare — no stable key to record payment
+  // against) skip the gate and trade normally rather than re-demanding forever.
+  _isCastleUnappeased(house) {
+    if (!house || !house.id) return false;
+    const isCastle = house.kind === 'tower' || house.tier === 12;
+    if (!isCastle) return false;
+    return !this.save.tributedCastles?.[house.id];
+  }
+
+  // The tribute a castle demands before it'll trade: a stable-random Tier-2
+  // good keyed on the castle id (so it never reshuffles between visits). 10 of
+  // the item — or just 5 when it's a live animal (livestock is dearer). Seeds
+  // are excluded from the pool; the residents want goods, not a seed pouch.
+  _castleTribute(house) {
+    const pool = (typeof ITEMS !== 'undefined')
+      ? ITEMS.filter(it => it.baseTier === 2 && it.kind !== 'seed')
+      : [];
+    if (!pool.length) return { id: 'rainberry', qty: 10, name: 'Rainberry' };
+    // FNV-1a over the id → stable pick (same hash style as wantedProduceRng).
+    let h = 2166136261 >>> 0;
+    const s = String(house?.id || '');
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    const item = pool[h % pool.length];
+    const qty = item.kind === 'animal' ? 5 : 10;
+    return { id: item.id, qty, name: item.name || item.id };
+  }
+
+  presentCastleTributeModal(sx, sy, house) {
+    const cost = this._castleTribute(house);
+    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
+    const canAfford = heldCount >= cost.qty;
+    const item = ITEM_BY_ID[cost.id];
+    // Always show it (even when short) so the player learns WHAT to bring;
+    // accept stays disabled until they hold the full stack.
+    this.showOfferModal({
+      title: "The castle demands tribute",
+      get: '🏰 the vault opens to you',
+      blurb: "Its corrupt residents won't trade until their palms are greased.",
+      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.name}`
+        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
+      canAfford,
+      acceptLabel: 'Pay tribute',
+      onAccept: () => {
+        // Re-check stock at accept time — the modal may have lingered while the
+        // player spent the goods elsewhere.
+        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
+        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.name}`, sx, sy); return; }
+        const stack = this.save.inv[idx];
+        stack.count -= cost.qty;
+        if ((stack.count ?? 0) <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        this.save.tributedCastles = this.save.tributedCastles || {};
+        this.save.tributedCastles[house.id] = true;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.showChestRewardModal) {
+          this.showChestRewardModal({
+            iconHTML: '🏰',
+            name: 'The vault is yours',
+            sub: 'Tap the castle again to browse its relics.',
+            color: '#a7ffb0',
+          });
+        } else {
+          this.flashLoot('🏰 tribute paid', '#a7ffb0', 1.25);
         }
       },
     });
