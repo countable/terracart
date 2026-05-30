@@ -597,20 +597,14 @@ const TAP_HANDLERS = [
       const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
       return ao - bo;
     });
-    const seenTapByIdent = new Map();
+    // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
+    // is identical to what's drawn. Sharing the same cell key (chest ids are cell-snapped)
+    // avoids the order-dependent "see a crate but can't tap it" mismatch.
+    const seenTapCell = new Set();
     const isDupTapChest = (o) => {
-      const ident = o.name || o.poiClass;
-      if (!ident) return false;
-      let list = seenTapByIdent.get(ident);
-      if (list) {
-        for (const p of list) {
-          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < TAP_DEDUPE_R2) return true;
-        }
-      } else {
-        list = [];
-        seenTapByIdent.set(ident, list);
-      }
-      list.push({ x: o.x, y: o.y });
+      const k = Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
+      if (seenTapCell.has(k)) return true;
+      seenTapCell.add(k);
       return false;
     };
     for (const o of allObjs) {

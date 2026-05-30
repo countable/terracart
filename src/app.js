@@ -2518,28 +2518,10 @@ class MapScene extends Phaser.Scene {
     this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
-    // Distance-based dedupe: a POI represented multiple times within ~40m of each other
-    // (typical OSM duplication near tile borders) collapses to a single visit-candidate.
-    // The "visit key" anchors on the FIRST chest we accept for a given ident, so subsequent
-    // copies share that key in the visited set.
-    const TP_DEDUPE_R2 = 40 * 40;
-    const identAnchor = new Map(); // ident → {x, y} (first accepted position for this ident)
-    const chestKey = (o) => {
-      const ident = o.name || o.poiClass;
-      if (!ident) return o.id;
-      const anchor = identAnchor.get(ident);
-      if (!anchor) {
-        identAnchor.set(ident, { x: o.x, y: o.y });
-        return `${ident}|${Math.round(o.x)}|${Math.round(o.y)}`;
-      }
-      // If within dedupe radius, reuse anchor's key. Otherwise treat as a separate POI.
-      const dx = o.x - anchor.x, dy = o.y - anchor.y;
-      if (dx*dx + dy*dy < TP_DEDUPE_R2) {
-        return `${ident}|${Math.round(anchor.x)}|${Math.round(anchor.y)}`;
-      }
-      // Far apart — record a separate anchor under a per-position key.
-      return `${ident}|${Math.round(o.x)}|${Math.round(o.y)}`;
-    };
+    // Deterministic visit key by game cell — matches the render/tap dedupe so the
+    // teleport cycle visits exactly the crates you can see. Chest ids are cell-snapped,
+    // so duplicates of one POI across tile seams share a cell and count as a single stop.
+    const chestKey = (o) => Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
       WorldGen.forEachItem('objects', (o) => {

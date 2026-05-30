@@ -740,25 +740,21 @@ Render.drawObjects = function drawObjects(scene) {
   });
   const objList = [], creatureList = [], plantedList = [];
   const pickedSet = new Set(scene.save.picked || []);
-  // Cross-tile POI dedupe — MVT duplicates the same POI across adjacent tile borders, and
-  // an OSM area POI can be represented multiple times with up to ~15m offsets. We dedupe
-  // by ident (name || poiClass) + a distance check (< DEDUPE_R) instead of a fixed-bucket
-  // hash, so near-duplicates at unfortunate coords still collapse.
-  const DEDUPE_R2 = 40 * 40;
-  const seenByIdent = new Map(); // ident → [{x, y}, ...]
+  // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
+  // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
+  // tiles — and any two chests that land in the same 5 m cell — collapse to a single
+  // crate. The key is derived from world position, so *which* copy survives no longer
+  // depends on tile-iteration or load order: that order-dependence is what made crates
+  // blink in and out as you walked (worst in dense areas like Seattle where many
+  // same-named/same-class POIs sit close together). We intentionally no longer collapse
+  // distinct POIs that merely share a name within ~40 m — those are different crates and
+  // now both stay visible.
+  const seenCell = new Set();
+  const cellKey = (o) => Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
   const isDupChest = (o) => {
-    const ident = o.name || o.poiClass;
-    if (!ident) return false;
-    let list = seenByIdent.get(ident);
-    if (list) {
-      for (const p of list) {
-        if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < DEDUPE_R2) return true;
-      }
-    } else {
-      list = [];
-      seenByIdent.set(ident, list);
-    }
-    list.push({ x: o.x, y: o.y });
+    const k = cellKey(o);
+    if (seenCell.has(k)) return true;
+    seenCell.add(k);
     return false;
   };
   // Iterate only the player's 3×3 tile neighbourhood instead of every entry
