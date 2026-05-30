@@ -1,151 +1,429 @@
 terracart — Pokémon-Go-style farm game on real map data.
-Source of truth: this file. Features below are implemented [x] or todo [ ]
+Source of truth: this file. It describes what the game CURRENTLY does (verified
+against src/ as of 2026-05). Markers: [x] implemented, [ ] todo, [~] partial.
+Numbers tuned in code may drift — when this file and the code disagree, the CODE
+wins; fix this file to match.
+
+================================================================================
 CORE
- - mobile web (desktop too), 390x844 viewport centered in browser
- - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key), IndexedDB cache
- - Phaser 3.87 renders the world
- - Geolocation API for navigation, WASD as fallback (works on localhost / desktop)
- - device compass (deviceorientation) drives the facing-arrow indicator; WASD moves fall back to last move-direction
- - camera shows 11x11 cells, 5m each (55m viewport). player fixed at center, world pans
- - graceful network disconnect: 'reconnecting' banner; cached tiles still served from IDB
+================================================================================
+ - mobile web first (desktop too), 390x844 viewport centered in the browser
+ - no build step — index.html loads src/*.js as plain <script> tags in order
+ - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key),
+   decoded by hand (mvt.js) and cached in IndexedDB
+ - Phaser 3.87 renders the world to a canvas
+ - camera shows an 11x11 grid of cells, 5m each (~55m viewport). The player is
+   fixed at screen centre; the world pans under them.
+ - graceful network loss: a 'reconnecting' banner shows; cached tiles still
+   serve from IndexedDB, and a service worker (sw.js) precaches the app shell.
+ - all progress lives in one `save` object persisted to localStorage
+   (debounced writes via save.js). Tiles cache separately in IndexedDB.
 
+================================================================================
+MOVEMENT & REACH
+================================================================================
+ - GPS (geolocation) drives the player on mobile. WASD / arrow keys move on
+   desktop / localhost. The first manual key press latches a manual override
+   for the session (GPS stops fighting the keyboard).
+ - device compass (deviceorientation) drives a facing-arrow indicator above the
+   player's head; with no compass it falls back to the last move direction.
+ - REACH: you can only interact with cells within ~3 cells (cardinally) of the
+   cell you stand in — a ~16m reach measured from the player's FEET, not the
+   sprite centre, so the reachable area is symmetric around the visible
+   character. A white silhouette outlines the reachable cells; out-of-reach
+   cells are dimmed. The tap-accept test and the drawn outline use the same
+   integer cell math (coords.js cellInReach) so "if it's lit, you can tap it".
+ - WORK WHEEL: timed actions (chop / mine / pick a worked crop / fish) show a
+   circular progress wheel at the spot. You wait it out; tapping anywhere
+   cancels it (and refunds any pre-charged energy). The first 150ms is
+   swallowed so the launching tap can't immediately cancel.
+
+================================================================================
+ENERGY & FOOD
+================================================================================
+ - energy is a pool spent on hard actions and shown as ⚡cur/max (green >50%,
+   yellow >25%, red below). Starting/base max is 100.
+ - ENERGY_COST (items.js): till 2, plant 1, harvest 1, catch 5, rockBreak 10
+   (discounted by pickaxe tier), rockPlace 1; picking wildplants/flora is free.
+   Mining ore rocks costs 10 + (tier-1)*4.
+ - ARMOR raises max energy: helmet +10/tier, chest +25/tier, legs +15/tier,
+   boots +8/tier (per equipped tier). Equipping better armor bumps current
+   energy by the delta too.
+ - EAT: a persistent Eat button below the inventory eats the selected food for
+   FOOD_ENERGY[id] (longgrass 2 … sunflower 150, cow 120, meat 45, etc.).
+ - special food side effects: eating a rainberry waters every crop within 20m;
+   eating a pairy points you to the nearest undiscovered chest for 5 minutes.
+ - energy regenerates over real time: it pro-rates while the tab is closed
+   (offline rest), and refills faster while you're "indoors"/at home.
+
+================================================================================
 WORLD GENERATION
- - each MVT tile is rasterized once into a 315x315 grid of 5m cells (one terrain class per cell)
- - cell classes (used internally): grass, forest, sand, water, farmland, residential, park, road, path,
-   building (small house), rock, building_med (shop / mid-rise), building_large (school / civic / industrial),
-   plus subtype splits — each fits one of three base biomes:
-     ROCKY: residential, commercial (retail/hospital), industrial
-     FOREST: forest, orchard, wetland
-     GRASSLAND: grass, park, school (school/college/university grounds), pitch (sports field), playground, golf, farmland, allotments (lumped into farmland)
-   Each subtype has its own colour so the world reads varied while remaining cohesive.
- - building tier picked from polygon area + render_height: small (<350m² & <10m), med (350+m² or 10+m),
-   large (1500+m² or 15+m). All tiers still place a single house sprite at the polygon centroid.
- - flat color is drawn first, then a terrain sprite from Tileset Spring.png is overlaid where a frame is mapped
-   (grass, forest, sand, farmland, park — interior frames only; see tilemap.js FRAMES)
- - auto-tile lookup so edges/corners pick the right frame instead of always the interior
- - terrain frames for water, residential, road, path, building, rock (currently flat color only)
- - building polygons → house sprite at centroid
- - forest landcover polygons → scattered Maple Tree sprites (seeded per tile)
- - POI points → chest sprite at the POI location (see CHESTS below)
+================================================================================
+ - each MVT tile is rasterized ONCE into a grid of 5m cells (one terrain class
+   per cell), then decorated with objects, debris, creatures, and treasure.
+   Rasterization is deterministic per tile (seeded) so the same place always
+   generates the same world.
+ - terrain cell classes group into three base biomes; each subtype gets its own
+   colour so the world reads varied but cohesive:
+     ROCKY/URBAN: residential, commercial (retail/hospital), industrial, road,
+                  path, building tiers, pier
+     FOREST:      forest, orchard, wetland
+     GRASSLAND:   grass, park, school grounds, sports pitch, playground, golf,
+                  farmland (allotments lumped in)
+   plus water and sand. Roads split into ROAD / ROAD_MD (avenue) / ROAD_LG
+   (highway); buildings into BUILDING (house) / BUILDING_MED (fort) /
+   BUILDING_LARGE (castle/civic).
+ - building tier from polygon area + render_height: small house (<350m² & <10m),
+   fort (350+m² or 10+m), castle (1500+m² or 15+m). Each tier still places one
+   house/tower sprite at the polygon centroid.
+ - every tile enforces a minimum mix so trade/landmarks always exist: roughly
+   ≥2% castles, ≥8% forts, ≥20% small houses (re-tiered by area rank if needed).
+ - flat colour is drawn first, then a terrain sprite from the tileset is
+   overlaid where mapped (grass, forest, sand, farmland, park), with auto-tile
+   lookup so edges/corners pick the right frame.
+ - building polygons → house/tower sprite; forest landcover → scattered trees;
+   orchard → fruit trees; useful POIs → chests; fountains → wells; plus rocks,
+   debris, treasure, and creatures (all below).
+ - a satextract sidecar (data/) injects extra real POIs (individual trees,
+   fountains, parking, street furniture) on top of the MVT layer.
 
-CHESTS (POI-driven, drop existing inventory items only)
- - useful POIs (shops, civic, parks, healthcare classes — see worldgen.js USEFUL set) spawn a single
-   generic chest sprite (Objects/chest.png, 16x16, 2 frames closed/open). No themed subkinds.
- - tap chest within 4m + within 18m of player to open
- - chest loot is driven by POI class. Tier yields: T1=10, T2=5, T3=2 (per drop).
-   Tier mapping: T1 rainberry/pairy/nut/potato/shrub, T2 gemfruit/rockfruit/coffee/tree,
-   T3 iceflower/fireflower/sunflower.
-   POI categories (weights T1/T2/T3):
-     food (restaurant/cafe/fast_food/grocery/butcher/ice_cream/bakery/supermarket/convenience) → drops PRODUCE, 60/30/10
-     commerce (alcohol_shop/beer/shop) → seeds, 70/25/5
-     flora (florist/garden_centre) → FLOWER seeds only, 10/30/60
-     farm (farm) → seeds, 40/40/20, with +1 bonus on every roll
-     civic (school/college/library/town_hall/place_of_worship/attraction/museum/memorial/books/pet) → seeds, 30/40/30
-     health (pharmacy/hospital/dentist) → seeds, 50/30/20
-     park (park/garden/playground/pitch/fountain) → seeds, 40/40/20
-     lowtier (bus/fuel/lodging/gate — street-furniture POIs) → seeds, 90/8/2,
-       REDUCED yields: T1=3, T2=2, T3=1 (vs. normal 10/5/2)
- - opened chest stays open and dimmed; opened state persists
- - chest TIER (1-4) drawn as a small colored diamond above the chest sprite:
-     T1 bronze (lowtier — bus/fuel/lodging/gate)
-     T2 silver (commerce, park)
-     T3 gold   (food, health, civic, farm)
-     T4 cyan-diamond (flora — florists/garden centres, rarest)
-   Diamond dims with the chest when opened.
- - real POI name shown in flash text (e.g. "📦 → 🥔×2  Casorso Hedge School")
-   AND rendered as a small text label above the chest sprite (dimmed when opened)
- - names are RUSTICIFIED at display time via rusticifyName() — whole-word substitutions
-   replace modern words with medieval/farm equivalents (Hospital→Apothecary, School→Hedge School,
-   Coffee→Roastery, Centre→Hall, etc.). Bus-stop "X at Y" becomes "X & Y". Business suffixes
-   (Inc./Ltd./LLC) are stripped. Results cached by original name.
- - density: ~75 chests per tile (one per useful POI)
+================================================================================
+INTERACTION MODEL
+================================================================================
+ - EVERYTHING is tap-driven. Walking never changes a cell. A tap does EXACTLY
+   ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
+   and the first that matches consumes the tap and stops. Tapping the player is
+   treated as a tap on the player's own cell.
+ - priority order (all gated to within reach of the player's cell):
+     0)  cancel an in-progress work wheel
+     0)  use consumable on self (tap own feet with flute / book selected)
+     1)  claim a treasure X within ~7.5m
+     2)  creature within 4m (catch / hunt / feed / pet / hint — see CREATURES)
+     3)  pick the nearest wild plant / flower within 4m
+     4)  pick up a scattered coin within ~3m
+     5)  world object within reach: chest, well, tree, fruit tree, mineral rock,
+         ground stack, house/tower (shop), shrine
+     6)  resolve the tapped cell (bail if unloaded / out of reach)
+     7)  path-stone claim (non-consuming — falls through)
+     8)  building-zone tap → route to the nearest house's shop
+     9)  release a selected animal onto the cell
+    10)  pick up a placed rock / placed scarecrow
+    11)  place a held rock / scarecrow on an empty tilled-able cell
+    12)  break a natural rock cell (needs energy; pickaxe speeds it up)
+    13)  planted cell → harvest / advance / water / nag
+    14)  refill watering can from a WATER cell
+    15)  fish a WATER cell (needs rod) — also tops up the can
+    16)  tilled empty cell + seed → plant; tilled empty cell + no seed → un-till
+    17)  untilled tillable cell → till it
+    18)  non-tillable terrain → flavour label (water / building / road / path)
+ - the auto-till fallthrough refuses to till any cell occupied by a wildplant,
+   crop, placed rock, building, tree, or chest, so a near-miss never silently
+   tills under something.
+ - flash text fades up over ~0.9s for routine actions; bigger "loot pops"
+   (pop-in, hold, slow fade) are used for chests, treasure-X, harvests,
+   pickups, and catches. Loot pops are tier-coloured.
 
-INVENTORY
- - infinite list, scrolled in pages of 5 slots with ◀ ▶ buttons (page count shown)
- - tap a slot to select; selection persists
- - inventory contains seeds and harvested produce — tools (hoe, watering can, net, feed) are implicit, always available
- - starter seeds - stack of 10 potato seeds
- - harvesting adds produce of the crop (count badge); sometimes also drops a bonus seed
- - chest drops are seeds only; existing stacks increment
-
-INTERACTION
- - EVERYTHING is tap-driven. Walking does not change cell state.
- - tap inside the 11x11 viewport (priority order, all within 15m of player):
-     1) catch creature within 4m of tap
-     2) pick wild plant within 4m of tap
-     3) open chest / shop / tree-flavor for world objects within reach
-     4) RELEASE animal: if an inventory animal (chicken/cow) is selected, tap places it on the cell
-        (works on any cell — animals can stand anywhere). Released creatures persist in save.released.
-     5) tap planted cell: harvest if mature; advance stage if watered ≥1h; water if dry
-     6) tap tilled empty cell with a seed selected → plant
-     7) tap untilled tillable cell → till it
-     8) tap non-tillable terrain → flavor name (water / building / etc.)
- - tap NEVER stacks actions — each tap performs exactly one branch and bails. The auto-till
-   fallthrough refuses to till any cell occupied by a wildplant / planted crop / placed rock /
-   object (so a near-miss next to a debris doesn't silently till underneath).
- - tap player → treated as a world tap at the player's current cell (interacts with the cell under the player)
- - flash text fades upward over 0.9s for routine actions
- - LOOT POPS: chest opens, treasure-X claims, harvests, debris pickups, and creature catches use a
-   larger pop (bold 22px, pop-in + 1.4s hold + slow fade ≈ 2.1s total). Tier-coloured for chests/X:
-   common = gold, uncommon = cyan, rare = magenta; harvest = green; treasure-bonus = magenta
-
-ECONOMY (TODO — buying & selling)
- - buildings are shops / houses
- - POIs are chests that give a random seed every hour.
- - currency = coins; persisted in save.coins
- - buy stock = each shop sells just one item. tap a house to open an OFFER MODAL:
-     "<item> for <cost>?  [Buy] [Cancel]"
-   Cost is generated:
-     1/3 of the time → 2× the item's PRICE in dollars
-     2/3 of the time → BARTER — trader wants 1× of a random inventory item the player holds whose
-       PRICE is ≥ 150% of the item's value. If no such item is held, falls back to the cash offer.
-   Successful buys use the loud loot-pop (flashLoot) just like a chest/X claim.
- - selling is unchanged: with a stack selected, tapping a house sells one immediately.
-
+================================================================================
 FARMING LOOP
- - all farming actions are tap-driven (tools are implicit). Walking has no effect on cells.
-     1) tap untilled tillable cell → TILL (visual: brown tint)
-     2) tap tilled empty cell with a seed selected → PLANT (decrements seed count)
-     3) tap planted-but-dry cell → WATER (darkens tint; stage advances 1h later)
-     4) tap watered cell after 1h → ADVANCE one stage (cell becomes dry again)
-     5) tap mature crop → HARVEST → +1-3 produce of that crop. destroy plant. sometimes get a bonus seed.
- - any tillable cell (non-water, non-building) can be tilled
- - crop grows over 5 visual stages: 1h between watering and stage advance (4 waterings to mature)
- - per-cell state in save.tilled (array of "x_y" cell keys) and save.planted (list with .crop, .stage, .watered_t)
- - tilled cells render with a brown tint overlay; darker when the crop has been watered
- - planted crops render from Objects/Crops.png (9 cols x 16 rows of 16x16 cells). Each crop = one row.
-   In-world stages: col 0 (sprout) → col 4 (harvestable). Inventory icons: col 7 = produce, col 8 = seed.
- - crops (row in Crops.png): rainberry (0), pairy (1), gemfruit (2), nut (3), rockfruit (4),
-   coffee (5), potato (6), iceflower (7), fireflower (8), sunflower (9), tree (10), shrub (11)
+================================================================================
+ - all farming is tap-driven; tools are implicit (no need to equip a hoe to
+   till, though a Hoe relic discounts it).
+     1) tap untilled tillable cell → TILL (brown tint). Costs 2 energy (Hoe
+        relic: each tier shaves cost and adds a per-tier chance of free tilling).
+     2) tap tilled empty cell with a seed selected → PLANT (consumes 1 seed).
+     3) tap planted dry cell → WATER (darker tint). Stage advances 1h later.
+     4) tap watered cell after 1h → ADVANCE one stage (becomes dry again).
+     5) tap mature crop → HARVEST → +1-3 produce, plant destroyed, ~25% bonus
+        seed. Growth auto-advances after 60min if watered, even while away.
+ - crop grows over 5 visual stages (cols 0..4); 4 waterings to mature.
+ - any tillable cell (non-water, non-building, unoccupied) can be tilled.
+ - WATERING CAN (relic): when equipped, each watering "improves" the crop. Tier
+   T adds T quality tiers; refilling at water/a well/fishing banks 50 charges
+   that add +2 more tiers each. At harvest, quality raises the bonus-seed chance
+   (+10%/tier over base 25%) and adds +floor(qual/3) to the produce yield.
+ - per-cell state: save.tilled (cell keys), save.planted (x,y,crop,stage,
+   watered_t,canBoost). Tilled cells render a brown tint, darker once watered.
 
-DEBRIS (wild pickups on the map)
- - per-polygon system: every residential, park, and forest polygon gets a stable density in
-   [5%, 30%] (seeded by polygon centroid) and is sprinkled with debris of one crop:
-     residential → rockfruit
-     park        → shrub
-     forest      → shrub
- - each debris is centered in its 5m game cell (snapped to the absolute grid, no jitter)
- - tap a debris within 4m + within 18m of player to pick up (+1 produce — debris drops no bonus seed)
- - SURPRISE TREASURE: picking a rockfruit has a 10% chance to also drop a gemfruit
- - picked items persist in save.picked (stable id per-cell)
+================================================================================
+FORAGING / WILD PICKUPS
+================================================================================
+ - DEBRIS: every residential / park / forest / grassland / beach polygon gets a
+   stable seeded density (~5-30%) and is sprinkled with one crop type:
+     residential → mushroom (yards)      park → shrub       forest → shrub
+     forest      → occasional nut + mushroom clusters (rarer, own RNG)
+     beach/sand  → shell                 grassland → longgrass (Fern)
+ - tap a wild plant / debris within 4m (and within reach) to pick it (+1).
+ - some wild crops need WORK (a progress wheel): rockfruit (stone) wants a
+   Pickaxe, shrub (woody) wants an Axe — 10s bare-handed, faster by tool tier.
+   A shrub yields WOOD, not a "shrub" item. Other wildplants are instant.
+ - SURPRISE TREASURE: picking certain crops has a small chance of a bonus drop
+   (e.g. rockfruit → gemfruit). Flowers pulled from flora polygons give 1
+   'flowers'.
+ - picked state persists in save.picked (stable per-cell id).
 
-TREASURE MARKS
- - 1/200 tiles get a subtle X on the ground (skip water/building cells, seeded per tile)
- - PARKING POIs: every parking POI also spawns a guaranteed treasure-X at its point
- - tap within ~7.5m + within 18m of player to claim:
-     85% common tier — 50/50 between $1 and a single common seed
-     10% one uncommon seed
-      5% one rare seed
- - found state persists in save.foundTreasures
- - low-tier chest POIs (bus_stop / fuel / lodging / gate) drop seeds at weights 90/8/2 (heavy T1)
+================================================================================
+MINING
+================================================================================
+ - two rock sources, both gated by a Pickaxe relic for speed/access:
+   * NATURAL ROCK cells (rock landcover): break for a random drop table —
+     mostly rock seed / coal, with rare $/gemfruit and very rare gems
+     (sapphire ~1.7%, ruby ~0.6%, emerald ~0.2%). Bare hands work but take ~3×
+     longer; pickaxe tier shortens the wheel (10s→3s→…→0.5s).
+   * MINERAL ROCKS / ORE BOULDERS (objects in quarry / industrial / residential
+     / rocky polygons, in clusters). Each has a requiredTier (min pickaxe tier
+     to crack it) and either a yieldTier (ore) or is a plain "cave" rock.
+       - cave rock: quick + cheap, drops 1-3 rockfruit + a chance of coal, with
+         a small per-tier chance of a lucky bar.
+       - ore rock: drops coal + exactly one bar of its tier (copper/iron/gold)
+         and, on T4+, a tier-rolled gem (sapphire/ruby/emerald). Work + energy
+         scale with the tier.
+ - residential ore clusters favour low tiers (mostly cave + copper); industrial
+   is denser and mid-tier; wilderness rock is rarer but reaches the top tiers.
+ - broken rocks persist (save.brokenRocks) so they don't regrow.
+ - YOU CAN ALSO PLACE rockfruit as a stone "fence" on an empty tilled-able cell
+   (costs 1 energy) and pick it back up later.
 
+================================================================================
+CHOPPING
+================================================================================
+ - TREES (forest landcover + injected individual trees) need an Axe relic.
+   Bare hands fail ("the bark holds"). Chopping runs a work wheel (3s, faster by
+   axe tier) and drops 2-3 wood. Chopped state persists (save.chopped); stumps
+   don't block tilling.
+ - SHRUBS are wildplants (see FORAGING) — an Axe speeds the chop; they drop wood.
+
+================================================================================
+FISHING
+================================================================================
+ - tap a WATER cell with a Fishing Rod relic equipped → 7s work wheel, then a
+   weighted catch. Without a rod you just "watch the ripples". A rod also tops
+   the watering can to full on every cast (so a rod owner never loses charges).
+ - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
+   T7 20%); else a fish weighted by rod tier (minnow → bass → trout → salmon →
+   goldenfish, rarer fish more likely at high tier).
+ - 2% per cast: a relic jackpot (random slot, tier 1..rod_tier — equips if it's
+   an upgrade, else recorded as salvage). 6% per cast: an old boot (junk gag).
+ - fishing costs 5 energy.
+
+================================================================================
+CREATURES
+================================================================================
+ - spawned per tile, seeded, biased to fitting biomes; only simulated near the
+   player. Kinds: chicken, cow, cat, dog (domestic); rabbit, deer, crow,
+   butterfly (wilderness). Chickens/cows wander ~1 cell / 5s near their home.
+ - DOMESTIC ANIMALS — tap within 4m, outcome depends on the selected item:
+     * FAVOURITE FOOD → CATCH (consumes 1, 5 energy). Adds the LIVE animal to
+       inventory. Favourites: chicken = any seed, cow = pairy, cat = milk OR any
+       fish, dog = meat.
+     * PLANT PRODUCE on chicken/cow → FEED for produce: consume the plant, get
+       1 egg (chicken) / 1 milk (cow). 1-hour per-animal cooldown. A recently
+       PETTED animal has a 50% chance to double the yield.
+     * any other food → YUCK (wasted bite, no result).
+     * nothing useful → a species hint flash.
+ - WILDERNESS FAUNA — by kind:
+     * crow / deer = HUNT: needs a weapon relic (sword / bow / staff). Tap drops
+       a product (crow_feather / meat). With NO weapon the animal gets SCARED
+       and flees you for 60s.
+     * butterfly = CATCH with the Bug Net (kept as a live animal).
+     * rabbit = CATCH bare-handed (no gate).
+ - RELEASE: select a caught animal and tap a passable cell to place it (chickens
+   release as a flock of 4; others one at a time). Released animals persist in
+   save.released and re-spawn at their spot.
+ - PET: tap a released ("tame") animal with anything (or nothing) for a happy
+   sound + a 10-minute petting boost (the +50% double-yield above). Petting a
+   cat also makes it follow you for 5 minutes.
+ - SCARECROW: a placeable item — wild crows and deer steer around it (4-cell
+   aversion). Pick it back up any time.
+ - CROWS additionally try to damage nearby crops over time — scarecrows and
+   catching them are the counters.
+
+================================================================================
+CHESTS (POI-driven)
+================================================================================
+ - useful real-world POIs (shops, food, civic, healthcare, parks, sports,
+   culture, street furniture, …) each spawn a generic chest sprite at the POI.
+   Chests snap to the cell grid and dedupe by name within ~80m (per tile) /
+   ~120m (cross-tile). Density is data-dependent (~tens per tile in town).
+ - tap a chest within reach to open it for loot driven by the POI class.
+   Tier yields T1=10 / T2=5 / T3=2 per drop (low-tier street furniture is
+   reduced to 3/2/1). Category weightings (T1/T2/T3), abbreviated:
+     food → produce 60/30/10   commerce → seeds 70/25/5   farm → seeds 40/40/20 (+1)
+     flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
+     park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
+ - chest TIER shown as a coloured diamond above the sprite: T1 bronze (lowtier),
+   T2 silver (commerce/park), T3 gold (food/health/civic/farm), T4 cyan (flora).
+ - 10% of opens roll a RELIC or ARMOR instead of normal loot (biased by chest
+   tier, gated by your harvest/catch milestones). An upgrade auto-equips; a
+   duplicate pays half its gold value. Both show a reward modal.
+ - BAG-FULL: if loot won't fully fit you choose "Take what fits" (chest emptied)
+   or "Leave for later" (chest kept; it remembers its exact roll in
+   save.chestHold so you can't re-roll for something better).
+ - opened chests stay open + dimmed and persist (save.opened).
+ - POI names are RUSTICIFIED for display (Hospital→Apothecary, School→Hedge
+   School, Coffee→Roastery, …) and shown as a label above the chest + in the
+   loot flash.
+
+================================================================================
+COIN-BURST POIs (ATM / bicycle parking)
+================================================================================
+ - ATM and bicycle_parking POIs render as tinted chests but DON'T give chest
+   loot. Tapping scatters 8-12 individual coin pickups (+$1 each) on walkable
+   cells within ~25m; each coin expires after 60s.
+ - one burst per POI per UTC day (save.coinBurstClaimed); coins are in-memory
+   only (not persisted). A second tap the same day flashes "already used today".
+
+================================================================================
+TREASURE MARKS (X on the ground)
+================================================================================
+ - claim by tapping within ~7.5m (and within reach). Reward via the unified
+   rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
+   uncommon, rarely a rare. Found state persists in save.foundTreasures.
+ - sources: the STARTER TILE seeds a trail of ~7 fixed "starter crates"
+   (potato seed + wood + rockfruit) near spawn and clears a tutorial pocket of
+   obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
+   few random X marks plus extra X's beside named paths. Residential X's only
+   spawn near a road.
+
+================================================================================
+PATH STONES
+================================================================================
+ - stepping on (or tapping) a named pedestrian-path cell claims that stone
+   automatically — no item, no UI. Completing a whole path (paths of 8+ cells)
+   fires a one-time completion reward fanfare.
+
+================================================================================
+WELLS / FOUNTAINS
+================================================================================
+ - OSM fountains become a 'well' object: a water source on dry land. Tapping it
+   refills the watering can to 50 charges (same as tapping a water tile). With
+   no can yet, it just flashes flavour text.
+
+================================================================================
+ECONOMY (buying & selling)
+================================================================================
+ - currency = coins (save.money). Start with $25. Earn by selling, picking up
+   coins, treasure/chests, and coin bursts.
+ - tap a house/tower to trade. SMALL HOUSES specialise by their address digit
+   (shops.js): ending 9 = BLACKSMITH (forges gear from bars/gems; +100% sell on
+   gems), 2/6 = MARKET (cash-only produce stock; +50% sell on produce), 1/8 =
+   TRADER (barter-only; +25% sell on anything). Other houses are PLAIN: they run
+   "delivery" deals, buying 2-3 specific produce they want.
+ - FORTS (BUILDING_MED): up to 5 deals/hour. CASTLES/TOWERS (BUILDING_LARGE):
+   never run out, always sell RELICS (at 4× base, minus bow/staff discount), and
+   are never "busy". Plain houses do 1 deal/hour. Hour buckets are per-house.
+ - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
+   (greyed if you can't afford). Castles/forts may show a re-roll button
+   (cost $5 × 2^rerolls).
+ - BUY cost generation: 1/3 of the time a CASH price (1.2-3.0× the item value);
+   2/3 of the time a BARTER deal — the shop wants 1× of a random item you hold
+   whose value is high enough; if you hold nothing suitable it shows what it
+   wants with the button disabled (so you learn what to bring).
+ - SELL: with a stack selected, tapping a house sells one. Sale price =
+   PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at Frost) × the
+   shop's specialty bonus. Selling gear you already own better of is half value.
+ - bow/staff relics shrink the buy markup (best tier wins; T7 = buy at par).
+
+================================================================================
+GEAR: RELICS & ARMOR
+================================================================================
+ - 7 MATERIAL TIERS for all gear: Wood, Copper, Iron, Gold, Platinum, Crimson,
+   Frost (cost + effect climb together). One relic per slot, one armor per slot;
+   buying/forging an equal-or-lower tier into an occupied slot is refused.
+ - RELIC SLOTS and effects (items.js RELIC_DEFS):
+     pick   — lets you break rocks; tier shortens the wheel + cuts energy
+     axe    — lets you chop trees; tier shortens the wheel
+     hoe    — cheaper tilling, per-tier chance of free
+     can    — watering improves crops (see FARMING); refill banks 50 charges
+     rod    — fish from water; tier raises catch + rare odds
+     bugnet — catch crows + butterflies; tier discounts catch energy
+     bags   — raises the per-item stack cap (9 with none → 249 at T7)
+     ring   — +5%/tier chance to bump chest loot up a tier
+     amulet — projects a GHOST (see below); higher tier = faster + cheaper
+     sword  — raises sell prices (0.5× → 1.0× at Frost)
+     bow / staff — lower buy prices (best tier wins; T7 = par)
+ - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
+ - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
+   SCOUT ahead while your real body stays put; per-cell energy drains while
+   active. Releasing the pad collapses the ghost back to your body. Speed scales
+   ~8×→24× walk and energy cost falls with amulet tier.
+ - TIER GATING: rarer relic/armor tiers only drop/sell after milestones —
+   harvest a sunflower → unlock Gold, catch a cow → Platinum, harvest a
+   fireflower → Crimson, harvest an iceflower → Frost. Chest tier also caps the
+   relic tier it can give (bus chests cap at Wood).
+
+================================================================================
+CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
+================================================================================
+ - STARTER BLACKSMITH: the small house nearest your home is forced to be a
+   smithy that forges your first wooden Pickaxe → Axe → Hoe (in that order),
+   5 wood each. The starter crate seeds the first 5 wood. Once all three are
+   owned it becomes a normal relic forge.
+ - BLACKSMITH FORGE (any address-9 house, forts, castles): forge gear from
+   materials. Tools / weapons / armor cost max(5, tier) of the tier-matched bar
+   (T1 = wood). JEWELRY (ring/staff/amulet) costs 2^(tier-2) gems + 1 bar
+   (ring→ruby, staff→emerald, amulet→sapphire); no T1 jewelry.
+ - SMELTING (blacksmith, T5+ only): the top bars are smelted from flowers +
+   the lower bar — platinum = sunflower + gold, crimson = fireflower + platinum,
+   frost = iceflower + crimson. Copper/iron/gold bars come from mining.
+ - MAGIC CRAFTING SHRINE: a per-game altar near spawn. Tap it to either LEVEL
+   UP or run a TRANSFORM:
+     * level up (L1→L6): pay 5× of three tier-matched items
+       (e.g. L1→L2 = 5 potato + 5 egg + 5 coal; L5→L6 = 5 fireflower +
+       5 fireflower seed + 5 platinum bar).
+     * each level unlocks one 1-produce→1-bar transform: L2 rainberry→iron,
+       L3 coffee→gold, L4 sunflower→platinum, L5 fireflower→crimson,
+       L6 iceflower→frost (endgame). The shrine sprite upgrades each level.
+
+================================================================================
+CONSUMABLES
+================================================================================
+ - FLUTE: select it and tap your own feet to play — lures nearby wandering
+   creatures toward you (flash reports how many respond). Consumed on use.
+ - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
+   hint to the nearest unopened chest ("about N paces northwest"). Consumed.
+
+================================================================================
+INVENTORY
+================================================================================
+ - an effectively infinite list shown 5 slots per page with ◀ ▶ paging.
+ - tap a slot to select; selection persists. Tools/relics are NOT inventory
+   items — they're equipped gear shown elsewhere.
+ - per-item STACK CAP starts at 9 and rises with the Bags relic (up to 249).
+ - holds seeds, produce, minerals/bars/gems, animals, fish, fruit, wild
+   pickups, consumables, scarecrows. Stacks increment on pickup; selecting +
+   tapping drives plant / release / place / feed / eat / sell.
+ - starter inventory: a stack of potato seeds (+ the starter crate trail).
+ - ITEMS ALWAYS RENDER AS THEIR GAME-ART SPRITE on every surface (map,
+   inventory, shop, toast, sign). Emoji is reserved for non-item UI only
+   (see docs/QC_RULES.md §1).
+
+================================================================================
+ITEMS & RARITY
+================================================================================
+ - every item has a baseTier 1..7 (items.js BASE_TIER) feeding a unified rarity
+   picker (rarity.js) used by chests, treasure, and fishing.
+ - rough catalog (see items.js for the authoritative list + prices):
+     crops/produce: potato, rockfruit, rainberry, pairy, nut, berry, cress,
+       onion, gemfruit, coffee, sunflower, fireflower, iceflower (+seeds)
+     animal output: egg, milk        wild: longgrass(Fern), flowers, mushroom, shell
+     fauna drops:   meat, rabbit_pelt, crow_feather       junk: boot
+     fish:          minnow, bass, trout, salmon, goldenfish
+     orchard fruit: apple, cherry, peach, banana, orange, mango, coconut, apricot
+     minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
+     gems:          sapphire, ruby, emerald
+     animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
+     consumables:   flute, book, scarecrow
+
+================================================================================
 HUD (debug)
- - top-left: lat, lon, GPS state (wasd|waiting|live)
- - line 2: current MVT tile coords, loaded tile count, caught creatures, planted plot count
- - useful for testing; not styled for production
+================================================================================
+ - top-left: lat, lon, GPS state (wasd|waiting|live); line 2: current MVT tile
+   coords, loaded tile count, caught count, planted plot count. Not styled for
+   production; useful for testing.
 
+================================================================================
 NOT IN SCOPE / REJECTED
- - fences (proposal dropped; OSM/OpenMapTiles tiles don't expose barrier data; user opted out)
- - house interiors (proposal dropped)
- - new resource item types like wood/stone (rejected — inventory uses only seeds + tools)
- - farm view scene (rejected — caught count in HUD is sufficient for now)
+================================================================================
+ - fences from OSM barrier data (tiles don't expose it; user opted out)
+ - house interiors
+ - a separate "farm view" scene (caught count in HUD is enough)
