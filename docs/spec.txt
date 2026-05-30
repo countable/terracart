@@ -222,9 +222,10 @@ CREATURES
      * any other food → YUCK (wasted bite, no result).
      * nothing useful → a species hint flash.
  - WILDERNESS FAUNA — by kind:
-     * crow / deer = HUNT: needs a weapon relic (sword / bow / staff). Tap drops
-       a product (crow_feather / meat). With NO weapon the animal gets SCARED
-       and flees you for 60s.
+     * crow / deer = DEFEAT via a work queue. Tapping starts the wheel; a weapon
+       relic (sword / bow / staff) shortens it by tier, bare hands take a long
+       12s. Finishing it removes the animal and drops its product (crow_feather
+       / meat).
      * butterfly = CATCH with the Bug Net (kept as a live animal).
      * rabbit = CATCH bare-handed (no gate).
  - RELEASE: select a caught animal and tap a passable cell to place it (chickens
@@ -236,12 +237,13 @@ CREATURES
  - SCARECROW: a placeable item — wild crows and deer steer around it (4-cell
    aversion). Pick it back up any time.
  - CROWS additionally try to damage nearby crops over time — scarecrows and
-   catching them are the counters.
+   defeating them are the counters.
  - SLIMES are an energy-leeching PEST (50/tile, every natural biome). They ooze
    in slow hopping drifts and are lazily drawn toward the player (~half their
    hops amble your way). A slime within ~2.5m drains 1 energy every 3s, surfaced
-   as one throttled "🟢 slime drained N⚡" flash. Not catchable or feedable —
-   tapping one just wobbles it; walk away to shake a swarm.
+   as one throttled "🟢 slime drained N⚡" flash. Not catchable or feedable, but
+   DEFEATABLE: tap to start a work queue (weapon shortens it; bare hands 12s),
+   or just walk away to shake a swarm.
 
 ================================================================================
 CHESTS (POI-driven)

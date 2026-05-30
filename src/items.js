@@ -383,6 +383,8 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
   book:  20,
+  scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
+
   // ── Rock-break minerals ──────────────────────────────────
   coal:      3,
   sapphire:  30,

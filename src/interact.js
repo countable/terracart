@@ -271,96 +271,49 @@ const TAP_HANDLERS = [
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
     // the reach outline ⇔ tap-accept invariant (QC §7).
     if (tooFar(ctx, target.x, target.y)) return 'far';
-    // Slimes are an energy-leeching hazard, not livestock — they can't be
-    // caught or fed. A tap just gets a flavour wobble and consumes the tap
-    // (matching how every other creature swallows a tap aimed at it).
-    if (target.kind === 'slime') {
-      scene.flash('The slime quivers, hungry for your energy.', sx, sy);
+    // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED via a work
+    // queue rather than caught alive. A weapon (sword / bow / staff) speeds
+    // the kill up by tier; bare-handed still works but is a long slog. On
+    // completion the creature is removed from the world (marked caught) and
+    // drops its product if it has one (crow → feather, deer → meat; slimes
+    // drop nothing — they're just an energy pest). The defeat is FREE (no
+    // energy spent): your TIME at the work wheel IS the cost, which also means
+    // you can still kill the very slime that's draining you when low on energy.
+    const DEFEAT_KINDS = new Set(['slime', 'crow', 'deer']);
+    if (DEFEAT_KINDS.has(target.kind)) {
+      const r = save.relics || {};
+      const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
+      // Weapon: 3 s at tier 1, −750 ms per tier, floored at 500 ms (mirrors
+      // toolDurationMs). No weapon: a long 12 s slog — slow but always possible.
+      const durMs = weaponTier > 0
+        ? Math.max(500, 3000 - (weaponTier - 1) * 750)
+        : 12000;
+      const victim = target;
+      const dropId = victim.kind === 'crow' ? 'crow_feather'
+                   : victim.kind === 'deer' ? 'meat'
+                   : null;
+      scene.startWorkProgress(victim.x, victim.y, () => {
+        save.caught.push(victim.id);
+        save.caughtKinds = save.caughtKinds || {};
+        save.caughtKinds[victim.kind] = (save.caughtKinds[victim.kind] || 0) + 1;
+        if (dropId) {
+          scene.addToInv(dropId, 1);
+          const item = ITEM_BY_ID[dropId];
+          scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+        } else {
+          scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
+        }
+        persistSave(save);
+      }, durMs);
       return true;
     }
-    // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
-    // relic equipped (sword / bow / staff — hunting is hunting); crow /
-    // butterfly require the Bug Net. Drops are a fixed loot id, not the
-    // kind name, so we handle inventory + caught tracking inline instead of
-    // routing through scene.catchCreature (which is wired for the
-    // favourite-food chicken/cow yield logic). Bug Net tier discounts catch
-    // energy: 5 → max(1, 5 - tier).
-    //
-    // Catching adds the live animal itself to the inventory — not a derived
-    // product (the player can decide later whether to process the animal
-    // into meat / pelt / feather). The animal id matches target.kind so the
-    // catalog needs deer/rabbit/crow/butterfly entries with kind:'animal'.
-    const WILDERNESS_KINDS = new Set(['deer', 'rabbit', 'crow', 'butterfly']);
+    // Wilderness catchables — rabbit (bare-handed) and butterfly (Bug Net).
+    // Slimes / crows / deer are defeated above and never reach here. Catching
+    // adds the LIVE animal to the inventory (id matches target.kind, so the
+    // catalog needs rabbit / butterfly entries with kind:'animal'). Bug Net
+    // tier discounts catch energy: 5 → max(1, 5 - tier).
+    const WILDERNESS_KINDS = new Set(['rabbit', 'butterfly']);
     if (WILDERNESS_KINDS.has(target.kind)) {
-      // Two tap modes for wilderness fauna, by KIND:
-      //
-      //   crow + deer   →  HUNT with a weapon (sword / bow / staff). Tap
-      //                    drops a processed product (feather / meat). With
-      //                    no weapon equipped, the creature gets SCARED and
-      //                    flees the player for 60 s — wanderCreatures
-      //                    honours _scaredUntilT.
-      //   butterfly     →  CATCH alive with the bug net (kept in the inv
-      //                    as a live animal).
-      //   rabbit        →  CATCH alive bare-handed, no relic gate.
-      const r = save.relics || {};
-      const hasWeapon = !!(r.sword || r.bow || r.staff);
-      const isHuntable = target.kind === 'crow' || target.kind === 'deer';
-      if (isHuntable) {
-        if (!hasWeapon) {
-          // Scare the creature instead of catching it — it flees for SCARE_MS
-          // (wanderCreatures inverts its angle toward the player while
-          // _scaredUntilT is in the future), then drifts back home.
-          //
-          // For CROWS this is a flock "shoo": the tapped bird AND every other
-          // wild crow within SHOO_R scatters at once. Scaring a single crow
-          // felt useless — the rest of the flock kept circling the field and
-          // the pest-pump refilled the gap within seconds — so one tap now
-          // clears the whole neighbourhood. SCARE_MS (90 s) matches the
-          // pest-respawn interval so a shoo buys a full quiet window.
-          const SCARE_MS = 90 * 1000;
-          const until = performance.now() + SCARE_MS;
-          target._scaredUntilT = until;
-          let shooed = 1;
-          if (target.kind === 'crow') {
-            const SHOO_R2 = (6 * scene.cellM) * (6 * scene.cellM);
-            WorldGen.forEachItem('creatures', (other) => {
-              if (other === target || other.kind !== 'crow') return;
-              if (typeof other.id === 'string' && other.id.startsWith('released_')) return;
-              if (save.caught.includes(other.id)) return;
-              const dx = other.x - target.x, dy = other.y - target.y;
-              if (dx * dx + dy * dy <= SHOO_R2) { other._scaredUntilT = until; shooed++; }
-            });
-          }
-          const msg = target.kind === 'crow'
-            ? (shooed > 1 ? `🪶 flock scatters ×${shooed}` : '🪶 runs away')
-            : '🦌 runs away';
-          scene.flash(msg, sx, sy);
-          ctx.dirty = true;
-          return true;
-        }
-        // Successful hunt — pick one of the player's equipped weapons at
-        // random for the on-screen "swing" flash. Looks like a quick
-        // animated tap of the actual relic the player is holding.
-        const weapons = [];
-        if (r.sword) weapons.push('🗡');
-        if (r.bow)   weapons.push('🏹');
-        if (r.staff) weapons.push('🪄');
-        const wepIcon = pickFromArray(weapons) || '⚔';
-        const cost = Math.max(1, (ENERGY_COST?.catch ?? 0));
-        if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const dropId = target.kind === 'crow' ? 'crow_feather' : 'meat';
-        save.caught.push(target.id);
-        save.caughtKinds = save.caughtKinds || {};
-        save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-        scene.addToInv(dropId, 1);
-        ctx.dirty = true;
-        // Two-line flash: weapon icon "swung" at the target, then the drop
-        // label slightly above it. flashLoot already tweens upward + fades.
-        scene.flash(wepIcon, sx, sy);
-        const item = ITEM_BY_ID[dropId];
-        scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
-        return true;
-      }
       // Bug-net path for butterflies; bare-handed catch for rabbits.
       const isFlying = target.kind === 'butterfly';
       if (isFlying && !save.relics?.bugnet) {

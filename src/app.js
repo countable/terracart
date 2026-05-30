@@ -1229,17 +1229,16 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Eight starter crates: one of 9 potato seeds (the player's first crop —
-      // inventory starts empty), one scarecrow (so the player can defend that
-      // first field from crows on day one), three of 5 wood for restoring a
-      // plain house, three of 5 rockfruit for restoring a themed shop —
-      // interleaved so the trail alternates. Per-crate counts stay within the
-      // no-bag stack cap (9) so nothing overflows. Fixed contents instead of
-      // the unified rarity picker — the player gets exactly what they need to
-      // bootstrap the restoration loop.
+      // Seven starter crates: one of 9 potato seeds (the player's first crop —
+      // inventory starts empty), three of 5 wood for restoring a plain house,
+      // three of 5 rockfruit for restoring a themed shop — interleaved so the
+      // trail alternates. Per-crate counts stay within the no-bag stack cap (9)
+      // so nothing overflows. Fixed contents instead of the unified rarity
+      // picker — the player gets exactly what they need to bootstrap the
+      // restoration loop. (No free scarecrow — it's sold at the forced
+      // scarecrow shop, the next house out past the starter blacksmith.)
       const STARTER_LOOT = [
         { id: 'potato_seed', qty: 9 },
-        { id: 'scarecrow',   qty: 1 },
         { id: 'wood',        qty: 5 },
         { id: 'rockfruit',   qty: 5 },
         { id: 'wood',        qty: 5 },
@@ -1906,9 +1905,9 @@ class MapScene extends Phaser.Scene {
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
     // (see below). Eased from "top up to 2 every 30 s" — that relentless pump
-    // made crops unfarmable: you'd shoo a bird and another arrived seconds
-    // later. Now the pump only backfills an emptied field, and slowly, so a
-    // flock-shoo (interact.js) actually buys a quiet window.
+    // made crops unfarmable: another bird arrived seconds after you dealt with
+    // the last. Now the pump only backfills an emptied field, and slowly, so
+    // defeating the crows near your field actually buys a quiet window.
     this._lastPestT = this._lastPestT || 0;
     if (this.save.planted && this.save.planted.length > 0 && now - this._lastPestT > 90000) {
       this._lastPestT = now;
@@ -2008,20 +2007,16 @@ class MapScene extends Phaser.Scene {
             if (dx * dx + dy * dy <= 64) pp.canBoost = true;
           }
         }
-        // Movement target — four modes, checked in order:
-        //   (a) Scared (_scaredUntilT > now): the creature flees the player
-        //       at full step distance until the timer expires. Set when a
-        //       weapon-less player taps a wild crow / deer.
-        //   (b) Cat-following (_followUntilT > now): cat homes in on the
+        // Movement target — modes checked in order:
+        //   (a) Cat-following (_followUntilT > now): cat homes in on the
         //       player, gap-stopping so it doesn't mob.
+        //   (b) Slime — lazily drawn toward the player.
         //   (c) Tame pets — tighter home-bias radius so they stay near
         //       their drop point.
         //   (d) Default — wild farm animals random-wander around home.
-        // Wild crows take a separate path (_wildCrowTick) above; deer still
-        // use the generic random wander since they don't yet have flight
-        // semantics.
+        // Wild crows take a separate path (_wildCrowTick) above; deer use the
+        // generic random wander.
         const FOLLOW_GAP = 1.5 * this.cellM;
-        const isScared = c._scaredUntilT && c._scaredUntilT > now;
         const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const homeRadius = isTame ? 1.5 * this.cellM : 3 * this.cellM;
@@ -2031,10 +2026,7 @@ class MapScene extends Phaser.Scene {
         let tx = c.x, ty = c.y, angle = 0;
         let foundValidTarget = false;
         for (let attempt = 0; attempt < 6; attempt++) {
-          if (isScared) {
-            // Flee directly away from the player, jittered.
-            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
-          } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
+          if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
@@ -2115,20 +2107,18 @@ class MapScene extends Phaser.Scene {
   // landed position inside the crop's cell, starting the 2-cycle pause.
   // Once committed, the crow keeps hopping on the crop, decrementing the
   // cycle counter each landing; it eats only when the counter hits 0.
-  // Scaring or capturing the crow during the pause cancels the
-  // destruction, giving the player a generous grace window.
+  // Defeating the crow during the pause cancels the destruction, giving the
+  // player a generous grace window.
   _wildCrowTick(c, now, px, py) {
-    const isScared = c._scaredUntilT && c._scaredUntilT > now;
     // (1) Resolve any pending crop destruction. The destroy timer arms
     // when the crow lands on a crop's cell; it fires here if the crop
     // is still present, or quietly cancels if the player harvested it
-    // first (or the crow was scared off).
+    // first.
     if (c._destroyCropRef && this.save.planted.indexOf(c._destroyCropRef) < 0) {
       c._destroyCropRef = null;
       c._destroyAtT = null;
       c._destroyCyclesLeft = 0;
     }
-    if (isScared) { c._destroyCropRef = null; c._destroyAtT = null; c._destroyCyclesLeft = 0; }
     if (c._destroyAtT != null && now >= c._destroyAtT) {
       const idx = c._destroyCropRef ? this.save.planted.indexOf(c._destroyCropRef) : -1;
       if (idx >= 0) {
@@ -2159,7 +2149,7 @@ class MapScene extends Phaser.Scene {
       c._flightUntilT = null;
       c._perchUntilT = now + 2000 + Math.random() * 2500;
       c._faceFlip = (c._targetX - c._startX) < 0;
-      if (!isScared && this.save.planted) {
+      if (this.save.planted) {
         const NEAR2 = (this.cellM * 0.5) * (this.cellM * 0.5);
         let landedOn = null;
         for (const pp of this.save.planted) {
@@ -2194,7 +2184,7 @@ class MapScene extends Phaser.Scene {
     // (6) Time to launch a new flight burst. Pick a target with up to
     // 6 attempts so we can reject water / buildings / scarecrow rings.
     let tx = c.x, ty = c.y, chosen = false;
-    const committed = !isScared && c._destroyCropRef &&
+    const committed = c._destroyCropRef &&
       c._destroyCyclesLeft > 0 && this.save.planted &&
       this.save.planted.indexOf(c._destroyCropRef) >= 0;
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
@@ -2205,12 +2195,6 @@ class MapScene extends Phaser.Scene {
         const r = Math.random() * 0.3 * this.cellM;
         tx = c._destroyCropRef.x + Math.cos(ang) * r;
         ty = c._destroyCropRef.y + Math.sin(ang) * r;
-      } else if (isScared) {
-        // Flee — fly away from the player, ~2–3 cells, jittered.
-        const a = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.5;
-        const d = (2 + Math.random() * 1) * this.cellM;
-        tx = c.x + Math.cos(a) * d;
-        ty = c.y + Math.sin(a) * d;
       } else if (this.save.planted && this.save.planted.length) {
         // ORBIT the nearest planted crop the crow can NOTICE. Notice radius is
         // DETECT_R (~15 cells — the full on-screen sim range, so crows spot a
@@ -2251,7 +2235,7 @@ class MapScene extends Phaser.Scene {
       }
       // Cap any single flight leg to ~2.5 cells so a crow APPROACHES a crop
       // over several hops instead of teleport-swooping the whole distance in
-      // one glide. In-place hops (committed) and short roams/flees are already
+      // one glide. In-place hops (committed) and short roams are already
       // under the cap; this only shortens a long approach toward a noticed
       // crop. Capping BEFORE the cell gate means the intermediate landing
       // point — not the far crop — is what gets validated for water/buildings.
@@ -3049,6 +3033,34 @@ class MapScene extends Phaser.Scene {
   //   'buy'      → routine seed/produce/barter buy
   //   'relic'    → a relic offer (non-starter)
   //   'forge'    → blacksmith forge offer
+  // One-time scarecrow sale at the forced scarecrow shop. Cash only; on
+  // accept it deducts the price, grants one scarecrow, and flips
+  // save.scarecrowShopUsed so the house reverts to its normal role. Mirrors
+  // the cash branch of the regular buy modal (loud loot pop, real sprite).
+  presentScarecrowOffer(sx, sy, house, recordDeal) {
+    const id = 'scarecrow';
+    const item = ITEM_BY_ID[id];
+    const price = PRICES[id] ?? 30;
+    const canAfford = () => (this.save.money ?? 0) >= price;
+    this.showOfferModal({
+      title: 'The farmhand offers a scarecrow:',
+      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
+      blurb: 'Crows and deer steer clear of a planted field.',
+      cost: `$${price}`,
+      canAfford: canAfford(),
+      onAccept: () => {
+        if (!canAfford()) { this.flash(`need $${price}`, sx, sy); return; }
+        addMoney(this.save, -price);
+        this.addToInv(id, 1);
+        this.save.scarecrowShopUsed = true;
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`🪙 ${item?.name || id}\n−$${price}`, '#ffe066', 1, id);
+      },
+    });
+  }
+
   buildingFlavorTitle(house, action) {
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isFort   = !!house && house.tier === 11;
@@ -3165,6 +3177,15 @@ class MapScene extends Phaser.Scene {
     // forge branch below fires regardless of the underlying house number.
     const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
     const isFort = !!house && house.tier === 11;
+    // Forced scarecrow shop (the house just past the starter blacksmith).
+    // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
+    // and the house reverts to its normal role (delivery / shop). Checked
+    // before every other small-house branch so it wins regardless of the
+    // underlying address-derived role.
+    if (!isCastle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
+      this.presentScarecrowOffer(sx, sy, house, recordDeal);
+      return;
+    }
     // Plain houses — small residential without a shop role and not the
     // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
     // produce and buys it as a bundle: one of each, full price, no sword
@@ -3485,6 +3506,54 @@ class MapScene extends Phaser.Scene {
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'house' || !o.id || o.id === starterId) continue;
+        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
+        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
+      }
+    }
+    return bestId;
+  }
+
+  // Forced scarecrow shop. The next house out past the starter blacksmith
+  // (so: Home is nearest, smithy is 2nd, this is 3rd) is pinned as a one-time
+  // scarecrow vendor — the player begins with no scarecrow now, so this is
+  // where they buy their first crow/deer ward. Memoized like the blacksmith.
+  // Sells a single scarecrow for cash, then reverts to a normal house (see
+  // save.scarecrowShopUsed).
+  isScarecrowShop(house) {
+    if (!house || !house.id) return false;
+    if (this.save.scarecrowShopId == null) {
+      const id = this.findScarecrowShopId();
+      if (id) this.save.scarecrowShopId = id;
+    }
+    return this.save.scarecrowShopId === house.id;
+  }
+
+  findScarecrowShopId() {
+    // Anchor at the blacksmith (resolving it first) and exclude both Home and
+    // the smithy, so the nearest remaining small house becomes the scarecrow
+    // shop — one house further out than the smithy. Same guarded-resolver +
+    // BUILDING-tier filter as findStarterBlacksmithId.
+    this.ensureStarterShopId();
+    const starterId = this.save.starterShopId;
+    const smithId = this.save.starterBlacksmithId != null
+      ? this.save.starterBlacksmithId : this.findStarterBlacksmithId();
+    // Anchor the search at the smithy when it's loaded, else fall back to spawn
+    // so the choice converges once tiles around home stream in.
+    let fromPos = this.startWorldM;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind === 'house' && o.id === smithId) {
+          fromPos = { x: o.x, y: o.y }; break;
+        }
+      }
+    }
+    let bestId = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house' || !o.id) continue;
+        if (o.id === starterId || o.id === smithId) continue;
         if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
         const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
         const d2 = dx * dx + dy * dy;

@@ -1744,103 +1744,110 @@ test('fishing handler: tap water without rod flashes need-rod', (scene) => {
 // the directly-evaluated `fishing handler tap water without rod flashes`
 // + the explicit fish-weight unit tests.
 
-test('crow catch without bugnet flashes need-bug-net', (scene) => {
+// Creatures are now DEFEATED via a work queue (slime/crow/deer): tapping
+// starts the wheel; finishing it removes the creature + grants its drop.
+// A weapon shortens the wheel by tier; bare-handed is a long 12s slog.
+test('defeat: bare-handed crow tap starts a long 12s work queue, no instant catch', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = scene.save.relics || {};
-  scene.save.relics.bugnet = null;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, bugnet: null };
   scene.save.caught = scene.save.caught || [];
-  scene.save.inv = []; scene.save.selSlot = 0;
-  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene._workProgress = null;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow_' + Date.now() };
   entry.creatures.push(crow);
   try {
     tapWorld(scene, pWX, pWY);
-    assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught without bugnet');
-    assert.eq(invCount(scene, 'crow_feather'), 0, 'no crow_feather');
+    assert.truthy(scene._workProgress, 'tapping a crow starts the defeat work queue');
+    assert.eq(scene._workProgress.durationMs, 12000, 'bare-handed → 12s queue');
+    assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught until the queue finishes');
+    assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather until the queue finishes');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
   }
 });
 
-test('crow hunt: with a weapon equipped drops a crow_feather, no live crow', (scene) => {
-  // Mechanic changed: bug-net catch was replaced by weapon-hunting. A weapon
-  // relic (sword/bow/staff) is required; the drop is the processed feather,
-  // not a live crow.
+test('defeat: a weapon shortens the queue; finishing it removes the crow + drops a feather', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
   scene.save.caught = scene.save.caught || [];
-  scene.save.inv = []; scene.save.selSlot = 0;
-  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene._workProgress = null;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow2_' + Date.now() };
   entry.creatures.push(crow);
   try {
     tapWorld(scene, pWX, pWY);
-    assert.truthy(scene.save.caught.includes(crow.id), 'crow downed with weapon');
+    assert.truthy(scene._workProgress, 'weapon tap starts the queue');
+    assert.eq(scene._workProgress.durationMs, 3000, 'tier-1 weapon → 3s queue');
+    // Force the wheel to completion (fires onComplete, no real-time wait).
+    scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
+    scene._drawWorkProgress();
+    assert.truthy(scene.save.caught.includes(crow.id), 'crow removed when the queue finishes');
     assert.eq(invCount(scene, 'crow_feather'), 1, '1 feather dropped');
     assert.eq(invCount(scene, 'crow'), 0, 'no live crow in inventory');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
   }
 });
 
-test('crow hunt: no weapon → scared, not caught, _scaredUntilT in future', (scene) => {
+test('defeat: slime → finishing the queue removes it with no drop; weapon tier shortens it', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null, bugnet: null };
+                        sword: null, bow: { tier: 2 }, staff: null, bugnet: null };
   scene.save.caught = scene.save.caught || [];
-  scene.save.inv = []; scene.save.selSlot = 0;
-  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene._workProgress = null;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
-  const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_scared_crow_' + Date.now() };
-  entry.creatures.push(crow);
+  const slime = { x: pWX, y: pWY, kind: 'slime', id: 'test_slime_' + Date.now() };
+  entry.creatures.push(slime);
   try {
-    const t0 = performance.now();
     tapWorld(scene, pWX, pWY);
-    assert.falsy(scene.save.caught.includes(crow.id), 'crow NOT caught bare-handed');
-    assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather without weapon');
-    assert.gt(crow._scaredUntilT || 0, t0 + 30000, 'scared timer set ~60 s into future');
+    assert.truthy(scene._workProgress, 'tapping a slime starts the queue');
+    assert.eq(scene._workProgress.durationMs, 2250, 'tier-2 weapon → 2.25s queue');
+    scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
+    scene._drawWorkProgress();
+    assert.truthy(scene.save.caught.includes(slime.id), 'slime removed when the queue finishes');
+    assert.eq((scene.save.inv || []).length, 0, 'slime drops nothing');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
   }
 });
 
-test('deer hunt: no weapon → scared 60s; with weapon → drops meat, no live deer', (scene) => {
+test('defeat: deer with a weapon → finishing the queue drops meat and removes the deer', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: { tier: 1 }, bugnet: null };
   scene.save.caught = scene.save.caught || [];
-  scene.save.inv = []; scene.save.selSlot = 0;
-  scene.save.energy = 100;
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene._workProgress = null;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
   const deer = { x: pWX, y: pWY, kind: 'deer', id: 'test_deer_' + Date.now() };
   entry.creatures.push(deer);
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null };
   try {
-    const t0 = performance.now();
     tapWorld(scene, pWX, pWY);
-    assert.falsy(scene.save.caught.includes(deer.id), 'no catch bare-handed');
-    assert.eq(invCount(scene, 'meat'), 0, 'no meat without weapon');
-    assert.gt(deer._scaredUntilT || 0, t0 + 30000, 'deer scared ~60s into future');
-    // Equip a staff to satisfy the weapon gate; clear the scare so the
-    // hunt branch fires (it returns early when scared also? no — the
-    // scared flag only steers wander, not interact. Hunt still works.).
-    scene.save.relics.staff = { tier: 1 };
-    tapWorld(scene, pWX, pWY);
-    assert.truthy(scene.save.caught.includes(deer.id), 'deer downed with weapon');
+    assert.truthy(scene._workProgress, 'tapping a deer starts the queue');
+    scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
+    scene._drawWorkProgress();
+    assert.truthy(scene.save.caught.includes(deer.id), 'deer removed when the queue finishes');
     assert.eq(invCount(scene, 'meat'), 1, '1 meat dropped');
     assert.eq(invCount(scene, 'deer'), 0, 'no live deer in inventory');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
   }
 });
 

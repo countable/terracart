@@ -1226,6 +1226,12 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) {
       return `Blacksmith ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
+    // Forced scarecrow shop — signed only while it still has one to sell.
+    // After the sale it reverts to its underlying role (handled below).
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) {
+      return `Scarecrows ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    }
     const shopLbl = Shops.shopLabel(o);
     if (shopLbl) return shopLbl;
     // No specialty? Still give the building a label so the map reads as a
@@ -1253,6 +1259,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (_houseRole(o) === 'wreck') return null;                          // hidden until restored
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return null;             // Home
     if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return null; // starter smithy
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) return null;                   // active scarecrow shop (text sign instead)
     if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return null; // specialty shop
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length ? wanted : null;
@@ -1274,6 +1282,8 @@ Render.drawObjects = function drawObjects(scene) {
   const _houseSignInk = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
     if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return _ROLE_INK.blacksmith;
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
     const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
     if (t && _ROLE_INK[t]) return _ROLE_INK[t];
     if (o.tier === 12) return _CASTLE_INK;
