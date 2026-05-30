@@ -678,7 +678,7 @@ Render.drawCells = function drawCells(scene) {
     const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
     let s = scene.starterBoxPool[boxIdx];
     if (!s) {
-      s = scene.add.image(0, 0, 'box').setOrigin(0.5, 0.9).setDepth(50);
+      s = scene.add.image(0, 0, 'box').setOrigin(0.5, 0.5).setDepth(50);
       scene.starterBoxPool.push(s);
     }
     s.setPosition(Math.round(cx), Math.round(cy)).setScale(1.2).setVisible(true);
@@ -1332,7 +1332,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (gameEl) {
       const rect = gameEl.getBoundingClientRect();
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
-      const ICON_GAME = 13;                    // per-icon side in game px
+      const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
       for (const it of filteredObj) {
         const wanted = _houseProduceWanted(it.o);
@@ -1341,8 +1341,12 @@ Render.drawObjects = function drawObjects(scene) {
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
-          el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:2px;'
-            + 'padding:2px 3px;background:rgba(0,0,0,0.55);border-radius:4px;'
+          // White rounded callout — a little speech bubble that floats above the
+          // house roof (where the old open/busy pip used to sit). The downward
+          // tail is a separate child triangle added during the icon rebuild.
+          el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:3px;'
+            + 'align-items:center;padding:3px 5px;background:#fff;border-radius:7px;'
+            + 'border:1px solid rgba(0,0,0,0.18);box-shadow:0 1px 3px rgba(0,0,0,0.4);'
             + 'pointer-events:none;z-index:4;will-change:transform;';
           document.body.appendChild(el);
           slot = { el, key: null };
@@ -1357,14 +1361,23 @@ Render.drawObjects = function drawObjects(scene) {
             const ic = scene.renderItemIcon ? scene.renderItemIcon(id, sizePx, 'block') : null;
             if (ic) slot.el.appendChild(ic);
           }
+          // Downward tail — a CSS triangle absolutely positioned at the bubble's
+          // bottom centre so it points at the house. position:absolute keeps it
+          // out of the flex flow, so it doesn't shift the icon row.
+          const tail = document.createElement('div');
+          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+            + 'border-top:6px solid #fff;transform:translateX(-50%);'
+            + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+          slot.el.appendChild(tail);
           slot.key = key;
         }
-        // Centre the plaque on the house foot, just below it (matches the
-        // text sign's sy+7). translateX(-50%) centres without a scale term
-        // because the icons are already sized in screen px.
+        // Float the bubble ABOVE the house roof: translate(-50%,-100%) anchors it
+        // by its bottom-centre at sy-18 — where the old open pip tucked — so the
+        // bubble and its tail rise above the building like a callout.
         const px = rect.left + sx * scale;
-        const py = rect.top  + (sy + 7) * scale;
-        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translateX(-50%)`;
+        const py = rect.top  + (sy - 18) * scale;
+        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
         slot.el.style.display = 'flex';
         psi++;
       }
@@ -1398,6 +1411,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
+    // Hosts (residential houses with a wanted-items callout) show that bubble
+    // where this pip would sit — see the produce-sign block above — so they
+    // skip the separate open/busy pip entirely.
+    if (_houseProduceWanted(o)) continue;
     const { sx, sy } = project(dx, dy);
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
