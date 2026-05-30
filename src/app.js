@@ -908,6 +908,10 @@ class MapScene extends Phaser.Scene {
     // keyboard / joystick movement only — GPS would snap them away to their
     // real-world coords on first fix.
     if (this._sandboxMode) return;
+    // A teleport preset relocates the world origin; live GPS would immediately
+    // snap the player back to their real location, so leave it off while an
+    // override is active (same rationale as sandbox above).
+    if (_teleportOverride) { this.gpsAvailable = false; return; }
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
     try {
@@ -1129,14 +1133,14 @@ class MapScene extends Phaser.Scene {
     // Wilderness fauna:
     //   rabbit    → grass / forest / park (skittish, wide)
     //   deer      → forest + park (rare, weapon-gated)
-    //   crow      → global — smart birds; ~35/tile (eased from ~70: that
-    //               density made every field swarm while farming)
+    //   crow      → global — smart birds; ~200/tile (heavy swarm, paired with
+    //               the starter scarecrow + wide 15-cell notice radius)
     //   butterfly → park / forest (flower-rich biomes)
     const rabbitN = 30 + Math.floor(rng() * 20);
     for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
-    const crowN = 30 + Math.floor(rng() * 15);
+    const crowN = 200;
     for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
     const butterflyN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
@@ -1221,15 +1225,17 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Seven starter crates: one of 9 potato seeds (the player's first crop —
-      // inventory starts empty), three of 5 wood for restoring a plain house,
-      // three of 5 rockfruit for restoring a themed shop — interleaved so the
-      // trail alternates. Per-crate counts stay within the no-bag stack cap (9)
-      // so nothing overflows. Fixed contents instead of the unified rarity
-      // picker — the player gets exactly what they need to bootstrap the
-      // restoration loop.
+      // Eight starter crates: one of 9 potato seeds (the player's first crop —
+      // inventory starts empty), one scarecrow (so the player can defend that
+      // first field from crows on day one), three of 5 wood for restoring a
+      // plain house, three of 5 rockfruit for restoring a themed shop —
+      // interleaved so the trail alternates. Per-crate counts stay within the
+      // no-bag stack cap (9) so nothing overflows. Fixed contents instead of
+      // the unified rarity picker — the player gets exactly what they need to
+      // bootstrap the restoration loop.
       const STARTER_LOOT = [
         { id: 'potato_seed', qty: 9 },
+        { id: 'scarecrow',   qty: 1 },
         { id: 'wood',        qty: 5 },
         { id: 'rockfruit',   qty: 5 },
         { id: 'wood',        qty: 5 },
@@ -2160,16 +2166,16 @@ class MapScene extends Phaser.Scene {
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       } else if (this.save.planted && this.save.planted.length) {
-        // ORBIT the nearest planted crop the crow can actually NOTICE. Ambient
-        // crows only spot crops within DETECT_R (~6 cells, about the visible
-        // radius). Without this gate every crow inside the sim range (~15
-        // cells — beyond the screen edge) b-lined to your field, so birds
-        // appeared to notice you "from across the map." Deliberate pest crows
-        // (id `pest_crow_*`, spawned off-screen to harass) keep an unlimited
-        // range — seeking the crop is their whole purpose. 30% of notice-
-        // flights collapse to a tight ring that may land on the crop cell.
+        // ORBIT the nearest planted crop the crow can NOTICE. Notice radius is
+        // DETECT_R (~15 cells — the full on-screen sim range, so crows spot a
+        // field from across the screen). They don't teleport in, though: the
+        // flight-leg cap below makes them approach over several short hops, so
+        // a far crow visibly flies toward the field rather than snapping onto
+        // it. Deliberate pest crows (id `pest_crow_*`) keep unlimited range.
+        // 30% of notice-flights collapse to a tight ring that may land on the
+        // crop cell.
         const isPest = typeof c.id === 'string' && c.id.startsWith('pest_crow_');
-        const DETECT_R = 6 * this.cellM;
+        const DETECT_R = 15 * this.cellM;
         let nearest = null, bestD2 = isPest ? Infinity : DETECT_R * DETECT_R;
         for (const pp of this.save.planted) {
           const dx = pp.x - c.x, dy = pp.y - c.y;
