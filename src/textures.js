@@ -455,6 +455,92 @@ function makeTowerTexture(scene) {
   tex.refresh();
 }
 
+// Procedural "pot of gold" — the in-world art for the coin-burst POIs
+// (ATM + bicycle_parking). Tapping one of these spills a burst of collectible
+// coins, so a little cast-iron cauldron brimming with gold reads the mechanic
+// at a glance (and replaces the old tinted-chest stand-in flagged in render.js).
+// Single-frame canvas texture keyed 'potofgold'; the render spec leaves `frame`
+// undefined for it, exactly like the themed-house sprites.
+function makePotOfGoldTexture(scene) {
+  const KEY = 'potofgold';
+  if (scene.textures.exists(KEY)) return;
+  const W = 24, H = 22;
+  const tex = scene.textures.createCanvas(KEY, W, H);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, H);
+  const cx = 12;
+
+  // ── Cast-iron cauldron body ─────────────────────────────────────────
+  // A dark rounded pot drawn as an ellipse, with a belly highlight/shadow
+  // and three stubby feet so it reads as a pot rather than a blob.
+  const bodyCY = 14, bodyRX = 9, bodyRY = 7;
+  ctx.fillStyle = '#2b2b32';
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';   // left-belly highlight
+  ctx.beginPath();
+  ctx.ellipse(cx - 3, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';          // right-belly shadow
+  ctx.beginPath();
+  ctx.ellipse(cx + 4, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rim band + dark inner mouth (so the gold reads as overflowing the pot).
+  ctx.fillStyle = '#3b3b44';
+  ctx.beginPath();
+  ctx.ellipse(cx, 8, 9, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a1a1e';
+  ctx.beginPath();
+  ctx.ellipse(cx, 8, 7, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Three little feet.
+  ctx.fillStyle = '#1f1f24';
+  ctx.fillRect(cx - 7, 19, 3, 2);
+  ctx.fillRect(cx - 1, 20, 3, 2);
+  ctx.fillRect(cx + 4, 19, 3, 2);
+
+  // ── Gold pile overflowing the mouth ─────────────────────────────────
+  const gold = '#ffcf3a', goldHi = '#ffe98a', goldLo = '#e0a020';
+  ctx.fillStyle = gold;                        // base mound
+  ctx.beginPath();
+  ctx.ellipse(cx, 7, 8, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Rounded coin bumps on top — each is a low-shadow + body + highlight dot.
+  const coins = [
+    [cx - 4, 5, 2.4], [cx + 1, 4, 2.6], [cx + 5, 6, 2.2],
+    [cx - 1, 7, 2.2], [cx + 3, 8, 1.8],
+  ];
+  for (const [x, y, r] of coins) {
+    ctx.fillStyle = goldLo;
+    ctx.beginPath(); ctx.ellipse(x, y + 0.6, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = goldHi;
+    ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.25, r * 0.4, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // A couple of coins spilling down each side of the pot.
+  for (const [x, y] of [[cx - 8, 11], [cx + 9, 12]]) {
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.ellipse(x, y, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = goldHi;
+    ctx.beginPath(); ctx.ellipse(x - 0.4, y - 0.4, 0.8, 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Crisp dark outline along the lower belly for pixel-art pop (the top is
+  // hidden behind the gold, so only stroke the visible bottom arc).
+  ctx.strokeStyle = '#15151a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, Math.PI * 0.12, Math.PI * 0.88);
+  ctx.stroke();
+
+  tex.refresh();
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     for (let v = 0; v < spec.variants; v++) {

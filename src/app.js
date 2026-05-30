@@ -510,6 +510,8 @@ class MapScene extends Phaser.Scene {
     // the produce icon onto a wooden sign.
     makeFloraTextures(this);
     makeTowerTexture(this);
+    // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
+    makePotOfGoldTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
     // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
     // 'props' sheet, which reads as a hand-painted grass tuft consistent

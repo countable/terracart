@@ -871,6 +871,9 @@ Render.drawObjects = function drawObjects(scene) {
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
   };
+  // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
+  // collectible coins, so they render as a "pot of gold" instead of a chest.
+  const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
   const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
@@ -974,18 +977,17 @@ Render.drawObjects = function drawObjects(scene) {
               // above. Nudge the foot down to the cell's front (bottom) edge
               // so each tree stands inside its own cell.
               dyPx: CELL_PX * 0.5 },
-    chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
+    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
-              frame: 0, origin: [0.5, 0.9], scale: 2.0,
-              // Coin-burst POIs (bicycle_parking + atm) reuse the chest sprite
-              // but get a tint so the player can spot them: ATM = green, bike
-              // rack = gold. TODO: swap in a proper bike sprite if/when one
-              // lands in Sprites/Vehicles_16x16/ (currently only Tractor).
-              after: (s, o) => {
-                if (o.poiClass === 'atm') s.setTint(0x6fdc7a);
-                else if (o.poiClass === 'bicycle_parking') s.setTint(0xffcf3a);
-              } },
+              // Coin-burst POIs (ATM + bicycle_parking) render the procedural
+              // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
+              // which is single-frame — so leave `frame` undefined for them,
+              // exactly like the themed-house sprites. The pot art is already
+              // gold, so no tint is applied.
+              frame: (o) => _isCoinBurst(o) ? undefined : 0,
+              origin: (o) => _isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9],
+              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0 },
     fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
               origin: [0.5, 0.95], scale: 0.85,
               after: (s, o) => {
