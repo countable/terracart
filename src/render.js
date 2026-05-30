@@ -1328,8 +1328,19 @@ Render.drawObjects = function drawObjects(scene) {
       scene.events.once('shutdown', drop);
       scene.events.once('destroy', drop);
     }
+    // While a full-screen dialog is open, suppress the wishlist callouts.
+    // They live in <body> (z-index 4), but every modal is appended inside
+    // #game, whose CSS transform makes it a stacking context with effective
+    // z-index:auto — so the modal's higher internal z-index can NOT paint
+    // over a positive-z-index body child, and the bubble pokes through the
+    // dim. A correctly layered callout would sit under the modal dim
+    // (invisible) anyway, so just hide them. Skipping the build loop leaves
+    // psi at 0, so the hide-tail below collapses the whole pool. Add new
+    // full-screen modal ids here if more are introduced.
+    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'stats-modal'];
+    const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
     let psi = 0;
-    if (gameEl) {
+    if (gameEl && !dialogOpen) {
       const rect = gameEl.getBoundingClientRect();
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
