@@ -361,20 +361,22 @@ class MapScene extends Phaser.Scene {
     if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
       this.save.restoredHouses = {};
     }
-    // Starter-tools gift: old starter shop used to stock a wood pick + axe
-    // until each was bought. That shop is gone now, but the player still
-    // needs the tools to collect wood + rockfruit (the restoration
-    // materials) on day one. Gift them directly.
+    // No starter-tools gift: the player begins tool-less and forges their
+    // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
+    // Wood comes from ground stacks + bare-handed shrub chops (no tool
+    // needed), and the starter crate seeds the first 5 wood, so the very
+    // first pick is always reachable on day one.
     //
-    // NOTE: this is intentionally NOT gated behind starterToolsGifted. The
-    // axe gift was added AFTER many saves already had starterToolsGifted=true,
-    // so those players could never chop. Ensuring pick + axe always exist (a
-    // no-op once both are present) backfills the axe for older saves while
-    // still never overwriting a tool the player has already upgraded.
-    this.save.relics = this.save.relics || {};
-    if (!this.save.relics.pick) this.save.relics.pick = { tier: 1 };
-    if (!this.save.relics.axe)  this.save.relics.axe  = { tier: 1 };
-    this.save.starterToolsGifted = true;
+    // One-time migration for saves made under the old gift: strip the free
+    // tier-1 pick/axe so existing players also start the forge loop. Only
+    // nulls a *wooden* (tier 1) tool — an upgraded pick/axe was earned and
+    // is left alone. Gated behind a flag so a re-forged wooden tool isn't
+    // re-wiped on the next reload.
+    if (!this.save.starterToolsStripped) {
+      if (this.save.relics?.pick?.tier === 1) this.save.relics.pick = null;
+      if (this.save.relics?.axe?.tier  === 1) this.save.relics.axe  = null;
+      this.save.starterToolsStripped = true;
+    }
     // Soft cap on unbounded "history" save fields. A heavy player who walks
     // for hours can balloon these to MBs and silently break localStorage
     // writes (quota exceeded). Keeping the MOST RECENT N entries means the
@@ -3391,7 +3393,7 @@ class MapScene extends Phaser.Scene {
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
   // is forced to be a Blacksmith that forges T1 pick / axe / hoe out of
-  // rockfruit (wild stones, no tool needed) and tree (chopped logs).
+  // a flat 5 wood each (see starterBlacksmithRecipe).
   // Memoized once like starterShopId so reloads + roaming keep the same shop.
   // Falls through to the normal random-relic forge once all three wooden
   // tools have been crafted — the smithy keeps doing useful business.
@@ -4291,11 +4293,11 @@ class MapScene extends Phaser.Scene {
     return !this.save.restoredHouses?.[house.id];
   }
 
-  // Restoration cost: every house repair costs a flat 5 stone (rockfruit —
+  // Restoration cost: every house repair costs a flat 3 stone (rockfruit —
   // wild residential debris, gatherable bare-handed). Themed shops and plain
   // residential alike rebuild from the same masonry.
   _wreckRestoreCost(house) {
-    return { id: 'rockfruit', qty: 5, material: 'stone' };
+    return { id: 'rockfruit', qty: 3, material: 'stone' };
   }
 
   presentWreckRestoreModal(sx, sy, house) {
