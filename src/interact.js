@@ -87,6 +87,24 @@ const TERRAIN = {
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
 };
 
+// Shared work-queue launcher for tool-driven interactions (chop, mine, pick).
+// Looks up the correct duration from toolDurationMs (falling back to 9s
+// bare-hands / 3s T1 if the helper isn't available), optionally pre-spends
+// energy (returning true without starting if the player can't afford it),
+// then starts the progress wheel. Always returns true (consumed the tap).
+//   relicSlot  — the relic key passed to toolDurationMs ('axe', 'pick', etc.)
+//   energyCost — energy to spend up-front (0 / falsy = free)
+//   onComplete — callback fired when the wheel finishes
+function startToolWork(ctx, x, y, relicSlot, energyCost, onComplete) {
+  const { scene, save, sx, sy } = ctx;
+  const durMs = (typeof toolDurationMs === 'function')
+    ? toolDurationMs(save.relics, relicSlot)
+    : (save.relics?.[relicSlot] ? 3000 : 9000);
+  if (energyCost && !scene.spendEnergy(energyCost, sx, sy)) return true;
+  scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0);
+  return true;
+}
+
 // Shared "drop a held item onto an empty tillable cell" path for the
 // place-scarecrow / place-rock handlers — they were ~95% identical (same
 // tilled/occupied guards, same 0.1m overlap epsilon against save.planted,
@@ -513,12 +531,7 @@ const TAP_HANDLERS = [
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
       if (reqRelic) {
-        // Duration scales with tool tier (10s bare → 3s wood → 0.5s frost),
-        // same curve for both pick and axe slots.
-        const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, reqRelic)
-          : (save.relics?.[reqRelic] ? 3000 : 10000);
-        scene.startWorkProgress(wp.x, wp.y, award, durMs);
+        startToolWork(ctx, wp.x, wp.y, reqRelic, 0, award);
       } else {
         award();
         ctx.dirty = true;
@@ -534,7 +547,7 @@ const TAP_HANDLERS = [
       save.picked = [...pickedSet, o.id];
       scene.addToInv('flowers', 1);
       ctx.dirty = true;
-      scene.flashLoot(`+1 🌼 flowers`);
+      scene.flashLoot(`+1 flowers`, '#a7ffb0', 1, 'flowers');
       return true;
     }
     return false;
@@ -689,7 +702,8 @@ const TAP_HANDLERS = [
             return true;
           }
           if (reward?.kind === 'gold') {
-            addMoney(save, reward.amount);
+            // Non-upgrade relic: discard it (spec: no salvage value). Still
+            // show the modal so the player sees what dropped.
             save.opened.push(o.id);
             ctx.dirty = true;
             const gearKind = reward.gearKind || 'relic';
@@ -700,8 +714,8 @@ const TAP_HANDLERS = [
               ? scene.gearIconHTML(gearKind, reward.slot, reward.tier, 64)
               : '★';
             scene.showChestRewardModal({
-              iconHTML, name: `+$${reward.amount}`,
-              sub: `${name} (already owned)`, color: '#ffd96b',
+              iconHTML, name,
+              sub: `already own better — discarded`, color: '#aaa',
             });
             return true;
           }
@@ -775,20 +789,14 @@ const TAP_HANDLERS = [
         // cell — let the next handler claim the tap instead of consuming it
         // with a 'stump' flash that the player can't act on.
         if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
-        // No axe? Bare hands still fell the tree — toolDurationMs returns the
-        // tier-0 (9s) time, 3× the wooden axe.
-        const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, 'axe') : 9000;
-        scene.startWorkProgress(o.x, o.y, () => {
+        return startToolWork(ctx, o.x, o.y, 'axe', 0, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
-          // Trees drop 2-3 wood logs (more generous than the shrub's 1).
           scene.addToInv('wood', randInt(2, 3));
           persistSave(save);
           scene.flash('🌲 Felled.', sx, sy);
-        }, durMs);
-        return true;
+        });
       }
       if (o.kind === 'house' || o.kind === 'tower') {
         scene.shopInteract(sx, sy, o);
@@ -1103,11 +1111,7 @@ const TAP_HANDLERS = [
     // effectivePickCost).
     const cost = (typeof effectivePickCost === 'function')
       ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
-    if (!scene.spendEnergy(cost, sx, sy)) return true;
-    const durMs = (typeof pickDurationMs === 'function')
-      ? pickDurationMs(save.relics)
-      : (save.relics?.pick ? 3000 : 10000);
-    scene.startWorkProgress(cwmx, cwmy, () => {
+    return startToolWork(ctx, cwmx, cwmy, 'pick', cost, () => {
       scene.brokenRockSet.add(cellKey);
       save.brokenRocks = [...scene.brokenRockSet];
       const r = Math.random();
@@ -1125,8 +1129,7 @@ const TAP_HANDLERS = [
       else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
       persistSave(save);
       scene.flash(msg, sx, sy);
-    }, durMs, cost);   // cost = refund if the player cancels mid-break
-    return true;
+    });
   }},
 
   // 2a) Tap a planted cell → harvest / advance / water / nag.
@@ -1234,35 +1237,49 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // 2% per cast → relic jackpot. Pick a random slot, random tier in
-      // 1..rod_tier. Equips it if it's better than the current slot;
-      // otherwise the relic is kept as a salvage event (recorded on
-      // save.relicsCaught) and the flash explains the outcome. Returns
-      // before the regular fish loot table so no double drop.
+      // 2% per cast → relic jackpot. Uses the same milestone-gated tier
+      // picker as chests (harvest sunflower → Gold, catch cow → Platinum,
+      // etc.). Higher tiers possible but exponentially rarer. An upgrade
+      // auto-equips; a non-upgrade is discarded. Returns before the fish
+      // table so no double drop.
       if (Math.random() < 0.02) {
-        const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
-        if (slots.length) {
-          const slot = pickFromArray(slots);
-          const relicTier = randInt(1, tier);
-          save.relicsCaught = save.relicsCaught || [];
-          save.relicsCaught.push({ slot, tier: relicTier, t: Date.now() });
-          const cur = save.relics?.[slot];
-          let equipped = false;
-          if (!cur || (cur.tier ?? 0) < relicTier) {
+        const chestT = 2;   // treat as a T2 chest for tier weighting
+        const reward = (typeof pickChestRelic === 'function')
+          ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
+          : null;
+        if (reward?.kind === 'relic' || reward?.kind === 'armor') {
+          const kind = reward.kind;
+          if (kind === 'armor') {
+            save.armor = save.armor || {};
+            save.armor[reward.slot] = { tier: reward.tier };
+            if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
+              const newMax = maxEnergyFromArmor(save.armor);
+              const bump = Math.max(0, newMax - scene.getMaxEnergy());
+              save.maxEnergy = newMax;
+              save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
+            }
+          } else {
             save.relics = save.relics || {};
-            save.relics[slot] = { tier: relicTier };
-            equipped = true;
+            save.relics[reward.slot] = { tier: reward.tier };
           }
+          scene.markRelicsDirty?.();
           persistSave(save);
           const label = (typeof gearName === 'function')
-            ? gearName('relic', slot, relicTier)
-            : `${slot} T${relicTier}`;
-          scene.flashLoot(equipped
-            ? `✨ ${label} (equipped!)`
-            : `✨ ${label} (already better)`,
-            '#ffd96b', 1.6);
+            ? gearName(kind, reward.slot, reward.tier)
+            : `${reward.slot} T${reward.tier}`;
+          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffd96b', 1.6);
           return;
         }
+        if (reward?.kind === 'gold') {
+          // Non-upgrade: discard (no salvage), just flash what dropped.
+          const label = (typeof gearName === 'function')
+            ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier)
+            : `${reward.slot} T${reward.tier}`;
+          scene.flashLoot(`✨ ${label} (already better)`, '#aaa', 1.2);
+          persistSave(save);
+          return;
+        }
+        // reward null (no milestones yet) — fall through to fish table.
       }
       // 6% per cast → junk pull (old boot). Below the relic jackpot in the
       // order so the 2% jackpot wins the cast outright when both would
