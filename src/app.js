@@ -6,8 +6,39 @@
 // - Tap creature → catch (added to farm). Tap ground with seed selected → plant.
 // - Inventory bottom bar shows starter items; tap to select.
 
-const START_LON = -119.47870;
-const START_LAT = 49.85438;
+// Home — 3586 Athalmer Rd, Kelowna BC. The default world origin and where the
+// satextract DeepForest trees live.
+const HOME_LON = -119.47870;
+const HOME_LAT = 49.85438;
+// Teleport presets — well-mapped suburban areas to showcase OSM features
+// (trees, street furniture, etc.). Counts are mapped natural=tree nodes within
+// ~300 m, measured against Overpass on 2026-05-29. Edit this table to add/
+// remove destinations; index.html builds the menu from window.TELEPORT_PRESETS.
+// A preset relocates the world origin (START_LON/LAT) on reload and disables
+// GPS for the session so the player stays at the chosen spot.
+const TELEPORT_PRESETS = {
+  home:     { name: 'Home (Kelowna)',   lon: HOME_LON,    lat: HOME_LAT   },
+  paloalto: { name: 'Palo Alto, CA',    lon: -122.1500,   lat: 37.4222    },
+  seattle:  { name: 'Seattle (Ballard)',lon: -122.3840,   lat: 47.6680    },
+  munich:   { name: 'Munich, Germany',  lon: 11.6100,     lat: 48.1520    },
+};
+// Active teleport override (set by the menu, persisted in localStorage). Read
+// once at load so the entire projection initializes for the chosen latitude.
+let _teleportOverride = null;
+try {
+  const raw = localStorage.getItem('terracart.teleport');
+  if (raw) {
+    const o = JSON.parse(raw);
+    if (o && Number.isFinite(o.lon) && Number.isFinite(o.lat)) _teleportOverride = o;
+  }
+} catch { /* malformed override → ignore, fall back to home/GPS */ }
+const START_LON = _teleportOverride ? _teleportOverride.lon : HOME_LON;
+const START_LAT = _teleportOverride ? _teleportOverride.lat : HOME_LAT;
+// Expose the preset table + active override so index.html can build the menu.
+if (typeof window !== 'undefined') {
+  window.TELEPORT_PRESETS = TELEPORT_PRESETS;
+  window.TELEPORT_ACTIVE = _teleportOverride;
+}
 // Meters per degree of latitude (≈ constant everywhere). Longitude meters
 // additionally scale by cos(latitude). Used by the GPS watcher and the
 // debug-HUD lat/lon recompute.
@@ -2127,9 +2158,17 @@ class MapScene extends Phaser.Scene {
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       } else if (this.save.planted && this.save.planted.length) {
-        // ORBIT the nearest planted crop. 30% chance the orbit collapses
-        // to a tight ring that may land on the crop cell.
-        let nearest = null, bestD2 = Infinity;
+        // ORBIT the nearest planted crop the crow can actually NOTICE. Ambient
+        // crows only spot crops within DETECT_R (~6 cells, about the visible
+        // radius). Without this gate every crow inside the sim range (~15
+        // cells — beyond the screen edge) b-lined to your field, so birds
+        // appeared to notice you "from across the map." Deliberate pest crows
+        // (id `pest_crow_*`, spawned off-screen to harass) keep an unlimited
+        // range — seeking the crop is their whole purpose. 30% of notice-
+        // flights collapse to a tight ring that may land on the crop cell.
+        const isPest = typeof c.id === 'string' && c.id.startsWith('pest_crow_');
+        const DETECT_R = 6 * this.cellM;
+        let nearest = null, bestD2 = isPest ? Infinity : DETECT_R * DETECT_R;
         for (const pp of this.save.planted) {
           const dx = pp.x - c.x, dy = pp.y - c.y;
           const d2 = dx * dx + dy * dy;
@@ -2155,6 +2194,19 @@ class MapScene extends Phaser.Scene {
         const d = (1 + Math.random() * 1.5) * this.cellM;
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
+      }
+      // Cap any single flight leg to ~2.5 cells so a crow APPROACHES a crop
+      // over several hops instead of teleport-swooping the whole distance in
+      // one glide. In-place hops (committed) and short roams/flees are already
+      // under the cap; this only shortens a long approach toward a noticed
+      // crop. Capping BEFORE the cell gate means the intermediate landing
+      // point — not the far crop — is what gets validated for water/buildings.
+      const MAX_LEG = 2.5 * this.cellM;
+      const legDX = tx - c.x, legDY = ty - c.y;
+      const legD = Math.hypot(legDX, legDY);
+      if (legD > MAX_LEG) {
+        tx = c.x + (legDX / legD) * MAX_LEG;
+        ty = c.y + (legDY / legD) * MAX_LEG;
       }
       // Reject targets on water / buildings / placed rocks. Same gate
       // the generic wander uses.

@@ -211,7 +211,11 @@
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="debug-controls">Debug controls: off</button>
-      <button class="danger" id="reset-save">Reset save</button>
+      <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+        <!-- buttons injected from window.TELEPORT_PRESETS -->
+      </div>
+      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset save</button>
     </div>
   </details>
   <div id="hud"></div>
@@ -482,10 +486,10 @@
   <script src="src/rarity.js?v=22"></script>
   <script src="src/loot.js?v=136"></script>
   <script src="src/interact.js?v=176"></script>
-  <script src="src/render.js?v=196"></script>
+  <script src="src/render.js?v=197"></script>
   <script src="src/assets.js?v=160"></script>
   <script src="src/sandbox.js?v=23"></script>
   <script src="src/testtools.js?v=6"></script>
-  <script src="src/app.js?v=256"></script>
+  <script src="src/app.js?v=257"></script>
 </body>
 </html>
