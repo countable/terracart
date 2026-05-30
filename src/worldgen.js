@@ -593,11 +593,20 @@
                 const jy = bb.minY + rng2() * (bb.maxY - bb.minY);
                 if (!pointInRings(f.geom, jx, jy)) continue;
                 const { cx, cy } = snapCell(jx, jy);
-                // Tier 1 mineral rock — the cheap one. Sprinkle different
-                // tiers occasionally (5 % each up to T3) for variety.
+                // Cheap quarry rock. Roll a YIELD tier (mostly T1, occasional
+                // T2/T3 for variety) and DERIVE the pick requirement from it —
+                // the same single-field model the cluster spawner uses (see
+                // _pushMineralrock above). yieldTier drives the sprite, the
+                // metal drop, AND the required pick together, so the rock can't
+                // look like one tier but pay out another. (Previously this set
+                // requiredTier directly and left yieldTier undefined, so the
+                // mining code's `yieldTier || 1` fallback always dropped copper
+                // while the sprite/pick used the higher requiredTier — the
+                // "looks like iron, needs an iron pick, drops copper" bug.)
                 const r = rng2();
-                const requiredTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
-                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
+                const requiredTier = Math.max(1, yieldTier - 1);
+                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier, yieldTier,
                   id: `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
                 placed++;
               }
