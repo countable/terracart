@@ -1,14 +1,43 @@
-terracart — Pokémon-Go-style farm game on real map data.
-Source of truth: this file. It describes what the game CURRENTLY does (verified
-against src/ as of 2026-05). Markers: [x] implemented, [ ] todo, [~] partial.
-Numbers tuned in code may drift — when this file and the code disagree, the CODE
-wins; fix this file to match.
+
+
+TerraCart
+
+A gps driven farming rpg. Inspiration from Pokemon Go and Core keeper/Stardew valley
+
+Core game loop.
+1. Player should be rewarded for exploring a large area and finding objects which often correspond to real world map POIs.
+2. Economic progression via farming, trading, hunting, exploring.
+3. Safety - only encourage the player to go places that are actually safe to walk (avoid the need to walk on roads, water, private property)
+
+Game objects:
+
+# cells
+The game is made of a grid of cells generated from vector tile data.
+ - Some cells are tillable to replace with tilled soil.
+ - grassland biome cells till in half the time.
+
+# interactables
+Each cell may contain one interactable object (excluding fauna). ie, rocks, trees, crops.
+ - generally bare hands can be used for any interactable, but takes 9 seconds to process (modifiers on some specific interactables, ie pest HP)
+ - tools: wood: 3s, iron: 2s, gold: 1.3s, platinum: .8s, crimson: .5s, frost. .3s
+ - show the tool in use when interacting, if applicable.
+ - tools: net: catch animals, fishing rod: fishing, pick: mining rocks, axe: chopping trees, hoe: tilling soil, weapons: fighting pests.
+
+# fauna
+Entities that can typically move around over cells, like pets, enemies, wild animals
+ - crows: move in pauses and straight lines.
+
+# biomes
+Different map polygons rasterize to tiles according to rules 
+
+## Residential
+ - Avoid interactables or fauna on private property. in residential areas, all interactables must spawn within 2 spaces of a road or path, or an area that is designated as public.
+ - no animals may move onto a building footing, or road.
 
 ================================================================================
 CORE
 ================================================================================
- - mobile web first (desktop too), 390x844 viewport centered in the browser
- - no build step — index.html loads src/*.js as plain <script> tags in order
+ - fullscreen mobile web first (desktop too), 390x844 viewport centered in the browser
  - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key),
    decoded by hand (mvt.js) and cached in IndexedDB
  - Phaser 3.87 renders the world to a canvas
