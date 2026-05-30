@@ -25,11 +25,6 @@
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
-// Two object-position points within this squared screen-pixel distance are
-// treated as the same world object (de-dupes overlapping POI/tree/chest sprites
-// when the player taps a busy corner). 40² = ~1.25 cells at CELL_PX=32.
-const TAP_DEDUPE_R2 = 40 * 40;
-
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
 // splice it out and clamp selSlot so it still points at a valid slot. Used by
 // every handler that consumes a held item (plant, release-animal, place-rock).
