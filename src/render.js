@@ -562,6 +562,51 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
+      // Tier 12 (castle) — STONE RAMPART: crenellated battlements along every
+      // perimeter edge. The keep's answer to the tier-11 wooden palisade —
+      // square merlons separated by crenel gaps, in cool grey stone, so the
+      // castle reads as a walled fortress. Drawn INSTEAD of the tier-9/12
+      // extrusion + outline below (same continue trick the palisade uses).
+      if (type === 12) {
+        const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
+              STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
+        const MERLONS = 4, SPAN = CELL_PX / MERLONS, MW = 5;  // 5px tooth, 3px gap ×4 = 32
+        const WALL = 6;          // south wall-face height (the lit 3-D face)
+        const TOOTH = 2;         // how far merlons poke past the footprint edge
+        // South edge — a stone wall face hangs BELOW the cell, capped with
+        // merlons that rise a couple px onto the cell's own bottom edge.
+        if (!isB(T(col, row + 1))) {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          g.fillStyle(STONE_DARK, 1);   g.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          for (let i = 0; i < MERLONS; i++) {
+            const mx = sx + i * SPAN;
+            g.fillStyle(STONE_BODY, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, WALL + TOOTH);
+            g.fillStyle(STONE_LITE, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, 1);
+          }
+          // vertical mortar joints between merlons
+          g.fillStyle(STONE_DARK, 0.5);
+          for (let i = 1; i < MERLONS; i++) g.fillRect(sx + i * SPAN - 1, sy + CELL_PX, 1, WALL);
+        }
+        // North edge — crenellated strip on the cell's top, teeth poking UP.
+        const capH = (x, y) => {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, CELL_PX, 4);
+          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, CELL_PX, 1);
+          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
+            g.fillRect(x + i * SPAN, y - TOOTH, MW, TOOTH + 1);
+        };
+        // Vertical edge — crenellated strip down the side, teeth poking OUT by
+        // `dir` (-1 left, +1 right).
+        const capV = (x, y, dir) => {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, 4, CELL_PX);
+          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, 1, CELL_PX);
+          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
+            g.fillRect(dir < 0 ? x - TOOTH : x + 4 - 1, y + i * SPAN, TOOTH + 1, MW);
+        };
+        if (!isB(T(col, row - 1))) capH(sx, sy);
+        if (!isB(T(col - 1, row))) capV(sx, sy, -1);
+        if (!isB(T(col + 1, row))) capV(sx + CELL_PX - 4, sy, +1);
+        continue;
+      }
       // South wall: tier-specific extrusion, darker shade of the building
       // tier — biased toward the themed-house primary if this cell hosts
       // one (look up by absolute cell key; falls back to the neutral
