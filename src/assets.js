@@ -71,6 +71,10 @@ const ASSETS = {
   rabbit:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Rabbit White.png',    frameWidth: 16, frameHeight: 16 },
   crow:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
+  // Slime — energy-leeching pest. 'Slime Green.png' is a 128×384 sheet of
+  // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
+  // cycle the renderer loops; lower rows are move/death poses we don't use.
+  slime:       { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',                  frameWidth: 32, frameHeight: 32 },
   // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },
   cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 16, frameHeight: 48 },

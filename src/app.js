@@ -1144,6 +1144,10 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
     const butterflyN = 40 + Math.floor(rng() * 20);
     for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
+    // Slimes: energy-leeching pests that roam every natural biome and drift
+    // lazily toward the player (see wanderCreatures). Flat 50/tile.
+    const slimeN = 50;
+    for (let i = 0; i < slimeN; i++) tryPlace('slime', GLOBAL_NAT, i, 'slime');
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -1819,7 +1823,7 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    const STAGE_HOLD_MS = 60 * 60 * 1000;
+    const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + render.js
     const now = Date.now();
     let mutated = false;
     for (const p of this.save.planted || []) {
@@ -1943,11 +1947,30 @@ class MapScene extends Phaser.Scene {
       const wanders = c.kind === 'chicken' || c.kind === 'cow'
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
+                    || c.kind === 'slime'
                     || (isTame && c.kind === 'butterfly');
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
+      // Slime energy steal: a slime sitting on/near the player drains 1 energy
+      // on a per-slime cooldown. Accumulated across all slimes this frame and
+      // surfaced with one throttled flash after the loop (see below) so a swarm
+      // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
+      // independent of the slime's slow step cadence.
+      if (c.kind === 'slime') {
+        const STEAL_R = 2.5;   // metres — roughly "on the player's cell"
+        if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
+            (!c._nextStealT || now >= c._nextStealT)) {
+          c._nextStealT = now + 3000;
+          const before = this.save.energy ?? 0;
+          if (before > 0) {
+            this.save.energy = Math.max(0, before - 1);
+            this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
+          }
+        }
+      }
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
       // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
@@ -1964,6 +1987,9 @@ class MapScene extends Phaser.Scene {
       // Per-kind step duration for everything else falling through to the
       // generic wander below.
       const stepMs = STEP_MS;
+      // Slimes ooze in short, lazy hops (0.6 cell) — slower drift than the
+      // 1-cell stride every other creature takes.
+      const stepM = c.kind === 'slime' ? STEP_M * 0.6 : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -2010,13 +2036,23 @@ class MapScene extends Phaser.Scene {
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
           } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (c.kind === 'slime') {
+            // Lazily drawn to the player: about half its hops amble toward
+            // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
+            // the rest are aimless. Slimes ignore home-bias — they roam free
+            // and home in on whoever's nearby.
+            if (Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
+            } else {
+              angle = Math.random() * Math.PI * 2;
+            }
           } else if (homeBias) {
             angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
           } else {
             angle = Math.random() * Math.PI * 2;
           }
-          tx = c.x + Math.cos(angle) * STEP_M;
-          ty = c.y + Math.sin(angle) * STEP_M;
+          tx = c.x + Math.cos(angle) * stepM;
+          ty = c.y + Math.sin(angle) * stepM;
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
@@ -2054,6 +2090,16 @@ class MapScene extends Phaser.Scene {
       c.x = c._startX + (c._targetX - c._startX) * u;
       c.y = c._startY + (c._targetY - c._startY) * u;
     });
+    // One throttled flash for everything the slimes drained this window, so a
+    // swarm reads as a single "-N⚡" pop rather than 50 of them. Persist here
+    // too (debounced in save.js) so the energy loss survives a reload.
+    if (this._slimeStealAccum > 0 && now - (this._lastSlimeFlashT || 0) > 1200) {
+      this._lastSlimeFlashT = now;
+      const drained = this._slimeStealAccum;
+      this._slimeStealAccum = 0;
+      if (this.flash) this.flash(`🟢 slime drained ${drained}⚡`, this.viewCenterX, this.viewCenterY - 40);
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
   }
 
   // Per-tick movement for wild crows. Three-phase state machine:

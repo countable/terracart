@@ -210,7 +210,8 @@ CREATURES
 ================================================================================
  - spawned per tile, seeded, biased to fitting biomes; only simulated near the
    player. Kinds: chicken, cow, cat, dog (domestic); rabbit, deer, crow,
-   butterfly (wilderness). Chickens/cows wander ~1 cell / 5s near their home.
+   butterfly (wilderness); slime (pest). Chickens/cows wander ~1 cell / 5s near
+   their home.
  - DOMESTIC ANIMALS — tap within 4m, outcome depends on the selected item:
      * FAVOURITE FOOD → CATCH (consumes 1, 5 energy). Adds the LIVE animal to
        inventory. Favourites: chicken = any seed, cow = pairy, cat = milk OR any
@@ -236,6 +237,11 @@ CREATURES
    aversion). Pick it back up any time.
  - CROWS additionally try to damage nearby crops over time — scarecrows and
    catching them are the counters.
+ - SLIMES are an energy-leeching PEST (50/tile, every natural biome). They ooze
+   in slow hopping drifts and are lazily drawn toward the player (~half their
+   hops amble your way). A slime within ~2.5m drains 1 energy every 3s, surfaced
+   as one throttled "🟢 slime drained N⚡" flash. Not catchable or feedable —
+   tapping one just wobbles it; walk away to shake a swarm.
 
 ================================================================================
 CHESTS (POI-driven)

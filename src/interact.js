@@ -271,6 +271,13 @@ const TAP_HANDLERS = [
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
     // the reach outline ⇔ tap-accept invariant (QC §7).
     if (tooFar(ctx, target.x, target.y)) return 'far';
+    // Slimes are an energy-leeching hazard, not livestock — they can't be
+    // caught or fed. A tap just gets a flavour wobble and consumes the tap
+    // (matching how every other creature swallows a tap aimed at it).
+    if (target.kind === 'slime') {
+      scene.flash('The slime quivers, hungry for your energy.', sx, sy);
+      return true;
+    }
     // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
     // relic equipped (sword / bow / staff — hunting is hunting); crow /
     // butterfly require the Bug Net. Drops are a fixed loot id, not the
@@ -1181,7 +1188,7 @@ const TAP_HANDLERS = [
       Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
-    const stageHoldMs = 60 * 60 * 1000;
+    const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
       p.stage = (p.stage ?? 0) + 1;

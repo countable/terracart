@@ -599,7 +599,14 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
+  // Out of energy? The lit reach area "extinguishes": isReach reports EVERY
+  // cell as out-of-reach, so the darken pass below shades the whole screen to
+  // the out-of-range tone and the white outline is skipped. Recomputed each
+  // frame from save.energy (<= 0 matches the "too tired" gate in app.js), so
+  // the light snaps back the instant the player rests or eats above 0.
+  const litExtinguished = (scene.save.energy ?? 0) <= 0;
   const isReach = (col, row) => {
+    if (litExtinguished) return false;
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
     return cellInReach(scene, absIX, absIY);
@@ -1608,7 +1615,7 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = 60 * 60 * 1000;
+  const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + app.js
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
@@ -1712,6 +1719,21 @@ Render.drawObjects = function drawObjects(scene) {
       if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
       s.setFrame(Math.floor(performance.now() / 100) % 7);
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
+      s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'slime') {
+      // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
+      // vertical hop — phase-offset per slime via a cached id hash — gives the
+      // chicken-like bounce even while idle; slimes are always jiggling.
+      if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
+      s.setFrame(Math.floor(performance.now() / 160) % 4);
+      if (c._hopSeed == null) {
+        let h = 0; const id = c.id || '';
+        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+        c._hopSeed = h % 600;
+      }
+      const ph = ((performance.now() + c._hopSeed) % 600) / 600;   // 0..1 per hop
+      const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
+      s.setOrigin(0.5, 0.9).setScale(1.2).setPosition(Math.round(sx), Math.round(sy) - Math.round(hopPx));
       s.setFlipX(!!c._faceFlip);
     } else {
       // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
