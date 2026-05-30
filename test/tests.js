@@ -526,31 +526,34 @@ test('REG #9: catching a released animal removes it from save.released', (scene)
   assert.truthy(scene.save.caught.includes(id), 'id in caught');
 });
 
-// Animal catch via TAP requires the favourite food in the selected slot.
-test('catch handler refuses without favourite food, succeeds with it', (scene) => {
-  // Find any uncaught chicken anywhere in cache.
-  let target = null;
-  for (const e of WorldGen.tileCache.values()) {
-    for (const c of (e.creatures || [])) {
-      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
-    }
-    if (target) break;
+// Favourite food now TAMES (befriends in place), it does NOT catch. Catching
+// is the separate work-queue path (covered below). A chicken accepts any seed.
+test('tame: favourite food (seed) befriends a wild chicken in place, no catch', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.released = scene.save.released || [];
+  scene.save.energy = 100;
+  scene.save.inv = [{ id: 'rainberry_seed', count: 3 }]; scene.save.selSlot = 0;
+  scene._workProgress = null;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const chick = { x: pWX, y: pWY, kind: 'chicken', id: 'test_tame_chick_' + Date.now() };
+  entry.creatures.push(chick);
+  const oldId = chick.id;
+  const beforeReleased = scene.save.released.length;
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.eq(invCount(scene, 'chicken'), 0, 'taming does NOT add the chicken to inventory');
+    assert.truthy(String(chick.id).startsWith('released_'), 'wild chicken converted to tame in place');
+    assert.truthy(scene.save.caught.includes(oldId), 'old wild id marked caught (no respawn)');
+    assert.eq(scene.save.released.length, beforeReleased + 1, 'a tame pet added to save.released');
+    const r = scene.save.inv.find(s => s && s.id === 'rainberry_seed');
+    assert.eq(r ? r.count : 0, 2, 'one seed consumed');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
   }
-  assert.truthy(target, 'found an uncaught chicken');
-  scene.save.energy = scene.save.maxEnergy ?? 100;
-  // No food → flash, no catch.
-  scene.save.inv = []; scene.save.selSlot = 0;
-  teleport(scene, target.x, target.y - 1);
-  tapWorld(scene, target.x, target.y);
-  assert.falsy(scene.save.caught.includes(target.id), 'no catch with empty hand');
-  // Chickens now accept ANY *_seed (per user rebalance). Rainberry produce
-  // no longer catches them; rainberry_seed does.
-  scene.save.inv = [{ id: 'rainberry_seed', count: 3 }];
-  scene.save.selSlot = 0;
-  tapWorld(scene, target.x, target.y);
-  assert.truthy(scene.save.caught.includes(target.id), 'caught with seed');
-  const r = scene.save.inv.find(s => s && s.id === 'rainberry_seed');
-  assert.eq(r ? r.count : 0, 2, 'one seed consumed');
 });
 
 // Wrong-food → yuck: animal NOT caught, food still consumed. Use egg on
@@ -561,7 +564,8 @@ test('feeding wrong food yields yuck and consumes the food', (scene) => {
   let target = null;
   for (const e of WorldGen.tileCache.values()) {
     for (const c of (e.creatures || [])) {
-      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)) { target = c; break; }
+      if (c.kind === 'chicken' && !scene.save.caught.includes(c.id)
+          && !String(c.id).startsWith('released_')) { target = c; break; }
     }
     if (target) break;
   }
@@ -570,6 +574,7 @@ test('feeding wrong food yields yuck and consumes the food', (scene) => {
   scene.save.inv = [{ id: 'egg', count: 3 }];
   scene.save.selSlot = 0;
   scene.save.energy = scene.save.maxEnergy ?? 100;
+  scene._workProgress = null;   // clear any lingering catch wheel from a prior test
   teleport(scene, target.x, target.y - 1);
   tapWorld(scene, target.x, target.y);
   assert.falsy(scene.save.caught.includes(target.id), 'no catch on wrong food');
@@ -627,31 +632,37 @@ test('feeding longgrass to a chicken yields an egg without catching', (scene) =>
   assert.falsy(scene.save.caught.includes(target.id), 'chicken stays in world');
 });
 
-// Cat needs milk to catch. Longgrass on a cat = yuck, no produce.
-test('cat catch: milk works, longgrass yucks', (scene) => {
-  let target = null;
-  for (const e of WorldGen.tileCache.values()) {
-    for (const c of (e.creatures || [])) {
-      if (c.kind === 'cat' && !scene.save.caught.includes(c.id)) { target = c; break; }
-    }
-    if (target) break;
+// Cat: longgrass = yuck (no produce); its favourite (milk) TAMES it in place.
+test('cat: longgrass yucks; milk tames it in place (no catch)', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.released = scene.save.released || [];
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const cat = { x: pWX, y: pWY, kind: 'cat', id: 'test_cat_milk_' + Date.now() };
+  entry.creatures.push(cat);
+  try {
+    // Longgrass → yuck (not a cat favourite, and cats don't produce milk).
+    scene.save.inv = [{ id: 'longgrass', count: 2 }]; scene.save.selSlot = 0;
+    tapWorld(scene, pWX, pWY);
+    assert.falsy(String(cat.id).startsWith('released_'), 'longgrass does not tame the cat');
+    const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
+    assert.eq(lg ? lg.count : 0, 1, 'longgrass consumed (yuck)');
+    assert.falsy(scene.save.inv.some(s => s && s.id === 'milk'), 'NO milk produced from cat+longgrass');
+    // Milk is a cat favourite → TAMES (befriends in place), does not catch.
+    scene.save.inv = [{ id: 'milk', count: 1 }]; scene.save.selSlot = 0;
+    const beforeReleased = scene.save.released.length;
+    tapWorld(scene, pWX, pWY);
+    assert.truthy(String(cat.id).startsWith('released_'), 'milk tamed the cat in place');
+    assert.eq(invCount(scene, 'cat'), 0, 'taming does NOT add the cat to inventory');
+    assert.eq(scene.save.released.length, beforeReleased + 1, 'tame pet added to save.released');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
   }
-  if (!target) return;   // no cats loaded in this fixture — skip silently
-  scene.save.energy = scene.save.maxEnergy ?? 100;
-  // Longgrass → yuck (cats don't produce milk from grass).
-  scene.save.inv = [{ id: 'longgrass', count: 2 }];
-  scene.save.selSlot = 0;
-  teleport(scene, target.x, target.y - 1);
-  tapWorld(scene, target.x, target.y);
-  assert.falsy(scene.save.caught.includes(target.id), 'longgrass does not catch cat');
-  const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
-  assert.eq(lg ? lg.count : 0, 1, 'longgrass consumed (yuck)');
-  assert.falsy(scene.save.inv.some(s => s && s.id === 'milk'), 'NO milk produced from cat+longgrass');
-  // Milk catches.
-  scene.save.inv = [{ id: 'milk', count: 1 }];
-  scene.save.selSlot = 0;
-  tapWorld(scene, target.x, target.y);
-  assert.truthy(scene.save.caught.includes(target.id), 'cat caught with milk');
 });
 
 // #10 — Animal release is rejected on non-tillable terrain (water/road/building).
@@ -1126,6 +1137,10 @@ test('castle always offers relics with no rate-limit', (scene) => {
   // worldgen happening to load one nearby.
   const fakeCastle = { kind: 'tower', id: 'test_castle', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
+  // Castles now start occupied (corrupt residents demand a tribute); appease
+  // this one up front so we exercise the relic-vault path, not the gate. The
+  // tribute gate has its own test below.
+  scene.save.tributedCastles = { [fakeCastle.id]: true };
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
   // 50 consecutive shops — all should open a relic modal (never blocked).
   let opened = 0;
@@ -1143,6 +1158,45 @@ test('castle always offers relics with no rate-limit', (scene) => {
     } else { m?.remove(); break; }
   }
   assert.gt(opened, 5, 'castle keeps opening relic offers');
+});
+
+test('castle demands a tribute before trading, then opens the vault', (scene) => {
+  if (typeof TestTools !== 'undefined') TestTools.resetTestState();
+  document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.save.tributedCastles = {};
+  scene.save.money = 100000000;
+  // Tier-7 bag so the inventory stack can hold a full 10-item tribute.
+  scene.save.relics = { bags: { tier: 7 } };
+  const castle = { kind: 'tower', id: 'test_castle_tribute', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  teleport(scene, castle.x, castle.y - 2);
+  // (1) Unappeased → first tap demands tribute (a "Pay tribute" button, no Buy).
+  scene.shopInteract(0, 0, castle);
+  let m = document.getElementById('offer-modal');
+  const payBtn = m && [...m.querySelectorAll('button')].find(b => /pay tribute/i.test(b.textContent));
+  assert.truthy(payBtn, 'unappeased castle demands tribute');
+  // (2) The demand is 5 for a live animal, 10 otherwise.
+  const t = scene._castleTribute(castle);
+  assert.eq(t.qty, ITEM_BY_ID[t.id]?.kind === 'animal' ? 5 : 10, 'tribute is 5 (animal) / 10 (else)');
+  // (3) Stock exactly the demanded goods, reopen, and pay.
+  scene.save.inv = [{ id: t.id, count: t.qty }]; scene.save.selSlot = 0;
+  m?.remove();
+  scene.shopInteract(0, 0, castle);
+  m = document.getElementById('offer-modal');
+  const pay2 = m && [...m.querySelectorAll('button')].find(b => /pay tribute/i.test(b.textContent));
+  assert.truthy(pay2 && !pay2.disabled, 'pay enabled once the goods are held');
+  pay2.click();
+  assert.truthy(scene.save.tributedCastles[castle.id], 'castle appeased after paying');
+  assert.eq(invCount(scene, t.id), 0, 'tribute goods consumed');
+  // (4) Next tap → the relic vault (a "Buy" button), no more tribute.
+  document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.shopInteract(0, 0, castle);
+  m = document.getElementById('offer-modal');
+  const buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.truthy(buy, 'appeased castle opens the relic vault');
+  document.getElementById('offer-modal')?.remove();
 });
 
 test('re-roll button is hidden on non-castle relic offers', (scene) => {
@@ -1706,32 +1760,44 @@ test('mineralrock cave drop: no ore on T1 fail', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'),   0, 'no gold either');
 });
 
-test('fishing handler: tap water without rod flashes need-rod', (scene) => {
-  scene.save.relics = scene.save.relics || {};
-  scene.save.relics.rod = null;
-  scene.save.inv = []; scene.save.selSlot = 0;
+test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (scene) => {
+  scene.save.relics = { ...(scene.save.relics || {}), rod: null, can: null };
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene.save.planted = [];   // clear any leftover crop (planted handler out-ranks fishing)
+  scene._workProgress = null;
+  // Find the first water cell in any loaded fixture tile.
   let water = null;
   for (const [key, e] of WorldGen.tileCache.entries()) {
     if (!e.grid) continue;
     const N = e.cellsPerEdge;
+    const parts = key.split('/');
     for (let i = 0; i < e.grid.length && !water; i++) {
-      if (e.grid[i] === 3) {
-        const ix = i % N, iy = Math.floor(i / N);
-        const parts = key.split('/');
-        water = {
-          x: (+parts[1]) * e.tileEdgeM + (ix + 0.5) * scene.cellM,
-          y: (+parts[2]) * e.tileEdgeM + (iy + 0.5) * scene.cellM,
-        };
-      }
+      if (e.grid[i] !== 3) continue;
+      const ix = i % N, iy = Math.floor(i / N);
+      water = { x: (+parts[1]) * e.tileEdgeM + (ix + 0.5) * scene.cellM,
+                y: (+parts[2]) * e.tileEdgeM + (iy + 0.5) * scene.cellM };
     }
     if (water) break;
   }
   if (!water) return;
-  scene.save.relics.can = null;
-  teleport(scene, water.x, water.y);
-  tapWorld(scene, water.x, water.y);
-  for (const id of ['minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
-    assert.eq(invCount(scene, id), 0, 'no ' + id + ' without rod');
+  // The fixture is DENSE — creatures/objects/treasures everywhere, and those
+  // handlers out-rank fishing. Temporarily empty every interceptable list so
+  // the water tap can only reach the fishing handler, then restore them.
+  const tiles = [...WorldGen.tileCache.values()];
+  const FIELDS = ['creatures', 'treasures', 'extraTreasures', 'wildplants', 'objects', 'coinDrops'];
+  const saved = tiles.map(e => { const s = {}; for (const f of FIELDS) s[f] = e[f]; return s; });
+  for (const e of tiles) for (const f of FIELDS) e[f] = [];
+  try {
+    teleport(scene, water.x, water.y);
+    tapWorld(scene, water.x, water.y);
+    assert.truthy(scene._workProgress, 'bare-handed cast starts the fishing work queue (no rod gate)');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare hands → 9s cast (3× a wood rod)');
+    for (const id of ['minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
+      assert.eq(invCount(scene, id), 0, 'no ' + id + ' until the cast finishes');
+    }
+  } finally {
+    tiles.forEach((e, i) => { for (const f of FIELDS) e[f] = saved[i][f]; });
+    scene._workProgress = null;
   }
 });
 
@@ -1746,8 +1812,8 @@ test('fishing handler: tap water without rod flashes need-rod', (scene) => {
 
 // Creatures are now DEFEATED via a work queue (slime/crow/deer): tapping
 // starts the wheel; finishing it removes the creature + grants its drop.
-// A weapon shortens the wheel by tier; bare-handed is a long 12s slog.
-test('defeat: bare-handed crow tap starts a long 12s work queue, no instant catch', (scene) => {
+// A weapon shortens the wheel by tier; bare-handed is a long 9s slog (3× wood).
+test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
@@ -1762,7 +1828,7 @@ test('defeat: bare-handed crow tap starts a long 12s work queue, no instant catc
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene._workProgress, 'tapping a crow starts the defeat work queue');
-    assert.eq(scene._workProgress.durationMs, 12000, 'bare-handed → 12s queue');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare-handed → 9s queue (3× wood)');
     assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught until the queue finishes');
     assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather until the queue finishes');
   } finally {
@@ -1956,11 +2022,11 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
 });
 
 // PICK / TOOL DURATION — tier curve for rock-break work-wheel.
-// Bare hands 10s, wood 3s, then -750ms per tier with a 500ms floor.
-test('pickDurationMs: tier curve matches design (bare 10s → wood 3s → iron 1.5s → floor 0.5s)', () => {
+// Bare hands 9s (3× wood), wood 3s, then -750ms per tier with a 500ms floor.
+test('pickDurationMs: tier curve matches design (bare 9s → wood 3s → iron 1.5s → floor 0.5s)', () => {
   if (typeof pickDurationMs !== 'function') return;
-  assert.eq(pickDurationMs(null), 10000, 'no relic → 10s bare-handed');
-  assert.eq(pickDurationMs({}), 10000, 'no .pick entry → 10s');
+  assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (3× wood)');
+  assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
   assert.eq(pickDurationMs({ pick: { tier: 1 } }), 3000, 'wood pick → 3s');
   assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2250, 'copper → 2.25s');
   assert.eq(pickDurationMs({ pick: { tier: 3 } }), 1500, 'iron → 1.5s');
@@ -2144,23 +2210,58 @@ test('Sandbox.detect respects ?sandbox=true and false otherwise', () => {
 // Recent feature coverage — pets, pests, scarecrows, icons.
 // ───────────────────────────────────────────────────────────────────────
 
-test('cat catch: any fish works (bass)', (scene) => {
+test('tame: favourite food befriends a wild animal in place (cat + bass), no catch', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.caught = scene.save.caught || [];
+  scene.save.released = scene.save.released || [];
   scene.save.energy = 100;
   scene.save.inv = [{ id: 'bass', count: 1 }]; scene.save.selSlot = 0;
+  scene._workProgress = null;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
   const cat = { x: pWX, y: pWY, kind: 'cat', id: 'test_cat_bass_' + Date.now() };
   entry.creatures.push(cat);
+  const beforeReleased = scene.save.released.length;
   try {
     tapWorld(scene, pWX, pWY);
-    assert.truthy(scene.save.caught.includes(cat.id), 'cat caught with bass');
-    assert.eq(invCount(scene, 'cat'), 1, '1 cat in inv');
-    assert.eq(invCount(scene, 'bass'), 0, 'bass consumed');
+    assert.eq(invCount(scene, 'cat'), 0, 'taming does NOT put the cat in inventory');
+    assert.eq(invCount(scene, 'bass'), 0, 'favourite food consumed');
+    assert.eq(scene.save.released.length, beforeReleased + 1, 'a tame pet added to save.released');
+    assert.truthy(String(cat.id).startsWith('released_'), 'in-world animal converted to tame in place');
+    assert.falsy(scene._workProgress, 'taming is instant — no catch queue');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
+  }
+});
+
+test('catch: empty-handed tap starts the catch queue; finishing it captures the animal', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { ...(scene.save.relics || {}), bugnet: null };
+  scene.save.caught = scene.save.caught || [];
+  scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
+  scene._workProgress = null;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const rabbit = { x: pWX, y: pWY, kind: 'rabbit', id: 'test_catch_rabbit_' + Date.now() };
+  entry.creatures.push(rabbit);
+  try {
+    tapWorld(scene, pWX, pWY);
+    assert.truthy(scene._workProgress, 'empty-handed tap starts the catch queue');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare hands → 9s catch (3× a wood net)');
+    assert.truthy(rabbit._beingCaught, 'target flagged being-caught (wander skips it)');
+    assert.falsy(scene.save.caught.includes(rabbit.id), 'not caught until the queue finishes');
+    // Force the wheel to completion (fires onComplete, no real-time wait).
+    scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
+    scene._drawWorkProgress();
+    assert.truthy(scene.save.caught.includes(rabbit.id), 'rabbit captured when the queue finishes');
+    assert.eq(invCount(scene, 'rabbit'), 1, 'live rabbit added to inventory');
+    assert.falsy(rabbit._beingCaught, 'being-caught flag cleared on completion');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
   }
 });
 

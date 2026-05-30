@@ -1846,13 +1846,28 @@ class MapScene extends Phaser.Scene {
     if (mutated) persistSave(this.save);
   }
 
-  // --- Work-progress wheel (rock-break / tree-chop) ---
+  // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0) {
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
   }
+  // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
+  // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
+  // viewport the catch FAILS (onFail) instead of completing; the wheel tracks
+  // the fleeing creature. _beingCaught flags it so wanderCreatures leaves its
+  // movement to the wheel.
+  startCatchProgress(creature, durationMs, onComplete, onFail) {
+    creature._beingCaught = true;
+    const t = performance.now();
+    this._workProgress = {
+      worldX: creature.x, worldY: creature.y, onComplete, durationMs,
+      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail,
+    };
+  }
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
   // test helpers — the work actually finished, so the up-front spend was earned.
+  // Always releases a fleeing catch target so it resumes normal wandering.
   cancelWorkProgress() {
+    if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
     this._workProgressGfx?.clear();
   }
@@ -1871,8 +1886,34 @@ class MapScene extends Phaser.Scene {
   _drawWorkProgress() {
     const wp = this._workProgress;
     if (!wp) return;
+    const now = performance.now();
+    // Fleeing catch target: it backs away from the player at FLEE_MPS while the
+    // wheel runs. If it slips outside the viewport the catch fails. The wheel
+    // anchor (worldX/Y) follows the creature so it stays drawn over it.
+    if (wp.flee) {
+      const c = wp.flee;
+      const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
+      wp._lastT = now;
+      const px = this.startWorldM.x + this.playerM.x;
+      const py = this.startWorldM.y + this.playerM.y;
+      let dx = c.x - px, dy = c.y - py;
+      let dist = Math.hypot(dx, dy);
+      if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
+      const FLEE_MPS = 2;
+      c.x += (dx / dist) * FLEE_MPS * dt;
+      c.y += (dy / dist) * FLEE_MPS * dt;
+      wp.worldX = c.x; wp.worldY = c.y;
+      // Escaped the viewport? Chebyshev distance beyond the visible half-grid.
+      const halfM = (VIEW_CELLS / 2) * this.cellM;
+      if (Math.abs(c.x - px) > halfM || Math.abs(c.y - py) > halfM) {
+        const onFail = wp.onFail;
+        this.cancelWorkProgress();         // clears _beingCaught
+        if (onFail) onFail();
+        return;
+      }
+    }
     const dur = wp.durationMs || 3000;
-    const elapsed = performance.now() - wp.startT;
+    const elapsed = now - wp.startT;
     if (elapsed >= dur) {
       const cb = wp.onComplete;
       this.cancelWorkProgress();
@@ -1960,6 +2001,9 @@ class MapScene extends Phaser.Scene {
                     || (isTame && c.kind === 'butterfly');
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
+      // Mid-catch: the catch wheel owns this creature's movement (it flees the
+      // player), so the generic wander must not also drive it.
+      if (c._beingCaught) return;
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy

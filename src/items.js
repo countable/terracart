@@ -402,7 +402,7 @@ const PRICES = {
   meat: 30,
   rabbit_pelt: 15,
   crow_feather: 10,
-  butterfly: 5,
+  butterfly: 200,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 8,
   // ── Fish ─────────────────────────────────────────────────
@@ -668,13 +668,16 @@ function effectiveTillCost(relics, rng) {
   if (random() < eq.tier * 0.12) return 0;
   return Math.max(1, base - Math.floor(eq.tier / 3));
 }
-// Tool work-wheel duration. Bare hands take 10s; a wood tool of the right
-// kind (slot='pick' / 'axe') brings it to 3s, and each tier shaves another
-// 750ms (floored at 500ms). Iron pick (tier 3) clears rockfruit in 1.5s;
-// frost axe in 0.5s. pickDurationMs is kept as a back-compat alias.
+// Tool work-wheel duration. TIER 0 = BARE HANDS: every tool type works
+// bare-handed, just 3× the wooden (tier-1) time — so chop / mine / fish /
+// defeat are always possible, only slow. Wood (tier 1) = 3000ms; each tier
+// shaves another 750ms (floored at 500ms). Iron pick (tier 3) clears rockfruit
+// in 1.5s; frost axe in 0.5s. Bare hands: 9s (3 × 3000). The bug net is the
+// lone exception — butterflies still need it (gated in the catch path).
+// pickDurationMs is kept as a back-compat alias.
 function toolDurationMs(relics, slot) {
   const eq = relics?.[slot];
-  if (!eq) return 10000;
+  if (!eq) return 9000;   // tier 0 (bare hands) = 3 × wood
   return Math.max(500, 3000 - (eq.tier - 1) * 750);
 }
 function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }

@@ -283,11 +283,12 @@ const TAP_HANDLERS = [
     if (DEFEAT_KINDS.has(target.kind)) {
       const r = save.relics || {};
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
-      // Weapon: 3 s at tier 1, −750 ms per tier, floored at 500 ms (mirrors
-      // toolDurationMs). No weapon: a long 12 s slog — slow but always possible.
+      // Weapon = tier-N tool: 3 s at tier 1, −750 ms per tier, floored 500 ms
+      // (mirrors toolDurationMs). No weapon = tier 0 (bare hands): 9 s, 3× the
+      // wooden weapon — slow but always possible.
       const durMs = weaponTier > 0
         ? Math.max(500, 3000 - (weaponTier - 1) * 750)
-        : 12000;
+        : 9000;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -307,32 +308,10 @@ const TAP_HANDLERS = [
       }, durMs);
       return true;
     }
-    // Wilderness catchables — rabbit (bare-handed) and butterfly (Bug Net).
-    // Slimes / crows / deer are defeated above and never reach here. Catching
-    // adds the LIVE animal to the inventory (id matches target.kind, so the
-    // catalog needs rabbit / butterfly entries with kind:'animal'). Bug Net
-    // tier discounts catch energy: 5 → max(1, 5 - tier).
-    const WILDERNESS_KINDS = new Set(['rabbit', 'butterfly']);
-    if (WILDERNESS_KINDS.has(target.kind)) {
-      // Bug-net path for butterflies; bare-handed catch for rabbits.
-      const isFlying = target.kind === 'butterfly';
-      if (isFlying && !save.relics?.bugnet) {
-        scene.flash('It flits away on the breeze.', sx, sy);
-        return true;
-      }
-      const baseCost = ENERGY_COST?.catch ?? 0;
-      const bugnetTier = save.relics?.bugnet?.tier || 0;
-      const energyCost = Math.max(1, baseCost - bugnetTier);
-      if (!scene.spendEnergy(energyCost, sx, sy)) return true;
-      save.caught.push(target.id);
-      save.caughtKinds = save.caughtKinds || {};
-      save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-      scene.addToInv(target.kind, 1);
-      ctx.dirty = true;
-      const item = ITEM_BY_ID[target.kind];
-      scene.flashLoot(`+1 ${item?.name || target.kind}`, '#ffe066', 1, target.kind);
-      return true;
-    }
+    // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
+    // the unified tame-or-catch logic below: favourite food TAMES (befriends in
+    // place); an empty hand starts the CATCH work queue. Slimes/crows/deer were
+    // defeated above and never reach here.
     const sel = getSelectedSlot(save);
     // ANIMAL_FOOD is keyed by creature kind. The catalog now stores either a
     // single string ('rainberry') or an array of accepted ids (e.g. cats take
@@ -390,16 +369,28 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // 1. Favourite → catch. animalLikesFood handles the chicken-eats-any-
-    // seed special case so the catch check (built from ANIMAL_FOOD) doesn't
-    // have to enumerate every crop_seed id.
+    // 1. Favourite food → TAME (befriend in place), NOT catch. Converts the
+    // wild animal into a tame 'released_' pet at its spot: it stays in the
+    // world, becomes pettable / produces / follows, but does NOT enter your
+    // inventory. Capturing-into-inventory is the separate CATCH work queue
+    // below. animalLikesFood handles the chicken-eats-any-seed special case.
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
     if (sel && likes && (sel.count ?? 0) > 0) {
-      if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
       consumeSelected(save);
       scene.buildInventoryDOM();
-      scene.catchCreature(target, sx, sy);
+      // Stop the wild one respawning, then re-add it as a tame pet at the same
+      // spot so the bond persists across reloads (mirrors the release handler).
+      const oldId = target.id;
+      if (!save.caught.includes(oldId)) save.caught.push(oldId);
+      const tx = Math.floor(target.x / scene.tileEdgeM);
+      const ty = Math.floor(target.y / scene.tileEdgeM);
+      const tameId = `released_${target.kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+      save.released = save.released || [];
+      save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty });
+      target.id = tameId;   // convert the in-world object in place → now tame
+      ctx.dirty = true;
+      scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
       return true;
     }
     // 2. Plant produce → produce (chicken / cow only). Recently-petted
@@ -459,23 +450,26 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       return true;
     }
-    // 4. Hint — give each species its own short flavoured cue so the wild
-    // hint reads as the animal's own behaviour, not a system requirement.
-    // Cats list milk first so "Sniffs for milk." reads cleanly; chickens
-    // accept ANY seed so theirs is "Cluck-cluck — wants seed."; everything
-    // else falls back to the generic "Eyes a X…".
-    let hint;
-    if (target.kind === 'chicken') {
-      hint = 'Cluck-cluck — wants seed.';
-    } else if (target.kind === 'cat') {
-      hint = 'Sniffs for milk.';
-    } else if (target.kind === 'dog') {
-      hint = 'Eyes meat hungrily…';
-    } else {
-      const wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
-      hint = `Eyes a ${wantName}…`;
+    // 4. CATCH via work queue. Reached with an empty hand (or any non-food,
+    // non-favourite selection) — favourite food TAMED above, edible food was
+    // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
+    // (startCatchProgress); if it escapes the viewport the catch fails. A Bug
+    // Net shortens the wheel by tier; bare hands take the tier-0 (9s) time.
+    // Butterflies are the lone exception with no bare-hands tier — they REQUIRE
+    // the net.
+    if (target.kind === 'butterfly' && !save.relics?.bugnet) {
+      scene.flash('It flits away — you need a Bug Net.', sx, sy);
+      return true;
     }
-    scene.flash(hint, sx, sy);
+    const catchMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'bugnet')
+      : (save.relics?.bugnet ? 3000 : 9000);
+    const victim = target;
+    scene.startCatchProgress(victim, catchMs, () => {
+      scene.catchCreature(victim, sx, sy);
+    }, () => {
+      scene.flash('🏃 it got away', scene.viewCenterX, scene.viewCenterY - 60);
+    });
     return true;
   }},
 
@@ -781,9 +775,10 @@ const TAP_HANDLERS = [
         // cell — let the next handler claim the tap instead of consuming it
         // with a 'stump' flash that the player can't act on.
         if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
-        if (!save.relics?.axe) { scene.flash('Bare hands. The bark holds.', sx, sy); return true; }
+        // No axe? Bare hands still fell the tree — toolDurationMs returns the
+        // tier-0 (9s) time, 3× the wooden axe.
         const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, 'axe') : 3000;
+          ? toolDurationMs(save.relics, 'axe') : 9000;
         scene.startWorkProgress(o.x, o.y, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
@@ -1103,7 +1098,7 @@ const TAP_HANDLERS = [
       return true;
     }
     // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
-    // Bare hands: 10s · Wood: 3s · Copper: 2.25s · Iron: 1.5s · floor 0.5s.
+    // Bare hands: 9s · Wood: 3s · Copper: 2.25s · Iron: 1.5s · floor 0.5s.
     // Energy cost is unchanged (pick tier already discounts via
     // effectivePickCost).
     const cost = (typeof effectivePickCost === 'function')
@@ -1217,15 +1212,16 @@ const TAP_HANDLERS = [
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
-    if (!save.relics?.rod) {
-      scene.flash('You watch the ripples for a while.', sx, sy);
-      return true;
-    }
+    // No rod? You can still fish BARE-HANDED — it just takes 3× as long (the
+    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier;
+    // loot stays the tier-1 table bare-handed and improves with the rod.
     if (!scene.spendEnergy(5, sx, sy)) return true;
-    // The rod owns water taps, so a rod owner can't reach 'can-refill'. Top
-    // the can up here as part of the cast (the line's in the water anyway)
-    // so owning a rod never costs you your watering charges.
+    // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
+    // the can up here as part of the cast so owning a rod never costs you your
+    // watering charges. Bare-handed casts without a can simply skip this.
     if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
+    const castMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'rod') : (save.relics?.rod ? 3000 : 9000);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 1;
       // Per user: most of the wait results in nothing on a low-tier rod,
@@ -1292,7 +1288,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, 7000, 5);   // 5 = refund if the player cancels the cast
+    }, castMs, 5);   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
     return true;
   }},
 

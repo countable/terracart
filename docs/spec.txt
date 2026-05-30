@@ -33,8 +33,10 @@ MOVEMENT & REACH
    character. A white silhouette outlines the reachable cells; out-of-reach
    cells are dimmed. The tap-accept test and the drawn outline use the same
    integer cell math (coords.js cellInReach) so "if it's lit, you can tap it".
- - WORK WHEEL: timed actions (chop / mine / pick a worked crop / fish) show a
-   circular progress wheel at the spot. You wait it out; tapping anywhere
+ - WORK WHEEL: timed actions (chop / mine / fish / pick a worked crop / defeat a
+   pest / catch an animal) show a circular progress wheel at the spot. Every
+   tool type works BARE-HANDED (tier 0) at 3× the wooden-tool time — only the
+   Bug Net has no bare-hands tier. You wait it out; tapping anywhere
    cancels it (and refunds any pre-charged energy). The first 150ms is
    swallowed so the launching tap can't immediately cancel.
 
@@ -98,7 +100,7 @@ INTERACTION MODEL
      0)  cancel an in-progress work wheel
      0)  use consumable on self (tap own feet with flute / book selected)
      1)  claim a treasure X within ~7.5m
-     2)  creature within 4m (catch / hunt / feed / pet / hint — see CREATURES)
+     2)  creature within 4m (defeat / catch / tame / feed / pet — see CREATURES)
      3)  pick the nearest wild plant / flower within 4m
      4)  pick up a scattered coin within ~3m
      5)  world object within reach: chest, well, tree, fruit tree, mineral rock,
@@ -112,7 +114,7 @@ INTERACTION MODEL
     12)  break a natural rock cell (needs energy; pickaxe speeds it up)
     13)  planted cell → harvest / advance / water / nag
     14)  refill watering can from a WATER cell
-    15)  fish a WATER cell (needs rod) — also tops up the can
+    15)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
     16)  tilled empty cell + seed → plant; tilled empty cell + no seed → un-till
     17)  untilled tillable cell → till it
     18)  non-tillable terrain → flavour label (water / building / road / path)
@@ -153,8 +155,8 @@ FORAGING / WILD PICKUPS
      forest      → occasional nut + mushroom clusters (rarer, own RNG)
      beach/sand  → shell                 grassland → longgrass (Fern)
  - tap a wild plant / debris within 4m (and within reach) to pick it (+1).
- - some wild crops need WORK (a progress wheel): rockfruit (stone) wants a
-   Pickaxe, shrub (woody) wants an Axe — 10s bare-handed, faster by tool tier.
+ - some wild crops need WORK (a progress wheel): rockfruit (stone) is faster
+   with a Pickaxe, shrub (woody) with an Axe — 9s bare-handed, faster by tier.
    A shrub yields WOOD, not a "shrub" item. Other wildplants are instant.
  - SURPRISE TREASURE: picking certain crops has a small chance of a bonus drop
    (e.g. rockfruit → gemfruit). Flowers pulled from flora polygons give 1
@@ -168,7 +170,7 @@ MINING
    * NATURAL ROCK cells (rock landcover): break for a random drop table —
      mostly rock seed / coal, with rare $/gemfruit and very rare gems
      (sapphire ~1.7%, ruby ~0.6%, emerald ~0.2%). Bare hands work but take ~3×
-     longer; pickaxe tier shortens the wheel (10s→3s→…→0.5s).
+     longer; pickaxe tier shortens the wheel (9s→3s→…→0.5s).
    * MINERAL ROCKS / ORE BOULDERS (objects in quarry / industrial / residential
      / rocky polygons, in clusters). Each has a requiredTier (min pickaxe tier
      to crack it) and either a yieldTier (ore) or is a plain "cave" rock.
@@ -186,18 +188,19 @@ MINING
 ================================================================================
 CHOPPING
 ================================================================================
- - TREES (forest landcover + injected individual trees) need an Axe relic.
-   Bare hands fail ("the bark holds"). Chopping runs a work wheel (3s, faster by
-   axe tier) and drops 2-3 wood. Chopped state persists (save.chopped); stumps
+ - TREES (forest landcover + injected individual trees) chop via a work wheel
+   (9s bare-handed, 3s with a wood axe, faster by tier) and drop 2-3 wood.
+   Chopped state persists (save.chopped); stumps
    don't block tilling.
  - SHRUBS are wildplants (see FORAGING) — an Axe speeds the chop; they drop wood.
 
 ================================================================================
 FISHING
 ================================================================================
- - tap a WATER cell with a Fishing Rod relic equipped → 7s work wheel, then a
-   weighted catch. Without a rod you just "watch the ripples". A rod also tops
-   the watering can to full on every cast (so a rod owner never loses charges).
+ - tap a WATER cell → a cast work wheel (9s bare-handed, 3s with a wood rod,
+   faster by tier), then a weighted catch. Higher rod tiers improve the catch
+   and rare odds. A rod also tops the watering can to full on every cast (so a
+   rod owner never loses charges).
  - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
    T7 20%); else a fish weighted by rod tier (minnow → bass → trout → salmon →
    goldenfish, rarer fish more likely at high tier).
@@ -212,22 +215,26 @@ CREATURES
    player. Kinds: chicken, cow, cat, dog (domestic); rabbit, deer, crow,
    butterfly (wilderness); slime (pest). Chickens/cows wander ~1 cell / 5s near
    their home.
- - DOMESTIC ANIMALS — tap within 4m, outcome depends on the selected item:
-     * FAVOURITE FOOD → CATCH (consumes 1, 5 energy). Adds the LIVE animal to
-       inventory. Favourites: chicken = any seed, cow = pairy, cat = milk OR any
-       fish, dog = meat.
+ - CATCHING vs TAMING are now SEPARATE (chicken/cow/cat/dog/rabbit/butterfly):
+     * CATCH = a work queue. Tap with an EMPTY hand (or any non-food item). The
+       animal FLEES the player at 2 m/s while the wheel runs; if it escapes the
+       viewport the catch FAILS. Finishing it puts the LIVE animal in your
+       inventory. A Bug Net shortens the wheel by tier; bare hands take the
+       tier-0 (9s) time. Butterflies are the one exception with no bare-hands
+       tier — they REQUIRE the net.
+     * TAME = feed the FAVOURITE food. Befriends the animal IN PLACE: it converts
+       to a tame 'released_' pet (stays in the world, pettable / produces /
+       cats follow) but does NOT enter your inventory. Favourites: chicken = any
+       seed, cow = pairy, cat = milk OR any fish, dog = meat.
      * PLANT PRODUCE on chicken/cow → FEED for produce: consume the plant, get
        1 egg (chicken) / 1 milk (cow). 1-hour per-animal cooldown. A recently
        PETTED animal has a 50% chance to double the yield.
      * any other food → YUCK (wasted bite, no result).
-     * nothing useful → a species hint flash.
- - WILDERNESS FAUNA — by kind:
-     * crow / deer = DEFEAT via a work queue. Tapping starts the wheel; a weapon
-       relic (sword / bow / staff) shortens it by tier, bare hands take a long
-       12s. Finishing it removes the animal and drops its product (crow_feather
-       / meat).
-     * butterfly = CATCH with the Bug Net (kept as a live animal).
-     * rabbit = CATCH bare-handed (no gate).
+ - PESTS — crow / deer / slime = DEFEAT via a work queue (NOT caught). Tapping
+   starts the wheel; a weapon relic (sword / bow / staff) shortens it by tier,
+   bare hands take the tier-0 9s. Finishing it removes the creature and drops
+   its product (crow → feather, deer → meat; slimes drop nothing). Pests do NOT
+   flee during the wheel.
  - RELEASE: select a caught animal and tap a passable cell to place it (chickens
    release as a flock of 4; others one at a time). Released animals persist in
    save.released and re-spawn at their spot.
@@ -242,7 +249,7 @@ CREATURES
    in slow hopping drifts and are lazily drawn toward the player (~half their
    hops amble your way). A slime within ~2.5m drains 1 energy every 3s, surfaced
    as one throttled "🟢 slime drained N⚡" flash. Not catchable or feedable, but
-   DEFEATABLE: tap to start a work queue (weapon shortens it; bare hands 12s),
+   DEFEATABLE: tap to start a work queue (weapon shortens it; bare hands 9s),
    or just walk away to shake a swarm.
 
 ================================================================================
@@ -319,6 +326,13 @@ ECONOMY (buying & selling)
  - FORTS (BUILDING_MED): up to 5 deals/hour. CASTLES/TOWERS (BUILDING_LARGE):
    never run out, always sell RELICS (at 4× base, minus bow/staff discount), and
    are never "busy". Plain houses do 1 deal/hour. Hour buckets are per-house.
+ - CASTLE TRIBUTE (locked start): every castle begins occupied by corrupt
+   post-apocalyptic residents who demand a one-time TRIBUTE before they'll open
+   the vault — 10 of a stable-random Tier-2 good (just 5 if it's a live animal),
+   keyed per castle so it never reshuffles. Holding 10 needs a Bag relic
+   (base stack cap is 9), so non-animal castles are effectively gated behind
+   bags. Mirrors the wreck-house restore gate one tier up; once paid it's tracked
+   in save.tributedCastles and the castle trades normally forever after.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
@@ -343,7 +357,7 @@ GEAR: RELICS & ARMOR
      hoe    — cheaper tilling, per-tier chance of free
      can    — watering improves crops (see FARMING); refill banks 50 charges
      rod    — fish from water; tier raises catch + rare odds
-     bugnet — catch crows + butterflies; tier discounts catch energy
+     bugnet — speeds the animal-catch wheel by tier; butterflies REQUIRE it
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier
      amulet — projects a GHOST (see below); higher tier = faster + cheaper
