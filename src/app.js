@@ -5707,6 +5707,7 @@ class MapScene extends Phaser.Scene {
       stack.count = (stack.count || 0) + (s.count || 0);
       this.save.inv.splice(i, 1);
     }
+    const isNewStack = !stack;
     if (!stack) {
       stack = { id, count: 0 };
       this.save.inv.push(stack);
@@ -5715,6 +5716,19 @@ class MapScene extends Phaser.Scene {
     const accepted = Math.min(room, n);
     stack.count = (stack.count || 0) + accepted;
     const rejected = n - accepted;
+    // Autoselect a freshly-obtained NEW item type so the player can immediately
+    // see / use what they just got. Only for genuine (non-silent) pickups, and
+    // only when this add created a brand-new stack — topping up an existing
+    // stack keeps the current selection so loops like harvest→replant aren't
+    // disrupted after the first of a crop. (5 = inventory page size, see
+    // buildInventoryDOM PAGE.)
+    if (isNewStack && accepted > 0 && !silent) {
+      const idx = this.save.inv.indexOf(stack);
+      if (idx >= 0) {
+        this.save.selSlot = idx;
+        this.save.invPage = Math.floor(idx / 5);
+      }
+    }
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
