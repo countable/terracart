@@ -1,8 +1,5 @@
 # CLAUDE.md
 
-Please help me learn vibe coding and programming as I work on this project. Explain technical terms as you go, so I can follow along.
-Ask me questions to help me understand key concepts about software development using AI agents/assistants.
-
 ## Parallelism rules
 
 - **Don't use `git stash` or `git worktree`** for parallel work.
@@ -27,6 +24,14 @@ Ask me questions to help me understand key concepts about software development u
   The parent does the deletions in one coordinated pass after all subagents
   return — this avoids merge-conflict-style line-number drift between
   parallel agents touching `app.js`.
+
+## QC rules
+
+- **Interactables must be clearly in one cell.** Other than houses and fauna,
+  every interactable should visually occupy a single tile — its art and
+  collision box must align to the same cell. If it appears to straddle a cell
+  boundary, or if the sprite and hitbox don't obviously belong to the same
+  cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
 
 ## Commits
 

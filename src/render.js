@@ -291,14 +291,21 @@ Render.drawCells = function drawCells(scene) {
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
         } else if (type === 3) {
-          const tn = T(col, row - 1), ts2 = T(col, row + 1);
-          const tw = T(col - 1, row), te = T(col + 1, row);
-          const mask = (tn === 3 ? 1 : 0)
-                     | (te === 3 ? 2 : 0)
-                     | (ts2 === 3 ? 4 : 0)
-                     | (tw === 3 ? 8 : 0);
-          texKey = 'terrains';
-          texFrame = WATER_AUTOTILE_FRAME[mask] ?? WATER_AUTOTILE_FALLBACK;
+          // 8-neighbour BLOB autotile (see WATER_BLOB in textures.js). Bit set
+          // = that neighbour is also water. Convention: TL=1,T=2,TR=4,L=8,R=16,
+          // BL=32,B=64,BR=128. The blob draws inner corners the old cardinal
+          // Wang could not — closing the shore gaps.
+          const W = (t) => (t === 3 ? 1 : 0);
+          const mask = W(T(col - 1, row - 1)) * 1
+                     + W(T(col,     row - 1)) * 2
+                     + W(T(col + 1, row - 1)) * 4
+                     + W(T(col - 1, row    )) * 8
+                     + W(T(col + 1, row    )) * 16
+                     + W(T(col - 1, row + 1)) * 32
+                     + W(T(col,     row + 1)) * 64
+                     + W(T(col + 1, row + 1)) * 128;
+          texKey = 'autotiles';
+          texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
@@ -938,7 +945,9 @@ Render.drawObjects = function drawObjects(scene) {
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 32×32 image with the pole base at the bottom of the
     // sprite; origin (0.5, 1) anchors that base on the placement cell.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },
+    // dyPx: CELL_PX*0.5 nudges the foot to the cell's bottom edge so the pole
+    // stands inside its own cell — same trick as tower/tree.
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -1031,15 +1040,16 @@ Render.drawObjects = function drawObjects(scene) {
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
     well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dyPx: CELL_PX * 0.18 },
-    // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
-    // shrine level (row-major across the 4×2 grid) so the fountain visibly
-    // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
+    // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
+    // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
+    // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
+    // L5-6→2, L7→3 (fully restored).
     shrine: { key: 'shrine',
               frame: (o) => {
                 const lvl = Math.min(7, Math.max(1, scene.save.shrineLevel || 1));
-                return lvl - 1;
+                return Math.min(3, Math.floor((lvl - 1) / 2));
               },
-              origin: [0.5, 1.0], scale: 0.85 },
+              origin: [0.5, 1.0], scale: 0.6, dyPx: CELL_PX * 0.5 },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
