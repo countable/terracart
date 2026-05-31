@@ -211,6 +211,8 @@
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="debug-controls">Debug controls: off</button>
+      <button id="debug-clear-relics">Remove all relics</button>
+      <button id="debug-wood-relics">All wood relics (T1)</button>
       <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
         <!-- buttons injected from window.TELEPORT_PRESETS -->
@@ -334,6 +336,27 @@
       if (!scene || !scene.setDebugControls) return;
       const next = !scene.save?.debugControls;
       setDebugBtnLabel(scene.setDebugControls(next));
+    });
+    document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.save.relics = scene.save.relics || {};
+      for (const slot of Object.keys(scene.save.relics)) scene.save.relics[slot] = null;
+      scene.updateRelicRow?.();
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.save.relics = scene.save.relics || {};
+      const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
+      for (const slot of slots) scene.save.relics[slot] = { tier: 1 };
+      scene.updateRelicRow?.();
+      if (typeof persistSave === 'function') persistSave(scene.save);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -523,10 +546,10 @@
   <script src="src/rarity.js?v=22"></script>
   <script src="src/loot.js?v=136"></script>
   <script src="src/interact.js?v=180"></script>
-  <script src="src/render.js?v=211"></script>
+  <script src="src/render.js?v=212"></script>
   <script src="src/assets.js?v=165"></script>
   <script src="src/sandbox.js?v=26"></script>
   <script src="src/testtools.js?v=6"></script>
-  <script src="src/app.js?v=268"></script>
+  <script src="src/app.js?v=269"></script>
 </body>
 </html>
