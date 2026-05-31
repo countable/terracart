@@ -1572,6 +1572,54 @@ test('watering can: watering writes canBoost to the planted crop', (scene) => {
   assert.eq(p.canBoost, 3, 'tier-3 can wrote canBoost=3');
 });
 
+test('tapping an immature crop reports its growth stage (never "occupied")', (scene) => {
+  // Tapping a planted, NON-mature crop must report 1-indexed growth progress
+  // "<Name> <stage+1>/<MAX+1>" — never the till path's "occupied:" message,
+  // and never harvest. A stage-1 potato reads "Potato 2/5".
+  scene.save.relics = scene.save.relics || {};
+  scene.save.relics.can = null;   // no can → plain water, no canBoost noise
+  scene.save.canCharges = 0;
+  scene.save.planted = [];
+  scene.save.tilled = []; scene.tilledSet = new Set();
+  scene.save.placedRocks = []; scene.placedRockSet = new Set();
+  const pWX0 = scene.startWorldM.x + scene.playerM.x;
+  const pWY0 = scene.startWorldM.y + scene.playerM.y;
+  const { cellIX, cellIY } = worldMetersToAbsCell(scene, pWX0, pWY0);
+  const c = absCellCenterMeters(scene, cellIX, cellIY);
+  scene.tilledSet.add(cellKeyFromAbsCell(cellIX, cellIY));
+  // Suppress earlier-dispatched handlers (treasure X's, wildplants) that could
+  // eat the tap before the planted handler runs.
+  const foundNow = new Set(scene.save.foundTreasures || []);
+  const pickedNow = new Set(scene.save.picked || []);
+  for (const e of WorldGen.tileCache.values()) {
+    for (const tr of [e.treasure, ...(e.parkingTreasures || []), ...(e.extraTreasures || [])]) {
+      if (tr && Math.hypot(tr.x - c.x, tr.y - c.y) < 12) foundNow.add(tr.id);
+    }
+    for (const wp of (e.wildplants || [])) {
+      if (Math.hypot(wp.x - c.x, wp.y - c.y) < 10) pickedNow.add(wp.id);
+    }
+  }
+  scene.save.foundTreasures = [...foundNow];
+  scene.save.picked = [...pickedNow];
+  scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 1, watered_t: 0 });
+  teleport(scene, c.x, c.y);
+  // Capture the flash so we can assert the growth-stage readout.
+  const origFlash = scene.flash;
+  let flashed = null;
+  scene.flash = (m) => { flashed = m; };
+  const beforeTilled = scene.tilledSet.size;
+  const beforeProduce = invCount(scene, 'potato');
+  try {
+    tapWorld(scene, c.x, c.y);
+  } finally {
+    scene.flash = origFlash;
+  }
+  assert.eq(flashed, 'Potato 2/5', 'immature tap shows "<Name> stage/total" readout');
+  assert.falsy(flashed && /occupied/.test(flashed), 'no "occupied" message on a planted cell');
+  assert.eq(invCount(scene, 'potato'), beforeProduce, 'immature crop not harvested');
+  assert.eq(scene.tilledSet.size, beforeTilled, 'planted cell never tilled by the tap');
+});
+
 test('watering can: refill at water tile -> 50 charges, then +2 boost', (scene) => {
   scene.save.relics = scene.save.relics || {};
   scene.save.relics.can = { tier: 2 };

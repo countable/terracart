@@ -1175,13 +1175,23 @@ const TAP_HANDLERS = [
     flashMsg: '🪨 Stone set.',
   })},
 
-  // 2a) Tap a planted cell → harvest / advance / water / nag.
+  // 2a) Tap a planted cell → harvest / advance / water / stage readout.
   { name: 'planted', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    // Match against the whole CELL the tap lands in (same half-cell epsilon the
+    // till path uses below), not a tight 0.1m epsilon. A planted cell must
+    // always be handled here so a tap on an immature crop reports its growth
+    // stage — it must never fall through to the till path's "occupied:" message.
+    const cellHalfM = scene.cellM / 2;
     const plantedIdx = save.planted.findIndex(p =>
-      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
+      Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
+    // 1-indexed "<stage>/<total>" growth readout for an immature crop, e.g.
+    // a freshly-seeded plant (stage 0) reads "1/5"; one short of mature reads
+    // "4/5". CROP_NAMES gives a friendly label; fall back to the raw crop id.
+    const stageReadout = () =>
+      `${CROP_NAMES?.[p.crop] || p.crop} ${(p.stage ?? 0) + 1}/${MAX_GROWTH_STAGE + 1}`;
     const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
@@ -1221,11 +1231,13 @@ const TAP_HANDLERS = [
         if (filled) save.canCharges -= 1;
       }
       ctx.dirty = true;
-      scene.flash(p.canBoost ? `💧 watered +${p.canBoost}` : '💧 watered', sx, sy);
+      // Water the plant AND report its growth progress so the player can see
+      // how close it is to harvest (e.g. "Pairy 2/5").
+      scene.flash(stageReadout(), sx, sy);
       return true;
     }
-    const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
-    scene.flash(`growing… ${minsLeft}m`, sx, sy);
+    // Already watered and still growing: show the growth-stage readout.
+    scene.flash(stageReadout(), sx, sy);
     return true;
   }},
 
