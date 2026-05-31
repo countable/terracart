@@ -1391,21 +1391,26 @@ class MapScene extends Phaser.Scene {
           }
         }
       }
-      // Clear the immediate spawn area of natural mineralrocks and trees
-      // so the starter crates aren't visually competing with debris the
-      // player can't open. 10-cell Chebyshev radius (~50 m) around the
-      // spawn point — far enough that the crates and the player's home
-      // sit in a clean tutorial pocket, close enough that the surrounding
-      // streets / wilderness still feel populated.
+      // Clear the immediate spawn area of natural mineralrocks and procedural
+      // forest fill so the starter crates aren't visually competing with debris
+      // the player can't open. 10-cell Chebyshev radius (~50 m) around spawn.
+      // EXCEPTION: real-world detected trees (the player's actual yard / street
+      // trees — flagged `individual` or carrying a DeepForest crown_color/size)
+      // are kept, so the home reads like the real neighbourhood instead of a
+      // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
+      // forest-grove trees get cleared near spawn.
       const CLEAR_R = 10;
       const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
+      const _isRealTree = (o) =>
+        (o.kind === 'tree' || o.kind === 'fruittree') &&
+        (o.individual || o.crown_color || o.size);
       const _nearSpawn = (wx, wy) => {
         const oIx = Math.floor((wx - tx0) / this.cellM);
         const oIy = Math.floor((wy - ty0) / this.cellM);
         return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
       };
       entry.objects = entry.objects.filter(o =>
-        !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
+        _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
       // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
       // any within the tutorial pocket too so spawn is free of pickable scrub.
       if (Array.isArray(entry.wildplants)) {
