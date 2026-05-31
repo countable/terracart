@@ -1931,13 +1931,34 @@ class MapScene extends Phaser.Scene {
       let dx = c.x - px, dy = c.y - py;
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
-      const FLEE_MPS = 2;
+      // Butterflies bolt 3× faster than other fauna while the net wheel runs.
+      const isButterfly = c.kind === 'butterfly';
+      const FLEE_MPS = isButterfly ? 6 : 2;
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
-      // Escaped the viewport? Chebyshev distance beyond the visible half-grid.
+      // Left the viewport? Chebyshev distance beyond the visible half-grid.
       const halfM = (VIEW_CELLS / 2) * this.cellM;
-      if (Math.abs(c.x - px) > halfM || Math.abs(c.y - py) > halfM) {
+      const outOfRange = Math.abs(c.x - px) > halfM || Math.abs(c.y - py) > halfM;
+      if (isButterfly) {
+        // Butterflies get a 2 s grace: the catch only fails once the butterfly
+        // has stayed outside the player's range for 2 continuous seconds.
+        // Re-entering range before then resets the timer. When it does fail,
+        // the butterfly bolts — it keeps fleeing the player for 2 minutes
+        // (see wanderCreatures' _escapingUntil handling).
+        if (outOfRange) {
+          wp._outSinceT = wp._outSinceT ?? now;
+          if (now - wp._outSinceT >= 2000) {
+            const onFail = wp.onFail;
+            c._escapingUntil = now + 120000;   // 2 min of post-catch fleeing
+            this.cancelWorkProgress();         // clears _beingCaught
+            if (onFail) onFail();
+            return;
+          }
+        } else {
+          wp._outSinceT = null;                // back in range — reset grace
+        }
+      } else if (outOfRange) {
         const onFail = wp.onFail;
         this.cancelWorkProgress();         // clears _beingCaught
         if (onFail) onFail();
@@ -2034,14 +2055,14 @@ class MapScene extends Phaser.Scene {
 
     WorldGen.forEachItem('creatures', (c) => {
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
-      // Wandering kinds: farm + pet animals always; tame butterflies also
-      // wander so they can pollinate. Crows + deer also wander when wild
-      // so they can eat crops / be hunted.
+      // Wandering kinds: farm + pet animals always; butterflies (wild + tame)
+      // flit about constantly — tame ones also pollinate. Crows + deer also
+      // wander when wild so they can eat crops / be hunted.
       const wanders = c.kind === 'chicken' || c.kind === 'cow'
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
                     || c.kind === 'slime' || c.kind === 'rabbit'
-                    || (isTame && c.kind === 'butterfly');
+                    || c.kind === 'butterfly';
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
@@ -2086,11 +2107,19 @@ class MapScene extends Phaser.Scene {
       const isRabbit = c.kind === 'rabbit' && !isTame;
       const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
       const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
+      // Butterflies flit constantly; after a failed net-catch they spend 2 min
+      // bolting away from the player (set in _drawWorkProgress).
+      const isButterfly = c.kind === 'butterfly';
+      const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
       // stepMs = animation duration of the hop itself (short burst).
-      const stepMs = isRabbit ? (rabbitFleeing ? 300 : 420) : STEP_MS;
-      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells.
+      const stepMs = isRabbit ? (rabbitFleeing ? 300 : 420)
+                   : isButterfly ? (butterflyEscaping ? 350 : 900)
+                   : STEP_MS;
+      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
+      // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
+                  : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
                   : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2222,6 +2251,9 @@ class MapScene extends Phaser.Scene {
           } else if (rabbitFleeing) {
             // Flee directly away from player with wide jitter so it zig-zags.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
+          } else if (butterflyEscaping) {
+            // Bolt away from the player, careening with wide jitter.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
             // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
