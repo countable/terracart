@@ -4315,16 +4315,24 @@ class MapScene extends Phaser.Scene {
     }
     // Default focus: highest unlocked bar the player can afford ≥1 of, else
     // the highest unlocked. An explicit `target` (from the rotate button) wins
-    // as long as it's actually unlocked.
+    // as long as it's actually unlocked. Prefer the highest unlocked bar the
+    // player can actually afford ≥1 of, so the modal opens on something usable
+    // rather than a bar they lack ingredients for (the rotate button still
+    // reaches the others).
     if (!target || !bars.includes(target)) {
       target = bars.slice().reverse().find(id =>
         this.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
     }
     const recipe = this.smeltingRecipe(target);
     const outItem = ITEM_BY_ID[target];
-    // Max smeltable = min over ingredients of floor(held / qty).
-    const cap = Math.max(0, recipe.reduce(
-      (m, r) => Math.min(m, Math.floor(heldCount(r.id) / r.qty)), Infinity) || 0);
+    // Max smeltable = min over ingredients of floor(held / qty). Guard the
+    // empty/missing-recipe case explicitly: an empty recipe would leave the
+    // reduce seed (Infinity) untouched, and `Infinity || 0` is Infinity (truthy)
+    // — so an unbounded stepper. Treat a non-2-ingredient recipe as cap 0.
+    const cap = (Array.isArray(recipe) && recipe.length)
+      ? Math.max(0, recipe.reduce(
+          (m, r) => Math.min(m, Math.floor(heldCount(r.id) / r.qty)), Infinity))
+      : 0;
     const recipeLine = (n) => recipe.map(r => {
       const it = ITEM_BY_ID[r.id];
       const ok = heldCount(r.id) >= r.qty * n;
