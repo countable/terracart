@@ -1099,42 +1099,6 @@ const TAP_HANDLERS = [
     flashMsg: '🪨 Stone set.',
   })},
 
-  // 2-rock) Tap a natural rock cell → break it. Requires a pickaxe relic;
-  // costs energy (mitigated by pick tier).
-  { name: 'rock', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    if (cell.type !== TERRAIN.ROCK) return false;
-    if (scene.brokenRockSet.has(cellKey)) {
-      scene.flash('Rubble — nothing salvageable.', sx, sy);
-      return true;
-    }
-    // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
-    // Bare hands: 9s · Wood: 3s · Copper: 2.25s · Iron: 1.5s · floor 0.5s.
-    // Energy cost is unchanged (pick tier already discounts via
-    // effectivePickCost).
-    const cost = (typeof effectivePickCost === 'function')
-      ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
-    return startToolWork(ctx, cwmx, cwmy, 'pick', cost, () => {
-      scene.brokenRockSet.add(cellKey);
-      save.brokenRocks = [...scene.brokenRockSet];
-      const r = Math.random();
-      let msg = '💥 broken';
-      // Cumulative probability table — rarer rewards come first so each
-      // bucket adds its own slice. ~30% of rocks now drop coal/gems.
-      if (r < 0.002)        { scene.addToInv('emerald', 1);          msg = '💥 → ✨ emerald'; }
-      else if (r < 0.008)   { scene.addToInv('ruby', 1);              msg = '💥 → ✨ ruby'; }
-      else if (r < 0.025)   { scene.addToInv('sapphire', 1);          msg = '💥 → ✨ sapphire'; }
-      else if (r < 0.030)   { scene.addToInv('gemfruit', 1);          msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.040)   { addMoney(save, 25); msg = '💥 → $25'; }
-      else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
-      else if (r < 0.130)   { addMoney(save,  5); msg = '💥 → $5'; }
-      else if (r < 0.430)   { scene.addToInv('coal', randInt(1, 2)); msg = '💥 → coal'; }
-      else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
-      persistSave(save);
-      scene.flash(msg, sx, sy);
-    });
-  }},
-
   // 2a) Tap a planted cell → harvest / advance / water / nag.
   { name: 'planted', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;

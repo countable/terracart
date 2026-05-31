@@ -812,36 +812,32 @@
               }
             }
 
-            // Mineral-rich rocks on ROCK terrain. Rare — most are low-tier, with
-            // ultra-rare high-tier finds via 1/2^(t-1) weighting (T1 ~64%, T7 ~1%).
+            // Dense mineral rock clusters on ROCK terrain (scree / cliff landcover).
+            // Cluster style mirrors residential but at higher density — tight 12 m
+            // pivot grid, 70 % fire rate, 10-19 rocks per cluster. Tier weights use
+            // a steeper geometric decay than industrial so low-tier stones dominate
+            // but rare wilderness finds (T5-T7) are still possible.
             if (t === T.ROCK) {
               const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
               const bb = bboxOf(f.geom);
-              const stepMvt = 15 / mvtToM;   // one candidate per ~15m
-              // Precompute tier-weight CDF: w[i] = 1 / 2^i for i = 0..6.
-              // 70 % of these spawns are still plain CAVE rock per the
-              // shared helper; this curve only governs the ore subset.
+              const pivotStep = 12 / mvtToM;
+              const clusterR  =  6 / mvtToM;
+              // 1/2^(t-1): T1 ~50%, T2 ~25%, T3 ~13% … T7 ~1% of ore subset.
+              // _pushMineralrock still routes 70% of picks to cave rock.
               const tierW = [];
               let totalW = 0;
               for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(2, t2 - 1);
-                totalW += w;
+                totalW += 1 / Math.pow(2, t2 - 1);
                 tierW.push(totalW);
               }
-              const clusterR = 5 / mvtToM;       // ~5 m cluster radius
-              for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                  const cxMvt = xx + stepMvt * 0.5;
-                  const cyMvt = yy + stepMvt * 0.5;
-                  if (!pointInRings(f.geom, cxMvt, cyMvt)) continue;
-                  if (rockRng() > 0.55) continue;   // 55% chance per candidate
-                  // Triple-up: 3 rocks per fired candidate, slight jitter
-                  // inside ~5 m so they read as a small pile rather than
-                  // a single boulder. Brings wilderness ROCK density in
-                  // line with the residential / industrial cluster bump.
-                  for (let k = 0; k < 3; k++) {
-                    const jx = cxMvt + (rockRng() - 0.5) * 2 * clusterR;
-                    const jy = cyMvt + (rockRng() - 0.5) * 2 * clusterR;
+              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
+                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
+                  if (rockRng() > 0.70) continue;
+                  const clusterN = 10 + Math.floor(rockRng() * 10);
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (rockRng() - 0.5) * 2 * clusterR;
+                    const jy = yy + (rockRng() - 0.5) * 2 * clusterR;
                     _pushMineralrock(rockRng, jx, jy, tierW, totalW);
                   }
                 }

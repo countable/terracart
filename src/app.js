@@ -104,7 +104,7 @@ const COLORS = {
 };
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
 // road tiers, paths, every building tier, and rock are NOT tillable.
-// Rock (10) is non-tillable too — taps break the rock instead (see handleWorldTap).
+// Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }

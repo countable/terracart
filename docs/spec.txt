@@ -199,21 +199,18 @@ FORAGING / WILD PICKUPS
 ================================================================================
 MINING
 ================================================================================
- - two rock sources, both gated by a Pickaxe relic for speed/access:
-   * NATURAL ROCK cells (rock landcover): break for a random drop table —
-     mostly rock seed / coal, with rare $/gemfruit and very rare gems
-     (sapphire ~1.7%, ruby ~0.6%, emerald ~0.2%). Bare hands work but take ~3×
-     longer; pickaxe tier shortens the wheel (9s→3s→…→0.5s).
-   * MINERAL ROCKS / ORE BOULDERS (objects in quarry / industrial / residential
-     / rocky polygons, in clusters). Each has a requiredTier (min pickaxe tier
-     to crack it) and either a yieldTier (ore) or is a plain "cave" rock.
-       - cave rock: quick + cheap, drops 1-3 rockfruit + a chance of coal, with
-         a small per-tier chance of a lucky bar.
-       - ore rock: drops coal + exactly one bar of its tier (copper/iron/gold)
-         and, on T4+, a tier-rolled gem (sapphire/ruby/emerald). Work + energy
-         scale with the tier.
- - residential ore clusters favour low tiers (mostly cave + copper); industrial
-   is denser and mid-tier; wilderness rock is rarer but reaches the top tiers.
+ - all mining is via MINERAL ROCKS / ORE BOULDERS — objects spawned in clusters
+   on quarry / industrial / residential / rocky (scree/cliff) polygons.
+   Each has a requiredTier (min pickaxe tier to crack it) and either a
+   yieldTier (ore) or is a plain "cave" rock.
+     - cave rock: quick + cheap, drops 1-3 rockfruit + a chance of coal, with
+       a small per-tier chance of a lucky bar.
+     - ore rock: drops coal + exactly one bar of its tier (copper/iron/gold)
+       and, on T4+, a tier-rolled gem (sapphire/ruby/emerald). Work + energy
+       scale with the tier.
+ - density by zone: residential = sparse low-tier clusters; industrial = dense
+   mid-tier; rock landcover (scree/cliff) = dense, reaches top tiers but
+   weighted toward low.
  - broken rocks persist (save.brokenRocks) so they don't regrow.
  - YOU CAN ALSO PLACE rockfruit as a stone "fence" on an empty tilled-able cell
    (costs 1 energy) and pick it back up later.
