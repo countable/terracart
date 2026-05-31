@@ -15,4 +15,6 @@ satextract/_merge_out.txt
 
 # Claude session-local state
 .claude/scheduled_tasks.lock
-.claude/worktrees/
+.claude/worktrees/tiles_cache/
+data/*_review.png
+data/trees_z20_min30.png
