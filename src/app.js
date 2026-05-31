@@ -4370,18 +4370,16 @@ class MapScene extends Phaser.Scene {
         const unlockMsg = newTransform
           ? `Unlocked: ${this.iconSpanHTML(newTransform.input)} ${ITEM_BY_ID[newTransform.input]?.name} → ${this.iconSpanHTML(newTransform.output)} ${ITEM_BY_ID[newTransform.output]?.name}`
           : 'the shrine hums at full power';
-        // 64×85 fountain frame for the new level (row-major over 4×2 grid,
-        // 48×64 each — scaled up 1.78× for the big icon slot). newLvl tops out
-        // at 6 (shrineLevelUpCost returns null past L5), so frame is 1..5 —
-        // well inside the 8-frame (0..7) sheet. Clamp to the L6 cap defensively.
-        const frame = Math.min(6, newLvl) - 1;
-        const fcol = frame % 4, frow = Math.floor(frame / 4);
+        // Wizard's house frame for the new level — 320×208 sheet, 80×104 per
+        // frame, top row only. Same level→frame mapping as render.js.
+        const frame = Math.min(3, Math.floor((newLvl - 1) / 2));
+        const fcol = frame, frow = 0;
         const ICON_SIZE = 96;            // big icon slot in the reward modal
-        const SCALE = ICON_SIZE / 48;    // scale the 48-wide frame up to ICON_SIZE
-        const iconHTML = `<span style="display:inline-block;width:${ICON_SIZE}px;height:${64 * SCALE}px;`
-          + `background-image:url('assets/Objects/Wilderness/Water fountain.png');`
-          + `background-size:${192 * SCALE}px ${128 * SCALE}px;`
-          + `background-position:-${fcol * ICON_SIZE}px -${frow * 64 * SCALE}px;`
+        const SCALE = ICON_SIZE / 80;    // scale the 80-wide frame up to ICON_SIZE
+        const iconHTML = `<span style="display:inline-block;width:${ICON_SIZE}px;height:${Math.round(104 * SCALE)}px;`
+          + `background-image:url('assets/Objects/Houses/wizard.png');`
+          + `background-size:${Math.round(320 * SCALE)}px ${Math.round(208 * SCALE)}px;`
+          + `background-position:-${fcol * ICON_SIZE}px -${frow * Math.round(104 * SCALE)}px;`
           + `image-rendering:pixelated"></span>`;
         this.showChestRewardModal({
           header: '✨ Shrine ascended ✨',

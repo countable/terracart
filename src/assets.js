@@ -112,19 +112,19 @@ const ASSETS = {
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch). Foot-anchored near the base so it stands on its cell.
   well:           { kind: 'image', path: 'assets/Objects/Wilderness/well.png' },
-  // Magic Crafting Shrine — 192×128 = 4 cols × 2 rows of 48×64 water-fountain
-  // variants. Each shrine level picks a different frame (row-major) so the
-  // fountain visibly evolves: L1 → frame 0, L7 → frame 6. Anchored at
-  // (0.5, 1.0) so the base sits on the placement cell.
-  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Water fountain.png', frameWidth: 48, frameHeight: 64 },
+  // Magic Crafting Shrine — 320×208 wizard's house sheet, 4 cols × 2 rows of
+  // 80×104 (top row = 4 tower variants: blue-ivy, purple-ivy, blue-clean,
+  // purple-clean). Shrine levels 1-7 step through frames 0-3 (pairs of levels
+  // share a frame) so the tower visibly upgrades: overgrown → restored.
+  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
   // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
   // near water polygons). frame index is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
-  // Scarecrow — 32×32 single-image prop (proper straw-man with hat & cross-
-  // pole). Pole base anchors at origin (0.5, 1) so it stands on its
-  // placement cell.
-  scarecrow:   { kind: 'image', path: 'assets/Objects/scarecrow.png' },
+  // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
+  // anchors at origin (0.5, 1) so it stands on its placement cell; the render
+  // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
+  scarecrow:   { kind: 'image', path: 'assets/Objects/Scarecrow_16x16.png?v=1' },
   // ALL props seasons — 352×192 = 22 cols × 12 rows of 16×16 frames.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
@@ -143,6 +143,11 @@ const ASSETS = {
   // today; SAND, FARMLAND, BUILDING_MED are easy follow-ups since every
   // overlay shares the same 3×3 Wang geometry — just different col/row.
   terrains: { kind: 'spritesheet', path: 'assets/Objects/Terrains_16x16.png', frameWidth: 16, frameHeight: 16 },
+  // Godot 47-tile autotile blob (water↔grass shore lives in rows 8-15). 192×896
+  // = 12 cols × 56 rows of 16×16; frames indexed row*12+col. render.js' water
+  // branch reads WATER_BLOB (textures.js) → frame here. Replaces the cardinal
+  // 'terrains' Wang for WATER so inner corners render (no more shore gaps).
+  autotiles: { kind: 'spritesheet', path: 'assets/Objects/Autotiles_Godot_16x16.png', frameWidth: 16, frameHeight: 16 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.

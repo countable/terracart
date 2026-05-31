@@ -943,11 +943,12 @@ Render.drawObjects = function drawObjects(scene) {
     // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
     // trees — so the tower stands inside its own single cell.
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
-    // Placed scarecrow — 32×32 image with the pole base at the bottom of the
-    // sprite; origin (0.5, 1) anchors that base on the placement cell.
+    // Placed scarecrow — 48×48 image with the pole base at the bottom of the
+    // sprite; origin (0.5, 1) anchors that base on the placement cell. scale 0.7
+    // trims the 48px art back to ~one cell tall (matching the old 32px prop).
     // dyPx: CELL_PX*0.5 nudges the foot to the cell's bottom edge so the pole
     // stands inside its own cell — same trick as tower/tree.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 0.7, dyPx: CELL_PX * 0.5 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -991,7 +992,9 @@ Render.drawObjects = function drawObjects(scene) {
               // gold, so no tint is applied.
               frame: (o) => _isCoinBurst(o) ? undefined : 0,
               origin: (o) => _isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9],
-              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0 },
+              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0,
+              dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
+              dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
     fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
               origin: [0.5, 0.95], scale: 0.85,
               after: (s, o) => {
@@ -1039,7 +1042,7 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dyPx: CELL_PX * 0.18 },
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 4, dyPx: CELL_PX * 0.43 },
     // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
     // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
     // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
@@ -1110,11 +1113,12 @@ Render.drawObjects = function drawObjects(scene) {
       tint = Shops.shopTint(o) || 0xffffff;
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const dyPx = spec.dyPx || 0;
+    const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     s.setOrigin(origin[0], origin[1])
      .setScale(scl)
-     .setPosition(Math.round(sx), Math.round(sy) + dyPx)
+     .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
     // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
