@@ -287,7 +287,7 @@ class MapScene extends Phaser.Scene {
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements
         // count. Starts empty: the player's first potato seeds come from a
-        // starter crate on the spawn trail (see STARTER_LOOT below).
+        // starter chest on the spawn trail (see STARTER_LOOT below).
         inv: [],
         selSlot: 0,
         invPage: 0,
@@ -1192,8 +1192,8 @@ class MapScene extends Phaser.Scene {
     }
     entry.creatures = creatures;
 
-    // Starter loot now lives entirely in the two road-side crates placed
-    // below (entry.extraTreasures with starterLoot). No loose groundstack
+    // Starter loot now lives entirely in the road-side starter chests placed
+    // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
     // logs / rockfruit piles near spawn — the tutorial pocket stays clean.
     entry.objects = entry.objects || [];
 
@@ -1249,14 +1249,16 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Seven starter crates: one of 9 potato seeds (the player's first crop —
+      // Seven starter chests: one of 9 potato seeds (the player's first crop —
       // inventory starts empty), three of 5 wood for restoring a plain house,
       // three of 5 rockfruit for restoring a themed shop — interleaved so the
-      // trail alternates. Per-crate counts stay within the no-bag stack cap (9)
-      // so nothing overflows. Fixed contents instead of the unified rarity
-      // picker — the player gets exactly what they need to bootstrap the
-      // restoration loop. (No free scarecrow — it's sold at the forced
-      // scarecrow shop, the next house out past the starter blacksmith.)
+      // trail alternates. Per-chest counts stay within the no-bag stack cap (9)
+      // so nothing overflows. These are real kind:'chest' objects carrying a
+      // `fixedLoot` payload, so they open through the standard chest path (the
+      // ceremony modal + one-time save.opened) instead of the rarity picker —
+      // the player gets exactly what they need to bootstrap the restoration
+      // loop. (No free scarecrow — it's sold at the forced scarecrow shop, the
+      // next house out past the starter blacksmith.)
       const STARTER_LOOT = [
         { id: 'potato_seed', qty: 9 },
         { id: 'wood',        qty: 5 },
@@ -1267,16 +1269,28 @@ class MapScene extends Phaser.Scene {
         { id: 'rockfruit',   qty: 5 },
       ];
       const COUNT = STARTER_LOOT.length;
-      const usedSeats = new Set();          // 'cx,cy' of cells already holding a crate
+      const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
       const placedIdx = new Set();          // loot indices successfully seated
-      const MIN_GAP = 3;                    // Chebyshev spacing between consecutive crates
+      const MIN_GAP = 3;                    // Chebyshev spacing between consecutive chests
       const seatCrate = (cx, cy, i) => {
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-        entry.extraTreasures.push({
-          x: wmx, y: wmy, n: i + 1,
-          starterLoot: STARTER_LOOT[i],
-          id: `treasure_start_${tx}_${ty}_${i + 1}`,
+        // Snap to the canonical global-cell centre. The tile-relative basis
+        // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
+        // because tileEdgeM is not an exact multiple of cellM, leaving the
+        // chest ~0.8 m off the centre cellAt() resolves it to. Round-tripping
+        // through worldMetersToAbsCell → absCellCenterMeters (the same basis
+        // POI chests and every cell tap use) keeps the chest exactly on-grid.
+        const rawX = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const rawY = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+        const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+        // A real chest with hardcoded contents — opens via the standard chest
+        // handler (interact.js), which reads o.fixedLoot and shows the same
+        // reward modal as POI chests. No poiClass → default tier-2 chest
+        // sprite, no POI label.
+        entry.objects.push({
+          kind: 'chest', x: wmx, y: wmy,
+          fixedLoot: STARTER_LOOT[i],
+          id: `chest_start_${tx}_${ty}_${i + 1}`,
         });
         usedSeats.add(cx + ',' + cy);
         placedIdx.add(i);
@@ -4714,6 +4728,37 @@ class MapScene extends Phaser.Scene {
     return { id: 'rockfruit', qty: 3, material: 'stone' };
   }
 
+  // The role a wreck reveals once restored — mirrors render.js _houseTrueRole
+  // (minus fort/trailer, which never wreck). 'blacksmith' | 'market' |
+  // 'trader' | 'plain'.
+  _restoredRole(house) {
+    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
+    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+  }
+
+  // Bake a restored building's sprite to an <img> data URL for the
+  // restoration fanfare modal. Themed roles (blacksmith/market/trader) are
+  // single-image textures; 'plain' uses the 'house' tileset's 'front' sub-rect
+  // (registered in assets.js as add('front', 0, 148, 3, 72, 95)).
+  buildingImgHTML(role, px = 72) {
+    let url = null;
+    try {
+      if (role === 'plain') {
+        const src = this.textures.get('house')?.getSourceImage();
+        if (src) {
+          const c = document.createElement('canvas');
+          c.width = 72; c.height = 95;
+          c.getContext('2d').drawImage(src, 148, 3, 72, 95, 0, 0, 72, 95);
+          url = c.toDataURL();
+        }
+      } else {
+        url = this.textures.get('house_' + role)?.getSourceImage()?.toDataURL?.() || null;
+      }
+    } catch (_) { /* fall back to emoji below */ }
+    if (!url) return '🏠';
+    return `<img src="${url}" alt="" style="width:${px}px;height:auto;image-rendering:pixelated;">`;
+  }
+
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
@@ -4753,10 +4798,21 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.showChestRewardModal) {
+          // Name the building, describe what it does, show its sprite, and let
+          // showChestRewardModal's sparkle burst supply the fanfare.
+          const role = this._restoredRole(house);
+          const INFO = {
+            blacksmith: { name: 'Blacksmith', blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { name: 'Market',     blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { name: 'Trader',     blurb: 'Barters goods and pays a bonus on every sale.' },
+            plain:      { name: 'House',      blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+          };
+          const info = INFO[role] || INFO.plain;
           this.showChestRewardModal({
-            iconHTML: '🏠',
-            name: 'A working building',
-            sub: 'Tap it again to do business.',
+            iconHTML: this.buildingImgHTML(role, 72),
+            header: 'Restored!',
+            name: `You restored a ${info.name}`,
+            sub: info.blurb,
             color: '#a7ffb0',
           });
         } else {

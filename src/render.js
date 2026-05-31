@@ -677,25 +677,6 @@ Render.drawCells = function drawCells(scene) {
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
-  // Starter-trail treasures render as box sprites — a clearer "go pick up
-  // these crates" affordance for first-time players than the scratched-X.
-  // Pooled to avoid per-frame alloc; unused slots are hidden between frames.
-  scene.starterBoxPool = scene.starterBoxPool || [];
-  let boxIdx = 0;
-  const drawBox = (tr) => {
-    if (!tr || found.has(tr.id)) return;
-    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
-    const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    let s = scene.starterBoxPool[boxIdx];
-    if (!s) {
-      s = scene.add.image(0, 0, 'box').setOrigin(0.5, 0.5).setDepth(50);
-      scene.starterBoxPool.push(s);
-    }
-    s.setPosition(Math.round(cx), Math.round(cy)).setScale(1.2).setVisible(true);
-    boxIdx++;
-  };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
   // gets expensive once a session has visited many tiles.
@@ -707,17 +688,9 @@ Render.drawCells = function drawCells(scene) {
         if (!entry) continue;
         drawX(entry.treasure);
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
-        if (entry.extraTreasures) {
-          for (const tr of entry.extraTreasures) {
-            if (tr.n != null) drawBox(tr);
-            else drawX(tr);
-          }
-        }
+        if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
       }
     }
-  }
-  for (; boxIdx < scene.starterBoxPool.length; boxIdx++) {
-    scene.starterBoxPool[boxIdx].setVisible(false);
   }
 };
 

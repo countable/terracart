@@ -89,6 +89,13 @@ async function runTests(scene) {
     row.className = 'case';
     row.textContent = `… ${t.name}`;
     list.appendChild(row);
+    // Test isolation: clear any work wheel a prior test left running. Several
+    // actions (till / mine / fish / catch) are async work wheels now, and the
+    // work-progress tap handler swallows the NEXT tap while a wheel is live —
+    // so a leaked wheel would silently eat the following test's first tap.
+    // Tests drive taps synchronously without waiting out durMs, so we reset
+    // here rather than relying on every test to clean up after itself.
+    if (scene._workProgress) scene.cancelWorkProgress();
     try {
       await t.fn(scene);
       row.className = 'case pass';

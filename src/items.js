@@ -410,7 +410,7 @@ const PRICES = {
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
-const STARTING_MONEY = 25;
+const STARTING_MONEY = 50;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS

@@ -18,3 +18,6 @@ satextract/_merge_out.txt
 .claude/worktrees/tiles_cache/
 data/*_review.png
 data/trees_z20_min30.png
+
+# Generated satellite tile cache (satextract)
+tiles_cache/

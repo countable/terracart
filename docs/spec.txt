@@ -359,8 +359,10 @@ TREASURE MARKS (X on the ground)
  - claim by tapping within ~7.5m (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
- - sources: the STARTER TILE seeds a trail of ~7 fixed "starter crates"
-   (potato seed + wood + rockfruit) near spawn and clears a tutorial pocket of
+ - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real
+   kind:'chest' objects carrying a `fixedLoot` payload (potato seed + wood +
+   rockfruit), opened via the standard chest modal but with no rarity roll —
+   near spawn and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside named paths. Residential X's only
    spawn near a road.
@@ -449,7 +451,7 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
  - STARTER BLACKSMITH: the small house nearest your home is forced to be a
    smithy that forges all three wooden tools (Pickaxe, Axe, Hoe) in any order,
-   5 wood each. The starter crate seeds the first 5 wood. Once all three are
+   5 wood each. The starter chests seed the first wood. Once all three are
    owned it becomes a normal relic forge.
  - BLACKSMITH FORGE (any address-9 house, forts, castles): forge gear from
    materials. Tools / weapons / armor cost max(5, tier) of the tier-matched bar
@@ -486,7 +488,7 @@ INVENTORY
  - holds seeds, produce, minerals/bars/gems, animals, fish, fruit, wild
    pickups, consumables, scarecrows. Stacks increment on pickup; selecting +
    tapping drives plant / release / place / feed / eat / sell.
- - starter inventory: a stack of potato seeds (+ the starter crate trail).
+ - starter inventory: empty bag (the starter-chest trail seeds the first items).
  - ITEMS ALWAYS RENDER AS THEIR GAME-ART SPRITE on every surface (map,
    inventory, shop, toast, sign). Emoji is reserved for non-item UI only
    (see docs/QC_RULES.md §1).

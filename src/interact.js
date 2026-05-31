@@ -238,18 +238,8 @@ const TAP_HANDLERS = [
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
-      // Starter crates carry a fixed `starterLoot` payload (5 wood / 5
-      // rockfruit) so the player gets a deterministic head start on the
-      // first restoration. Skip the rarity picker for these and synthesize
-      // the same shape pickReward returns so the rest of the flash /
-      // accept logic keeps working.
-      let reward;
-      if (tr.starterLoot) {
-        reward = { kind: 'item', id: tr.starterLoot.id, qty: tr.starterLoot.qty, jackpot: 0, consolation: 0 };
-      } else {
-        reward = (typeof pickReward === 'function')
-          ? pickReward('treasure:default', save) : null;
-      }
+      const reward = (typeof pickReward === 'function')
+        ? pickReward('treasure:default', save) : null;
       if (!reward) {
         // Shouldn't happen — context exists — but bail safely if rarity.js
         // is missing or the pool is empty.
@@ -694,7 +684,7 @@ const TAP_HANDLERS = [
     // avoids the order-dependent "see a crate but can't tap it" mismatch.
     const seenTapCell = new Set();
     const isDupTapChest = (o) => {
-      const k = Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
+      const k = Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
       if (seenTapCell.has(k)) return true;
       seenTapCell.add(k);
       return false;
@@ -751,9 +741,15 @@ const TAP_HANDLERS = [
         const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
         const result = held
           ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
-          : ((typeof pickReward === 'function')
-              ? pickReward('chest:' + category, save, undefined, { tier: chestT })
-              : null);
+          // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9
+          // potato seeds) so the first restoration loop is deterministic —
+          // skip the rarity picker and synthesize the same item shape it
+          // returns, then fall through to the normal item/modal path below.
+          : (o.fixedLoot
+              ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
+              : ((typeof pickReward === 'function')
+                  ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                  : null));
         if (!result) {
           addMoney(save, 1);
           save.opened.push(o.id);

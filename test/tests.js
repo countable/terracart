@@ -163,6 +163,11 @@ test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', 
   try {
     const tapOffsetFromFeet = (dxCells, dyCells) => {
       flashes.length = 0;
+      // An IN-reach probe tap tills the cell, which now starts an async work
+      // wheel. Left running, the work-progress handler would swallow the NEXT
+      // probe's tap (eating its "too far" flash). Clear it so each probe is an
+      // independent tap from a settled state.
+      if (scene._workProgress) scene.cancelWorkProgress();
       teleport(scene, bodyCell.x, bodyCell.y);
       // Tap (dxCells, dyCells) cells from the feet cell. Feet cell is at
       // body cell + FEET_ROW_OFFSET rows, so in world coords we add it back.
@@ -2162,7 +2167,11 @@ test('treasure: tapping the X within reach marks it found and grants loot', (sce
   assert.truthy(scene.save.foundTreasures.includes(tr.id), 'treasure id in foundTreasures');
   const gotLoot = (scene.save.money > moneyBefore) || (scene.save.inv.length > invBefore);
   assert.truthy(gotLoot, 'either money grew or an inv stack appeared');
-  // Tapping it again: no double dip.
+  // Tapping it again: no double dip. Clear the selection first — looting an
+  // item auto-selects it, and a second tap on the player's own cell with a
+  // plantable seed selected would PLANT it (emptying the stack), which has
+  // nothing to do with the treasure no-double-dip behaviour under test here.
+  scene.save.selSlot = -1;
   const moneyMid = scene.save.money;
   const invMid = scene.save.inv.length;
   tapWorld(scene, tr.x, tr.y);
@@ -2520,13 +2529,14 @@ test('bars: inventory icons route to the bars sheet at tier-ordered frames', () 
   });
 });
 
-test('blacksmithRecipe: tool/weapon/armor slots want N copies of the tier-matched bar', (scene) => {
+test('blacksmithRecipe: tool/weapon/armor slots want max(5, tier) copies of the tier-matched bar', (scene) => {
   const BARS = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
   for (let t = 2; t <= 7; t++) {
     const r = scene.blacksmithRecipe('relic', 'pick', t);
     assert.truthy(Array.isArray(r) && r.length === 1, 'pick T' + t + ': single-ingredient recipe');
     assert.eq(r[0].id, BARS[t - 2], 'pick T' + t + ' bar = ' + BARS[t - 2]);
-    assert.eq(r[0].qty, t, 'pick T' + t + ' qty = ' + t);
+    // Per spec §CRAFTING: tools/weapons/armor cost max(5, tier) of the bar.
+    assert.eq(r[0].qty, Math.max(5, t), 'pick T' + t + ' qty = max(5, ' + t + ')');
   }
 });
 
@@ -2545,8 +2555,14 @@ test('blacksmithRecipe: jewelry slots use 2^(t-2) slot-gems + 1 tier-bar', (scen
   }
 });
 
-test('blacksmithRecipe: tier < 2 returns null (T1 wood is starter-shop only)', (scene) => {
-  assert.eq(scene.blacksmithRecipe('relic', 'pick', 1), null, 'T1 = null');
+test('blacksmithRecipe: T1 tools cost 5 wood; tier 0 / none returns null', (scene) => {
+  // Per spec §CRAFTING: tools cost max(5, tier) of the tier-matched bar, and
+  // "T1 = wood" — so a T1 tool is a real recipe (5 wood), not null. Only a
+  // missing/zero tier yields null.
+  const t1 = scene.blacksmithRecipe('relic', 'pick', 1);
+  assert.truthy(Array.isArray(t1) && t1.length === 1, 'T1 = single-ingredient recipe');
+  assert.eq(t1[0].id, 'wood', 'T1 pick uses wood');
+  assert.eq(t1[0].qty, 5, 'T1 pick = 5 wood (max(5, 1))');
   assert.eq(scene.blacksmithRecipe('relic', 'pick', 0), null, 'T0 = null');
   assert.eq(scene.blacksmithRecipe('relic', 'pick', null), null, 'no tier = null');
 });
@@ -2571,21 +2587,34 @@ test('smeltingRecipe: T2-T4 bars are non-smeltable; T5-T7 each consume 1 flower 
   assert.eq(scene.smeltingRecipe('not_a_bar'), null, 'unknown bar id → null');
 });
 
-test('mineralrock mining: T1-2 drops copper_bar, T3 drops iron_bar, T4+ drops gold_bar', (scene) => {
-  // Pin Math.random so the side gem / bonus rolls don't add cross-noise to
-  // the primary-bar assertion. We're checking the BARS[] mapping in
-  // interact.js, not the gem percentages (covered separately).
+test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iron, T4+ gold)', (scene) => {
+  // ORE rocks (caveVariant == null) give a deterministic primary bar keyed on
+  // their YIELD tier — that's the BARS[] mapping in interact.js. CAVE rocks
+  // instead drop rockfruit plus only a *probabilistic* bar, so we skip them
+  // here (their odds are covered elsewhere). Note: a rock's requiredTier (the
+  // pick gate) is NOT the same as its yieldTier (what it pays out), so we key
+  // on yieldTier. The primary bar drop is unconditional, so no Math.random pin
+  // is needed; we only stub the incidental flash.
   const expected = { 1: 'copper_bar', 2: 'copper_bar', 3: 'iron_bar',
                      4: 'gold_bar',   5: 'gold_bar',   6: 'gold_bar', 7: 'gold_bar' };
-  const seenTiers = new Set();
+  // Group ore rocks by yield tier. A world tap resolves to the FIRST object
+  // within 3.5 m of the tap point — and rocks sit in dense fields, so a tap
+  // aimed at one rock can land on a neighbouring object instead. We therefore
+  // try rocks of each tier until one is provably the rock that broke (its id
+  // entered brokenRockSet), then assert that rock's bar dropped.
+  const byTier = {};
   for (const e of WorldGen.tileCache.values()) {
     for (const o of (e.objects || [])) {
-      if (o.kind !== 'mineralrock') continue;
-      if (seenTiers.has(o.requiredTier)) continue;
-      const want = expected[o.requiredTier];
-      if (!want) continue;
-      seenTiers.add(o.requiredTier);
-      // Fresh rock state.
+      if (o.kind !== 'mineralrock' || o.caveVariant != null) continue;  // ore rocks only
+      if (!expected[o.yieldTier]) continue;
+      (byTier[o.yieldTier] = byTier[o.yieldTier] || []).push(o);
+    }
+  }
+  let testedTiers = 0;
+  for (const tier of Object.keys(byTier)) {
+    const want = expected[tier];
+    let mined = false;
+    for (const o of byTier[tier].slice(0, 40)) {     // cap attempts; clean rocks are common
       scene.save.relics = scene.save.relics || {};
       scene.save.relics.pick = { tier: 7 };
       scene.save.energy = 100;
@@ -2595,16 +2624,19 @@ test('mineralrock mining: T1-2 drops copper_bar, T3 drops iron_bar, T4+ drops go
       if (scene._workProgress) scene.cancelWorkProgress();
       teleport(scene, o.x, o.y);
       const origStart = scene.startWorkProgress.bind(scene);
-      const origRandom = Math.random;
+      const origFlashLoot = scene.flashLoot;
+      scene.flashLoot = () => {};                 // incidental UI; not under test
       scene.startWorkProgress = (wx, wy, cb) => cb();
-      Math.random = () => 0.99;   // skip every percentage gate (gems, bonus)
       try { tapWorld(scene, o.x, o.y); }
-      finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
-      assert.gt(invCount(scene, want), 0,
-        'T' + o.requiredTier + ' rock drops ' + want);
+      finally { scene.startWorkProgress = origStart; scene.flashLoot = origFlashLoot; }
+      if (!scene.brokenRockSet.has(o.id)) continue;  // tap hit a neighbour — try the next rock
+      assert.gt(invCount(scene, want), 0, 'T' + tier + ' ore rock drops ' + want);
+      mined = true; testedTiers++;
+      break;
     }
+    assert.truthy(mined, 'found a cleanly-tappable T' + tier + ' ore rock');
   }
-  assert.gt(seenTiers.size, 0, 'fixture contains at least one mineralrock');
+  assert.gt(testedTiers, 0, 'fixture contains ore mineralrocks');
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -2622,8 +2654,10 @@ test('shrine: save bootstrapper defaults (shrineLevel = 1, shrine + shrineReplac
   assert.truthy('shrineReplacedId' in scene.save, 'save.shrineReplacedId defined');
 });
 
-test('shrineLevelUpCost: each L1..L6 bundle is 3 distinct items × qty 5; L7 returns null', (scene) => {
-  for (let lvl = 1; lvl <= 6; lvl++) {
+test('shrineLevelUpCost: each L1..L5 bundle is 3 distinct items × qty 5; L6 (cap) returns null', (scene) => {
+  // Post offset-by-1 reconciliation the shrine caps at L6 (L6's iceflower→frost
+  // is the endgame), so there are five level-up bundles: L1→L2 … L5→L6.
+  for (let lvl = 1; lvl <= 5; lvl++) {
     const b = scene.shrineLevelUpCost(lvl);
     assert.truthy(Array.isArray(b), 'L' + lvl + ' bundle is an array');
     assert.eq(b.length, 3, 'L' + lvl + ' bundle has 3 ingredients');
@@ -2634,17 +2668,18 @@ test('shrineLevelUpCost: each L1..L6 bundle is 3 distinct items × qty 5; L7 ret
       assert.truthy(ITEM_BY_ID[r.id], 'L' + lvl + ' ' + r.id + ' is a known item');
     }
   }
-  assert.eq(scene.shrineLevelUpCost(7), null, 'L7 (cap) returns null');
+  assert.eq(scene.shrineLevelUpCost(6), null, 'L6 (cap) returns null');
   assert.eq(scene.shrineLevelUpCost(99), null, 'over-cap returns null');
 });
 
-test('shrineLevelUpCost: each tier bundle requires the matching bar (T1→coal, T2→copper..T6→crimson)', (scene) => {
+test('shrineLevelUpCost: each tier bundle requires the matching bar (T1→coal, T2→copper..T5→platinum)', (scene) => {
   // L1→L2 is the only bundle that requests an UNSMELTED currency (coal);
-  // every subsequent tier asks for the bar one tier BELOW the upgrade.
+  // every subsequent tier asks for the bar one tier BELOW the upgrade. The
+  // ladder ends at L5→L6 (platinum_bar) since the shrine caps at L6.
   const expectedBar = { 1: 'coal',
                         2: 'copper_bar', 3: 'iron_bar', 4: 'gold_bar',
-                        5: 'platinum_bar', 6: 'crimson_bar' };
-  for (let lvl = 1; lvl <= 6; lvl++) {
+                        5: 'platinum_bar' };
+  for (let lvl = 1; lvl <= 5; lvl++) {
     const b = scene.shrineLevelUpCost(lvl);
     const ids = b.map(r => r.id);
     assert.truthy(ids.includes(expectedBar[lvl]),
@@ -2652,21 +2687,22 @@ test('shrineLevelUpCost: each tier bundle requires the matching bar (T1→coal, 
   }
 });
 
-test('shrineTransforms: returns 0 entries at L1; one new unlock per level; capped at 6 by L7', (scene) => {
+test('shrineTransforms: returns 0 entries at L1; one new unlock per level; capped at 5 by L6', (scene) => {
   const origLvl = scene.save.shrineLevel;
   try {
     scene.save.shrineLevel = 1;
     assert.eq(scene.shrineTransforms().length, 0, 'L1 has no transforms');
-    for (let lvl = 2; lvl <= 7; lvl++) {
+    for (let lvl = 2; lvl <= 6; lvl++) {
       scene.save.shrineLevel = lvl;
       assert.eq(scene.shrineTransforms().length, lvl - 1,
         'L' + lvl + ' cumulative transforms = ' + (lvl - 1));
     }
-    // L2 unlock is rainberry → copper_bar; L7 (last) is iceflower → frost_bar.
-    scene.save.shrineLevel = 7;
+    // Post offset-by-1 fix: L2 unlock is rainberry → iron_bar (copper_bar is no
+    // longer a shrine output); L6 (last) is iceflower → frost_bar.
+    scene.save.shrineLevel = 6;
     const ts = scene.shrineTransforms();
     assert.eq(ts[0].input, 'rainberry', 'first unlock = rainberry');
-    assert.eq(ts[0].output, 'copper_bar', 'first unlock outputs copper_bar');
+    assert.eq(ts[0].output, 'iron_bar', 'first unlock outputs iron_bar');
     assert.eq(ts[ts.length - 1].input, 'iceflower', 'last unlock = iceflower');
     assert.eq(ts[ts.length - 1].output, 'frost_bar', 'last unlock outputs frost_bar');
   } finally {
@@ -2677,7 +2713,7 @@ test('shrineTransforms: returns 0 entries at L1; one new unlock per level; cappe
 test('shrineInteract: matching produce → transform modal; accept swaps 1 input for 1 output', (scene) => {
   document.getElementById('offer-modal')?.remove();
   const origLvl = scene.save.shrineLevel;
-  scene.save.shrineLevel = 2;          // rainberry → copper_bar unlocked
+  scene.save.shrineLevel = 2;          // rainberry → iron_bar unlocked
   scene.save.inv = [{ id: 'rainberry', count: 3 }];
   scene.save.selSlot = 0;
   try {
@@ -2690,7 +2726,7 @@ test('shrineInteract: matching produce → transform modal; accept swaps 1 input
     assert.truthy(accept, 'Transform button present');
     accept.click();
     assert.eq(invCount(scene, 'rainberry'), 2, 'one rainberry consumed');
-    assert.eq(invCount(scene, 'copper_bar'), 1, 'one copper_bar added');
+    assert.eq(invCount(scene, 'iron_bar'), 1, 'one iron_bar added');
   } finally {
     scene.save.shrineLevel = origLvl;
     document.getElementById('offer-modal')?.remove();
@@ -2790,28 +2826,28 @@ test('shrineInteract: re-entry while a modal is open is a no-op (single modal at
   }
 });
 
-test('shrineInteract: L6→L7 upgrade unlocks the iceflower → frost_bar transform', (scene) => {
+test('shrineInteract: L5→L6 upgrade unlocks the iceflower → frost_bar transform', (scene) => {
   document.getElementById('offer-modal')?.remove();
   const origLvl = scene.save.shrineLevel;
-  scene.save.shrineLevel = 6;
-  // L6→L7 bundle: 5 iceflower + 5 iceflower_seed + 5 crimson_bar.
+  scene.save.shrineLevel = 5;
+  // L5→L6 bundle: 5 fireflower + 5 fireflower_seed + 5 platinum_bar.
   scene.save.inv = [
-    { id: 'iceflower',      count: 5 },
-    { id: 'iceflower_seed', count: 5 },
-    { id: 'crimson_bar',    count: 5 },
+    { id: 'fireflower',      count: 5 },
+    { id: 'fireflower_seed', count: 5 },
+    { id: 'platinum_bar',    count: 5 },
   ];
-  // Iceflower IS a transform input at L6 — selecting potato (or empty)
-  // avoids the matching-produce branch so the level-up modal opens.
+  // Fireflower IS a transform input at L5 — leaving nothing selected (selSlot
+  // -1) avoids the matching-produce branch so the level-up modal opens.
   scene.save.selSlot = -1;
   try {
-    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_l6' });
+    scene.shrineInteract(0, 0, { kind: 'shrine', x: 0, y: 0, id: 'test_shrine_l5' });
     const modal = document.getElementById('offer-modal');
-    assert.truthy(modal, 'level-up modal opened at L6');
+    assert.truthy(modal, 'level-up modal opened at L5');
     const offer = [...modal.querySelectorAll('button')].find(b => b.textContent === 'Offer');
     assert.truthy(offer && !offer.disabled, 'Offer affordable');
     offer.click();
-    assert.eq(scene.save.shrineLevel, 7, 'advanced to L7');
-    // L7 must now include the frost_bar transform.
+    assert.eq(scene.save.shrineLevel, 6, 'advanced to L6');
+    // L6 (endgame) must now include the frost_bar transform.
     const ts = scene.shrineTransforms();
     const frost = ts.find(t => t.output === 'frost_bar');
     assert.truthy(frost, 'frost_bar transform unlocked');
