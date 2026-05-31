@@ -1036,10 +1036,11 @@ Render.drawObjects = function drawObjects(scene) {
     fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
               origin: [0.5, 0.95], scale: 0.85,
               after: (s, o) => {
-                // Dim picked fruit trees so the player can see they haven't
-                // re-ripened yet. Picked state lives in save.picked keyed by id.
-                const picked = scene.save.picked && scene.save.picked.includes(o.id);
-                s.setAlpha(picked ? 0.55 : 1);
+                const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+                const fp = scene.save.fruitPicked;
+                const pickedAt = fp && fp[o.id];
+                const notRipe = pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS;
+                s.setAlpha(notRipe ? 0.55 : 1);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves

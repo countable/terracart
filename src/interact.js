@@ -259,8 +259,8 @@ const TAP_HANDLERS = [
   // selected inventory slot:
   //
   //   FAVOURITE FOOD                 → catch (consumes 1, spends energy).
-  //                                    chicken→rainberry, cow→pairy,
-  //                                    cat→milk, dog→egg.
+  //                                    chicken→any seed, cow→pairy,
+  //                                    cat→milk or any fish, dog→meat.
   //   PLANT PRODUCE on chicken/cow   → feed for produce: consume the
   //                                    plant, gain 1 egg (chicken) or
   //                                    1 milk (cow). Any crop produce or
@@ -813,12 +813,15 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'fruittree') {
-        const pickedSet = new Set(save.picked || []);
-        if (pickedSet.has(o.id)) {
-          scene.flash('Not ripe yet — give it time.', sx, sy);
+        const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+        save.fruitPicked = save.fruitPicked || {};
+        const pickedAt = save.fruitPicked[o.id];
+        if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
+          const minsLeft = Math.max(1, Math.ceil((FRUIT_RESPAWN_MS - (Date.now() - pickedAt)) / 60000));
+          scene.flash(`Not ripe yet — ${minsLeft}m`, sx, sy);
           return true;
         }
-        save.picked = [...pickedSet, o.id];
+        save.fruitPicked[o.id] = Date.now();
         scene.addToInv(o.species, randInt(1, 2));
         ctx.dirty = true;
         const item = ITEM_BY_ID[o.species];
