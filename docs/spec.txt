@@ -15,6 +15,7 @@ Game objects:
 The game is made of a grid of cells generated from vector tile data.
  - Some cells are tillable to replace with tilled soil.
  - grassland biome cells till in half the time.
+ - roads should never have any interactables on them directly (only walkable paths, or sidewalk beside road)
 
 # viewport
  - the player sees an 11x11 viewport, centred around them and can interact within 3 cells of themself.
@@ -28,6 +29,7 @@ Each cell may contain one interactable object (excluding fauna). ie, rocks, tree
  - show the tool in use when interacting, if applicable.
  - tools: net: catch animals, fishing rod: fishing, pick: mining rocks, axe: chopping trees, hoe: tilling soil, weapons: fighting pests.
  - state changes should have some visual or text indication.
+ - other than house icons and fauna, interactables should fit in a single cell (should be clear which cell they are "in" and should only slightly poke out into other cells if at all)
 
 # fauna
 Entities that can typically move around over cells, like pets, enemies, wild animals

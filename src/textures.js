@@ -72,6 +72,26 @@ const WATER_AUTOTILE_FRAME = {
 // as plain water without the proper edge art (acceptable for first pass).
 const WATER_AUTOTILE_FALLBACK = WATER_AUTOTILE_FRAME[15];
 
+// === Water 8-neighbour BLOB autotile (Godot 47-tile sheet) ==============
+// Upgrades the cardinal Wang above: the full 8-neighbour blob can draw INNER
+// corners (water wrapping a diagonal), which the old 9-tile cardinal set
+// structurally could not — that was the source of the shore "gaps".
+// Mask bits use the documented Godot/47-tile convention:
+//   TL=1, T=2, TR=4, L=8, R=16, BL=32, B=64, BR=128  (set = neighbour is WATER)
+// Diagonals only matter when both their adjacent sides are water (the 256→47
+// reduction). WATER_BLOB[mask] is a 256-entry table mapping every neighbour
+// mask to a frame in the 'autotiles' sheet (assets/Objects/Autotiles_Godot_16x16.png,
+// 12 cols × 56 rows of 16×16; the water↔grass blob lives in rows 8-15, frames
+// indexed row*12+col). The candidate pool is RESTRICTED to rows 8-11 — the
+// "water on OPAQUE green grass" copies. Rows 12-15 are the SAME tiles with the
+// grass left TRANSPARENT (Godot draws the grass on a separate layer); we draw
+// over a flat water-blue fill, so a transparent tile would show blue through
+// the grass half ("random blue grass"). Derived by tools (temp/autotile_fix.py)
+// by best-matching each of the 47 blob configs to an opaque rows-8-11 tile by
+// shape; center/fallback = frame 129. Edges + inner corners verified clean.
+const WATER_BLOB_CENTER = 129;
+const WATER_BLOB = [132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,109,109,109,109,109,109,124,124,98,98,110,100,98,98,103,142,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,109,109,109,109,109,109,124,124,102,102,136,119,102,102,117,126,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,112,112,112,112,112,112,116,116,101,101,139,130,101,101,128,125,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,112,112,112,112,112,112,116,116,106,106,105,114,106,106,113,129];
+
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
 const TILLED_VARIANTS = 2;
