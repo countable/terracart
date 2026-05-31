@@ -597,10 +597,10 @@ Render.drawCells = function drawCells(scene) {
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
-  // feet, so reach depends only on which cell they're standing in (3 cells in
-  // each cardinal direction, always — independent of intra-cell position).
-  // For each reachable cell, draw only the sides whose neighbour is NOT
-  // reachable. Result is the staircase silhouette of the reach region.
+  // feet, so reach depends only on which cell they're standing in (a fixed
+  // number of cells in each cardinal direction — independent of intra-cell
+  // position). For each reachable cell, draw only the sides whose neighbour is
+  // NOT reachable. Result is the staircase silhouette of the reach region.
   // Visual reach: delegate to the shared cellInReach helper (coords.js)
   // so the lit area on screen and the tap-accept area in interact.js are
   // computed from the same integer-cell math. Earlier this path used a
@@ -608,9 +608,10 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // cellInReach handles all energy tiers: 0 energy = no reach, <30% = 2-cell
-  // reach, ≥30% = full 3-cell reach. isReach delegates entirely so the visual
-  // outline and tap-accept are always byte-identical.
+  // cellInReach handles all reach tiers via coords.js reachRadiusM: 0 energy =
+  // no reach, <30% energy drops one whole cell (floored at 1), and the base
+  // radius is 2 cells growing to 5 via shrine upgrades. isReach delegates
+  // entirely so the visual outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);

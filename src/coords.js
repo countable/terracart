@@ -55,16 +55,39 @@ function playerReachCell(scene) {
   };
 }
 
-// One source of truth for "is this absolute cell within the player's reach?"
-// Both drawCells (visual reach silhouette) and interact.js' cell-resolve tap
-// test call this — keeps the lit area and the tap-accept area byte-identical
-// regardless of intra-cell player position, FP drift, or rounding mode.
-function cellInReach(scene, cellIX, cellIY) {
+// SINGLE SOURCE OF TRUTH for the player's reach radius, in metres. Everything
+// that asks "can the player reach here?" funnels through this — the visual
+// silhouette (render.js drawCells), the cell-tap gate (cellInReach below), and
+// the object/creature/treasure far-gate (interact.js tooFar) — so the lit area
+// and every tap-accept test stay byte-identical and can't drift.
+//
+// Reach now STARTS at 2 cells and grows to 5 via the Magic Shrine: each of the
+// six delivery-gated shrine reach upgrades (save.reachUpgrades, 0..6) adds half
+// a cell (2 + 0.5×6 = 5). Below 30% energy you lose a full cell (floored at 1);
+// at 0 energy you can't reach at all. The +1 m epsilon matches the historical
+// 3-cell = 16 m radius, so the cardinal-N cell is always included with a hair
+// of margin and the silhouette reads as a rounded diamond at every level.
+function reachCells(scene) {
+  const upgrades = scene.save?.reachUpgrades ?? 0;
+  return Math.min(5, 2 + 0.5 * upgrades);
+}
+function reachRadiusM(scene) {
   const energy = scene.save?.energy ?? 0;
-  if (energy <= 0) return false;
+  if (energy <= 0) return 0;
   const maxEnergy = scene.save?.maxEnergy ?? 100;
-  // Below 30% energy reach shrinks to 2 cells; at/above 30% full 3-cell reach.
-  const reachM = (energy / maxEnergy) < 0.30 ? 2 * scene.cellM : scene.REACH_CELL_M;
+  let cells = reachCells(scene);
+  // Below 30% energy reach shrinks by one whole cell (never below 1).
+  if ((energy / maxEnergy) < 0.30) cells = Math.max(1, cells - 1);
+  return cells * scene.cellM + 1;
+}
+
+// "Is this absolute cell within the player's reach?" Both drawCells (visual
+// reach silhouette) and interact.js' cell-resolve tap test call this — keeps
+// the lit area and the tap-accept area byte-identical regardless of intra-cell
+// player position, FP drift, or rounding mode.
+function cellInReach(scene, cellIX, cellIY) {
+  const reachM = reachRadiusM(scene);
+  if (reachM <= 0) return false;
   const p = playerReachCell(scene);
   const dx = (cellIX - p.cellIX) * scene.cellM;
   const dy = (cellIY - p.cellIY) * scene.cellM;
