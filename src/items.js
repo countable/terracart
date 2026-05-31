@@ -442,15 +442,12 @@ const PLAY_TIPS = [
   'A trader who wants an item you don\'t own marks the deal with an ✗.',
   // Relic effects
   'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'Bow or Staff drops the markup traders charge you — best tier wins.',
+  'A Bow drops the markup traders charge you — higher tier, lower prices.',
   'Equip a Pickaxe to break rocks, an Axe to chop trees.',
   'A Ring nudges chest loot up a tier when it triggers.',
   'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
   // Progression / gating
-  'Harvest a sunflower to unlock Gold relics from chests and shops.',
-  'Catch a cow to unlock Platinum.',
-  'Harvest a fireflower for Crimson; iceflower for Frost.',
   'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
   // Energy / food
   'Rainberry waters every crop within 20m when you eat it.',
@@ -575,14 +572,15 @@ const RELIC_DEFS = {
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
              effectKey: 'ghostMode',     blurb: 'projects a ghost — faster + cheaper per tier' },
-  // Weapons — no combat yet, but they bend shop prices. Sword raises sell
-  // values; bow/staff lower buy prices (max(bow,staff) tier wins).
+  // Weapons. Sword raises sell values; Bow lowers buy prices. Staff is a
+  // pure hunting weapon — all three (sword/bow/staff) speed the pest-defeat
+  // wheel, but only the Bow bends buy prices.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'better buy prices' },
+             effectKey: 'hunt',          blurb: 'a weapon for hunting pests' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
@@ -727,13 +725,16 @@ function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
 }
-// Best bow or staff tier — shared by buyMarkupRange and castle pricing in app.js.
+// Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
+// share this discount, but it's been demoted to a pure combat weapon (it still
+// counts toward the sword/bow/staff hunt-speed max in interact.js); only the
+// Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
 function bestWeaponTier(relics) {
-  return Math.max(relics?.bow?.tier || 0, relics?.staff?.tier || 0);
+  return relics?.bow?.tier || 0;
 }
-// Bow / Staff relics: shrink the random buy-cash markup. Without either, the
-// trader still wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0×
-// (the player buys at par). Take the BEST tier of bow vs staff.
+// Bow relic: shrinks the random buy-cash markup. Without one, the trader still
+// wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
+// buys at par).
 function buyMarkupRange(relics) {
   const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises

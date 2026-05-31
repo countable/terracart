@@ -306,6 +306,23 @@ Render.drawCells = function drawCells(scene) {
                      + W(T(col + 1, row + 1)) * 128;
           texKey = 'autotiles';
           texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
+        } else if (type === 2) {
+          // SAND beaches — same 8-neighbour blob (SAND_BLOB in textures.js),
+          // drawing grass edges where sand meets any non-sand neighbour. Sand
+          // sits between grass and water; this rounds it off against everything
+          // (a thin grass/wet strip at the waterline — the dedicated water↔sand
+          // tiles are a later refinement). Bit set = neighbour is also sand.
+          const S = (t) => (t === 2 ? 1 : 0);
+          const mask = S(T(col - 1, row - 1)) * 1
+                     + S(T(col,     row - 1)) * 2
+                     + S(T(col + 1, row - 1)) * 4
+                     + S(T(col - 1, row    )) * 8
+                     + S(T(col + 1, row    )) * 16
+                     + S(T(col - 1, row + 1)) * 32
+                     + S(T(col,     row + 1)) * 64
+                     + S(T(col + 1, row + 1)) * 128;
+          texKey = 'autotiles';
+          texFrame = SAND_BLOB[mask] ?? SAND_BLOB_CENTER;
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
@@ -597,10 +614,10 @@ Render.drawCells = function drawCells(scene) {
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
-  // feet, so reach depends only on which cell they're standing in (3 cells in
-  // each cardinal direction, always — independent of intra-cell position).
-  // For each reachable cell, draw only the sides whose neighbour is NOT
-  // reachable. Result is the staircase silhouette of the reach region.
+  // feet, so reach depends only on which cell they're standing in (a fixed
+  // number of cells in each cardinal direction — independent of intra-cell
+  // position). For each reachable cell, draw only the sides whose neighbour is
+  // NOT reachable. Result is the staircase silhouette of the reach region.
   // Visual reach: delegate to the shared cellInReach helper (coords.js)
   // so the lit area on screen and the tap-accept area in interact.js are
   // computed from the same integer-cell math. Earlier this path used a
@@ -608,9 +625,10 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // cellInReach handles all energy tiers: 0 energy = no reach, <30% = 2-cell
-  // reach, ≥30% = full 3-cell reach. isReach delegates entirely so the visual
-  // outline and tap-accept are always byte-identical.
+  // cellInReach handles all reach tiers via coords.js reachRadiusM: 0 energy =
+  // no reach, <30% energy drops one whole cell (floored at 1), and the base
+  // radius is 2 cells growing to 5 via shrine upgrades. isReach delegates
+  // entirely so the visual outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
