@@ -652,12 +652,20 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      // Shrine + house/tower share the wider house-sized reach: their sprites
-      // are taller than the default 3.5m hit zone (fountain is ~9m tall in
-      // world units), so a tap on the visible top of the sprite would otherwise
-      // miss-and-fall-through to the till handler under it.
-      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well') ? REACH_HOUSE_M : REACH_OBJECT_M;
-      if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
+      // Shrine + house/tower/well share the wider house-sized reach: their
+      // sprites are taller than the default 3.5m hit zone (fountain is ~9m tall
+      // in world units), so a tap on the visible top of the sprite would
+      // otherwise miss-and-fall-through to the till handler under it.
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well');
+      const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
+      // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
+      // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
+      // north of the foot — rather than the foot itself. This lets a tap on the
+      // visible body of a SMALL/MEDIUM house (whose footprint is only 1-2 cells,
+      // all tucked under the roof) activate it, instead of missing the 6m foot
+      // circle and falling through to the till handler.
+      const oy = tallSprite ? o.y - HOUSE_HIT_RISE_M : o.y;
+      if (distM2(o.x, oy, wm.x, wm.y) >= r * r) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the

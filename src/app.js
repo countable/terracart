@@ -58,6 +58,14 @@ const REACH_CREATURE_M  = 4;
 const REACH_WILDPLANT_M = 4;
 const REACH_OBJECT_M    = 3.5; // chest / tree
 const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
+// Bottom-anchored building sprites (house/tower) are drawn rising NORTH from
+// their foot at (o.x, o.y): the 'front' house frame is 95px × 0.6 scale ≈ 9m
+// tall, so its roof sits ~8m north of the foot — well outside a 6m circle
+// centred on the foot. Tap reach for these is measured from a point this far
+// north of the foot (the sprite's visual mid-height) so a tap anywhere on the
+// small/medium house body activates the shop, while the walkable front yard
+// SOUTH of the foot stays farmable instead of opening a shop on a stray tap.
+const HOUSE_HIT_RISE_M  = 4;
 // Outer "too far" gate. Matches the visual reach outline drawn by drawCells
 // (scene.REACH_CELL_M). Distance is measured from the player's CELL CENTRE
 // (not their feet) — same basis as the visual — so any cell shown inside the
