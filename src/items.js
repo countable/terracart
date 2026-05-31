@@ -51,12 +51,11 @@ const CROP_SPRITE = {
   // display name is 'Fern'). Props.png is a 22-col grid; frame (col 11,
   // row 1) 1-indexed = col 10 row 0 0-indexed = 0*22 + 10 = 10. Reads as
   // leafy green fern fronds at the wildplant scale.
-  longgrass: { sheet: 'props', custom: true, frame: 10 },
-  // Shrub (the wildplant; chopping it drops wood). Props.png frame
-  // (col 11, row 6) 1-indexed = col 10 row 5 = 5*22 + 10 = 120. A brown
-  // bare-twig bush. Without this override the renderer falls back to row
-  // 1 of crops.png (the pairy sprite) which looked like a fruit.
-  shrub:     { sheet: 'props', custom: true, frame: 120 },
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
+  // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
+  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
+  // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
+  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
   // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
   // (col=13, row=1) → index 1*22 + 13 = 35 is the small red-cap toadstool
   // sized to fit a single cell. (The cell one column to its right, frame

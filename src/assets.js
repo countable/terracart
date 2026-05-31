@@ -131,6 +131,9 @@ const ASSETS = {
   // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
   // the procedural longgrass texture.
   props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
+  // Lush round bushes — 144×288 = 3 cols × 6 rows of 48×48 frames. Replaces
+  // the old bare-twig Props.png frame as the in-world shrub wildplant art.
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 48 },
   // Terrains autotile sheet — 512×368 = 32 cols × 23 rows of 16×16 frames.
   // Copied out of the gitignored Sprites/1_Terrains_16x16.png dump into tracked
   // Objects/Terrains_16x16.png (same convention as the Wilderness art above).

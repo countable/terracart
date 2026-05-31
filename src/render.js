@@ -1625,7 +1625,8 @@ Render.drawObjects = function drawObjects(scene) {
     // centre. Stages 1+ grow upward and look right centered.
     const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
     const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    s.setOrigin(0.5, oy).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+    const cropScl = (ov && ov.scale != null) ? ov.scale : 2;
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy));
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
