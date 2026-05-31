@@ -57,6 +57,71 @@
     // overlay via the cobblePool — see render.js PIER_FRAME.
     PIER: 23,
   };
+
+  // --- Walkability / spawnability (single source of truth) ---
+  // "Walkable" = anywhere a person could legally and safely stand on foot.
+  // We DON'T derive this from an external walkability dataset — the terrain
+  // grid is already rasterized from OSM (OpenFreeMap) vector tiles, so the
+  // cell's class IS the walkability signal. Walkable is the whole map minus
+  // three groups:
+  //   - WATER            (can't stand on it)
+  //   - every ROAD tier  (unsafe/illegal to stand in traffic)
+  //   - every BUILDING   (solid footprint — you walk around it)
+  // Everything else stays walkable: PATH/pedestrian squares, PIER, parks,
+  // SAND/beaches, grass, forest, farmland, rock, playgrounds, pitches, etc.
+  const NON_WALKABLE = new Set([
+    T.WATER,
+    T.ROAD, T.ROAD_MD, T.ROAD_LG,
+    T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+  ]);
+  function isWalkable(t) { return !NON_WALKABLE.has(t); }
+
+  // Default Chebyshev radius for the residential-frontage test: a private cell
+  // is only spawnable if a public anchor sits within this many cells.
+  const SPAWN_FRONTAGE = 3;
+
+  // Terrain that counts as a "public anchor" for the frontage test. Being near
+  // any of these is what makes a RESIDENTIAL cell read as street frontage / the
+  // edge of public space rather than someone's back garden:
+  //   - every road tier + footpaths/pedestrian squares (the kerb / sidewalk)
+  //   - clearly public open space we can detect from OSM: parks, playgrounds,
+  //     sports pitches, golf courses, beaches, piers.
+  const PUBLIC_NEAR = new Set([
+    T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
+    T.PARK, T.PLAYGROUND, T.PITCH, T.GOLF, T.SAND, T.PIER,
+  ]);
+
+  // Is (cx,cy) a legitimate place to spawn a pickup? THE single rule every
+  // spawner shares. Walkable (never water/road/building) AND not deep in
+  // private property. RESIDENTIAL cells model someone's yard/lot, so a spawn is
+  // only allowed there when — within `frontage` cells (Chebyshev) — there's a
+  // public anchor: a road/path, a detectable public area (PUBLIC_NEAR), or a
+  // POI. Unifies the legacy _xRoadOK (app.js) and _mrNearRoadWithin (worldgen).
+  //   grid/w/h : flat terrain array + its cell dimensions
+  //   opts.frontage : override the default radius (SPAWN_FRONTAGE)
+  //   opts.pois     : array of {ix,iy} cell coords of nearby POIs/chests —
+  //                   a residential cell within `frontage` of one is fair game
+  function isSpawnCell(grid, w, h, cx, cy, opts) {
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
+    const here = grid[cy * w + cx];
+    if (!isWalkable(here)) return false;          // never on water/road/building
+    if (here !== T.RESIDENTIAL) return true;      // public / open ground — always ok
+    const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
+    for (let dy = -frontage; dy <= frontage; dy++) {
+      for (let dx = -frontage; dx <= frontage; dx++) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (PUBLIC_NEAR.has(grid[ny * w + nx])) return true;
+      }
+    }
+    const pois = opts && opts.pois;
+    if (pois) {
+      for (let i = 0; i < pois.length; i++) {
+        if (Math.max(Math.abs(pois[i].ix - cx), Math.abs(pois[i].iy - cy)) <= frontage) return true;
+      }
+    }
+    return false;
+  }
   // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
   // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
   // schools/malls/civic in LARGE.
@@ -1252,6 +1317,17 @@
       // back yard for. Keep them exempt from the residential proximity
       // check below.
       const _mrSkipKind = (k) => k === 'house' || k === 'tower';
+      // POI chests are real-world destinations and count as public anchors for
+      // the shared isSpawnCell rule below. Snapshot their cell coords now,
+      // before we start splicing `objects`.
+      const _mrSpawnOpts = {
+        pois: objects
+          .filter(o => o.kind === 'chest')
+          .map(o => ({
+            ix: Math.floor((o.x - tileOriginMx) / _mrCellW),
+            iy: Math.floor((o.y - tileOriginMy) / _mrCellW),
+          })),
+      };
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
         if (_mrSkipKind(o.kind)) continue;
@@ -1275,18 +1351,16 @@
           delete o._residential;
           continue;
         }
-        // Every OTHER object that landed on a residential cell must be
-        // within Chebyshev 2 of a road — this stops chests, fruit trees,
-        // POI props and other interactables from baiting the player into
-        // someone's back yard. (Was 3; tightened to 2 per user feedback —
-        // 3 cells deep into a lot still feels like trespassing.) Forts,
-        // castles, houses and towers are already exempt above.
+        // Every OTHER object that landed on a residential cell must pass the
+        // shared spawn rule (isSpawnCell): near a road/path, a detectable
+        // public area, or a POI — otherwise it'd bait the player into someone's
+        // back yard. Forts, castles, houses and towers are already exempt above.
         if (here === T.RESIDENTIAL) {
-          if (!_mrNearRoadWithin(ix, iy, 2)) { objects.splice(i, 1); continue; }
+          if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) { objects.splice(i, 1); continue; }
         }
       }
-      // Same proximity rule for the parallel `wildplants` list — any wild
-      // pickup on a residential cell must be within 2 of a road. (DEBRIS_CROP
+      // Same shared rule for the parallel `wildplants` list — any wild pickup
+      // that ended up on a residential cell must pass isSpawnCell. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
       for (let i = wildplants.length - 1; i >= 0; i--) {
@@ -1295,19 +1369,19 @@
         const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!_mrNearRoadWithin(ix, iy, 2)) wildplants.splice(i, 1);
+        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
       }
       // Parking-treasure X marks live in a third array (parkingTreasures)
-      // and were missed by both filters above. Apply the same residential
-      // rule — a buried-X on a residential cell must be ≤ 2 from a road,
-      // else drop. Non-residential parking lots (the typical case) stay.
+      // and were missed by both filters above. Apply the same shared rule — a
+      // buried-X on a residential cell must pass isSpawnCell, else drop.
+      // Non-residential parking lots (the typical case) stay.
       for (let i = parkingTreasures.length - 1; i >= 0; i--) {
         const t = parkingTreasures[i];
         const ix = Math.floor((t.x - tileOriginMx) / _mrCellW);
         const iy = Math.floor((t.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!_mrNearRoadWithin(ix, iy, 2)) parkingTreasures.splice(i, 1);
+        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) parkingTreasures.splice(i, 1);
       }
     }
 
@@ -2063,6 +2137,6 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem,
+    forEachItem, isWalkable, isSpawnCell,
   };
 })(window);
