@@ -581,15 +581,16 @@ const TAP_HANDLERS = [
     // 4. CATCH via work queue. Reached with an empty hand (or any non-food,
     // non-favourite selection) — favourite food TAMED above, edible food was
     // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
-    // (startCatchProgress); if it escapes the viewport the catch fails. A Bug
-    // Net shortens the wheel by tier; bare hands take the tier-0 (9s) time.
-    // Butterflies catch bare-handed too — no tool gate — and flee at 2 m/s
-    // like every other animal while the wheel runs (startCatchProgress).
+    // (startCatchProgress); if it stays outside the player's reach for 1 s the
+    // catch fails (butterflies: 3× faster flee, 2 s grace). A Bug Net shortens
+    // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
+    // that a slow target usually slips out of reach and escapes. Butterflies
+    // catch bare-handed too — no tool gate.
     const catchMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'bugnet')
       : (save.relics?.bugnet ? 3000 : 9000);
     // Catching costs energy (refunded if the player cancels the wheel; not
-    // refunded if the animal escapes the viewport — the attempt was made).
+    // refunded if the animal escapes the player's reach — the attempt was made).
     const catchCost = ENERGY_COST?.catch ?? 0;
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;

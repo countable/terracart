@@ -1920,8 +1920,9 @@ class MapScene extends Phaser.Scene {
     if (!wp) return;
     const now = performance.now();
     // Fleeing catch target: it backs away from the player at FLEE_MPS while the
-    // wheel runs. If it slips outside the viewport the catch fails. The wheel
-    // anchor (worldX/Y) follows the creature so it stays drawn over it.
+    // wheel runs. If it stays outside the player's reach long enough the catch
+    // fails. The wheel anchor (worldX/Y) follows the creature so it stays drawn
+    // over it.
     if (wp.flee) {
       const c = wp.flee;
       const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
@@ -1937,32 +1938,29 @@ class MapScene extends Phaser.Scene {
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
-      // Left the viewport? Chebyshev distance beyond the visible half-grid.
-      const halfM = (VIEW_CELLS / 2) * this.cellM;
-      const outOfRange = Math.abs(c.x - px) > halfM || Math.abs(c.y - py) > halfM;
-      if (isButterfly) {
-        // Butterflies get a 2 s grace: the catch only fails once the butterfly
-        // has stayed outside the player's range for 2 continuous seconds.
-        // Re-entering range before then resets the timer. When it does fail,
-        // the butterfly bolts — it keeps fleeing the player for 2 minutes
-        // (see wanderCreatures' _escapingUntil handling).
-        if (outOfRange) {
-          wp._outSinceT = wp._outSinceT ?? now;
-          if (now - wp._outSinceT >= 2000) {
-            const onFail = wp.onFail;
-            c._escapingUntil = now + 120000;   // 2 min of post-catch fleeing
-            this.cancelWorkProgress();         // clears _beingCaught
-            if (onFail) onFail();
-            return;
-          }
-        } else {
-          wp._outSinceT = null;                // back in range — reset grace
+      // Escape: once the animal has been OUTSIDE the player's reach (the lit
+      // interaction range — same radius the tap-gate uses) for a continuous
+      // grace window, the catch FAILS. Re-entering reach resets the timer.
+      // cancelWorkProgress() does NOT refund the up-front energy, so a getaway
+      // costs the player the attempt. Normal animals get a 1 s grace;
+      // butterflies flee faster but get 2 s, then keep bolting away from the
+      // player for 2 minutes (see wanderCreatures' _escapingUntil handling).
+      const reachM = (typeof reachRadiusM === 'function')
+        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
+      const ndx = c.x - px, ndy = c.y - py;
+      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      const graceMs = isButterfly ? 2000 : 1000;
+      if (outOfRange) {
+        wp._outSinceT = wp._outSinceT ?? now;
+        if (now - wp._outSinceT >= graceMs) {
+          const onFail = wp.onFail;
+          if (isButterfly) c._escapingUntil = now + 120000;   // 2 min of post-catch fleeing
+          this.cancelWorkProgress();         // clears _beingCaught; keeps energy spent
+          if (onFail) onFail();
+          return;
         }
-      } else if (outOfRange) {
-        const onFail = wp.onFail;
-        this.cancelWorkProgress();         // clears _beingCaught
-        if (onFail) onFail();
-        return;
+      } else {
+        wp._outSinceT = null;                // back in reach — reset grace
       }
     }
     const dur = wp.durationMs || 3000;
