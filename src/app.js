@@ -1096,12 +1096,25 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
+    // Even pets only belong near street frontage / public space inside a
+    // residential block, so creature placement shares the spawn rule too.
+    // POI chests (already placed by worldgen) count as public anchors.
+    const _spawnOpts = {
+      pois: (entry.objects || [])
+        .filter(o => o.kind === 'chest')
+        .map(o => ({
+          ix: Math.floor((o.x - tx * this.tileEdgeM) / this.cellM),
+          iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
+        })),
+    };
     const tryPlace = (kindWant, classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = entry.grid[cy * N + cx];
         if (classesOK.has(t)) {
+          // Residential cells are private yards — only spawn near a public anchor.
+          if (t === 5 /* RESIDENTIAL */ && !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
@@ -1195,16 +1208,9 @@ class MapScene extends Phaser.Scene {
     entry.extraTreasures = [];
     // Spawnability for all three treasure streams below is decided by
     // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
-    // on RESIDENTIAL cells — only near a public anchor. POIs count as public
-    // anchors too, so collect this tile's POI chests as cell coords once and
-    // hand them to every isSpawnCell call.
-    const poiCells = (entry.objects || [])
-      .filter(o => o.kind === 'chest')
-      .map(o => ({
-        ix: Math.floor((o.x - tx * this.tileEdgeM) / this.cellM),
-        iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
-      }));
-    const _spawnOpts = { pois: poiCells };
+    // on RESIDENTIAL cells — only near a public anchor (road/path, public area,
+    // or POI). The `_spawnOpts` POI-anchor list was already built at the top of
+    // this method for creature placement; reuse it here.
     // Guaranteed starter trail: when this is the spawn tile, place 4 X
     // marks along the nearest road instead of one X dangling 10 m north
     // of the spawn point. The player walks out, sees a numbered breadcrumb

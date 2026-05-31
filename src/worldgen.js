@@ -1779,6 +1779,26 @@
         const occupied = new Set();
         for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
         for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
+        // Residential yard rule for the sidecar injections below. These are
+        // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
+        // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
+        // only RESIDENTIAL cells are gated (non-residential placements pass
+        // through); POI chests — both already placed and the ones we're about to
+        // inject — count as public anchors.
+        const _sxCell = (wx, wy) => ({
+          ix: Math.floor((wx - x * tileEdgeM) / mPerCell),
+          iy: Math.floor((wy - y * tileEdgeM) / mPerCell),
+        });
+        const _sxPois = [];
+        for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
+        for (const ch of (bin.chests || [])) _sxPois.push(_sxCell(ch.x, ch.y));
+        const _sxSpawnOpts = { pois: _sxPois };
+        const _sxYardOK = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+          if (grid[iy * cpe + ix] !== T.RESIDENTIAL) return true;
+          return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+        };
         // Streams (OSM waterway=stream) reach the sidecar as single centroid
         // points (the LineString was reduced upstream). Stamp a small 3×3 water
         // patch over each centroid so the stream reads as water on the map —
@@ -1806,6 +1826,7 @@
         }
         for (const t of bin.trees) {
           if (onWater(t.x, t.y)) continue;
+          if (!_sxYardOK(t.x, t.y)) continue;
           const k = cellKeyOf(t.x, t.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1815,6 +1836,7 @@
         }
         for (const s of bin.shrubs) {
           if (onWater(s.x, s.y)) continue;
+          if (!_sxYardOK(s.x, s.y)) continue;
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1824,6 +1846,7 @@
         }
         for (const p of (bin.poles || [])) {
           if (onWater(p.x, p.y)) continue;
+          if (!_sxYardOK(p.x, p.y)) continue;
           const k = cellKeyOf(p.x, p.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1836,6 +1859,7 @@
         const _ROADISH = (tt) => tt === T.ROAD || tt === T.ROAD_MD || tt === T.ROAD_LG || tt === T.PATH;
         for (const wl of (bin.wells || [])) {
           if (onWater(wl.x, wl.y)) continue;
+          if (!_sxYardOK(wl.x, wl.y)) continue;
           const k = cellKeyOf(wl.x, wl.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1874,6 +1898,7 @@
         const FLOWER_VARIANTS = 4;
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
+          if (!_sxYardOK(ch.x, ch.y)) continue;
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1907,6 +1932,7 @@
         for (const pk of (bin.parking || [])) {
           const c = localCentre(pk.x, pk.y);
           pk.x = c.x; pk.y = c.y;
+          if (!_sxYardOK(pk.x, pk.y)) continue;
           // Skip if an X already sits within ~8m — the MVT parking path fills
           // the SAME array (before this injection) and snaps on a slightly
           // different basis, so the same lot present in both sources would
