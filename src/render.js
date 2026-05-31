@@ -1488,6 +1488,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
+    // Sealed forts/castles (delivery gate not yet met) aren't open for business
+    // either — a "ready" pip would lie about the lock. Castles report dealCap
+    // Infinity and bail above; this catches forts (tier 11) still under the gate.
+    if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
     // Hosts (residential houses with a wanted-items callout) show that bubble
     // where this pip would sit — see the produce-sign block above — so they
     // skip the separate open/busy pip entirely.
