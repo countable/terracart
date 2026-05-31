@@ -470,6 +470,7 @@ class MapScene extends Phaser.Scene {
 
     this.playerM = { x: 0, y: 0 };
     this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement
+    this._spriteDir = { x: 0, y: 1 }; // last movement direction used for sprite facing
     this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
     this.gpsM = null;
     this.gpsAvailable = false;
@@ -505,10 +506,6 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
-    // Per-polygon flora (flowers / pebbles / mushrooms). Plaque textures are
-    // baked in the 'crops' post-load handler in preload, since they composite
-    // the produce icon onto a wooden sign.
-    makeFloraTextures(this);
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
@@ -519,8 +516,8 @@ class MapScene extends Phaser.Scene {
     // drawLongGrassTex helper have been removed.)
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
-    // exact same image. Run after makeFloraTextures + sheet loads so all source images
-    // are ready. Key = item id; value = a data URL of the chosen representative frame.
+    // exact same image. Run after sheet loads so all source images are ready.
+    // Key = item id; value = a data URL of the chosen representative frame.
     window.ITEM_DATA_URLS = window.ITEM_DATA_URLS || {};
     const bakeSheetFrame = (key, frameIdx, frameW, frameH) => {
       const src = this.textures.get(key)?.getSourceImage();
@@ -545,7 +542,6 @@ class MapScene extends Phaser.Scene {
     // file is gone). Frame 0 is the down-facing standing pose.
     window.ITEM_DATA_URLS.cat       = bakeSheetFrame('cat',     0, 32, 32);
     window.ITEM_DATA_URLS.dog       = bakeSheetFrame('dog',     0, 32, 32);
-    window.ITEM_DATA_URLS.flowers   = bakeCanvas('flora_flower_0');
     // Wilderness fauna inventory icons — baked from the world sprite sheets.
     // Deer + crow are 32×32; rabbit + butterfly stay 16×16. Without these,
     // catching a deer would show 🦌 emoji instead of the deer sprite.
@@ -613,22 +609,6 @@ class MapScene extends Phaser.Scene {
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.cobbleContainer.add(s);
       this.cobblePool.push(s);
-    }
-
-    // Ground decoration overlay pool — sparse, non-interactable tufts/pebbles
-    // sprinkled into grass-family biomes at ~8% of cells. Frame picked from
-    // Props.png column 7, rows 1–3 (frames 29 / 51 / 73). Existence + frame
-    // are derived deterministically from the cell's absolute coords so the
-    // same tile always shows the same deco across reloads without any save
-    // state. Reuses cobbleContainer so the deco z-orders alongside other
-    // cell-overlay art (above noise, below pads/objects/sprites) without
-    // needing a brand-new container slot in the scene layer stack.
-    this.groundDecoPool = [];
-    for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
-      const s = this.add.image(0, 0, 'props', 0).setOrigin(0.5, 0.5)
-        .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
-      this.cobbleContainer.add(s);
-      this.groundDecoPool.push(s);
     }
 
     // Road-letter pool: small light letters with a soft drop shadow, laid out one
@@ -717,9 +697,14 @@ class MapScene extends Phaser.Scene {
     frame.lineStyle(2, 0x000000, 0.6)
       .strokeRect(this.viewLeft - 1, this.viewTop - 1, this.viewSize + 2, this.viewSize + 2);
 
-    // Animations
-    this.anims.create({ key: 'idle-anim', frames: this.anims.generateFrameNumbers('idle', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-    this.anims.create({ key: 'walk-anim', frames: this.anims.generateFrameNumbers('walk', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
+    // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
+    // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
+    this.anims.create({ key: 'idle-down', frames: this.anims.generateFrameNumbers('idle', { start: 0,  end: 3  }), frameRate: 6,  repeat: -1 });
+    this.anims.create({ key: 'idle-up',   frames: this.anims.generateFrameNumbers('idle', { start: 4,  end: 7  }), frameRate: 6,  repeat: -1 });
+    this.anims.create({ key: 'idle-side', frames: this.anims.generateFrameNumbers('idle', { start: 8,  end: 11 }), frameRate: 6,  repeat: -1 });
+    this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('walk', { start: 0,  end: 5  }), frameRate: 10, repeat: -1 });
+    this.anims.create({ key: 'walk-up',   frames: this.anims.generateFrameNumbers('walk', { start: 6,  end: 11 }), frameRate: 10, repeat: -1 });
+    this.anims.create({ key: 'walk-side', frames: this.anims.generateFrameNumbers('walk', { start: 12, end: 17 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'chicken-idle', frames: this.anims.generateFrameNumbers('chicken', { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
     this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
     // Cat / dog idle — row 0 (frames 0-3) of their 4×N pet body sheets. The
@@ -737,7 +722,7 @@ class MapScene extends Phaser.Scene {
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
       .setScale(1.5)
       .setDepth(10)
-      .play('idle-anim')
+      .play('idle-down')
       .setMask(mask);
     // Second sprite for the player's real body when ghost mode is active.
     // While ghost mode is OFF (the default) this stays hidden and `this.player`
@@ -746,7 +731,7 @@ class MapScene extends Phaser.Scene {
     // body's offset, full opacity.
     this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
       .setScale(1.5)
-      .play('idle-anim')
+      .play('idle-down')
       .setVisible(false)
       .setMask(mask);
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
@@ -1605,9 +1590,7 @@ class MapScene extends Phaser.Scene {
       }
       // Only let WASD drive facing when there's no compass heading available.
       if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-      if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
-      if (vx < 0) this.player.setFlipX(true);
-      else if (vx > 0) this.player.setFlipX(false);
+      this._playDirected(this.player, 'walk', vx, vy);
     } else if (this._ease) {
       // Ease playerM toward last GPS fix (easeOutCubic, 300ms).
       const u = Math.min(1, (performance.now() - this._ease.t0) / this._ease.dur);
@@ -1617,15 +1600,13 @@ class MapScene extends Phaser.Scene {
       const easeDx = this._ease.toX - this._ease.fromX;
       const easeDy = this._ease.toY - this._ease.fromY;
       if (u < 1 && (easeDx || easeDy)) {
-        if (easeDx < -0.001) this.player.setFlipX(true);
-        else if (easeDx > 0.001) this.player.setFlipX(false);
-        if (this.player.anims.currentAnim?.key !== 'walk-anim') this.player.play('walk-anim');
+        this._playDirected(this.player, 'walk', easeDx, easeDy);
       } else if (u >= 1) {
         this._ease = null;
-        if (this.player.anims.currentAnim?.key !== 'idle-anim') this.player.play('idle-anim');
+        this._playDirected(this.player, 'idle');
       }
-    } else if (this.player.anims.currentAnim?.key !== 'idle-anim') {
-      this.player.play('idle-anim');
+    } else {
+      this._playDirected(this.player, 'idle');
     }
 
     // Position the body sprite at its true world offset from the ghost.
@@ -3120,10 +3101,13 @@ class MapScene extends Phaser.Scene {
     return n;
   }
 
-  // Shared factory for all modal overlays. Returns { wrap, box, mount } where
-  // mount() appends box→wrap→#game in one call. Callers populate box then call mount().
+  // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
+  //   onClose — if provided, backdrop click (tap on wrap outside box) removes
+  //             the modal and calls onClose(). Pass () => {} for no-op backdrop.
+  //   mkBtn(label, primary, disabled) — standardised button factory reused by
+  //             every modal so styling stays consistent site-wide.
   makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = '#c8a64a',
-    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '' } = {}) {
+    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose } = {}) {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -3137,30 +3121,41 @@ class MapScene extends Phaser.Scene {
       `font:13px ui-monospace,monospace;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
+    if (onClose !== undefined) {
+      wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
+    }
     const mount = () => { wrap.appendChild(box); (document.getElementById('game') || document.body).appendChild(wrap); };
-    return { wrap, box, mount };
+    const mkBtn = (label, primary = true, disabled = false) => {
+      const b = document.createElement('button');
+      b.innerHTML = label;
+      b.style.cssText =
+        `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        (primary
+          ? 'background:#c8a64a;color:#1a1612;border:0;'
+          : 'background:transparent;color:#ddd;border:2px solid #444;');
+      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
+      return b;
+    };
+    return { wrap, box, mount, mkBtn };
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
   showMessageModal({ title, body, okLabel = 'OK' }) {
     document.getElementById('offer-modal')?.remove();
-    const { wrap, box, mount } = this.makeModalShell('message-modal', { zIndex: 60 });
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal', { zIndex: 60, onClose: () => {} });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
-    const btn = document.createElement('button');
-    btn.textContent = okLabel;
-    btn.style.cssText = 'padding:8px 14px;border-radius:6px;background:#c8a64a;color:#1a1612;border:0;font:700 13px ui-monospace,monospace;cursor:pointer;';
+    const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     box.appendChild(btn);
     mount();
   }
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   showStatsModal() {
-    const { wrap, box, mount } = this.makeModalShell('stats-modal', { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null });
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('stats-modal', { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null, onClose: () => {} });
     const cur = this.save.energy ?? 0, max = this.getMaxEnergy();
     // Compact effect blurb per slot — for empty slots, the def.blurb tells
     // the player what the relic WOULD do (useful preview). For equipped, we
@@ -3216,11 +3211,10 @@ class MapScene extends Phaser.Scene {
       Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
       `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
       Object.keys(ARMOR_DEFS).map(s => slotRow('armor', s)).join('');
-    const btn = document.createElement('button');
-    btn.textContent = 'Close';
-    btn.style.cssText = 'margin-top:12px;padding:8px 14px;border-radius:6px;background:#c8a64a;color:#1a1612;border:0;font:700 13px ui-monospace,monospace;cursor:pointer;width:100%';
+    const btn = mkBtn('Close');
+    btn.style.marginTop = '12px';
+    btn.style.width = '100%';
     btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     box.appendChild(btn);
     mount();
   }
@@ -4071,9 +4065,7 @@ class MapScene extends Phaser.Scene {
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
     let mul;
     if (opts.isCastle) {
-      const t = Math.max(this.save.relics?.bow?.tier || 0,
-                         this.save.relics?.staff?.tier || 0);
-      const f = 1 - t / 7;            // 1 → 0 as tier rises
+      const f = 1 - ((typeof bestWeaponTier === 'function') ? bestWeaponTier(this.save.relics) : 0) / 7;
       mul = 1 + 3 * f;                // T0 → 4.0×, T7 → 1.0×
     } else {
       mul = 1.2 + rng() * 1.8;        // existing random range
@@ -5069,6 +5061,22 @@ class MapScene extends Phaser.Scene {
   // Collapse the ghost back into the body: restore playerM to the snapshot,
   // re-show the now-merged sprite at full opacity, hide the body double.
   // Safe to call when no ghost is active (it's a no-op).
+  // Play a directional player animation on `sprite`. When dx/dy are supplied
+  // (movement frame), updates this._spriteDir so the idle pose holds the last
+  // walking direction. Avoids restarting the anim if the key is unchanged.
+  _playDirected(sprite, baseKey, dx, dy) {
+    if (dx !== undefined) {
+      const d = Math.hypot(dx, dy);
+      if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
+    }
+    const { x, y } = this._spriteDir;
+    let dir = 'down', flip = false;
+    if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
+    else if (y < 0) dir = 'up';
+    const key = `${baseKey}-${dir}`;
+    if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
+    sprite.setFlipX(flip);
+  }
   collapseGhost() {
     if (!this._bodyM) return;
     this.playerM.x = this._bodyM.x;
@@ -5333,7 +5341,7 @@ class MapScene extends Phaser.Scene {
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
   showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity }) {
-    const { wrap, box, mount } = this.makeModalShell('offer-modal', { maxWidth: 340 });
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
     // Build the chrome out of individual nodes so the quantity stepper (when
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count
@@ -5426,17 +5434,6 @@ class MapScene extends Phaser.Scene {
     }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
-    const mkBtn = (label, primary, disabled) => {
-      const b = document.createElement('button');
-      b.innerHTML = label;
-      b.style.cssText =
-        `padding:8px 12px;border-radius:6px;font:700 12px ui-monospace,monospace;cursor:pointer;` +
-        (primary
-          ? 'background:#c8a64a;color:#1a1612;border:0;'
-          : 'background:transparent;color:#ddd;border:2px solid #444;');
-      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
-      return b;
-    };
     const cancel = mkBtn('Cancel', false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford);
@@ -5446,7 +5443,6 @@ class MapScene extends Phaser.Scene {
       onAccept(quantity ? qty : undefined);
     });
     if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
-    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
