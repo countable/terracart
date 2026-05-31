@@ -979,7 +979,13 @@ Render.drawObjects = function drawObjects(scene) {
               },
               frame: (o) => {
                 if (o.species && o.species !== 'maple') return 3;
-                return Phaser.Math.Clamp(o.variant || 2, 0, 4);
+                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
+                // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
+                // standing tree never renders as a stump. Detected trees carry a
+                // real size class → always mature (frame 3); their variety comes
+                // from the size-class scale, not the growth-stage frame.
+                if (o.size) return 3;
+                return Phaser.Math.Clamp(o.variant || 2, 1, 3);
               },
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
               scale:  (o) => {
