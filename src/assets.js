@@ -163,7 +163,7 @@ const ASSETS = {
   // that read poorly on grass. Renderer picks frame = min(2, qty - 1)
   // so the variant cycles with stack size. Inventory icon uses frame 2.
   wood:        {
-    kind: 'spritesheet', path: 'assets/Objects/wood.png', frameWidth: 16, frameHeight: 16,
+    kind: 'spritesheet', path: 'assets/Objects/Wilderness/wood.png', frameWidth: 16, frameHeight: 16,
     // wood.png ships with a solid white background (RGB ≈ 248,248,248)
     // that reads as a "white outline" around each log when rendered on
     // the grass terrain. Alpha-key near-white pixels to transparent —

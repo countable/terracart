@@ -4844,7 +4844,7 @@ class MapScene extends Phaser.Scene {
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
-      acceptLabel: 'Trade',
+      acceptLabel: 'Forge',
       secondary,
       onAccept: () => {
         const curTier = offer.kind === 'relic'
@@ -5055,7 +5055,7 @@ class MapScene extends Phaser.Scene {
         // (which alpha-keys the white bg), so this entry is a fallback: if the
         // bake ever fails it renders wood (white bg and all) instead of
         // silently falling through to SHEETS.crops → a grass sprout.
-        wood:          { url: 'assets/Objects/wood.png',                          cols: 3,  srcW: 48,  srcH: 16 },
+        wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
       };
       const sheet = SHEETS[src.sheet] || SHEETS.crops;
       const col = src.frame % sheet.cols;
