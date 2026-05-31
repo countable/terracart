@@ -26,11 +26,6 @@
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
-// Two object-position points within this squared screen-pixel distance are
-// treated as the same world object (de-dupes overlapping POI/tree/chest sprites
-// when the player taps a busy corner). 40² = ~1.25 cells at CELL_PX=32.
-const TAP_DEDUPE_R2 = 40 * 40;
-
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
 // splice it out and clamp selSlot so it still points at a valid slot. Used by
 // every handler that consumes a held item (plant, release-animal, place-rock).
@@ -694,20 +689,14 @@ const TAP_HANDLERS = [
       const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
       return ao - bo;
     });
-    const seenTapByIdent = new Map();
+    // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
+    // is identical to what's drawn. Sharing the same cell key (chest ids are cell-snapped)
+    // avoids the order-dependent "see a crate but can't tap it" mismatch.
+    const seenTapCell = new Set();
     const isDupTapChest = (o) => {
-      const ident = o.name || o.poiClass;
-      if (!ident) return false;
-      let list = seenTapByIdent.get(ident);
-      if (list) {
-        for (const p of list) {
-          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < TAP_DEDUPE_R2) return true;
-        }
-      } else {
-        list = [];
-        seenTapByIdent.set(ident, list);
-      }
-      list.push({ x: o.x, y: o.y });
+      const k = Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
+      if (seenTapCell.has(k)) return true;
+      seenTapCell.add(k);
       return false;
     };
     for (const o of allObjs) {
