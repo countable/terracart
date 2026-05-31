@@ -390,10 +390,10 @@ ECONOMY (buying & selling)
  - currency = coins (save.money). Start with $25. Earn by selling, picking up
    coins, treasure/chests, and coin bursts.
  - tap a house/tower to trade. SMALL HOUSES specialise by their address digit
-   (shops.js): ending 9 = BLACKSMITH (forges gear from bars/gems; +100% sell on
-   gems), 2/6 = MARKET (cash-only produce stock; +50% sell on produce), 1/8 =
-   TRADER (barter-only; +25% sell on anything). Other houses are PLAIN: they run
-   "delivery" deals, buying 2-3 specific produce they want.
+   (shops.js): ending 9 = BLACKSMITH (forges gear from bars/gems), 2/6 = MARKET
+   (cash-only produce stock), 1/8 = TRADER (barter-only). Other houses are
+   PLAIN: they run "delivery" deals, buying 2-3 specific produce they want.
+   (These are BUY/trade specialties — selling is home-only, see SELL below.)
  - FORTS (BUILDING_MED): up to 5 deals/hour. CASTLES/TOWERS (BUILDING_LARGE):
    never run out, always sell RELICS (at 4× base, minus bow/staff discount), and
    are never "busy". Plain houses do 1 deal/hour. Hour buckets are per-house.
@@ -411,9 +411,9 @@ ECONOMY (buying & selling)
    2/3 of the time a BARTER deal — the shop wants 1× of a random item you hold
    whose value is high enough; if you hold nothing suitable it shows what it
    wants with the button disabled (so you learn what to bring).
- - SELL: with a stack selected, tapping a house sells one. Sale price =
-   PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at Frost) × the
-   shop's specialty bonus. Selling gear you already own better of is half value.
+ - SELL: selling happens only at your HOME shop. With a stack selected, tapping
+   home sells one at PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at
+   Frost). Other houses are buy/trade-only.
  - bow/staff relics shrink the buy markup (best tier wins; T7 = buy at par).
 
 ================================================================================
