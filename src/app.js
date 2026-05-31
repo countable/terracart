@@ -710,9 +710,7 @@ class MapScene extends Phaser.Scene {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
-    this._workProgressText = this.add.text(0, 0, '', {
-      font: '11px monospace', color: '#ffffff',
-    }).setOrigin(0.5, 0.5).setDepth(96).setVisible(false);
+    this._workProgressIcon = null;   // DOM element created per-action, removed on cancel/complete
     this._workProgress = null;
 
     const frame = this.add.graphics();
@@ -1850,20 +1848,46 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
-  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, tool = null) {
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), tool };
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null) {
+    this._workProgressIcon?.remove();
+    this._workProgressIcon = null;
+    if (toolSlot) {
+      const tier = this.save.relics?.[toolSlot]?.tier || 1;
+      const html = this.gearIconHTML('relic', toolSlot, tier, 16);
+      if (html) {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;';
+        el.innerHTML = html;
+        document.body.appendChild(el);
+        this._workProgressIcon = el;
+      }
+    }
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
   // viewport the catch FAILS (onFail) instead of completing; the wheel tracks
   // the fleeing creature. _beingCaught flags it so wanderCreatures leaves its
   // movement to the wheel.
-  startCatchProgress(creature, durationMs, onComplete, onFail, tool = null) {
+  startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null) {
     creature._beingCaught = true;
     const t = performance.now();
+    this._workProgressIcon?.remove();
+    this._workProgressIcon = null;
+    if (toolSlot) {
+      const tier = this.save.relics?.[toolSlot]?.tier || 1;
+      const html = this.gearIconHTML('relic', toolSlot, tier, 16);
+      if (html) {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;';
+        el.innerHTML = html;
+        document.body.appendChild(el);
+        this._workProgressIcon = el;
+      }
+    }
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
-      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail, tool,
+      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail,
     };
   }
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
@@ -1873,7 +1897,8 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
     this._workProgressGfx?.clear();
-    this._workProgressText?.setVisible(false);
+    this._workProgressIcon?.remove();
+    this._workProgressIcon = null;
   }
   // Player bailed on an in-flight mine/chop/cast (any tap aborts the wheel).
   // Refund the energy that was charged up-front when the action started, so
@@ -1939,12 +1964,14 @@ class MapScene extends Phaser.Scene {
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
     }
-    if (this._workProgressText) {
-      if (wp.tool) {
-        this._workProgressText.setText(wp.tool).setPosition(cx, cy).setVisible(true);
-      } else {
-        this._workProgressText.setVisible(false);
-      }
+    if (this._workProgressIcon) {
+      const gameEl = document.getElementById('game');
+      const gr = gameEl.getBoundingClientRect();
+      const scaleX = gr.width / W, scaleY = gr.height / H;
+      const ICON_PX = 16;
+      const px = gr.left + cx * scaleX - ICON_PX / 2;
+      const py = gr.top  + cy * scaleY - ICON_PX / 2;
+      this._workProgressIcon.style.transform = `translate(${Math.round(px)}px,${Math.round(py)}px)`;
     }
   }
 
@@ -2022,14 +2049,14 @@ class MapScene extends Phaser.Scene {
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime') {
-        const STEAL_R = 2.5;   // metres — roughly "on the player's cell"
+      if (c.kind === 'slime' && !isTame) {
+        const STEAL_R = this.cellM;   // 1 cell — adjacent only
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + 3000;
+          c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            this.save.energy = Math.max(0, before - 1);
+            this.save.energy = Math.max(0, before - 3);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }

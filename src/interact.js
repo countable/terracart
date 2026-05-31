@@ -95,15 +95,13 @@ const TERRAIN = {
 //   relicSlot  — the relic key passed to toolDurationMs ('axe', 'pick', etc.)
 //   energyCost — energy to spend up-front (0 / falsy = free)
 //   onComplete — callback fired when the wheel finishes
-const TOOL_EMOJI = { axe: '🪓', pick: '⛏', rod: '🎣', bugnet: '🥅', sword: '⚔', bow: '🏹', staff: '🪄' };
-
 function startToolWork(ctx, x, y, relicSlot, energyCost, onComplete) {
   const { scene, save, sx, sy } = ctx;
   const durMs = (typeof toolDurationMs === 'function')
     ? toolDurationMs(save.relics, relicSlot)
     : (save.relics?.[relicSlot] ? 3000 : 9000);
   if (energyCost && !scene.spendEnergy(energyCost, sx, sy)) return true;
-  scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0, TOOL_EMOJI[relicSlot] || null);
+  scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0, relicSlot);
   return true;
 }
 
@@ -310,7 +308,7 @@ const TAP_HANDLERS = [
         ? Math.max(500, 3000 - (weaponTier - 1) * 750)
         : 9000;
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
-      const weaponEmoji = weaponTier > 0 ? TOOL_EMOJI[bestWeapon] : null;
+      const weaponSlot = weaponTier > 0 ? bestWeapon : null;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -327,7 +325,7 @@ const TAP_HANDLERS = [
           scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
         }
         persistSave(save);
-      }, durMs, 0, weaponEmoji);
+      }, durMs, 0, weaponSlot);
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
@@ -491,7 +489,7 @@ const TAP_HANDLERS = [
       scene.catchCreature(victim, sx, sy);
     }, () => {
       scene.flash('🏃 it got away', scene.viewCenterX, scene.viewCenterY - 60);
-    }, TOOL_EMOJI.bugnet);
+    }, 'bugnet');
     return true;
   }},
 
@@ -930,7 +928,7 @@ const TAP_HANDLERS = [
           // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
           // showed a gem glyph instead of the mined bar/gem icon).
           scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
-        }, durMs, cost, TOOL_EMOJI.pick);   // cost = refund if the player cancels mid-mine
+        }, durMs, cost, 'pick');   // cost = refund if the player cancels mid-mine
         return true;
       }
     }
@@ -1276,7 +1274,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, castMs, 5, TOOL_EMOJI.rod);   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
+    }, castMs, 5, 'rod');   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
     return true;
   }},
 
