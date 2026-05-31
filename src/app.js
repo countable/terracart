@@ -2016,7 +2016,7 @@ class MapScene extends Phaser.Scene {
       const wanders = c.kind === 'chicken' || c.kind === 'cow'
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
-                    || c.kind === 'slime'
+                    || c.kind === 'slime' || c.kind === 'rabbit'
                     || (isTame && c.kind === 'butterfly');
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
@@ -2058,10 +2058,16 @@ class MapScene extends Phaser.Scene {
       }
       // Per-kind step duration for everything else falling through to the
       // generic wander below.
-      const stepMs = STEP_MS;
-      // Slimes ooze in short, lazy hops (0.6 cell) — slower drift than the
-      // 1-cell stride every other creature takes.
-      const stepM = c.kind === 'slime' ? STEP_M * 0.6 : STEP_M;
+      // Rabbits: quick hop burst + long pause; flee when player is within 4 cells.
+      const isRabbit = c.kind === 'rabbit' && !isTame;
+      const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
+      const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
+      // stepMs = animation duration of the hop itself (short burst).
+      const stepMs = isRabbit ? (rabbitFleeing ? 300 : 420) : STEP_MS;
+      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells.
+      const stepM = c.kind === 'slime' ? STEP_M * 0.6
+                  : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
+                  : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -2189,6 +2195,9 @@ class MapScene extends Phaser.Scene {
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
           } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (rabbitFleeing) {
+            // Flee directly away from player with wide jitter so it zig-zags.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
             // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
@@ -2252,10 +2261,15 @@ class MapScene extends Phaser.Scene {
         c._startX = c.x; c._startY = c.y;
         c._targetX = tx; c._targetY = ty;
         c._stepT0 = now;
-        c._nextChooseT = now + stepMs;
+        c._hopMs = stepMs;
+        // Rabbits sit still between hops: short pause when fleeing, long when idle.
+        const pauseMs = isRabbit
+          ? (rabbitFleeing ? 80 + Math.random() * 120 : 700 + Math.random() * 1300)
+          : 0;
+        c._nextChooseT = now + stepMs + pauseMs;
         c._faceFlip = (c._targetX - c._startX) < 0;
       }
-      const u = Math.min(1, (now - c._stepT0) / stepMs);
+      const u = Math.min(1, (now - c._stepT0) / (c._hopMs || STEP_MS));
       c.x = c._startX + (c._targetX - c._startX) * u;
       c.y = c._startY + (c._targetY - c._startY) * u;
     });
