@@ -54,15 +54,19 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
   scene.showFeedConfirm({ foodId, faunaKind, onConfirm: doFeed });
 }
 
-// Nearest item in a WorldGen layer to (px, py) within reachM that passes
+// Nearest item in a WorldGen layer to (px, py) within reach that passes
 // `accept`, or null. Centralizes the bestD2 scan every "tap the closest X"
 // handler repeats. `accept` may be omitted to consider all items.
-function findClosestItem(layer, px, py, reachM, accept) {
-  let best = null, bestD2 = reachM * reachM;
+// `reach` is either a fixed radius (m) or a function(item) → radius, so a
+// layer with differently-sized items (e.g. a cow vs a chicken) can gate each
+// item by its own footprint instead of one flat disk.
+function findClosestItem(layer, px, py, reach, accept) {
+  let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (accept && !accept(item)) return;
+    const r = typeof reach === 'function' ? reach(item) : reach;
     const d2 = distM2(item.x, item.y, px, py);
-    if (d2 < bestD2) { bestD2 = d2; best = item; }
+    if (d2 <= r * r && d2 < bestD2) { bestD2 = d2; best = item; }
   });
   return best;
 }
@@ -309,11 +313,21 @@ const TAP_HANDLERS = [
   // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const target = findClosestItem('creatures', wm.x, wm.y, REACH_CREATURE_M,
+    // Per-kind tap radius (m), scaled to each animal's on-ground footprint
+    // rather than a flat 4 m disk that made even a chicken tappable a whole
+    // cell away. Bigger animals (cow/deer) keep a larger grab; small ones
+    // (chicken/rabbit/butterfly) tighten up. Mirrors the render scales in
+    // render.js (cow 1.5 > deer/crow 1.3 > chicken 1.2 > rabbit footprint).
+    const CREATURE_TAP_R = {
+      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7, slime: 1.7,
+      chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
+    };
+    const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
+    const target = findClosestItem('creatures', wm.x, wm.y, creatureTapR,
       (c) => !save.caught.includes(c.id));
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
-    // and the lit reach indicator). The 4m REACH_CREATURE_M above is tap-
+    // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-
     // forgiveness measured from the TAP point, not the player — without this a
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
     // the reach outline ⇔ tap-accept invariant (QC §7).
@@ -691,11 +705,12 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      // Shrine + house/tower/well share the wider house-sized reach: their
-      // sprites are taller than the default 3.5m hit zone (fountain is ~9m tall
-      // in world units), so a tap on the visible top of the sprite would
-      // otherwise miss-and-fall-through to the till handler under it.
-      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well');
+      // Shrine + house/tower share the wider house-sized reach: their sprites
+      // are taller than the default 3.5m hit zone, so a tap on the visible top
+      // of the sprite would otherwise miss-and-fall-through to the till handler
+      // under it. Wells are deliberately NOT here — they must activate on their
+      // own cell only (a tap on the cell above should not trigger them).
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine');
       const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
       // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
       // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M

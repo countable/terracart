@@ -61,7 +61,7 @@ const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
 
 // --- Tap reach radii (metres). Used by handleWorldTap distance checks. ---
-const REACH_CREATURE_M  = 4;
+// (Creatures use a per-kind tap radius in interact.js, not a flat constant.)
 const REACH_WILDPLANT_M = 4;
 const REACH_OBJECT_M    = 3.5; // chest / tree
 const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
@@ -473,10 +473,13 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
-    // Player sprite (idle, 32px frame, scale 1.5, origin 0.5/0.5) has its visual
-    // feet at viewCenterY + 24 px. Offset reach checks downward by the same so
-    // the reachable area is symmetric around the visible character, not the
-    // sprite's geometric center. ~3.75m at the default CELL_PX/cellM.
+    // Player sprite renders at scale 1.35 (32px frame, origin 0.5/0.5). Reach
+    // checks are offset downward toward the character's visible feet so the
+    // reachable area is symmetric around the figure, not the sprite's geometric
+    // centre. We keep the 24px foot anchor (the historical 1.5-scale foot line)
+    // independent of the visual scale so the lit-reach region and the reach-
+    // shape tests stay stable across cosmetic sprite-size tweaks. ~3.75m at the
+    // default CELL_PX/cellM.
     this.feetOffsetM = (24 / CELL_PX) * this.cellM;
     this.REACH_CELL_M = 16;   // cell taps: till / plant / water / harvest. 16m = √(5²+15²)+ε includes (±1,±3) / (±3,±1) cells.
     // NOTE: object/creature/wildplant taps do NOT use a scene-level reach —
@@ -743,7 +746,7 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.5)
+      .setScale(1.35)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
@@ -753,7 +756,7 @@ class MapScene extends Phaser.Scene {
     // (at 50% alpha, centred at viewCenter) and this sprite shows up at the
     // body's offset, full opacity.
     this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.5)
+      .setScale(1.35)
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
@@ -1771,11 +1774,11 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +16 lands the dot right at the sprite's feet. (Sprite scale 1.5 × 32
-        // = 48, origin (.5,.5) so the sprite's nominal bottom is +24, but the
+        // +14 lands the dot right at the sprite's feet. (Sprite scale 1.35 × 32
+        // ≈ 43, origin (.5,.5) so the sprite's nominal bottom is ~+22, but the
         // visible foot pixels sit several px above the bottom of the texture —
-        // +16 lines up with where the shoes actually meet the ground.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 16;
+        // +14 lines up with where the shoes actually meet the ground.)
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 14;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
         this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
       }
