@@ -566,12 +566,8 @@ const TAP_HANDLERS = [
     // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
     // (startCatchProgress); if it escapes the viewport the catch fails. A Bug
     // Net shortens the wheel by tier; bare hands take the tier-0 (9s) time.
-    // Butterflies are the lone exception with no bare-hands tier — they REQUIRE
-    // the net.
-    if (target.kind === 'butterfly' && !save.relics?.bugnet) {
-      scene.flash('It flits away — you need a Bug Net.', sx, sy);
-      return true;
-    }
+    // Butterflies catch bare-handed too — no tool gate — and flee at 2 m/s
+    // like every other animal while the wheel runs (startCatchProgress).
     const catchMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'bugnet')
       : (save.relics?.bugnet ? 3000 : 9000);
@@ -904,33 +900,18 @@ const TAP_HANDLERS = [
         // hit this branch in practice; keep the guard for taps that race a
         // render frame or hit a stale object reference.)
         if (scene.brokenRockSet.has(o.id)) return true;
-        const pickTier = save.relics?.pick?.tier || 0;
         const isCave = o.caveVariant != null;
-        if (pickTier < o.requiredTier) {
-          // Flavour: name the player's CURRENT pick (the one that's too
-          // weak) rather than telling them what tier they'd need. Player
-          // already feels the "this one isn't enough" — naming their tool
-          // makes the failure read like an in-world moment instead of a
-          // game-system error.
-          let msg;
-          if (pickTier <= 0) {
-            msg = 'Bare hands just bounce off.';
-          } else {
-            const tName = (typeof TIER_BY_NUM !== 'undefined')
-              ? (TIER_BY_NUM[pickTier]?.name || `T${pickTier}`)
-              : `T${pickTier}`;
-            msg = `${tName} pick just bounces off.`;
-          }
-          scene.flash(msg, sx, sy);
-          return true;
-        }
-        // Cave rocks are plain — quick (3s) and cheap (10 energy). Ore
-        // rocks scale work + cost by their YIELD tier (the richer the
-        // rock, the harder it is to crack open).
+        // No tier gate any more — bare hands (and any pick) crack ANY rock.
+        // Pickaxe tier only affects SPEED (toolDurationMs: 9s bare → 0.3s frost),
+        // mirroring chop / fish / catch. Ore rocks still cost more energy by
+        // yield tier (the richer the rock, the more it takes out of you), but no
+        // longer take longer.
         const tierForWork = isCave ? 1 : (o.yieldTier || 1);
         const cost = 10 + (tierForWork - 1) * 4;
         if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const durMs = (3 + (tierForWork - 1) * 1) * 1000;
+        const durMs = (typeof toolDurationMs === 'function')
+          ? toolDurationMs(save.relics, 'pick')
+          : (save.relics?.pick ? 3000 : 9000);
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
