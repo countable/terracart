@@ -710,6 +710,9 @@ class MapScene extends Phaser.Scene {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
+    this._workProgressText = this.add.text(0, 0, '', {
+      font: '11px monospace', color: '#ffffff',
+    }).setOrigin(0.5, 0.5).setDepth(96).setVisible(false);
     this._workProgress = null;
 
     const frame = this.add.graphics();
@@ -1847,20 +1850,20 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
-  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0) {
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, tool = null) {
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), tool };
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
   // viewport the catch FAILS (onFail) instead of completing; the wheel tracks
   // the fleeing creature. _beingCaught flags it so wanderCreatures leaves its
   // movement to the wheel.
-  startCatchProgress(creature, durationMs, onComplete, onFail) {
+  startCatchProgress(creature, durationMs, onComplete, onFail, tool = null) {
     creature._beingCaught = true;
     const t = performance.now();
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
-      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail,
+      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail, tool,
     };
   }
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
@@ -1870,6 +1873,7 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
     this._workProgressGfx?.clear();
+    this._workProgressText?.setVisible(false);
   }
   // Player bailed on an in-flight mine/chop/cast (any tap aborts the wheel).
   // Refund the energy that was charged up-front when the action started, so
@@ -1934,6 +1938,13 @@ class MapScene extends Phaser.Scene {
       g.beginPath();
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
+    }
+    if (this._workProgressText) {
+      if (wp.tool) {
+        this._workProgressText.setText(wp.tool).setPosition(cx, cy).setVisible(true);
+      } else {
+        this._workProgressText.setVisible(false);
+      }
     }
   }
 
