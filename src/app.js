@@ -2073,7 +2073,7 @@ class MapScene extends Phaser.Scene {
         const FOLLOW_GAP = 1.5 * this.cellM;
         const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-        const homeRadius = isTame ? 1.5 * this.cellM : 3 * this.cellM;
+        const homeRadius = isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
@@ -2126,6 +2126,22 @@ class MapScene extends Phaser.Scene {
         // crows phase into the very cell the aversion was supposed to
         // protect.
         if (!foundValidTarget) { tx = c.x; ty = c.y; }
+        // Deer crop damage: each wander step, 20% chance to eat the nearest
+        // planted crop within 1.5 cells. Scarecrows already avert the deer
+        // before this point, so no extra scarecrow check needed here.
+        if (c.kind === 'deer' && !isTame && this.save.planted?.length) {
+          const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
+          if (Math.random() < 0.20) {
+            const idx = this.save.planted.findIndex(p => {
+              const ddx = p.x - c.x, ddy = p.y - c.y;
+              return ddx * ddx + ddy * ddy <= DR2;
+            });
+            if (idx >= 0) {
+              this.save.planted.splice(idx, 1);
+              this.flash?.('🦌 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
+            }
+          }
+        }
         c._startX = c.x; c._startY = c.y;
         c._targetX = tx; c._targetY = ty;
         c._stepT0 = now;

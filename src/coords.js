@@ -60,8 +60,13 @@ function playerReachCell(scene) {
 // test call this — keeps the lit area and the tap-accept area byte-identical
 // regardless of intra-cell player position, FP drift, or rounding mode.
 function cellInReach(scene, cellIX, cellIY) {
+  const energy = scene.save?.energy ?? 0;
+  if (energy <= 0) return false;
+  const maxEnergy = scene.save?.maxEnergy ?? 100;
+  // Below 30% energy reach shrinks to 2 cells; at/above 30% full 3-cell reach.
+  const reachM = (energy / maxEnergy) < 0.30 ? 2 * scene.cellM : scene.REACH_CELL_M;
   const p = playerReachCell(scene);
   const dx = (cellIX - p.cellIX) * scene.cellM;
   const dy = (cellIY - p.cellIY) * scene.cellM;
-  return dx * dx + dy * dy <= scene.REACH_CELL_M * scene.REACH_CELL_M;
+  return dx * dx + dy * dy <= reachM * reachM;
 }

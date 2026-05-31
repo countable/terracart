@@ -149,12 +149,16 @@ Render.drawCells = function drawCells(scene) {
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // Reuses the cobblePool slot for the overlay sprite but swaps its texture
   // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
-  // 16×16 frames). Frame 33 = row 4 col 1 = the middle plank of one of the
-  // standalone 3-cell horizontal bridges in the lower half of the sheet
-  // (clean planks, no end-caps, no railing posts). Pier cells are NOT roads
-  // (no road-letter labels) and NOT paths (no path-stone activation tint).
+  // 16×16 frames). Frame 20 = row 2 col 4 = an interior tile of the continuous
+  // plank-deck band (frames 16-23): 100% opaque wood, no baked-in water, no
+  // gaps, no support posts — so it tiles edge-to-edge across adjacent pier
+  // cells (vertical OR horizontal runs) as clean decking. The earlier choice
+  // (frame 33) was a bridge-span tile with baked-in blue water + a diagonal
+  // support leg + transparent holes, which rendered as fragmented "docks with
+  // posts and water patches" instead of a solid walkway. Pier cells are NOT
+  // roads (no road-letter labels) and NOT paths (no path-stone activation tint).
   const PIER = 23;
-  const PIER_FRAME = 33;
+  const PIER_FRAME = 20;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
@@ -644,14 +648,10 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // Out of energy? The lit reach area "extinguishes": isReach reports EVERY
-  // cell as out-of-reach, so the darken pass below shades the whole screen to
-  // the out-of-range tone and the white outline is skipped. Recomputed each
-  // frame from save.energy (<= 0 matches the "too tired" gate in app.js), so
-  // the light snaps back the instant the player rests or eats above 0.
-  const litExtinguished = (scene.save.energy ?? 0) <= 0;
+  // cellInReach handles all energy tiers: 0 energy = no reach, <30% = 2-cell
+  // reach, ≥30% = full 3-cell reach. isReach delegates entirely so the visual
+  // outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
-    if (litExtinguished) return false;
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
     return cellInReach(scene, absIX, absIY);

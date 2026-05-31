@@ -16,23 +16,44 @@ The game is made of a grid of cells generated from vector tile data.
  - Some cells are tillable to replace with tilled soil.
  - grassland biome cells till in half the time.
 
+# viewport
+ - the player sees an 11x11 viewport, centred around them and can interact within 3 cells of themself.
+ - if the player is below 30% energy, their range drops to 2 cells, then at 0 energy, they have no range.
+ - generally, only update or consider timers of cells in the viewport, for efficiency. Don't update cells offscreen, but for timers just keep track of the timestamp of the last event. ie, for crops keep track of the time they were planted so later when onscreen you can check if they need to have sprouted when seen.
+
 # interactables
 Each cell may contain one interactable object (excluding fauna). ie, rocks, trees, crops.
- - generally bare hands can be used for any interactable, but takes 9 seconds to process (modifiers on some specific interactables, ie pest HP)
+ - generally bare hands can be used for any interactable, but takes 9 seconds to process (modifiers on some specific interactables, ie pest energy)
  - tools: wood: 3s, copper: 2.5s, iron: 2s, gold: 1.3s, platinum: .8s, crimson: .5s, frost: .3s
  - show the tool in use when interacting, if applicable.
  - tools: net: catch animals, fishing rod: fishing, pick: mining rocks, axe: chopping trees, hoe: tilling soil, weapons: fighting pests.
+ - state changes should have some visual or text indication.
 
 # fauna
 Entities that can typically move around over cells, like pets, enemies, wild animals
- - crows: move in pauses and straight lines.
+ - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
+   land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
+ - no fauna may move onto a building footing, or road.
+ - animals simulate when within viewport range (~7-8 cells); stationary beyond that.
+ - slime: moves slowly toward player and drains 1 energy every 3s within 2.5m.
+   HP system (15 hp), cat/dog combat, slime taming — future work.
+ - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
+   step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - cats (20 hp): tame cats chase crows and fight — future work.
+ - dogs (40 hp): tame dogs chase deer, slimes — future work.
+ - wild deer and crow can be hunted with weapons.
+ - each fauna can be tamed with a favourite food (slime taming: future work).
+ - tame animals show a 💗, wander within 5 cells of their release point, can be
+   petted and follow the player for 5 minutes after petting.
+ - animal HP, combat damage, and healing — future work (hp values noted above).
+ - fauna move at ~1 cell per 5 seconds.
 
 # biomes
 Different map polygons rasterize to tiles according to rules 
 
 ## Residential
+ - Small roads surrounded by housing.
  - Avoid interactables or fauna on private property. in residential areas, all interactables must spawn within 2 spaces of a road or path, or an area that is designated as public.
- - no animals may move onto a building footing, or road.
 
 ================================================================================
 CORE
@@ -74,9 +95,8 @@ ENERGY & FOOD
 ================================================================================
  - energy is a pool spent on hard actions and shown as ⚡cur/max (green >50%,
    yellow >25%, red below). Starting/base max is 100.
- - ENERGY_COST (items.js): till 2, plant 1, harvest 1, catch 5, rockBreak 10
-   (discounted by pickaxe tier), rockPlace 1; picking wildplants/flora is free.
-   Mining ore rocks costs 10 + (tier-1)*4.
+ - ENERGY_COST (items.js): till 2, plant 1, harvest 1, catch 5, rockPlace 1;
+   picking wildplants/flora is free. Mining ore rocks costs 10 + (tier-1)*4.
  - ARMOR raises max energy: helmet +10/tier, chest +25/tier, legs +15/tier,
    boots +8/tier (per equipped tier). Equipping better armor bumps current
    energy by the delta too.
