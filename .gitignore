@@ -21,3 +21,5 @@ data/trees_z20_min30.png
 
 # Generated satellite tile cache (satextract)
 tiles_cache/
+data/game_*.png
+data/g[0-9]_*.png

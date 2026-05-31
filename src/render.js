@@ -877,6 +877,34 @@ Render.drawObjects = function drawObjects(scene) {
     if (_restored[o.id]) return trueRole;
     return 'wreck';
   };
+  // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
+  // Three discrete in-game size tiers from the DeepForest crown size class.
+  // OSM trees (no size) fall back to crown_m, then the flat species scale.
+  const TREE_SIZE_MUL = { small: 0.8, medium: 1.15, large: 1.55 };
+  // Fruit-tree growth-stage frames, read off the Apple/Peach sheets (shared
+  // column layout): 0 sprout → 1 sprout → 2 young → 3 mature → 4 fruiting.
+  const FRUIT_FRAMES = [11, 13, 5, 17, 21];
+  const FRUIT_MATURE_FRAME = 17;   // mature, no fruit (shown while regrowing)
+  const FRUIT_STAGE_MS = 3 * 60 * 1000;   // 3 min/stage → ~12 min sprout→fruit
+  const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+  // Growth stage 0..4 of a planted sapling from elapsed real time.
+  const _ftStage = (o) => Math.min(4,
+    Math.floor((Date.now() - (o.planted_t || 0)) / FRUIT_STAGE_MS));
+  const _ftPicked = (o) => {
+    const fp = scene.save.fruitPicked;
+    const at = fp && fp[o.id];
+    return at && Date.now() - at < FRUIT_RESPAWN_MS;
+  };
+  // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
+  // multiplicative tint shifts the sprite's hue without darkening it to mud.
+  const _crownTint = (hex) => {
+    if (typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return 0xffffff;
+    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 0xffffff;
+    r = (r + 255) >> 1; g = (g + 255) >> 1; b = (b + 255) >> 1;
+    return (r << 16) | (g << 8) | b;
+  };
+
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
@@ -936,11 +964,10 @@ Render.drawObjects = function drawObjects(scene) {
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
               scale:  (o) => {
                 const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
-                // DeepForest trees carry a crown diameter (m); scale the sprite
-                // around a 5 m reference (the median detection) so small crowns
-                // read smaller and big ones bigger. Clamp 0.8–1.6 so tiny
-                // detections stay visible and huge ones don't dominate. OSM
-                // trees have no crown_m and keep the flat species scale.
+                // DeepForest trees carry a discrete crown SIZE class (small/
+                // medium/large) → three fixed sprite tiers. Fall back to the
+                // continuous crown_m scale, then the flat species scale (OSM).
+                if (o.size && TREE_SIZE_MUL[o.size]) return base * TREE_SIZE_MUL[o.size];
                 if (o.crown_m == null) return base;
                 const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
                 return base * mul;
@@ -949,7 +976,9 @@ Render.drawObjects = function drawObjects(scene) {
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
               // so each tree stands inside its own cell.
-              dyPx: CELL_PX * 0.5 },
+              dyPx: CELL_PX * 0.5,
+              // Sampled crown colour → a subtle hue tint (DeepForest trees only).
+              after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
@@ -963,14 +992,30 @@ Render.drawObjects = function drawObjects(scene) {
               scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0,
               dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
               dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
-    fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
-              origin: [0.5, 0.95], scale: 0.85,
+    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
+              frame: (o) => {
+                if (o.planted) {
+                  // Planted sapling grows through the art's life-cycle frames.
+                  let st = _ftStage(o);
+                  if (st >= 4 && _ftPicked(o)) return FRUIT_MATURE_FRAME;  // regrowing
+                  return FRUIT_FRAMES[st];
+                }
+                // Wild (detected/orchard) trees are mature & fruiting; show the
+                // fruitless mature frame briefly after a pick.
+                return _ftPicked(o) ? FRUIT_MATURE_FRAME : FRUIT_FRAMES[4];
+              },
+              origin: [0.5, 0.95],
+              scale: (o) => {
+                const base = 0.85;
+                if (o.planted) return base * (0.5 + 0.125 * _ftStage(o));  // 0.5→1.0
+                return base * (TREE_SIZE_MUL[o.size] || 1);
+              },
               after: (s, o) => {
-                const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
-                const fp = scene.save.fruitPicked;
-                const pickedAt = fp && fp[o.id];
-                const notRipe = pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS;
-                s.setAlpha(notRipe ? 0.55 : 1);
+                // Dim a wild tree only while its fruit is regrowing; a planted
+                // sapling that hasn't matured yet is full-alpha (it's growing,
+                // not picked).
+                const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
+                s.setAlpha(dim ? 0.7 : 1);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves

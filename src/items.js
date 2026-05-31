@@ -133,6 +133,10 @@ const MINERAL_ICON_SHEET = {
   // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
   // sheet; frame 0 is the canonical cowrie used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
+  // Fruit-tree saplings — a small young-tree frame off the species sheet
+  // (frame 5 = the young green tree) reads as a sapling in the inventory.
+  apple_sapling: { sheet: 'apple_tree', frame: 5 },
+  peach_sapling: { sheet: 'peach_tree', frame: 5 },
 };
 
 function inventoryIconSource(itemId) {
@@ -207,6 +211,8 @@ const BASE_TIER = {
   apple: 2, cherry: 2, peach: 2, apricot: 2,
   orange: 3, mango: 3,
   banana: 4, coconut: 4,
+  // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
+  apple_sapling: 3, peach_sapling: 5,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -307,6 +313,12 @@ const ITEMS = [
   { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
+  // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
+  // the fruit-tree growth path (a growing `fruittree` object) rather than the
+  // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
+  // common apple (T3) and the rare peach (T5).
+  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
+  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },

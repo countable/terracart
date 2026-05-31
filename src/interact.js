@@ -893,6 +893,17 @@ const TAP_HANDLERS = [
       }
       if (o.kind === 'fruittree') {
         const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+        // A planted sapling can't be harvested until it has matured (reached
+        // its fruiting stage). ~12 min sprout→fruit (4 × 3-min stages).
+        if (o.planted) {
+          const FRUIT_STAGE_MS = 3 * 60 * 1000;
+          const elapsed = Date.now() - (o.planted_t || 0);
+          if (elapsed < 4 * FRUIT_STAGE_MS) {
+            const minsLeft = Math.max(1, Math.ceil((4 * FRUIT_STAGE_MS - elapsed) / 60000));
+            scene.flash(`Still growing — ${minsLeft}m`, sx, sy);
+            return true;
+          }
+        }
         save.fruitPicked = save.fruitPicked || {};
         const pickedAt = save.fruitPicked[o.id];
         if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
@@ -1362,7 +1373,7 @@ const TAP_HANDLERS = [
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!item || item.kind !== 'seed') {
+    if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
@@ -1370,10 +1381,33 @@ const TAP_HANDLERS = [
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
-      scene.flash('That seed pouch is empty.', sx, sy);
+      scene.flash('That pouch is empty.', sx, sy);
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
+    if (item.kind === 'sapling') {
+      // Plant a fruit-tree sapling → a growing `fruittree` (persisted in
+      // save.fruittrees, re-injected per tile in spawnInTile). It advances
+      // through the species sheet's life-cycle frames and bears fruit at
+      // maturity (render.js fruittree spec + the fruittree harvest handler).
+      save.fruittrees = save.fruittrees || [];
+      const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
+      if (!save.fruittrees.some(f => f.id === id)) {
+        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t: Date.now(), id });
+      }
+      // It's a tree now, not soil — drop the tilled marker.
+      scene.tilledSet.delete(cellKey);
+      save.tilled = [...scene.tilledSet];
+      // Invalidate the covering tile so spawnInTile re-injects it immediately.
+      const tEdge = scene.tileEdgeM;
+      const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
+      WorldGen.tileCache.delete(`${WorldGen.Z}/${tx}/${ty}`);
+      consumeSelected(save);
+      ctx.dirty = true;
+      scene.buildInventoryDOM();
+      scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      return true;
+    }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
     consumeSelected(save);
     ctx.dirty = true;

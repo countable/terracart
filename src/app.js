@@ -458,6 +458,15 @@ class MapScene extends Phaser.Scene {
       if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
       this.save.inv = merged;
     }
+    // REVIEW SEED (temporary): grant a few fruit-tree saplings once so the new
+    // plantable apple (T3) / peach (T5) saplings can be tried out immediately.
+    // Gated by a save flag so it runs a single time. Safe to delete later.
+    if (!this.save._saplingsGranted) {
+      this.addToInv('apple_sapling', 3, true);
+      this.addToInv('peach_sapling', 2, true);
+      this.save._saplingsGranted = true;
+      needsMigrationPersist = true;
+    }
     if (needsMigrationPersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#222');
@@ -1501,6 +1510,26 @@ class MapScene extends Phaser.Scene {
           entry.objects = entry.objects || [];
           entry.objects.push({ kind: 'shrine', x: s.x, y: s.y, id: s.id });
         }
+      }
+    }
+
+    // Player-planted fruit-tree saplings (save.fruittrees) → growing
+    // `fruittree` objects on the tile that owns each one. Injected AFTER the
+    // spawn-area strip above so a sapling planted near home survives. The
+    // fruittree render spec advances the sprite through its growth frames from
+    // planted_t; the harvest handler gates picking until it matures.
+    if (this.save.fruittrees && this.save.fruittrees.length) {
+      const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
+      for (const ft of this.save.fruittrees) {
+        if (ft.x < t0x || ft.x >= t0x + this.tileEdgeM ||
+            ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
+        if ((entry.objects || []).some(o => o.id === ft.id)) continue;
+        entry.objects = entry.objects || [];
+        entry.objects.push({
+          kind: 'fruittree', x: ft.x, y: ft.y,
+          species: ft.species === 'peach' ? 'peach' : 'apple',
+          id: ft.id, planted: true, planted_t: ft.planted_t,
+        });
       }
     }
   }

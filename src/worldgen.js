@@ -676,7 +676,9 @@
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                const FRUIT_SPECIES = ['apple', 'cherry', 'peach', 'banana', 'orange', 'mango', 'coconut', 'apricot'];
+                // Only two fruit-tree species are available in the world now:
+                // common apple, rare peach (≈3:1). One species per orchard polygon.
+                const FRUIT_SPECIES = ((polyKey >>> 8) % 4 === 0) ? ['peach'] : ['apple'];
                 const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
                 const species = FRUIT_SPECIES[speciesIdx];
                 const bb = bboxOf(f.geom);
@@ -1694,14 +1696,42 @@
             }
           }
         }
-        for (const t of bin.trees) {
-          if (onWater(t.x, t.y)) continue;
-          if (!_sxYardOK(t.x, t.y)) continue;
-          const k = cellKeyOf(t.x, t.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          const c = localCentre(t.x, t.y);
-          t.x = c.x; t.y = c.y;
+        // Trees + fruit trees can NEVER sit on a building footprint, road, path,
+        // water or other hard/interactable cell. When a detection lands on one,
+        // relocate it to a favourable empty neighbour cell; drop it only if no
+        // neighbour works. One tree per cell — process largest crown first so the
+        // biggest tree wins a contested cell and smaller ones spill to neighbours.
+        const TREE_BLOCK = new Set([
+          T.WATER, T.PIER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
+          T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+        ]);
+        const tryTreeCell = (ix, iy) => {
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+          if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
+          if (occupied.has(`${ix}_${iy}`)) return null;
+          const wcx = x * tileEdgeM + (ix + 0.5) * mPerCell;
+          const wcy = y * tileEdgeM + (iy + 0.5) * mPerCell;
+          if (!_sxYardOK(wcx, wcy)) return null;
+          return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
+        };
+        // 4-neighbours first (closer, axis-aligned), then diagonals.
+        const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        const placeTree = (wx, wy) => {
+          const ix = Math.floor((wx - x * tileEdgeM) / mPerCell);
+          const iy = Math.floor((wy - y * tileEdgeM) / mPerCell);
+          let r = tryTreeCell(ix, iy);
+          if (r) return r;
+          for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+          return null;
+        };
+        const allTrees = [...bin.trees, ...(bin.fruittrees || [])]
+          .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+        for (const t of allTrees) {
+          const r = placeTree(t.x, t.y);
+          if (!r) continue;
+          occupied.add(r.key);
+          t.x = r.x; t.y = r.y;
           entry.objects.push(t);
         }
         for (const s of bin.shrubs) {
@@ -1837,8 +1867,9 @@
     if (_satextractPromise) return _satextractPromise;
     const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
     // DeepForest detections below this confidence are dropped on load. OSM
-    // trees carry no `score` and are always kept.
-    const SATEXTRACT_TREE_MIN_SCORE = 0.4;
+    // trees carry no `score` and are always kept. The z20 classified run is
+    // already filtered at 0.30 (the reviewed sweet spot), so match it here.
+    const SATEXTRACT_TREE_MIN_SCORE = 0.30;
     const tileEdgeM = tileEdgeMeters(lat);
     const project = (lon, lat0) => {
       const px = lonLatToWorldPx(lon, lat0, Z);
@@ -1852,7 +1883,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=4')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=5')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
@@ -1860,7 +1891,7 @@
           const k = `${tx}_${ty}`;
           let b = bins.get(k);
           if (!b) {
-            b = { trees: [], shrubs: [], poles: [],
+            b = { trees: [], fruittrees: [], shrubs: [], poles: [],
                   wells: [], chests: [], parking: [], streams: [] };
             bins.set(k, b);
           }
@@ -1908,13 +1939,34 @@
             binFor(p.tx, p.ty).trees.push({
               kind: 'tree', x: cx, y: cy,
               variant: 1 + (seed % 4),
-              species: TREE_SPECIES[seed % TREE_SPECIES.length],
+              // DeepForest trees carry a colour-classified species (pine/maple);
+              // OSM trees have none → fall back to the seeded random species.
+              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
-              // DeepForest crown diameter (metres) → sprite size in render.js.
-              // Undefined for OSM trees, which fall back to the flat species scale.
+              // DeepForest crown diameter (metres) + discrete size class + sampled
+              // crown colour → sprite size / tint in render.js. Undefined for OSM
+              // trees, which fall back to the flat species scale and no tint.
               crown_m: props.crown_m,
+              size: props.size,
+              crown_color: props.crown_color,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
+              individual: true,
+            });
+          } else if (kind === 'fruittree') {
+            // DeepForest tree colour-classified as a fruit tree (apple/peach).
+            const props = f.properties || {};
+            if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).fruittrees.push({
+              kind: 'fruittree', x: cx, y: cy,
+              species: props.species === 'peach' ? 'peach' : 'apple',
+              id: `ft_${Math.round(cx)}_${Math.round(cy)}`,
+              crown_m: props.crown_m,
+              size: props.size,
+              wild: true,            // mature & fruiting (vs a planted sapling)
               individual: true,
             });
           } else if (POLE_KINDS.has(kind)) {
