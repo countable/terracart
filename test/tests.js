@@ -236,6 +236,48 @@ test('tapping an already-opened chest is a no-op', (scene) => {
   assert.eq((scene.save.inv || []).length, invLen, 'no new loot');
 });
 
+test('every loaded chest is openable — per-cell dedupe, not one collapsed key', (scene) => {
+  // Regression: the tap-side chest dedupe hashed each chest by `this.cellM`,
+  // but these handlers are module-level arrow fns so `this` is the global
+  // (window), making `this.cellM` undefined and every key "NaN_NaN". All
+  // loaded chests collapsed to a single dedupe key, so only the first chest
+  // iterated stayed tappable — every other chest fell through to the till
+  // handler and flashed "occupied: chest" instead of opening. Verify several
+  // chests in DISTINCT cells each open.
+  const cellM = scene.cellM;
+  const cellKey = (o) => Math.floor(o.x / cellM) + '_' + Math.floor(o.y / cellM);
+  const seen = new Set();
+  const chests = [];
+  for (const entry of WorldGen.tileCache.values()) {
+    for (const o of (entry.objects || [])) {
+      if (o.kind !== 'chest') continue;
+      // atm / bicycle_parking are coin-burst POIs diverted before the open path.
+      if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') continue;
+      const k = cellKey(o);
+      if (seen.has(k)) continue;   // genuine same-cell dup — correctly deduped
+      seen.add(k);
+      if (Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 400) chests.push(o);
+      if (chests.length >= 3) break;
+    }
+    if (chests.length >= 3) break;
+  }
+  assert.gt(chests.length, 1, 'need ≥2 distinct-cell chests loaded to exercise dedupe');
+  const origRandom = Math.random;
+  Math.random = () => 0.5;   // mid-table loot, skips the relic tail (see test above)
+  try {
+    for (const chest of chests) {
+      // Open path pushes id into save.opened in every reward branch, so this
+      // assertion is robust to loot RNG. Empty inv → room, so no overflow modal.
+      scene.save.opened = (scene.save.opened || []).filter(id => id !== chest.id);
+      scene.save.inv = [];
+      teleport(scene, chest.x, chest.y - 2);
+      tapWorld(scene, chest.x, chest.y);
+      assert.truthy((scene.save.opened || []).includes(chest.id),
+        `chest ${chest.id} opened (not blocked as "occupied")`);
+    }
+  } finally { Math.random = origRandom; }
+});
+
 // ───────────────────────────────────────────────────────────────────────
 // 4. Terrain classification — these don't tap, just probe cellAt.
 // ───────────────────────────────────────────────────────────────────────
