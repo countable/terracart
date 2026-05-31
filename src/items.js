@@ -47,10 +47,10 @@ const CROP_SPRITE = {
   berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // "Long grass" is now FERN (item id stays 'longgrass' for save-compat —
-  // display name is 'Fern'). Props.png is a 22-col grid; frame (col 11,
-  // row 1) 1-indexed = col 10 row 0 0-indexed = 0*22 + 10 = 10. Reads as
-  // leafy green fern fronds at the wildplant scale.
+  // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
+  // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
+  // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
+  // wildplant scale.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
   // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
   // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
@@ -254,10 +254,10 @@ const ITEMS = [
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
   { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
-  // Display name 'Fern' since the swap to Props.png's fern-frond sprite;
-  // id remains 'longgrass' for save / loot-table back-compat. In-world +
-  // inventory render the baked 'props' frame via ITEM_DATA_URLS.
-  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass' },
+  // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
+  // back-compat. The sprite is Props.png's frond frame; in-world + inventory
+  // render the baked 'props' frame via ITEM_DATA_URLS.
+  { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Consumables — used on yourself (tap your own feet with one selected).
