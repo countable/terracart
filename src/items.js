@@ -672,16 +672,16 @@ function effectiveTillCost(relics, rng) {
   return Math.max(1, base - Math.floor(eq.tier / 3));
 }
 // Tool work-wheel duration. TIER 0 = BARE HANDS: every tool type works
-// bare-handed, just 3× the wooden (tier-1) time — so chop / mine / fish /
-// defeat are always possible, only slow. Wood (tier 1) = 3000ms; each tier
-// shaves another 750ms (floored at 500ms). Iron pick (tier 3) clears rockfruit
-// in 1.5s; frost axe in 0.5s. Bare hands: 9s (3 × 3000). The bug net is the
-// lone exception — butterflies still need it (gated in the catch path).
-// pickDurationMs is kept as a back-compat alias.
+// bare-handed at 9s (3 × the wooden tier-1 time) — so chop / mine / fish /
+// defeat are always possible, only slow. Per-tier times follow the spec ladder
+// exactly: wood 3s, copper 2.5s, iron 2s, gold 1.3s, platinum .8s, crimson
+// .5s, frost .3s. The bug net is the lone exception — butterflies still need it
+// (gated in the catch path). pickDurationMs is kept as a back-compat alias.
+const TOOL_DURATION_MS = { 1: 3000, 2: 2500, 3: 2000, 4: 1300, 5: 800, 6: 500, 7: 300 };
 function toolDurationMs(relics, slot) {
   const eq = relics?.[slot];
   if (!eq) return 9000;   // tier 0 (bare hands) = 3 × wood
-  return Math.max(500, 3000 - (eq.tier - 1) * 750);
+  return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
 function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // Ring relic: +5% per tier to upgrade loot tier (1→2 or 2→3) on chests.

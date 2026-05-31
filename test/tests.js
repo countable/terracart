@@ -289,7 +289,13 @@ test('tilling an empty grass cell adds it to tilledSet', (scene) => {
   scene.save.selSlot = 0;
   teleport(scene, target.x, target.y);
   const sizeBefore = scene.tilledSet.size;
+  // Tilling now runs a WORK WHEEL — the cell is tilled when the wheel finishes,
+  // not synchronously on tap. Start it, then fast-forward to completion the same
+  // way the defeat/mining tests drive their wheels.
   tapWorld(scene, target.x, target.y);
+  assert.truthy(scene._workProgress, 'tilling starts a work wheel');
+  scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
+  scene._drawWorkProgress();
   assert.eq(scene.tilledSet.size, sizeBefore + 1, 'tilledSet grew by 1');
   assert.gt(scene.save.tilled.length, 0, 'save.tilled persisted');
 });
@@ -1877,7 +1883,7 @@ test('defeat: slime → finishing the queue removes it with no drop; weapon tier
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene._workProgress, 'tapping a slime starts the queue');
-    assert.eq(scene._workProgress.durationMs, 2250, 'tier-2 weapon → 2.25s queue');
+    assert.eq(scene._workProgress.durationMs, 2500, 'tier-2 weapon → 2.5s queue');
     scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
     scene._drawWorkProgress();
     assert.truthy(scene.save.caught.includes(slime.id), 'slime removed when the queue finishes');
@@ -2020,16 +2026,17 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
 
 // PICK / TOOL DURATION — tier curve for rock-break work-wheel.
 // Bare hands 9s (3× wood), wood 3s, then -750ms per tier with a 500ms floor.
-test('pickDurationMs: tier curve matches design (bare 9s → wood 3s → iron 1.5s → floor 0.5s)', () => {
+test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 3s → iron 2s → frost 0.3s)', () => {
   if (typeof pickDurationMs !== 'function') return;
   assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (3× wood)');
   assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
   assert.eq(pickDurationMs({ pick: { tier: 1 } }), 3000, 'wood pick → 3s');
-  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2250, 'copper → 2.25s');
-  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 1500, 'iron → 1.5s');
-  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 750,  'gold → 0.75s');
-  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 500,  'platinum hits floor');
-  assert.eq(pickDurationMs({ pick: { tier: 7 } }), 500,  'frost stays at floor');
+  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2500, 'copper → 2.5s');
+  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 2000, 'iron → 2s');
+  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 1300, 'gold → 1.3s');
+  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 800,  'platinum → 0.8s');
+  assert.eq(pickDurationMs({ pick: { tier: 6 } }), 500,  'crimson → 0.5s');
+  assert.eq(pickDurationMs({ pick: { tier: 7 } }), 300,  'frost → 0.3s');
 });
 
 // CHICKEN FLOCK RELEASE — chickens release in groups of 4. Stack must hold ≥4;

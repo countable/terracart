@@ -12,7 +12,8 @@
 //   LOOT_CONTEXTS            — per-context (chest:food, shop:trader, …) shape
 //   ITEMS_BY_CLASS_TIER      — { class → { tier → [id, …] } }
 //   CLASS_MAX_TIER           — { class → highest baseTier present }
-//   pickReward(key, save, rng)        → { kind:'item'|'relic'|'gold', … }
+//   pickReward(key, save, rng)        → { kind:'item'|'relic'|'armor'|'gold', … }
+//                                        (chest contexts roll relic OR armor via rollGearUpgrade)
 //   reconcileRelicOffer(rolled, save, rng) → walk-up ladder for dupes
 //   weightedPick(map, rng)            → string key (small helper, reused on balancing page)
 
@@ -105,19 +106,18 @@
     // up too often across the board. They're still strongly weighted on the
     // civic / flora biomes (museums + florists are the magical-item spots).
     // lowtier biome carries a small relic share. T1 chests scrub it via
-    // relicCap=0; T2+ chests honour it (T2 lowtier chest = ~5% relic).
-    // Relic weights roughly halved across all chest contexts (per user:
-    // "relics should be a bit less common"). The other classes keep their
-    // absolute weights — weightedPick normalises, so reducing only the relic
-    // share shifts the remainder proportionally onto the existing mix.
-    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.06, animal:0.005, relic:0.025 } },
-    'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.035 } },
-    'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.04  } },
-    'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.10  } },
-    'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.06  } },
-    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.05  } },
-    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.025 } },
-    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.10  } },
+    // relicCap=0; T2+ chests honour it.
+    // Relic weights bumped +50% across all chest contexts (per user) — chest
+    // relic/armor odds now run ~3.75%-15% by class (weightedPick normalises, so
+    // raising only the relic share draws proportionally off the existing mix).
+    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.06, animal:0.005, relic:0.0375 } },
+    'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.0525 } },
+    'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.06   } },
+    'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.15   } },
+    'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.09   } },
+    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.075  } },
+    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.0375 } },
+    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.15   } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     // Shops use the same deterministic chain. chainSteps maps to the
@@ -366,6 +366,15 @@
     if (cls === 'relic') {
       const slots = Object.keys(_RELIC_DEFS);
       if (!slots.length) return null;
+      // CHEST opens roll a relic OR ARMOR (armor is just another gear slot),
+      // milestone-gated by the player's harvest/catch progress — the same
+      // picker fishing uses. rollGearUpgrade returns a {relic|armor} upgrade,
+      // or {gold} consolation when the player already owns a finer one. The
+      // chest's tier (opts.tier, 1-4) drives the preferred reward tier.
+      if (contextKey.startsWith('chest:')) {
+        const chestT = (opts && opts.tier) || 2;
+        return rollGearUpgrade(rng, save, save?.relics, chestT, save?.armor);
+      }
       const slot = slots[Math.floor(rng() * slots.length)];
       // Relics deduct one tier off whatever the chain rolled — a T2 chest
       // that produced tier=2 still offers a T1 (wood) relic. Floor at 1 and
