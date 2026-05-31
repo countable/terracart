@@ -4844,7 +4844,7 @@ class MapScene extends Phaser.Scene {
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
-      acceptLabel: 'Trade',
+      acceptLabel: 'Forge',
       secondary,
       onAccept: () => {
         const curTier = offer.kind === 'relic'
