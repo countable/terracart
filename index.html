@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -305,6 +305,23 @@
     window.addEventListener('orientationchange', fitGame);
     window.visualViewport?.addEventListener('resize', fitGame);
     fitGame();
+
+    // Block every zoom gesture the game box can't absorb. The whole UI is a
+    // fixed 352×844 column scaled by fitGame; any browser/OS zoom layered on
+    // top just shifts the fixed HUD overlays out of place. The viewport meta
+    // (maximum-scale=1, user-scalable=no) covers most browsers, but iOS Safari
+    // ignores it for pinch and fires gesture events instead, and desktop
+    // ctrl/⌘+wheel and the ctrl/⌘ +/-/0 shortcuts bypass it entirely.
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(t =>
+      document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+    document.addEventListener('wheel', e => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
+        e.preventDefault();
+      }
+    });
 
     // Close menu on outside click / world tap.
     document.addEventListener('pointerdown', (e) => {
