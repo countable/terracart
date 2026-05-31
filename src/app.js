@@ -86,6 +86,13 @@ const REACH_TREASURE_M  = 7.5; // treasure mark
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
+// Castles and forts stay sealed until the player has proven themselves on the
+// delivery routes. Gated by the lifetime tally (save.deliveryCount): a castle
+// vault opens after CASTLE_DELIVERY_GATE completed deliveries, a fort's
+// quartermaster after FORT_DELIVERY_GATE. Replaces the old one-time goods
+// tribute — the price of entry is now footwork, not a stack of produce.
+const CASTLE_DELIVERY_GATE = 5;
+const FORT_DELIVERY_GATE   = 2;
 // Shop/trader trades hand the player this many of the offered item per deal for
 // the same demand (cash or barter), so every trade is twice as favourable.
 const TRADE_OFFER_QTY     = 2;
@@ -389,13 +396,12 @@ class MapScene extends Phaser.Scene {
     if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
       this.save.restoredHouses = {};
     }
-    // Tributed-castles set: empty by default. Every castle (BUILDING_LARGE)
-    // starts occupied by corrupt residents who demand a one-time tribute —
-    // 10 of a random Tier-2 good (5 if it's a live animal) — before they'll
-    // open the vault. Mirrors the wreck-restore gate; see _isCastleUnappeased.
-    if (!this.save.tributedCastles || typeof this.save.tributedCastles !== 'object') {
-      this.save.tributedCastles = {};
-    }
+    // Castles and forts start sealed: their occupants won't trade until the
+    // player has logged enough lifetime deliveries (save.deliveryCount ≥
+    // CASTLE_DELIVERY_GATE / FORT_DELIVERY_GATE). The gate is read straight off
+    // the delivery tally — no per-building save key — so a stale tributedCastles
+    // map from an older save is dead weight; drop it.
+    if (this.save.tributedCastles) delete this.save.tributedCastles;
     // No starter-tools gift: the player begins tool-less and forges their
     // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
     // Wood comes from ground stacks + bare-handed shrub chops (no tool
@@ -3382,11 +3388,12 @@ class MapScene extends Phaser.Scene {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
     }
-    // Castle → its corrupt post-apocalyptic residents demand a one-time tribute
-    // before they'll open the vault (the same locked-until-paid gate the wreck
-    // houses use, one tier up).
-    if (house && this._isCastleUnappeased && this._isCastleUnappeased(house)) {
-      this.presentCastleTributeModal(sx, sy, house);
+    // Castle / fort → sealed until the player has logged enough lifetime
+    // deliveries (5 for a castle vault, 2 for a fort). The same
+    // locked-until-earned gate the wreck houses use, but the entry fee is
+    // delivery footwork rather than a stack of goods.
+    if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
+      this.presentSealedBuildingModal(sx, sy, house);
       return;
     }
     // House routing:
@@ -4980,78 +4987,48 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // True iff `house` is a castle (BUILDING_LARGE / tower) whose corrupt
-  // residents haven't been paid their one-time tribute yet. The castle analogue
-  // of _isHouseWreck. Id-less castles (rare — no stable key to record payment
-  // against) skip the gate and trade normally rather than re-demanding forever.
-  _isCastleUnappeased(house) {
-    if (!house || !house.id) return false;
+  // Lifetime deliveries this building demands before it'll trade, or 0 if it
+  // has no delivery gate. Castles (BUILDING_LARGE / tower, tier 12) want
+  // CASTLE_DELIVERY_GATE; forts (tier 11) want FORT_DELIVERY_GATE.
+  _deliveryGate(house) {
+    if (!house) return 0;
+    if (house.kind === 'tower' || house.tier === 12) return CASTLE_DELIVERY_GATE;
+    if (house.tier === 11) return FORT_DELIVERY_GATE;
+    return 0;
+  }
+
+  // True iff `house` is a castle or fort still sealed because the player hasn't
+  // logged enough lifetime deliveries (save.deliveryCount). The delivery-gate
+  // analogue of _isHouseWreck. The gate reads the global delivery tally, so —
+  // unlike the old per-castle tribute — an id-less building is gated too;
+  // there's no payment to record against a house key.
+  _isBuildingSealed(house) {
+    const need = this._deliveryGate(house);
+    if (!need) return false;
+    return (this.save.deliveryCount ?? 0) < need;
+  }
+
+  // The sealed castle/fort gate (see _isBuildingSealed). There's nothing to
+  // pay here — the building opens on its own once save.deliveryCount reaches
+  // the threshold — so this is a locked info modal that shows the player how
+  // many more deliveries they owe, not an accept/buy offer.
+  presentSealedBuildingModal(sx, sy, house) {
+    const need = this._deliveryGate(house);
+    const have = this.save.deliveryCount ?? 0;
+    const left = Math.max(0, need - have);
     const isCastle = house.kind === 'tower' || house.tier === 12;
-    if (!isCastle) return false;
-    return !this.save.tributedCastles?.[house.id];
-  }
-
-  // The tribute a castle demands before it'll trade: a stable-random Tier-2
-  // good keyed on the castle id (so it never reshuffles between visits). 10 of
-  // the item — or just 5 when it's a live animal (livestock is dearer). Seeds
-  // are excluded from the pool; the residents want goods, not a seed pouch.
-  _castleTribute(house) {
-    const pool = (typeof ITEMS !== 'undefined')
-      ? ITEMS.filter(it => it.baseTier === 2 && it.kind !== 'seed')
-      : [];
-    if (!pool.length) return { id: 'rainberry', qty: 10, name: 'Rainberry' };
-    // FNV-1a over the id → stable pick (same hash style as wantedProduceRng).
-    let h = 2166136261 >>> 0;
-    const s = String(house?.id || '');
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    const item = pool[h % pool.length];
-    const qty = item.kind === 'animal' ? 5 : 10;
-    return { id: item.id, qty, name: item.name || item.id };
-  }
-
-  presentCastleTributeModal(sx, sy, house) {
-    const cost = this._castleTribute(house);
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
-    const canAfford = heldCount >= cost.qty;
-    const item = ITEM_BY_ID[cost.id];
-    // Always show it (even when short) so the player learns WHAT to bring;
-    // accept stays disabled until they hold the full stack.
+    const icon = isCastle ? '🏰' : '🛡️';
     this.showOfferModal({
-      title: "The castle demands tribute",
-      get: '🏰 the vault opens to you',
-      blurb: "Its corrupt residents won't trade until their palms are greased.",
-      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.name}`
-        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
-      canAfford,
-      acceptLabel: 'Pay tribute',
-      onAccept: () => {
-        // Re-check stock at accept time — the modal may have lingered while the
-        // player spent the goods elsewhere.
-        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
-        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.name}`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= cost.qty;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-        this.save.tributedCastles = this.save.tributedCastles || {};
-        this.save.tributedCastles[house.id] = true;
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        if (this.showChestRewardModal) {
-          this.showChestRewardModal({
-            iconHTML: '🏰',
-            name: 'The vault is yours',
-            sub: 'Tap the castle again to browse its relics.',
-            color: '#a7ffb0',
-          });
-        } else {
-          this.flashLoot('🏰 tribute paid', '#a7ffb0', 1.25);
-        }
-      },
+      title: isCastle ? 'The castle stays sealed' : 'The fort stays barred',
+      get: `${icon} opens after ${need} deliveries`,
+      blurb: isCastle
+        ? "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first."
+        : "The quartermaster won't deal with a stranger — run some deliveries and come back.",
+      cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
+        + ` <span style="opacity:.7">(${have}/${need})</span>`,
+      canAfford: false,
+      acceptLabel: 'Locked',
+      onAccept: () => {},
     });
   }
 

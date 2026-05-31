@@ -1225,10 +1225,10 @@ test('castle always offers relics with no rate-limit', (scene) => {
   // worldgen happening to load one nearby.
   const fakeCastle = { kind: 'tower', id: 'test_castle', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
-  // Castles now start occupied (corrupt residents demand a tribute); appease
-  // this one up front so we exercise the relic-vault path, not the gate. The
-  // tribute gate has its own test below.
-  scene.save.tributedCastles = { [fakeCastle.id]: true };
+  // Castles start sealed until the player has logged enough lifetime
+  // deliveries; satisfy the gate up front so we exercise the relic-vault path,
+  // not the lock. The delivery gate has its own test below.
+  scene.save.deliveryCount = 999;
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
   // 50 consecutive shops — all should open a relic modal (never blocked).
   let opened = 0;
@@ -1248,42 +1248,59 @@ test('castle always offers relics with no rate-limit', (scene) => {
   assert.gt(opened, 5, 'castle keeps opening relic offers');
 });
 
-test('castle demands a tribute before trading, then opens the vault', (scene) => {
+test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
-  scene.save.tributedCastles = {};
   scene.save.money = 100000000;
-  // Tier-7 bag so the inventory stack can hold a full 10-item tribute.
-  scene.save.relics = { bags: { tier: 7 } };
-  const castle = { kind: 'tower', id: 'test_castle_tribute', tier: 12,
+  scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
+  scene.save.inv = []; scene.save.selSlot = 0;
+  const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, castle.x, castle.y - 2);
-  // (1) Unappeased → first tap demands tribute (a "Pay tribute" button, no Buy).
+  // (1) Below the gate → first tap shows the locked info modal (no Buy button,
+  // a disabled "Locked" action), not the relic vault.
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE - 1;
   scene.shopInteract(0, 0, castle);
   let m = document.getElementById('offer-modal');
-  const payBtn = m && [...m.querySelectorAll('button')].find(b => /pay tribute/i.test(b.textContent));
-  assert.truthy(payBtn, 'unappeased castle demands tribute');
-  // (2) The demand is 5 for a live animal, 10 otherwise.
-  const t = scene._castleTribute(castle);
-  assert.eq(t.qty, ITEM_BY_ID[t.id]?.kind === 'animal' ? 5 : 10, 'tribute is 5 (animal) / 10 (else)');
-  // (3) Stock exactly the demanded goods, reopen, and pay.
-  scene.save.inv = [{ id: t.id, count: t.qty }]; scene.save.selSlot = 0;
+  assert.truthy(m, 'sealed castle opens an info modal');
+  let buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.falsy(buy, 'no Buy button while sealed');
+  const locked = [...m.querySelectorAll('button')].find(b => /locked/i.test(b.textContent));
+  assert.truthy(locked && locked.disabled, 'Locked action is present and disabled');
   m?.remove();
+  // (2) Exactly at the gate → the relic vault opens (a "Buy" button).
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE;
   scene.shopInteract(0, 0, castle);
   m = document.getElementById('offer-modal');
-  const pay2 = m && [...m.querySelectorAll('button')].find(b => /pay tribute/i.test(b.textContent));
-  assert.truthy(pay2 && !pay2.disabled, 'pay enabled once the goods are held');
-  pay2.click();
-  assert.truthy(scene.save.tributedCastles[castle.id], 'castle appeased after paying');
-  assert.eq(invCount(scene, t.id), 0, 'tribute goods consumed');
-  // (4) Next tap → the relic vault (a "Buy" button), no more tribute.
+  buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.truthy(buy, 'castle opens the relic vault at the delivery gate');
   document.getElementById('offer-modal')?.remove();
-  document.getElementById('chest-reward-modal')?.remove();
-  scene.shopInteract(0, 0, castle);
+});
+
+test('fort stays barred until 2 lifetime deliveries, then trades', (scene) => {
+  if (typeof TestTools !== 'undefined') TestTools.resetTestState();
+  document.getElementById('offer-modal')?.remove();
+  scene.save.money = 100000000;
+  scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
+  scene.save.inv = []; scene.save.selSlot = 0;
+  const fort = { kind: 'house', id: 'test_fort_gate', tier: 11,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  teleport(scene, fort.x, fort.y - 2);
+  // Below the gate → locked info modal, no Buy.
+  scene.save.deliveryCount = FORT_DELIVERY_GATE - 1;
+  scene.shopInteract(0, 0, fort);
+  let m = document.getElementById('offer-modal');
+  assert.truthy(m, 'barred fort opens an info modal');
+  let buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.falsy(buy, 'no Buy button while barred');
+  m?.remove();
+  // At the gate → the fort quartermaster trades (a "Buy" button).
+  scene.save.deliveryCount = FORT_DELIVERY_GATE;
+  scene.shopInteract(0, 0, fort);
   m = document.getElementById('offer-modal');
-  const buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.truthy(buy, 'appeased castle opens the relic vault');
+  buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.truthy(buy, 'fort trades at the delivery gate');
   document.getElementById('offer-modal')?.remove();
 });
 
@@ -1315,6 +1332,8 @@ test('castle relic offer has NO re-roll button (balance pass)', (scene) => {
   scene.save.money = 100000;
   const fakeCastle = { kind: 'tower', id: 'test_castle_noreroll', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
+  // Past the delivery gate so the vault is open, not sealed.
+  scene.save.deliveryCount = 999;
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
   scene.shopInteract(0, 0, fakeCastle);
   const modal = document.getElementById('offer-modal');

@@ -33,6 +33,13 @@
   boundary, or if the sprite and hitbox don't obviously belong to the same
   cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
 
+## Testing
+
+- The test harness (`test/run_tests.py`) needs a browser, which isn't always
+  available in this environment. When you can't run it, just say the tests
+  weren't run and rely on a careful code review — **don't editorialize about
+  lacking browser access or blocked downloads.** State it plainly and move on.
+
 ## Commits
 
 - Commit and push freely as work completes; no need to ask first.
