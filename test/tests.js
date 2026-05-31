@@ -198,10 +198,10 @@ test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', 
 test('opening a chest adds loot and marks it opened', (scene) => {
   scene.save.opened = [];
   scene.save.inv = [];
-  // Pin Math.random so the 10% chest-relic branch DOESN'T fire — relic-equip
-  // doesn't add to inv, which would make the "loot added" assertion flaky.
-  // Stubbed only for the duration of the tap so we don't pollute save state
-  // for later tests (which is why we no longer max out the relic slots here).
+  // Pin Math.random to 0.5 so pickReward's weighted class-pick lands in the
+  // middle of the bias table (seed/produce range) and never reaches the relic
+  // entry at the tail. With 0.5 the jackpot threshold (0.16) is also safely
+  // missed. Stubbed only for the duration of the tap.
   const chest = findObject(o =>
     o.kind === 'chest' && o.poiClass &&
     Math.hypot(o.x - scene.startWorldM.x, o.y - scene.startWorldM.y) < 200);
@@ -210,11 +210,10 @@ test('opening a chest adds loot and marks it opened', (scene) => {
   const invBefore = (scene.save.inv || []).length;
   const moneyBefore = scene.save.money ?? 0;
   const origRandom = Math.random;
-  Math.random = () => 0.99;   // > 0.10 → relic branch skipped
+  Math.random = () => 0.5;   // lands on produce/seed class, skips relic tail
   try { tapWorld(scene, chest.x, chest.y); } finally { Math.random = origRandom; }
   assert.gt(scene.save.opened.length, 0, 'a chest was opened');
-  // With Math.random pinned to 0.99 the relic branch is skipped, so the chest
-  // always drops normal item loot — inv must grow.
+  // With Math.random pinned to 0.5 pickReward returns an item, not a relic.
   assert.gt((scene.save.inv || []).length, invBefore, 'loot added to inv');
 });
 
@@ -1032,39 +1031,37 @@ test('pick relic reduces rock-break energy cost', () => {
 });
 
 test('ring relic boosts loot tier roll (forced RNG)', () => {
-  // No ring: park category, force tier-1 weight roll → must pick tier 1.
-  // With ring tier 7 (35% boost), the second roll determining tier-up should hit.
-  // Park is now 'mixed' (seed/produce coin flip), so the seq includes one
-  // extra rng call AFTER the pool pick for the produce coin (0.99 = no-produce,
-  // keeps the returned id as a seed so SEED_TIER lookup still works).
-  // RNG order in pickLoot:
-  //   1) weights tier roll
-  //   2) ring tier-up roll          (only if ring present + tier<3)
-  //   3) pool pick
-  //   4) mixed-mode produce coin
-  //   5) amulet double roll          (only if amulet present)
-  // tierOf(id) handles either seed-suffix or produce form.
+  // pickReward('chest:park', save, rng, {tier:2}) — chainSteps=1, chainMax=2.
+  // ring T7 reduces qtyP: 0.33 → 0.26. With rng chain-step=0.30:
+  //   no ring:   0.30 < 0.33 → qty-up  → tier stays 1
+  //   ring T7:   0.30 >= 0.26 → tier-up → tier becomes 2
+  // RNG call order: class-pick, chain-step, amulet-roll, jackpot-entry, item-pick.
+  // Trailing calls default to 0.99 (no jackpot, last pool item).
   const tierOf = (id) => SEED_TIER[id] ?? SEED_TIER[`${id}_seed`];
-  const noRingSeq = [0.05, 0.5, 0.99];     // weights, pool, no-produce
-  let calls = 0;
-  const noRing = pickLoot(() => { return noRingSeq[calls++] ?? 0.5; }, 'park');
-  const withRingSeq = [0.05, 0.01, 0.5, 0.99];   // weights, tier-up, pool, no-produce
-  calls = 0;
-  const withRing = pickLoot(() => withRingSeq[calls++] ?? 0.5, 'park', { ring: { tier: 7 } });
+  const makeSeq = (...vals) => { let i = 0; return () => i < vals.length ? vals[i++] : 0.99; };
+  const noRing  = pickReward('chest:park', { relics: {} },
+                             makeSeq(0.01, 0.30, 0.99, 0.99, 0.01), { tier: 2 });
+  const withRing = pickReward('chest:park', { relics: { ring: { tier: 7 } } },
+                              makeSeq(0.01, 0.30, 0.99, 0.99, 0.01), { tier: 2 });
+  assert.eq(noRing.kind,   'item', 'no-ring result is an item');
+  assert.eq(withRing.kind, 'item', 'with-ring result is an item');
   assert.eq(tierOf(noRing.id), 1, 'no-ring loot is T1');
   assert.gt(tierOf(withRing.id), 1, 'with ring, loot tier upgraded');
 });
 
 test('amulet relic does NOT double chest qty (job changed to ghost mode)', () => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
-  // Per loot.js line 280: "(Amulet no longer doubles chest qty — its job
-  // is ghost mode now.)" — guard against the old doubling behaviour
-  // returning by accident.
-  let calls = 0;
-  const seq = [0.05, 0.5, 0.99, 0.01];
-  const rng = () => seq[calls++] ?? 0.5;
-  const loot = pickLoot(rng, 'park', { amulet: { tier: 7 } });
-  assert.eq(loot.n, 5, 'tier-1 yield stays at the base 5 even with T7 amulet');
+  // Amulet's job is ghost mode, not qty doubling. It may add at most one bracket
+  // bump — far less than the old ×2. Guard: T7 amulet with a T1 chest keeps
+  // qty well under the old doubled value (T1 base was 5, doubled was 10).
+  // RNG call order for pickReward chest:park T1 (chainSteps=0):
+  //   class-pick=0.01→seed, chain(0 steps), amulet=0.01→bracket++,
+  //   jackpot=0.99→miss, item-pick=0.01→first T1 seed, qty-bump=0.01.
+  const makeSeq = (...vals) => { let i = 0; return () => i < vals.length ? vals[i++] : 0.99; };
+  const loot = pickReward('chest:park', { relics: { amulet: { tier: 7 } } },
+                          makeSeq(0.01, 0.01, 0.99, 0.01, 0.01), { tier: 1 });
+  assert.eq(loot.kind, 'item', 'amulet chest still drops an item');
+  assert.lt(loot.qty, 10, 'amulet bracket bonus does not blow up to the old doubled value of 10');
 });
 
 test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
@@ -1617,19 +1614,19 @@ test('mushroom wildplant pickup adds 1 mushroom to inv', (scene) => {
 
 test('fruittree tap with no save.picked entry harvests fruit', (scene) => {
   scene.save.inv = []; scene.save.selSlot = 0;
-  scene.save.picked = [];
+  scene.save.fruitPicked = {};
   const tree = findObject(o => o.kind === 'fruittree');
   if (!tree) return;
   teleport(scene, tree.x, tree.y);
   tapWorld(scene, tree.x, tree.y);
   assert.gt(invCount(scene, tree.species), 0, tree.species + ' added to inv');
-  assert.truthy(scene.save.picked.includes(tree.id), 'tree.id marked picked');
+  assert.truthy(scene.save.fruitPicked && scene.save.fruitPicked[tree.id] > 0, 'tree.id marked in fruitPicked');
 });
 
 test('fruittree second tap flashes not-ripe', (scene) => {
   const tree = findObject(o => o.kind === 'fruittree');
   if (!tree) return;
-  scene.save.picked = [tree.id];
+  scene.save.fruitPicked = { [tree.id]: Date.now() - 1000 };
   scene.save.inv = []; scene.save.selSlot = 0;
   teleport(scene, tree.x, tree.y);
   tapWorld(scene, tree.x, tree.y);
