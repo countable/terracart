@@ -88,8 +88,8 @@ MOVEMENT & REACH
    integer cell math (coords.js cellInReach) so "if it's lit, you can tap it".
  - WORK WHEEL: timed actions (chop / mine / fish / pick a worked crop / defeat a
    pest / catch an animal) show a circular progress wheel at the spot. Every
-   tool type works BARE-HANDED (tier 0) at 3× the wooden-tool time — only the
-   Bug Net has no bare-hands tier. You wait it out; tapping anywhere
+   tool type works BARE-HANDED (tier 0) at 3× the wooden-tool time — no
+   exceptions, no tool-or-tier gates. You wait it out; tapping anywhere
    cancels it (and refunds any pre-charged energy). The first 150ms is
    swallowed so the launching tap can't immediately cancel.
 
@@ -224,8 +224,10 @@ MINING
 ================================================================================
  - all mining is via MINERAL ROCKS / ORE BOULDERS — objects spawned in clusters
    on quarry / industrial / residential / rocky (scree/cliff) polygons.
-   Each has a requiredTier (min pickaxe tier to crack it) and either a
-   yieldTier (ore) or is a plain "cave" rock.
+   Each is either a yieldTier (ore) rock or a plain "cave" rock. Any pick —
+   even bare hands — cracks any rock; pickaxe tier only speeds it up (9s bare
+   → 0.3s frost). Ore rocks still cost more energy by yield tier, but there is
+   no minimum-tier gate.
      - cave rock: quick + cheap, drops 1-3 rockfruit + a chance of coal, with
        a small per-tier chance of a lucky bar.
      - ore rock: drops coal + exactly one bar of its tier (copper/iron/gold)
@@ -284,8 +286,8 @@ CREATURES
        animal FLEES the player at 2 m/s while the wheel runs; if it escapes the
        viewport the catch FAILS. Finishing it puts the LIVE animal in your
        inventory. A Bug Net shortens the wheel by tier; bare hands take the
-       tier-0 (9s) time. Butterflies are the one exception with no bare-hands
-       tier — they REQUIRE the net.
+       tier-0 (9s) time. This applies to every catchable animal including
+       butterflies — they catch bare-handed and flee at 2 m/s like the rest.
      * TAME = feed the FAVOURITE food. Befriends the animal IN PLACE: it converts
        to a tame 'released_' pet (stays in the world, pettable / produces /
        cats follow) but does NOT enter your inventory. Favourites: chicken = any
@@ -428,7 +430,8 @@ GEAR: RELICS & ARMOR
      hoe    — cheaper tilling, per-tier chance of free
      can    — watering improves crops (see FARMING); refill banks 50 charges
      rod    — fish from water; tier raises catch + rare odds
-     bugnet — speeds the animal-catch wheel by tier; butterflies REQUIRE it
+     bugnet — speeds the animal-catch wheel by tier (no longer required for any
+              animal; butterflies catch bare-handed too)
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier
      amulet — projects a GHOST (see below); higher tier = faster + cheaper
