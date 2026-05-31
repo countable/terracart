@@ -1080,12 +1080,25 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
+    // Even pets only belong near street frontage / public space inside a
+    // residential block, so creature placement shares the spawn rule too.
+    // POI chests (already placed by worldgen) count as public anchors.
+    const _spawnOpts = {
+      pois: (entry.objects || [])
+        .filter(o => o.kind === 'chest')
+        .map(o => ({
+          ix: Math.floor((o.x - tx * this.tileEdgeM) / this.cellM),
+          iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
+        })),
+    };
     const tryPlace = (kindWant, classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = entry.grid[cy * N + cx];
         if (classesOK.has(t)) {
+          // Residential cells are private yards — only spawn near a public anchor.
+          if (t === 5 /* RESIDENTIAL */ && !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
@@ -1177,23 +1190,11 @@ class MapScene extends Phaser.Scene {
     // All three render + interact through the same code path.
     entry.treasure = null;
     entry.extraTreasures = [];
-    // Residential cells are players' yards/lots — X marks dropped 3+ cells
-    // deep into someone's backyard would bait the player into trespassing.
-    // Allow X marks on residential cells only when the cell has a road
-    // within Chebyshev 2 (kerb / driveway-ish). Reused for all three
-    // treasure streams below.
-    const _xRoadOK = (cx, cy) => {
-      const here = entry.grid[cy * N + cx];
-      if (here !== 5 /* RESIDENTIAL */) return true;
-      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
-        const nx = cx + dx, ny = cy + dy;
-        if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
-        const tt = entry.grid[ny * N + nx];
-        if (tt === 7 /* ROAD */ || tt === 13 /* ROAD_LG */
-            || tt === 14 /* ROAD_MD */ || tt === 8 /* PATH */) return true;
-      }
-      return false;
-    };
+    // Spawnability for all three treasure streams below is decided by
+    // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
+    // on RESIDENTIAL cells — only near a public anchor (road/path, public area,
+    // or POI). The `_spawnOpts` POI-anchor list was already built at the top of
+    // this method for creature placement; reuse it here.
     // Guaranteed starter trail: when this is the spawn tile, place 4 X
     // marks along the nearest road instead of one X dangling 10 m north
     // of the spawn point. The player walks out, sees a numbered breadcrumb
@@ -1355,10 +1356,8 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        const t = entry.grid[cy * N + cx];
-        // Place on any walkable ground (skip water + buildings).
-        if (t === 3 || t === 9 || t === 11 || t === 12) continue;
-        if (!_xRoadOK(cx, cy)) continue;   // residential cells need a road within 2
+        // Walkable, off-road, and not deep in a private yard — one shared rule.
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
         entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
@@ -1378,9 +1377,7 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        const t = entry.grid[cy * N + cx];
-        if (t === 3 || t === 9 || t === 11 || t === 12) continue;
-        if (!_xRoadOK(cx, cy)) continue;   // residential cells need a road within 2
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
         entry.extraTreasures.push({ x: wmx, y: wmy, id: `treasure_x_${tx}_${ty}_${cx}_${cy}` });
@@ -1418,12 +1415,11 @@ class MapScene extends Phaser.Scene {
           const [ndx, ndy] = NEIGHBOURS[Math.floor(rng() * 4)];
           const ncx = pcx + ndx, ncy = pcy + ndy;
           if (ncx < 0 || ncy < 0 || ncx >= N || ncy >= N) continue;
-          const nt = entry.grid[ncy * N + ncx];
-          // Reject non-walkable neighbour cells AND path cells themselves
-          // (we want the X visually OFF the trail), and avoid stacking on
-          // an existing X.
-          if (nt === 3 || nt === 8 || nt === 9 || nt === 11 || nt === 12) continue;
-          if (!_xRoadOK(ncx, ncy)) continue;   // residential cells need a road within 2
+          // Want the X visually OFF the trail: not on the path cell itself,
+          // and otherwise a legitimate spawn cell (walkable, off-road, out of
+          // private yards). Avoid stacking on an existing X below.
+          if (entry.grid[ncy * N + ncx] === 8 /* PATH */) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, ncx, ncy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (ncx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
           const id = `treasure_path_${tx}_${ty}_${ncx}_${ncy}`;
@@ -2578,9 +2574,12 @@ class MapScene extends Phaser.Scene {
     const poiLocalCX = Math.floor((poi.x - tx * tileEdgeM) / cellM);
     const poiLocalCY = Math.floor((poi.y - ty * tileEdgeM) / cellM);
     const RADIUS_CELLS = Math.max(2, Math.ceil(25 / cellM));   // ~5 cells at 5m
-    // Same walkability rule the X-mark scatter uses: skip water (3), path (8 ok),
-    // roads (9, 11, 12 ok? — extraTreasures excludes 9/11/12 + 3). Match that.
-    const isWalkable = (t) => !(t === 3 || t === 9 || t === 11 || t === 12);
+    // Scatter only on legitimate spawn cells: walkable, off-road, and not deep
+    // in a private yard. WorldGen.isSpawnCell is the single source of truth,
+    // shared with the X-mark scatter above. This burst is centred on a POI, so
+    // pass it as a public anchor — residential cells right around the chest are
+    // fair game even if no road is within frontage.
+    const burstOpts = { pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     const candidates = [];
     for (let dy = -RADIUS_CELLS; dy <= RADIUS_CELLS; dy++) {
       for (let dx = -RADIUS_CELLS; dx <= RADIUS_CELLS; dx++) {
@@ -2588,8 +2587,7 @@ class MapScene extends Phaser.Scene {
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         // Skip the POI's own cell (chest sprite sits there).
         if (dx === 0 && dy === 0) continue;
-        const t = entry.grid[cy * N + cx];
-        if (!isWalkable(t)) continue;
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
         candidates.push({ cx, cy });
       }
     }

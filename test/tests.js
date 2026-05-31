@@ -2392,3 +2392,53 @@ test('REG: sapphire/ruby/emerald icons resolve to Gemstones.png (not Crops.png b
   assert.truthy(sh, 'shell has an icon source');
   assert.eq(sh.sheet, 'shell_sheet', 'shell routed to shell_sheet');
 });
+
+// === Walkability / spawnability ────────────────────────────────────────
+// WorldGen.isWalkable / isSpawnCell are pure helpers (no scene needed); we
+// drive them with tiny synthetic grids. These are the single source of truth
+// for "where can we spawn things", so guard the rule directly.
+
+test('walkability: water, every road tier and buildings are NOT walkable', () => {
+  const T = WorldGen.T;
+  for (const t of [T.WATER, T.ROAD, T.ROAD_MD, T.ROAD_LG,
+                   T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE]) {
+    assert.falsy(WorldGen.isWalkable(t), 'not walkable: ' + t);
+  }
+});
+
+test('walkability: paths, parks, beaches, piers and natural ground ARE walkable', () => {
+  const T = WorldGen.T;
+  for (const t of [T.PATH, T.PARK, T.SAND, T.PIER, T.GRASS, T.FOREST,
+                   T.FARMLAND, T.PLAYGROUND, T.PITCH, T.GOLF, T.ROCK]) {
+    assert.truthy(WorldGen.isWalkable(t), 'walkable: ' + t);
+  }
+});
+
+test('spawnability: open ground yes; water/road/building no', () => {
+  const T = WorldGen.T, W = 9, H = 9;
+  const g = new Uint8Array(W * H);             // all GRASS (0)
+  assert.truthy(WorldGen.isSpawnCell(g, W, H, 4, 4), 'grass is spawnable');
+  g[4 * W + 4] = T.WATER;    assert.falsy(WorldGen.isSpawnCell(g, W, H, 4, 4), 'water blocked');
+  g[4 * W + 4] = T.ROAD;     assert.falsy(WorldGen.isSpawnCell(g, W, H, 4, 4), 'road blocked');
+  g[4 * W + 4] = T.BUILDING; assert.falsy(WorldGen.isSpawnCell(g, W, H, 4, 4), 'building blocked');
+});
+
+test('spawnability: residential only within 3 of a road, public area or POI', () => {
+  const T = WorldGen.T, W = 11, H = 11;
+  const idx = (x, y) => y * W + x;
+  const mk = () => { const g = new Uint8Array(W * H); g.fill(T.RESIDENTIAL); return g; };
+  // Nothing public within frontage 3 → deep in a private yard → blocked.
+  assert.falsy(WorldGen.isSpawnCell(mk(), W, H, 5, 5), 'deep residential blocked');
+  // Road exactly 3 cells away → fair game (street frontage).
+  let g = mk(); g[idx(5, 8)] = T.ROAD;
+  assert.truthy(WorldGen.isSpawnCell(g, W, H, 5, 5), 'residential near road (3)');
+  // A detectable public area (park) within 3 → fair game.
+  g = mk(); g[idx(7, 5)] = T.PARK;
+  assert.truthy(WorldGen.isSpawnCell(g, W, H, 5, 5), 'residential near park');
+  // Road 4 cells away → beyond frontage → still blocked.
+  g = mk(); g[idx(5, 9)] = T.ROAD;
+  assert.falsy(WorldGen.isSpawnCell(g, W, H, 5, 5), 'road too far (4)');
+  // POI within 3 → fair game; POI beyond 3 → not.
+  assert.truthy(WorldGen.isSpawnCell(mk(), W, H, 5, 5, { pois: [{ ix: 7, iy: 7 }] }), 'residential near POI');
+  assert.falsy(WorldGen.isSpawnCell(mk(), W, H, 5, 5, { pois: [{ ix: 9, iy: 9 }] }), 'POI too far');
+});
