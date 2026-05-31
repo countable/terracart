@@ -1681,8 +1681,7 @@ test('rock loot table buckets produce coal + gems at expected rates', () => {
 // ============================================================================
 
 test('new items registered: mushrooms, fruits, fauna drops, fish', () => {
-  for (const id of ['mushroom', 'apple', 'cherry', 'peach', 'banana', 'orange',
-                    'mango', 'coconut', 'apricot',
+  for (const id of ['mushroom', 'apple', 'cherry', 'peach', 'mango',
                     'meat', 'rabbit_pelt', 'crow_feather', 'butterfly',
                     'minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
     assert.truthy(ITEM_BY_ID[id], id + ' exists');

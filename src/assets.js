@@ -79,11 +79,6 @@ const ASSETS = {
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },
   cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 16, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 16, frameHeight: 48 },
-  banana_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Banana Tree.png',  frameWidth: 16, frameHeight: 48 },
-  orange_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Orange Tree.png',  frameWidth: 16, frameHeight: 48 },
-  mango_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mango Tree.png',   frameWidth: 16, frameHeight: 48 },
-  coconut_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Coconut tree.png', frameWidth: 16, frameHeight: 48 },
-  apricot_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apricot Tree.png', frameWidth: 16, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
   // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
   // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)

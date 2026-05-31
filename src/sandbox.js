@@ -104,13 +104,13 @@
     },
   };
 
-  // ── ORCHARD — one of each of the 8 fruit-tree species + a farm-class chest.
+  // ── ORCHARD — one of each fruit-tree species (apple/cherry/peach) + a
+  // farm-class chest.
   const ORCHARD = {
     name: 'ORCHARD', label: 'ORCHARD', w: 7, h: 7, fill: T.ORCHARD,
     populate(s) {
-      s.fruitTree('apple', 0, 0);   s.fruitTree('orange', 3, 0);  s.fruitTree('cherry', 6, 0);
-      s.fruitTree('mango', 0, 3);   s.fruitTree('coconut', 6, 3);
-      s.fruitTree('peach', 0, 6);   s.fruitTree('apricot', 3, 6); s.fruitTree('banana', 6, 6);
+      s.fruitTree('apple', 0, 0);   s.fruitTree('cherry', 6, 0);
+      s.fruitTree('peach', 3, 6);
       s.chest('park', 'Sandbox Orchard', 3, 3);   // square3 pad
     },
   };
