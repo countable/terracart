@@ -417,19 +417,18 @@
   }
 
   // ────────────────────────────────────────────────────────────────
-  // Milestone-gated relic tiers. T1-T3 always available; higher tiers
-  // unlock via specific player achievements (harvest milestones, cow catch).
-  // Moved here from loot.js since it belongs with the gear-picking logic.
+  // Allowed relic tiers. Every tier 1-7 is permitted here — the real ceiling
+  // on how high a roll can go is the per-source loot rule (the `maxTier` /
+  // `relicCap` in RARITY_TUNING / LOOT_CONTEXTS, plus the chest-tier-derived
+  // `preferred` clamp in rollGearUpgrade below), so a low-tier chest still
+  // can't cough up a Frost relic. The old harvest/catch "milestone" unlocks
+  // were removed: they duplicated that gating with a second, invisible lock
+  // the player couldn't see, so a bus chest was already incapable of dropping
+  // Gold regardless. `progress` is kept in the signature for call-site
+  // compatibility but is no longer read.
   // ────────────────────────────────────────────────────────────────
   function chestRelicAllowedTiers(progress) {
-    const harvested = progress?.harvested || {};
-    const caught    = progress?.caughtKinds || {};
-    const tiers = [1, 2, 3];
-    if (caught.cow)            tiers.push(5);   // Platinum
-    if (harvested.sunflower)   tiers.push(4);   // Gold
-    if (harvested.fireflower)  tiers.push(6);   // Crimson
-    if (harvested.iceflower)   tiers.push(7);   // Frost
-    return tiers.sort((a, b) => a - b);
+    return [1, 2, 3, 4, 5, 6, 7];
   }
 
   // Dedicated relic/armor jackpot picker — used by fishing (2% cast jackpot)

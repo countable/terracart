@@ -325,6 +325,13 @@ class MapScene extends Phaser.Scene {
     // save.shrine = { id, x, y } once spawned; null until then.
     if (this.save.shrine === undefined)           this.save.shrine = null;
     if (this.save.shrineLevel === undefined)      this.save.shrineLevel = 1;
+    // Shrine reach upgrades (0..6) — each adds +0.5 cell to the player's reach
+    // (2 cells base → 5 at 6 upgrades; see coords.js reachCells). Claimed at
+    // the shrine, gated by cumulative deliveries (save.deliveryCount): the Nth
+    // upgrade needs 5×N deliveries (5,10,15,20,25,30). Lifetime delivery count
+    // is bumped in presentDeliveryOffer's accept path.
+    if (this.save.reachUpgrades === undefined)    this.save.reachUpgrades = 0;
+    if (this.save.deliveryCount === undefined)    this.save.deliveryCount = 0;
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
     // an `id` field, so chopping one pushed `undefined` into save.chopped.
     // A `choppedSet.has(undefined)` lookup then matched every other tree
@@ -478,14 +485,19 @@ class MapScene extends Phaser.Scene {
     // the reachable area is symmetric around the visible character, not the
     // sprite's geometric center. ~3.75m at the default CELL_PX/cellM.
     this.feetOffsetM = (24 / CELL_PX) * this.cellM;
-    this.REACH_CELL_M = 16;   // cell taps: till / plant / water / harvest. 16m = √(5²+15²)+ε includes (±1,±3) / (±3,±1) cells.
-    // NOTE: object/creature/wildplant taps do NOT use a scene-level reach —
-    // their distance gate is the global REACH_FAR_M (16m, == REACH_CELL_M, same
-    // feet-cell anchor) so the lit reach indicator and tap-accept stay in lock-
-    // step. A former `this.REACH_OBJECT_M = 18` was dead (never read; object
-    // taps use the global REACH_OBJECT_M=3.5 for tap-precision) and was removed
-    // — wiring an 18m object reach would let objects be tapped OUTSIDE the lit
-    // indicator. Keep object reach == cell reach.
+    // Reach is now computed dynamically in coords.js (reachRadiusM): it starts
+    // at 2 cells and grows to 5 via shrine upgrades, shrinking 1 cell below 30%
+    // energy. This field is retained as the legacy 3-cell constant for any
+    // external reference but is NO LONGER read by the reach gate.
+    this.REACH_CELL_M = 16;   // legacy: √(5²+15²)+ε ≈ the old fixed 3-cell reach.
+    // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
+    // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
+    // dynamic 2..5-cell, energy-scaled radius), NOT a fixed distance, so the lit
+    // reach indicator and the tap-accept gate stay in lock-step at every reach
+    // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
+    // somehow unavailable. The inner per-handler constants (REACH_OBJECT_M=3.5,
+    // REACH_HOUSE_M=6, …) are tap-PRECISION radii — how close your tap must land
+    // on the target — and are independent of how far the player can reach.
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
@@ -2654,11 +2666,6 @@ class MapScene extends Phaser.Scene {
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
-    // Track catches by kind so loot.js chestRelicAllowedTiers can unlock the
-    // cow-gated Platinum tier. (Previously read but never written — Platinum
-    // was unreachable.)
-    this.save.caughtKinds = this.save.caughtKinds || {};
-    this.save.caughtKinds[c.kind] = (this.save.caughtKinds[c.kind] || 0) + 1;
     // If this was a player-released creature, also trim it from save.released so the
     // array doesn't grow unbounded across many release-and-recatch cycles.
     if (this.save.released) {
@@ -3521,10 +3528,10 @@ class MapScene extends Phaser.Scene {
     }
     const baseValue = PRICES[id] ?? 1;
     const item = ITEM_BY_ID[id];
-    // Markets are cash-only storefronts — they SELL produce for money. Barter
-    // is reserved for the dedicated 'trader' shop kind (presentTraderOffer
-    // above). Plain houses still roll the mixed money/barter offer.
-    const offer = this.buildShopOffer(id, baseValue, { forceMoney: shopType === 'market' });
+    // Every cash storefront (markets + generic houses) buys for money now;
+    // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
+    // above). buildShopOffer always returns a cash offer.
+    const offer = this.buildShopOffer(id, baseValue);
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -3961,6 +3968,9 @@ class MapScene extends Phaser.Scene {
         }
         const gain = setPrice * sets;
         addMoney(this.save, gain);
+        // Lifetime delivery tally — each completed SET counts as one delivery.
+        // Gates the shrine's reach upgrades (5/10/15/20/25/30 → +0.5 cell each).
+        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
@@ -4115,9 +4125,9 @@ class MapScene extends Phaser.Scene {
     // Pricing:
     //   Default — random markup in 1.2..3.0× base (regular shops, smithy).
     //   Castle  — flat 4.0× base "exorbitant" markup, discounted by the
-    //             player's best bow/staff tier. f = 1 - t/7 → at T7 the
+    //             player's Bow tier (bestWeaponTier is bow-only now that the
+    //             Staff is a pure combat weapon). f = 1 - t/7 → at Bow T7 the
     //             markup collapses to 1.0× (par); at T0 it's the full 4.0×.
-    //             User: "always 400% base minus weapon bonus".
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
     let mul;
     if (opts.isCastle) {
@@ -4259,6 +4269,123 @@ class MapScene extends Phaser.Scene {
     return RECIPES[barId] || null;
   }
 
+  // Which smeltable bars the blacksmith will smelt, gated by SHRINE LEVEL.
+  // Each top-tier bar unlocks at the same shrine level its produce→bar
+  // transform does (platinum L4, crimson L5, frost L6) — so leveling the
+  // shrine teaches the recipe AND lights it up at the forge's Smelt tab.
+  // Returns an ordered list of bar ids the player may currently smelt (empty
+  // until shrine L4, which is when the Smelt tab first appears).
+  SMELT_UNLOCK_LEVEL = { platinum_bar: 4, crimson_bar: 5, frost_bar: 6 };
+  smeltUnlockedBars() {
+    const lvl = this.save.shrineLevel ?? 1;
+    return ['platinum_bar', 'crimson_bar', 'frost_bar']
+      .filter(id => lvl >= this.SMELT_UNLOCK_LEVEL[id]);
+  }
+
+  // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
+  // quantity stepper, consuming the recipe ingredients to mint bars. The
+  // `secondary` button rotates through the other unlocked bars, and a Forge /
+  // Smelt tab row (forgeBack re-opens the forge tab) lets the player toggle
+  // back without leaving the shop. `target` defaults to the highest unlocked
+  // bar the player can currently afford, so the modal opens on something usable.
+  presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
+    const bars = this.smeltUnlockedBars();
+    const heldCount = (id) =>
+      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const consume = (id, n) => {
+      let left = n;
+      for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
+        const s = this.save.inv[i];
+        if (!s || s.id !== id) continue;
+        const take = Math.min(left, s.count ?? 0);
+        s.count -= take; left -= take;
+        if ((s.count ?? 0) <= 0) {
+          this.save.inv.splice(i, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+      }
+    };
+    const tabs = [
+      { label: 'Forge', active: false, onSelect: forgeBack },
+      { label: 'Smelt', active: true,  onSelect: () => {} },
+    ];
+    if (!bars.length) {
+      this.showOfferModal({
+        title: 'The forge can smelt — once the shrine wills it',
+        get: 'Nothing to smelt yet',
+        blurb: 'Level the Magic Shrine to L4 (platinum), L5 (crimson), or L6 (frost) to smelt top bars here.',
+        cost: '',
+        canAfford: false,
+        acceptLabel: 'Close',
+        tabs,
+        onAccept: () => {},
+      });
+      return;
+    }
+    // Default focus: highest unlocked bar the player can afford ≥1 of, else
+    // the highest unlocked. An explicit `target` (from the rotate button) wins
+    // as long as it's actually unlocked. Prefer the highest unlocked bar the
+    // player can actually afford ≥1 of, so the modal opens on something usable
+    // rather than a bar they lack ingredients for (the rotate button still
+    // reaches the others).
+    if (!target || !bars.includes(target)) {
+      target = bars.slice().reverse().find(id =>
+        this.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
+    }
+    const recipe = this.smeltingRecipe(target);
+    const outItem = ITEM_BY_ID[target];
+    // Max smeltable = min over ingredients of floor(held / qty). Guard the
+    // empty/missing-recipe case explicitly: an empty recipe would leave the
+    // reduce seed (Infinity) untouched, and `Infinity || 0` is Infinity (truthy)
+    // — so an unbounded stepper. Treat a non-2-ingredient recipe as cap 0.
+    const cap = (Array.isArray(recipe) && recipe.length)
+      ? Math.max(0, recipe.reduce(
+          (m, r) => Math.min(m, Math.floor(heldCount(r.id) / r.qty)), Infinity))
+      : 0;
+    const recipeLine = (n) => recipe.map(r => {
+      const it = ITEM_BY_ID[r.id];
+      const ok = heldCount(r.id) >= r.qty * n;
+      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
+        + `${r.qty * n}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
+    }).join(' + ');
+    // Rotate-target button cycles to the next unlocked bar (wraps around).
+    const idx = bars.indexOf(target);
+    const next = bars[(idx + 1) % bars.length];
+    const fmt = (n) => ({
+      get: `${n}× ${this.iconSpanHTML(target)} ${outItem?.name || target}`,
+      cost: recipeLine(n),
+      canAfford: cap >= n && n >= 1,
+    });
+    const first = fmt(1);
+    this.showOfferModal({
+      title: 'The blacksmith stokes the crucible:',
+      get: first.get,
+      cost: cap >= 1 ? first.cost : recipeLine(1),
+      canAfford: cap >= 1,
+      acceptLabel: 'Smelt',
+      tabs,
+      quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
+      secondary: (bars.length > 1 && next !== target)
+        ? { label: `Smelt ${ITEM_BY_ID[next]?.name || 'other'}`,
+            onClick: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, next) }
+        : undefined,
+      onAccept: (n) => {
+        const q = Math.max(1, Math.min(n ?? 1, cap));
+        if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
+          this.flash('not enough to smelt', sx, sy); return;
+        }
+        for (const r of recipe) consume(r.id, r.qty * q);
+        this.addToInv(target, q);
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`✨ ${outItem?.name || target} ×${q}`, '#ffe066', 1.25, target);
+      },
+    });
+  }
+
   // ─── Magic Crafting Shrine ───────────────────────────────────────
   // The shrine is a per-game upgradable altar spawned near the player's
   // start. Tap it to either (a) level it up by paying a harvest bundle of
@@ -4317,6 +4444,32 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
+  // ─── Shrine reach upgrades ───────────────────────────────────────
+  // Six claimable +0.5-cell reach steps (2 cells → 5) interleaved with the
+  // main shrine levels. The Nth upgrade (1-indexed) requires:
+  //   • cumulative deliveries ≥ 5 × N  (5, 10, 15, 20, 25, 30), AND
+  //   • the shrine to have reached the level below it — every 2nd level, so
+  //     upgrade N gates on shrineLevel ≥ N (L1 opens the 1st, L2 the 2nd, …).
+  // Returns the status of the NEXT unclaimed reach upgrade, or null when all
+  // six are claimed.
+  REACH_UPGRADE_MAX = 6;
+  nextReachUpgrade() {
+    const claimed = this.save.reachUpgrades ?? 0;
+    if (claimed >= this.REACH_UPGRADE_MAX) return null;
+    const n = claimed + 1;                       // 1-indexed upgrade we'd claim
+    const needDeliveries = 5 * n;
+    const haveDeliveries = this.save.deliveryCount ?? 0;
+    const needLevel = n;                          // shrineLevel gate
+    const haveLevel = this.save.shrineLevel ?? 1;
+    return {
+      n,
+      needDeliveries, haveDeliveries,
+      needLevel, haveLevel,
+      reachAfter: 2 + 0.5 * n,
+      canClaim: haveDeliveries >= needDeliveries && haveLevel >= needLevel,
+    };
+  }
+
   // Shrine tap handler. Presents a single-modal offer: either the next
   // level-up bundle (if the player has every ingredient) OR a transform
   // (if the player has matching produce selected). On the first tap with
@@ -4368,20 +4521,52 @@ class MapScene extends Phaser.Scene {
     }
 
     // No matching produce selected — present the next level-up bundle.
+    // The shrine also grants REACH upgrades (2 cells → 5, +0.5 each) claimed
+    // here as a secondary button: a reach upgrade unlocks once you've made
+    // enough deliveries AND the shrine has hit the matching level. The claim
+    // is offered as the `secondary` action so it sits alongside the level-up.
+    const reach = this.nextReachUpgrade();
+    const claimReach = () => {
+      const r = this.nextReachUpgrade();
+      if (!r || !r.canClaim) { this.flash('Reach not ready.', sx, sy); return; }
+      this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
+      persistSave(this.save);
+      // The reach silhouette is redrawn every frame from reachRadiusM, so the
+      // wider reach shows on the next frame with no explicit invalidation.
+      this.showChestRewardModal({
+        header: '✨ Reach extended ✨',
+        iconHTML: '',
+        name: `Reach ${r.reachAfter} cells`,
+        sub: `The shrine's blessing widens your grasp.`,
+        color: '#a7e9ff',
+      });
+    };
+    // Human-readable status of the next reach upgrade, shown in every blurb.
+    const reachStatus = reach
+      ? (reach.canClaim
+          ? `🟢 Reach upgrade ready → ${reach.reachAfter} cells (tap “Extend reach”)`
+          : `Reach ${reach.reachAfter} cells: ${Math.min(reach.haveDeliveries, reach.needDeliveries)}/${reach.needDeliveries} deliveries`
+            + (reach.haveLevel < reach.needLevel ? ` · needs shrine L${reach.needLevel}` : ''))
+      : `Reach maxed at 5 cells.`;
+    const reachSecondary = (reach && reach.canClaim)
+      ? { label: 'Extend reach', onClick: claimReach }
+      : undefined;
+
     const bundle = this.shrineLevelUpCost(lvl);
     if (!bundle) {
-      // Maxed out at level 7 — list the transforms.
+      // Maxed out at top level — list the transforms (+ reach status / claim).
       const lines = transforms.map(t => {
         const i = ITEM_BY_ID[t.input], o = ITEM_BY_ID[t.output];
         return `${this.iconSpanHTML(t.input)} ${i?.name} → ${this.iconSpanHTML(t.output)} ${o?.name}`;
       }).join('<br>');
       this.showOfferModal({
-        title: 'Magic Crafting Shrine (Level 7)',
+        title: `Magic Crafting Shrine (Level ${lvl})`,
         get: `the shrine hums at full power`,
-        blurb: `Hold a matching produce + tap to transform:<br>${lines}`,
+        blurb: `${reachStatus}<br>Hold a matching produce + tap to transform:<br>${lines}`,
         cost: '',
         canAfford: false,
         acceptLabel: 'Close',
+        secondary: reachSecondary,
         onAccept: () => {},
       });
       return;
@@ -4407,10 +4592,11 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       title: `Magic Crafting Shrine (Level ${lvl})`,
       get: `Advance to Level ${lvl + 1}`,
-      blurb: transformsBlurb,
+      blurb: `${reachStatus}<br>${transformsBlurb}`,
       cost: costHTML,
       canAfford,
       acceptLabel: 'Offer',
+      secondary: reachSecondary,
       onAccept: () => {
         if (!bundle.every(r => heldCount(r.id) >= r.qty)) {
           const missing = bundle.find(r => heldCount(r.id) < r.qty);
@@ -4867,12 +5053,25 @@ class MapScene extends Phaser.Scene {
     const secondary = opts.noReroll ? undefined
       : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
           next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house));
+    // Forge / Smelt tab row — only on a normal smithy (not the starter
+    // wooden-tool queue) once the shrine has unlocked at least one smelt
+    // recipe. Switching to Smelt re-presents this same forge offer as the
+    // "back" target so the player can toggle freely.
+    const tabs = (!opts.noReroll && this.smeltUnlockedBars().length)
+      ? [
+          { label: 'Forge', active: true,  onSelect: () => {} },
+          { label: 'Smelt', active: false, onSelect: () =>
+              this.presentSmeltOffer(sx, sy, house, recordDeal,
+                () => this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts)) },
+        ]
+      : undefined;
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'forge'),
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
+      tabs,
       secondary,
       onAccept: () => {
         const curTier = offer.kind === 'relic'
@@ -4926,83 +5125,25 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Build a shop offer for buying ${id} (baseValue = PRICES[id]).
-  // 1/3 chance: shop wants 2x value in cash. 2/3: barter for an inventory item.
-  // opts.forceMoney pins it to the cash branch — used by markets, which are
-  // cash-only storefronts (barter is the 'trader' shop kind's job).
-  // Barter threshold is 0.75× baseValue (lenient) so debris-tier wild pickups
-  // qualify too — otherwise early-game players almost never see a barter, since
-  // wild rockfruit/shrub/longgrass at $1-2 fall below higher thresholds.
-  // If the player owns NO qualifying barter item, the shop still names what
-  // they want; the modal just disables the accept button (shows "✗"). This way
-  // the player learns "this shop wants rockfruit" and can come back with it.
-  // (Traders take a different path in presentTraderOffer — qty-scaled barter
-  // with a re-roll button.)
+  // Build a shop offer for buying ${id} (baseValue = PRICES[id]). Always a
+  // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
+  // the two trade idioms map cleanly onto shop types: MARKETS (and every
+  // generic cash storefront) want money, TRADERS barter (their own qty-scaled
+  // path in presentTraderOffer). opts is accepted for call-site compatibility
+  // (the former forceMoney flag) but no longer changes anything.
   buildShopOffer(id, baseValue, opts = {}) {
-    const wantMoney = opts.forceMoney || Math.random() < 1/3;
-    // Bow / Staff relics shrink the markup. Without either, the range stays
-    // at 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
+    // The Bow relic shrinks the markup. Without one, the range stays at
+    // 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
     const { lo, hi } = (typeof buyMarkupRange === 'function')
       ? buyMarkupRange(this.save.relics) : { lo: 1.2, hi: 3.0 };
     const cashCost = Math.max(1, Math.ceil(baseValue * (lo + Math.random() * (hi - lo))));
-    const cashOffer = {
+    return {
       kind: 'money',
       label: `$${cashCost}`,
       shortGain: `−$${cashCost}`,
       shortDenial: `need $${cashCost}`,
       canAfford: () => (this.save.money ?? 0) >= cashCost,
       consume: () => { addMoney(this.save, -cashCost); },
-    };
-    if (wantMoney) return cashOffer;
-    // Barter — find a held stack worth ≥ 0.75 × baseValue, pick one at random.
-    // Exclude `id` itself from both the candidate pool and the wishlist
-    // fallback: a trader who tries to swap a rockfruit FOR a rockfruit reads
-    // like a bug regardless of stack sizes ("trade me an X for an X?").
-    const need = baseValue * 0.75;
-    const candidates = (this.save.inv || []).filter(s =>
-      s && s.id && s.id !== id && (s.count ?? 0) >= 1 && (PRICES[s.id] ?? 0) >= need);
-    if (!candidates.length) {
-      // Player owns nothing qualifying — name a deterministic-but-varied want
-      // so the offer text reads like a real ask. Pick any item priced ≥ need;
-      // anchor by buyIndex so the same shop tap is stable until the player
-      // earns enough buyIndex turns elsewhere to rotate it.
-      const wishlist = Object.keys(PRICES).filter(k =>
-        k !== id && PRICES[k] >= need && ITEM_BY_ID[k]);
-      const wish = wishlist[(this.save.buyIndex ?? 0) % wishlist.length] || cashOffer;
-      if (wish === cashOffer) return cashOffer;
-      const wishItem = ITEM_BY_ID[wish];
-      return {
-        kind: 'item',
-        label: `1× ${this.iconSpanHTML(wish)} ${wishItem?.name || wish}`,
-        shortGain: `−1 ${wishItem?.name || wish}`,
-        shortDenial: `no ${wishItem?.name || wish}`,
-        canAfford: () => false,
-        consume: () => {},   // never called (canAfford is false)
-      };
-    }
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    const pickItem = ITEM_BY_ID[pick.id];
-    return {
-      kind: 'item',
-      label: `1× ${this.iconSpanHTML(pick.id)} ${pickItem?.name || pick.id}`,
-      shortGain: `−1 ${pickItem?.name || pick.id}`,
-      shortDenial: `no ${pickItem?.name || pick.id}`,
-      canAfford: () => {
-        const cur = (this.save.inv || []).find(s => s && s.id === pick.id);
-        return !!cur && (cur.count ?? 0) >= 1;
-      },
-      consume: () => {
-        const idx = this.save.inv.findIndex(s => s && s.id === pick.id);
-        if (idx < 0) return;
-        const cur = this.save.inv[idx];
-        cur.count -= 1;
-        if (cur.count <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-      },
     };
   }
 
@@ -5413,8 +5554,31 @@ class MapScene extends Phaser.Scene {
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity, tabs }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
+    // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
+    // is { label, active, onSelect }. Tapping an inactive tab closes this modal
+    // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
+    // without restructuring the single-offer modal into a stateful panel.
+    if (tabs && tabs.length) {
+      const tabRow = document.createElement('div');
+      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
+      for (const t of tabs) {
+        const tb = document.createElement('button');
+        tb.textContent = t.label;
+        tb.style.cssText =
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px ui-monospace,monospace;'
+          + 'border:2px solid #555;border-bottom:none;cursor:pointer;'
+          + (t.active
+              ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
+              : 'background:transparent;color:#999;');
+        if (!t.active) {
+          tb.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); t.onSelect(); });
+        }
+        tabRow.appendChild(tb);
+      }
+      box.appendChild(tabRow);
+    }
     // Build the chrome out of individual nodes so the quantity stepper (when
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count

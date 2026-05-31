@@ -18,8 +18,11 @@ The game is made of a grid of cells generated from vector tile data.
  - roads should never have any interactables on them directly (only walkable paths, or sidewalk beside road)
 
 # viewport
- - the player sees an 11x11 viewport, centred around them and can interact within 3 cells of themself.
- - if the player is below 30% energy, their range drops to 2 cells, then at 0 energy, they have no range.
+ - the player sees an 11x11 viewport, centred around them. Interaction range
+   STARTS at 2 cells and grows to 5 via the Magic Shrine (six +0.5-cell reach
+   upgrades gated by deliveries — see CRAFTING).
+ - if the player is below 30% energy, their range drops by one whole cell
+   (floored at 1); at 0 energy, they have no range.
  - generally, only update or consider timers of cells in the viewport, for efficiency. Don't update cells offscreen, but for timers just keep track of the timestamp of the last event. ie, for crops keep track of the time they were planted so later when onscreen you can check if they need to have sprouted when seen.
 
 # interactables
@@ -80,12 +83,15 @@ MOVEMENT & REACH
    for the session (GPS stops fighting the keyboard).
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
- - REACH: you can only interact with cells within ~3 cells (cardinally) of the
-   cell you stand in — a ~16m reach measured from the player's FEET, not the
-   sprite centre, so the reachable area is symmetric around the visible
-   character. A white silhouette outlines the reachable cells; out-of-reach
-   cells are dimmed. The tap-accept test and the drawn outline use the same
-   integer cell math (coords.js cellInReach) so "if it's lit, you can tap it".
+ - REACH: you can only interact with cells within your reach radius (cardinally)
+   of the cell you stand in, measured from the player's FEET, not the sprite
+   centre, so the reachable area is symmetric around the visible character.
+   Reach starts at 2 cells and rises to 5 via shrine upgrades (and drops a cell
+   below 30% energy). A white silhouette outlines the reachable cells;
+   out-of-reach cells are dimmed. The silhouette, the cell-tap gate, AND the
+   object/creature/treasure far-gate all read the same radius (coords.js
+   reachRadiusM / cellInReach) so "if it's lit, you can tap it" — and growing
+   your reach extends every kind of tap together.
  - WORK WHEEL: timed actions (chop / mine / fish / pick a worked crop / defeat a
    pest / catch an animal) show a circular progress wheel at the spot. Every
    tool type works BARE-HANDED (tier 0) at 3× the wooden-tool time — no
@@ -409,14 +415,16 @@ ECONOMY (buying & selling)
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
- - BUY cost generation: 1/3 of the time a CASH price (1.2-3.0× the item value);
-   2/3 of the time a BARTER deal — the shop wants 1× of a random item you hold
-   whose value is high enough; if you hold nothing suitable it shows what it
-   wants with the button disabled (so you learn what to bring).
+ - BUY cost generation: cash storefronts (markets + generic houses) always
+   price in CASH (1.2-3.0× the item value, shrunk by your Bow tier). BARTER is
+   exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —
+   see the shop roles above). The old mixed "1/3 cash / 2/3 barter" roll was
+   removed so the two idioms map cleanly onto shop type.
  - SELL: selling happens only at your HOME shop. With a stack selected, tapping
    home sells one at PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at
    Frost). Other houses are buy/trade-only.
- - bow/staff relics shrink the buy markup (best tier wins; T7 = buy at par).
+ - the Bow relic shrinks the buy markup (T7 = buy at par). The Staff is a pure
+   combat weapon — it no longer affects prices.
 
 ================================================================================
 GEAR: RELICS & ARMOR
@@ -436,16 +444,19 @@ GEAR: RELICS & ARMOR
      ring   — +5%/tier chance to bump chest loot up a tier
      amulet — projects a GHOST (see below); higher tier = faster + cheaper
      sword  — raises sell prices (0.5× → 1.0× at Frost)
-     bow / staff — lower buy prices (best tier wins; T7 = par)
+     bow    — lowers buy prices (T7 = par)
+     staff  — pure hunting weapon (speeds the pest-defeat wheel; no price effect)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
    SCOUT ahead while your real body stays put. Energy drains per cell moved
    (~1/cell at T1, falling to ~0.15/cell at T7). Releasing the pad collapses
    the ghost back to your body. Speed scales ~8×→24× walk with amulet tier.
- - TIER GATING: rarer relic/armor tiers only drop/sell after milestones —
-   harvest a sunflower → unlock Gold, catch a cow → Platinum, harvest a
-   fireflower → Crimson, harvest an iceflower → Frost. Chest tier also caps the
-   relic tier it can give (bus chests cap at Wood).
+ - TIER GATING: the only gate on rarer relic/armor tiers is the per-source LOOT
+   RULE — each chest/fishing source has a tier ceiling derived from its own tier
+   (rarity.js: maxTier / relicCap, plus the chest-tier→preferred clamp), so a
+   bus chest still can't cough up a Frost relic. The old harvest/catch
+   "milestone" unlocks (sunflower→Gold, cow→Platinum, …) were REMOVED — they
+   were a second, invisible lock that duplicated the loot-rule ceiling.
 
 ================================================================================
 CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
@@ -458,9 +469,13 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
    materials. Tools / weapons / armor cost max(5, tier) of the tier-matched bar
    (T1 = wood). JEWELRY (ring/staff/amulet) costs 2^(tier-2) gems + 1 bar
    (ring→ruby, staff→emerald, amulet→sapphire); no T1 jewelry.
- - SMELTING (blacksmith, T5+ only): the top bars are smelted from flowers +
+ - SMELTING (blacksmith, second tab): the top bars are smelted from flowers +
    the lower bar — platinum = sunflower + gold, crimson = fireflower + platinum,
-   frost = iceflower + crimson. Copper/iron/gold bars come from mining.
+   frost = iceflower + crimson. Copper/iron/gold bars come from mining. The
+   Smelt tab sits beside Forge on every normal smithy and is UNLOCKED PER BAR by
+   shrine level: platinum at shrine L4, crimson at L5, frost at L6 — the same
+   levels the shrine's own produce→bar transforms unlock at. A quantity stepper
+   batches the smelt; a secondary button rotates through the unlocked bars.
  - MAGIC CRAFTING SHRINE: a per-game altar near spawn. Tap it to either LEVEL
    UP or run a TRANSFORM:
      * level up (L1→L6): pay 5× of three tier-matched items
@@ -469,6 +484,11 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
      * each level unlocks one 1-produce→1-bar transform: L2 rainberry→iron,
        L3 coffee→gold, L4 sunflower→platinum, L5 fireflower→crimson,
        L6 iceflower→frost (endgame). The shrine sprite upgrades each level.
+     * REACH UPGRADES: the shrine also grants six claimable +0.5-cell reach
+       steps (2 cells → 5), interleaved with the levels. The Nth upgrade needs
+       cumulative DELIVERIES ≥ 5×N (5/10/15/20/25/30) AND shrine level ≥ N, then
+       is claimed via the shrine modal's "Extend reach" button. Lifetime
+       deliveries are tallied per completed plain-house delivery SET.
 
 ================================================================================
 CONSUMABLES

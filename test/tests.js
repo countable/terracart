@@ -115,8 +115,8 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
   const wp = findWildplant(w =>
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter wildplant');
-  // Stand 25m away (well outside REACH_FAR_M = 16m, measured from player
-  // cell centre) but tap on the plant.
+  // Stand 25m away (well outside the base reach radius — 2 cells ≈ 11m at
+  // reachUpgrades=0, measured from player cell centre) but tap on the plant.
   teleport(scene, wp.x + 25, wp.y);
   tapWorld(scene, wp.x, wp.y);
   assert.falsy(scene.save.picked.includes(wp.id), 'not picked');
@@ -137,9 +137,16 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 // offset. Detecting via flash means we exercise the real cell-resolve gate
 // (not just the math), which is the regression surface for both bugs.
 test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', (scene) => {
+  // Base reach is now 2 cells; this test pins down the 3-CELL rounded-square
+  // geometry, so grant 2 shrine reach upgrades (2 + 0.5×2 = 3 cells) and keep
+  // energy full so the <30%-energy −1-cell penalty doesn't shrink it.
+  const _savedUpgrades = scene.save.reachUpgrades;
+  const _savedEnergy = scene.save.energy;
+  scene.save.reachUpgrades = 2;
+  scene.save.energy = scene.save.maxEnergy ?? 100;
   // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
-  if (!startTile) return;
+  if (!startTile) { scene.save.reachUpgrades = _savedUpgrades; scene.save.energy = _savedEnergy; return; }
   let bodyCell = null;
   for (let i = 0; i < startTile.grid.length && !bodyCell; i++) {
     if (startTile.grid[i] !== 0) continue;
@@ -150,7 +157,7 @@ test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', 
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, approxX, approxY);
     bodyCell = absCellCenterMeters(scene, cellIX, cellIY);
   }
-  if (!bodyCell) return;
+  if (!bodyCell) { scene.save.reachUpgrades = _savedUpgrades; scene.save.energy = _savedEnergy; return; }
   // The reach is centred on the FEET cell, not the body cell. With the body
   // teleported to its cell centre, the feet land in the cell ONE ROW SOUTH.
   // Offsets in this test are expressed RELATIVE to the feet cell, so we
@@ -188,6 +195,8 @@ test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', 
     assert.truthy(tapOffsetFromFeet( 2,  3), '(2, 3) too far (√13·5 ≈ 18 m > 16 m)');
   } finally {
     scene.flash = origFlash;
+    scene.save.reachUpgrades = _savedUpgrades;
+    scene.save.energy = _savedEnergy;
   }
 });
 
@@ -1304,19 +1313,22 @@ test('weapons: sword raises sell price (T0=half, T7=par)', () => {
   }
 });
 
-test('weapons: bow/staff lower buy markup (T0=1.2..3, T7=1..1)', () => {
+test('weapons: only the Bow lowers buy markup (T0=1.2..3, T7=1..1); staff does not', () => {
   const r0 = buyMarkupRange(null);
   assert.approx(r0.lo, 1.2, 0.0001, 'baseline lo');
   assert.approx(r0.hi, 3.0, 0.0001, 'baseline hi');
   const r7Bow   = buyMarkupRange({ bow:   { tier: 7 } });
-  const r7Staff = buyMarkupRange({ staff: { tier: 7 } });
   assert.approx(r7Bow.lo,   1.0, 0.0001, 'T7 bow → lo = 1');
   assert.approx(r7Bow.hi,   1.0, 0.0001, 'T7 bow → hi = 1');
-  assert.approx(r7Staff.lo, 1.0, 0.0001, 'T7 staff → lo = 1');
-  assert.approx(r7Staff.hi, 1.0, 0.0001, 'T7 staff → hi = 1');
-  // Max(bow, staff) wins.
+  // Staff is now a pure combat weapon — it must NOT discount buy prices.
+  const r7Staff = buyMarkupRange({ staff: { tier: 7 } });
+  assert.approx(r7Staff.lo, 1.2, 0.0001, 'T7 staff → no discount (lo stays 1.2)');
+  assert.approx(r7Staff.hi, 3.0, 0.0001, 'T7 staff → no discount (hi stays 3.0)');
+  // With both equipped only the bow tier counts.
   const mixed = buyMarkupRange({ bow: { tier: 3 }, staff: { tier: 7 } });
-  assert.approx(mixed.lo, 1.0, 0.0001, 'max tier wins (staff over bow)');
+  const r3Bow = buyMarkupRange({ bow: { tier: 3 } });
+  assert.approx(mixed.lo, r3Bow.lo, 0.0001, 'only bow tier counts (staff ignored)');
+  assert.approx(mixed.hi, r3Bow.hi, 0.0001, 'only bow tier counts (staff ignored)');
 });
 
 test('weapons: sell modal honours the sword multiplier', (scene) => {
