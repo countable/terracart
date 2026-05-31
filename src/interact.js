@@ -18,7 +18,8 @@
 //                  reach constants (REACH_*).
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
 //   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
-//   loot.js      — pickTreasure, pickLoot, rusticifyName, WILD_TREASURE
+//   loot.js      — POI_CATEGORY, chestTier, rusticifyName, WILD_TREASURE
+//   rarity.js    — pickReward, rollGearUpgrade
 //   save.js      — persistSave
 //
 // Exports as globals:
@@ -86,6 +87,26 @@ const TERRAIN = {
   ROAD_LG: WorldGen.T.ROAD_LG,               // 13
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
 };
+
+// Equip a relic or armor reward from a chest / fishing jackpot. Mutates save
+// and calls scene.markRelicsDirty. Caller is responsible for persistence
+// (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
+function equipGearReward(reward, save, scene) {
+  if (reward.kind === 'armor') {
+    save.armor = save.armor || {};
+    save.armor[reward.slot] = { tier: reward.tier };
+    if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
+      const newMax = maxEnergyFromArmor(save.armor);
+      const bump = Math.max(0, newMax - scene.getMaxEnergy());
+      save.maxEnergy = newMax;
+      save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
+    }
+  } else {
+    save.relics = save.relics || {};
+    save.relics[reward.slot] = { tier: reward.tier };
+  }
+  scene.markRelicsDirty?.();
+}
 
 // Shared work-queue launcher for tool-driven interactions (chop, mine, pick).
 // Looks up the correct duration from toolDurationMs (falling back to 9s
@@ -363,11 +384,9 @@ const TAP_HANDLERS = [
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
     // "Plant produce" = anything tagged kind:'produce' that came from a plant
-    // — farmed crops carry an `item.crop` ref; longgrass too; the bare
-    // 'flowers' pickup is a wild plant with no .crop but still plant-origin.
+    // — farmed crops carry an `item.crop` ref; longgrass too.
     // Excludes egg / milk (also kind:'produce' but they're animal-source).
-    const isPlantProduce = selItem && selItem.kind === 'produce'
-      && (!!selItem.crop || sel.id === 'flowers');
+    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
 
     // ── TAME PETS — released animals (id starts with 'released_'). Tame
     // pets never get "yuck'd"; tapping them with any item (or none) plays
@@ -561,18 +580,6 @@ const TAP_HANDLERS = [
       }
       return true;
     }
-    // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
-    const bestF = findClosestItem('objects', wm.x, wm.y, REACH_WILDPLANT_M,
-      (o) => o.kind === 'flora' && o.deco === 'flower' && !pickedSet.has(o.id));
-    if (bestF) {
-      const o = bestF;
-      if (tooFar(ctx, o.x, o.y)) return 'far';
-      save.picked = [...pickedSet, o.id];
-      scene.addToInv('flowers', 1);
-      ctx.dirty = true;
-      scene.flashLoot(`+1 flowers`, '#a7ffb0', 1, 'flowers');
-      return true;
-    }
     return false;
   }},
 
@@ -679,100 +686,80 @@ const TAP_HANDLERS = [
           // (defensive — keeps these POIs usable if app.js is out of sync).
         }
         if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
-        // A chest the player previously opened but LEFT FOR LATER (bag was full)
-        // remembers exactly what it rolled: reopen serves that same loot, and we
-        // skip the relic re-roll below so leaving-and-reopening can't fish for a
-        // better drop.
+        // A chest previously left-for-later has its exact loot saved in
+        // chestHold; reopening replays that same roll. Fresh opens go through
+        // pickReward which handles items AND relics (biome-specific weights).
         const held = save.chestHold && save.chestHold[o.id];
-        // 10% chance to roll a relic reward instead of normal loot. The picker
-        // is biased by the chest's TIER (lowtier → wood, flora → frost) and
-        // gated by player harvests/cow catch. If the rolled slot/tier would be
-        // an upgrade → equip it. Otherwise → half its gold value as a
-        // consolation (player always gets something useful).
-        if (!held && Math.random() < 0.10) {
-          const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
-          const reward = (typeof pickChestRelic === 'function')
-            ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
-            : null;
-          if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-            const kind = reward.kind;
-            if (kind === 'armor') {
-              save.armor = save.armor || {};
-              save.armor[reward.slot] = { tier: reward.tier };
-              // Armor bumps maxEnergy — bring current energy along by the
-              // delta so the new ceiling isn't just a future-cap.
-              if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
-                const newMax = maxEnergyFromArmor(save.armor);
-                const bump = Math.max(0, newMax - scene.getMaxEnergy());
-                save.maxEnergy = newMax;
-                save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
-              }
-            } else {
-              save.relics[reward.slot] = { tier: reward.tier };
-            }
-            scene.markRelicsDirty?.();
-            save.opened.push(o.id);
-            ctx.dirty = true;
-            const name = (typeof gearName === 'function')
-              ? gearName(kind, reward.slot, reward.tier)
-              : `${reward.slot} T${reward.tier}`;
-            const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML(kind, reward.slot, reward.tier, 64)
-              : '★';
-            scene.showChestRewardModal({
-              iconHTML, name, sub: 'equipped', color: '#ffe066',
-            });
-            return true;
-          }
-          if (reward?.kind === 'gold') {
-            // Non-upgrade relic: discard it (spec: no salvage value). Still
-            // show the modal so the player sees what dropped.
-            save.opened.push(o.id);
-            ctx.dirty = true;
-            const gearKind = reward.gearKind || 'relic';
-            const name = (typeof gearName === 'function')
-              ? gearName(gearKind, reward.slot, reward.tier)
-              : `${reward.slot} T${reward.tier}`;
-            const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML(gearKind, reward.slot, reward.tier, 64)
-              : '★';
-            scene.showChestRewardModal({
-              iconHTML, name,
-              sub: `already own better — discarded`, color: '#aaa',
-            });
-            return true;
-          }
-          // reward is null (no allowed tiers — very early game) — fall through.
+        const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+        const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+        const result = held
+          ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
+          : ((typeof pickReward === 'function')
+              ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+              : null);
+        if (!result) {
+          addMoney(save, 1);
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          scene.flash('Chest had nothing useful.', sx, sy);
+          return true;
         }
-        const loot = held ? { id: held.id, n: held.n }
-                          : pickLoot(undefined, o.poiClass, save.relics);
-        const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
-        const lootColor = tierInfo(loot.id).color;
+        if (result.consolation > 0) addMoney(save, result.consolation);
+        if (result.kind === 'relic') {
+          equipGearReward(result, save, scene);
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          const name = (typeof gearName === 'function')
+            ? gearName('relic', result.slot, result.tier)
+            : `${result.slot} T${result.tier}`;
+          const iconHTML = scene.gearIconHTML
+            ? scene.gearIconHTML('relic', result.slot, result.tier, 64) : '★';
+          scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: '#ffe066' });
+          return true;
+        }
+        if (result.kind === 'gold') {
+          // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          addMoney(save, result.amount || 0);
+          const gearKind = result.gearKind || 'relic';
+          const name = (typeof gearName === 'function')
+            ? gearName(gearKind, result.slot, result.tier)
+            : `${result.slot} T${result.tier}`;
+          const iconHTML = scene.gearIconHTML
+            ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
+          scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa' });
+          return true;
+        }
+        // kind === 'item'
+        const lootId  = result.id;
+        const lootQty = result.qty;
+        const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
+        const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : '#ffe066';
         // Chest loot gets the full ceremony modal — quick-feedback flashLoot
         // is reserved for X-marks / harvest / mining (cheap repeating rewards).
-        const iconHTML = scene.iconSpanHTML
-          ? scene.iconSpanHTML(loot.id, 64) : '';
-        const qtyLabel = loot.n > 1 ? `× ${loot.n}` : null;
+        const iconHTML = scene.iconSpanHTML ? scene.iconSpanHTML(lootId, 64) : '';
+        const qtyLabel = lootQty > 1 ? `× ${lootQty}` : null;
         // If the loot won't fully fit, don't silently drop the overflow — let the
         // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
         // (chest kept, its exact contents remembered in save.chestHold). Modal
         // buttons fire after this handler returns, so they persist themselves.
-        const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(loot.id) : Infinity;
-        if (loot.n > room) {
+        const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
+        if (lootQty > room) {
           scene.showChestRewardModal({
             iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
             sub: room > 0
-              ? `Bag full — room for only ${room} of ${loot.n}.`
+              ? `Bag full — room for only ${room} of ${lootQty}.`
               : 'Your bag is full.',
             actions: [
               { label: 'Leave for later', primary: true, onClick: () => {
                 save.chestHold = save.chestHold || {};
-                save.chestHold[o.id] = { id: loot.id, n: loot.n };
+                save.chestHold[o.id] = { id: lootId, n: lootQty };
                 persistSave(save);
                 scene.flash?.('Left it in the chest.', sx, sy);
               } },
               { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
-                if (room > 0) scene.addToInv(loot.id, loot.n);   // takes `room`; bag-full flash covers the rest
+                if (room > 0) scene.addToInv(lootId, lootQty);
                 save.opened.push(o.id);
                 if (save.chestHold) delete save.chestHold[o.id];
                 persistSave(save);
@@ -782,13 +769,11 @@ const TAP_HANDLERS = [
           return true;
         }
         // Fits fully — take it and empty the chest.
-        scene.addToInv(loot.id, loot.n);
+        scene.addToInv(lootId, lootQty);
         save.opened.push(o.id);
         if (save.chestHold) delete save.chestHold[o.id];
         ctx.dirty = true;
-        scene.showChestRewardModal({
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-        });
+        scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
         return true;
       }
       if (o.kind === 'well') {
@@ -1152,8 +1137,8 @@ const TAP_HANDLERS = [
       const gotSeed = Math.random() < (0.25 + qual * 0.10);
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
       // Track harvest milestones — gates which relic tiers can drop from chests
-      // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See loot.js
-      // pickChestRelic / chestRelicAllowedTiers.
+      // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See rarity.js
+      // chestRelicAllowedTiers.
       save.harvested = save.harvested || {};
       save.harvested[p.crop] = (save.harvested[p.crop] || 0) + 1;
       ctx.dirty = true;
@@ -1227,41 +1212,24 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // 2% per cast → relic jackpot. Uses the same milestone-gated tier
-      // picker as chests (harvest sunflower → Gold, catch cow → Platinum,
-      // etc.). Higher tiers possible but exponentially rarer. An upgrade
-      // auto-equips; a non-upgrade is discarded. Returns before the fish
-      // table so no double drop.
+      // 2% per cast → gear jackpot. Milestone-gated tier picker (harvest
+      // sunflower → Gold, catch cow → Platinum, etc.). An upgrade auto-equips;
+      // a dupe cashes out as consolation gold. Falls through to the fish table
+      // if no milestones are met yet (allowed tiers empty).
       if (Math.random() < 0.02) {
-        const chestT = 2;   // treat as a T2 chest for tier weighting
-        const reward = (typeof pickChestRelic === 'function')
-          ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
+        const reward = (typeof rollGearUpgrade === 'function')
+          ? rollGearUpgrade(undefined, save, save.relics, 2, save.armor)
           : null;
         if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-          const kind = reward.kind;
-          if (kind === 'armor') {
-            save.armor = save.armor || {};
-            save.armor[reward.slot] = { tier: reward.tier };
-            if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
-              const newMax = maxEnergyFromArmor(save.armor);
-              const bump = Math.max(0, newMax - scene.getMaxEnergy());
-              save.maxEnergy = newMax;
-              save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
-            }
-          } else {
-            save.relics = save.relics || {};
-            save.relics[reward.slot] = { tier: reward.tier };
-          }
-          scene.markRelicsDirty?.();
+          equipGearReward(reward, save, scene);
           persistSave(save);
           const label = (typeof gearName === 'function')
-            ? gearName(kind, reward.slot, reward.tier)
+            ? gearName(reward.kind, reward.slot, reward.tier)
             : `${reward.slot} T${reward.tier}`;
           scene.flashLoot(`✨ ${label} (equipped!)`, '#ffd96b', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {
-          // Non-upgrade: discard (no salvage), just flash what dropped.
           const label = (typeof gearName === 'function')
             ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier)
             : `${reward.slot} T${reward.tier}`;
@@ -1359,7 +1327,6 @@ const TAP_HANDLERS = [
         if (wp) { blocker = wp.crop || 'plant'; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          o.kind !== 'flora' &&
           !(o.kind === 'chest' && openedSet.has(o.id)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);

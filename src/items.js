@@ -716,11 +716,15 @@ function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
 }
+// Best bow or staff tier — shared by buyMarkupRange and castle pricing in app.js.
+function bestWeaponTier(relics) {
+  return Math.max(relics?.bow?.tier || 0, relics?.staff?.tier || 0);
+}
 // Bow / Staff relics: shrink the random buy-cash markup. Without either, the
 // trader still wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0×
 // (the player buys at par). Take the BEST tier of bow vs staff.
 function buyMarkupRange(relics) {
-  const t = Math.max(relics?.bow?.tier || 0, relics?.staff?.tier || 0);
+  const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises
   return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
 }

@@ -163,7 +163,9 @@
   const _ITEMS      = (typeof ITEMS      !== 'undefined') ? ITEMS      : [];
   const _ITEM_BY_ID = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID : {};
   const _RELIC_DEFS = (typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS : {};
+  const _ARMOR_DEFS = (typeof ARMOR_DEFS !== 'undefined') ? ARMOR_DEFS : {};
   const _gearPrice  = (typeof gearPrice  !== 'undefined') ? gearPrice  : null;
+  const _pickFromArray = (typeof pickFromArray !== 'undefined') ? pickFromArray : (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   function buildClassTierIndex() {
     const out = {};
@@ -405,11 +407,66 @@
              consolation: ctx.singleItem ? 0 : consolationFor(itemTier) };
   }
 
-  global.RARITY_TUNING       = RARITY_TUNING;
-  global.LOOT_CONTEXTS       = LOOT_CONTEXTS;
-  global.ITEMS_BY_CLASS_TIER = ITEMS_BY_CLASS_TIER;
-  global.CLASS_MAX_TIER      = CLASS_MAX_TIER;
-  global.pickReward          = pickReward;
-  global.reconcileRelicOffer = reconcileRelicOffer;
-  global.weightedPick        = weightedPick;
+  // ────────────────────────────────────────────────────────────────
+  // Milestone-gated relic tiers. T1-T3 always available; higher tiers
+  // unlock via specific player achievements (harvest milestones, cow catch).
+  // Moved here from loot.js since it belongs with the gear-picking logic.
+  // ────────────────────────────────────────────────────────────────
+  function chestRelicAllowedTiers(progress) {
+    const harvested = progress?.harvested || {};
+    const caught    = progress?.caughtKinds || {};
+    const tiers = [1, 2, 3];
+    if (caught.cow)            tiers.push(5);   // Platinum
+    if (harvested.sunflower)   tiers.push(4);   // Gold
+    if (harvested.fireflower)  tiers.push(6);   // Crimson
+    if (harvested.iceflower)   tiers.push(7);   // Frost
+    return tiers.sort((a, b) => a - b);
+  }
+
+  // Dedicated relic/armor jackpot picker — used by fishing (2% cast jackpot)
+  // and formerly by the chest handler. Guarantees a gear result (relic or armor
+  // upgrade, or consolation gold). Moved here from loot.js; replaces the old
+  // pickChestRelic. `chestT` 1-4 drives the preferred/ceiling tier.
+  function rollGearUpgrade(rng, progress, currentRelics, chestT = 2, currentArmor = null) {
+    const random = rng || Math.random;
+    const allowed = chestRelicAllowedTiers(progress);
+    if (!allowed.length || !Object.keys(_RELIC_DEFS).length) return null;
+    const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
+    let weighted;
+    if (preferred > Math.max(...allowed)) {
+      const baseTiers = allowed.filter(t => t <= 3);
+      const pool = baseTiers.length ? baseTiers : allowed;
+      weighted = pool.map(t => ({ t, w: 1 }));
+    } else {
+      const capped = allowed.filter(t => t <= preferred);
+      weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
+    }
+    const total = weighted.reduce((a, b) => a + b.w, 0);
+    let r = random() * total;
+    let pickedTier = weighted[0].t;
+    for (const w of weighted) { r -= w.w; if (r <= 0) { pickedTier = w.t; break; } }
+    const relicSlots = Object.keys(_RELIC_DEFS);
+    const armorSlots = Object.keys(_ARMOR_DEFS);
+    const slotPool = [
+      ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
+      ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
+    ];
+    const sp = _pickFromArray(slotPool, random);
+    const cur = sp.kind === 'relic'
+      ? (currentRelics?.[sp.slot]?.tier ?? 0)
+      : (currentArmor?.[sp.slot]?.tier ?? 0);
+    if (pickedTier > cur) return { kind: sp.kind, slot: sp.slot, tier: pickedTier };
+    const price = _gearPrice ? _gearPrice(sp.kind, sp.slot, pickedTier) : 0;
+    return { kind: 'gold', amount: Math.max(1, Math.floor(price / 2)), slot: sp.slot, gearKind: sp.kind, tier: pickedTier };
+  }
+
+  global.RARITY_TUNING          = RARITY_TUNING;
+  global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
+  global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
+  global.CLASS_MAX_TIER         = CLASS_MAX_TIER;
+  global.pickReward             = pickReward;
+  global.reconcileRelicOffer    = reconcileRelicOffer;
+  global.weightedPick           = weightedPick;
+  global.chestRelicAllowedTiers = chestRelicAllowedTiers;
+  global.rollGearUpgrade        = rollGearUpgrade;
 })(window);
