@@ -118,22 +118,6 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
-  let decoIdx = 0;
-  // Grass-family biomes that look better with the occasional Props.png tuft
-  // sprinkled in. Keeping the set tight (no roads, water, buildings, rock,
-  // sand, etc.) avoids decos appearing in places where they'd read as litter.
-  const DECO_BIOMES = new Set([0 /*grass*/, 6 /*park*/, 15 /*school*/, 18 /*playground*/,
-                               19 /*pitch*/, 21 /*golf*/, 22 /*orchard*/]);
-  // Props.png is 22 cols × 12 rows of 16×16 frames. Col 7 row 0 is the
-  // canonical spring-green grass tuft; rows 1/2/3 of the same column are
-  // yellow-spring, autumn-brown, winter-snow — out of place on a green
-  // field. Per user: the (7,3) winter tuft should be (7,0) spring instead.
-  // Frame indices: row * 22 + col.
-  const DECO_FRAMES = [0 * 22 + 7, 1 * 22 + 7, 2 * 22 + 7];   // 7, 29, 51
-  // 8% of qualifying cells get a deco. The probability check uses the same
-  // FNV-style hash that picks the biome-noise variant, just mixed with a
-  // different constant so the two streams don't correlate.
-  const DECO_P = 0.08;
   // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
   // 15-16 contain art. Each road tier picks ONE frame so the same road class
   // reads visually consistent across cells; different tiers look distinct.
@@ -208,7 +192,7 @@ Render.drawCells = function drawCells(scene) {
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
-      if (isRoad(type)) {
+      if (isRoad(type) || type === PATH) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
         color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
@@ -349,37 +333,6 @@ Render.drawCells = function drawCells(scene) {
             .setVisible(true);
         } else {
           ns.setVisible(false);
-        }
-      }
-
-      // Sparse ground decoration — one Props.png tuft per visible cell, hidden
-      // unless this is a grass-family biome AND the per-cell hash crosses the
-      // 8% threshold. Seeded by abs cell coords so the same world cell always
-      // shows the same deco frame (or none) without persisting anything to
-      // save. Skipped on tilled cells so a deco frame doesn't sit on top of
-      // dirt + a seedling looking like an unrelated weed.
-      {
-        const ds = scene.groundDecoPool[decoIdx++];
-        if (ds) {
-          if (!isTilled && DECO_BIOMES.has(type)) {
-            // FNV-ish mix — different constants than the noise hash above so
-            // the decoration roll doesn't correlate with the noise variant.
-            let dh = (absCellIX * 374761393) ^ (absCellIY * 668265263);
-            dh = ((dh ^ (dh >>> 13)) * 1274126177) >>> 0;
-            // Convert to [0, 1).
-            const roll = (dh & 0xffffff) / 0x1000000;
-            if (roll < DECO_P) {
-              const frame = DECO_FRAMES[(dh >>> 24) % DECO_FRAMES.length];
-              ds.setTexture('props', frame)
-                .setPosition(Math.round(sx) + CELL_PX / 2, Math.round(sy) + CELL_PX / 2)
-                .setDisplaySize(CELL_PX, CELL_PX)
-                .setVisible(true);
-            } else {
-              ds.setVisible(false);
-            }
-          } else {
-            ds.setVisible(false);
-          }
         }
       }
 
@@ -824,8 +777,6 @@ Render.drawObjects = function drawObjects(scene) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
-          // Picked flowers stay gone — skip rendering them.
-          if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
           objList.push({ o, dx, dy });
         }
       }
@@ -896,8 +847,7 @@ Render.drawObjects = function drawObjects(scene) {
     // (cache evict + walk back) doesn't respawn them.
     !(o.kind === 'mineralrock' && brokenRockSet.has(o.id)) &&
     // Ground stacks vanish once picked up. Same key (save.picked) as the
-    // wildplant + flora pickup tracking, so existing UIs / saves don't
-    // grow a new field.
+    // wildplant pickup tracking, so existing UIs / saves don't grow a new field.
     !(o.kind === 'groundstack' && pickedSetObj.has(o.id))
   );
   // Merge in placed scarecrows so they go through the same sprite pool +
@@ -908,7 +858,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
-  // hides — used for flora variants that haven't baked yet.
+  // hides — used for variants that haven't baked yet.
   // Lowtier chests (chestTier === 1) render the `box` sprite instead of the
   // chest sprite. The save.opened filter above already removes opened chests
   // from objList, so this branch only ever sees unopened ones.
@@ -1067,10 +1017,6 @@ Render.drawObjects = function drawObjects(scene) {
               // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
               // read as off-centre by almost a whole cell.
               origin: [0.5, 0.5], scale: 1.6 },
-    // Flora (flower decals) live ON the ground tile, not standing on it —
-    // centre the sprite in the cell so the petals land where the cell does.
-    flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
-              origin: [0.5, 0.5],  scale: 1.8 },
     // Stone pillar — decorative stand-in for OSM utility poles / posts. The
     // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
     // tall, so it sits inside a single square cell, foot-anchored near the
@@ -1084,7 +1030,7 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 1.18, dyPx: CELL_PX * 0.18 },
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dyPx: CELL_PX * 0.18 },
     // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
     // shrine level (row-major across the 4×2 grid) so the fountain visibly
     // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.

@@ -502,7 +502,7 @@ const ENERGY_COST = {
   rockPlace: 1,
   catch: 5,
   unTill: 0,
-  pickup: 0,             // wildplants / flora — free
+  pickup: 0,             // wildplants — free
 };
 
 // Catching an animal requires holding its favourite food in the selected

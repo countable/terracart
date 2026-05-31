@@ -396,26 +396,6 @@
   // that shares the same polygon key. (Was `0xdeadbeef`.)
   const NUT_RNG_SALT = 0xdeadbeef;
 
-  // Per-biome decorative items (purely visual, non-interactable). Stored as
-  // { kind: 'flora', x, y, deco: '<kind>', variant: 0..N } and rendered by app.js
-  // using procedurally-generated 16x16 textures.
-  // dMin/dMax is the per-polygon density range — each polygon rolls its own
-  // density inside this range (so some grass fields are barren, others bloom).
-  // Every grass/park polygon shows SOME flowers (dMin > 0) so a grass tile
-  // never reads as flowerless. dMax stays modest — fields shouldn't be
-  // wall-to-wall blossoms. Polygon picks one density + one color variant.
-  const FLORA_BY_TYPE = {
-    [T.GRASS]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PARK]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.GOLF]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PITCH]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PLAYGROUND]: { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.WETLAND]:    { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    // Mushroom decals belong to shady residential yards, not open grass fields.
-    [T.RESIDENTIAL]: { deco: 'mushroom', dMin: 0.01, dMax: 0.035 },
-  };
-  const FLORA_VARIANTS = { flower: 4, mushroom: 2 };
-
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
@@ -428,44 +408,6 @@
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
     const rng = makeRng(tx * HASH_MUL_X ^ ty * HASH_MUL_Y);
-
-    // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
-    // very low density. Snapped to the local cell grid like debris, but stored
-    // separately so it never gets picked up.
-    function spawnFlora(rings, deco, polyKey, dMin, dMax) {
-      const prng = makeRng(polyKey ^ 0xc0ffee);
-      const variants = FLORA_VARIANTS[deco] || 1;
-      // Per-polygon density inside the [dMin, dMax] range — some fields are
-      // barren, some are dense. Density of 0 means we skip this polygon entirely.
-      const density = dMin + prng() * (dMax - dMin);
-      if (density <= 0.0001) return;
-      // Flowers pick ONE color per polygon (so a whole field reads as e.g. all
-      // yellow or all red). Pebbles/mushrooms vary per-item for organic look.
-      const polyVariant = Math.floor(prng() * variants);
-      const bb = bboxOf(rings);
-      const stepMvt = 5 / mvtToM;
-      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
-          const localIX = Math.floor(xx * mvtToCell);
-          const localIY = Math.floor(yy * mvtToCell);
-          if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
-          if (prng() < density) {
-            const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
-            const variant = (deco === 'flower') ? polyVariant : Math.floor(prng() * variants);
-            // Stable id keyed on tile + local cell so save.picked persists across reloads.
-            objects.push({
-              kind: 'flora',
-              x: cx, y: cy,
-              deco,
-              variant,
-              id: `fl_${tx}_${ty}_${localIX}_${localIY}`,
-              _ix: localIX, _iy: localIY,  // for post-pass biome filter
-            });
-          }
-        }
-      }
-    }
 
     // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
     // density seed = polygon centroid → stable across reloads.
@@ -510,8 +452,7 @@
       my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
     });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
-    // the terrain `grid[]`, wildplants (spawnDebris) and flora (spawnFlora)
-    // already use. Every placed object must share this one grid: structs
+    // the terrain `grid[]` and wildplants (spawnDebris) already use. Every placed object must share this one grid: structs
     // (trees / rocks / fruit trees / houses) used to snap to a GLOBAL 5 m grid
     // anchored at the world origin, which is offset from this tile-local grid
     // by a sub-cell fraction. That misalignment meant a tree and a wildplant
@@ -630,10 +571,6 @@
               const density = ((seed % 1000) / 1000) * LONGGRASS_MAX_DENSITY;
               if (density > 0) spawnDebris(f.geom, 'longgrass', seed, density, density);
             }
-
-            // Per-polygon FLORA (purely decorative drops: flowers / pebbles / mushrooms).
-            const florax = FLORA_BY_TYPE[t];
-            if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.dMin, florax.dMax);
 
             // Scattered Trees on wood/forest landcover. Each polygon picks ONE
             // species (maple/pine/birch/mahogany) so a single forest reads as a
@@ -932,11 +869,6 @@
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
             objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
-            // (Garden flower burst is emitted AFTER the chest relocation
-            // pass below — see the `if (cls === 'garden')` block after the
-            // onBuilding / offsetForPlacement branches. Doing it here would
-            // (a) break the `lastChest = objects[objects.length-1]` lookup
-            // and (b) position floras around the un-relocated chest.)
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -1073,42 +1005,6 @@
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
                 lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
-              }
-            }
-            // Garden POIs get a flower burst — 6–8 flora decorations scattered
-            // in a 1–3 cell ring around the chest's FINAL position. Emitted
-            // here (after relocation) so positions reflect the actual chest
-            // cell, and after the `lastChest` lookups above so we don't break
-            // them by pushing non-chest objects on top of the stack.
-            //
-            // Each flora carries `_ix`/`_iy` because the unified occupancy
-            // post-pass (below) reads `grid[o._iy * w + o._ix]` to gate flora
-            // by terrain. Without those, every burst flora was being dropped
-            // (grid[NaN] = undefined, fails FLORA_OK).
-            if (cls === 'garden') {
-              const FLOWER_VARIANTS = 4;
-              // Use the chest's final cell as the burst centre. After the
-              // branches above, cellIX/cellIY point at the chest cell (either
-              // the building-perimeter cell or the road-offset placement).
-              const chestObj = objects[objects.length - 1];
-              const chestX = (chestObj && chestObj.kind === 'chest') ? chestObj.x : cx;
-              const chestY = (chestObj && chestObj.kind === 'chest') ? chestObj.y : cy;
-              const burstSeed = ((Math.round(chestX) * BURST_MUL_X) ^ (Math.round(chestY) * BURST_MUL_Y)) >>> 0;
-              const brng = makeRng(burstSeed);
-              const burstN = 6 + Math.floor(brng() * 3);   // 6..8
-              for (let i = 0; i < burstN; i++) {
-                const ang = brng() * Math.PI * 2;
-                const r   = (1 + brng() * 2) * cellWidthM;   // 1–3 cells out
-                const fx  = snap(chestX + Math.cos(ang) * r);
-                const fy  = snap(chestY + Math.sin(ang) * r);
-                // Compute the local-tile cell index for the post-pass filter.
-                const fIx = Math.floor((fx - tileOriginMx) / mvtToM * mvtToCell);
-                const fIy = Math.floor((fy - tileOriginMy) / mvtToM * mvtToCell);
-                if (fIx < 0 || fIy < 0 || fIx >= w || fIy >= h) continue;
-                objects.push({ kind: 'flora', deco: 'flower', x: fx, y: fy,
-                  variant: Math.floor(brng() * FLOWER_VARIANTS),
-                  _ix: fIx, _iy: fIy,
-                  id: `gb_${Math.round(fx)}_${Math.round(fy)}` });
               }
             }
             // No synthesized pad when the POI dissolved a building (the building IS the pad).
@@ -1349,8 +1245,8 @@
       }
     }
 
-    // Unified occupancy pass — at most one interactable / decorative object
-    // per cell. Strict priority: chest > house > tree > wildplant > flora.
+    // Unified occupancy pass — at most one object per cell.
+    // Strict priority: chest > house > tree > wildplant.
     // The first one to claim a cell wins; everything else in that cell is
     // dropped so we never have shrubs hiding under chests or pads.
     const occupiedCells = new Set();
@@ -1361,8 +1257,7 @@
     };
 
     // 1) High-priority objects first (chest > house > fruittree > tree > mineralrock).
-    //    These never get displaced — they claim their cells and everything else
-    //    (wildplants, flora) must avoid those cells.
+    //    These never get displaced — they claim their cells and wildplants must avoid those cells.
     //    Priority numbers are descending so the sort places higher-priority kinds
     //    first. Within one priority (e.g. house/tower, or two trees) the winner
     //    of a contested cell must be fixed by data, not array order — JS sort
@@ -1400,32 +1295,11 @@
       }
     }
 
-    // 3) Flora — lowest priority. Must sit on grass/park/forest/sand/rock/
-    //    farmland AND on a cell that isn't already claimed.
-    const florae = objects.filter(o => o.kind === 'flora');
-    const keptFlora = [];
-    const FLORA_OK = new Set([T.SAND, T.FARMLAND, T.ROCK, ...FOREST_PARK_GRASS]); // 2, 4, 10 + FOREST_PARK_GRASS
-    // Per-deco terrain gate. Mushroom decals are residential-only (they must
-    // never bleed onto the grassy FLORA_OK set); flowers use the default set.
-    const FLORA_ALLOWED = { mushroom: new Set([T.RESIDENTIAL]) };
-    for (const o of florae) {
-      const ct = grid[o._iy * w + o._ix];
-      const cellKey = `${o._ix}_${o._iy}`;
-      if (!(FLORA_ALLOWED[o.deco] || FLORA_OK).has(ct)) continue;
-      if (occupiedCells.has(cellKey)) continue;
-      occupiedCells.add(cellKey);
-      delete o._ix; delete o._iy;
-      keptFlora.push(o);
-    }
-
-    // Rebuild objects = kept structures + kept flora (preserve everything else
-    // like plaques if they sneak in via future code — anything not in our
-    // priority maps just passes through, but currently nothing else exists).
-    const otherKinds = objects.filter(o =>
-      STRUCT_PRIO[o.kind] == null && o.kind !== 'flora');
+    // Rebuild objects = kept structures (preserve everything else
+    // like plaques if they sneak in via future code).
+    const otherKinds = objects.filter(o => STRUCT_PRIO[o.kind] == null);
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
-    for (const o of keptFlora)   objects.push(o);
     for (const o of otherKinds)  objects.push(o);
     // Road-name letters: walk each transportation_name line at ~1 cell per step
     // and stamp ONE letter per road cell, cycling through "FIRSTWORD " (the
@@ -1791,9 +1665,7 @@
         }
         // POI chests (bus stops, signals, crossings, gates, towers, pitches,
         // gardens, bicycle racks, …). poiClass drives loot / tier / label /
-        // coin-burst via loot.js + the render/interact chest paths. Garden
-        // chests additionally scatter a small decorative flower burst.
-        const FLOWER_VARIANTS = 4;
+        // coin-burst via loot.js + the render/interact chest paths.
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           const k = cellKeyOf(ch.x, ch.y);
@@ -1801,26 +1673,8 @@
           occupied.add(k);
           const c = localCentre(ch.x, ch.y);
           ch.x = c.x; ch.y = c.y;
-          const isGarden = ch.garden;
           delete ch.garden;   // internal flag — don't leak into the chest object
           entry.objects.push(ch);
-          if (isGarden) {
-            // 6–8 flowers in a 1–3 cell ring around the chest. Decorative flora
-            // (same kind the MVT garden burst emits) — pickable as 'flowers'.
-            const burstSeed = ((Math.round(ch.x) * BURST_MUL_X) ^ (Math.round(ch.y) * BURST_MUL_Y)) >>> 0;
-            const brng = makeRng(burstSeed);
-            const burstN = 6 + Math.floor(brng() * 3);
-            for (let i = 0; i < burstN; i++) {
-              const ang = brng() * Math.PI * 2;
-              const rad = (1 + brng() * 2) * mPerCell;
-              const c2 = localCentre(ch.x + Math.cos(ang) * rad, ch.y + Math.sin(ang) * rad);
-              entry.objects.push({ kind: 'flora', deco: 'flower',
-                x: c2.x, y: c2.y, variant: Math.floor(brng() * FLOWER_VARIANTS),
-                // index `i` keeps the id unique when two burst flowers snap to
-                // the same cell (else picking one silently consumes both).
-                id: `gb_${Math.round(c2.x)}_${Math.round(c2.y)}_${i}` });
-            }
-          }
         }
         // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
         // spot" mark, claimed via the treasure handler (same array the MVT

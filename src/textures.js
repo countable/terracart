@@ -1,11 +1,10 @@
-// Procedural textures + flora decals + per-POI concrete-pad shapes.
+// Procedural textures + per-POI concrete-pad shapes.
 // Extracted from app.js for maintainability. Loaded BEFORE app.js so all
-// names (BIOME_TEX, draw* fns, makeBiomeTextures, makeFloraTextures, …) are
-// available as plain globals.
+// names (BIOME_TEX, draw* fns, makeBiomeTextures, …) are available as plain globals.
 //
 // Depends on:
 //   nothing external. Pure draws-to-canvas — no Phaser scene work other than
-//   makeBiomeTextures/makeFloraTextures which take the scene as a parameter.
+//   makeBiomeTextures which takes the scene as a parameter.
 //
 // Does NOT include makePlaqueTextures: it depends on per-crop globals
 // (CROP_ROW, PRODUCE_COL) that still live in app.js.
@@ -315,76 +314,6 @@ function drawRockTex(ctx, size, rng) {
 // (drawLongGrassTex removed — longgrass now uses frame 0 of the 'props'
 // sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
 // blade colours / shading next to the hand-painted wilderness art.)
-
-// === Procedural decorative flora ===
-// Tiny non-interactable sprites drawn on transparent 16×16 canvases.
-function drawFlora(ctx, kind, variant) {
-  ctx.clearRect(0, 0, 16, 16);
-  if (kind === 'flower') {
-    // Color per polygon (not per cell). Saturated primaries so a field of flowers
-    // reads as a single distinct color.
-    const palettes = [
-      { petal: '#ffe14a', center: '#c25400' },   // yellow
-      { petal: '#e23a3a', center: '#ffe46b' },   // red
-      { petal: '#4a82ff', center: '#ffe46b' },   // blue
-      { petal: '#b15cff', center: '#ffe46b' },   // purple
-    ];
-    const p = palettes[variant % palettes.length];
-    ctx.fillStyle = '#2e5a2e';
-    ctx.fillRect(8, 9, 1, 5);
-    ctx.fillStyle = p.petal;
-    ctx.fillRect(7, 5, 3, 2);
-    ctx.fillRect(7, 8, 3, 2);
-    ctx.fillRect(5, 6, 2, 3);
-    ctx.fillRect(10, 6, 2, 3);
-    ctx.fillStyle = p.center;
-    ctx.fillRect(8, 7, 1, 1);
-  } else if (kind === 'pebble') {
-    const sets = [
-      [[7,9,2,2],[10,11,2,1]],
-      [[6,10,3,2],[10,10,1,2],[11,11,1,1]],
-      [[8,11,2,1],[6,12,2,1]],
-    ];
-    const set = sets[variant % sets.length];
-    for (const [x, y, w, h] of set) {
-      ctx.fillStyle = '#000a';
-      ctx.fillRect(x, y + 1, w, 1);
-      ctx.fillStyle = '#7d736b';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#bcb5a7';
-      ctx.fillRect(x, y, w, 1);
-    }
-  } else if (kind === 'mushroom') {
-    const big = variant === 0;
-    const cx = 8, cy = big ? 9 : 10;
-    ctx.fillStyle = '#f5e8c6';
-    ctx.fillRect(cx, cy, big ? 2 : 1, big ? 3 : 2);
-    ctx.fillStyle = '#b8242c';
-    if (big) {
-      ctx.fillRect(cx - 2, cy - 2, 5, 2);
-      ctx.fillRect(cx - 1, cy - 3, 3, 1);
-    } else {
-      ctx.fillRect(cx - 1, cy - 1, 3, 1);
-      ctx.fillRect(cx, cy - 2, 1, 1);
-    }
-    ctx.fillStyle = '#fff';
-    if (big) { ctx.fillRect(cx - 1, cy - 2, 1, 1); ctx.fillRect(cx + 1, cy - 1, 1, 1); }
-    else { ctx.fillRect(cx, cy - 1, 1, 1); }
-  }
-}
-
-function makeFloraTextures(scene) {
-  const SPECS = { flower: 4, mushroom: 2 };
-  for (const [kind, n] of Object.entries(SPECS)) {
-    for (let v = 0; v < n; v++) {
-      const key = `flora_${kind}_${v}`;
-      if (scene.textures.exists(key)) continue;
-      const tex = scene.textures.createCanvas(key, 16, 16);
-      drawFlora(tex.getContext(), kind, v);
-      tex.refresh();
-    }
-  }
-}
 
 // Simple procedural castle turret — narrow stone column with crenellated top.
 // One 24×40 canvas, anchor at bottom-centre so it sits on its cell.

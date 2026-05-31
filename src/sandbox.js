@@ -14,8 +14,7 @@
 //   The old sandbox was a 5×5 grid of FLAT colour swatches — one solid biome
 //   per plot. But worldgen never produces a pure "residential square"; a real
 //   residential polygon is a SCENE: a road threads through it, houses (shop
-//   type set by address digit) line the road, yards carry flora, mineral rocks
-//   sit at the curb. So this version is built from SCENES — small realistic
+//   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
 //   composites — arranged in horizontal BANDS, separated by named connective
 //   ROADS. The roads are not filler: they're how the road / road_lg / road_md
 //   biomes (and their street-letter overlays) get covered.
@@ -145,7 +144,6 @@
       s.creature('chicken', 2, 2, 1); s.creature('chicken', 4, 2, 2);
       s.creature('cow', 3, 3, 1);
       s.creature('cat', 2, 4, 1); s.creature('dog', 4, 4, 2);
-      s.flora(0, 0, 0); s.flora(1, 6, 0);
       s.wildplant('longgrass', 3, 0); s.wildplant('longgrass', 3, 6);
       s.wood(0, 3, 2); s.wood(6, 3, 3);
       s.creature('slime', 0, 6, 1);
@@ -155,11 +153,10 @@
   // ── PADDOCK — a "petting paddock" of RELEASED (tame) pets, one of each
   //    tameable kind, seeded in seedSandboxState(). Lets a tester verify the
   //    purr/cluck pet path, cat-follow timer, and +50% double-produce boost
-  //    without first taming anything. Populate only drops a decorative flower;
-  //    the pets are runtime state (save.released).
+  //    without first taming anything. The pets are runtime state (save.released).
   const PADDOCK = {
     name: 'PADDOCK', label: 'PETTING PADDOCK', w: 5, h: 7, fill: T.GRASS,
-    populate(s) { s.flora(2, 0, 3); },
+    populate(s) {},
   };
 
   // ── BEACH — SAND + WATER + a plank PIER you stride out on + a WELL on the
@@ -179,13 +176,12 @@
     },
   };
 
-  // ── MARSH — WETLAND (top) + GOLF (bottom), both grassland-family. Flowers
-  //    everywhere; longgrass only on the golf half (wetland doesn't grow it).
+  // ── MARSH — WETLAND (top) + GOLF (bottom), both grassland-family.
+  //    Longgrass only on the golf half (wetland doesn't grow it).
   const MARSH = {
     name: 'MARSH', label: 'WETLAND · GOLF', w: 6, h: 7, fill: T.WETLAND,
     paint(p) { p.rect(0, 4, 6, 3, T.GOLF); },
     populate(s) {
-      s.flora(0, 0, 1); s.flora(1, 5, 1); s.flora(2, 3, 5);
       s.wildplant('longgrass', 2, 4); s.wildplant('longgrass', 4, 5);
     },
   };
@@ -247,8 +243,7 @@
       s.house(7, 0, 6);   // market     — top
       s.house(1, 7, 8);   // trader     — bottom-left
       s.house(7, 7, 3);   // plain/delivery (produce plaque) — bottom
-      s.flora(0, 3, 1, 'mushroom'); s.flora(1, 10, 1, 'mushroom');   // yard decals
-      s.wildplant('mushroom', 3, 6); s.wildplant('mushroom', 10, 6); // pickable
+      s.wildplant('mushroom', 3, 6); s.wildplant('mushroom', 10, 6);
       s.mineralRock(1, 5, 2);                                         // curbside rock
       s.creature('cat', 4, 1, 1); s.creature('dog', 9, 6, 1); s.creature('cat', 11, 2, 2);
     },
@@ -291,9 +286,8 @@
   };
 
   // ── RECREATION — PARK + PLAYGROUND + PITCH. Park chest (square3), playground
-  //    chest (line3v), pitch chest (square2). Shrubs, flowers, longgrass, a
-  //    cat & dog, a CROW pest (scarecrow seeded nearby), and a second wild
-  //    butterfly.
+  //    chest (line3v), pitch chest (square2). Shrubs, longgrass, a cat & dog,
+  //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
   const RECREATION = {
     name: 'RECREATION', label: 'PARK · PLAYGROUND · PITCH', w: 15, h: 8, fill: T.PARK,
     paint(p) {
@@ -302,7 +296,6 @@
     },
     populate(s) {
       s.wildplant('shrub', 0, 0); s.wildplant('shrub', 8, 0);
-      s.flora(0, 2, 1); s.flora(1, 5, 3); s.flora(2, 3, 6);
       s.wildplant('longgrass', 0, 4);
       s.creature('cat', 1, 7, 1); s.creature('dog', 8, 7, 2);
       s.creature('crow', 4, 0, 1);            // pest; scarecrow seeded at (4,1)
@@ -444,11 +437,6 @@
         const { x, y } = at(dx, dy);
         wildplants.push({ x, y, crop, _ix: ix0 + dx, _iy: iy0 + dy,
           id: `${baseId}_wp_${tag}_${crop}_${dx}_${dy}` });
-      },
-      flora(variant, dx, dy, deco = 'flower') {
-        const { x, y } = at(dx, dy);
-        objects.push({ kind: 'flora', x, y, deco, variant,
-          id: `${baseId}_fl_${tag}_${deco}_${variant}_${dx}_${dy}` });
       },
       tree(variant, dx, dy, species) {
         const { x, y } = at(dx, dy);

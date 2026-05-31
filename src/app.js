@@ -549,7 +549,7 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
-    // Wilderness drops + flora that share their world sprite. Source sheet
+    // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame(
