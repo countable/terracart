@@ -334,6 +334,11 @@ class MapScene extends Phaser.Scene {
     // is bumped in presentDeliveryOffer's accept path.
     if (this.save.reachUpgrades === undefined)    this.save.reachUpgrades = 0;
     if (this.save.deliveryCount === undefined)    this.save.deliveryCount = 0;
+    // Discovery — lifetime count of rare "golden" flora / trees / animals
+    // found. Earned alongside the 10× money bonus when a golden variant is
+    // harvested or caught (see awardGoldenBonus). Surfaced in the Stats modal;
+    // reserved as the eventual unlock currency for the Magic Shrine.
+    if (this.save.discovery === undefined)        this.save.discovery = 0;
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
     // an `id` field, so chopping one pushed `undefined` into save.chopped.
     // A `choppedSet.has(undefined)` lookup then matched every other tree
@@ -1139,7 +1144,13 @@ class MapScene extends Phaser.Scene {
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (this.save.caught.includes(id)) return;
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id });
+          // ~5% of wild animals spawn as the rare golden variant — stamped at
+          // spawn off the stable id so it survives reloads and rides along
+          // through tame/release/re-catch. Slimes are energy pests with no
+          // catch/hunt payoff, so they never go golden (a golden slime would
+          // promise a reward it can't pay).
+          const golden = kindStr !== 'slime' && isGolden(id, GOLDEN_RATE.animal);
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, golden });
           return;
         }
       }
@@ -1200,7 +1211,7 @@ class MapScene extends Phaser.Scene {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
         if (this.save.caught.includes(r.id)) continue;
-        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id });
+        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, golden: !!r.golden });
       }
     }
     entry.creatures = creatures;
@@ -2702,13 +2713,19 @@ class MapScene extends Phaser.Scene {
     // One creature → one inventory entry. Egg / milk yield happens via the
     // produce branch (tap with plant produce selected), not the catch branch.
     const yieldN = 1;
+    // A golden animal stays golden in its own per-kind stack (golden_chicken,
+    // golden_cow, …) — never folded into the plain stack or other goldens. It
+    // also pays the headline 10× money + discovery bonus with fanfare.
+    const isGoldenCatch = !!c.golden && !!ITEM_BY_ID[`golden_${c.kind}`];
+    const invId = isGoldenCatch ? `golden_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
-    this.addToInv(c.kind, yieldN, true);
+    this.addToInv(invId, yieldN, true);
     persistSave(this.save);
-    const item = ITEM_BY_ID[c.kind];
+    const item = ITEM_BY_ID[invId];
     // flashLoot draws the item's sprite (from the itemId arg) beside the text,
     // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+${yieldN} ${item?.name || c.kind}`, '#a7ffb0', 1, c.kind);
+    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isGoldenCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
+    if (isGoldenCatch) this.awardGoldenBonus(c.kind, sx, sy);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -2921,6 +2938,66 @@ class MapScene extends Phaser.Scene {
           x: sx + Math.cos(angle) * 70,
           y: sy + Math.sin(angle) * 70,
           alpha: 0, duration: 900, ease: 'Sine.Out',
+          onComplete: () => star.destroy(),
+        });
+      }
+    } catch (_) {}
+  }
+
+  // A rare GOLDEN find (yellow-tinted flora / tree / animal). Pays 10× the
+  // harvested/caught item's value in cash, banks a Discovery point, and fires
+  // the golden fanfare. `baseId` is the plain item id used to read the value
+  // (e.g. 'wood', 'apple', 'cow'). Returns the cash awarded.
+  awardGoldenBonus(baseId, sx, sy) {
+    const value = (typeof itemValue === 'function')
+      ? itemValue(baseId)
+      : (PRICES[baseId] ?? 1);
+    const money = Math.max(10, Math.round(value * 10));
+    addMoney(this.save, money);
+    this.save.discovery = (this.save.discovery || 0) + 1;
+    persistSave(this.save);
+    this.flashGolden(money);
+    return money;
+  }
+
+  // Golden-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
+  // banner + a money line + a Discovery line, with a starburst. Call AFTER the
+  // loot/catch flash so it stacks above (depth 110).
+  flashGolden(money) {
+    if (!this.add) return;
+    const x = this.viewCenterX, y = this.viewCenterY - 150;
+    try {
+      const banner = this.add.text(x, y, '✨ GOLDEN FIND ✨', {
+        font: 'bold 26px monospace', color: '#fff3b0',
+        backgroundColor: '#7a5200', stroke: '#000', strokeThickness: 4,
+        padding: { left: 14, right: 14, top: 6, bottom: 6 },
+      }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
+      this.tweens.add({ targets: banner, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.Out' });
+      this.tweens.add({ targets: banner, scale: 1.0, duration: 220, delay: 220, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: banner, y: y - 60, alpha: 0,
+        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
+      const sub = this.add.text(x, y + 8, `+$${money}   🔆 +1 Discovery`, {
+        font: 'bold 16px monospace', color: '#ffd23a',
+        backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
+        padding: { left: 8, right: 8, top: 3, bottom: 3 },
+      }).setOrigin(0.5, 0).setDepth(110).setAlpha(0);
+      this.tweens.add({ targets: sub, alpha: 1, duration: 240, delay: 160 });
+      this.tweens.add({ targets: sub, y: y - 52, alpha: 0,
+        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => sub.destroy() });
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const sx0 = x + Math.cos(angle) * 12;
+        const sy0 = y - 18 + Math.sin(angle) * 12;
+        const star = this.add.text(sx0, sy0, '✦', {
+          font: 'bold 18px monospace', color: '#ffe066',
+          stroke: '#000', strokeThickness: 2,
+        }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
+        this.tweens.add({
+          targets: star,
+          x: sx0 + Math.cos(angle) * 80,
+          y: sy0 + Math.sin(angle) * 80,
+          alpha: 0, duration: 950, ease: 'Sine.Out',
           onComplete: () => star.destroy(),
         });
       }
@@ -3309,7 +3386,8 @@ class MapScene extends Phaser.Scene {
     };
     box.innerHTML =
       `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
-      `<div style="text-align:center;margin-bottom:10px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
+      `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
+      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${this.save.discovery ?? 0}</b></div>` +
       `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
       Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
       `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
@@ -5157,8 +5235,13 @@ class MapScene extends Phaser.Scene {
   // HTML string (style='inline') — the caller picks based on context.
   renderItemIcon(itemId, sizePx, style = 'inline') {
     const item = ITEM_BY_ID[itemId];
-    const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId];
-    const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(itemId) : null;
+    // Golden variants (golden_chicken, …) have no sprite of their own — they
+    // reuse the base animal's icon, recoloured with the warm filter applied
+    // below. Fall back to `item.base` only when there's no dedicated bake.
+    const hasOwnBake = !!(window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId]);
+    const iconId = (item && item.base && !hasOwnBake) ? item.base : itemId;
+    const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[iconId];
+    const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(iconId) : null;
     const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
     let css = null;
@@ -5226,6 +5309,11 @@ class MapScene extends Phaser.Scene {
       css = base + `background-image:url('${sheet.url}');`
         + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
+    }
+    // Golden variants tint the base sprite warm-gold with a sheen.
+    if (css && item && item.golden) {
+      css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
+        + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
     if (style === 'block') {
       const el = document.createElement('span');

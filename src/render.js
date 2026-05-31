@@ -1125,6 +1125,11 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.kind === 'house' && _houseRole(o) === 'plain') {
       tint = Shops.shopTint(o) || 0xffffff;
     }
+    // Rare golden flora — trees + fruit trees get the warm yellow sheen so the
+    // player can spot a golden harvest from across the tile.
+    if ((o.kind === 'tree' || o.kind === 'fruittree') && isGolden(o.id, GOLDEN_RATE.tree)) {
+      tint = GOLDEN_TINT;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
     const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
@@ -1612,6 +1617,10 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    // Rare golden wild flora gets the warm sheen; everything else (farmed crops,
+    // placed rocks) renders untinted. Pooled sprites keep their last tint, so
+    // set it explicitly every frame.
+    s.setTint((p.wildId && isGolden(p.wildId, GOLDEN_RATE.flora)) ? GOLDEN_TINT : 0xffffff);
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -1807,5 +1816,8 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
+    // Rare golden animals wear the warm sheen. Pooled sprites keep their last
+    // tint, so set white explicitly for the common (non-golden) case.
+    s.setTint(c.golden ? GOLDEN_TINT : 0xffffff);
   });
 };

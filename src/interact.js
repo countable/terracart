@@ -364,7 +364,7 @@ const TAP_HANDLERS = [
         const ty2 = Math.floor(target.y / scene.tileEdgeM);
         const tameId = releasedId(target.kind);
         save.released = save.released || [];
-        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx: tx2, ty: ty2 });
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx: tx2, ty: ty2, golden: !!target.golden });
         target.id = tameId;   // convert the in-world creature in place → now tame
         scene.flashLoot(`🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1.2, 'mango');
         persistSave(save);
@@ -427,6 +427,12 @@ const TAP_HANDLERS = [
           scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
         }
         persistSave(save);
+        // Rare golden deer / crow — hunted fauna drop their product (meat /
+        // feather), so there's no live golden animal to keep, but the golden
+        // find still pays the 10× money + discovery bonus with fanfare.
+        if (victim.golden && dropId) {
+          scene.awardGoldenBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
+        }
       }, durMs, 0, weaponSlot);
       return true;
     }
@@ -526,7 +532,7 @@ const TAP_HANDLERS = [
         const ty = Math.floor(target.y / scene.tileEdgeM);
         const tameId = releasedId(target.kind);
         save.released = save.released || [];
-        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty });
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, golden: !!target.golden });
         target.id = tameId;   // convert the in-world object in place → now tame
         scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
         persistSave(save);
@@ -664,6 +670,9 @@ const TAP_HANDLERS = [
         persistSave(save);
         if (bonus) scene.flashLoot(`${outId}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(`+1 ${outId}`, undefined, 1, outId);
+        // Rare golden flora — 10× money + a discovery point, on top of the
+        // normal pickup, with fanfare.
+        if (isGolden(wp.id, GOLDEN_RATE.flora)) scene.awardGoldenBonus(outId, sx, sy);
       };
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
@@ -931,6 +940,8 @@ const TAP_HANDLERS = [
           scene.addToInv('wood', randInt(2, 3));
           persistSave(save);
           scene.flash('🌲 Felled.', sx, sy);
+          // Rare golden tree — 10× wood value in cash + a discovery point.
+          if (isGolden(o.id, GOLDEN_RATE.tree)) scene.awardGoldenBonus('wood', sx, sy);
         });
       }
       if (o.kind === 'house' || o.kind === 'tower') {
@@ -961,6 +972,8 @@ const TAP_HANDLERS = [
         ctx.dirty = true;
         const item = ITEM_BY_ID[o.species];
         scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
+        // Rare golden fruit tree — 10× fruit value in cash + a discovery point.
+        if (isGolden(o.id, GOLDEN_RATE.tree)) scene.awardGoldenBonus(o.species, sx, sy);
         return true;
       }
       if (o.kind === 'mineralrock') {
@@ -1133,12 +1146,17 @@ const TAP_HANDLERS = [
       scene.flash("can't release here", sx, sy);
       return true;
     }
+    // Golden animals release as their plain kind (so the world creature
+    // renders + behaves normally) but carry a golden flag so they tint gold and
+    // re-catch back into the golden stack.
+    const baseKind = item.base || item.id;
+    const isGoldenItem = !!item.golden;
     // Chickens are flock animals — one "release" drops a clutch of 4 hens, so
     // you need at least 4 in the stack to place any. Cows (and any future
     // non-flock animal) still release one at a time.
-    const flockSize = item.id === 'chicken' ? 4 : 1;
+    const flockSize = baseKind === 'chicken' ? 4 : 1;
     if ((sel.count ?? 0) < flockSize) {
-      scene.flash(`Need ${flockSize} ${item.id}s for a flock.`, sx, sy);
+      scene.flash(`Need ${flockSize} ${item.name || item.id}s for a flock.`, sx, sy);
       return true;
     }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
@@ -1153,9 +1171,9 @@ const TAP_HANDLERS = [
       const angle = (i / flockSize) * Math.PI * 2;
       const ox = flockSize === 1 ? 0 : Math.cos(angle) * SPREAD;
       const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
-      const id = releasedId(item.id, i);
-      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id, tx, ty });
-      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id });
+      const id = releasedId(baseKind, i);
+      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, tx, ty, golden: isGoldenItem });
+      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, golden: isGoldenItem });
     }
     consumeSelected(save, flockSize);
     ctx.dirty = true;
