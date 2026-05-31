@@ -66,16 +66,26 @@ if (BASELINE) {
   }
 }
 
+// Dot SIZE encodes crown size in 3 tiers (not to scale); dot COLOR encodes
+// confidence. Tier cut-points are on crown_m (diameter, metres).
+function crownTier(c) {
+  if (c < 2.0) return { px: 4, name: "small (<2 m)" };
+  if (c < 3.5) return { px: 6.5, name: "medium (2–3.5 m)" };
+  return { px: 9, name: "large (≥3.5 m)" };
+}
 let markers = [];
 for (const f of FEATURES.features) {
   const [lon, lat] = f.geometry.coordinates;
-  const s = (f.properties || {}).score ?? 1;
+  const p = f.properties || {};
+  const s = p.score ?? 1;
+  const crown = p.crown_m ?? 2.5;
+  const t = crownTier(crown);
   const m = L.circleMarker([lat, lon], {
-    radius: 5, color: "#000", weight: 1,
+    radius: t.px, color: "#000", weight: 1,
     fillColor: scoreColor(s), fillOpacity: 0.85,
   });
   m.bindPopup(`<b>tree</b> <span class="muted">${(s*100).toFixed(0)}%</span><br>`
-              + `<small class="muted">${(f.properties||{}).crown_m ?? "?"} m crown</small>`);
+              + `<small class="muted">${crown} m crown · ${t.name}</small>`);
   m._score = s;
   markers.push(m);
 }
@@ -98,14 +108,29 @@ ctrl.onAdd = () => {
     `<div class="count" id="cnt"></div><div class="muted" id="sub"></div>` +
     `<div style="margin-top:8px">min score: <b id="thr">0.00</b></div>` +
     `<input type="range" id="sl" min="0" max="100" value="0">` +
-    `<div style="margin-top:6px" class="muted">` +
+    `<div style="margin-top:6px" class="muted">color = confidence<br>` +
     `<span class="swatch" style="background:${scoreColor(0.1)}"></span>low ` +
     `<span class="swatch" style="background:${scoreColor(0.4)}"></span>mid ` +
-    `<span class="swatch" style="background:${scoreColor(0.7)}"></span>high</div>`;
+    `<span class="swatch" style="background:${scoreColor(0.7)}"></span>high</div>` +
+    `<div style="margin-top:4px" class="muted">size = crown<br>` +
+    `<span class="swatch" style="width:8px;height:8px;background:#777"></span>small ` +
+    `<span class="swatch" style="width:13px;height:13px;background:#777"></span>med ` +
+    `<span class="swatch" style="width:18px;height:18px;background:#777"></span>large</div>`;
   L.DomEvent.disableClickPropagation(d);
   return d;
 };
 ctrl.addTo(map);
+
+// live zoom readout (bottom-left)
+const zlabel = L.control({ position: "bottomleft" });
+zlabel.onAdd = () => {
+  const d = L.DomUtil.create("div", "panel");
+  d.style.padding = "5px 9px";
+  const upd = () => { d.innerHTML = `zoom <b>${map.getZoom()}</b>`; };
+  map.on("zoomend", upd); upd();
+  return d;
+};
+zlabel.addTo(map);
 
 const total = markers.length;
 function applyThreshold(t) {
