@@ -2976,19 +2976,31 @@ class MapScene extends Phaser.Scene {
     return n;
   }
 
+  // Shared factory for all modal overlays. Returns { wrap, box, mount } where
+  // mount() appends box→wrap→#game in one call. Callers populate box then call mount().
+  makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = '#c8a64a',
+    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '' } = {}) {
+    document.getElementById(id)?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = id;
+    wrap.style.cssText =
+      `position:absolute;inset:0;z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
+      `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
+    const box = document.createElement('div');
+    box.style.cssText =
+      `min-width:${minWidth}px;max-width:${maxWidth}px;background:#1a1612;color:#fff;` +
+      `border:2px solid ${borderColor};border-radius:10px;padding:14px 16px;` +
+      `font:13px ui-monospace,monospace;` +
+      (textAlign ? `text-align:${textAlign};` : '') +
+      boxExtra;
+    const mount = () => { wrap.appendChild(box); (document.getElementById('game') || document.body).appendChild(wrap); };
+    return { wrap, box, mount };
+  }
+
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
   showMessageModal({ title, body, okLabel = 'OK' }) {
     document.getElementById('offer-modal')?.remove();
-    document.getElementById('message-modal')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'message-modal';
-    wrap.style.cssText =
-      'position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;' +
-      'background:#0008;pointer-events:auto;';
-    const box = document.createElement('div');
-    box.style.cssText =
-      'min-width:230px;max-width:320px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
-      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    const { wrap, box, mount } = this.makeModalShell('message-modal', { zIndex: 60 });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
@@ -2999,22 +3011,12 @@ class MapScene extends Phaser.Scene {
     btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     box.appendChild(btn);
-    wrap.appendChild(box);
-    (document.getElementById('game') || document.body).appendChild(wrap);
+    mount();
   }
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   showStatsModal() {
-    document.getElementById('stats-modal')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'stats-modal';
-    wrap.style.cssText =
-      'position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;' +
-      'background:#0008;pointer-events:auto;';
-    const box = document.createElement('div');
-    box.style.cssText =
-      'min-width:260px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
-      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;';
+    const { wrap, box, mount } = this.makeModalShell('stats-modal', { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null });
     const cur = this.save.energy ?? 0, max = this.getMaxEnergy();
     // Compact effect blurb per slot — for empty slots, the def.blurb tells
     // the player what the relic WOULD do (useful preview). For equipped, we
@@ -3076,8 +3078,7 @@ class MapScene extends Phaser.Scene {
     btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
     box.appendChild(btn);
-    wrap.appendChild(box);
-    (document.getElementById('game') || document.body).appendChild(wrap);
+    mount();
   }
 
   // Building-flavored title for an offer modal. Different building kinds
@@ -5188,16 +5189,7 @@ class MapScene extends Phaser.Scene {
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
   showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity }) {
-    document.getElementById('offer-modal')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'offer-modal';
-    wrap.style.cssText =
-      'position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;' +
-      'background:#0008;pointer-events:auto;';
-    const box = document.createElement('div');
-    box.style.cssText =
-      'min-width:230px;max-width:340px;background:#1a1612;color:#fff;border:2px solid #c8a64a;' +
-      'border-radius:10px;padding:14px 16px;font:13px ui-monospace,monospace;text-align:center;';
+    const { wrap, box, mount } = this.makeModalShell('offer-modal', { maxWidth: 340 });
     // Build the chrome out of individual nodes so the quantity stepper (when
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count
@@ -5318,8 +5310,7 @@ class MapScene extends Phaser.Scene {
     // First paint of stepper-driven state (also syncs accept-button disabled
     // colours with the format() canAfford if the caller computes it).
     if (stepperRefresh) stepperRefresh();
-    wrap.appendChild(box);
-    (document.getElementById('game') || document.body).appendChild(wrap);
+    mount();
   }
 
   // Big "ceremony" modal for chest opens — chest loot earns a stop-everything
@@ -5341,13 +5332,12 @@ class MapScene extends Phaser.Scene {
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
   showChestRewardModal({ iconHTML, name, sub, qty, color = '#ffe066', onDismiss, header = 'From the chest', actions }) {
-    document.getElementById('chest-reward-modal')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'chest-reward-modal';
-    wrap.style.cssText =
-      'position:absolute;inset:0;z-index:55;display:flex;align-items:center;' +
-      'justify-content:center;background:#000c;pointer-events:auto;' +
-      'animation:chestModalIn 180ms ease-out;';
+    const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
+      zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: color, wrapBg: '#000c',
+      wrapExtra: 'animation:chestModalIn 180ms ease-out;',
+      boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
+        `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
+    });
     // Keyframes injected once. The sparkle keyframe reads its drift vector
     // from per-element CSS custom properties (--dx/--dy) so a single shared
     // rule animates N sparkles each along its own randomised direction. The
@@ -5367,12 +5357,6 @@ class MapScene extends Phaser.Scene {
         '}';
       document.head.appendChild(s);
     }
-    const box = document.createElement('div');
-    box.style.cssText =
-      'min-width:220px;max-width:300px;background:#1a1612;color:#fff;' +
-      `border:3px solid ${color};border-radius:14px;padding:22px 22px 14px;` +
-      'font:14px ui-monospace,monospace;text-align:center;' +
-      'animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);';
     // `qty` (e.g. "× 5") renders as a bold, full-size, coloured line so the
     // amount the player just received reads at a glance. `sub` stays the
     // quiet descriptive line ("equipped", "already owned", flavour text).
@@ -5423,8 +5407,7 @@ class MapScene extends Phaser.Scene {
       // box would otherwise let the player click-through it.
       wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
     }
-    wrap.appendChild(box);
-    (document.getElementById('game') || document.body).appendChild(wrap);
+    mount();
     // Sparkle burst around the modal — drives the "fanfare" feel. Spawned
     // AFTER the wrap is in the DOM so getBoundingClientRect() gives us the
     // box's real on-screen footprint (it's flex-centred, so the rect depends
