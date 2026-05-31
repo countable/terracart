@@ -395,7 +395,15 @@ const TAP_HANDLERS = [
     // double chance, and — for cats — kicks off a 5-minute follow timer
     // the wander loop honours.
     const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
-    if (isTame) {
+    // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
+    // produce path below — that's where milk / eggs are granted and where the
+    // petting boost armed here is consumed. Without this exception the isTame
+    // block swallows every tap, so a tame cow/chicken only ever gets petted and
+    // never produces (the reported "cow gives no milk when fed" bug). Petting
+    // with an empty hand or a non-produce treat still runs the pet branch.
+    const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
+      && (target.kind === 'cow' || target.kind === 'chicken');
+    if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
       const sound = SOUND[target.kind] || 'happy';
@@ -434,9 +442,11 @@ const TAP_HANDLERS = [
     // world, becomes pettable / produces / follows, but does NOT enter your
     // inventory. Capturing-into-inventory is the separate CATCH work queue
     // below. animalLikesFood handles the chicken-eats-any-seed special case.
+    // Guarded on !isTame so an already-tame cow fed its favourite (pairy, which
+    // is also plant produce) doesn't re-tame — it falls through to milk instead.
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
-    if (sel && likes && (sel.count ?? 0) > 0) {
+    if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
       consumeSelected(save);
       scene.buildInventoryDOM();
       // Stop the wild one respawning, then re-add it as a tame pet at the same
