@@ -670,6 +670,40 @@ test('cat: longgrass yucks; milk tames it in place (no catch)', (scene) => {
   }
 });
 
+// REG — a TAME (released_) cow fed plant produce must yield MILK, not just get
+// petted. Regression for "cow not producing milk when fed": the isTame pet
+// branch used to swallow every tap so a tamed cow/chicken never reached the
+// produce path. A tame producer fed plant produce now falls through to milk/egg.
+test('REG: tame cow fed plant produce yields milk (not just a pet)', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.caught = scene.save.caught || [];
+  scene.save.released = scene.save.released || [];
+  scene.save.lastProduce = {};
+  scene.save.petBoost = {};
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const tameId = `released_cow_${Date.now()}`;
+  const cow = { x: pWX, y: pWY, kind: 'cow', id: tameId };
+  entry.creatures.push(cow);
+  const beforeReleased = scene.save.released.length;
+  try {
+    scene.save.inv = [{ id: 'longgrass', count: 2 }]; scene.save.selSlot = 0;
+    tapWorld(scene, pWX, pWY);
+    const milk = scene.save.inv.find(s => s && s.id === 'milk');
+    assert.truthy(milk && milk.count >= 1, 'milk produced from tame cow + plant produce');
+    const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
+    assert.eq(lg ? lg.count : 0, 1, 'one produce consumed');
+    assert.eq(scene.save.released.length, beforeReleased, 'cow stays tame, no re-tame');
+    assert.eq(cow.id, tameId, 'tame cow id unchanged');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
+  }
+});
+
 // #10 — Animal release is rejected on non-tillable terrain (water/road/building).
 test('REG #10: releasing on a road / water cell is refused', (scene) => {
   // Find a road cell with NO creature within ~6m (otherwise the catch branch

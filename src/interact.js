@@ -417,7 +417,15 @@ const TAP_HANDLERS = [
     // double chance, and — for cats — kicks off a 5-minute follow timer
     // the wander loop honours.
     const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
-    if (isTame) {
+    // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
+    // produce path below — that's where milk / eggs are granted and where the
+    // petting boost armed here is consumed. Without this exception the isTame
+    // block swallows every tap, so a tame cow/chicken only ever gets petted and
+    // never produces (the reported "cow gives no milk when fed" bug). Petting
+    // with an empty hand or a non-produce treat still runs the pet branch.
+    const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
+      && (target.kind === 'cow' || target.kind === 'chicken');
+    if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
       const sound = SOUND[target.kind] || 'happy';
@@ -463,9 +471,11 @@ const TAP_HANDLERS = [
     // world, becomes pettable / produces / follows, but does NOT enter your
     // inventory. Capturing-into-inventory is the separate CATCH work queue
     // below. animalLikesFood handles the chicken-eats-any-seed special case.
+    // Guarded on !isTame so an already-tame cow fed its favourite (pairy, which
+    // is also plant produce) doesn't re-tame — it falls through to milk instead.
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
-    if (sel && likes && (sel.count ?? 0) > 0) {
+    if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
       const favId = sel.id;
       const doTame = () => {
         consumeSelected(save);
@@ -702,12 +712,20 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      // Shrine + house/tower share the wider house-sized reach: their sprites
-      // are taller than the default 3.5m hit zone (fountain is ~9m tall in
-      // world units), so a tap on the visible top of the sprite would otherwise
-      // miss-and-fall-through to the till handler under it.
-      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well') ? REACH_HOUSE_M : REACH_OBJECT_M;
-      if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
+      // Shrine + house/tower/well share the wider house-sized reach: their
+      // sprites are taller than the default 3.5m hit zone (fountain is ~9m tall
+      // in world units), so a tap on the visible top of the sprite would
+      // otherwise miss-and-fall-through to the till handler under it.
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well');
+      const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
+      // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
+      // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
+      // north of the foot — rather than the foot itself. This lets a tap on the
+      // visible body of a SMALL/MEDIUM house (whose footprint is only 1-2 cells,
+      // all tucked under the roof) activate it, instead of missing the 6m foot
+      // circle and falling through to the till handler.
+      const oy = tallSprite ? o.y - HOUSE_HIT_RISE_M : o.y;
+      if (distM2(o.x, oy, wm.x, wm.y) >= r * r) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the

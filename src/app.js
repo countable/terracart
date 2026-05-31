@@ -65,6 +65,14 @@ const REACH_CREATURE_M  = 4;
 const REACH_WILDPLANT_M = 4;
 const REACH_OBJECT_M    = 3.5; // chest / tree
 const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
+// Bottom-anchored building sprites (house/tower) are drawn rising NORTH from
+// their foot at (o.x, o.y): the 'front' house frame is 95px × 0.6 scale ≈ 9m
+// tall, so its roof sits ~8m north of the foot — well outside a 6m circle
+// centred on the foot. Tap reach for these is measured from a point this far
+// north of the foot (the sprite's visual mid-height) so a tap anywhere on the
+// small/medium house body activates the shop, while the walkable front yard
+// SOUTH of the foot stays farmable instead of opening a shop on a stray tap.
+const HOUSE_HIT_RISE_M  = 4;
 // Outer "too far" gate. Matches the visual reach outline drawn by drawCells
 // (scene.REACH_CELL_M). Distance is measured from the player's CELL CENTRE
 // (not their feet) — same basis as the visual — so any cell shown inside the
@@ -73,6 +81,14 @@ const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
 const REACH_FAR_M       = 16;
 const REACH_TREASURE_M  = 7.5; // treasure mark
+
+// --- Economy tuning ---
+// Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
+// summed full price — a 50% premium over selling the items individually.
+const DELIVERY_BONUS_MULT = 1.5;
+// Shop/trader trades hand the player this many of the offered item per deal for
+// the same demand (cash or barter), so every trade is twice as favourable.
+const TRADE_OFFER_QTY     = 2;
 
 // Compare-only squared distance — avoids sqrt.
 function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
@@ -3533,20 +3549,20 @@ class MapScene extends Phaser.Scene {
     }
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
+      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${TRADE_OFFER_QTY}`,
       cost: offer.label,
       canAfford: offer.canAfford(),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, 1);
+        this.addToInv(id, TRADE_OFFER_QTY);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
-        this.flashLoot(`🪙 ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        this.flashLoot(`🪙 ${TRADE_OFFER_QTY}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
   }
@@ -3928,8 +3944,11 @@ class MapScene extends Phaser.Scene {
       this.flash(`wants the set: ${names}`, sx, sy);
       return;
     }
-    // Price of one complete set = sum of each wanted item's full price.
-    const setPrice = wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0);
+    // Price of one complete set = sum of each wanted item's full price, plus a
+    // delivery premium (DELIVERY_BONUS_MULT) so delivering the set beats selling
+    // the items individually. Drives both the modal display and the payout.
+    const setPrice = Math.max(1, Math.round(
+      wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
       cost: `${q}× [ ${setIcons} ]`,
@@ -4501,7 +4520,7 @@ class MapScene extends Phaser.Scene {
     const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
-      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×1`,
+      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${TRADE_OFFER_QTY}`,
       cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
       canAfford: heldCount() >= offer.askQty,
       onAccept: () => {
@@ -4518,13 +4537,13 @@ class MapScene extends Phaser.Scene {
             this.save.selSlot = Math.max(0, this.save.inv.length - 1);
           }
         }
-        this.addToInv(offer.giveId, 1);
+        this.addToInv(offer.giveId, TRADE_OFFER_QTY);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(
-          `🪙 ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
+          `🪙 ${TRADE_OFFER_QTY}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
         );
       },
