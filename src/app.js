@@ -2099,26 +2099,114 @@ class MapScene extends Phaser.Scene {
             if (dx * dx + dy * dy <= 64) pp.canBoost = true;
           }
         }
+        // HP healing: if 20 min since last damage, restore to max.
+        const HP_MAX = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
+        if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
+          c._hp = HP_MAX[c.kind] ?? 10;
+          c._lastDamagedT = null;
+        }
+
+        // Pet combat: tame cats hunt crows; tame dogs hunt deer + slimes.
+        // Scans for the nearest valid prey within 8 cells each wander step.
+        if (isTame && (c.kind === 'cat' || c.kind === 'dog')) {
+          const CHASE_R = 8 * this.cellM;
+          const CHASE_R2 = CHASE_R * CHASE_R;
+          const PREY = c.kind === 'cat' ? new Set(['crow']) : new Set(['deer', 'slime']);
+          let nearest = null, nearestD2 = CHASE_R2;
+          WorldGen.forEachItem('creatures', (cr) => {
+            if (!PREY.has(cr.kind)) return;
+            if (cr.id?.startsWith('released_')) return;
+            if (this.save.caught?.includes(cr.id)) return;
+            const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
+            if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
+          });
+          c._chaseTarget = nearest;
+        }
+
+        // Flee override: prey that was just hit runs away.
+        if (c._fleeUntilT && c._fleeUntilT > now) {
+          const fa = c._fleeAngle ?? 0;
+          for (let attempt = 0; attempt < 4; attempt++) {
+            const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
+            const ftx = c.x + Math.cos(fleeAngle) * stepM * 2;
+            const fty = c.y + Math.sin(fleeAngle) * stepM * 2;
+            const dest = this.cellAt(ftx, fty);
+            if (dest.loaded && dest.type !== 3 && dest.type !== 9 && dest.type !== 11 && dest.type !== 12) {
+              c._startX = c.x; c._startY = c.y;
+              c._targetX = ftx; c._targetY = fty;
+              c._stepT0 = now;
+              c._nextChooseT = now + stepMs * 0.5;
+              break;
+            }
+          }
+          c._fleeUntilT = 0;
+          return;   // skip rest of wander step; interpolation resumes next frame
+        }
+
         // Movement target — modes checked in order:
-        //   (a) Cat-following (_followUntilT > now): cat homes in on the
-        //       player, gap-stopping so it doesn't mob.
-        //   (b) Slime — lazily drawn toward the player.
-        //   (c) Tame pets — tighter home-bias radius so they stay near
-        //       their drop point.
-        //   (d) Default — wild farm animals random-wander around home.
+        //   (a) Pet chasing prey (_chaseTarget set above)
+        //   (b) Cat-following (_followUntilT > now): cat homes in on player.
+        //   (c) Slime — lazily drawn toward the player.
+        //   (d) Tame pets — home-bias keeps them near release point.
+        //   (e) Default — wild farm animals random-wander around home.
         // Wild crows take a separate path (_wildCrowTick) above; deer use the
         // generic random wander.
         const FOLLOW_GAP = 1.5 * this.cellM;
         const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-        const homeRadius = isTame ? 5 * this.cellM : 3 * this.cellM;
+        const retreating = c._retreatUntilT && c._retreatUntilT > now;
+        const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
         let tx = c.x, ty = c.y, angle = 0;
         let foundValidTarget = false;
+        // Fight resolution: if chasing pet is in fight range, deal damage.
+        if (c._chaseTarget) {
+          const tgt = c._chaseTarget;
+          const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
+          const FIGHT_R2 = (1.5 * this.cellM) ** 2;
+          if (fd2 <= FIGHT_R2) {
+            const HP_MAX = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
+            tgt._hp = (tgt._hp ?? HP_MAX[tgt.kind] ?? 8) - 1;
+            c._hp   = (c._hp   ?? HP_MAX[c.kind]   ?? 20) - 1;
+            tgt._lastDamagedT = Date.now();
+            c._lastDamagedT   = Date.now();
+            // Push prey away from pet; force immediate direction-change.
+            tgt._fleeAngle   = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+            tgt._fleeUntilT  = now + 8000;   // > one wander step so flee fires
+            tgt._nextChooseT = 0;            // interrupt current step immediately
+            if (tgt._hp <= 0) {
+              // Auto-defeat the prey — same outcome as player defeating it.
+              this.save.caught = this.save.caught || [];
+              if (!this.save.caught.includes(tgt.id)) {
+                this.save.caught.push(tgt.id);
+                const dropId = tgt.kind === 'crow' ? 'crow_feather'
+                             : tgt.kind === 'deer' ? 'meat' : null;
+                if (dropId) {
+                  this.addToInv(dropId, 1);
+                  const item = ITEM_BY_ID[dropId];
+                  this.flashLoot?.(`+1 ${item?.name || dropId}`, '#a7ffb0', 1, dropId);
+                } else {
+                  this.flash?.('slime defeated!', this.viewCenterX, this.viewCenterY - 60);
+                }
+              }
+              c._chaseTarget = null;
+            }
+            if (c._hp <= 0) {
+              // Pet retreats home to recover.
+              c._hp = 1;
+              c._chaseTarget = null;
+              c._retreatUntilT = now + 30000;   // 30s forced home-bias
+            }
+          }
+        }
+
         for (let attempt = 0; attempt < 6; attempt++) {
-          if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
+          if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
+            const tgt = c._chaseTarget;
+            angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
+          } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
@@ -2218,6 +2306,8 @@ class MapScene extends Phaser.Scene {
   // Defeating the crow during the pause cancels the destruction, giving the
   // player a generous grace window.
   _wildCrowTick(c, now, px, py) {
+    // A fleeing crow (just hit by a pet) skips crop logic and runs.
+    if (c._fleeUntilT && c._fleeUntilT > now) return;
     // (1) Resolve any pending crop destruction. The destroy timer arms
     // when the crow lands on a crop's cell; it fires here if the crop
     // is still present, or quietly cancels if the player harvested it

@@ -35,17 +35,18 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
  - no fauna may move onto a building footing, or road.
  - animals simulate when within viewport range (~7-8 cells); stationary beyond that.
- - slime: moves slowly toward player and drains 1 energy every 3s within 2.5m.
-   HP system (15 hp), cat/dog combat, slime taming — future work.
+ - slime: moves slowly toward player and drains 3 energy/sec within 1 cell (adjacent).
+   Tame with a sapphire (secret — hinted only in book tips). Tame slimes don't drain.
  - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
    step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
- - cats (20 hp): tame cats chase crows and fight — future work.
- - dogs (40 hp): tame dogs chase deer, slimes — future work.
+ - cats (20 hp): tame cats chase wild crows within 8 cells, fight at 1.5 cells
+   (both lose 1 hp per hit; crow flees, crow hp 0 → auto-defeat + feather drop).
+ - dogs (40 hp): tame dogs chase wild deer and slimes within 8 cells, same combat.
  - wild deer and crow can be hunted with weapons.
  - each fauna can be tamed with a favourite food (slime taming: future work).
  - tame animals show a 💗, wander within 5 cells of their release point, can be
    petted and follow the player for 5 minutes after petting.
- - animal HP, combat damage, and healing — future work (hp values noted above).
+ - damaged animals heal to full hp after 20 min of no damage (checked per wander step).
  - fauna move at ~1 cell per 5 seconds.
 
 # biomes
@@ -464,7 +465,7 @@ CONSUMABLES
  - FLUTE: select it and tap your own feet to play — lures wandering creatures
    within 15 cells toward you (flash reports how many respond). Consumed on use.
  - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
-   hint to the nearest unopened chest ("about N paces northwest"). Consumed.
+   hint to the nearest unopened chest ("about N paces northwest"). Consumed. TODO: get rid of foot-tapping. should have a custom button like Eat CTA when selected.
 
 ================================================================================
 INVENTORY

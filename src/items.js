@@ -457,13 +457,15 @@ const PLAY_TIPS = [
   'Hold rock and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
   // Animal favourite foods — one tip per kind, so a Book read can reveal them.
-  'Chickens come running for a juicy rainberry. Hold one to catch one.',
+  'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
   'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
   'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
   'Cats and dogs only eat meat — feeding them plants just wastes the food.',
+  // Secret tip — slime taming. Rare to pull from the pool, but findable.
+  'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
 
 const STARTING_ENERGY = 100;
@@ -523,6 +525,8 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
+  slime:   ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate

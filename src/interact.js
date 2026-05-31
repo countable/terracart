@@ -297,6 +297,27 @@ const TAP_HANDLERS = [
     // drop nothing — they're just an energy pest). The defeat is FREE (no
     // energy spent): your TIME at the work wheel IS the cost, which also means
     // you can still kill the very slime that's draining you when low on energy.
+
+    // Secret: slime can be tamed with a sapphire (hinted only via book tips).
+    // Checked before DEFEAT_KINDS so the sapphire path wins over the work queue.
+    if (target.kind === 'slime') {
+      const selNow = getSelectedSlot(save);
+      if (selNow?.id === 'sapphire' && (selNow.count ?? 0) > 0) {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        if (!save.caught.includes(target.id)) save.caught.push(target.id);
+        const tx2 = Math.floor(target.x / scene.tileEdgeM);
+        const ty2 = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = `released_slime_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: 'slime', id: tameId, tx: tx2, ty: ty2 });
+        target.id = tameId;
+        ctx.dirty = true;
+        scene.flashLoot('💎 slime tamed!', '#aa88ff', 1.2, 'sapphire');
+        return true;
+      }
+    }
+
     const DEFEAT_KINDS = new Set(['slime', 'crow', 'deer']);
     if (DEFEAT_KINDS.has(target.kind)) {
       const r = save.relics || {};
