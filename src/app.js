@@ -310,15 +310,10 @@ class MapScene extends Phaser.Scene {
     // Stats / equipment migration — adds energy + relic/armor slots to older saves.
     this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
                                               sword: null, bow: null, staff: null };
-    if (this.save.relics.axe === undefined)   this.save.relics.axe = null;   // older saves
-    if (this.save.relics.sword === undefined) this.save.relics.sword = null;
-    if (this.save.relics.bow === undefined)   this.save.relics.bow = null;
-    if (this.save.relics.staff === undefined) this.save.relics.staff = null;
-    if (this.save.relics.can === undefined)   this.save.relics.can = null;
-    if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
-    if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
-    if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
-    if (this.save.relics.bags === undefined)   this.save.relics.bags = null;
+    // older saves: backfill any relic slots added since they were created.
+    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+      if (this.save.relics[slot] === undefined) this.save.relics[slot] = null;
+    }
     // Magic Crafting Shrine — one per game, spawned on the start tile at
     // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
     // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
@@ -1529,6 +1524,20 @@ class MapScene extends Phaser.Scene {
     if (typeof persistSave === 'function') persistSave(this.save);
   }
 
+  // Dark-outlined, solid-filled arrow triangle (facing indicator + pairy
+  // compass both draw this onto facingGfx).
+  _drawArrowTriangle(g, tx, ty, blx, bly, brx, bry, outlineAlpha, fillColor) {
+    g.lineStyle(2, 0x000000, outlineAlpha);
+    g.beginPath();
+    g.moveTo(tx, ty);
+    g.lineTo(blx, bly);
+    g.lineTo(brx, bry);
+    g.closePath();
+    g.strokePath();
+    g.fillStyle(fillColor, 1);
+    g.fillTriangle(tx, ty, blx, bly, brx, bry);
+  }
+
   // === Tick ===
   update(_, dtMs) {
     const dt = dtMs / 1000;
@@ -1722,17 +1731,7 @@ class MapScene extends Phaser.Scene {
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
-      // dark outline
-      this.facingGfx.lineStyle(2, 0x000000, 0.85);
-      this.facingGfx.beginPath();
-      this.facingGfx.moveTo(tx, ty);
-      this.facingGfx.lineTo(blx, bly);
-      this.facingGfx.lineTo(brx, bry);
-      this.facingGfx.closePath();
-      this.facingGfx.strokePath();
-      // bright yellow fill
-      this.facingGfx.fillStyle(0xffd24a, 1);
-      this.facingGfx.fillTriangle(tx, ty, blx, bly, brx, bry);
+      this._drawArrowTriangle(this.facingGfx, tx, ty, blx, bly, brx, bry, 0.85, 0xffd24a);
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
@@ -1804,15 +1803,7 @@ class MapScene extends Phaser.Scene {
           const back = 14, halfW = 7;
           const blx2 = tipX - ux * back + pxN * halfW, bly2 = tipY - uy * back + pyN * halfW;
           const brx2 = tipX - ux * back - pxN * halfW, bry2 = tipY - uy * back - pyN * halfW;
-          this.facingGfx.lineStyle(2, 0x000000, 0.8);
-          this.facingGfx.beginPath();
-          this.facingGfx.moveTo(tipX, tipY);
-          this.facingGfx.lineTo(blx2, bly2);
-          this.facingGfx.lineTo(brx2, bry2);
-          this.facingGfx.closePath();
-          this.facingGfx.strokePath();
-          this.facingGfx.fillStyle(0xc77dff, 1);
-          this.facingGfx.fillTriangle(tipX, tipY, blx2, bly2, brx2, bry2);
+          this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx2, bly2, brx2, bry2, 0.8, 0xc77dff);
         }
       }
     }
@@ -2930,6 +2921,22 @@ class MapScene extends Phaser.Scene {
       ? maxEnergyFromArmor(this.save.armor) : null;
     if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
     return this.save.maxEnergy ?? STARTING_ENERGY;
+  }
+
+  // Equip a bought/forged relic or armor piece into its slot. Armor also
+  // recomputes max energy and grants the freshly-unlocked headroom (captured
+  // BEFORE mutating armor so the bump is the delta, not the whole new max).
+  _equipGear(kind, slot, tier) {
+    if (kind === 'relic') {
+      this.save.relics[slot] = { tier };
+      return;
+    }
+    const oldMax = this.getMaxEnergy();
+    this.save.armor[slot] = { tier };
+    const newMax = maxEnergyFromArmor(this.save.armor);
+    const bump = Math.max(0, newMax - oldMax);
+    this.save.maxEnergy = newMax;
+    this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
@@ -4191,16 +4198,7 @@ class MapScene extends Phaser.Scene {
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
         if ((this.save.money ?? 0) < offer.price) { this.flash(`Coin purse won't stretch — need $${offer.price}.`, sx, sy); return; }
         addMoney(this.save, -offer.price);
-        if (offer.kind === 'relic') {
-          this.save.relics[offer.slot] = { tier: offer.tier };
-        } else {
-          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
-          this.save.armor[offer.slot] = { tier: offer.tier };
-          const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - oldMax);
-          this.save.maxEnergy = newMax;
-          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
-        }
+        this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);
@@ -5100,16 +5098,7 @@ class MapScene extends Phaser.Scene {
             }
           }
         }
-        if (offer.kind === 'relic') {
-          this.save.relics[offer.slot] = { tier: offer.tier };
-        } else {
-          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
-          this.save.armor[offer.slot] = { tier: offer.tier };
-          const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - oldMax);
-          this.save.maxEnergy = newMax;
-          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
-        }
+        this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);

@@ -46,23 +46,20 @@
     return null;
   }
 
-  function shopTint(house) {
-    const t = shopType(house);
-    return t ? SHOP_CONFIG[t].tint : null;
-  }
+  // Resolve a house to its SHOP_CONFIG entry (or null for non-shops).
+  const shopConfig = (house) => SHOP_CONFIG[shopType(house)] ?? null;
+
+  const shopTint = (house) => shopConfig(house)?.tint ?? null;
 
   // Lettering colour for the shop's wood-signage label. Picked to read on
   // SHOP_INK_BG (warm dark wood — see the label block in render.js).
-  function shopInk(house) {
-    const t = shopType(house);
-    return t ? SHOP_CONFIG[t].ink : null;
-  }
+  const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
   function shopLabel(house) {
-    const t = shopType(house);
-    if (!t) return null;
+    const cfg = shopConfig(house);
+    if (!cfg) return null;
     // address+1 so a "house number 0" doesn't render as an empty roman numeral.
-    return `${SHOP_CONFIG[t].label} ${toRoman((house.address ?? 0) + 1)}`;
+    return `${cfg.label} ${toRoman((house.address ?? 0) + 1)}`;
   }
 
   // Sell-bonus multiplier applied on top of the normal sword/relic sellMul.
