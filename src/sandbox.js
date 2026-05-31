@@ -120,11 +120,17 @@
   //    rock in the gaps so bare-rock taps still work. (Gear is granted at T3,
   //    so T4..T7 stay "pick too weak → rejected" — the gating ladder end-to-end.)
   const ROCK = {
-    name: 'ROCK', label: 'ROCK', w: 7, h: 7, fill: T.ROCK,
+    name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 7, fill: T.ROCK,
     populate(s) {
-      s.mineralRock(1, 0, 0); s.mineralRock(2, 3, 0); s.mineralRock(3, 6, 0);
-      s.mineralRock(4, 0, 3); s.mineralRock(5, 6, 3);
-      s.mineralRock(6, 0, 6); s.mineralRock(7, 6, 6);
+      // ORE deposits at every pickaxe tier T1..T7 (gem-on-pebble, colour by
+      // tier). Packed into a readable grid so the field clearly reads as a
+      // quarry full of deposits rather than a few specks in the corners.
+      s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
+      s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
+      s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
+      // Plain CAVE rocks (the 4 vanilla variants) interleaved — break with any
+      // pick, drop rockfruit + a lucky bar. Distinct sprite from the ore rocks.
+      s.caveRock(0, 3, 3); s.caveRock(1, 3, 5); s.caveRock(2, 2, 2); s.caveRock(3, 4, 4);
     },
   };
 
@@ -194,6 +200,10 @@
       s.well(1, 1);
       s.chest('shop', 'Sandbox Start Chest', 7, 6);   // line3h pad
       s.creature('chicken', 7, 3, 1);
+      // Coin-burst POIs — tapping spills a burst of collectible coins (daily-
+      // gated). Render as the procedural 'potofgold' art (render.js _isCoinBurst).
+      s.chest('atm', 'Sandbox ATM', 6, 1);
+      s.chest('bicycle_parking', 'Sandbox Bike Parking', 8, 2);
     },
   };
 
@@ -223,6 +233,13 @@
       for (let dx = 0; dx < 13; dx++) {
         const ch = nm.charAt(dx % (nm.length + 3));
         if (ch && ch !== ' ' && dx % (nm.length + 3) < nm.length) p.roadLetter(dx, 3, ch);
+      }
+      // Building footprints under each house — real houses sit on BUILDING
+      // terrain, which renders the extruded foundation block. Kept to the
+      // house's own row (the yard in front stays walkable so the 6m house
+      // tap-target stays reachable from the street side).
+      for (const [hx, hy] of [[1, 0], [7, 0], [1, 7], [7, 7]]) {
+        p.cell(hx, hy, T.BUILDING); p.cell(hx + 1, hy, T.BUILDING);
       }
     },
     populate(s) {
@@ -476,6 +493,14 @@
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'mineralrock', x, y, requiredTier,
           id: `${baseId}_mr_${tag}_t${requiredTier}_${dx}_${dy}` });
+      },
+      // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
+      // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,
+      // visually distinct from the gem-on-pebble ore rocks.
+      caveRock(variant, dx, dy) {
+        const { x, y } = at(dx, dy);
+        objects.push({ kind: 'mineralrock', x, y, requiredTier: 1, caveVariant: variant,
+          id: `${baseId}_cr_${tag}_${variant}_${dx}_${dy}` });
       },
     };
   }
