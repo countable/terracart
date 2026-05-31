@@ -306,6 +306,23 @@ Render.drawCells = function drawCells(scene) {
                      + W(T(col + 1, row + 1)) * 128;
           texKey = 'autotiles';
           texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
+        } else if (type === 2) {
+          // SAND beaches — same 8-neighbour blob (SAND_BLOB in textures.js),
+          // drawing grass edges where sand meets any non-sand neighbour. Sand
+          // sits between grass and water; this rounds it off against everything
+          // (a thin grass/wet strip at the waterline — the dedicated water↔sand
+          // tiles are a later refinement). Bit set = neighbour is also sand.
+          const S = (t) => (t === 2 ? 1 : 0);
+          const mask = S(T(col - 1, row - 1)) * 1
+                     + S(T(col,     row - 1)) * 2
+                     + S(T(col + 1, row - 1)) * 4
+                     + S(T(col - 1, row    )) * 8
+                     + S(T(col + 1, row    )) * 16
+                     + S(T(col - 1, row + 1)) * 32
+                     + S(T(col,     row + 1)) * 64
+                     + S(T(col + 1, row + 1)) * 128;
+          texKey = 'autotiles';
+          texFrame = SAND_BLOB[mask] ?? SAND_BLOB_CENTER;
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the

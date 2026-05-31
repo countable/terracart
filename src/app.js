@@ -96,7 +96,7 @@ function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * 
 const COLORS = {
   0: 0x479757,  // grass — matched to the Autotiles_Godot shore grass (rgb 71,151,87) so water/biome edges blend seamlessly into the grass field
   1: 0x2e6a2e,  // forest
-  2: 0xd9c98a,  // sand
+  2: 0xe6ae55,  // sand — matched to the Autotiles_Godot sand-fill (rgb 230,174,85) so the autotiled beach tiles blend with the flat fill
   3: 0x3a78c2,  // water
   4: 0xc7a85b,  // farmland
   5: 0xada695,  // residential
