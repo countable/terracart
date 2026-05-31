@@ -1474,7 +1474,15 @@
           cells.push(idx);
           const nm = pathNames[`${cx}_${cy}`];
           if (realName == null && nm) realName = nm;
-          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          // 8-connected: thin (r=0) paths are stamped by Bresenham, whose
+          // diagonal steps leave consecutive cells touching only at a corner.
+          // A 4-connected fill would shatter such a staircase footpath into
+          // many 1-cell components, so a 12-cell diagonal trail never reaches
+          // the 10-stone coin milestone or the 8-cell completion floor and
+          // pays nothing. Including diagonals keeps the whole path one named
+          // component.
+          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1],
+                                     [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
             const nx = cx + ddx, ny = cy + ddy;
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
             const ni = ny * w + nx;

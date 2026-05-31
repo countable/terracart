@@ -562,8 +562,8 @@ class MapScene extends Phaser.Scene {
       return c.toDataURL();
     };
     const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
-    // Longgrass (display name "Fern") — bake frame 10 of the 'props' sheet
-    // (col 11 row 1 in 1-indexed coords = leafy green fern frond). Same
+    // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
+    // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
     // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
     window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
