@@ -923,10 +923,12 @@ Render.drawObjects = function drawObjects(scene) {
         return role === 'plain' ? 'house' : `house_${role}`;
       },
       frame: (o) => (_houseRole(o) === 'plain' ? 'front' : undefined),
-      origin: [0.5, 0.9],
-      // Houses sit 5px lower than their nominal cell foot so the brick base
-      // tucks into the ground instead of floating above the cobble line.
-      dyPx: 5,
+      // Anchor the sprite by its BOTTOM-MIDDLE so the house's base sits on the
+      // building footprint's centroid (the house x/y is that centroid) — the
+      // body then rises north over the outline instead of floating off it.
+      // dyPx nudges the base just BELOW the centroid.
+      origin: [0.5, 1.0],
+      dyPx: 2,
       scale: (o) => {
         const role = _houseRole(o);
         // Fort PNG is ~3× the others — scale down so it still reads as a

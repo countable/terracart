@@ -482,14 +482,15 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
-    // Player sprite renders at scale 1.35 (32px frame, origin 0.5/0.5). Reach
-    // checks are offset downward toward the character's visible feet so the
-    // reachable area is symmetric around the figure, not the sprite's geometric
-    // centre. We keep the 24px foot anchor (the historical 1.5-scale foot line)
-    // independent of the visual scale so the lit-reach region and the reach-
-    // shape tests stay stable across cosmetic sprite-size tweaks. ~3.75m at the
-    // default CELL_PX/cellM.
-    this.feetOffsetM = (24 / CELL_PX) * this.cellM;
+    // Player sprite renders at scale 1.35 (32px frame, origin 0.5/0.5). Its
+    // visual feet (where the shoes meet the ground) sit ~14px below the sprite
+    // centre — the same anchor the footprint dot uses. The reach is cell-
+    // quantised (it centres on the CELL the player stands in, by design), so we
+    // offset the cell lookup down to the feet: with 24px (0.75 cell) the lookup
+    // overshot into the cell to the SOUTH, leaving the lit reach centred a cell
+    // below where you stand. 14px (~0.44 cell) keeps the lookup in the cell the
+    // feet actually occupy, so the reach centres on your feet. ~2.2m.
+    this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     this.REACH_CELL_M = 16;   // cell taps: till / plant / water / harvest. 16m = √(5²+15²)+ε includes (±1,±3) / (±3,±1) cells.
     // NOTE: object/creature/wildplant taps do NOT use a scene-level reach —
     // their distance gate is the global REACH_FAR_M (16m, == REACH_CELL_M, same

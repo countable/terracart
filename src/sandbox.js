@@ -195,7 +195,7 @@
     populate(s) {
       s.shrine(4, 1);
       s.well(1, 1);
-      s.chest('shop', 'Sandbox Start Chest', 7, 6);   // line3h pad
+      s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
       // Coin-burst POIs — tapping spills a burst of collectible coins (daily-
       // gated). Render as the procedural 'potofgold' art (render.js _isCoinBurst).

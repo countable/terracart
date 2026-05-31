@@ -151,11 +151,12 @@ test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', 
     bodyCell = absCellCenterMeters(scene, cellIX, cellIY);
   }
   if (!bodyCell) return;
-  // The reach is centred on the FEET cell, not the body cell. With the body
-  // teleported to its cell centre, the feet land in the cell ONE ROW SOUTH.
-  // Offsets in this test are expressed RELATIVE to the feet cell, so we
-  // shift the tap-y by +1 cell to convert from feet-offset back to body-y.
-  const FEET_ROW_OFFSET = 1;
+  // The reach is centred on the FEET cell. feetOffsetM (~0.44 cell) now keeps
+  // the feet in the SAME cell as the body when standing at the cell centre, so
+  // the feet cell == the body cell and offsets map straight through. (It was
+  // +1 row south back when feetOffsetM was 0.75 cell and overshot into the
+  // next cell — the bug that left the reach centred a cell below the player.)
+  const FEET_ROW_OFFSET = 0;
 
   const origFlash = scene.flash;
   const flashes = [];
