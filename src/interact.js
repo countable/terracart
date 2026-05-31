@@ -41,6 +41,18 @@ function consumeSelected(save, n = 1) {
   }
 }
 
+// Unique id for an animal/slime released (or tamed) at a spot. `extra`
+// disambiguates a batch released in the same tick (the per-item index).
+function releasedId(kind, extra) {
+  const tail = extra === undefined ? '' : `_${extra}`;
+  return `released_${kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}${tail}`;
+}
+
+// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is 0.1 for
+// an exact snapped-center match, or cellHalfM to accept anything overlapping.
+const inPlantedCell = (p, cwmx, cwmy, eps) =>
+  Math.abs(p.x - cwmx) < eps && Math.abs(p.y - cwmy) < eps;
+
 // Gate a feeding action behind a "Feed <food> to the <fauna>?" confirmation.
 // `doFeed` performs the actual feed AND must persist its own state: it runs
 // asynchronously from the modal callback, after interactTap has already
@@ -172,7 +184,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
         isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
         (!extraGuard || extraGuard(ctx)) &&
-        !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) {
+        !save.planted.some(p => inPlantedCell(p, cwmx, cwmy, 0.1)))) {
     return false;
   }
   if (energyKey && !scene.spendEnergy(ENERGY_COST?.[energyKey] ?? 0, sx, sy)) return true;
@@ -354,7 +366,7 @@ const TAP_HANDLERS = [
         if (!save.caught.includes(target.id)) save.caught.push(target.id);
         const tx2 = Math.floor(target.x / scene.tileEdgeM);
         const ty2 = Math.floor(target.y / scene.tileEdgeM);
-        const tameId = `released_slime_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        const tameId = releasedId('slime');
         save.released = save.released || [];
         save.released.push({ x: target.x, y: target.y, kind: 'slime', id: tameId, tx: tx2, ty: ty2 });
         target.id = tameId;
@@ -486,7 +498,7 @@ const TAP_HANDLERS = [
         if (!save.caught.includes(oldId)) save.caught.push(oldId);
         const tx = Math.floor(target.x / scene.tileEdgeM);
         const ty = Math.floor(target.y / scene.tileEdgeM);
-        const tameId = `released_${target.kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        const tameId = releasedId(target.kind);
         save.released = save.released || [];
         save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty });
         target.id = tameId;   // convert the in-world object in place → now tame
@@ -1087,7 +1099,7 @@ const TAP_HANDLERS = [
       const angle = (i / flockSize) * Math.PI * 2;
       const ox = flockSize === 1 ? 0 : Math.cos(angle) * SPREAD;
       const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
-      const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1e6)}_${i}`;
+      const id = releasedId(item.id, i);
       save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id, tx, ty });
       if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id });
     }
@@ -1156,8 +1168,7 @@ const TAP_HANDLERS = [
   // 2a) Tap a planted cell → harvest / advance / water / nag.
   { name: 'planted', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
-    const plantedIdx = save.planted.findIndex(p =>
-      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
+    const plantedIdx = save.planted.findIndex(p => inPlantedCell(p, cwmx, cwmy, 0.1));
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
     const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
@@ -1360,7 +1371,7 @@ const TAP_HANDLERS = [
     let blocker = null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'rock';
     if (!blocker) {
-      const pp = save.planted.find(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
+      const pp = save.planted.find(p => inPlantedCell(p, cwmx, cwmy, cellHalfM));
       if (pp) blocker = pp.crop || 'crop';
     }
     if (!blocker) {
