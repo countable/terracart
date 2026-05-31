@@ -741,6 +741,37 @@
                 id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
             };
 
+            // Turn a list of per-tier weights into a cumulative table + total,
+            // as _pushMineralrock's tier roll expects.
+            const cumWeights = (weights) => {
+              const tierW = []; let totalW = 0;
+              for (const w of weights) { totalW += w; tierW.push(totalW); }
+              return { tierW, totalW };
+            };
+
+            // Scatter mineralrock clusters across a polygon's bbox. At each pivot
+            // on a `pivotStep` grid that lies inside the polygon, fire a cluster
+            // with probability `fireChance`; each cluster drops
+            // clusterMin..clusterMin+clusterSpan-1 rocks jittered within `clusterR`
+            // of the pivot, routed through _pushMineralrock. RNG draw order is
+            // identical to the old inline loops (fire roll, count roll, then jx/jy
+            // per rock) so world seeds reproduce exactly.
+            const _spawnRockClusters = (rng, geom, o) => {
+              const bb = bboxOf(geom);
+              for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
+                  if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
+                  if (rng() > o.fireChance) continue;
+                  const clusterN = o.clusterMin + Math.floor(rng() * o.clusterSpan);
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
+                    const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
+                    _pushMineralrock(rng, jx, jy, o.tierW, o.totalW, o.residential);
+                  }
+                }
+              }
+            };
+
             // Residential mineral clusters — a few abandoned-yard / construction
             // piles in town. Sparse: pivot grid is ~30 m so most residential
             // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
@@ -748,7 +779,6 @@
             // of stone + low-tier ore without flooding sidewalks with rocks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
               // Explicit tier weights for residential — user-tuned to hit:
@@ -760,21 +790,12 @@
               // Of TOTAL rock count. Within the 30 % ore subset that's
               // copper 0.55, iron 0.22, gold 0.08, crystals 0.14.
               const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
-              const tierW = [];
-              let totalW = 0;
-              for (const w of weights) { totalW += w; tierW.push(totalW); }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.45) continue;   // 45 % of pivots fire a cluster
-                  const clusterN = 25 + Math.floor(resRng() * 16);   // 25..40 rocks per cluster (residential rocks survive the road-adjacency filter at a lower rate, so input has to overshoot)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (resRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* residential */ true);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(weights);
+              // 25..40 rocks per cluster: residential rocks survive the
+              // road-adjacency filter at a lower rate, so input must overshoot.
+              _spawnRockClusters(resRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.45,
+                clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true });
               // Sparse pickable wild mushrooms in residential yards — same crop
               // as the forest clusters but rarer. Independent RNG stream so they
               // don't co-locate with the rock clusters above.
@@ -788,30 +809,16 @@
             // very rare via the geometric tail (~3 % per cluster pick).
             if (t === T.INDUSTRIAL) {
               const indRng = makeRng((polyKey ^ 0xC0A11D) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
               const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
               // Slower tier dropoff than residential — mid-tier ore (gold,
               // platinum) shows up regularly while T7 stays ~3 % per ore pick.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(1.6, t2 - 1);
-                totalW += w;
-                tierW.push(totalW);
-              }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (indRng() > 0.80) continue;   // 80 % of pivots fire — "lots"
-                  const clusterN = 18 + Math.floor(indRng() * 16);   // 18..33 rocks per cluster (3× the prior 6..11)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (indRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (indRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(indRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(1.6, i)));
+              // 80 % fire — "lots"; 18..33 rocks per cluster (3× the prior 6..11).
+              _spawnRockClusters(indRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.80,
+                clusterMin: 18, clusterSpan: 16, tierW, totalW });
             }
 
             // Dense mineral rock clusters on ROCK terrain (scree / cliff landcover).
@@ -821,29 +828,15 @@
             // but rare wilderness finds (T5-T7) are still possible.
             if (t === T.ROCK) {
               const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 12 / mvtToM;
               const clusterR  =  6 / mvtToM;
               // 1/2^(t-1): T1 ~50%, T2 ~25%, T3 ~13% … T7 ~1% of ore subset.
               // _pushMineralrock still routes 70% of picks to cave rock.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                totalW += 1 / Math.pow(2, t2 - 1);
-                tierW.push(totalW);
-              }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (rockRng() > 0.70) continue;
-                  const clusterN = 10 + Math.floor(rockRng() * 10);
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (rockRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (rockRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(rockRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(2, i)));
+              _spawnRockClusters(rockRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.70,
+                clusterMin: 10, clusterSpan: 10, tierW, totalW });
             }
           }
         } else if (f.type === 2 && name === 'transportation') {
