@@ -1214,8 +1214,21 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
-    tx.setColor(LABEL_INK);
-    tx.setBackgroundColor(LABEL_BG);
+    // Lowtier crates (the `box` sprite) get white lettering with a soft drop
+    // shadow and NO stone plank — the label floats over the crate like the
+    // house signs do. Higher-tier chests keep the blue-on-stone tablet. The
+    // pool is shared across both kinds, so set the full style every frame.
+    if (_chestIsBox(o)) {
+      tx.setColor('#ffffff');
+      tx.setBackgroundColor(null);
+      tx.setStroke('#000000', 0);
+      tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, true, true);
+    } else {
+      tx.setColor(LABEL_INK);
+      tx.setBackgroundColor(LABEL_BG);
+      tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
+      tx.setShadow(0, 0, 'rgba(0,0,0,0)', 0, false, false);
+    }
     // Always full opacity — opened chests keep their concrete-pad label
      // legible (per user: the dimmed-after-open look made closed shops read
      // as inactive). The opened/closed state is already conveyed by the
@@ -1312,6 +1325,21 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 9)  return _HOUSE_INK;
     return Shops.shopInk(o);
   };
+  // Lighten any #rgb / #rrggbb sign colour 30% toward white. Applied to every
+  // house label so the whole set of signs reads a shade brighter against the
+  // building art. Non-hex inputs pass through unchanged.
+  const _lighten30 = (col) => {
+    if (typeof col !== 'string' || col[0] !== '#') return col;
+    let h = col.slice(1);
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (h.length !== 6) return col;
+    const n = parseInt(h, 16);
+    const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+    const lr = Math.round(r + (255 - r) * 0.30);
+    const lg = Math.round(g + (255 - g) * 0.30);
+    const lb = Math.round(b + (255 - b) * 0.30);
+    return '#' + ((1 << 24) | (lr << 16) | (lg << 8) | lb).toString(16).slice(1);
+  };
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
   let sli = 0;
   for (const item of shopHouses) {
@@ -1337,7 +1365,7 @@ Render.drawObjects = function drawObjects(scene) {
     // pool creation so position y = label top). +5 follows the house
     // sprite's own dyPx so the sign stays glued to the doorstep.
     tx.setText(_houseSignText(o))
-      .setColor(_houseSignInk(o))
+      .setColor(_lighten30(_houseSignInk(o)))
       .setPosition(Math.round(sx), Math.round(sy + 7) + 5)
       .setVisible(true);
     sli++;
