@@ -347,6 +347,32 @@ const TAP_HANDLERS = [
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
     // the reach outline ⇔ tap-accept invariant (QC §7).
     if (tooFar(ctx, target.x, target.y)) return 'far';
+
+    // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
+    // (livestock, cats/dogs, even pests like slimes / crows / deer) befriends
+    // it in place instead of catching or fighting. Checked before the slime /
+    // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
+    // (id starts with 'released_') skip this and fall through to petting.
+    const _isReleased = typeof target.id === 'string' && target.id.startsWith('released_');
+    const _mangoSel = getSelectedSlot(save);
+    if (!_isReleased && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+      const doMangoTame = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        if (!save.caught.includes(target.id)) save.caught.push(target.id);
+        const tx2 = Math.floor(target.x / scene.tileEdgeM);
+        const ty2 = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = releasedId(target.kind);
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx: tx2, ty: ty2 });
+        target.id = tameId;   // convert the in-world creature in place → now tame
+        scene.flashLoot(`🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1.2, 'mango');
+        persistSave(save);
+      };
+      confirmFeed(scene, 'mango', target.kind, doMangoTame);
+      return true;
+    }
+
     // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED via a work
     // queue rather than caught alive. A weapon (sword / bow / staff) speeds
     // the kill up by tier; bare-handed still works but is a long slog. On

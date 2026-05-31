@@ -105,11 +105,7 @@ const MINERAL_ICON_SHEET = {
   apple:    { sheet: 'icon_apple',   frame: 0 },
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
-  banana:   { sheet: 'icon_banana',  frame: 0 },
-  orange:   { sheet: 'icon_orange',  frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
-  coconut:  { sheet: 'icon_coconut', frame: 0 },
-  apricot:  { sheet: 'icon_apricot', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
@@ -203,10 +199,10 @@ const BASE_TIER = {
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
-  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late)
-  apple: 2, cherry: 2, peach: 2, apricot: 2,
-  orange: 3, mango: 3,
-  banana: 4, coconut: 4,
+  // Orchard fruit (apple/cherry/peach ~ mid-low). Mango is no longer an
+  // orchard tree — it's a rare universal tame treat (see interact.js).
+  apple: 2, cherry: 2, peach: 2,
+  mango: 3,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -302,11 +298,9 @@ const ITEMS = [
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
   { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
-  { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
-  { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
-  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango' },
-  { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
-  { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
+  // Mango: a rare treat that tames ANY animal (see the creature handler in
+  // interact.js). No `crop` ref — it isn't farmed or fed for milk/eggs.
+  { id: 'mango',   name: 'Mango',   kind: 'produce' },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -407,7 +401,7 @@ const PRICES = {
   // ── Fish ─────────────────────────────────────────────────
   minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
   // ── Orchard fruit ────────────────────────────────────────
-  apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  apple: 8, cherry: 12, peach: 10, mango: 18,
 };
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
@@ -486,7 +480,7 @@ const FOOD_ENERGY = {
   egg:        10,
   milk:       40,
   mushroom:   25,
-  apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
+  apple:      12, cherry: 14, peach: 12, mango: 20,
   minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
   meat:       45,   // hunted from deer; dog favourite
 };

@@ -676,7 +676,7 @@
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                const FRUIT_SPECIES = ['apple', 'cherry', 'peach', 'banana', 'orange', 'mango', 'coconut', 'apricot'];
+                const FRUIT_SPECIES = ['apple', 'cherry', 'peach'];
                 const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
                 const species = FRUIT_SPECIES[speciesIdx];
                 const bb = bboxOf(f.geom);
