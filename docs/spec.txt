@@ -311,8 +311,9 @@ CREATURES
    defeating them are the counters.
  - SLIMES are an energy-leeching PEST (50/tile, every natural biome). They ooze
    in slow hopping drifts and are lazily drawn toward the player (~half their
-   hops amble your way). A slime within ~2.5m drains 1 energy every 3s, surfaced
-   as one throttled "🟢 slime drained N⚡" flash. Not catchable or feedable, but
+   hops amble your way). A slime within 1 cell (~5m, adjacent) drains 3 energy
+   per second, surfaced as one throttled "🟢 slime drained N⚡" flash (see the
+   fauna section). Not catchable or feedable, but
    DEFEATABLE: tap to start a work queue (weapon shortens it; bare hands 9s),
    or just walk away to shake a swarm.
 
@@ -331,9 +332,10 @@ CHESTS (POI-driven)
      park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
  - chest TIER shown as a coloured diamond above the sprite: T1 bronze (lowtier),
    T2 silver (commerce/park), T3 gold (food/health/civic/farm), T4 cyan (flora).
- - 10% of opens roll a RELIC or ARMOR instead of normal loot (biased by chest
-   tier, gated by your harvest/catch milestones). An upgrade auto-equips; a
-   non-upgrade is discarded. Both show a reward modal.
+ - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
+   by POI class, roughly 3.75% (lowtier/commerce/farm) up to 15% (civic/flora),
+   biased by chest tier and gated by your harvest/catch milestones. An upgrade
+   auto-equips; a non-upgrade is discarded. Both show a reward modal.
  - BAG-FULL: if loot won't fully fit you choose "Take what fits" (chest emptied)
    or "Leave for later" (chest kept; it remembers its exact roll in
    save.chestHold so you can't re-roll for something better).
@@ -370,6 +372,10 @@ PATH STONES
    automatically — no item, no UI. Every 10 consecutive claimed stones on the
    same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
    than 10 pays nothing).
+ - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
+   fires a one-time completion reward via the unified rarity picker (lowtier
+   chest curve at tier 4), shown with the chest reward fanfare. This is on top
+   of the per-10-stone coins.
 
 ================================================================================
 WELLS / FOUNTAINS
@@ -431,7 +437,7 @@ GEAR: RELICS & ARMOR
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
    SCOUT ahead while your real body stays put. Energy drains per cell moved
-   (~2/cell at T1, falling to ~0.3/cell at T7). Releasing the pad collapses
+   (~1/cell at T1, falling to ~0.15/cell at T7). Releasing the pad collapses
    the ghost back to your body. Speed scales ~8×→24× walk with amulet tier.
  - TIER GATING: rarer relic/armor tiers only drop/sell after milestones —
    harvest a sunflower → unlock Gold, catch a cow → Platinum, harvest a
@@ -464,8 +470,9 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
 CONSUMABLES
 ================================================================================
- - FLUTE: select it and tap your own feet to play — lures wandering creatures
-   within 15 cells toward you (flash reports how many respond). Consumed on use.
+ - FLUTE: select it and tap your own feet to play — lures wandering farm
+   animals (chickens / cows) within ~6 cells (30m) toward you (flash reports
+   how many respond). Consumed on use.
  - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
    hint to the nearest unopened chest ("about N paces northwest"). Consumed. TODO: get rid of foot-tapping. should have a custom button like Eat CTA when selected.
 

@@ -101,18 +101,28 @@ const TERRAIN = {
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
 };
 
+// GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
+// HALF the time (spec §cells: "grassland biome cells till in half the time").
+const GRASSLAND_TILL = new Set([
+  WorldGen.T.GRASS, WorldGen.T.PARK, WorldGen.T.SCHOOL, WorldGen.T.PLAYGROUND,
+  WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
+]);
+
 // Equip a relic or armor reward from a chest / fishing jackpot. Mutates save
 // and calls scene.markRelicsDirty. Caller is responsible for persistence
 // (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
 function equipGearReward(reward, save, scene) {
   if (reward.kind === 'armor') {
     save.armor = save.armor || {};
-    save.armor[reward.slot] = { tier: reward.tier };
     if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
+      const oldMax = scene.getMaxEnergy();           // capture BEFORE mutating armor
+      save.armor[reward.slot] = { tier: reward.tier };
       const newMax = maxEnergyFromArmor(save.armor);
-      const bump = Math.max(0, newMax - scene.getMaxEnergy());
+      const bump = Math.max(0, newMax - oldMax);
       save.maxEnergy = newMax;
       save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
+    } else {
+      save.armor[reward.slot] = { tier: reward.tier };
     }
   } else {
     save.relics = save.relics || {};
@@ -356,14 +366,13 @@ const TAP_HANDLERS = [
     if (DEFEAT_KINDS.has(target.kind)) {
       const r = save.relics || {};
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
-      // Weapon = tier-N tool: 3 s at tier 1, −750 ms per tier, floored 500 ms
-      // (mirrors toolDurationMs). No weapon = tier 0 (bare hands): 9 s, 3× the
-      // wooden weapon — slow but always possible.
-      const durMs = weaponTier > 0
-        ? Math.max(500, 3000 - (weaponTier - 1) * 750)
-        : 9000;
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
       const weaponSlot = weaponTier > 0 ? bestWeapon : null;
+      // Weapon uses the shared spec tool ladder via toolDurationMs (wood 3s …
+      // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
+      const durMs = (typeof toolDurationMs === 'function')
+        ? toolDurationMs(r, weaponSlot)
+        : (weaponTier > 0 ? Math.max(300, 3000 - (weaponTier - 1) * 450) : 9000);
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -561,12 +570,16 @@ const TAP_HANDLERS = [
     const catchMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'bugnet')
       : (save.relics?.bugnet ? 3000 : 9000);
+    // Catching costs energy (refunded if the player cancels the wheel; not
+    // refunded if the animal escapes the viewport — the attempt was made).
+    const catchCost = ENERGY_COST?.catch ?? 0;
+    if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
     scene.startCatchProgress(victim, catchMs, () => {
       scene.catchCreature(victim, sx, sy);
     }, () => {
       scene.flash('🏃 it got away', scene.viewCenterX, scene.viewCenterY - 60);
-    }, 'bugnet');
+    }, 'bugnet', catchCost);
     return true;
   }},
 
@@ -742,15 +755,18 @@ const TAP_HANDLERS = [
           return true;
         }
         if (result.consolation > 0) addMoney(save, result.consolation);
-        if (result.kind === 'relic') {
+        if (result.kind === 'relic' || result.kind === 'armor') {
+          // A chest gear roll can yield a relic OR armor (armor is just another
+          // gear slot). equipGearReward handles both — armor also bumps max/cur
+          // energy by the delta.
           equipGearReward(result, save, scene);
           save.opened.push(o.id);
           ctx.dirty = true;
           const name = (typeof gearName === 'function')
-            ? gearName('relic', result.slot, result.tier)
+            ? gearName(result.kind, result.slot, result.tier)
             : `${result.slot} T${result.tier}`;
           const iconHTML = scene.gearIconHTML
-            ? scene.gearIconHTML('relic', result.slot, result.tier, 64) : '★';
+            ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
           scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: '#ffe066' });
           return true;
         }
@@ -1228,8 +1244,9 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long (the
-    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier;
-    // loot stays the tier-1 table bare-handed and improves with the rod.
+    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier AND
+    // improves the catch; bare hands fish at tier 0 (higher skunk rate, minnow-
+    // heavy weights) so only owning a rod improves the catch (spec §FISHING).
     if (!scene.spendEnergy(5, sx, sy)) return true;
     // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
     // the can up here as part of the cast so owning a rod never costs you your
@@ -1238,9 +1255,10 @@ const TAP_HANDLERS = [
     const castMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'rod') : (save.relics?.rod ? 3000 : 9000);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
-      const tier = save.relics?.rod?.tier || 1;
+      const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
       // Per user: most of the wait results in nothing on a low-tier rod,
       // and that "skunk" rate falls as the rod climbs. Linear ramp:
+      //   tier 0 (bare hands) → 55%
       //   T1 → 50%  (the user's "half the time")
       //   T7 → 20%
       // Formula: max(0.20, 0.55 - tier * 0.05). T7 floors at 0.20.
@@ -1348,7 +1366,7 @@ const TAP_HANDLERS = [
 
   // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
   { name: 'till', try: (ctx) => {
-    const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     const cellHalfM = scene.cellM / 2;
     const pickedAll = new Set(save.picked || []);
     let blocker = null;
@@ -1381,10 +1399,19 @@ const TAP_HANDLERS = [
     const tillCost = (typeof effectiveTillCost === 'function')
       ? effectiveTillCost(save.relics) : (ENERGY_COST?.till ?? 0);
     if (!scene.spendEnergy(tillCost, sx, sy)) return true;
-    scene.tilledSet.add(cellKey);
-    save.tilled = [...scene.tilledSet];
-    ctx.dirty = true;
-    scene.flash('tilled', sx, sy);
+    // Tilling runs a WORK WHEEL. Duration follows the shared tool ladder via the
+    // hoe slot (bare hands 9s; a Hoe relic speeds it by tier). GRASSLAND-biome
+    // cells till in HALF the time (spec §cells). Energy is pre-spent and refunds
+    // if the player cancels the wheel.
+    let tillMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 3000 : 9000);
+    if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
+    scene.startWorkProgress(cwmx, cwmy, () => {
+      scene.tilledSet.add(cellKey);
+      save.tilled = [...scene.tilledSet];
+      persistSave(save);
+      scene.flash('tilled', sx, sy);
+    }, tillMs, tillCost, 'hoe');
     return true;
   }},
 ];

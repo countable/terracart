@@ -48,6 +48,13 @@ const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 
+// Terrain cell types fauna may NEVER step onto (spec §fauna: "no fauna may move
+// onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
+// + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14). PATHS (8) are pedestrian
+// / public and stay passable.
+const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14]);
+function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
+
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
@@ -1846,7 +1853,7 @@ class MapScene extends Phaser.Scene {
   // viewport the catch FAILS (onFail) instead of completing; the wheel tracks
   // the fleeing creature. _beingCaught flags it so wanderCreatures leaves its
   // movement to the wheel.
-  startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null) {
+  startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null, energyRefund = 0) {
     creature._beingCaught = true;
     const t = performance.now();
     this._workProgressIcon?.remove();
@@ -1864,7 +1871,7 @@ class MapScene extends Phaser.Scene {
     }
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
-      energyRefund: 0, startT: t, _lastT: t, flee: creature, onFail,
+      energyRefund, startT: t, _lastT: t, flee: creature, onFail,
     };
   }
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
@@ -1963,9 +1970,11 @@ class MapScene extends Phaser.Scene {
     // chickens stay frozen at their last position — cheap and invisible.
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
-    // Viewport corner is VIEW_CELLS/2 * √2 cells away; add a generous margin so
-    // a chicken just entering the viewport is already mid-step.
-    const RANGE_M = (VIEW_CELLS + 4) * this.cellM;
+    // Spec §fauna: "animals simulate when within viewport range (~7-8 cells);
+    // stationary beyond that." The viewport corner sits at VIEW_CELLS/2 * √2 ≈
+    // 7.8 cells, so 8 cells covers a creature just entering the viewport while
+    // matching the spec's ~7-8 cell sim window.
+    const RANGE_M = 8 * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
@@ -2114,7 +2123,7 @@ class MapScene extends Phaser.Scene {
             const ftx = c.x + Math.cos(fleeAngle) * stepM * 2;
             const fty = c.y + Math.sin(fleeAngle) * stepM * 2;
             const dest = this.cellAt(ftx, fty);
-            if (dest.loaded && dest.type !== 3 && dest.type !== 9 && dest.type !== 11 && dest.type !== 12) {
+            if (dest.loaded && !faunaBlocksCell(dest.type)) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
@@ -2214,7 +2223,7 @@ class MapScene extends Phaser.Scene {
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
-          if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
+          if (dest.loaded && faunaBlocksCell(dest.type)) continue;
           // Scarecrow aversion (crow + deer only) — refuse any target cell
           // within 4 m of an active scarecrow. Crows/deer that wander into
           // such cells get bounced by the attempt loop until they pick a
@@ -2288,7 +2297,7 @@ class MapScene extends Phaser.Scene {
   //   DESTROYING → committed to a planted crop; the crow must perch ON the
   //                crop for 2 full cycles (hopping in place) before it eats.
   // The flight target is usually picked by ORBITING the nearest crop at
-  // radius ~0.75–1.75 cells (so the crow looks like it's circling, casing
+  // radius ~1.5–3.5 cells (so the crow looks like it's circling, casing
   // the field). With ~30% probability the chosen orbit ring collapses
   // toward radius 0 — a "landing attempt" that may end with the crow's
   // landed position inside the crop's cell, starting the 2-cycle pause.
@@ -2386,15 +2395,15 @@ class MapScene extends Phaser.Scene {
         ty = c._destroyCropRef.y + Math.sin(ang) * r;
       } else if (this.save.planted && this.save.planted.length) {
         // ORBIT the nearest planted crop the crow can NOTICE. Notice radius is
-        // DETECT_R (~15 cells — the full on-screen sim range, so crows spot a
-        // field from across the screen). They don't teleport in, though: the
+        // DETECT_R (~8 cells — the on-screen sim range, so crows spot a field
+        // from across the viewport). They don't teleport in, though: the
         // flight-leg cap below makes them approach over several short hops, so
         // a far crow visibly flies toward the field rather than snapping onto
         // it. Deliberate pest crows (id `pest_crow_*`) keep unlimited range.
         // 30% of notice-flights collapse to a tight ring that may land on the
         // crop cell.
         const isPest = typeof c.id === 'string' && c.id.startsWith('pest_crow_');
-        const DETECT_R = 15 * this.cellM;
+        const DETECT_R = 8 * this.cellM;
         let nearest = null, bestD2 = isPest ? Infinity : DETECT_R * DETECT_R;
         for (const pp of this.save.planted) {
           const dx = pp.x - c.x, dy = pp.y - c.y;
@@ -2405,7 +2414,7 @@ class MapScene extends Phaser.Scene {
           const landAttempt = Math.random() < 0.30;
           const radius = landAttempt
             ? Math.random() * 0.4 * this.cellM
-            : (0.75 + Math.random() * 1.0) * this.cellM;
+            : (1.5 + Math.random() * 2.0) * this.cellM;   // spec orbit ring 1.5-3.5 cells
           const ang = Math.random() * Math.PI * 2;
           tx = nearest.x + Math.cos(ang) * radius;
           ty = nearest.y + Math.sin(ang) * radius;
@@ -2435,10 +2444,10 @@ class MapScene extends Phaser.Scene {
         tx = c.x + (legDX / legD) * MAX_LEG;
         ty = c.y + (legDY / legD) * MAX_LEG;
       }
-      // Reject targets on water / buildings / placed rocks. Same gate
+      // Reject targets on water / buildings / roads / placed rocks. Same gate
       // the generic wander uses.
       const dest = this.cellAt(tx, ty);
-      if (dest.loaded && (dest.type === 3 || dest.type === 9 || dest.type === 11 || dest.type === 12)) continue;
+      if (dest.loaded && faunaBlocksCell(dest.type)) continue;
       const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
       if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
       // Scarecrow aversion — refuse any target within 4 m of an active scarecrow.
@@ -4174,9 +4183,10 @@ class MapScene extends Phaser.Scene {
         if (offer.kind === 'relic') {
           this.save.relics[offer.slot] = { tier: offer.tier };
         } else {
+          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
           this.save.armor[offer.slot] = { tier: offer.tier };
           const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - this.getMaxEnergy());
+          const bump = Math.max(0, newMax - oldMax);
           this.save.maxEnergy = newMax;
           this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
         }
@@ -4590,6 +4600,17 @@ class MapScene extends Phaser.Scene {
     const rec = tileStones[name] = tileStones[name] || { stones: [], done: false };
     if (rec.done || rec.stones.includes(cellKey)) return false;
     rec.stones.push(cellKey);
+    // Spec §PATH STONES: every 10 claimed stones on the same named path awards
+    // 1 coin (a 30-stone path pays 3 total; fewer than 10 pays nothing). Pay
+    // each 10-stone milestone exactly once as the player walks it. This is in
+    // ADDITION to the one-time completion reward fired below.
+    const milestones = Math.floor(rec.stones.length / 10);
+    if (milestones > (rec.coinsPaid || 0)) {
+      const newCoins = milestones - (rec.coinsPaid || 0);
+      rec.coinsPaid = milestones;
+      addMoney(this.save, newCoins);
+      this.flashLoot(`🪙 +$${newCoins} path`, '#ffe066', 1);
+    }
     // Completion check: count every cell whose pathNames entry === name.
     let total = 0;
     for (const k in entry.pathNames) if (entry.pathNames[k] === name) total++;
@@ -4648,14 +4669,20 @@ class MapScene extends Phaser.Scene {
         name: `+$${reward.amount}`,
         color: '#ffd96b',
       });
-    } else if (reward.kind === 'relic') {
-      this.save.relics[reward.slot] = { tier: reward.tier };
-      this.markRelicsDirty?.();
+    } else if (reward.kind === 'relic' || reward.kind === 'armor') {
+      // A gear roll can yield a relic OR armor (armor is just another gear
+      // slot). equipGearReward handles both and bumps energy for armor.
+      if (typeof equipGearReward === 'function') {
+        equipGearReward(reward, this.save, this);
+      } else {
+        this.save.relics[reward.slot] = { tier: reward.tier };
+        this.markRelicsDirty?.();
+      }
       const relicName = (typeof gearName === 'function')
-        ? gearName('relic', reward.slot, reward.tier)
+        ? gearName(reward.kind, reward.slot, reward.tier)
         : `${reward.slot} T${reward.tier}`;
       const iconHTML = this.gearIconHTML
-        ? this.gearIconHTML('relic', reward.slot, reward.tier, 64)
+        ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64)
         : '★';
       this.showChestRewardModal({
         header: `${title} complete`,
@@ -4876,9 +4903,10 @@ class MapScene extends Phaser.Scene {
         if (offer.kind === 'relic') {
           this.save.relics[offer.slot] = { tier: offer.tier };
         } else {
+          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
           this.save.armor[offer.slot] = { tier: offer.tier };
           const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - this.getMaxEnergy());
+          const bump = Math.max(0, newMax - oldMax);
           this.save.maxEnergy = newMax;
           this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
         }
