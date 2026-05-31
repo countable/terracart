@@ -128,7 +128,8 @@ def detect_trees(image, origin_px, zoom, score_thresh=0.30,
         is_fruit = (hh % 100) < 6
         if is_fruit:
             kind = "fruittree"
-            species = "peach" if (hh // 100 % 100) < 15 else "apple"
+            # Peach is 6x as rare as apple → 1 in 7 fruit trees is a peach.
+            species = "peach" if (hh // 100) % 7 == 0 else "apple"
         else:
             kind = "tree"
             if species == "pine":

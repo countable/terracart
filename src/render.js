@@ -361,9 +361,9 @@ Render.drawCells = function drawCells(scene) {
             // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
             // Phaser Text textures include the font's internal padding (typically
             // baseline gap + a 1-2px buffer). y still nudged -2 to optically
-            // centre the glyph in the cobble; x shifted +1 right of cell centre
-            // so the letter rides the cobble rather than its left gutter.
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2 + 1, sy + CELL_PX / 2 - 2)
+            // centre the glyph in the cobble; x sits at cell centre (the prior
+            // +1 nudge read 1px too far right).
+            lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2 - 2)
               .setRotation(0).setVisible(true);
           } else {
             lt.setVisible(false);
@@ -1055,7 +1055,7 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 4, dyPx: CELL_PX * 0.43 },
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2 },
     // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
     // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
     // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,

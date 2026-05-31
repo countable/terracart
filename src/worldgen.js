@@ -677,8 +677,9 @@
               // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
                 // Only two fruit-tree species are available in the world now:
-                // common apple, rare peach (≈3:1). One species per orchard polygon.
-                const FRUIT_SPECIES = ((polyKey >>> 8) % 4 === 0) ? ['peach'] : ['apple'];
+                // common apple, rare peach. Peach is 6x as rare → 1 orchard
+                // polygon in 7 is peach. One species per orchard polygon.
+                const FRUIT_SPECIES = ((polyKey >>> 8) % 7 === 0) ? ['peach'] : ['apple'];
                 const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
                 const species = FRUIT_SPECIES[speciesIdx];
                 const bb = bboxOf(f.geom);
@@ -1883,7 +1884,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=5')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=6')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
