@@ -262,7 +262,15 @@
   //    render path (bare wooden box) gets a sample, reachable from the gutter.
   const SMALLHOUSE = {
     name: 'SMALLHOUSE', label: 'SMALL HOUSE', w: 5, h: 8, fill: T.BUILDING,
-    populate(s) { s.chest('bus', 'Sandbox Bus Stop', 0, 4); },
+    populate(s) {
+      // The building ART comes from house OBJECTS, not the terrain (code 9
+      // alone is just cobble). Scatter a small cluster of tier-9 houses with
+      // plain addresses — auto-restored in seedSandboxState so they render as
+      // houses, not pre-restoration wrecks. The bus chest stays at the west
+      // edge, reachable from the gutter, for the no-pad chest render path.
+      s.house(1, 1, 5); s.house(3, 2, 7); s.house(1, 5, 4); s.house(3, 6, 5);
+      s.chest('bus', 'Sandbox Bus Stop', 0, 4);
+    },
   };
 
   // ── RECREATION — PARK + PLAYGROUND + PITCH. Park chest (square3), playground
@@ -299,9 +307,10 @@
     populate(s) {
       // Towers ARE the castle-shop interactable (unlimited relic stock + reroll).
       s.tower(2, 0); s.tower(0, 3); s.tower(4, 3); s.tower(2, 7);
-      // Fort chest at the fort's LEFT edge (dx6), reachable from the grass seam
-      // at dx5 — the rest of the fort is blocking building terrain.
-      s.chest('shop', 'Sandbox Fort Cache', 6, 3);
+      // Fort BUILDING (tier 11) — renders the fort sprite AND is the fort shop
+      // (up to 5 deals/hour). Placed at the fort's bottom edge so it's reachable
+      // from the grass below the scene (the rest of the fort blocks the player).
+      s.house(7, 7, 0, 11);
     },
   };
 
@@ -441,9 +450,9 @@
         objects.push({ kind: 'chest', x, y, poiClass, name,
           id: `${baseId}_chest_${tag}_${dx}_${dy}` });
       },
-      house(dx, dy, address = 0) {
+      house(dx, dy, address = 0, tier = 9) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'house', x, y, tier: 9, address,
+        objects.push({ kind: 'house', x, y, tier, address,
           id: `${baseId}_house_${tag}_${dx}_${dy}` });
       },
       wood(dx, dy, qty = 2) {
