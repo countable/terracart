@@ -943,12 +943,10 @@ Render.drawObjects = function drawObjects(scene) {
     // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
     // trees — so the tower stands inside its own single cell.
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
-    // Placed scarecrow — 48×48 image with the pole base at the bottom of the
-    // sprite; origin (0.5, 1) anchors that base on the placement cell. scale 0.7
-    // trims the 48px art back to ~one cell tall (matching the old 32px prop).
-    // dyPx: CELL_PX*0.5 nudges the foot to the cell's bottom edge so the pole
-    // stands inside its own cell — same trick as tower/tree.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 0.7, dyPx: CELL_PX * 0.5 },
+    // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
+    // foot nudge). scale 0.35 puts the figure at ~half a cell (48 × 0.35 ≈ 17px
+    // inside the 32px cell).
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.35 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
