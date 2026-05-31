@@ -73,10 +73,17 @@ function findClosestItem(layer, px, py, reachM, accept) {
 }
 
 // Shared "too far to reach from the player's cell" guard. Flashes and returns
-// true when (x, y) is beyond REACH_FAR_M of the player cell centre, so callers
-// do `if (tooFar(ctx, x, y)) return 'far';`.
+// true when (x, y) is beyond the player's reach radius (measured from the
+// player cell centre), so callers do `if (tooFar(ctx, x, y)) return 'far';`.
+// The radius is the SAME shrine/energy-scaled value the lit silhouette and
+// cell-tap gate use (coords.js reachRadiusM) — never the old fixed 16 m — so
+// growing your reach at the shrine extends object/creature/treasure taps too,
+// and the lit area stays the tappable area. Falls back to REACH_FAR_M only if
+// the helper is somehow unavailable.
 function tooFar(ctx, x, y) {
-  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) {
+  const reachM = (typeof reachRadiusM === 'function')
+    ? reachRadiusM(ctx.scene) : REACH_FAR_M;
+  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
     ctx.scene.flash('Just out of reach.', ctx.sx, ctx.sy);
     return true;
   }
@@ -370,8 +377,6 @@ const TAP_HANDLERS = [
                    : null;
       scene.startWorkProgress(victim.x, victim.y, () => {
         save.caught.push(victim.id);
-        save.caughtKinds = save.caughtKinds || {};
-        save.caughtKinds[victim.kind] = (save.caughtKinds[victim.kind] || 0) + 1;
         if (dropId) {
           scene.addToInv(dropId, 1);
           const item = ITEM_BY_ID[dropId];
@@ -1173,11 +1178,6 @@ const TAP_HANDLERS = [
       scene.addToInv(p.crop, yieldN);
       const gotSeed = Math.random() < (0.25 + qual * 0.10);
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
-      // Track harvest milestones — gates which relic tiers can drop from chests
-      // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See rarity.js
-      // chestRelicAllowedTiers.
-      save.harvested = save.harvested || {};
-      save.harvested[p.crop] = (save.harvested[p.crop] || 0) + 1;
       ctx.dirty = true;
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
@@ -1249,10 +1249,10 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // 2% per cast → gear jackpot. Milestone-gated tier picker (harvest
-      // sunflower → Gold, catch cow → Platinum, etc.). An upgrade auto-equips;
-      // a dupe cashes out as consolation gold. Falls through to the fish table
-      // if no milestones are met yet (allowed tiers empty).
+      // 2% per cast → gear jackpot. The rolled tier is capped by the loot rule
+      // (chestT=2 → preferred tier clamp in rollGearUpgrade); harvest/catch
+      // milestone gating was removed, so this always yields a gear roll. An
+      // upgrade auto-equips; a dupe cashes out as consolation gold.
       if (Math.random() < 0.02) {
         const reward = (typeof rollGearUpgrade === 'function')
           ? rollGearUpgrade(undefined, save, save.relics, 2, save.armor)
