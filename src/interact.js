@@ -240,6 +240,17 @@ const TAP_HANDLERS = [
       });
       return true;
     }
+    if (sel.id === 'reach_potion') {
+      scene.showOfferModal({
+        title: 'Drink the Potion of Reach?',
+        get: '✨ full-screen reach for 1 min',
+        cost: `1× ✨ Potion of Reach`,
+        canAfford: true,
+        acceptLabel: 'Drink',
+        onAccept: () => scene.drinkReachPotion(),
+      });
+      return true;
+    }
     return false;
   }},
 

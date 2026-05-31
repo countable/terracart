@@ -121,6 +121,8 @@ const MINERAL_ICON_SHEET = {
   // frame 0 is the basic variant.
   flute:      { sheet: 'icon_flute',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
+  // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
+  reach_potion: { sheet: 'icon_potion', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -210,7 +212,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2,
+  flute: 2, book: 2, reach_potion: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -261,6 +263,9 @@ const ITEMS = [
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
+  // Potion of Reach: drink it (tap your own feet with it selected) to light up
+  // the whole screen — full-range reach for 1 minute, regardless of energy.
+  { id: 'reach_potion', name: 'Potion of Reach', kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -376,6 +381,7 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
   book:  20,
+  reach_potion: 45,   // T2 — full-screen reach for 1 min is a strong utility pop
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
