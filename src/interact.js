@@ -705,9 +705,25 @@ const TAP_HANDLERS = [
     // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
     // is identical to what's drawn. Sharing the same cell key (chest ids are cell-snapped)
     // avoids the order-dependent "see a crate but can't tap it" mismatch.
+    // The till handler below treats an object as "occupied" whenever its FOOT
+    // sits in the tapped cell — a cell-shaped target. The reach test here is a
+    // circle of radius REACH_OBJECT_M (3.5m) around the foot, measured from the
+    // raw tap. The two disagree at the corners: a tap near the far corner of an
+    // object's own 5m cell is ~3.54m from the foot, just past 3.5m, so the
+    // object falls through and till reports "occupied: chest" even though you
+    // clearly tapped it. Compute the tapped cell once so the open-test can also
+    // accept any object whose foot shares the tapped cell — symmetric with the
+    // occupied-guard, no more "tapped the chest but it won't open".
+    const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
     const seenTapCell = new Set();
     const isDupTapChest = (o) => {
-      const k = Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
+      // scene.cellM, NOT this.cellM: these handlers are arrow fns defined at
+      // module top level, so `this` is the global object (window) here, not the
+      // scene — `this.cellM` was undefined, making every key "NaN_NaN". That
+      // collapsed ALL loaded chests to one dedupe key, so only the first chest
+      // iterated stayed tappable and every other chest fell through to the till
+      // handler's "occupied: chest" flash. Mirror render.js, which uses scene.cellM.
+      const k = Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
       if (seenTapCell.has(k)) return true;
       seenTapCell.add(k);
       return false;
@@ -727,7 +743,18 @@ const TAP_HANDLERS = [
       // all tucked under the roof) activate it, instead of missing the 6m foot
       // circle and falling through to the till handler.
       const oy = tallSprite ? o.y - HOUSE_HIT_RISE_M : o.y;
-      if (distM2(o.x, oy, wm.x, wm.y) >= r * r) continue;
+      // Accept the tap if it lands within the sprite's reach circle OR anywhere
+      // in the object's own cell (so corner taps don't fall through to the till
+      // "occupied" guard). Opened chests are excluded from the cell-fallback so
+      // their cell stays tillable — the till guard skips them too, and a tap
+      // right on one still flashes "Picked clean already" via the reach circle.
+      const withinReach = distM2(o.x, oy, wm.x, wm.y) < r * r;
+      let inTapCell = false;
+      if (!withinReach && !(o.kind === 'chest' && openedSetTap.has(o.id))) {
+        const oc = worldMetersToAbsCell(scene, o.x, o.y);
+        inTapCell = oc.cellIX === tapCell.cellIX && oc.cellIY === tapCell.cellIY;
+      }
+      if (!withinReach && !inTapCell) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the
