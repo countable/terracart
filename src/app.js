@@ -3165,6 +3165,40 @@ class MapScene extends Phaser.Scene {
     mount();
   }
 
+  // Confirmation dialog shown BEFORE an item is fed to a creature, so a stray
+  // tap never silently consumes food. It spells out exactly WHAT is being fed
+  // to WHICH fauna (icon + name on each side) and runs onConfirm() only if the
+  // player accepts; Cancel or a backdrop tap aborts without consuming anything.
+  showFeedConfirm({ foodId, faunaKind, onConfirm }) {
+    // A confirm dialog is already open (rapid double-tap) — ignore the new one
+    // so we never stack two over the same animal.
+    if (document.getElementById('feed-confirm-modal')) return;
+    const foodName  = ITEM_BY_ID[foodId]?.name || foodId;
+    const faunaName = ITEM_BY_ID[faunaKind]?.name || faunaKind;
+    const { wrap, box, mount, mkBtn } =
+      this.makeModalShell('feed-confirm-modal', { zIndex: 60, onClose: () => {} });
+    const side = (iconId, label) =>
+      `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">` +
+        `${this.iconSpanHTML(iconId, 32)}<span style="font-size:11px">${label}</span></span>`;
+    box.innerHTML =
+      `<div style="opacity:.85;font-size:13px;margin-bottom:10px;color:#ffe066">Feed the ${faunaName}?</div>` +
+      `<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 14px">` +
+        side(foodId, foodName) +
+        `<span style="font-size:18px;opacity:.7">→</span>` +
+        side(faunaKind, faunaName) +
+      `</div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
+    const cancel = mkBtn('Cancel', false);
+    const feed   = mkBtn('Feed', true);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    feed.addEventListener('click',   (e) => { e.stopPropagation(); wrap.remove(); onConfirm?.(); });
+    row.appendChild(cancel);
+    row.appendChild(feed);
+    box.appendChild(row);
+    mount();
+  }
+
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   showStatsModal() {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('stats-modal', { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null, onClose: () => {} });

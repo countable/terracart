@@ -46,6 +46,19 @@ function consumeSelected(save, n = 1) {
   }
 }
 
+// Gate a feeding action behind a "Feed <food> to the <fauna>?" confirmation.
+// `doFeed` performs the actual feed AND must persist its own state: it runs
+// asynchronously from the modal callback, after interactTap has already
+// returned (so the ctx.dirty → persistSave path no longer applies). When the
+// scene can't show the modal (headless/test scene) or we're in TEST_MODE, the
+// feed runs immediately so the deterministic test suite stays synchronous.
+function confirmFeed(scene, foodId, faunaKind, doFeed) {
+  const canModal = typeof scene.showFeedConfirm === 'function'
+    && !(typeof window !== 'undefined' && window.__TEST_MODE);
+  if (!canModal) { doFeed(); return; }
+  scene.showFeedConfirm({ foodId, faunaKind, onConfirm: doFeed });
+}
+
 // Nearest item in a WorldGen layer to (px, py) within reachM that passes
 // `accept`, or null. Centralizes the bestD2 scan every "tap the closest X"
 // handler repeats. `accept` may be omitted to consider all items.
@@ -406,26 +419,33 @@ const TAP_HANDLERS = [
         && sel && animalLikesFood(target.kind, sel.id);
       const isTreat = sel && (sel.count ?? 0) > 0
         && (likesTame || isPlantProduce);
-      target._pettedUntilT = performance.now() + 10 * 60 * 1000;
-      // Mirror the boost expiry into the save as EPOCH ms (keyed by creature
-      // id, like save.lastProduce). Creatures are re-spawned from tile data on
-      // every reload and lose their in-memory _pettedUntilT (which is a
-      // performance.now value that also resets to ~0 on reload), so the produce
-      // path below reads this persisted copy — otherwise the +50% double-yield
-      // silently never survived a tile change or restart.
-      save.petBoost = save.petBoost || {};
-      save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
-      if (target.kind === 'cat') {
-        target._followUntilT = performance.now() + 5 * 60 * 1000;
-      }
-      // Arming the boost is state worth persisting even when the pet was pet
-      // empty-handed (no treat consumed).
-      ctx.dirty = true;
+      // Pet the animal: arm the +50% double-yield boost and (for treats) eat
+      // the held item. Both the in-memory timer and a persisted EPOCH-ms mirror
+      // are set — creatures are re-spawned from tile data on every reload and
+      // lose their in-memory _pettedUntilT (a performance.now value that also
+      // resets to ~0 on reload), so the produce path below reads the persisted
+      // copy; otherwise the boost would silently never survive a tile change.
+      const doPet = () => {
+        target._pettedUntilT = performance.now() + 10 * 60 * 1000;
+        save.petBoost = save.petBoost || {};
+        save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
+        if (target.kind === 'cat') {
+          target._followUntilT = performance.now() + 5 * 60 * 1000;
+        }
+        if (isTreat) {
+          consumeSelected(save);
+          scene.buildInventoryDOM();
+        }
+        scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
+        persistSave(save);
+      };
+      // A treat is FED → confirm what's going to the pet first. An empty-handed
+      // (or non-treat) pet consumes nothing, so it stays instant.
       if (isTreat) {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
+        confirmFeed(scene, sel.id, target.kind, doPet);
+      } else {
+        doPet();
       }
-      scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
       return true;
     }
 
@@ -437,20 +457,24 @@ const TAP_HANDLERS = [
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
     if (sel && likes && (sel.count ?? 0) > 0) {
-      consumeSelected(save);
-      scene.buildInventoryDOM();
-      // Stop the wild one respawning, then re-add it as a tame pet at the same
-      // spot so the bond persists across reloads (mirrors the release handler).
-      const oldId = target.id;
-      if (!save.caught.includes(oldId)) save.caught.push(oldId);
-      const tx = Math.floor(target.x / scene.tileEdgeM);
-      const ty = Math.floor(target.y / scene.tileEdgeM);
-      const tameId = `released_${target.kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-      save.released = save.released || [];
-      save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty });
-      target.id = tameId;   // convert the in-world object in place → now tame
-      ctx.dirty = true;
-      scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
+      const favId = sel.id;
+      const doTame = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        // Stop the wild one respawning, then re-add it as a tame pet at the same
+        // spot so the bond persists across reloads (mirrors the release handler).
+        const oldId = target.id;
+        if (!save.caught.includes(oldId)) save.caught.push(oldId);
+        const tx = Math.floor(target.x / scene.tileEdgeM);
+        const ty = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = `released_${target.kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty });
+        target.id = tameId;   // convert the in-world object in place → now tame
+        scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
+        persistSave(save);
+      };
+      confirmFeed(scene, favId, target.kind, doTame);
       return true;
     }
     // 2. Plant produce → produce (chicken / cow only). Recently-petted
@@ -473,41 +497,54 @@ const TAP_HANDLERS = [
         save.lastProduce = save.lastProduce || {};
         const lastT = save.lastProduce[target.id] || target._lastProduceT || 0;
         if (now - lastT < PRODUCE_COOLDOWN_MS) {
-          // Still on cooldown — refuse without consuming the produce.
+          // Still on cooldown — refuse without consuming the produce. Bail
+          // before the confirm dialog so we don't ask about a feed that can't
+          // happen yet.
           const remainMs = PRODUCE_COOLDOWN_MS - (now - lastT);
           const mins = Math.max(1, Math.ceil(remainMs / 60000));
           const verb = target.kind === 'chicken' ? 'laid' : 'milked';
           scene.flash(`already ${verb} (${mins}m)`, sx, sy);
           return true;
         }
-        consumeSelected(save);
-        // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
-        // and fall back to the in-memory timer for boosts armed this session.
-        save.petBoost = save.petBoost || {};
-        const petted = (save.petBoost[target.id] || 0) > Date.now()
-          || (target._pettedUntilT && target._pettedUntilT > performance.now());
-        const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
-        if (petted) {                            // consume the boost (both copies)
-          delete save.petBoost[target.id];
-          target._pettedUntilT = 0;
-        }
-        scene.addToInv(yieldId, yieldN);
-        scene.buildInventoryDOM();
-        scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
-        // Stamp the cooldown on the creature (in-memory) AND in the save
-        // (survives tile reload + game restart).
-        target._lastProduceT = now;
-        save.lastProduce[target.id] = now;
-        ctx.dirty = true;
+        const feedId = sel.id;
+        const doFeed = () => {
+          consumeSelected(save);
+          // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
+          // and fall back to the in-memory timer for boosts armed this session.
+          save.petBoost = save.petBoost || {};
+          const petted = (save.petBoost[target.id] || 0) > Date.now()
+            || (target._pettedUntilT && target._pettedUntilT > performance.now());
+          const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
+          if (petted) {                            // consume the boost (both copies)
+            delete save.petBoost[target.id];
+            target._pettedUntilT = 0;
+          }
+          scene.addToInv(yieldId, yieldN);
+          scene.buildInventoryDOM();
+          scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+          // Stamp the cooldown on the creature (in-memory) AND in the save
+          // (survives tile reload + game restart). Re-read the clock here since
+          // the confirm dialog may have sat open for a while.
+          const stamp = Date.now();
+          target._lastProduceT = stamp;
+          save.lastProduce[target.id] = stamp;
+          persistSave(save);
+        };
+        confirmFeed(scene, feedId, target.kind, doFeed);
         return true;
       }
     }
-    // 3. Any other food → yuck. Wasted bite.
+    // 3. Any other food → yuck. Wasted bite. Confirm first so a stray tap
+    // doesn't silently burn a food item the animal won't even accept.
     if (sel && isEdible && (sel.count ?? 0) > 0) {
-      consumeSelected(save);
-      scene.buildInventoryDOM();
-      scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, sel.id);
-      ctx.dirty = true;
+      const yuckId = sel.id;
+      const doYuck = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, yuckId);
+        persistSave(save);
+      };
+      confirmFeed(scene, yuckId, target.kind, doYuck);
       return true;
     }
     // 4. CATCH via work queue. Reached with an empty hand (or any non-food,
