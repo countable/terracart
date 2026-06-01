@@ -1032,13 +1032,16 @@ const TAP_HANDLERS = [
         // render frame or hit a stale object reference.)
         if (scene.brokenRockSet.has(o.id)) return true;
         const isCave = o.caveVariant != null;
+        // "Plain rock" = a cave rock OR a T1 deposit. Both render as the vanilla
+        // rock sprite and drop rockfruit (stone), not a bar — ore proper starts
+        // at copper (T2). Plain rock is bare-hand-breakable and ungated.
+        const isPlain = isCave || (o.yieldTier || 1) <= 1;
         const pickTier = save.relics?.pick?.tier || 0;
-        // Pick-tier gate on ORE rocks: copper-bearing rock needs a Wood pick,
-        // and every fancier ore needs a pick one tier below its own
-        // (requiredTier = max(1, yieldTier-1), set in worldgen). Plain cave
-        // rock stays bare-hand-breakable. Pickaxe tier ALSO affects SPEED
-        // (toolDurationMs: 9s bare → 0.3s frost).
-        if (!isCave) {
+        // Pick-tier gate on ORE rocks (T2+): copper-bearing rock needs a Wood
+        // pick, and every fancier ore needs a pick one tier below its own
+        // (requiredTier = max(1, yieldTier-1), set in worldgen). Pickaxe tier
+        // ALSO affects SPEED (toolDurationMs: 9s bare → 0.3s frost).
+        if (!isPlain) {
           const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
           if (pickTier < reqTier) {
             const need = TIER_BY_NUM[reqTier]?.name || 'better';
@@ -1048,9 +1051,9 @@ const TAP_HANDLERS = [
         }
         // Energy scales with how far the rock out-tiers your pick: a flat 3 at
         // (or above) the rock's own tier, +9 for every tier the rock sits above
-        // the pick. Cave/plain rock counts as tier 1, so bare hands (tier 0) pay
-        // 9 — same as mining a regular tier-1 rock one tier above your tool.
-        const rockTier = isCave ? 1 : (o.yieldTier || 1);
+        // the pick. Plain rock counts as tier 1, so bare hands (tier 0) pay 9 —
+        // same as mining a regular tier-1 rock one tier above your tool.
+        const rockTier = o.yieldTier || 1;
         const cost = Math.max(3, 9 * (rockTier - pickTier));
         if (!scene.spendEnergy(cost, sx, sy)) return true;
         const durMs = (typeof toolDurationMs === 'function')
@@ -1059,15 +1062,14 @@ const TAP_HANDLERS = [
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          // Bar lookup is shared between the cave-rock lucky-strike and the
-          // ore-rock primary drop. Slot 0 is unused (tier index starts at 1).
-          // Each tier yields its OWN namesake bar (T1 has no named ore, so it
-          // pays copper like T2). Higher tiers still get bonus gems on top via
-          // the GEM table below — they just no longer collapse to gold.
+          // Bar lookup is shared between the plain-rock lucky-strike and the
+          // ore-rock primary drop. Slot 0/1 are unused for the primary drop
+          // (ore starts at copper = T2); each tier T2+ yields its OWN namesake
+          // bar. Higher tiers still get bonus gems on top via the GEM table.
           const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-          if (isCave) {
-            // Plain cave rock — primarily stone (1-3 rockfruit) plus a
-            // small chance per tier of cracking open a sliver of ore.
+          if (isPlain) {
+            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit)
+            // plus a small chance per tier of cracking open a sliver of ore.
             // Per-tier probability is 1/(2*t²): T1 50 %, T2 12.5 %, T3
             // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
             // cave can yield multiple low-tier bars, while T7 lucky
