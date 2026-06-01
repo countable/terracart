@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -86,6 +86,11 @@
       position: absolute; top: 0; left: 0;
       transform-origin: top left;
     }
+    /* touch-action doesn't inherit, so the <body> rule above doesn't reach the
+       Phaser canvas — the surface that catches almost every tap. Without this,
+       pinch and double-tap zoom land directly on the canvas. Phaser's pointer
+       events still fire; this only suppresses the browser's default zoom/pan. */
+    #game, #game canvas { touch-action: none; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
@@ -211,15 +216,22 @@
     <div class="items">
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="debug-controls">Debug controls: off</button>
-      <button class="danger" id="reset-save">Reset save</button>
+      <button id="debug-clear-relics">Remove all relics</button>
+      <button id="debug-wood-relics">All wood relics (T1)</button>
+      <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+        <!-- buttons injected from window.TELEPORT_PRESETS -->
+      </div>
+      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset save</button>
     </div>
   </details>
   <div id="hud"></div>
   <div id="safety">
     <div class="box">
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:#ffd96b;">Welcome to Pocket Acres</h2>
-      <p>Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
-      <button id="safety-dismiss">Get my location</button>
+      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:#a7ffb0;">Farm your neighbourhood.</p>
+      <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
+      <button id="safety-dismiss">Go to my location</button>
     </div>
   </div>
   <div id="story" style="display:none">
@@ -300,6 +312,43 @@
     window.visualViewport?.addEventListener('resize', fitGame);
     fitGame();
 
+    // Block every zoom gesture the game box can't absorb. The whole UI is a
+    // fixed 352×844 column scaled by fitGame; any browser/OS zoom layered on
+    // top just shifts the fixed HUD overlays out of place. The viewport meta
+    // (maximum-scale=1, user-scalable=no) covers most browsers, but iOS Safari
+    // ignores it for pinch and fires gesture events instead, and desktop
+    // ctrl/⌘+wheel and the ctrl/⌘ +/-/0 shortcuts bypass it entirely.
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(t =>
+      document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+    document.addEventListener('wheel', e => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
+        e.preventDefault();
+      }
+    });
+    // Block iOS Safari's double-tap-to-zoom. This is the one zoom path the
+    // rules above miss: it's NOT a gesture event (so the gesturestart guard
+    // never sees it) and `touch-action:none` on <body> doesn't inherit to the
+    // canvas/HUD where taps actually land. Impatient double-taps during normal
+    // play (tapping an animal, mining) then zoom the page in — and because the
+    // gesturestart guard simultaneously blocks pinch, the natural pinch-OUT
+    // recovery is gone, leaving the player stuck zoomed in at max with no way
+    // back. Suppressing the second tap of a quick pair closes that trap. We
+    // only preventDefault on the close-together second touchend, so single
+    // taps (and the game's own pointer handling) are untouched.
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 350) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+    // Belt-and-suspenders: kill any synthesized double-click that slips past
+    // the touchend guard (e.g. trackpad double-tap), which also triggers
+    // browser zoom-to-block on some engines.
+    document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+
     // Close menu on outside click / world tap.
     document.addEventListener('pointerdown', (e) => {
       const m = document.getElementById('menu');
@@ -331,6 +380,64 @@
       const next = !scene.save?.debugControls;
       setDebugBtnLabel(scene.setDebugControls(next));
     });
+    document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.save.relics = scene.save.relics || {};
+      for (const slot of Object.keys(scene.save.relics)) scene.save.relics[slot] = null;
+      scene.updateRelicRow?.();
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.save.relics = scene.save.relics || {};
+      const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
+      for (const slot of slots) scene.save.relics[slot] = { tier: 1 };
+      scene.updateRelicRow?.();
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    // Teleport presets — relocate the world origin to a well-mapped suburb to
+    // show off OSM features. A preset writes localStorage and reloads so the
+    // whole projection re-initializes for the new latitude (player position is
+    // never persisted — see save.js — so a reload cleanly re-centres). The
+    // active preset is marked with a check; Home clears the override.
+    function buildTeleportMenu() {
+      const TP_KEY = 'terracart.teleport';
+      const sec = document.getElementById('teleport-section');
+      const presets = window.TELEPORT_PRESETS;
+      if (!sec || !presets) return;   // app.js not loaded yet → skip silently
+      let active = null;
+      try { active = JSON.parse(localStorage.getItem(TP_KEY) || 'null'); } catch {}
+      const activeName = active && active.name;
+      for (const key of Object.keys(presets)) {
+        const p = presets[key];
+        const isHome = key === 'home';
+        const isActive = isHome ? !activeName : (activeName === p.name);
+        const btn = document.createElement('button');
+        btn.textContent = (isActive ? '✓ ' : '') + p.name;
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          try {
+            if (isHome) localStorage.removeItem(TP_KEY);
+            else localStorage.setItem(TP_KEY, JSON.stringify({ name: p.name, lat: p.lat, lon: p.lon }));
+          } catch {}
+          location.reload();
+        });
+        sec.appendChild(btn);
+      }
+    }
+    // app.js (which defines window.TELEPORT_PRESETS) is a synchronous script at
+    // the end of <body>, so it has run by DOMContentLoaded. Build then.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', buildTeleportMenu);
+    } else {
+      buildTeleportMenu();
+    }
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
     // synchronously from within a user-gesture handler — so we do it
@@ -472,20 +579,20 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=2"></script>
-  <script src="src/util.js?v=1"></script>
-  <script src="src/coords.js?v=114"></script>
-  <script src="src/worldgen.js?v=162"></script>
-  <script src="src/textures.js?v=136"></script>
+  <script src="src/util.js?v=4"></script>
+  <script src="src/coords.js?v=116"></script>
+  <script src="src/worldgen.js?v=169"></script>
+  <script src="src/textures.js?v=141"></script>
   <script src="src/save.js?v=113"></script>
-  <script src="src/items.js?v=162"></script>
+  <script src="src/items.js?v=171"></script>
   <script src="src/shops.js?v=3"></script>
-  <script src="src/rarity.js?v=22"></script>
+  <script src="src/rarity.js?v=23"></script>
   <script src="src/loot.js?v=136"></script>
-  <script src="src/interact.js?v=176"></script>
-  <script src="src/render.js?v=195"></script>
-  <script src="src/assets.js?v=160"></script>
-  <script src="src/sandbox.js?v=23"></script>
+  <script src="src/interact.js?v=193"></script>
+  <script src="src/render.js?v=220"></script>
+  <script src="src/assets.js?v=167"></script>
+  <script src="src/sandbox.js?v=29"></script>
   <script src="src/testtools.js?v=6"></script>
-  <script src="src/app.js?v=256"></script>
+  <script src="src/app.js?v=278"></script>
 </body>
 </html>

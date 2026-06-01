@@ -10,8 +10,10 @@
 //   TIER_YIELD, POI_CATEGORY, CATEGORY_LOOT, DEFAULT_LOOT
 //   POI_PAD_BY_CLASS, POI_PAD_BY_CATEGORY, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
-//   pickTreasure, pickLoot
 //   WILD_TREASURE
+//
+// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade) and
+// chestRelicAllowedTiers have been migrated to rarity.js.
 
 const CHEST_ICON = '📦';
 
@@ -112,7 +114,7 @@ function rusticifyName(name) {
   return out;
 }
 
-// === Loot tier yields (consumed by pickLoot) ===
+// === Loot tier yields (used by rarity.js / chest contexts) ===
 // Per-tier stack size for chest drops. Trimmed from 10/5/2 — old yields
 // flooded the inventory with seeds; with produce mixing (see CATEGORY_LOOT
 // below) and smaller stacks, chests feel more varied.
@@ -126,7 +128,7 @@ const SEED_TIER_INFO = {
   3: { label: 'RARE!',    color: '#ff8aff' },
 };
 function tierInfo(id) {
-  // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickLoot
+  // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickReward
   // returns bare produce ids (e.g. 'gemfruit', 'pairy') which never appear in
   // SEED_TIER (it's keyed by `${crop}_seed` only), so the old
   // `SEED_TIER[id] || 1` collapsed every produce reward to tier-1 "common".
@@ -272,153 +274,6 @@ function getLootConfig(poiClass) {
   return CATEGORY_LOOT[POI_CATEGORY[poiClass]] || DEFAULT_LOOT;
 }
 
-// Treasure-mark loot: 85% common-tier (50/50 between 1 common seed or $1),
-// 10% one uncommon seed, 5% one rare seed.
-function pickTreasure(rng) {
-  const R = rng ?? Math.random;
-  const r = R();
-  const seedsOfTier = (t) => Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === t);
-  if (r < 0.05) return { kind: 'seed', id: pickFromArray(seedsOfTier(3), R), n: 1 };
-  if (r < 0.15) return { kind: 'seed', id: pickFromArray(seedsOfTier(2), R), n: 1 };
-  // 85% — coin flip between common seed and $1.
-  if (R() < 0.5) return { kind: 'money', amount: 1 };
-  return { kind: 'seed', id: pickFromArray(seedsOfTier(1), R), n: 1 };
-}
-
-// Ring relic: per-tier 5% chance to bump rolled tier up by 1 (cap at 3).
-// Amulet relic: per-tier 10% chance to double the quantity. Both apply on top
-// of the category's normal weights / yield. relics is save.relics (may be null
-// in tests / older saves) — read defensively.
-function pickLoot(rng, poiClass, relics) {
-  const R = rng ?? Math.random;
-  const cfg = getLootConfig(poiClass);
-  const r = R();
-  let tier = 1, acc = 0;
-  for (const [t, w] of cfg.weights) { acc += w; if (r <= acc) { tier = t; break; } }
-  // Ring tier-up roll. Skip for flora (already T3-leaning) and lowtier (its
-  // yieldOverride assumes the original tier).
-  if (relics && typeof ringTierBoost === 'function' && tier < 3 && !cfg.onlyFlowers && !cfg.yieldOverride) {
-    if (R() < ringTierBoost(relics)) tier += 1;
-  }
-  let pool = Object.keys(SEED_TIER).filter(s => SEED_TIER[s] === tier);
-  if (cfg.onlyFlowers) {
-    // Flower seeds live at tiers 4-6 (sunflower / fireflower / iceflower), so
-    // they never intersect the 1-3 `pool` rolled above — the old
-    // `pool.filter(FLOWER_SEEDS.has)` was always empty and flora chests
-    // silently fell back to ordinary seeds. Map the rolled flora tier onto the
-    // flower rarity ladder instead: tier 1 → lowest flower, tier 3 → highest.
-    const flowers = [...FLOWER_SEEDS].sort((a, b) => SEED_TIER[a] - SEED_TIER[b]);
-    pool = [flowers[Math.min(tier, flowers.length) - 1]];
-  }
-  const seedId = pickFromArray(pool, R);
-  // Seed-vs-produce decision: per category mode. 'mixed' flips a coin each roll
-  // weighted by cfg.produceP (default 0.5) so the same chest type yields both
-  // kinds of drops over time — no more "shop chest = always seeds".
-  let asProduce = cfg.drops === 'produce';
-  if (cfg.drops === 'mixed') {
-    asProduce = R() < (cfg.produceP ?? 0.5);
-  }
-  const id = asProduce ? seedId.replace(/_seed$/, '') : seedId;
-  let n = (cfg.yieldOverride?.[tier] ?? TIER_YIELD[tier]) + (cfg.bonus || 0);
-  // (Amulet no longer doubles chest qty — its job is ghost mode now.)
-  return { id, n };
-}
-
-// === Chest-relic gating ============================================
-// Chests + shops can drop/sell relics, but several material tiers stay locked
-// until the player proves they've reached the matching milestone. T1-T3 are
-// always available; everything above requires a deliberate action.
-//
-//   T4 Gold     ← harvest a sunflower
-//   T5 Platinum ← catch a cow
-//   T6 Crimson  ← harvest a fireflower
-//   T7 Frost    ← harvest an iceflower
-//
-// `progress` is the player's save object. Reads .harvested and .caughtKinds
-// off it; missing fields are treated as empty so a fresh save just unlocks
-// T1..T3. (Earlier versions accepted a raw harvested map for back-compat;
-// that was brittle — any future top-level save field named like a crop
-// would silently unlock tiers.)
-function chestRelicAllowedTiers(progress) {
-  const harvested = progress?.harvested || {};
-  const caught = progress?.caughtKinds || {};
-  const tiers = [1, 2, 3];                             // always available
-  if (caught.cow)            tiers.push(5);            // Platinum — catch a cow
-  if (harvested.sunflower)   tiers.push(4);            // Gold
-  if (harvested.fireflower)  tiers.push(6);            // Crimson
-  if (harvested.iceflower)   tiers.push(7);            // Frost
-  return tiers.sort((a, b) => a - b);
-}
-
-// Pick a chest reward. Two-step:
-//
-//   1. Roll a (slot, tier) biased by the CHEST'S tier — high-tier chests
-//      (flora, civic, etc.) favour high-tier relics; lowtier chests favour
-//      wood / copper. The roll only ever picks from `chestRelicAllowedTiers`
-//      (gated by the player's harvest + cow milestones).
-//   2. If the rolled tier UPGRADES the player's current relic in that slot,
-//      return  { kind: 'relic', slot, tier }  → equip on accept.
-//      Otherwise return  { kind: 'gold', amount, slot, tier }  → consolation
-//      worth half the relic's listed price (player still gets something, never
-//      a "you already have this" dud).
-//
-// `progress` may be the whole save object or — for back-compat — just the
-// harvested map. chestRelicAllowedTiers handles either shape.
-// `chestT` (1-4) is the chest's own tier from chestTier(poiClass). Defaults
-// to 2 (mid) when the caller doesn't know the chest tier.
-function pickChestRelic(rng, progress, currentRelics, chestT = 2, currentArmor = null) {
-  const random = rng || Math.random;
-  const allowed = chestRelicAllowedTiers(progress);
-  if (!allowed.length || typeof RELIC_DEFS === 'undefined') return null;
-  // Map chest tier (1..4) to a preferred RELIC tier (1..7) — linear ramp so
-  // T1 chests centre on T1 relics, T4 chests centre on T7. Preferred ALSO acts
-  // as a HARD CEILING — a T1 chest never drops anything above Wood, a T2 chest
-  // tops out at Iron, etc. Without the cap, weighted-by-closeness would let
-  // even a bus stop occasionally hand out an Iron pickaxe.
-  const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
-  let weighted;
-  if (preferred > Math.max(...allowed)) {
-    // The chest "wants" a tier the player hasn't unlocked yet (e.g. flora chest
-    // asks for T7 but no iceflower harvested). Fall back to a UNIFORM roll over
-    // the basic tiers (Wood / Copper / Iron) instead of biasing high — so the
-    // player gets random low-tier gear, not always the highest-allowed.
-    const baseTiers = allowed.filter(t => t <= 3);
-    const pool = baseTiers.length ? baseTiers : allowed;
-    weighted = pool.map(t => ({ t, w: 1 }));
-  } else {
-    // Cap at preferred so chest tier directly limits relic tier.
-    const capped = allowed.filter(t => t <= preferred);
-    weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
-  }
-  const total = weighted.reduce((a, b) => a + b.w, 0);
-  let r = random() * total;
-  let pickedTier = weighted[0].t;
-  for (const w of weighted) { r -= w.w; if (r <= 0) { pickedTier = w.t; break; } }
-  // Pick a random slot, uniform across every wearable slot — relic slots
-  // (pick / axe / hoe / sword / bow / staff / ring / amulet / can / hoe /
-  // bugnet / rod / bags) AND armor slots (helmet / chest / legs / boots).
-  // Each slot gets equal odds (the 4 armor slots used to be excluded; chests
-  // never dropped armor pieces). Slot tag and current-tier lookup branch on
-  // whether the chosen slot belongs to RELIC_DEFS or ARMOR_DEFS.
-  const relicSlots = Object.keys(RELIC_DEFS);
-  const armorSlots = (typeof ARMOR_DEFS !== 'undefined') ? Object.keys(ARMOR_DEFS) : [];
-  const slotPool = [
-    ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
-    ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
-  ];
-  const sp = pickFromArray(slotPool, random);
-  const cur = sp.kind === 'relic'
-    ? (currentRelics?.[sp.slot]?.tier ?? 0)
-    : (currentArmor?.[sp.slot]?.tier ?? 0);
-  if (pickedTier > cur) {
-    return { kind: sp.kind, slot: sp.slot, tier: pickedTier };
-  }
-  // Already own equal-or-better: hand over half the gear's gold value.
-  // Floor at $1 so even wood-tier dupes pay out something.
-  const price = (typeof gearPrice === 'function') ? gearPrice(sp.kind, sp.slot, pickedTier) : 0;
-  const amount = Math.max(1, Math.floor(price / 2));
-  return { kind: 'gold', amount, slot: sp.slot, gearKind: sp.kind, tier: pickedTier };
-}
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
 // Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
