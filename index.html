@@ -86,6 +86,11 @@
       position: absolute; top: 0; left: 0;
       transform-origin: top left;
     }
+    /* touch-action doesn't inherit, so the <body> rule above doesn't reach the
+       Phaser canvas — the surface that catches almost every tap. Without this,
+       pinch and double-tap zoom land directly on the canvas. Phaser's pointer
+       events still fire; this only suppresses the browser's default zoom/pan. */
+    #game, #game canvas { touch-action: none; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
@@ -323,6 +328,26 @@
         e.preventDefault();
       }
     });
+    // Block iOS Safari's double-tap-to-zoom. This is the one zoom path the
+    // rules above miss: it's NOT a gesture event (so the gesturestart guard
+    // never sees it) and `touch-action:none` on <body> doesn't inherit to the
+    // canvas/HUD where taps actually land. Impatient double-taps during normal
+    // play (tapping an animal, mining) then zoom the page in — and because the
+    // gesturestart guard simultaneously blocks pinch, the natural pinch-OUT
+    // recovery is gone, leaving the player stuck zoomed in at max with no way
+    // back. Suppressing the second tap of a quick pair closes that trap. We
+    // only preventDefault on the close-together second touchend, so single
+    // taps (and the game's own pointer handling) are untouched.
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 350) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+    // Belt-and-suspenders: kill any synthesized double-click that slips past
+    // the touchend guard (e.g. trackpad double-tap), which also triggers
+    // browser zoom-to-block on some engines.
+    document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 
     // Close menu on outside click / world tap.
     document.addEventListener('pointerdown', (e) => {
