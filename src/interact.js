@@ -1008,11 +1008,22 @@ const TAP_HANDLERS = [
         // render frame or hit a stale object reference.)
         if (scene.brokenRockSet.has(o.id)) return true;
         const isCave = o.caveVariant != null;
-        // No tier gate any more — bare hands (and any pick) crack ANY rock.
-        // Pickaxe tier only affects SPEED (toolDurationMs: 9s bare → 0.3s frost),
-        // mirroring chop / fish / catch. Ore rocks still cost more energy by
-        // yield tier (the richer the rock, the more it takes out of you), but no
-        // longer take longer.
+        // Pick-tier gate on ORE rocks: copper-bearing rock needs a Wood pick,
+        // and every fancier ore needs a pick one tier below its own
+        // (requiredTier = max(1, yieldTier-1), set in worldgen). Plain cave
+        // rock stays bare-hand-breakable. Pickaxe tier ALSO affects SPEED
+        // (toolDurationMs: 9s bare → 0.3s frost); ore rocks still cost more
+        // energy by yield tier (the richer the rock, the more it takes out
+        // of you).
+        if (!isCave) {
+          const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
+          const pickTier = save.relics?.pick?.tier || 0;
+          if (pickTier < reqTier) {
+            const need = TIER_BY_NUM[reqTier]?.name || 'better';
+            scene.flash(`Need a ${need} pick to mine this ore.`, sx, sy);
+            return true;
+          }
+        }
         const tierForWork = isCave ? 1 : (o.yieldTier || 1);
         const cost = 10 + (tierForWork - 1) * 4;
         if (!scene.spendEnergy(cost, sx, sy)) return true;
