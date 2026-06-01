@@ -353,8 +353,26 @@ const TAP_HANDLERS = [
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
     };
     const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
-    const target = findClosestItem('creatures', wm.x, wm.y, creatureTapR,
-      (c) => !save.caught.includes(c.id));
+    // Fauna outrank tilling / objects on a contested cell. A cell is 5 m wide
+    // but the per-kind grab radius is only 1.4–2.4 m, so a tap on the cell an
+    // animal stands in can land >2 m from its centre and slip past this handler
+    // to the till / plant / object handlers below — the player ends up tilling
+    // "under" the chicken. Accept the closest creature that is within its per-
+    // kind tap disk of the TAP POINT *or* whose centre shares the tapped 5 m
+    // cell, so any tap on a creature's own cell always reads as an animal
+    // interaction first. (Closest-to-tap still wins when several qualify.)
+    const cellHalfM = scene.cellM / 2;
+    const tapCellCx = (Math.floor(wm.x / scene.cellM) + 0.5) * scene.cellM;
+    const tapCellCy = (Math.floor(wm.y / scene.cellM) + 0.5) * scene.cellM;
+    let target = null, bestD2 = Infinity;
+    WorldGen.forEachItem('creatures', (c) => {
+      if (save.caught.includes(c.id)) return;
+      const d2 = distM2(c.x, c.y, wm.x, wm.y);
+      const r = creatureTapR(c);
+      const inTapCell = Math.abs(c.x - tapCellCx) < cellHalfM
+                     && Math.abs(c.y - tapCellCy) < cellHalfM;
+      if ((d2 <= r * r || inTapCell) && d2 < bestD2) { bestD2 = d2; target = c; }
+    });
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
     // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-

@@ -1285,6 +1285,43 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
+      // Before seating crates, clear the immediate spawn area of natural
+      // mineralrocks and procedural forest fill so the starter crates aren't
+      // visually competing with debris the player can't open — AND so a crate
+      // never lands on top of a kept object. 10-cell Chebyshev radius (~50 m)
+      // around spawn. EXCEPTION: real-world detected trees (the player's actual
+      // yard / street trees — flagged `individual` or carrying a DeepForest
+      // crown_color/size) are kept, so the home reads like the real
+      // neighbourhood instead of a bald pocket. Only procedural debris (rocks,
+      // groundstacks) and anonymous forest-grove trees get cleared near spawn.
+      const CLEAR_R = 10;
+      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
+      const _isRealTree = (o) =>
+        (o.kind === 'tree' || o.kind === 'fruittree') &&
+        (o.individual || o.crown_color || o.size);
+      const _nearSpawn = (wx, wy) => {
+        const oIx = Math.floor((wx - tx0) / this.cellM);
+        const oIy = Math.floor((wy - ty0) / this.cellM);
+        return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
+      };
+      entry.objects = entry.objects.filter(o =>
+        _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
+      // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
+      // any within the tutorial pocket too so spawn is free of pickable scrub.
+      if (Array.isArray(entry.wildplants)) {
+        entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
+      }
+      // Cell occupancy from the SURVIVING objects (kept real-world trees,
+      // houses, towers, rocks…), tile-local cell basis — the same Math.floor
+      // basis the seat search below uses. Crate seating skips these cells so a
+      // starter chest never spawns on top of a tree: the prior order seated
+      // crates BEFORE this clear ran and only checked terrain + other crate
+      // seats, which let a chest land on a kept yard tree.
+      const occupiedObjCells = new Set();
+      for (const o of entry.objects) {
+        occupiedObjCells.add(
+          Math.floor((o.x - tx0) / this.cellM) + ',' + Math.floor((o.y - ty0) / this.cellM));
+      }
       // Seven starter chests: one of 9 potato seeds (the player's first crop —
       // inventory starts empty), three of 5 wood for restoring a plain house,
       // three of 5 rockfruit for restoring a themed shop — interleaved so the
@@ -1362,6 +1399,7 @@ class MapScene extends Phaser.Scene {
             const tt = entry.grid[ny * N + nx];
             if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
             if (usedSeats.has(nx + ',' + ny)) continue;
+            if (occupiedObjCells.has(nx + ',' + ny)) continue;   // kept tree / house etc.
             // Enforce a minimum gap from the previous crate so the trail
             // spreads out instead of clustering on adjacent road cells.
             if (lastSeat &&
@@ -1391,42 +1429,19 @@ class MapScene extends Phaser.Scene {
             for (let step = 0; step < 5; step++) {
               if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
               const t = entry.grid[ncy * N + ncx];
-              if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !usedSeats.has(ncx + ',' + ncy)) break;
+              if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) &&
+                  !usedSeats.has(ncx + ',' + ncy) && !occupiedObjCells.has(ncx + ',' + ncy)) break;
               ncx += Math.sign(bdx) || 0;
               ncy += Math.sign(bdy) || 0;
             }
             if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
             const tt = entry.grid[ncy * N + ncx];
-            if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || usedSeats.has(ncx + ',' + ncy)) continue;
+            if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) ||
+                usedSeats.has(ncx + ',' + ncy) || occupiedObjCells.has(ncx + ',' + ncy)) continue;
             seatCrate(ncx, ncy, i);
             seated = true;
           }
         }
-      }
-      // Clear the immediate spawn area of natural mineralrocks and procedural
-      // forest fill so the starter crates aren't visually competing with debris
-      // the player can't open. 10-cell Chebyshev radius (~50 m) around spawn.
-      // EXCEPTION: real-world detected trees (the player's actual yard / street
-      // trees — flagged `individual` or carrying a DeepForest crown_color/size)
-      // are kept, so the home reads like the real neighbourhood instead of a
-      // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
-      // forest-grove trees get cleared near spawn.
-      const CLEAR_R = 10;
-      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
-      const _isRealTree = (o) =>
-        (o.kind === 'tree' || o.kind === 'fruittree') &&
-        (o.individual || o.crown_color || o.size);
-      const _nearSpawn = (wx, wy) => {
-        const oIx = Math.floor((wx - tx0) / this.cellM);
-        const oIy = Math.floor((wy - ty0) / this.cellM);
-        return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
-      };
-      entry.objects = entry.objects.filter(o =>
-        _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
-      // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
-      // any within the tutorial pocket too so spawn is free of pickable scrub.
-      if (Array.isArray(entry.wildplants)) {
-        entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
       }
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
