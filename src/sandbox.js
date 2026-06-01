@@ -123,8 +123,8 @@
     name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 7, fill: T.ROCK,
     populate(s) {
       // One deposit per yield tier T1..T7. yieldTier sets the ore-stone colour
-      // and the bar it drops: T1 plain→copper, T2 copper, T3 iron, T4 gold,
-      // T5 platinum, T6 crimson, T7 frost. Packed into a readable grid.
+      // and the bar it drops: T1 plain rock→rockfruit, T2 copper, T3 iron,
+      // T4 gold, T5 platinum, T6 crimson, T7 frost. Packed into a readable grid.
       s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
       s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
       s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
