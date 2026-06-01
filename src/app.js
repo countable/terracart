@@ -1119,14 +1119,6 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, cx, cy };
   }
 
-  playerAbsCell() {
-    const pc = this.playerToWorldCell();
-    return {
-      cellIX: pc.tx * this.cellsPerTile + Math.floor(pc.cx),
-      cellIY: pc.ty * this.cellsPerTile + Math.floor(pc.cy),
-    };
-  }
-
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     const needed = new Set();

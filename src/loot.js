@@ -6,16 +6,16 @@
 //   items.js (SEED_TIER, FLOWER_SEEDS).
 //
 // Exports as globals:
-//   CHEST_ICON, RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
-//   TIER_YIELD, POI_CATEGORY, CATEGORY_LOOT, DEFAULT_LOOT
+//   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
+//   POI_CATEGORY
 //   POI_PAD_BY_CLASS, POI_PAD_BY_CATEGORY, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
 //   WILD_TREASURE
 //
-// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade) and
-// chestRelicAllowedTiers have been migrated to rarity.js.
-
-const CHEST_ICON = '📦';
+// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
+// chestRelicAllowedTiers, AND the old per-category loot tables (CATEGORY_LOOT /
+// DEFAULT_LOOT / getLootConfig / TIER_YIELD) have been migrated to / superseded
+// by rarity.js's pickReward + classBias engine.
 
 // === Rustic name transform ===
 // Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
@@ -114,12 +114,6 @@ function rusticifyName(name) {
   return out;
 }
 
-// === Loot tier yields (used by rarity.js / chest contexts) ===
-// Per-tier stack size for chest drops. Trimmed from 10/5/2 — old yields
-// flooded the inventory with seeds; with produce mixing (see CATEGORY_LOOT
-// below) and smaller stacks, chests feel more varied.
-const TIER_YIELD = { 1: 5, 2: 3, 3: 1 };
-
 // SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
 // loot flash (chest, treasure) so the player gets consistent visual feedback.
 const SEED_TIER_INFO = {
@@ -198,22 +192,6 @@ const POI_CATEGORY = {
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
-// `drops`:
-//   'seed'    → always a seed (planting material)
-//   'produce' → always produce (harvested crop, ready to eat/sell)
-//   'mixed'   → coin-flip per drop, with chance = produceP (default 0.5)
-// Most categories now mix so chests don't all read as "more seeds".
-const CATEGORY_LOOT = {
-  food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
-  commerce: { drops: 'mixed', produceP: 0.5, weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
-  civic:    { drops: 'mixed', produceP: 0.3, weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
-  health:   { drops: 'mixed', produceP: 0.5, weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
-  park:     { drops: 'mixed', produceP: 0.4, weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
-  flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
-  farm:     { drops: 'mixed', produceP: 0.5, weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
-  lowtier:  { drops: 'mixed', produceP: 0.7, weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
-};
-
 // === POI pad SHAPE mapping ===
 // The pad SHAPE itself conveys POI type. The chest sits
 // in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
@@ -249,8 +227,6 @@ function padShapeKeyForPoi(poiClass) {
   return POI_PAD_BY_CATEGORY[cat] || null;
 }
 
-const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
-
 // Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
 const CHEST_TIER_BY_CATEGORY = {
   // Commercial businesses (shops, restaurants, bakeries, etc.) sit at the lowest tier —
@@ -269,9 +245,6 @@ const CHEST_TIER_COLOR = {
 };
 function chestTier(poiClass) {
   return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
-}
-function getLootConfig(poiClass) {
-  return CATEGORY_LOOT[POI_CATEGORY[poiClass]] || DEFAULT_LOOT;
 }
 
 
