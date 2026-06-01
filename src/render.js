@@ -1054,18 +1054,29 @@ Render.drawObjects = function drawObjects(scene) {
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
               // scale 1.6. Two safe pickranges:
-              //   CAVE → row 15, cols 3..6 (the four "nice vanilla" rocks
-              //                              the user identified; 4 vars)
-              //   ORE  → row 0,  col by tier (small gem-on-pebble, 11 vars)
-              // Both produce visually compact rocks; ore col varies by tier
-              // for distinct gem colours.
+              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
+              //           the user identified; 4 vars). Used by cave rock AND
+              //           T1 ore — T1 shows no visible ore, it's just plain
+              //           rock that happens to yield a little copper.
+              //   ORE   → row 0, the ore-stone per yield tier. The top row is
+              //           ore stones in tier order starting at copper — copper
+              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
+              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           so the rock you see matches the bar it drops.
               frame: (o) => {
-                if (o.caveVariant != null) {
-                  const caveCol = 3 + (o.caveVariant % 4);   // 3..6
-                  return 15 * MINERALROCK_COLS + caveCol;
-                }
                 const tier = o.yieldTier || o.requiredTier || 1;
-                const col = (tier - 1) % MINERALROCK_COLS;
+                // Cave rock and T1 ore both render as a plain rock variant.
+                if (o.caveVariant != null || tier <= 1) {
+                  const v = o.caveVariant != null
+                    ? (o.caveVariant % 4)
+                    : (((Math.round(o.x) + Math.round(o.y)) % 4) + 4) % 4;
+                  return 15 * MINERALROCK_COLS + (3 + v);   // cols 3..6
+                }
+                // T2-T7 → ore-stone column. Index by yieldTier; col 4 is
+                // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
+                // crimson 5, frost 6).
+                const ORE_COL_BY_TIER = [0, 0, 0, 1, 2, 3, 5, 6];
+                const col = ORE_COL_BY_TIER[tier] ?? 0;
                 return 0 * MINERALROCK_COLS + col;
               },
               // Origin (0.5, 0.5) — centre the sprite in its cell. The
