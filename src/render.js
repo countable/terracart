@@ -857,6 +857,7 @@ Render.drawObjects = function drawObjects(scene) {
   // chest sprite. The save.opened filter above already removes opened chests
   // from objList, so this branch only ever sees unopened ones.
   const _chestIsBox = (o) => {
+    if (o.crate) return true;   // starter supply crates always use the box sprite
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
   };

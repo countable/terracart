@@ -67,6 +67,15 @@ function treeScale(o) {
 // 'small' (any axe, base wood). Golden trees are handled separately — they
 // need a Gold axe regardless of size.
 function treeSizeClass(o) {
+  // Detected trees carry a discrete DeepForest crown class — map it straight to
+  // the gameplay class so the axe-tier gate tracks the SIZE, not the species
+  // sprite scale (a maple's base 0.85 would otherwise push every 'small' maple
+  // up into 'medium'/'full'). small→small (Wood), medium→medium (Copper),
+  // large→full (Iron).
+  if (o.size === 'small')  return 'small';
+  if (o.size === 'medium') return 'medium';
+  if (o.size === 'large')  return 'full';
+  // Size-less trees (OSM / procedural forest) fall back to the sprite scale.
   const s = treeScale(o);
   if (s >= 0.85) return 'full';
   if (s >= 0.62) return 'medium';

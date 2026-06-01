@@ -1321,11 +1321,13 @@ class MapScene extends Phaser.Scene {
         const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
         // A real chest with hardcoded contents — opens via the standard chest
         // handler (interact.js), which reads o.fixedLoot and shows the same
-        // reward modal as POI chests. No poiClass → default tier-2 chest
-        // sprite, no POI label.
+        // reward modal as POI chests. `crate: true` renders the humble lowtier
+        // crate (box) sprite instead of the tier-2 treasure chest, matching
+        // their role as starter supplies. No poiClass → no POI label.
         entry.objects.push({
           kind: 'chest', x: wmx, y: wmy,
           fixedLoot: STARTER_LOOT[i],
+          crate: true,
           id: `chest_start_${tx}_${ty}_${i + 1}`,
         });
         usedSeats.add(cx + ',' + cy);
