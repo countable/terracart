@@ -1032,13 +1032,16 @@ const TAP_HANDLERS = [
         // render frame or hit a stale object reference.)
         if (scene.brokenRockSet.has(o.id)) return true;
         const isCave = o.caveVariant != null;
+        // "Plain rock" = a cave rock OR a T1 deposit. Both render as the vanilla
+        // rock sprite and drop rockfruit (stone), not a bar — ore proper starts
+        // at copper (T2). Plain rock is bare-hand-breakable and ungated.
+        const isPlain = isCave || (o.yieldTier || 1) <= 1;
         const pickTier = save.relics?.pick?.tier || 0;
-        // Pick-tier gate on ORE rocks: copper-bearing rock needs a Wood pick,
-        // and every fancier ore needs a pick one tier below its own
-        // (requiredTier = max(1, yieldTier-1), set in worldgen). Plain cave
-        // rock stays bare-hand-breakable. Pickaxe tier ALSO affects SPEED
-        // (toolDurationMs: 9s bare → 0.3s frost).
-        if (!isCave) {
+        // Pick-tier gate on ORE rocks (T2+): copper-bearing rock needs a Wood
+        // pick, and every fancier ore needs a pick one tier below its own
+        // (requiredTier = max(1, yieldTier-1), set in worldgen). Pickaxe tier
+        // ALSO affects SPEED (toolDurationMs: 9s bare → 0.3s frost).
+        if (!isPlain) {
           const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
           if (pickTier < reqTier) {
             const need = TIER_BY_NUM[reqTier]?.name || 'better';
@@ -1048,9 +1051,9 @@ const TAP_HANDLERS = [
         }
         // Energy scales with how far the rock out-tiers your pick: a flat 3 at
         // (or above) the rock's own tier, +9 for every tier the rock sits above
-        // the pick. Cave/plain rock counts as tier 1, so bare hands (tier 0) pay
-        // 9 — same as mining a regular tier-1 rock one tier above your tool.
-        const rockTier = isCave ? 1 : (o.yieldTier || 1);
+        // the pick. Plain rock counts as tier 1, so bare hands (tier 0) pay 9 —
+        // same as mining a regular tier-1 rock one tier above your tool.
+        const rockTier = o.yieldTier || 1;
         const cost = Math.max(3, 9 * (rockTier - pickTier));
         if (!scene.spendEnergy(cost, sx, sy)) return true;
         const durMs = (typeof toolDurationMs === 'function')
@@ -1059,16 +1062,14 @@ const TAP_HANDLERS = [
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          // Bar lookup is shared between the cave-rock lucky-strike and the
-          // ore-rock primary drop. Slots 0 and 1 are empty: T1 "ore" is really
-          // just plain rock (renders as one, see render.js) and yields stone,
-          // never a bar — copper (T2) is the first tier that pays an ingot.
-          // Each higher tier yields its OWN namesake bar; they still get bonus
-          // gems on top via the GEM table below — they just don't collapse to gold.
-          const BARS = ['', '', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-          if (isCave) {
-            // Plain cave rock — primarily stone (1-3 rockfruit) plus a
-            // small chance per tier of cracking open a sliver of ore.
+          // Bar lookup is shared between the plain-rock lucky-strike and the
+          // ore-rock primary drop. Slot 0/1 are unused for the primary drop
+          // (ore starts at copper = T2); each tier T2+ yields its OWN namesake
+          // bar. Higher tiers still get bonus gems on top via the GEM table.
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+          if (isPlain) {
+            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit)
+            // plus a small chance per tier of cracking open a sliver of ore.
             // Per-tier probability is 1/(2*t²): T1 50 %, T2 12.5 %, T3
             // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
             // cave can yield multiple low-tier bars, while T7 lucky
@@ -1096,20 +1097,9 @@ const TAP_HANDLERS = [
           // a coal nugget and a tier-rolled gem on T4+. Bar count is no
           // longer randomised (was 2-3) — every iron rock gives one iron,
           // every gold rock gives one gold. Predictable yield per swing.
-          const t = o.yieldTier || 1;
-          const primaryBar = BARS[t];
-          if (!primaryBar) {
-            // T1 "ore" has no namesake metal — it's plain rock, so it drops
-            // stone (rockfruit) like a cave rock, never a bar. Copper (T2) is
-            // the first tier that yields an ingot.
-            const qty = randInt(1, 3);
-            scene.addToInv('rockfruit', qty);
-            if (Math.random() < 0.15) scene.addToInv('coal', 1);
-            persistSave(save);
-            scene.flashLoot(`+${qty} ${ITEM_BY_ID['rockfruit']?.name || 'rockfruit'}`, '#a7ffb0', 1, 'rockfruit');
-            return;
-          }
           scene.addToInv('coal', randInt(1, 2));
+          const t = o.yieldTier || 1;
+          const primaryBar = BARS[t] || 'copper_bar';
           scene.addToInv(primaryBar, 1);
           // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
           let flashId = primaryBar;
@@ -1519,16 +1509,29 @@ const TAP_HANDLERS = [
       // maturity (render.js fruittree spec + the fruittree harvest handler).
       save.fruittrees = save.fruittrees || [];
       const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
+      const planted_t = Date.now();
+      const species = item.grows === 'peach' ? 'peach' : 'apple';
       if (!save.fruittrees.some(f => f.id === id)) {
-        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t: Date.now(), id });
+        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id });
       }
       // It's a tree now, not soil — drop the tilled marker.
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
-      // Invalidate the covering tile so spawnInTile re-injects it immediately.
+      // Inject the growing fruittree straight into the covering tile's LIVE
+      // cache entry (mirrors spawnInTile's fruittree block) so it appears at
+      // once. Deleting the cache entry instead — as this used to do — dropped
+      // the tile's ground `grid`, so the synchronous ground render fell back to
+      // grass for every cell (the "whole landscape goes green" crash) until the
+      // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.
       const tEdge = scene.tileEdgeM;
       const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
-      WorldGen.tileCache.delete(`${WorldGen.Z}/${tx}/${ty}`);
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      if (entry) {
+        entry.objects = entry.objects || [];
+        if (!entry.objects.some(o => o.id === id)) {
+          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species, id, planted: true, planted_t });
+        }
+      }
       consumeSelected(save);
       ctx.dirty = true;
       scene.buildInventoryDOM();

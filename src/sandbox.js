@@ -116,15 +116,16 @@
     },
   };
 
-  // ── ROCK — a mineral-rock sample at EVERY pickaxe tier T1..T7, plus plain
-  //    rock in the gaps so bare-rock taps still work. (Gear is granted at T3,
-  //    so T4..T7 stay "pick too weak → rejected" — the gating ladder end-to-end.)
+  // ── ROCK — one ore rock of EVERY yield tier T1..T7, plus plain rock in the
+  //    gaps so bare-rock taps still work. The sandbox pickaxe is granted at
+  //    frost (T7), so every deposit is mineable — letting a tester verify each
+  //    ore type drops its matching bar and renders its matching ore-stone.
   const ROCK = {
     name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 7, fill: T.ROCK,
     populate(s) {
-      // ORE deposits at every pickaxe tier T1..T7 (gem-on-pebble, colour by
-      // tier). Packed into a readable grid so the field clearly reads as a
-      // quarry full of deposits rather than a few specks in the corners.
+      // One deposit per yield tier T1..T7. yieldTier sets the ore-stone colour
+      // and the bar it drops: T1 plain rock→rockfruit, T2 copper, T3 iron,
+      // T4 gold, T5 platinum, T6 crimson, T7 frost. Packed into a readable grid.
       s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
       s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
       s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
@@ -486,10 +487,15 @@
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'shrine', x, y, id: `${baseId}_shrine_${tag}_${dx}_${dy}` });
       },
-      mineralRock(requiredTier, dx, dy) {
+      // Ore rock at a given yield tier. yieldTier drives BOTH the dropped bar
+      // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
+      // yields a little copper). requiredTier = max(1, yieldTier-1) mirrors
+      // worldgen's pick gate, so the gating ladder is exercised end-to-end.
+      mineralRock(yieldTier, dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'mineralrock', x, y, requiredTier,
-          id: `${baseId}_mr_${tag}_t${requiredTier}_${dx}_${dy}` });
+        const requiredTier = Math.max(1, yieldTier - 1);
+        objects.push({ kind: 'mineralrock', x, y, yieldTier, requiredTier,
+          id: `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}` });
       },
       // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
       // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,
@@ -632,8 +638,9 @@
     stockSandboxInventory(scene);
 
     // Grant a full mid-tier (T3) gear kit so every relic/armor-gated action is
-    // reachable while still leaving the pickaxe BELOW the T4..T7 rocks (so the
-    // "pick too weak → rejected" branch stays demonstrable). Clobbered too.
+    // reachable. The PICKAXE is bumped to frost (T7) inside grantSandboxGear so
+    // every ore deposit in the ROCK band is mineable for verification. Clobbered
+    // on every load for a predictable baseline.
     grantSandboxGear(scene);
 
     // Seed runtime state that lives outside the tile entry — planted crops,
@@ -649,6 +656,9 @@
     const TIER = 3;
     const relics = {};
     for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: TIER };
+    // Frost (T7) pickaxe so every ore tier in the ROCK band can be mined and
+    // verified (each ore's bar drop + matching ore-stone sprite).
+    relics.pick = { tier: 7 };
     scene.save.relics = relics;
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };

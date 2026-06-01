@@ -1007,8 +1007,15 @@ Render.drawObjects = function drawObjects(scene) {
               // so each tree stands inside its own cell. The pine-class sheets
               // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
               // the frame bottom) sit ~10px high vs maple — nudge them lower.
-              dyPx: (o) => (o.species && o.species !== 'maple')
-                ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5,
+              // Small-class trees (scale ×0.8) read ~3px too low: the foot
+              // origin sits a hair below the art's true trunk base, and that
+              // gap scales with the sprite, so the smaller tier's foot lands
+              // below the larger tiers' standing line. Lift it back up 3px.
+              dyPx: (o) => {
+                const base = (o.species && o.species !== 'maple')
+                  ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
+                return treeSizeClass(o) === 'small' ? base - 3 : base;
+              },
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
@@ -1327,30 +1334,40 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 12) return `Castle ${roman}`;
     if (o.tier === 11) return `Fort ${roman}`;
     if (o.tier === 9) {
-      // Plain residential — the delivery wishlist (2-3 produce this household
-      // buys at full price) is drawn as item ICONS by the DOM produce-sign
-      // overlay below, not as emoji text. Fall back to a plain "House III"
-      // label only when there's no wishlist to show.
-      const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
-      if (wanted.length) return null;   // the icon plaque handles it
+      // Plain residential — the delivery callout (wishlist icons while hungry,
+      // a happy face once fed) is drawn by the DOM produce-sign overlay below,
+      // not as emoji text. Fall back to a plain "House III" label only for
+      // non-host tier-9 buildings that have no callout to show.
+      if (_houseIsHost(o)) return null;   // the roof bubble handles it
       return `House ${roman}`;
     }
     return null;
   };
-  // The residential wishlist a house should show as an ICON plaque, or null.
-  // Mirrors the gating in _houseSignText's tier-9 branch so each house gets
-  // exactly one of {text sign, icon plaque, nothing}.
-  const _houseProduceWanted = (o) => {
-    if (!o || o.kind !== 'house' || o.tier !== 9) return null;
-    if (_houseRole(o) === 'wreck') return null;                          // hidden until restored
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return null;             // Home
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return null; // starter smithy
+  // True if this house is a residential delivery host — a plain tier-9 home
+  // (not a wreck, the player's own home, the starter smithy, a scarecrow shop,
+  // or any specialty shop) that asks for produce bundles. Hosts always show a
+  // roof callout: a wishlist while hungry, a happy face once fed for the day.
+  const _houseIsHost = (o) => {
+    if (!o || o.kind !== 'house' || o.tier !== 9) return false;
+    if (_houseRole(o) === 'wreck') return false;                          // hidden until restored
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return false;             // Home
+    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return false; // starter smithy
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) return null;                   // active scarecrow shop (text sign instead)
-    if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return null; // specialty shop
+        && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
+    if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return false; // specialty shop
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
-    return wanted.length ? wanted : null;
+    return wanted.length > 0;
   };
+  // Has this host already been fed today (so it shows a happy face, not a
+  // wishlist)? The interact handler stamps it on delivery; both reset at the
+  // UTC day boundary.
+  const _houseSatisfied = (o) =>
+    (typeof scene.isHouseSatisfied === 'function') && scene.isHouseSatisfied(o);
+  // The residential wishlist a house should show as an ICON plaque, or null —
+  // a host that's still hungry today. A satisfied host returns null here and
+  // shows the happy bubble instead (see the produce-sign block below).
+  const _houseProduceWanted = (o) =>
+    (_houseIsHost(o) && !_houseSatisfied(o)) ? scene.wantedProduce(o) : null;
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
   // foundation read as the same "house identity" at a glance. Plain houses /
@@ -1464,8 +1481,13 @@ Render.drawObjects = function drawObjects(scene) {
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
       for (const it of filteredObj) {
-        const wanted = _houseProduceWanted(it.o);
-        if (!wanted) continue;
+        // Every delivery host gets a roof callout. While hungry it's the
+        // wishlist of produce icons; once a bundle's been delivered today the
+        // house is happy and shows a smiling face instead (it'll want a fresh
+        // bundle tomorrow). Non-host buildings get nothing here.
+        if (!_houseIsHost(it.o)) continue;
+        const happy = _houseSatisfied(it.o);
+        const wanted = happy ? null : scene.wantedProduce(it.o);
         const { sx, sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
@@ -1481,12 +1503,19 @@ Render.drawObjects = function drawObjects(scene) {
           slot = { el, key: null };
           pool.push(slot);
         }
-        // Rebuild icons only when the wishlist or icon size changes — the
-        // produce set is memoized per house, so this is normally a no-op.
-        const key = it.o.id + '|' + wanted.join(',') + '|' + sizePx;
+        // Rebuild contents only when the wishlist / happy state / icon size
+        // changes — the produce set is memoized per house, so this is normally
+        // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
+        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          for (const id of wanted) {
+          if (happy) {
+            // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
+            const face = document.createElement('div');
+            face.textContent = '😊';
+            face.style.cssText = `font-size:${sizePx}px;line-height:1;`;
+            slot.el.appendChild(face);
+          } else for (const id of wanted) {
             const ic = scene.renderItemIcon ? scene.renderItemIcon(id, sizePx, 'block') : null;
             if (ic) slot.el.appendChild(ic);
           }
@@ -1540,14 +1569,17 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
-    // Sealed forts/castles (delivery gate not yet met) aren't open for business
-    // either — a "ready" pip would lie about the lock. Castles report dealCap
-    // Infinity and bail above; this catches forts (tier 11) still under the gate.
+    // Sealed castles (delivery gate not yet met) aren't open for business —
+    // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
+    // and bail above, but keep this for safety.)
     if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
-    // Hosts (residential houses with a wanted-items callout) show that bubble
-    // where this pip would sit — see the produce-sign block above — so they
-    // skip the separate open/busy pip entirely.
-    if (_houseProduceWanted(o)) continue;
+    // Locked forts (not yet unsealed with wood) aren't trading either — skip
+    // the pip until the player pays the quartermaster.
+    if (typeof scene._isFortLocked === 'function' && scene._isFortLocked(o)) continue;
+    // Hosts (residential delivery houses) show their roof callout — wishlist
+    // or happy face — where this pip would sit (see the produce-sign block
+    // above), so they skip the separate open/busy pip entirely.
+    if (_houseIsHost(o)) continue;
     const { sx, sy } = project(dx, dy);
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
