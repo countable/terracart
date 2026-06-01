@@ -3177,6 +3177,22 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(title, body);
   }
 
+  // Drink a Potion of Reach (consumed): light up the whole visible view for
+  // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
+  // it's in the future, returns a full-screen radius regardless of energy — so
+  // the lit silhouette AND every tap-accept gate cover everything on screen.
+  // Stored in `save` (not just in-memory) so the buff survives tile reloads
+  // within the minute; the timestamp self-expires, so a stale save is harmless.
+  drinkReachPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.reachPotionUntil = Date.now() + 60 * 1000;
+    return this._finishConsumable(
+      '✨ You drink the Potion of Reach',
+      'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
+    );
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -5282,6 +5298,8 @@ class MapScene extends Phaser.Scene {
         // Consumables + wilderness drops.
         icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
         icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+        // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
+        icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
         icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
         icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
         icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -6175,8 +6193,11 @@ class MapScene extends Phaser.Scene {
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
-    const CONSUMABLE = { book: { verb: 'Read', method: 'readBook' },
-                         flute: { verb: 'Play', method: 'playFlute' } };
+    const CONSUMABLE = {
+      book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
+      flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
+      reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+    };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
@@ -6202,17 +6223,18 @@ class MapScene extends Phaser.Scene {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      const fn = CONSUMABLE[id]?.method;
+      const entry = CONSUMABLE[id];
+      const fn = entry?.method;
       if (!fn || typeof this[fn] !== 'function') return;
       // Mirror the interact.js use-consumable flow: confirmation modal,
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
       this.showOfferModal({
-        title: id === 'flute' ? 'Play the flute?' : 'Read the book?',
-        get: id === 'flute' ? '🪈 lure nearby creatures' : '📖 a tip from the elders',
+        title: entry.title,
+        get: entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: true,
-        acceptLabel: CONSUMABLE[id].verb,
+        acceptLabel: entry.verb,
         onAccept: () => { this[fn](); this.syncConsumableButton(); },
       });
     });
