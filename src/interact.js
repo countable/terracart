@@ -1060,11 +1060,12 @@ const TAP_HANDLERS = [
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
           // Bar lookup is shared between the cave-rock lucky-strike and the
-          // ore-rock primary drop. Slot 0 is unused (tier index starts at 1).
-          // Each tier yields its OWN namesake bar (T1 has no named ore, so it
-          // pays copper like T2). Higher tiers still get bonus gems on top via
-          // the GEM table below — they just no longer collapse to gold.
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+          // ore-rock primary drop. Slots 0 and 1 are empty: T1 "ore" is really
+          // just plain rock (renders as one, see render.js) and yields stone,
+          // never a bar — copper (T2) is the first tier that pays an ingot.
+          // Each higher tier yields its OWN namesake bar; they still get bonus
+          // gems on top via the GEM table below — they just don't collapse to gold.
+          const BARS = ['', '', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
           if (isCave) {
             // Plain cave rock — primarily stone (1-3 rockfruit) plus a
             // small chance per tier of cracking open a sliver of ore.
@@ -1095,9 +1096,20 @@ const TAP_HANDLERS = [
           // a coal nugget and a tier-rolled gem on T4+. Bar count is no
           // longer randomised (was 2-3) — every iron rock gives one iron,
           // every gold rock gives one gold. Predictable yield per swing.
-          scene.addToInv('coal', randInt(1, 2));
           const t = o.yieldTier || 1;
-          const primaryBar = BARS[t] || 'copper_bar';
+          const primaryBar = BARS[t];
+          if (!primaryBar) {
+            // T1 "ore" has no namesake metal — it's plain rock, so it drops
+            // stone (rockfruit) like a cave rock, never a bar. Copper (T2) is
+            // the first tier that yields an ingot.
+            const qty = randInt(1, 3);
+            scene.addToInv('rockfruit', qty);
+            if (Math.random() < 0.15) scene.addToInv('coal', 1);
+            persistSave(save);
+            scene.flashLoot(`+${qty} ${ITEM_BY_ID['rockfruit']?.name || 'rockfruit'}`, '#a7ffb0', 1, 'rockfruit');
+            return;
+          }
+          scene.addToInv('coal', randInt(1, 2));
           scene.addToInv(primaryBar, 1);
           // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
           let flashId = primaryBar;

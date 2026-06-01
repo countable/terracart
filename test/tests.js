@@ -1867,9 +1867,10 @@ test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'), 0, 'no gold bar when ore roll fails');
 });
 
-test('mineralrock cave drop: lucky T1 ore strike when roll succeeds', (scene) => {
+test('mineralrock cave drop: lucky ore strike when roll succeeds', (scene) => {
   // Same cave rock, but every Math.random returns 0 so ALL per-tier ore
-  // rolls succeed. Cave should yield 1 of every BARS[t] entry (T1-T7).
+  // rolls succeed. T1 has no namesake ore (plain rock) so it adds no bar;
+  // T2-T7 each crack open one of their namesake bars.
   const mr = findObject(o => o.kind === 'mineralrock');
   if (!mr) return;
   delete mr.yieldTier;
@@ -1889,10 +1890,14 @@ test('mineralrock cave drop: lucky T1 ore strike when roll succeeds', (scene) =>
   scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
   try { tapWorld(scene, mr.x, mr.y); }
   finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
-  // Each tier roll succeeds → copper (T1+T2), iron (T3), gold (T4-T7).
-  assert.eq(invCount(scene, 'copper_bar'), 2, 'T1 + T2 rolls → 2 copper bars');
-  assert.eq(invCount(scene, 'iron_bar'),   1, 'T3 roll → 1 iron bar');
-  assert.eq(invCount(scene, 'gold_bar'),   4, 'T4-T7 rolls → 4 gold bars');
+  // T1 roll adds nothing (plain rock); T2-T7 each add their namesake bar:
+  // copper (T2), iron (T3), gold (T4), platinum (T5), crimson (T6), frost (T7).
+  assert.eq(invCount(scene, 'copper_bar'),   1, 'T2 roll → 1 copper bar');
+  assert.eq(invCount(scene, 'iron_bar'),     1, 'T3 roll → 1 iron bar');
+  assert.eq(invCount(scene, 'gold_bar'),     1, 'T4 roll → 1 gold bar');
+  assert.eq(invCount(scene, 'platinum_bar'), 1, 'T5 roll → 1 platinum bar');
+  assert.eq(invCount(scene, 'crimson_bar'),  1, 'T6 roll → 1 crimson bar');
+  assert.eq(invCount(scene, 'frost_bar'),    1, 'T7 roll → 1 frost bar');
 });
 
 test('mineralrock cave drop: no ore on T1 fail', (scene) => {
@@ -2217,14 +2222,29 @@ test('chicken release: needs ≥4 in stack, then places 4 spread out', (scene) =
   scene.save.released = [];
   scene.save.inv = [{ id: 'chicken', count: 3 }];
   scene.save.selSlot = 0;
-  // Find an empty tillable grass cell to release onto.
+  // Find a CLEAR tillable grass cell to release onto — one with no object,
+  // wildplant, or uncaught creature within tap reach. The object/creature tap
+  // handlers out-rank 'release' in dispatch, so a grass cell that happens to
+  // sit under a tree/chest/rock would eat the tap and release nothing. 3.6m
+  // clearance (> the 3.5m object reach, and > a cell's half-diagonal) keeps the
+  // tapped cell itself empty too.
+  const REACH = 3.6;
+  const caughtSet = new Set(scene.save.caught);
+  const cellClear = (wx, wy) => {
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) if (Math.hypot(o.x - wx, o.y - wy) < REACH) return false;
+      for (const wp of (e.wildplants || [])) if (Math.hypot(wp.x - wx, wp.y - wy) < REACH) return false;
+      for (const c of (e.creatures || [])) if (!caughtSet.has(c.id) && Math.hypot(c.x - wx, c.y - wy) < REACH) return false;
+    }
+    return true;
+  };
   let target = null;
-  for (let d = 1; d < 8 && !target; d++) {
-    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+  for (let d = 1; d < 12 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d], [d, -d], [-d, d]]) {
       const wx = scene.startWorldM.x + dx * scene.cellM;
       const wy = scene.startWorldM.y + dy * scene.cellM;
       const c = scene.cellAt(wx, wy);
-      if (c.loaded && c.type === 0) { target = { wx, wy }; break; }
+      if (c.loaded && c.type === 0 && cellClear(wx, wy)) { target = { wx, wy }; break; }
     }
   }
   if (!target) return;
@@ -2639,14 +2659,17 @@ test('bars: all six tiers registered as mineral-kind with ascending price + matc
   }
 });
 
-test('bars: inventory icons route to the bars sheet at tier-ordered frames', () => {
+test('bars: inventory icons route to the bars sheet at the bar/ore-paired frames', () => {
   if (typeof inventoryIconSource !== 'function') return;
   const order = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  // The bars sheet interleaves bar/ore pairs, so the real ingots sit at
+  // frames 0,2,16,18,32,34 — NOT a flat 0..5 run (see items.js MINERAL_ICON_SHEET).
+  const frames = [0, 2, 16, 18, 32, 34];
   order.forEach((id, idx) => {
     const src = inventoryIconSource(id);
     assert.truthy(src, id + ' has icon source');
     assert.eq(src.sheet, 'bars', id + ' routed to bars sheet');
-    assert.eq(src.frame, idx, id + ' frame index = ' + idx);
+    assert.eq(src.frame, frames[idx], id + ' frame index = ' + frames[idx]);
   });
 });
 
@@ -2708,7 +2731,7 @@ test('smeltingRecipe: T2-T4 bars are non-smeltable; T5-T7 each consume 1 flower 
   assert.eq(scene.smeltingRecipe('not_a_bar'), null, 'unknown bar id → null');
 });
 
-test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iron, T4+ gold)', (scene) => {
+test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own namesake bar)', (scene) => {
   // ORE rocks (caveVariant == null) give a deterministic primary bar keyed on
   // their YIELD tier — that's the BARS[] mapping in interact.js. CAVE rocks
   // instead drop rockfruit plus only a *probabilistic* bar, so we skip them
@@ -2716,8 +2739,11 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iro
   // pick gate) is NOT the same as its yieldTier (what it pays out), so we key
   // on yieldTier. The primary bar drop is unconditional, so no Math.random pin
   // is needed; we only stub the incidental flash.
-  const expected = { 1: 'copper_bar', 2: 'copper_bar', 3: 'iron_bar',
-                     4: 'gold_bar',   5: 'gold_bar',   6: 'gold_bar', 7: 'gold_bar' };
+  // T1 "ore" is plain rock — it drops stone (rockfruit), never a bar. Copper
+  // (T2) is the first tier that pays an ingot; each higher tier then yields its
+  // OWN namesake bar (no collapsing to gold). Mirrors BARS[] in interact.js.
+  const expected = { 1: 'rockfruit', 2: 'copper_bar', 3: 'iron_bar',
+                     4: 'gold_bar',   5: 'platinum_bar', 6: 'crimson_bar', 7: 'frost_bar' };
   // Group ore rocks by yield tier. A world tap resolves to the FIRST object
   // within 3.5 m of the tap point — and rocks sit in dense fields, so a tap
   // aimed at one rock can land on a neighbouring object instead. We therefore
@@ -2752,6 +2778,7 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iro
       finally { scene.startWorkProgress = origStart; scene.flashLoot = origFlashLoot; }
       if (!scene.brokenRockSet.has(o.id)) continue;  // tap hit a neighbour — try the next rock
       assert.gt(invCount(scene, want), 0, 'T' + tier + ' ore rock drops ' + want);
+      if (+tier === 1) assert.eq(invCount(scene, 'copper_bar'), 0, 'T1 ore drops rocks, no copper bar');
       mined = true; testedTiers++;
       break;
     }
