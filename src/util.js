@@ -40,3 +40,39 @@ function isGolden(id, rate) {
 }
 // Warm yellow multiply-tint used for every golden sprite (flora, tree, animal).
 const GOLDEN_TINT = 0xffd23a;
+
+// === Tree size tiers =========================================================
+// How big a tree renders also sets how much wood it drops and which axe tier
+// can fell it. Size is derived purely from the tree's own fields (species +
+// optional DeepForest crown_m) so it stays stable across reloads/re-rasterise
+// without storing anything. render.js scales the sprite by the SAME value, so
+// the visual size and the gameplay size never diverge.
+function treeScale(o) {
+  const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+  // DeepForest trees carry a crown diameter (m); scale around a 5 m reference
+  // (the median detection), clamped 0.8–1.6. OSM trees have no crown_m and
+  // keep the flat species scale.
+  if (o.crown_m == null) return base;
+  const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
+  return base * mul;
+}
+// 'full' (needs an Iron axe, 4× wood) | 'medium' (Copper axe, 2× wood) |
+// 'small' (any axe, base wood). Golden trees are handled separately — they
+// need a Gold axe regardless of size.
+function treeSizeClass(o) {
+  const s = treeScale(o);
+  if (s >= 0.85) return 'full';
+  if (s >= 0.62) return 'medium';
+  return 'small';
+}
+// Axe tier required to fell a tree: Gold(4) for golden, Iron(3) for full,
+// Copper(2) for medium, any(1) for small. Wood is multiplied 4×/2×/1× to match.
+function treeAxeReqTier(o) {
+  if (isGolden(o.id, GOLDEN_RATE.tree)) return 4;
+  const size = treeSizeClass(o);
+  return size === 'full' ? 3 : size === 'medium' ? 2 : 1;
+}
+function treeWoodMul(o) {
+  const size = treeSizeClass(o);
+  return size === 'full' ? 4 : size === 'medium' ? 2 : 1;
+}

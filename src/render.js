@@ -979,17 +979,10 @@ Render.drawObjects = function drawObjects(scene) {
                 return Phaser.Math.Clamp(o.variant || 2, 0, 4);
               },
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
-              scale:  (o) => {
-                const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
-                // DeepForest trees carry a crown diameter (m); scale the sprite
-                // around a 5 m reference (the median detection) so small crowns
-                // read smaller and big ones bigger. Clamp 0.8–1.6 so tiny
-                // detections stay visible and huge ones don't dominate. OSM
-                // trees have no crown_m and keep the flat species scale.
-                if (o.crown_m == null) return base;
-                const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
-                return base * mul;
-              },
+              // Shared with the harvest gating in interact.js (util.treeScale)
+              // so a tree's visual size and the axe tier it demands stay in
+              // lockstep — bigger sprite, sturdier axe, more wood.
+              scale:  (o) => treeScale(o),
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge

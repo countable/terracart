@@ -1950,8 +1950,11 @@ class MapScene extends Phaser.Scene {
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
       // Butterflies bolt 3× faster than other fauna while the net wheel runs.
+      // Rare golden animals flee at 2× too — consistent with their 2× wander
+      // speed, making them a genuinely slippery catch.
       const isButterfly = c.kind === 'butterfly';
-      const FLEE_MPS = isButterfly ? 6 : 2;
+      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 2 : 1;
+      const FLEE_MPS = (isButterfly ? 6 : 2) * goldenFast;
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
@@ -2126,10 +2129,15 @@ class MapScene extends Phaser.Scene {
       // bolting away from the player (set in _drawWorkProgress).
       const isButterfly = c.kind === 'butterfly';
       const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
+      // Rare golden animals move at 2× speed — same hop distances, but the
+      // whole step cadence (hop duration + any pause) is halved, so they cover
+      // ground twice as fast. isGolden() is keyed off the creature id, so the
+      // status is stable across reloads (matches the golden-tint in render).
+      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
-      const stepMs = isRabbit ? (rabbitFleeing ? 300 : 420)
+      const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
-                   : STEP_MS;
+                   : STEP_MS) * goldenFast;
       // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
       // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6

@@ -944,11 +944,23 @@ const TAP_HANDLERS = [
         // cell — let the next handler claim the tap instead of consuming it
         // with a 'stump' flash that the player can't act on.
         if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
+        // Bigger trees need a sturdier axe and pay out proportionally more
+        // wood: full-size → Iron axe (4× wood), medium → Copper (2×), small →
+        // any axe (base). Rare golden trees demand a Gold axe whatever their
+        // size. An axe below the required tier just bounces with a hint.
+        const reqTier = treeAxeReqTier(o);
+        const axeTier = save.relics?.axe?.tier || 0;
+        if (axeTier < reqTier) {
+          const need = TIER_BY_NUM[reqTier]?.name || 'better';
+          scene.flash(`Need a ${need} axe to fell this tree.`, sx, sy);
+          return true;
+        }
+        const woodMul = treeWoodMul(o);
         return startToolWork(ctx, o.x, o.y, 'axe', 0, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
-          scene.addToInv('wood', randInt(2, 3));
+          scene.addToInv('wood', randInt(2, 3) * woodMul);
           persistSave(save);
           scene.flash('🌲 Felled.', sx, sy);
           // Rare golden tree — 10× wood value in cash + a discovery point.
