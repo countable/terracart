@@ -1037,10 +1037,10 @@ const TAP_HANDLERS = [
           save.brokenRocks = [...scene.brokenRockSet];
           // Bar lookup is shared between the cave-rock lucky-strike and the
           // ore-rock primary drop. Slot 0 is unused (tier index starts at 1).
-          // T1/T2 → copper, T3 → iron, T4-T7 → gold (platinum / crimson /
-          // frost bars are blacksmith-smelting only — high-tier rocks just
-          // pay out gold + extra gems via the GEM table below).
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
+          // Each tier yields its OWN namesake bar (T1 has no named ore, so it
+          // pays copper like T2). Higher tiers still get bonus gems on top via
+          // the GEM table below — they just no longer collapse to gold.
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
           if (isCave) {
             // Plain cave rock — primarily stone (1-3 rockfruit) plus a
             // small chance per tier of cracking open a sliver of ore.
