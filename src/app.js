@@ -86,6 +86,13 @@ const REACH_TREASURE_M  = 7.5; // treasure mark
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
+// Castles and forts stay sealed until the player has proven themselves on the
+// delivery routes. Gated by the lifetime tally (save.deliveryCount): a castle
+// vault opens after CASTLE_DELIVERY_GATE completed deliveries, a fort's
+// quartermaster after FORT_DELIVERY_GATE. Replaces the old one-time goods
+// tribute — the price of entry is now footwork, not a stack of produce.
+const CASTLE_DELIVERY_GATE = 5;
+const FORT_DELIVERY_GATE   = 2;
 // Shop/trader trades hand the player this many of the offered item per deal for
 // the same demand (cash or barter), so every trade is twice as favourable.
 const TRADE_OFFER_QTY     = 2;
@@ -310,15 +317,10 @@ class MapScene extends Phaser.Scene {
     // Stats / equipment migration — adds energy + relic/armor slots to older saves.
     this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
                                               sword: null, bow: null, staff: null };
-    if (this.save.relics.axe === undefined)   this.save.relics.axe = null;   // older saves
-    if (this.save.relics.sword === undefined) this.save.relics.sword = null;
-    if (this.save.relics.bow === undefined)   this.save.relics.bow = null;
-    if (this.save.relics.staff === undefined) this.save.relics.staff = null;
-    if (this.save.relics.can === undefined)   this.save.relics.can = null;
-    if (this.save.relics.hoe === undefined)   this.save.relics.hoe = null;
-    if (this.save.relics.bugnet === undefined) this.save.relics.bugnet = null;
-    if (this.save.relics.rod === undefined)    this.save.relics.rod = null;
-    if (this.save.relics.bags === undefined)   this.save.relics.bags = null;
+    // older saves: backfill any relic slots added since they were created.
+    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+      if (this.save.relics[slot] === undefined) this.save.relics[slot] = null;
+    }
     // Magic Crafting Shrine — one per game, spawned on the start tile at
     // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
     // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
@@ -332,6 +334,11 @@ class MapScene extends Phaser.Scene {
     // is bumped in presentDeliveryOffer's accept path.
     if (this.save.reachUpgrades === undefined)    this.save.reachUpgrades = 0;
     if (this.save.deliveryCount === undefined)    this.save.deliveryCount = 0;
+    // Discovery — lifetime count of rare "golden" flora / trees / animals
+    // found. Earned alongside the 10× money bonus when a golden variant is
+    // harvested or caught (see awardGoldenBonus). Surfaced in the Stats modal;
+    // reserved as the eventual unlock currency for the Magic Shrine.
+    if (this.save.discovery === undefined)        this.save.discovery = 0;
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
     // an `id` field, so chopping one pushed `undefined` into save.chopped.
     // A `choppedSet.has(undefined)` lookup then matched every other tree
@@ -394,13 +401,12 @@ class MapScene extends Phaser.Scene {
     if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
       this.save.restoredHouses = {};
     }
-    // Tributed-castles set: empty by default. Every castle (BUILDING_LARGE)
-    // starts occupied by corrupt residents who demand a one-time tribute —
-    // 10 of a random Tier-2 good (5 if it's a live animal) — before they'll
-    // open the vault. Mirrors the wreck-restore gate; see _isCastleUnappeased.
-    if (!this.save.tributedCastles || typeof this.save.tributedCastles !== 'object') {
-      this.save.tributedCastles = {};
-    }
+    // Castles and forts start sealed: their occupants won't trade until the
+    // player has logged enough lifetime deliveries (save.deliveryCount ≥
+    // CASTLE_DELIVERY_GATE / FORT_DELIVERY_GATE). The gate is read straight off
+    // the delivery tally — no per-building save key — so a stale tributedCastles
+    // map from an older save is dead weight; drop it.
+    if (this.save.tributedCastles) delete this.save.tributedCastles;
     // No starter-tools gift: the player begins tool-less and forges their
     // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
     // Wood comes from ground stacks + bare-handed shrub chops (no tool
@@ -579,8 +585,8 @@ class MapScene extends Phaser.Scene {
       return c.toDataURL();
     };
     const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
-    // Longgrass (display name "Fern") — bake frame 10 of the 'props' sheet
-    // (col 11 row 1 in 1-indexed coords = leafy green fern frond). Same
+    // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
+    // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
     // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
     window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
@@ -1150,7 +1156,13 @@ class MapScene extends Phaser.Scene {
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (this.save.caught.includes(id)) return;
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id });
+          // ~5% of wild animals spawn as the rare golden variant — stamped at
+          // spawn off the stable id so it survives reloads and rides along
+          // through tame/release/re-catch. Slimes are energy pests with no
+          // catch/hunt payoff, so they never go golden (a golden slime would
+          // promise a reward it can't pay).
+          const golden = kindStr !== 'slime' && isGolden(id, GOLDEN_RATE.animal);
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, golden });
           return;
         }
       }
@@ -1211,7 +1223,7 @@ class MapScene extends Phaser.Scene {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
         if (this.save.caught.includes(r.id)) continue;
-        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id });
+        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, golden: !!r.golden });
       }
     }
     entry.creatures = creatures;
@@ -1580,6 +1592,20 @@ class MapScene extends Phaser.Scene {
     if (typeof persistSave === 'function') persistSave(this.save);
   }
 
+  // Dark-outlined, solid-filled arrow triangle (facing indicator + pairy
+  // compass both draw this onto facingGfx).
+  _drawArrowTriangle(g, tx, ty, blx, bly, brx, bry, outlineAlpha, fillColor) {
+    g.lineStyle(2, 0x000000, outlineAlpha);
+    g.beginPath();
+    g.moveTo(tx, ty);
+    g.lineTo(blx, bly);
+    g.lineTo(brx, bry);
+    g.closePath();
+    g.strokePath();
+    g.fillStyle(fillColor, 1);
+    g.fillTriangle(tx, ty, blx, bly, brx, bry);
+  }
+
   // === Tick ===
   update(_, dtMs) {
     const dt = dtMs / 1000;
@@ -1773,17 +1799,7 @@ class MapScene extends Phaser.Scene {
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
-      // dark outline
-      this.facingGfx.lineStyle(2, 0x000000, 0.85);
-      this.facingGfx.beginPath();
-      this.facingGfx.moveTo(tx, ty);
-      this.facingGfx.lineTo(blx, bly);
-      this.facingGfx.lineTo(brx, bry);
-      this.facingGfx.closePath();
-      this.facingGfx.strokePath();
-      // bright yellow fill
-      this.facingGfx.fillStyle(0xffd24a, 1);
-      this.facingGfx.fillTriangle(tx, ty, blx, bly, brx, bry);
+      this._drawArrowTriangle(this.facingGfx, tx, ty, blx, bly, brx, bry, 0.85, 0xffd24a);
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
@@ -1855,15 +1871,7 @@ class MapScene extends Phaser.Scene {
           const back = 14, halfW = 7;
           const blx2 = tipX - ux * back + pxN * halfW, bly2 = tipY - uy * back + pyN * halfW;
           const brx2 = tipX - ux * back - pxN * halfW, bry2 = tipY - uy * back - pyN * halfW;
-          this.facingGfx.lineStyle(2, 0x000000, 0.8);
-          this.facingGfx.beginPath();
-          this.facingGfx.moveTo(tipX, tipY);
-          this.facingGfx.lineTo(blx2, bly2);
-          this.facingGfx.lineTo(brx2, bry2);
-          this.facingGfx.closePath();
-          this.facingGfx.strokePath();
-          this.facingGfx.fillStyle(0xc77dff, 1);
-          this.facingGfx.fillTriangle(tipX, tipY, blx2, bly2, brx2, bry2);
+          this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx2, bly2, brx2, bry2, 0.8, 0xc77dff);
         }
       }
     }
@@ -1980,8 +1988,9 @@ class MapScene extends Phaser.Scene {
     if (!wp) return;
     const now = performance.now();
     // Fleeing catch target: it backs away from the player at FLEE_MPS while the
-    // wheel runs. If it slips outside the viewport the catch fails. The wheel
-    // anchor (worldX/Y) follows the creature so it stays drawn over it.
+    // wheel runs. If it stays outside the player's reach long enough the catch
+    // fails. The wheel anchor (worldX/Y) follows the creature so it stays drawn
+    // over it.
     if (wp.flee) {
       const c = wp.flee;
       const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
@@ -1991,17 +2000,38 @@ class MapScene extends Phaser.Scene {
       let dx = c.x - px, dy = c.y - py;
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
-      const FLEE_MPS = 2;
+      // Butterflies bolt 3× faster than other fauna while the net wheel runs.
+      // Rare golden animals flee at 2× too — consistent with their 2× wander
+      // speed, making them a genuinely slippery catch.
+      const isButterfly = c.kind === 'butterfly';
+      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 2 : 1;
+      const FLEE_MPS = (isButterfly ? 6 : 2) * goldenFast;
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
-      // Escaped the viewport? Chebyshev distance beyond the visible half-grid.
-      const halfM = (VIEW_CELLS / 2) * this.cellM;
-      if (Math.abs(c.x - px) > halfM || Math.abs(c.y - py) > halfM) {
-        const onFail = wp.onFail;
-        this.cancelWorkProgress();         // clears _beingCaught
-        if (onFail) onFail();
-        return;
+      // Escape: once the animal has been OUTSIDE the player's reach (the lit
+      // interaction range — same radius the tap-gate uses) for a continuous
+      // grace window, the catch FAILS. Re-entering reach resets the timer.
+      // cancelWorkProgress() does NOT refund the up-front energy, so a getaway
+      // costs the player the attempt. Normal animals get a 1 s grace;
+      // butterflies flee faster but get 2 s, then keep bolting away from the
+      // player for 2 minutes (see wanderCreatures' _escapingUntil handling).
+      const reachM = (typeof reachRadiusM === 'function')
+        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
+      const ndx = c.x - px, ndy = c.y - py;
+      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      const graceMs = isButterfly ? 2000 : 1000;
+      if (outOfRange) {
+        wp._outSinceT = wp._outSinceT ?? now;
+        if (now - wp._outSinceT >= graceMs) {
+          const onFail = wp.onFail;
+          if (isButterfly) c._escapingUntil = now + 120000;   // 2 min of post-catch fleeing
+          this.cancelWorkProgress();         // clears _beingCaught; keeps energy spent
+          if (onFail) onFail();
+          return;
+        }
+      } else {
+        wp._outSinceT = null;                // back in reach — reset grace
       }
     }
     const dur = wp.durationMs || 3000;
@@ -2094,14 +2124,14 @@ class MapScene extends Phaser.Scene {
 
     WorldGen.forEachItem('creatures', (c) => {
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
-      // Wandering kinds: farm + pet animals always; tame butterflies also
-      // wander so they can pollinate. Crows + deer also wander when wild
-      // so they can eat crops / be hunted.
+      // Wandering kinds: farm + pet animals always; butterflies (wild + tame)
+      // flit about constantly — tame ones also pollinate. Crows + deer also
+      // wander when wild so they can eat crops / be hunted.
       const wanders = c.kind === 'chicken' || c.kind === 'cow'
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
                     || c.kind === 'slime' || c.kind === 'rabbit'
-                    || (isTame && c.kind === 'butterfly');
+                    || c.kind === 'butterfly';
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
@@ -2146,11 +2176,24 @@ class MapScene extends Phaser.Scene {
       const isRabbit = c.kind === 'rabbit' && !isTame;
       const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
       const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
+      // Butterflies flit constantly; after a failed net-catch they spend 2 min
+      // bolting away from the player (set in _drawWorkProgress).
+      const isButterfly = c.kind === 'butterfly';
+      const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
+      // Rare golden animals move at 2× speed — same hop distances, but the
+      // whole step cadence (hop duration + any pause) is halved, so they cover
+      // ground twice as fast. isGolden() is keyed off the creature id, so the
+      // status is stable across reloads (matches the golden-tint in render).
+      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
-      const stepMs = isRabbit ? (rabbitFleeing ? 300 : 420) : STEP_MS;
-      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells.
+      const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
+                   : isButterfly ? (butterflyEscaping ? 350 : 900)
+                   : STEP_MS) * goldenFast;
+      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
+      // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
+                  : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
                   : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2282,6 +2325,9 @@ class MapScene extends Phaser.Scene {
           } else if (rabbitFleeing) {
             // Flee directly away from player with wide jitter so it zig-zags.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
+          } else if (butterflyEscaping) {
+            // Bolt away from the player, careening with wide jitter.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
             // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
@@ -2726,13 +2772,19 @@ class MapScene extends Phaser.Scene {
     // One creature → one inventory entry. Egg / milk yield happens via the
     // produce branch (tap with plant produce selected), not the catch branch.
     const yieldN = 1;
+    // A golden animal stays golden in its own per-kind stack (golden_chicken,
+    // golden_cow, …) — never folded into the plain stack or other goldens. It
+    // also pays the headline 10× money + discovery bonus with fanfare.
+    const isGoldenCatch = !!c.golden && !!ITEM_BY_ID[`golden_${c.kind}`];
+    const invId = isGoldenCatch ? `golden_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
-    this.addToInv(c.kind, yieldN, true);
+    this.addToInv(invId, yieldN, true);
     persistSave(this.save);
-    const item = ITEM_BY_ID[c.kind];
+    const item = ITEM_BY_ID[invId];
     // flashLoot draws the item's sprite (from the itemId arg) beside the text,
     // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+${yieldN} ${item?.name || c.kind}`, '#a7ffb0', 1, c.kind);
+    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isGoldenCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
+    if (isGoldenCatch) this.awardGoldenBonus(c.kind, sx, sy);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -2951,6 +3003,66 @@ class MapScene extends Phaser.Scene {
     } catch (_) {}
   }
 
+  // A rare GOLDEN find (yellow-tinted flora / tree / animal). Pays 10× the
+  // harvested/caught item's value in cash, banks a Discovery point, and fires
+  // the golden fanfare. `baseId` is the plain item id used to read the value
+  // (e.g. 'wood', 'apple', 'cow'). Returns the cash awarded.
+  awardGoldenBonus(baseId, sx, sy) {
+    const value = (typeof itemValue === 'function')
+      ? itemValue(baseId)
+      : (PRICES[baseId] ?? 1);
+    const money = Math.max(10, Math.round(value * 10));
+    addMoney(this.save, money);
+    this.save.discovery = (this.save.discovery || 0) + 1;
+    persistSave(this.save);
+    this.flashGolden(money);
+    return money;
+  }
+
+  // Golden-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
+  // banner + a money line + a Discovery line, with a starburst. Call AFTER the
+  // loot/catch flash so it stacks above (depth 110).
+  flashGolden(money) {
+    if (!this.add) return;
+    const x = this.viewCenterX, y = this.viewCenterY - 150;
+    try {
+      const banner = this.add.text(x, y, '✨ GOLDEN FIND ✨', {
+        font: 'bold 26px monospace', color: '#fff3b0',
+        backgroundColor: '#7a5200', stroke: '#000', strokeThickness: 4,
+        padding: { left: 14, right: 14, top: 6, bottom: 6 },
+      }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
+      this.tweens.add({ targets: banner, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.Out' });
+      this.tweens.add({ targets: banner, scale: 1.0, duration: 220, delay: 220, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: banner, y: y - 60, alpha: 0,
+        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
+      const sub = this.add.text(x, y + 8, `+$${money}   🔆 +1 Discovery`, {
+        font: 'bold 16px monospace', color: '#ffd23a',
+        backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
+        padding: { left: 8, right: 8, top: 3, bottom: 3 },
+      }).setOrigin(0.5, 0).setDepth(110).setAlpha(0);
+      this.tweens.add({ targets: sub, alpha: 1, duration: 240, delay: 160 });
+      this.tweens.add({ targets: sub, y: y - 52, alpha: 0,
+        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => sub.destroy() });
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const sx0 = x + Math.cos(angle) * 12;
+        const sy0 = y - 18 + Math.sin(angle) * 12;
+        const star = this.add.text(sx0, sy0, '✦', {
+          font: 'bold 18px monospace', color: '#ffe066',
+          stroke: '#000', strokeThickness: 2,
+        }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
+        this.tweens.add({
+          targets: star,
+          x: sx0 + Math.cos(angle) * 80,
+          y: sy0 + Math.sin(angle) * 80,
+          alpha: 0, duration: 950, ease: 'Sine.Out',
+          onComplete: () => star.destroy(),
+        });
+      }
+    } catch (_) {}
+  }
+
   updateHUD() {
     // Money badge always shown.
     if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
@@ -2981,6 +3093,22 @@ class MapScene extends Phaser.Scene {
       ? maxEnergyFromArmor(this.save.armor) : null;
     if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
     return this.save.maxEnergy ?? STARTING_ENERGY;
+  }
+
+  // Equip a bought/forged relic or armor piece into its slot. Armor also
+  // recomputes max energy and grants the freshly-unlocked headroom (captured
+  // BEFORE mutating armor so the bump is the delta, not the whole new max).
+  _equipGear(kind, slot, tier) {
+    if (kind === 'relic') {
+      this.save.relics[slot] = { tier };
+      return;
+    }
+    const oldMax = this.getMaxEnergy();
+    this.save.armor[slot] = { tier };
+    const newMax = maxEnergyFromArmor(this.save.armor);
+    const bump = Math.max(0, newMax - oldMax);
+    this.save.maxEnergy = newMax;
+    this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
@@ -3106,6 +3234,22 @@ class MapScene extends Phaser.Scene {
       body = `"${tip}"`;
     }
     return this._finishConsumable(title, body);
+  }
+
+  // Drink a Potion of Reach (consumed): light up the whole visible view for
+  // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
+  // it's in the future, returns a full-screen radius regardless of energy — so
+  // the lit silhouette AND every tap-accept gate cover everything on screen.
+  // Stored in `save` (not just in-memory) so the buff survives tile reloads
+  // within the minute; the timestamp self-expires, so a stale save is harmless.
+  drinkReachPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.reachPotionUntil = Date.now() + 60 * 1000;
+    return this._finishConsumable(
+      '✨ You drink the Potion of Reach',
+      'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
+    );
   }
 
   eatSelected() {
@@ -3317,7 +3461,8 @@ class MapScene extends Phaser.Scene {
     };
     box.innerHTML =
       `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
-      `<div style="text-align:center;margin-bottom:10px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
+      `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
+      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${this.save.discovery ?? 0}</b></div>` +
       `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
       Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
       `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
@@ -3396,11 +3541,12 @@ class MapScene extends Phaser.Scene {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
     }
-    // Castle → its corrupt post-apocalyptic residents demand a one-time tribute
-    // before they'll open the vault (the same locked-until-paid gate the wreck
-    // houses use, one tier up).
-    if (house && this._isCastleUnappeased && this._isCastleUnappeased(house)) {
-      this.presentCastleTributeModal(sx, sy, house);
+    // Castle / fort → sealed until the player has logged enough lifetime
+    // deliveries (5 for a castle vault, 2 for a fort). The same
+    // locked-until-earned gate the wreck houses use, but the entry fee is
+    // delivery footwork rather than a stack of goods.
+    if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
+      this.presentSealedBuildingModal(sx, sy, house);
       return;
     }
     // House routing:
@@ -4242,16 +4388,7 @@ class MapScene extends Phaser.Scene {
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
         if ((this.save.money ?? 0) < offer.price) { this.flash(`Coin purse won't stretch — need $${offer.price}.`, sx, sy); return; }
         addMoney(this.save, -offer.price);
-        if (offer.kind === 'relic') {
-          this.save.relics[offer.slot] = { tier: offer.tier };
-        } else {
-          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
-          this.save.armor[offer.slot] = { tier: offer.tier };
-          const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - oldMax);
-          this.save.maxEnergy = newMax;
-          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
-        }
+        this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);
@@ -5045,78 +5182,48 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // True iff `house` is a castle (BUILDING_LARGE / tower) whose corrupt
-  // residents haven't been paid their one-time tribute yet. The castle analogue
-  // of _isHouseWreck. Id-less castles (rare — no stable key to record payment
-  // against) skip the gate and trade normally rather than re-demanding forever.
-  _isCastleUnappeased(house) {
-    if (!house || !house.id) return false;
+  // Lifetime deliveries this building demands before it'll trade, or 0 if it
+  // has no delivery gate. Castles (BUILDING_LARGE / tower, tier 12) want
+  // CASTLE_DELIVERY_GATE; forts (tier 11) want FORT_DELIVERY_GATE.
+  _deliveryGate(house) {
+    if (!house) return 0;
+    if (house.kind === 'tower' || house.tier === 12) return CASTLE_DELIVERY_GATE;
+    if (house.tier === 11) return FORT_DELIVERY_GATE;
+    return 0;
+  }
+
+  // True iff `house` is a castle or fort still sealed because the player hasn't
+  // logged enough lifetime deliveries (save.deliveryCount). The delivery-gate
+  // analogue of _isHouseWreck. The gate reads the global delivery tally, so —
+  // unlike the old per-castle tribute — an id-less building is gated too;
+  // there's no payment to record against a house key.
+  _isBuildingSealed(house) {
+    const need = this._deliveryGate(house);
+    if (!need) return false;
+    return (this.save.deliveryCount ?? 0) < need;
+  }
+
+  // The sealed castle/fort gate (see _isBuildingSealed). There's nothing to
+  // pay here — the building opens on its own once save.deliveryCount reaches
+  // the threshold — so this is a locked info modal that shows the player how
+  // many more deliveries they owe, not an accept/buy offer.
+  presentSealedBuildingModal(sx, sy, house) {
+    const need = this._deliveryGate(house);
+    const have = this.save.deliveryCount ?? 0;
+    const left = Math.max(0, need - have);
     const isCastle = house.kind === 'tower' || house.tier === 12;
-    if (!isCastle) return false;
-    return !this.save.tributedCastles?.[house.id];
-  }
-
-  // The tribute a castle demands before it'll trade: a stable-random Tier-2
-  // good keyed on the castle id (so it never reshuffles between visits). 10 of
-  // the item — or just 5 when it's a live animal (livestock is dearer). Seeds
-  // are excluded from the pool; the residents want goods, not a seed pouch.
-  _castleTribute(house) {
-    const pool = (typeof ITEMS !== 'undefined')
-      ? ITEMS.filter(it => it.baseTier === 2 && it.kind !== 'seed')
-      : [];
-    if (!pool.length) return { id: 'rainberry', qty: 10, name: 'Rainberry' };
-    // FNV-1a over the id → stable pick (same hash style as wantedProduceRng).
-    let h = 2166136261 >>> 0;
-    const s = String(house?.id || '');
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    const item = pool[h % pool.length];
-    const qty = item.kind === 'animal' ? 5 : 10;
-    return { id: item.id, qty, name: item.name || item.id };
-  }
-
-  presentCastleTributeModal(sx, sy, house) {
-    const cost = this._castleTribute(house);
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
-    const canAfford = heldCount >= cost.qty;
-    const item = ITEM_BY_ID[cost.id];
-    // Always show it (even when short) so the player learns WHAT to bring;
-    // accept stays disabled until they hold the full stack.
+    const icon = isCastle ? '🏰' : '🛡️';
     this.showOfferModal({
-      title: "The castle demands tribute",
-      get: '🏰 the vault opens to you',
-      blurb: "Its corrupt residents won't trade until their palms are greased.",
-      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.name}`
-        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
-      canAfford,
-      acceptLabel: 'Pay tribute',
-      onAccept: () => {
-        // Re-check stock at accept time — the modal may have lingered while the
-        // player spent the goods elsewhere.
-        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
-        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.name}`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= cost.qty;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-        this.save.tributedCastles = this.save.tributedCastles || {};
-        this.save.tributedCastles[house.id] = true;
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        if (this.showChestRewardModal) {
-          this.showChestRewardModal({
-            iconHTML: '🏰',
-            name: 'The vault is yours',
-            sub: 'Tap the castle again to browse its relics.',
-            color: '#a7ffb0',
-          });
-        } else {
-          this.flashLoot('🏰 tribute paid', '#a7ffb0', 1.25);
-        }
-      },
+      title: isCastle ? 'The castle stays sealed' : 'The fort stays barred',
+      get: `${icon} opens after ${need} deliveries`,
+      blurb: isCastle
+        ? "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first."
+        : "The quartermaster won't deal with a stranger — run some deliveries and come back.",
+      cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
+        + ` <span style="opacity:.7">(${have}/${need})</span>`,
+      canAfford: false,
+      acceptLabel: 'Locked',
+      onAccept: () => {},
     });
   }
 
@@ -5193,16 +5300,7 @@ class MapScene extends Phaser.Scene {
             }
           }
         }
-        if (offer.kind === 'relic') {
-          this.save.relics[offer.slot] = { tier: offer.tier };
-        } else {
-          const oldMax = this.getMaxEnergy();           // capture BEFORE mutating armor
-          this.save.armor[offer.slot] = { tier: offer.tier };
-          const newMax = maxEnergyFromArmor(this.save.armor);
-          const bump = Math.max(0, newMax - oldMax);
-          this.save.maxEnergy = newMax;
-          this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
-        }
+        this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);
@@ -5254,8 +5352,13 @@ class MapScene extends Phaser.Scene {
   // HTML string (style='inline') — the caller picks based on context.
   renderItemIcon(itemId, sizePx, style = 'inline') {
     const item = ITEM_BY_ID[itemId];
-    const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId];
-    const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(itemId) : null;
+    // Golden variants (golden_chicken, …) have no sprite of their own — they
+    // reuse the base animal's icon, recoloured with the warm filter applied
+    // below. Fall back to `item.base` only when there's no dedicated bake.
+    const hasOwnBake = !!(window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId]);
+    const iconId = (item && item.base && !hasOwnBake) ? item.base : itemId;
+    const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[iconId];
+    const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(iconId) : null;
     const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
     let css = null;
@@ -5285,11 +5388,7 @@ class MapScene extends Phaser.Scene {
         icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
         icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
         icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
         icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
         // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
         // smallmouth bass icon (same family, just smaller fiction).
         icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
@@ -5300,6 +5399,8 @@ class MapScene extends Phaser.Scene {
         // Consumables + wilderness drops.
         icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
         icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+        // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
+        icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
         icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
         icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
         icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -5327,6 +5428,11 @@ class MapScene extends Phaser.Scene {
       css = base + `background-image:url('${sheet.url}');`
         + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
+    }
+    // Golden variants tint the base sprite warm-gold with a sheen.
+    if (css && item && item.golden) {
+      css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
+        + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
     if (style === 'block') {
       const el = document.createElement('span');
@@ -6188,8 +6294,11 @@ class MapScene extends Phaser.Scene {
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
-    const CONSUMABLE = { book: { verb: 'Read', method: 'readBook' },
-                         flute: { verb: 'Play', method: 'playFlute' } };
+    const CONSUMABLE = {
+      book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
+      flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
+      reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+    };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
@@ -6215,17 +6324,18 @@ class MapScene extends Phaser.Scene {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      const fn = CONSUMABLE[id]?.method;
+      const entry = CONSUMABLE[id];
+      const fn = entry?.method;
       if (!fn || typeof this[fn] !== 'function') return;
       // Mirror the interact.js use-consumable flow: confirmation modal,
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
       this.showOfferModal({
-        title: id === 'flute' ? 'Play the flute?' : 'Read the book?',
-        get: id === 'flute' ? '🪈 lure nearby creatures' : '📖 a tip from the elders',
+        title: entry.title,
+        get: entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: true,
-        acceptLabel: CONSUMABLE[id].verb,
+        acceptLabel: entry.verb,
         onAccept: () => { this[fn](); this.syncConsumableButton(); },
       });
     });

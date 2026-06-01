@@ -72,6 +72,14 @@ function reachCells(scene) {
   return Math.min(5, 2 + 0.5 * upgrades);
 }
 function reachRadiusM(scene) {
+  // Potion of Reach (T2 consumable): for its duration the whole visible view
+  // is lit + reachable, regardless of energy. The radius covers the furthest
+  // drawn cell — render.js darkens cells from -1..VIEW_CELLS (offsets -6..6
+  // from the centre), so the far corner sits at √2·6·cellM ≈ 42 m; VIEW_CELLS·
+  // cellM (55 m) clears it with margin so every on-screen cell reads as lit.
+  if ((scene.save?.reachPotionUntil ?? 0) > Date.now()) {
+    return VIEW_CELLS * scene.cellM;
+  }
   const energy = scene.save?.energy ?? 0;
   if (energy <= 0) return 0;
   const maxEnergy = scene.save?.maxEnergy ?? 100;

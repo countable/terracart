@@ -899,15 +899,15 @@ Render.drawObjects = function drawObjects(scene) {
   // Three discrete in-game size tiers from the DeepForest crown size class.
   // OSM trees (no size) fall back to crown_m, then the flat species scale.
   const TREE_SIZE_MUL = { small: 0.8, medium: 1.15, large: 1.55 };
-  // Fruit-tree life-cycle frames, read off each species sheet. The Apple and
-  // Peach sheets DON'T share a column layout, so map each one explicitly:
-  //   apple (30 frames): 0 sprout, 5 young, 9 mature-green, 11 blossom, 15 fruiting (red apples).
-  //   peach (26 frames): 0 sprout, 5 young, 7 mature-green, 9 blossom, 11 fruiting (peaches).
-  // (Higher frames are seasonal/stump/white-matte cells — NOT live summer trees;
-  // the prior code used frame 21 here, which is an apple stump / peach matte.)
+  // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
+  // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
+  // and Peach sheets DON'T share a layout, so map each explicitly:
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom, 7 fruiting (apples).
+  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom, 5 fruiting (peaches).
+  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
   const FRUIT_FRAMES = {
-    apple: { grow: [0, 5, 9, 11, 15], fruit: 15, bare: 9 },
-    peach: { grow: [0, 5, 7, 9, 11], fruit: 11, bare: 7 },
+    apple: { grow: [0, 2, 4, 5, 7], fruit: 7, bare: 4 },
+    peach: { grow: [0, 2, 3, 4, 5], fruit: 5, bare: 3 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
   const FRUIT_STAGE_MS = 3 * 60 * 1000;   // 3 min/stage → ~12 min sprout→fruit
@@ -995,16 +995,11 @@ Render.drawObjects = function drawObjects(scene) {
                 return Phaser.Math.Clamp(o.variant || 2, 1, 3);
               },
               origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
-              scale:  (o) => {
-                const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
-                // DeepForest trees carry a discrete crown SIZE class (small/
-                // medium/large) → three fixed sprite tiers. Fall back to the
-                // continuous crown_m scale, then the flat species scale (OSM).
-                if (o.size && TREE_SIZE_MUL[o.size]) return base * TREE_SIZE_MUL[o.size];
-                if (o.crown_m == null) return base;
-                const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
-                return base * mul;
-              },
+              // Shared with the harvest gating in interact.js (util.treeScale)
+              // so a tree's visual size and the axe tier it demands stay in
+              // lockstep — bigger sprite, sturdier axe, more wood. treeScale
+              // honours the discrete o.size crown class too.
+              scale:  (o) => treeScale(o),
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
@@ -1165,6 +1160,11 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.kind === 'house' && _houseRole(o) === 'plain') {
       tint = Shops.shopTint(o) || 0xffffff;
     }
+    // Rare golden flora — trees + fruit trees get the warm yellow sheen so the
+    // player can spot a golden harvest from across the tile.
+    if ((o.kind === 'tree' || o.kind === 'fruittree') && isGolden(o.id, GOLDEN_RATE.tree)) {
+      tint = GOLDEN_TINT;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
     const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
@@ -1254,8 +1254,21 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
-    tx.setColor(LABEL_INK);
-    tx.setBackgroundColor(LABEL_BG);
+    // Lowtier crates (the `box` sprite) get white lettering with a soft drop
+    // shadow and NO stone plank — the label floats over the crate like the
+    // house signs do. Higher-tier chests keep the blue-on-stone tablet. The
+    // pool is shared across both kinds, so set the full style every frame.
+    if (_chestIsBox(o)) {
+      tx.setColor('#ffffff');
+      tx.setBackgroundColor(null);
+      tx.setStroke('#000000', 0);
+      tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, true, true);
+    } else {
+      tx.setColor(LABEL_INK);
+      tx.setBackgroundColor(LABEL_BG);
+      tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
+      tx.setShadow(0, 0, 'rgba(0,0,0,0)', 0, false, false);
+    }
     // Always full opacity — opened chests keep their concrete-pad label
      // legible (per user: the dimmed-after-open look made closed shops read
      // as inactive). The opened/closed state is already conveyed by the
@@ -1352,6 +1365,21 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 9)  return _HOUSE_INK;
     return Shops.shopInk(o);
   };
+  // Lighten any #rgb / #rrggbb sign colour 30% toward white. Applied to every
+  // house label so the whole set of signs reads a shade brighter against the
+  // building art. Non-hex inputs pass through unchanged.
+  const _lighten30 = (col) => {
+    if (typeof col !== 'string' || col[0] !== '#') return col;
+    let h = col.slice(1);
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (h.length !== 6) return col;
+    const n = parseInt(h, 16);
+    const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+    const lr = Math.round(r + (255 - r) * 0.30);
+    const lg = Math.round(g + (255 - g) * 0.30);
+    const lb = Math.round(b + (255 - b) * 0.30);
+    return '#' + ((1 << 24) | (lr << 16) | (lg << 8) | lb).toString(16).slice(1);
+  };
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
   let sli = 0;
   for (const item of shopHouses) {
@@ -1377,7 +1405,7 @@ Render.drawObjects = function drawObjects(scene) {
     // pool creation so position y = label top). +5 follows the house
     // sprite's own dyPx so the sign stays glued to the doorstep.
     tx.setText(_houseSignText(o))
-      .setColor(_houseSignInk(o))
+      .setColor(_lighten30(_houseSignInk(o)))
       .setPosition(Math.round(sx), Math.round(sy + 7) + 5)
       .setVisible(true);
     sli++;
@@ -1500,6 +1528,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
+    // Sealed forts/castles (delivery gate not yet met) aren't open for business
+    // either — a "ready" pip would lie about the lock. Castles report dealCap
+    // Infinity and bail above; this catches forts (tier 11) still under the gate.
+    if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
     // Hosts (residential houses with a wanted-items callout) show that bubble
     // where this pip would sit — see the produce-sign block above — so they
     // skip the separate open/busy pip entirely.
@@ -1620,6 +1652,10 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    // Rare golden wild flora gets the warm sheen; everything else (farmed crops,
+    // placed rocks) renders untinted. Pooled sprites keep their last tint, so
+    // set it explicitly every frame.
+    s.setTint((p.wildId && isGolden(p.wildId, GOLDEN_RATE.flora)) ? GOLDEN_TINT : 0xffffff);
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -1815,5 +1851,8 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
+    // Rare golden animals wear the warm sheen. Pooled sprites keep their last
+    // tint, so set white explicitly for the common (non-golden) case.
+    s.setTint(c.golden ? GOLDEN_TINT : 0xffffff);
   });
 };

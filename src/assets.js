@@ -75,15 +75,12 @@ const ASSETS = {
   // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
   // cycle the renderer loops; lower rows are move/death poses we don't use.
   slime:       { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',                  frameWidth: 32, frameHeight: 32 },
-  // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
-  apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },
-  cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 16, frameHeight: 48 },
-  peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 16, frameHeight: 48 },
-  banana_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Banana Tree.png',  frameWidth: 16, frameHeight: 48 },
-  orange_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Orange Tree.png',  frameWidth: 16, frameHeight: 48 },
-  mango_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mango Tree.png',   frameWidth: 16, frameHeight: 48 },
-  coconut_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Coconut tree.png', frameWidth: 16, frameHeight: 48 },
-  apricot_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apricot Tree.png', frameWidth: 16, frameHeight: 48 },
+  // Fruit trees — 32x48 frames (2 cells wide x 3 cells tall), same shape as
+  // Maple (32 wide). Each tree spans a 32px column; slicing at 16 split every
+  // tree in half (the odd 16px frame was just the right half of a tree).
+  apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 32, frameHeight: 48 },
+  cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 32, frameHeight: 48 },
+  peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 32, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
   // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
   // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)

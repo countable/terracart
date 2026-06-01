@@ -33,6 +33,13 @@
   boundary, or if the sprite and hitbox don't obviously belong to the same
   cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
 
+## Testing
+
+- The test harness (`test/run_tests.py`) needs a browser, which isn't always
+  available in this environment. When you can't run it, just say the tests
+  weren't run and rely on a careful code review — **don't editorialize about
+  lacking browser access or blocked downloads.** State it plainly and move on.
+
 ## Commits
 
 - Commit and push freely as work completes; no need to ask first.
@@ -46,3 +53,6 @@
   if the session was started on one. If you find yourself on a
   non-`main` branch, switch to `main`, merge anything you've done so
   far, and continue there. Push to `main` directly.
+- **After a major task, merge to `main` and push.** If work happened on a
+  non-`main` branch, merge it into `main` (`git merge`, never rebase) and
+  `git push` `main` once the task is complete.
