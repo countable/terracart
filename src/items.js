@@ -47,10 +47,10 @@ const CROP_SPRITE = {
   berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // "Long grass" is now FERN (item id stays 'longgrass' for save-compat —
-  // display name is 'Fern'). Props.png is a 22-col grid; frame (col 11,
-  // row 1) 1-indexed = col 10 row 0 0-indexed = 0*22 + 10 = 10. Reads as
-  // leafy green fern fronds at the wildplant scale.
+  // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
+  // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
+  // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
+  // wildplant scale.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
   // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
   // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
@@ -88,15 +88,19 @@ const MINERAL_ICON_SHEET = {
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
   emerald:  { sheet: 'gems',      frame: 3 },   // green gem
-  // Bars from the 16-col Extras 'Bars and ores' sheet. First row is bars
-  // in tier order; row 1 holds the matching ores (unused — we drop bars
-  // directly, no smelting step).
+  // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
+  // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
+  // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
+  // cols4-7 white-outlined duplicates, cols8-11 raw stone. So the actual
+  // ingots sit at col0/col2 of rows 0-2: copper 0, iron 2, gold 16,
+  // platinum 18, crimson 32, frost 34. (The old 0..5 run rendered copper
+  // bar, then copper/iron ORE nuggets and outlined dupes.)
   copper_bar:   { sheet: 'bars', frame: 0 },
-  iron_bar:     { sheet: 'bars', frame: 1 },
-  gold_bar:     { sheet: 'bars', frame: 2 },
-  platinum_bar: { sheet: 'bars', frame: 3 },
-  crimson_bar:  { sheet: 'bars', frame: 4 },
-  frost_bar:    { sheet: 'bars', frame: 5 },
+  iron_bar:     { sheet: 'bars', frame: 2 },
+  gold_bar:     { sheet: 'bars', frame: 16 },
+  platinum_bar: { sheet: 'bars', frame: 18 },
+  crimson_bar:  { sheet: 'bars', frame: 32 },
+  frost_bar:    { sheet: 'bars', frame: 34 },
   // Animal produce — Chicken Egg.png / Small Cow Milk.png are 32×16 each.
   egg:      { sheet: 'icon_egg',  frame: 0 },
   milk:     { sheet: 'icon_milk', frame: 0 },
@@ -105,11 +109,7 @@ const MINERAL_ICON_SHEET = {
   apple:    { sheet: 'icon_apple',   frame: 0 },
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
-  banana:   { sheet: 'icon_banana',  frame: 0 },
-  orange:   { sheet: 'icon_orange',  frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
-  coconut:  { sheet: 'icon_coconut', frame: 0 },
-  apricot:  { sheet: 'icon_apricot', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
@@ -125,6 +125,8 @@ const MINERAL_ICON_SHEET = {
   // frame 0 is the basic variant.
   flute:      { sheet: 'icon_flute',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
+  // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
+  reach_potion: { sheet: 'icon_potion', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -133,6 +135,10 @@ const MINERAL_ICON_SHEET = {
   // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
   // sheet; frame 0 is the canonical cowrie used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
+  // Fruit-tree saplings — the young-tree frame off the species sheet (32px
+  // frames; frame 2 = the small young green tree) reads as a sapling.
+  apple_sapling: { sheet: 'apple_tree', frame: 2 },
+  peach_sapling: { sheet: 'peach_tree', frame: 2 },
 };
 
 function inventoryIconSource(itemId) {
@@ -203,10 +209,14 @@ const BASE_TIER = {
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
-  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late)
+  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late).
+  // Mango is no longer an orchard tree — it's a rare universal tame treat
+  // (see interact.js) — but still carries a rarity tier for loot/pricing.
   apple: 2, cherry: 2, peach: 2, apricot: 2,
   orange: 3, mango: 3,
   banana: 4, coconut: 4,
+  // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
+  apple_sapling: 3, peach_sapling: 5,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -214,7 +224,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2,
+  flute: 2, book: 2, reach_potion: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -248,16 +258,28 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
+  // Golden (rare, 5%) animal variants — caught from yellow-tinted wild animals.
+  // Each golden kind keeps its OWN inventory stack: a golden chicken never
+  // folds into normal chickens, nor into other golden animals ("not other
+  // goldens"). `base` points at the plain kind so the icon + release path can
+  // reuse the normal sprite/behaviour; `golden` flags the golden sheen. Only
+  // the catch-into-inventory kinds get a golden item — hunted fauna (deer,
+  // crow) drop meat/feather, so there's no live golden animal to keep.
+  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly'].map(k => ({
+    id: `golden_${k}`,
+    name: `Golden ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, golden: true, baseTier: BASE_TIER[k] || 1,
+  })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
   { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
-  // Display name 'Fern' since the swap to Props.png's fern-frond sprite;
-  // id remains 'longgrass' for save / loot-table back-compat. In-world +
-  // inventory render the baked 'props' frame via ITEM_DATA_URLS.
-  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass' },
+  // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
+  // back-compat. The sprite is Props.png's frond frame; in-world + inventory
+  // render the baked 'props' frame via ITEM_DATA_URLS.
+  { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Consumables — used on yourself (tap your own feet with one selected).
@@ -265,6 +287,9 @@ const ITEMS = [
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
+  // Potion of Reach: drink it (tap your own feet with it selected) to light up
+  // the whole screen — full-range reach for 1 minute, regardless of energy.
+  { id: 'reach_potion', name: 'Potion of Reach', kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -304,9 +329,17 @@ const ITEMS = [
   { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
   { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
   { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
-  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango' },
+  // Mango: a rare treat that tames ANY animal (see the creature handler in
+  // interact.js). No `crop` ref — it isn't farmed or fed for milk/eggs.
+  { id: 'mango',   name: 'Mango',   kind: 'produce' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
+  // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
+  // the fruit-tree growth path (a growing `fruittree` object) rather than the
+  // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
+  // common apple (T3) and the rare peach (T5).
+  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
+  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -382,6 +415,7 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
   book:  20,
+  reach_potion: 45,   // T2 — full-screen reach for 1 min is a strong utility pop
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -409,8 +443,23 @@ const PRICES = {
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
+// Canonical "sell value" of an item. Used for the golden-find money bonus
+// (10× this) and as a value fall-through. Items with no explicit PRICES entry
+// (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
+// scales with how prized the thing is rather than flattening to $1.
+const TIER_VALUE = [0, 2, 8, 25, 70, 160, 360, 800];
+function itemValue(id) {
+  if (PRICES[id] != null) return PRICES[id];
+  const t = ITEM_BY_ID[id]?.baseTier || 1;
+  return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
+}
+// Golden animals sell at 10× their plain counterpart's value — a real prize in
+// the bag, on top of the catch-time money + discovery bonus.
+for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
+  PRICES[`golden_${k}`] = itemValue(k) * 10;
+}
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
-const STARTING_MONEY = 25;
+const STARTING_MONEY = 50;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS

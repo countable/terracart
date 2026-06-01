@@ -676,7 +676,10 @@
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                const FRUIT_SPECIES = ['apple', 'cherry', 'peach', 'banana', 'orange', 'mango', 'coconut', 'apricot'];
+                // Only two fruit-tree species are available in the world now:
+                // common apple, rare peach. Peach is 6x as rare → 1 orchard
+                // polygon in 7 is peach. One species per orchard polygon.
+                const FRUIT_SPECIES = ((polyKey >>> 8) % 7 === 0) ? ['peach'] : ['apple'];
                 const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
                 const species = FRUIT_SPECIES[speciesIdx];
                 const bb = bboxOf(f.geom);
@@ -741,6 +744,37 @@
                 id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
             };
 
+            // Turn a list of per-tier weights into a cumulative table + total,
+            // as _pushMineralrock's tier roll expects.
+            const cumWeights = (weights) => {
+              const tierW = []; let totalW = 0;
+              for (const w of weights) { totalW += w; tierW.push(totalW); }
+              return { tierW, totalW };
+            };
+
+            // Scatter mineralrock clusters across a polygon's bbox. At each pivot
+            // on a `pivotStep` grid that lies inside the polygon, fire a cluster
+            // with probability `fireChance`; each cluster drops
+            // clusterMin..clusterMin+clusterSpan-1 rocks jittered within `clusterR`
+            // of the pivot, routed through _pushMineralrock. RNG draw order is
+            // identical to the old inline loops (fire roll, count roll, then jx/jy
+            // per rock) so world seeds reproduce exactly.
+            const _spawnRockClusters = (rng, geom, o) => {
+              const bb = bboxOf(geom);
+              for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
+                  if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
+                  if (rng() > o.fireChance) continue;
+                  const clusterN = o.clusterMin + Math.floor(rng() * o.clusterSpan);
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
+                    const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
+                    _pushMineralrock(rng, jx, jy, o.tierW, o.totalW, o.residential);
+                  }
+                }
+              }
+            };
+
             // Residential mineral clusters — a few abandoned-yard / construction
             // piles in town. Sparse: pivot grid is ~30 m so most residential
             // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
@@ -748,7 +782,6 @@
             // of stone + low-tier ore without flooding sidewalks with rocks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
               // Explicit tier weights for residential — user-tuned to hit:
@@ -760,21 +793,12 @@
               // Of TOTAL rock count. Within the 30 % ore subset that's
               // copper 0.55, iron 0.22, gold 0.08, crystals 0.14.
               const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
-              const tierW = [];
-              let totalW = 0;
-              for (const w of weights) { totalW += w; tierW.push(totalW); }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.45) continue;   // 45 % of pivots fire a cluster
-                  const clusterN = 25 + Math.floor(resRng() * 16);   // 25..40 rocks per cluster (residential rocks survive the road-adjacency filter at a lower rate, so input has to overshoot)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (resRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* residential */ true);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(weights);
+              // 25..40 rocks per cluster: residential rocks survive the
+              // road-adjacency filter at a lower rate, so input must overshoot.
+              _spawnRockClusters(resRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.45,
+                clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true });
               // Sparse pickable wild mushrooms in residential yards — same crop
               // as the forest clusters but rarer. Independent RNG stream so they
               // don't co-locate with the rock clusters above.
@@ -788,30 +812,16 @@
             // very rare via the geometric tail (~3 % per cluster pick).
             if (t === T.INDUSTRIAL) {
               const indRng = makeRng((polyKey ^ 0xC0A11D) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
               const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
               // Slower tier dropoff than residential — mid-tier ore (gold,
               // platinum) shows up regularly while T7 stays ~3 % per ore pick.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(1.6, t2 - 1);
-                totalW += w;
-                tierW.push(totalW);
-              }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (indRng() > 0.80) continue;   // 80 % of pivots fire — "lots"
-                  const clusterN = 18 + Math.floor(indRng() * 16);   // 18..33 rocks per cluster (3× the prior 6..11)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (indRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (indRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(indRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(1.6, i)));
+              // 80 % fire — "lots"; 18..33 rocks per cluster (3× the prior 6..11).
+              _spawnRockClusters(indRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.80,
+                clusterMin: 18, clusterSpan: 16, tierW, totalW });
             }
 
             // Dense mineral rock clusters on ROCK terrain (scree / cliff landcover).
@@ -821,29 +831,15 @@
             // but rare wilderness finds (T5-T7) are still possible.
             if (t === T.ROCK) {
               const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 12 / mvtToM;
               const clusterR  =  6 / mvtToM;
               // 1/2^(t-1): T1 ~50%, T2 ~25%, T3 ~13% … T7 ~1% of ore subset.
               // _pushMineralrock still routes 70% of picks to cave rock.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                totalW += 1 / Math.pow(2, t2 - 1);
-                tierW.push(totalW);
-              }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (rockRng() > 0.70) continue;
-                  const clusterN = 10 + Math.floor(rockRng() * 10);
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (rockRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (rockRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(rockRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(2, i)));
+              _spawnRockClusters(rockRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.70,
+                clusterMin: 10, clusterSpan: 10, tierW, totalW });
             }
           }
         } else if (f.type === 2 && name === 'transportation') {
@@ -1481,7 +1477,15 @@
           cells.push(idx);
           const nm = pathNames[`${cx}_${cy}`];
           if (realName == null && nm) realName = nm;
-          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          // 8-connected: thin (r=0) paths are stamped by Bresenham, whose
+          // diagonal steps leave consecutive cells touching only at a corner.
+          // A 4-connected fill would shatter such a staircase footpath into
+          // many 1-cell components, so a 12-cell diagonal trail never reaches
+          // the 10-stone coin milestone or the 8-cell completion floor and
+          // pays nothing. Including diagonals keeps the whole path one named
+          // component.
+          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1],
+                                     [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
             const nx = cx + ddx, ny = cy + ddy;
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
             const ni = ny * w + nx;
@@ -1694,14 +1698,42 @@
             }
           }
         }
-        for (const t of bin.trees) {
-          if (onWater(t.x, t.y)) continue;
-          if (!_sxYardOK(t.x, t.y)) continue;
-          const k = cellKeyOf(t.x, t.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          const c = localCentre(t.x, t.y);
-          t.x = c.x; t.y = c.y;
+        // Trees + fruit trees can NEVER sit on a building footprint, road, path,
+        // water or other hard/interactable cell. When a detection lands on one,
+        // relocate it to a favourable empty neighbour cell; drop it only if no
+        // neighbour works. One tree per cell — process largest crown first so the
+        // biggest tree wins a contested cell and smaller ones spill to neighbours.
+        const TREE_BLOCK = new Set([
+          T.WATER, T.PIER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
+          T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+        ]);
+        const tryTreeCell = (ix, iy) => {
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+          if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
+          if (occupied.has(`${ix}_${iy}`)) return null;
+          const wcx = x * tileEdgeM + (ix + 0.5) * mPerCell;
+          const wcy = y * tileEdgeM + (iy + 0.5) * mPerCell;
+          if (!_sxYardOK(wcx, wcy)) return null;
+          return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
+        };
+        // 4-neighbours first (closer, axis-aligned), then diagonals.
+        const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        const placeTree = (wx, wy) => {
+          const ix = Math.floor((wx - x * tileEdgeM) / mPerCell);
+          const iy = Math.floor((wy - y * tileEdgeM) / mPerCell);
+          let r = tryTreeCell(ix, iy);
+          if (r) return r;
+          for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+          return null;
+        };
+        const allTrees = [...bin.trees, ...(bin.fruittrees || [])]
+          .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+        for (const t of allTrees) {
+          const r = placeTree(t.x, t.y);
+          if (!r) continue;
+          occupied.add(r.key);
+          t.x = r.x; t.y = r.y;
           entry.objects.push(t);
         }
         for (const s of bin.shrubs) {
@@ -1837,8 +1869,9 @@
     if (_satextractPromise) return _satextractPromise;
     const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
     // DeepForest detections below this confidence are dropped on load. OSM
-    // trees carry no `score` and are always kept.
-    const SATEXTRACT_TREE_MIN_SCORE = 0.4;
+    // trees carry no `score` and are always kept. The z20 classified run is
+    // already filtered at 0.30 (the reviewed sweet spot), so match it here.
+    const SATEXTRACT_TREE_MIN_SCORE = 0.30;
     const tileEdgeM = tileEdgeMeters(lat);
     const project = (lon, lat0) => {
       const px = lonLatToWorldPx(lon, lat0, Z);
@@ -1852,7 +1885,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=4')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=6')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
@@ -1860,7 +1893,7 @@
           const k = `${tx}_${ty}`;
           let b = bins.get(k);
           if (!b) {
-            b = { trees: [], shrubs: [], poles: [],
+            b = { trees: [], fruittrees: [], shrubs: [], poles: [],
                   wells: [], chests: [], parking: [], streams: [] };
             bins.set(k, b);
           }
@@ -1908,13 +1941,34 @@
             binFor(p.tx, p.ty).trees.push({
               kind: 'tree', x: cx, y: cy,
               variant: 1 + (seed % 4),
-              species: TREE_SPECIES[seed % TREE_SPECIES.length],
+              // DeepForest trees carry a colour-classified species (pine/maple);
+              // OSM trees have none → fall back to the seeded random species.
+              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
-              // DeepForest crown diameter (metres) → sprite size in render.js.
-              // Undefined for OSM trees, which fall back to the flat species scale.
+              // DeepForest crown diameter (metres) + discrete size class + sampled
+              // crown colour → sprite size / tint in render.js. Undefined for OSM
+              // trees, which fall back to the flat species scale and no tint.
               crown_m: props.crown_m,
+              size: props.size,
+              crown_color: props.crown_color,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
+              individual: true,
+            });
+          } else if (kind === 'fruittree') {
+            // DeepForest tree colour-classified as a fruit tree (apple/peach).
+            const props = f.properties || {};
+            if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            binFor(p.tx, p.ty).fruittrees.push({
+              kind: 'fruittree', x: cx, y: cy,
+              species: props.species === 'peach' ? 'peach' : 'apple',
+              id: `ft_${Math.round(cx)}_${Math.round(cy)}`,
+              crown_m: props.crown_m,
+              size: props.size,
+              wild: true,            // mature & fruiting (vs a planted sapling)
               individual: true,
             });
           } else if (POLE_KINDS.has(kind)) {

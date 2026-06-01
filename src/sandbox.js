@@ -104,26 +104,28 @@
     },
   };
 
-  // ── ORCHARD — one of each of the 8 fruit-tree species + a farm-class chest.
+  // ── ORCHARD — the two available fruit-tree species (common apple, rare
+  // peach) in a small grid + a farm-class chest.
   const ORCHARD = {
     name: 'ORCHARD', label: 'ORCHARD', w: 7, h: 7, fill: T.ORCHARD,
     populate(s) {
-      s.fruitTree('apple', 0, 0);   s.fruitTree('orange', 3, 0);  s.fruitTree('cherry', 6, 0);
-      s.fruitTree('mango', 0, 3);   s.fruitTree('coconut', 6, 3);
-      s.fruitTree('peach', 0, 6);   s.fruitTree('apricot', 3, 6); s.fruitTree('banana', 6, 6);
+      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('peach', 6, 0);
+      s.fruitTree('apple', 0, 3);   s.fruitTree('peach', 6, 3);
+      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('peach', 6, 6);
       s.chest('park', 'Sandbox Orchard', 3, 3);   // square3 pad
     },
   };
 
-  // ── ROCK — a mineral-rock sample at EVERY pickaxe tier T1..T7, plus plain
-  //    rock in the gaps so bare-rock taps still work. (Gear is granted at T3,
-  //    so T4..T7 stay "pick too weak → rejected" — the gating ladder end-to-end.)
+  // ── ROCK — one ore rock of EVERY yield tier T1..T7, plus plain rock in the
+  //    gaps so bare-rock taps still work. The sandbox pickaxe is granted at
+  //    frost (T7), so every deposit is mineable — letting a tester verify each
+  //    ore type drops its matching bar and renders its matching ore-stone.
   const ROCK = {
     name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 7, fill: T.ROCK,
     populate(s) {
-      // ORE deposits at every pickaxe tier T1..T7 (gem-on-pebble, colour by
-      // tier). Packed into a readable grid so the field clearly reads as a
-      // quarry full of deposits rather than a few specks in the corners.
+      // One deposit per yield tier T1..T7. yieldTier sets the ore-stone colour
+      // and the bar it drops: T1 plain rock→rockfruit, T2 copper, T3 iron,
+      // T4 gold, T5 platinum, T6 crimson, T7 frost. Packed into a readable grid.
       s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
       s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
       s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
@@ -194,7 +196,7 @@
     populate(s) {
       s.shrine(4, 1);
       s.well(1, 1);
-      s.chest('shop', 'Sandbox Start Chest', 7, 6);   // line3h pad
+      s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
       // Coin-burst POIs — tapping spills a burst of collectible coins (daily-
       // gated). Render as the procedural 'potofgold' art (render.js _isCoinBurst).
@@ -455,6 +457,14 @@
         objects.push({ kind: 'chest', x, y, poiClass, name,
           id: `${baseId}_chest_${tag}_${dx}_${dy}` });
       },
+      // Starter chest — a real kind:'chest' carrying a fixed payload (no
+      // poiClass), so it opens through the standard chest path reading
+      // o.fixedLoot, exactly like the spawn-trail starter chests in app.js.
+      startChest(name, dx, dy, loot) {
+        const { x, y } = at(dx, dy);
+        objects.push({ kind: 'chest', x, y, name, fixedLoot: loot,
+          id: `${baseId}_startchest_${tag}_${dx}_${dy}` });
+      },
       house(dx, dy, address = 0, tier = 9) {
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'house', x, y, tier, address,
@@ -477,10 +487,15 @@
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'shrine', x, y, id: `${baseId}_shrine_${tag}_${dx}_${dy}` });
       },
-      mineralRock(requiredTier, dx, dy) {
+      // Ore rock at a given yield tier. yieldTier drives BOTH the dropped bar
+      // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
+      // yields a little copper). requiredTier = max(1, yieldTier-1) mirrors
+      // worldgen's pick gate, so the gating ladder is exercised end-to-end.
+      mineralRock(yieldTier, dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'mineralrock', x, y, requiredTier,
-          id: `${baseId}_mr_${tag}_t${requiredTier}_${dx}_${dy}` });
+        const requiredTier = Math.max(1, yieldTier - 1);
+        objects.push({ kind: 'mineralrock', x, y, yieldTier, requiredTier,
+          id: `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}` });
       },
       // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
       // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,
@@ -623,8 +638,9 @@
     stockSandboxInventory(scene);
 
     // Grant a full mid-tier (T3) gear kit so every relic/armor-gated action is
-    // reachable while still leaving the pickaxe BELOW the T4..T7 rocks (so the
-    // "pick too weak → rejected" branch stays demonstrable). Clobbered too.
+    // reachable. The PICKAXE is bumped to frost (T7) inside grantSandboxGear so
+    // every ore deposit in the ROCK band is mineable for verification. Clobbered
+    // on every load for a predictable baseline.
     grantSandboxGear(scene);
 
     // Seed runtime state that lives outside the tile entry — planted crops,
@@ -640,6 +656,9 @@
     const TIER = 3;
     const relics = {};
     for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: TIER };
+    // Frost (T7) pickaxe so every ore tier in the ROCK band can be mined and
+    // verified (each ore's bar drop + matching ore-stone sprite).
+    relics.pick = { tier: 7 };
     scene.save.relics = relics;
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
