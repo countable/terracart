@@ -343,36 +343,26 @@ const TAP_HANDLERS = [
   // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    // Per-kind tap radius (m), scaled to each animal's on-ground footprint
-    // rather than a flat 4 m disk that made even a chicken tappable a whole
-    // cell away. Bigger animals (cow/deer) keep a larger grab; small ones
-    // (chicken/rabbit/butterfly) tighten up. Mirrors the render scales in
-    // render.js (cow 1.5 > deer/crow 1.3 > chicken 1.2 > rabbit footprint).
+    // Per-kind tap radius (m) = the creature's on-screen DRAWN radius, so a
+    // tap landing anywhere on the visible animal hits it. Animals move
+    // continuously and a single sprite routinely overlaps several 5 m cells,
+    // so this hit-test is purely POSITIONAL — distance from the tap point to
+    // the animal — never cell-membership, which would both miss an animal
+    // straddling the tapped cell's edge and wrongly grab one whose centre only
+    // shares the cell. Because the disk tracks the sprite, an animal standing
+    // on a cell you tap to till is caught here first (fauna > tilling/objects).
+    // Values mirror render.js draw sizes: radius ≈ framePx·scale/2 ÷ (CELL_PX/CELL_M)
+    // = framePx·scale/2 ÷ 6.4. 32px frames: cow ×1.5, deer/dog/cat/crow ×1.3,
+    // slime ×1.2; 16px frames: chicken ×1.2, rabbit ×1.5, butterfly ×2.0. The
+    // flyers (crow/butterfly) get a touch extra for the few px they float above
+    // their ground point.
     const CREATURE_TAP_R = {
-      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7, slime: 1.7,
-      chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
+      cow: 3.75, deer: 3.25, dog: 3.25, cat: 3.25, crow: 3.5, slime: 3.0,
+      chicken: 1.5, rabbit: 1.9, butterfly: 2.6,
     };
-    const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
-    // Fauna outrank tilling / objects on a contested cell. A cell is 5 m wide
-    // but the per-kind grab radius is only 1.4–2.4 m, so a tap on the cell an
-    // animal stands in can land >2 m from its centre and slip past this handler
-    // to the till / plant / object handlers below — the player ends up tilling
-    // "under" the chicken. Accept the closest creature that is within its per-
-    // kind tap disk of the TAP POINT *or* whose centre shares the tapped 5 m
-    // cell, so any tap on a creature's own cell always reads as an animal
-    // interaction first. (Closest-to-tap still wins when several qualify.)
-    const cellHalfM = scene.cellM / 2;
-    const tapCellCx = (Math.floor(wm.x / scene.cellM) + 0.5) * scene.cellM;
-    const tapCellCy = (Math.floor(wm.y / scene.cellM) + 0.5) * scene.cellM;
-    let target = null, bestD2 = Infinity;
-    WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id)) return;
-      const d2 = distM2(c.x, c.y, wm.x, wm.y);
-      const r = creatureTapR(c);
-      const inTapCell = Math.abs(c.x - tapCellCx) < cellHalfM
-                     && Math.abs(c.y - tapCellCy) < cellHalfM;
-      if ((d2 <= r * r || inTapCell) && d2 < bestD2) { bestD2 = d2; target = c; }
-    });
+    const target = findClosestItem('creatures', wm.x, wm.y,
+      (c) => CREATURE_TAP_R[c.kind] ?? 2.0,
+      (c) => !save.caught.includes(c.id));
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
     // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-
