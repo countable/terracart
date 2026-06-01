@@ -899,12 +899,19 @@ Render.drawObjects = function drawObjects(scene) {
   // Three discrete in-game size tiers from the DeepForest crown size class.
   // OSM trees (no size) fall back to crown_m, then the flat species scale.
   const TREE_SIZE_MUL = { small: 0.8, medium: 1.15, large: 1.55 };
-  // Fruit-tree growth-stage frames, read off the Apple/Peach sheets (shared
-  // column layout): 0 sprout → 1 sprout → 2 young → 3 mature → 4 fruiting.
-  const FRUIT_FRAMES = [11, 13, 5, 17, 21];
-  const FRUIT_MATURE_FRAME = 17;   // mature, no fruit (shown while regrowing)
+  // Fruit-tree life-cycle frames, read off each species sheet. The Apple and
+  // Peach sheets DON'T share a column layout, so map each one explicitly:
+  //   apple (30 frames): 0 sprout, 5 young, 9 mature-green, 11 blossom, 15 fruiting (red apples).
+  //   peach (26 frames): 0 sprout, 5 young, 7 mature-green, 9 blossom, 11 fruiting (peaches).
+  // (Higher frames are seasonal/stump/white-matte cells — NOT live summer trees;
+  // the prior code used frame 21 here, which is an apple stump / peach matte.)
+  const FRUIT_FRAMES = {
+    apple: { grow: [0, 5, 9, 11, 15], fruit: 15, bare: 9 },
+    peach: { grow: [0, 5, 7, 9, 11], fruit: 11, bare: 7 },
+  };
+  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
   const FRUIT_STAGE_MS = 3 * 60 * 1000;   // 3 min/stage → ~12 min sprout→fruit
-  const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+  const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // fruit yields once per 24h
   // Growth stage 0..4 of a planted sapling from elapsed real time.
   const _ftStage = (o) => Math.min(4,
     Math.floor((Date.now() - (o.planted_t || 0)) / FRUIT_STAGE_MS));
@@ -1001,8 +1008,11 @@ Render.drawObjects = function drawObjects(scene) {
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
-              // so each tree stands inside its own cell.
-              dyPx: CELL_PX * 0.5,
+              // so each tree stands inside its own cell. The pine-class sheets
+              // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
+              // the frame bottom) sit ~10px high vs maple — nudge them lower.
+              dyPx: (o) => (o.species && o.species !== 'maple')
+                ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
@@ -1020,15 +1030,16 @@ Render.drawObjects = function drawObjects(scene) {
               dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
+                const fr = _ftSpec(o);
                 if (o.planted) {
                   // Planted sapling grows through the art's life-cycle frames.
-                  let st = _ftStage(o);
-                  if (st >= 4 && _ftPicked(o)) return FRUIT_MATURE_FRAME;  // regrowing
-                  return FRUIT_FRAMES[st];
+                  const st = _ftStage(o);
+                  if (st >= 4 && _ftPicked(o)) return fr.bare;  // regrowing
+                  return fr.grow[st];
                 }
                 // Wild (detected/orchard) trees are mature & fruiting; show the
                 // fruitless mature frame briefly after a pick.
-                return _ftPicked(o) ? FRUIT_MATURE_FRAME : FRUIT_FRAMES[4];
+                return _ftPicked(o) ? fr.bare : fr.fruit;
               },
               origin: [0.5, 0.95],
               scale: (o) => {
@@ -1119,9 +1130,12 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      let w = CELL_PX * 1.5, dyFoot = 5;
+      // dyFoot must match the house sprite's base (origin 1.0 + dyPx 2 ⇒ base
+      // at sy+2), so the contact shadow tucks under the building instead of
+      // sitting a few px below it (which read as the house floating).
+      let w = CELL_PX * 1.5, dyFoot = 2;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 7; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 4; }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
        .setPosition(Math.round(sx), Math.round(sy) + dyFoot)

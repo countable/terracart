@@ -893,7 +893,7 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'fruittree') {
-        const FRUIT_RESPAWN_MS = 30 * 60 * 1000;
+        const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
         // A planted sapling can't be harvested until it has matured (reached
         // its fruiting stage). ~12 min sprout→fruit (4 × 3-min stages).
         if (o.planted) {
@@ -908,8 +908,10 @@ const TAP_HANDLERS = [
         save.fruitPicked = save.fruitPicked || {};
         const pickedAt = save.fruitPicked[o.id];
         if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-          const minsLeft = Math.max(1, Math.ceil((FRUIT_RESPAWN_MS - (Date.now() - pickedAt)) / 60000));
-          scene.flash(`Not ripe yet — ${minsLeft}m`, sx, sy);
+          const msLeft = FRUIT_RESPAWN_MS - (Date.now() - pickedAt);
+          const hrsLeft = Math.ceil(msLeft / 3600000);
+          const left = hrsLeft > 1 ? `${hrsLeft}h` : `${Math.max(1, Math.ceil(msLeft / 60000))}m`;
+          scene.flash(`Picked — ripe again in ${left}`, sx, sy);
           return true;
         }
         save.fruitPicked[o.id] = Date.now();
