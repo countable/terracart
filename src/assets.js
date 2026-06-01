@@ -71,15 +71,14 @@ const ASSETS = {
   rabbit:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Rabbit White.png',    frameWidth: 16, frameHeight: 16 },
   crow:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
+  // Slime — energy-leeching pest. 'Slime Green.png' is a 128×384 sheet of
+  // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
+  // cycle the renderer loops; lower rows are move/death poses we don't use.
+  slime:       { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',                  frameWidth: 32, frameHeight: 32 },
   // Fruit trees — 16x48 frames (1 cell wide x 3 cells tall), same shape as Maple.
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 16, frameHeight: 48 },
   cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 16, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 16, frameHeight: 48 },
-  banana_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Banana Tree.png',  frameWidth: 16, frameHeight: 48 },
-  orange_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Orange Tree.png',  frameWidth: 16, frameHeight: 48 },
-  mango_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mango Tree.png',   frameWidth: 16, frameHeight: 48 },
-  coconut_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Coconut tree.png', frameWidth: 16, frameHeight: 48 },
-  apricot_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apricot Tree.png', frameWidth: 16, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
   // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
   // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)
@@ -108,25 +107,28 @@ const ASSETS = {
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch). Foot-anchored near the base so it stands on its cell.
   well:           { kind: 'image', path: 'assets/Objects/Wilderness/well.png' },
-  // Magic Crafting Shrine — 192×128 = 4 cols × 2 rows of 48×64 water-fountain
-  // variants. Each shrine level picks a different frame (row-major) so the
-  // fountain visibly evolves: L1 → frame 0, L7 → frame 6. Anchored at
-  // (0.5, 1.0) so the base sits on the placement cell.
-  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Water fountain.png', frameWidth: 48, frameHeight: 64 },
+  // Magic Crafting Shrine — 320×208 wizard's house sheet, 4 cols × 2 rows of
+  // 80×104 (top row = 4 tower variants: blue-ivy, purple-ivy, blue-clean,
+  // purple-clean). Shrine levels 1-7 step through frames 0-3 (pairs of levels
+  // share a frame) so the tower visibly upgrades: overgrown → restored.
+  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
   // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
   // near water polygons). frame index is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
-  // Scarecrow — 32×32 single-image prop (proper straw-man with hat & cross-
-  // pole). Pole base anchors at origin (0.5, 1) so it stands on its
-  // placement cell.
-  scarecrow:   { kind: 'image', path: 'assets/Objects/scarecrow.png' },
+  // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
+  // anchors at origin (0.5, 1) so it stands on its placement cell; the render
+  // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
+  scarecrow:   { kind: 'image', path: 'assets/Objects/Scarecrow_16x16.png?v=1' },
   // ALL props seasons — 352×192 = 22 cols × 12 rows of 16×16 frames.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
   // the procedural longgrass texture.
   props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
+  // Lush round bushes — 144×288 = 3 cols × 6 rows of 48×48 frames. Replaces
+  // the old bare-twig Props.png frame as the in-world shrub wildplant art.
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 48 },
   // Terrains autotile sheet — 512×368 = 32 cols × 23 rows of 16×16 frames.
   // Copied out of the gitignored Sprites/1_Terrains_16x16.png dump into tracked
   // Objects/Terrains_16x16.png (same convention as the Wilderness art above).
@@ -139,6 +141,11 @@ const ASSETS = {
   // today; SAND, FARMLAND, BUILDING_MED are easy follow-ups since every
   // overlay shares the same 3×3 Wang geometry — just different col/row.
   terrains: { kind: 'spritesheet', path: 'assets/Objects/Terrains_16x16.png', frameWidth: 16, frameHeight: 16 },
+  // Godot 47-tile autotile blob (water↔grass shore lives in rows 8-15). 192×896
+  // = 12 cols × 56 rows of 16×16; frames indexed row*12+col. render.js' water
+  // branch reads WATER_BLOB (textures.js) → frame here. Replaces the cardinal
+  // 'terrains' Wang for WATER so inner corners render (no more shore gaps).
+  autotiles: { kind: 'spritesheet', path: 'assets/Objects/Autotiles_Godot_16x16.png', frameWidth: 16, frameHeight: 16 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.
@@ -151,7 +158,7 @@ const ASSETS = {
   // that read poorly on grass. Renderer picks frame = min(2, qty - 1)
   // so the variant cycles with stack size. Inventory icon uses frame 2.
   wood:        {
-    kind: 'spritesheet', path: 'assets/Objects/wood.png', frameWidth: 16, frameHeight: 16,
+    kind: 'spritesheet', path: 'assets/Objects/Wilderness/wood.png', frameWidth: 16, frameHeight: 16,
     // wood.png ships with a solid white background (RGB ≈ 248,248,248)
     // that reads as a "white outline" around each log when rendered on
     // the grass terrain. Alpha-key near-white pixels to transparent —

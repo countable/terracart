@@ -47,16 +47,15 @@ const CROP_SPRITE = {
   berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // "Long grass" is now FERN (item id stays 'longgrass' for save-compat —
-  // display name is 'Fern'). Props.png is a 22-col grid; frame (col 11,
-  // row 1) 1-indexed = col 10 row 0 0-indexed = 0*22 + 10 = 10. Reads as
-  // leafy green fern fronds at the wildplant scale.
-  longgrass: { sheet: 'props', custom: true, frame: 10 },
-  // Shrub (the wildplant; chopping it drops wood). Props.png frame
-  // (col 11, row 6) 1-indexed = col 10 row 5 = 5*22 + 10 = 120. A brown
-  // bare-twig bush. Without this override the renderer falls back to row
-  // 1 of crops.png (the pairy sprite) which looked like a fruit.
-  shrub:     { sheet: 'props', custom: true, frame: 120 },
+  // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
+  // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
+  // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
+  // wildplant scale.
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
+  // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
+  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
+  // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
+  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
   // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
   // (col=13, row=1) → index 1*22 + 13 = 35 is the small red-cap toadstool
   // sized to fit a single cell. (The cell one column to its right, frame
@@ -106,11 +105,7 @@ const MINERAL_ICON_SHEET = {
   apple:    { sheet: 'icon_apple',   frame: 0 },
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
-  banana:   { sheet: 'icon_banana',  frame: 0 },
-  orange:   { sheet: 'icon_orange',  frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
-  coconut:  { sheet: 'icon_coconut', frame: 0 },
-  apricot:  { sheet: 'icon_apricot', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
@@ -126,6 +121,8 @@ const MINERAL_ICON_SHEET = {
   // frame 0 is the basic variant.
   flute:      { sheet: 'icon_flute',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
+  // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
+  reach_potion: { sheet: 'icon_potion', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -204,10 +201,10 @@ const BASE_TIER = {
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
-  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late)
-  apple: 2, cherry: 2, peach: 2, apricot: 2,
-  orange: 3, mango: 3,
-  banana: 4, coconut: 4,
+  // Orchard fruit (apple/cherry/peach ~ mid-low). Mango is no longer an
+  // orchard tree — it's a rare universal tame treat (see interact.js).
+  apple: 2, cherry: 2, peach: 2,
+  mango: 3,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -215,7 +212,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2,
+  flute: 2, book: 2, reach_potion: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -249,16 +246,28 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
+  // Golden (rare, 5%) animal variants — caught from yellow-tinted wild animals.
+  // Each golden kind keeps its OWN inventory stack: a golden chicken never
+  // folds into normal chickens, nor into other golden animals ("not other
+  // goldens"). `base` points at the plain kind so the icon + release path can
+  // reuse the normal sprite/behaviour; `golden` flags the golden sheen. Only
+  // the catch-into-inventory kinds get a golden item — hunted fauna (deer,
+  // crow) drop meat/feather, so there's no live golden animal to keep.
+  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly'].map(k => ({
+    id: `golden_${k}`,
+    name: `Golden ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, golden: true, baseTier: BASE_TIER[k] || 1,
+  })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
   { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
-  // Display name 'Fern' since the swap to Props.png's fern-frond sprite;
-  // id remains 'longgrass' for save / loot-table back-compat. In-world +
-  // inventory render the baked 'props' frame via ITEM_DATA_URLS.
-  { id: 'longgrass', name: 'Fern', kind: 'produce', crop: 'longgrass' },
+  // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
+  // back-compat. The sprite is Props.png's frond frame; in-world + inventory
+  // render the baked 'props' frame via ITEM_DATA_URLS.
+  { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Consumables — used on yourself (tap your own feet with one selected).
@@ -266,6 +275,9 @@ const ITEMS = [
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
+  // Potion of Reach: drink it (tap your own feet with it selected) to light up
+  // the whole screen — full-range reach for 1 minute, regardless of energy.
+  { id: 'reach_potion', name: 'Potion of Reach', kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -303,11 +315,9 @@ const ITEMS = [
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
   { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
-  { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
-  { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
-  { id: 'mango',   name: 'Mango',   kind: 'produce', crop: 'mango' },
-  { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
-  { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
+  // Mango: a rare treat that tames ANY animal (see the creature handler in
+  // interact.js). No `crop` ref — it isn't farmed or fed for milk/eggs.
+  { id: 'mango',   name: 'Mango',   kind: 'produce' },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -383,6 +393,9 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
   book:  20,
+  reach_potion: 45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
+
   // ── Rock-break minerals ──────────────────────────────────
   coal:      3,
   sapphire:  30,
@@ -400,14 +413,29 @@ const PRICES = {
   meat: 30,
   rabbit_pelt: 15,
   crow_feather: 10,
-  butterfly: 5,
+  butterfly: 200,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 8,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
   // ── Orchard fruit ────────────────────────────────────────
-  apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  apple: 8, cherry: 12, peach: 10, mango: 18,
 };
+// Canonical "sell value" of an item. Used for the golden-find money bonus
+// (10× this) and as a value fall-through. Items with no explicit PRICES entry
+// (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
+// scales with how prized the thing is rather than flattening to $1.
+const TIER_VALUE = [0, 2, 8, 25, 70, 160, 360, 800];
+function itemValue(id) {
+  if (PRICES[id] != null) return PRICES[id];
+  const t = ITEM_BY_ID[id]?.baseTier || 1;
+  return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
+}
+// Golden animals sell at 10× their plain counterpart's value — a real prize in
+// the bag, on top of the catch-time money + discovery bonus.
+for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
+  PRICES[`golden_${k}`] = itemValue(k) * 10;
+}
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 25;
 
@@ -429,15 +457,12 @@ const PLAY_TIPS = [
   'A trader who wants an item you don\'t own marks the deal with an ✗.',
   // Relic effects
   'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'Bow or Staff drops the markup traders charge you — best tier wins.',
+  'A Bow drops the markup traders charge you — higher tier, lower prices.',
   'Equip a Pickaxe to break rocks, an Axe to chop trees.',
   'A Ring nudges chest loot up a tier when it triggers.',
   'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
   // Progression / gating
-  'Harvest a sunflower to unlock Gold relics from chests and shops.',
-  'Catch a cow to unlock Platinum.',
-  'Harvest a fireflower for Crimson; iceflower for Frost.',
   'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
   // Energy / food
   'Rainberry waters every crop within 20m when you eat it.',
@@ -455,13 +480,15 @@ const PLAY_TIPS = [
   'Hold rock and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
   // Animal favourite foods — one tip per kind, so a Book read can reveal them.
-  'Chickens come running for a juicy rainberry. Hold one to catch one.',
+  'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
   'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
   'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
   'Cats and dogs only eat meat — feeding them plants just wastes the food.',
+  // Secret tip — slime taming. Rare to pull from the pool, but findable.
+  'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
 
 const STARTING_ENERGY = 100;
@@ -486,7 +513,7 @@ const FOOD_ENERGY = {
   egg:        10,
   milk:       40,
   mushroom:   25,
-  apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
+  apple:      12, cherry: 14, peach: 12, mango: 20,
   minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
   meat:       45,   // hunted from deer; dog favourite
 };
@@ -498,7 +525,7 @@ const ENERGY_COST = {
   rockPlace: 1,
   catch: 5,
   unTill: 0,
-  pickup: 0,             // wildplants / flora — free
+  pickup: 0,             // wildplants — free
 };
 
 // Catching an animal requires holding its favourite food in the selected
@@ -521,6 +548,8 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
+  slime:   ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
@@ -558,14 +587,15 @@ const RELIC_DEFS = {
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
              effectKey: 'ghostMode',     blurb: 'projects a ghost — faster + cheaper per tier' },
-  // Weapons — no combat yet, but they bend shop prices. Sword raises sell
-  // values; bow/staff lower buy prices (max(bow,staff) tier wins).
+  // Weapons. Sword raises sell values; Bow lowers buy prices. Staff is a
+  // pure hunting weapon — all three (sword/bow/staff) speed the pest-defeat
+  // wheel, but only the Bow bends buy prices.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'better buy prices' },
+             effectKey: 'hunt',          blurb: 'a weapon for hunting pests' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
@@ -666,14 +696,17 @@ function effectiveTillCost(relics, rng) {
   if (random() < eq.tier * 0.12) return 0;
   return Math.max(1, base - Math.floor(eq.tier / 3));
 }
-// Tool work-wheel duration. Bare hands take 10s; a wood tool of the right
-// kind (slot='pick' / 'axe') brings it to 3s, and each tier shaves another
-// 750ms (floored at 500ms). Iron pick (tier 3) clears rockfruit in 1.5s;
-// frost axe in 0.5s. pickDurationMs is kept as a back-compat alias.
+// Tool work-wheel duration. TIER 0 = BARE HANDS: every tool type works
+// bare-handed at 9s (3 × the wooden tier-1 time) — so chop / mine / fish /
+// defeat are always possible, only slow. Per-tier times follow the spec ladder
+// exactly: wood 3s, copper 2.5s, iron 2s, gold 1.3s, platinum .8s, crimson
+// .5s, frost .3s. The bug net is the lone exception — butterflies still need it
+// (gated in the catch path). pickDurationMs is kept as a back-compat alias.
+const TOOL_DURATION_MS = { 1: 3000, 2: 2500, 3: 2000, 4: 1300, 5: 800, 6: 500, 7: 300 };
 function toolDurationMs(relics, slot) {
   const eq = relics?.[slot];
-  if (!eq) return 10000;
-  return Math.max(500, 3000 - (eq.tier - 1) * 750);
+  if (!eq) return 9000;   // tier 0 (bare hands) = 3 × wood
+  return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
 function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // Ring relic: +5% per tier to upgrade loot tier (1→2 or 2→3) on chests.
@@ -707,11 +740,18 @@ function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
 }
-// Bow / Staff relics: shrink the random buy-cash markup. Without either, the
-// trader still wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0×
-// (the player buys at par). Take the BEST tier of bow vs staff.
+// Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
+// share this discount, but it's been demoted to a pure combat weapon (it still
+// counts toward the sword/bow/staff hunt-speed max in interact.js); only the
+// Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
+function bestWeaponTier(relics) {
+  return relics?.bow?.tier || 0;
+}
+// Bow relic: shrinks the random buy-cash markup. Without one, the trader still
+// wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
+// buys at par).
 function buyMarkupRange(relics) {
-  const t = Math.max(relics?.bow?.tier || 0, relics?.staff?.tier || 0);
+  const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises
   return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
 }
