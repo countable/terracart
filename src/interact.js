@@ -925,7 +925,7 @@ const TAP_HANDLERS = [
           // T1/T2 → copper, T3 → iron, T4-T7 → gold (platinum / crimson /
           // frost bars are blacksmith-smelting only — high-tier rocks just
           // pay out gold + extra gems via the GEM table below).
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
+          const BARS = ['', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
           if (isCave) {
             // Plain cave rock — primarily stone (1-3 rockfruit) plus a
             // small chance per tier of cracking open a sliver of ore.

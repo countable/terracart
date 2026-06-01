@@ -295,7 +295,11 @@ Render.drawCells = function drawCells(scene) {
           // = that neighbour is also water. Convention: TL=1,T=2,TR=4,L=8,R=16,
           // BL=32,B=64,BR=128. The blob draws inner corners the old cardinal
           // Wang could not — closing the shore gaps.
-          const W = (t) => (t === 3 ? 1 : 0);
+          // SAND counts as "same" here so water stays SOLID up to a beach
+          // waterline (no grass edge there) — the sand cell draws the sand↔water
+          // transition (see SAND_WATER_BLOB in the type===2 branch). Water still
+          // grass-edges against grass (lakes unchanged).
+          const W = (t) => (t === 3 || t === 2 ? 1 : 0);
           const mask = W(T(col - 1, row - 1)) * 1
                      + W(T(col,     row - 1)) * 2
                      + W(T(col + 1, row - 1)) * 4
@@ -307,11 +311,13 @@ Render.drawCells = function drawCells(scene) {
           texKey = 'autotiles';
           texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
         } else if (type === 2) {
-          // SAND beaches — same 8-neighbour blob (SAND_BLOB in textures.js),
-          // drawing grass edges where sand meets any non-sand neighbour. Sand
-          // sits between grass and water; this rounds it off against everything
-          // (a thin grass/wet strip at the waterline — the dedicated water↔sand
-          // tiles are a later refinement). Bit set = neighbour is also sand.
+          // SAND beaches — 8-neighbour blob (bit set = neighbour is also sand).
+          // The blob SHAPE is sand-vs-not-sand; which EDGE palette we draw is
+          // chosen by the dominant non-sand cardinal neighbour: water → the
+          // sand↔water tiles (SAND_WATER_BLOB, sand rounding into the sea), else
+          // grass → the grass↔sand tiles (SAND_BLOB). So sand→grass and
+          // sand→water both read cleanly; only a 1-cell sand strip touching both
+          // at once has to pick one (ties favour the waterline).
           const S = (t) => (t === 2 ? 1 : 0);
           const mask = S(T(col - 1, row - 1)) * 1
                      + S(T(col,     row - 1)) * 2
@@ -321,8 +327,15 @@ Render.drawCells = function drawCells(scene) {
                      + S(T(col - 1, row + 1)) * 32
                      + S(T(col,     row + 1)) * 64
                      + S(T(col + 1, row + 1)) * 128;
+          let wN = 0, gN = 0;
+          for (const t of [T(col, row - 1), T(col + 1, row), T(col, row + 1), T(col - 1, row)]) {
+            if (t === 2) continue;            // sand neighbour — not an edge
+            if (t === 3) wN++; else gN++;     // water vs everything else
+          }
+          const useWater = wN > 0 && wN >= gN; // water-dominant (ties favour water)
           texKey = 'autotiles';
-          texFrame = SAND_BLOB[mask] ?? SAND_BLOB_CENTER;
+          texFrame = useWater ? (SAND_WATER_BLOB[mask] ?? SAND_WATER_BLOB_CENTER)
+                              : (SAND_BLOB[mask] ?? SAND_BLOB_CENTER);
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
