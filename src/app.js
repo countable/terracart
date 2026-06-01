@@ -339,6 +339,16 @@ class MapScene extends Phaser.Scene {
     // harvested or caught (see awardGoldenBonus). Surfaced in the Stats modal;
     // reserved as the eventual unlock currency for the Magic Shrine.
     if (this.save.discovery === undefined)        this.save.discovery = 0;
+    // First-find fanfare — `itemsAcquired` is the set of item ids the player
+    // has ever picked up. The first non-silent add of an id pops the treasure
+    // ceremony window (see addToInv → showFirstFindModal). Seed it from
+    // whatever's already in the bag on first migration so existing players
+    // don't get a "new!" window for staples they already hold; a brand-new
+    // save has an empty bag, so every genuine first pickup still celebrates.
+    if (!Array.isArray(this.save.itemsAcquired)) {
+      this.save.itemsAcquired = [...new Set((this.save.inv || [])
+        .map(s => s && s.id).filter(Boolean))];
+    }
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
     // an `id` field, so chopping one pushed `undefined` into save.chopped.
     // A `choppedSet.has(undefined)` lookup then matched every other tree
@@ -5044,13 +5054,19 @@ class MapScene extends Phaser.Scene {
       const item = ITEM_BY_ID[reward.id];
       const color = (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff');
       const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '';
-      this.showChestRewardModal({
-        header: `${title} complete`,
-        iconHTML,
-        name: item?.name || reward.id,
-        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
-        color,
-      });
+      // A brand-new item already popped the discovery ceremony from addToInv;
+      // don't stack the "trail complete" window on top of it.
+      if (this._justFirstFind === reward.id) {
+        this._justFirstFind = null;
+      } else {
+        this.showChestRewardModal({
+          header: `${title} complete`,
+          iconHTML,
+          name: item?.name || reward.id,
+          qty: reward.qty > 1 ? `× ${reward.qty}` : null,
+          color,
+        });
+      }
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
       this.showChestRewardModal({
@@ -6070,7 +6086,26 @@ class MapScene extends Phaser.Scene {
   // no bag, 249 at tier 7. Excess is rejected (no ground drops in this game)
   // and the player sees a 'bag full' flash. Returns the count actually
   // accepted so callers can adjust their narration if they care.
+  // First-ever pickup of `id` → the treasure ceremony window (the same modal
+  // chests use), reframed as a discovery. Quiet no-op when the reward-modal
+  // primitive or DOM isn't available (headless / test scene) so the bulk of
+  // addToInv callers in the test suite stay synchronous and modal-free.
+  showFirstFindModal(id, qty) {
+    if (typeof this.showChestRewardModal !== 'function') return;
+    if (typeof window !== 'undefined' && window.__TEST_MODE) return;
+    const item = ITEM_BY_ID[id];
+    const name = (item?.name || id).toString();
+    const color = (typeof tierInfo === 'function') ? (tierInfo(id).color || '#ffe066') : '#ffe066';
+    const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(id, 64) : '';
+    const qtyLabel = qty > 1 ? `× ${qty}` : null;
+    this.showChestRewardModal({
+      iconHTML, name, qty: qtyLabel, color,
+      header: '✨ New discovery ✨',
+      sub: 'first one in your collection!',
+    });
+  }
   addToInv(id, n = 1, silent = false) {
+    this._justFirstFind = null;
     const item = ITEM_BY_ID[id];
     if (!item || n <= 0) return 0;
     const cap = (typeof stackCapForBags === 'function')
@@ -6095,6 +6130,18 @@ class MapScene extends Phaser.Scene {
     const accepted = Math.min(room, n);
     stack.count = (stack.count || 0) + accepted;
     const rejected = n - accepted;
+    // First-ever pickup of this item type. Recorded even on silent adds (so a
+    // starter-granted item doesn't fanfare later when topped up for real), but
+    // only gated `accepted > 0` so a bag-full no-op still celebrates when the
+    // player actually gets one. The modal fires below for non-silent adds only.
+    let firstFind = false;
+    if (accepted > 0) {
+      if (!Array.isArray(this.save.itemsAcquired)) this.save.itemsAcquired = [];
+      if (!this.save.itemsAcquired.includes(id)) {
+        this.save.itemsAcquired.push(id);
+        firstFind = true;
+      }
+    }
     // Autoselect a freshly-obtained NEW item type so the player can immediately
     // see / use what they just got. Only for genuine (non-silent) pickups, and
     // only when this add created a brand-new stack — topping up an existing
@@ -6111,6 +6158,13 @@ class MapScene extends Phaser.Scene {
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
+    }
+    // Pop the discovery ceremony for a brand-new item type. `_justFirstFind`
+    // lets a caller that ALSO shows a reward modal (chest open) suppress its
+    // own duplicate window — it's the one shown here instead.
+    if (firstFind && !silent) {
+      this._justFirstFind = id;
+      this.showFirstFindModal(id, accepted);
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the

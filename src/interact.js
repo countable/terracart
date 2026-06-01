@@ -939,7 +939,10 @@ const TAP_HANDLERS = [
         save.opened.push(o.id);
         if (save.chestHold) delete save.chestHold[o.id];
         ctx.dirty = true;
-        scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
+        // A brand-new item already popped the discovery ceremony from addToInv;
+        // don't stack a second "from the chest" window on top of it.
+        if (scene._justFirstFind === lootId) scene._justFirstFind = null;
+        else scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
         return true;
       }
       if (o.kind === 'well') {
