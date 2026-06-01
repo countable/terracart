@@ -1006,8 +1006,15 @@ Render.drawObjects = function drawObjects(scene) {
               // so each tree stands inside its own cell. The pine-class sheets
               // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
               // the frame bottom) sit ~10px high vs maple — nudge them lower.
-              dyPx: (o) => (o.species && o.species !== 'maple')
-                ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5,
+              // Small-class trees (scale ×0.8) read ~3px too low: the foot
+              // origin sits a hair below the art's true trunk base, and that
+              // gap scales with the sprite, so the smaller tier's foot lands
+              // below the larger tiers' standing line. Lift it back up 3px.
+              dyPx: (o) => {
+                const base = (o.species && o.species !== 'maple')
+                  ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
+                return treeSizeClass(o) === 'small' ? base - 3 : base;
+              },
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
