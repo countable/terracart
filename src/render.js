@@ -1561,10 +1561,13 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
-    // Sealed forts/castles (delivery gate not yet met) aren't open for business
-    // either — a "ready" pip would lie about the lock. Castles report dealCap
-    // Infinity and bail above; this catches forts (tier 11) still under the gate.
+    // Sealed castles (delivery gate not yet met) aren't open for business —
+    // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
+    // and bail above, but keep this for safety.)
     if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
+    // Locked forts (not yet unsealed with wood) aren't trading either — skip
+    // the pip until the player pays the quartermaster.
+    if (typeof scene._isFortLocked === 'function' && scene._isFortLocked(o)) continue;
     // Hosts (residential delivery houses) show their roof callout — wishlist
     // or happy face — where this pip would sit (see the produce-sign block
     // above), so they skip the separate open/busy pip entirely.

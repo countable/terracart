@@ -86,13 +86,15 @@ const REACH_TREASURE_M  = 7.5; // treasure mark
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// Castles and forts stay sealed until the player has proven themselves on the
-// delivery routes. Gated by the lifetime tally (save.deliveryCount): a castle
-// vault opens after CASTLE_DELIVERY_GATE completed deliveries, a fort's
-// quartermaster after FORT_DELIVERY_GATE. Replaces the old one-time goods
-// tribute — the price of entry is now footwork, not a stack of produce.
+// A castle stays sealed until the player has proven themselves on the delivery
+// routes. Gated by the lifetime tally (save.deliveryCount): the vault opens
+// after CASTLE_DELIVERY_GATE completed deliveries. Replaces the old one-time
+// goods tribute — the price of entry is footwork, not a stack of produce.
 const CASTLE_DELIVERY_GATE = 5;
-const FORT_DELIVERY_GATE   = 2;
+// A fort, by contrast, is unsealed with materials — like restoring a wreck
+// house, the player pays a one-time stack of wood (FORT_UNLOCK_WOOD) to open
+// the quartermaster. Recorded per-fort in save.unlockedForts.
+const FORT_UNLOCK_WOOD = 30;
 // Delivery wishlists climb in rarity as the player's lifetime tally grows.
 // The "wanted" produce set is biased toward this target tier, which ramps
 // linearly from PRODUCE_TIER_MIN (at 0 deliveries) to PRODUCE_TIER_MAX (at
@@ -413,12 +415,18 @@ class MapScene extends Phaser.Scene {
     if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
       this.save.restoredHouses = {};
     }
-    // Castles and forts start sealed: their occupants won't trade until the
-    // player has logged enough lifetime deliveries (save.deliveryCount ≥
-    // CASTLE_DELIVERY_GATE / FORT_DELIVERY_GATE). The gate is read straight off
-    // the delivery tally — no per-building save key — so a stale tributedCastles
-    // map from an older save is dead weight; drop it.
+    // Castles start sealed: their occupants won't trade until the player has
+    // logged enough lifetime deliveries (save.deliveryCount ≥
+    // CASTLE_DELIVERY_GATE). The gate is read straight off the delivery tally —
+    // no per-building save key — so a stale tributedCastles map from an older
+    // save is dead weight; drop it.
     if (this.save.tributedCastles) delete this.save.tributedCastles;
+    // Forts start sealed too, but unseal with a one-time wood payment
+    // (FORT_UNLOCK_WOOD) rather than deliveries — recorded per-fort here, the
+    // wood analogue of restoredHouses for tier-9 wrecks.
+    if (!this.save.unlockedForts || typeof this.save.unlockedForts !== 'object') {
+      this.save.unlockedForts = {};
+    }
     // No starter-tools gift: the player begins tool-less and forges their
     // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
     // Wood comes from ground stacks + bare-handed shrub chops (no tool
@@ -1297,24 +1305,22 @@ class MapScene extends Phaser.Scene {
           if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
         }
       }
-      // Seven starter chests: one of 9 potato seeds (the player's first crop —
-      // inventory starts empty), three of 5 wood for restoring a plain house,
-      // three of 5 rockfruit for restoring a themed shop — interleaved so the
-      // trail alternates. Per-chest counts stay within the no-bag stack cap (9)
-      // so nothing overflows. These are real kind:'chest' objects carrying a
-      // `fixedLoot` payload, so they open through the standard chest path (the
-      // ceremony modal + one-time save.opened) instead of the rarity picker —
-      // the player gets exactly what they need to bootstrap the restoration
-      // loop. (No free scarecrow — it's sold at the forced scarecrow shop, the
-      // next house out past the starter blacksmith.)
+      // Four starter chests, one stack of 9 each: wood (restoring plain
+      // houses + unsealing forts), rockfruit (the "Rock" stone — restoring
+      // themed shops), rockfruit seeds and potato seeds (the player's first
+      // crops; inventory starts empty). Per-chest counts stay within the
+      // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
+      // objects carrying a `fixedLoot` payload, so they open through the
+      // standard chest path (the ceremony modal + one-time save.opened)
+      // instead of the rarity picker — the player gets exactly what they need
+      // to bootstrap the restoration + farming loops. (No free scarecrow —
+      // it's sold at the forced scarecrow shop, the next house out past the
+      // starter blacksmith.)
       const STARTER_LOOT = [
-        { id: 'potato_seed', qty: 9 },
-        { id: 'wood',        qty: 5 },
-        { id: 'rockfruit',   qty: 5 },
-        { id: 'wood',        qty: 5 },
-        { id: 'rockfruit',   qty: 5 },
-        { id: 'wood',        qty: 5 },
-        { id: 'rockfruit',   qty: 5 },
+        { id: 'wood',           qty: 9 },
+        { id: 'rockfruit',      qty: 9 },
+        { id: 'rockfruit_seed', qty: 9 },
+        { id: 'potato_seed',    qty: 9 },
       ];
       const COUNT = STARTER_LOOT.length;
       const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
@@ -3553,10 +3559,16 @@ class MapScene extends Phaser.Scene {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
     }
-    // Castle / fort → sealed until the player has logged enough lifetime
-    // deliveries (5 for a castle vault, 2 for a fort). The same
-    // locked-until-earned gate the wreck houses use, but the entry fee is
-    // delivery footwork rather than a stack of goods.
+    // Fort → sealed until unsealed with a one-time wood payment, just like a
+    // wreck house pays masonry. Pay FORT_UNLOCK_WOOD and the quartermaster
+    // opens for good (recorded in save.unlockedForts).
+    if (house && this._isFortLocked && this._isFortLocked(house)) {
+      this.presentFortUnlockModal(sx, sy, house);
+      return;
+    }
+    // Castle → sealed until the player has logged enough lifetime deliveries
+    // (5 for the vault). A locked-until-earned gate with no payment: the entry
+    // fee is delivery footwork rather than a stack of goods.
     if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
       this.presentSealedBuildingModal(sx, sy, house);
       return;
@@ -5253,47 +5265,98 @@ class MapScene extends Phaser.Scene {
   }
 
   // Lifetime deliveries this building demands before it'll trade, or 0 if it
-  // has no delivery gate. Castles (BUILDING_LARGE / tower, tier 12) want
-  // CASTLE_DELIVERY_GATE; forts (tier 11) want FORT_DELIVERY_GATE.
+  // has no delivery gate. Only castles (BUILDING_LARGE / tower, tier 12) gate
+  // on deliveries now — forts unseal with wood (see _isFortLocked).
   _deliveryGate(house) {
     if (!house) return 0;
     if (house.kind === 'tower' || house.tier === 12) return CASTLE_DELIVERY_GATE;
-    if (house.tier === 11) return FORT_DELIVERY_GATE;
     return 0;
   }
 
-  // True iff `house` is a castle or fort still sealed because the player hasn't
-  // logged enough lifetime deliveries (save.deliveryCount). The delivery-gate
-  // analogue of _isHouseWreck. The gate reads the global delivery tally, so —
-  // unlike the old per-castle tribute — an id-less building is gated too;
-  // there's no payment to record against a house key.
+  // True iff `house` is a castle still sealed because the player hasn't logged
+  // enough lifetime deliveries (save.deliveryCount). The delivery-gate analogue
+  // of _isHouseWreck. The gate reads the global delivery tally, so — unlike the
+  // old per-castle tribute — an id-less building is gated too; there's no
+  // payment to record against a house key.
   _isBuildingSealed(house) {
     const need = this._deliveryGate(house);
     if (!need) return false;
     return (this.save.deliveryCount ?? 0) < need;
   }
 
-  // The sealed castle/fort gate (see _isBuildingSealed). There's nothing to
-  // pay here — the building opens on its own once save.deliveryCount reaches
-  // the threshold — so this is a locked info modal that shows the player how
-  // many more deliveries they owe, not an accept/buy offer.
+  // The sealed castle gate (see _isBuildingSealed). There's nothing to pay here
+  // — the vault opens on its own once save.deliveryCount reaches the threshold
+  // — so this is a locked info modal that shows the player how many more
+  // deliveries they owe, not an accept/buy offer.
   presentSealedBuildingModal(sx, sy, house) {
     const need = this._deliveryGate(house);
     const have = this.save.deliveryCount ?? 0;
     const left = Math.max(0, need - have);
-    const isCastle = house.kind === 'tower' || house.tier === 12;
-    const icon = isCastle ? '🏰' : '🛡️';
     this.showOfferModal({
-      title: isCastle ? 'The castle stays sealed' : 'The fort stays barred',
-      get: `${icon} opens after ${need} deliveries`,
-      blurb: isCastle
-        ? "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first."
-        : "The quartermaster won't deal with a stranger — run some deliveries and come back.",
+      title: 'The castle stays sealed',
+      get: `🏰 opens after ${need} deliveries`,
+      blurb: "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first.",
       cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
         + ` <span style="opacity:.7">(${have}/${need})</span>`,
       canAfford: false,
       acceptLabel: 'Locked',
       onAccept: () => {},
+    });
+  }
+
+  // True iff `house` is a fort the player hasn't unsealed yet. Forts (tier 11)
+  // open with a one-time wood payment (FORT_UNLOCK_WOOD), tracked per-fort in
+  // save.unlockedForts — the wood analogue of _isHouseWreck for tier-9 homes.
+  _isFortLocked(house) {
+    if (!house || house.tier !== 11) return false;
+    return !this.save.unlockedForts?.[house.id];
+  }
+
+  // Pay-to-unseal modal for a locked fort. Costs FORT_UNLOCK_WOOD wood, mirrors
+  // the wreck-restore flow: shown even when unaffordable (so the player sees
+  // the price), re-checks stock on accept, then records the unlock and plays
+  // the same restoration fanfare.
+  presentFortUnlockModal(sx, sy, house) {
+    const need = FORT_UNLOCK_WOOD;
+    const heldCount = ((this.save.inv || []).find(s => s && s.id === 'wood')?.count) ?? 0;
+    const canAfford = heldCount >= need;
+    this.showOfferModal({
+      title: 'Unseal this fort?',
+      get: '🛡️ the fort quartermaster',
+      blurb: 'Shore up the gate and the garrison will trade relics with you.',
+      cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
+        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
+      canAfford,
+      acceptLabel: 'Unseal',
+      onAccept: () => {
+        // Re-check stock at accept time — the player might have spent the wood
+        // elsewhere while the modal was open.
+        const idx = this.save.inv.findIndex(s => s && s.id === 'wood' && (s.count ?? 0) >= need);
+        if (idx < 0) { this.flash(`need ${need} wood`, sx, sy); return; }
+        const stack = this.save.inv[idx];
+        stack.count -= need;
+        if ((stack.count ?? 0) <= 0) {
+          this.save.inv.splice(idx, 1);
+          if (this.save.selSlot >= this.save.inv.length) {
+            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+          }
+        }
+        this.save.unlockedForts = this.save.unlockedForts || {};
+        this.save.unlockedForts[house.id] = true;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        if (this.showChestRewardModal) {
+          this.showChestRewardModal({
+            iconHTML: this.buildingImgHTML('fort', 72),
+            header: 'Unsealed!',
+            name: 'You unsealed a Fort',
+            sub: 'The quartermaster trades relics — up to 5 deals an hour.',
+            color: '#a7ffb0',
+          });
+        } else {
+          this.flashLoot('🛡️ unsealed', '#a7ffb0', 1.25);
+        }
+      },
     });
   }
 

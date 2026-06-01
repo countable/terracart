@@ -1284,29 +1284,44 @@ test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (s
   document.getElementById('offer-modal')?.remove();
 });
 
-test('fort stays barred until 2 lifetime deliveries, then trades', (scene) => {
+test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
   scene.save.money = 100000000;
   scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
   scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.unlockedForts = {};
   const fort = { kind: 'house', id: 'test_fort_gate', tier: 11,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, fort.x, fort.y - 2);
-  // Below the gate → locked info modal, no Buy.
-  scene.save.deliveryCount = FORT_DELIVERY_GATE - 1;
+  // (1) Without the wood → the unseal modal shows, with the Unseal action
+  // disabled (can't afford) and no relic Buy yet.
   scene.shopInteract(0, 0, fort);
   let m = document.getElementById('offer-modal');
-  assert.truthy(m, 'barred fort opens an info modal');
+  assert.truthy(m, 'sealed fort opens the unseal modal');
   let buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.falsy(buy, 'no Buy button while barred');
+  assert.falsy(buy, 'no Buy button while sealed');
+  const unseal = [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
+  assert.truthy(unseal && unseal.disabled, 'Unseal action present and disabled without wood');
   m?.remove();
-  // At the gate → the fort quartermaster trades (a "Buy" button).
-  scene.save.deliveryCount = FORT_DELIVERY_GATE;
+  // (2) With 30 wood → tapping Unseal pays the wood and records the unlock.
+  scene.save.inv = [{ id: 'wood', count: FORT_UNLOCK_WOOD }];
+  scene.shopInteract(0, 0, fort);
+  m = document.getElementById('offer-modal');
+  const unseal2 = m && [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
+  assert.truthy(unseal2 && !unseal2.disabled, 'Unseal enabled once the wood is in bags');
+  unseal2.click();
+  assert.truthy(scene.save.unlockedForts['test_fort_gate'], 'fort recorded as unsealed');
+  const woodLeft = (scene.save.inv.find(s => s && s.id === 'wood')?.count) ?? 0;
+  assert.eq(woodLeft, 0, 'the 30 wood was consumed');
+  document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
+  // (3) After unsealing → the quartermaster trades (a "Buy" button).
   scene.shopInteract(0, 0, fort);
   m = document.getElementById('offer-modal');
   buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.truthy(buy, 'fort trades at the delivery gate');
+  assert.truthy(buy, 'fort trades once unsealed');
   document.getElementById('offer-modal')?.remove();
 });
 
