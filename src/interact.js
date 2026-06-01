@@ -1509,16 +1509,29 @@ const TAP_HANDLERS = [
       // maturity (render.js fruittree spec + the fruittree harvest handler).
       save.fruittrees = save.fruittrees || [];
       const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
+      const planted_t = Date.now();
+      const species = item.grows === 'peach' ? 'peach' : 'apple';
       if (!save.fruittrees.some(f => f.id === id)) {
-        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t: Date.now(), id });
+        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id });
       }
       // It's a tree now, not soil — drop the tilled marker.
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
-      // Invalidate the covering tile so spawnInTile re-injects it immediately.
+      // Inject the growing fruittree straight into the covering tile's LIVE
+      // cache entry (mirrors spawnInTile's fruittree block) so it appears at
+      // once. Deleting the cache entry instead — as this used to do — dropped
+      // the tile's ground `grid`, so the synchronous ground render fell back to
+      // grass for every cell (the "whole landscape goes green" crash) until the
+      // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.
       const tEdge = scene.tileEdgeM;
       const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
-      WorldGen.tileCache.delete(`${WorldGen.Z}/${tx}/${ty}`);
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      if (entry) {
+        entry.objects = entry.objects || [];
+        if (!entry.objects.some(o => o.id === id)) {
+          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species, id, planted: true, planted_t });
+        }
+      }
       consumeSelected(save);
       ctx.dirty = true;
       scene.buildInventoryDOM();
