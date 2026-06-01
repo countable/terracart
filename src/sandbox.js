@@ -456,6 +456,14 @@
         objects.push({ kind: 'chest', x, y, poiClass, name,
           id: `${baseId}_chest_${tag}_${dx}_${dy}` });
       },
+      // Starter chest — a real kind:'chest' carrying a fixed payload (no
+      // poiClass), so it opens through the standard chest path reading
+      // o.fixedLoot, exactly like the spawn-trail starter chests in app.js.
+      startChest(name, dx, dy, loot) {
+        const { x, y } = at(dx, dy);
+        objects.push({ kind: 'chest', x, y, name, fixedLoot: loot,
+          id: `${baseId}_startchest_${tag}_${dx}_${dy}` });
+      },
       house(dx, dy, address = 0, tier = 9) {
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'house', x, y, tier, address,
