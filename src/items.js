@@ -88,15 +88,19 @@ const MINERAL_ICON_SHEET = {
   sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 0 },   // red gem
   emerald:  { sheet: 'gems',      frame: 3 },   // green gem
-  // Bars from the 16-col Extras 'Bars and ores' sheet. First row is bars
-  // in tier order; row 1 holds the matching ores (unused — we drop bars
-  // directly, no smelting step).
+  // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
+  // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
+  // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
+  // cols4-7 white-outlined duplicates, cols8-11 raw stone. So the actual
+  // ingots sit at col0/col2 of rows 0-2: copper 0, iron 2, gold 16,
+  // platinum 18, crimson 32, frost 34. (The old 0..5 run rendered copper
+  // bar, then copper/iron ORE nuggets and outlined dupes.)
   copper_bar:   { sheet: 'bars', frame: 0 },
-  iron_bar:     { sheet: 'bars', frame: 1 },
-  gold_bar:     { sheet: 'bars', frame: 2 },
-  platinum_bar: { sheet: 'bars', frame: 3 },
-  crimson_bar:  { sheet: 'bars', frame: 4 },
-  frost_bar:    { sheet: 'bars', frame: 5 },
+  iron_bar:     { sheet: 'bars', frame: 2 },
+  gold_bar:     { sheet: 'bars', frame: 16 },
+  platinum_bar: { sheet: 'bars', frame: 18 },
+  crimson_bar:  { sheet: 'bars', frame: 32 },
+  frost_bar:    { sheet: 'bars', frame: 34 },
   // Animal produce — Chicken Egg.png / Small Cow Milk.png are 32×16 each.
   egg:      { sheet: 'icon_egg',  frame: 0 },
   milk:     { sheet: 'icon_milk', frame: 0 },
