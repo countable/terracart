@@ -899,7 +899,7 @@ Render.drawObjects = function drawObjects(scene) {
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
   // Three discrete in-game size tiers from the DeepForest crown size class.
   // OSM trees (no size) fall back to crown_m, then the flat species scale.
-  const TREE_SIZE_MUL = { small: 0.8, medium: 1.15, large: 1.55 };
+  const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:

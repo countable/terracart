@@ -49,7 +49,7 @@ const GOLDEN_TINT = 0xffd23a;
 // the visual size and the gameplay size never diverge.
 // Discrete DeepForest crown-size tiers (small/medium/large). Mirrors the
 // render.js fruit-tree spec so a tree's gameplay size and sprite size match.
-const TREE_SIZE_MUL = { small: 0.8, medium: 1.15, large: 1.55 };
+const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
 function treeScale(o) {
   const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
   // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
