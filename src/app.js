@@ -101,6 +101,24 @@ const CASTLE_DELIVERY_GATE = 5;
 // house, the player pays a one-time stack of wood (FORT_UNLOCK_WOOD) to open
 // the quartermaster. Recorded per-fort in save.unlockedForts.
 const FORT_UNLOCK_WOOD = 30;
+// Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
+// two nearest houses as blacksmith/trader up front, a wreck reveals its role
+// from the order the player restores it: the opening stretch is a fixed
+// tutorial run (blacksmith, trader, house, market, house, house) and the 15th
+// restore is always a wizard tower. Restores BEYOND these slots fall back to
+// the address-derived Shops.shopType so the wider neighbourhood keeps its
+// organic variety. 'plain' === a plain residential house (no shop). The chosen
+// role is frozen into save.restoredHouses[id] at restore time so it never
+// shifts on later loads.
+const PRESEED_RESTORE_ROLES = {
+  0:  'blacksmith',
+  1:  'trader',
+  2:  'plain',
+  3:  'market',
+  4:  'plain',
+  5:  'plain',
+  14: 'wizard',   // the 15th restored wreck is a wizard tower
+};
 // Delivery wishlists climb in rarity as the player's lifetime tally grows.
 // The "wanted" produce set is biased toward this target tier, which ramps
 // linearly from PRODUCE_TIER_MIN (at 0 deliveries) to PRODUCE_TIER_MAX (at
@@ -3592,12 +3610,12 @@ class MapScene extends Phaser.Scene {
   buildingFlavorTitle(house, action) {
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isFort   = !!house && house.tier === 11;
-    const st = (!isCastle && !isFort && house && typeof Shops !== 'undefined')
-      ? Shops.shopType(house) : null;
+    const st = (!isCastle && !isFort && house) ? this.houseShopRole(house) : null;
     if (action === 'forge')   return 'The blacksmith will forge:';
     if (action === 'relic') {
       if (isCastle) return "The castle's vault holds:";
       if (isFort)   return 'The fort quartermaster offers a relic:';
+      if (st === 'wizard') return 'The wizard conjures a relic:';
       return 'A villager offers a relic:';
     }
     // 'buy'
@@ -3606,6 +3624,7 @@ class MapScene extends Phaser.Scene {
     if (st === 'market')     return 'The market has fresh stock:';
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
+    if (st === 'wizard')     return 'The wizard conjures a relic:';
     return 'A villager offers:';
   }
   shopInteract(sx, sy, house) {
@@ -3715,9 +3734,11 @@ class MapScene extends Phaser.Scene {
       const cur = this.shopBucketState(house);
       cur.deals += 1;
     };
-    // The starter blacksmith overrides the address-derived shop role so the
-    // forge branch below fires regardless of the underlying house number.
-    const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
+    // Effective shop role from the frozen restore-order assignment (falls back
+    // to the address-derived type for legacy saves). Returns 'blacksmith' for
+    // the first-restored starter smithy too, so the forge branch fires
+    // regardless of the underlying house number.
+    const shopType = this.houseShopRole(house);
     const isFort = !!house && house.tier === 11;
     // Forced scarecrow shop (the house just past the starter blacksmith).
     // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
@@ -3783,6 +3804,16 @@ class MapScene extends Phaser.Scene {
     // target value) and a re-roll secondary — fully self-contained branch.
     if (shopType === 'trader') {
       this.presentTraderOffer(sx, sy, house, recordDeal);
+      return;
+    }
+    // Wizard tower (the 15th restored wreck) — a dedicated relic vendor. The
+    // mage always has an enchanted relic on hand (with a re-roll), so it reads
+    // as a guaranteed upgrade stop rather than the 10% lottery a plain house
+    // runs. Falls back to a flavour flash when every slot is maxed.
+    if (shopType === 'wizard') {
+      const offer = this.peekOrBuildRelicOffer(house);
+      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
+      this.flash('The wizard is deep in study — come back later.', sx, sy);
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
@@ -4021,11 +4052,38 @@ class MapScene extends Phaser.Scene {
   // tools have been crafted — the smithy keeps doing useful business.
   isStarterBlacksmith(house) {
     if (!house || !house.id) return false;
-    if (this.save.starterBlacksmithId == null) {
-      const id = this.findStarterBlacksmithId();
-      if (id) this.save.starterBlacksmithId = id;
+    // The starter blacksmith is now whichever wreck is restored FIRST (it gets
+    // the 'blacksmith' role + this id stamped at restore time — see
+    // presentWreckRestoreModal). No longer force-anchored to the nearest house,
+    // so there's no lazy nearest-house resolution here.
+    return this.save.starterBlacksmithId != null
+      && this.save.starterBlacksmithId === house.id;
+  }
+
+  // The shop role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
+  // | 'wizard', or null for a plain residential house. Single source of truth
+  // for both the renderer and the interaction handler. Once a wreck is restored
+  // its role is frozen into save.restoredHouses[id] as a role string and read
+  // straight back here. Legacy `true` entries (saved before role-freezing) and
+  // any house consulted before restore fall back to the address-derived
+  // Shops.shopType, plus the first-restored starter blacksmith.
+  houseShopRole(house) {
+    if (!house || house.kind !== 'house') return null;
+    const stored = this.save.restoredHouses && this.save.restoredHouses[house.id];
+    if (typeof stored === 'string') return stored === 'plain' ? null : stored;
+    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
+    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
+  }
+
+  // Resolve the role a wreck reveals when restored, given its 0-based restore
+  // order. Fixed tutorial slots (PRESEED_RESTORE_ROLES) win; everything else
+  // defers to the address-derived shop type so the neighbourhood keeps its
+  // variety. Always returns a concrete role string ('plain' for a house).
+  _preseedRestoreRole(order, house) {
+    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
+      return PRESEED_RESTORE_ROLES[order];
     }
-    return this.save.starterBlacksmithId === house.id;
+    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
   }
 
   findStarterBlacksmithId() {
@@ -5239,10 +5297,10 @@ class MapScene extends Phaser.Scene {
 
   // The role a wreck reveals once restored — mirrors render.js _houseTrueRole
   // (minus fort/trailer, which never wreck). 'blacksmith' | 'market' |
-  // 'trader' | 'plain'.
+  // 'trader' | 'wizard' | 'plain'. Reads the frozen restore-order role via
+  // houseShopRole; 'plain' for a role-less residential house.
   _restoredRole(house) {
-    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
-    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+    return this.houseShopRole(house) || 'plain';
   }
 
   // Bake a restored building's sprite to an <img> data URL for the
@@ -5260,6 +5318,16 @@ class MapScene extends Phaser.Scene {
           c.getContext('2d').drawImage(src, 148, 3, 72, 95, 0, 0, 72, 95);
           url = c.toDataURL();
         }
+      } else if (role === 'wizard') {
+        // Wizard towers reuse the shrine spritesheet (wizard.png); crop the
+        // fully-restored top-row tower frame (frame 3 = cols×80px → x:240).
+        const src = this.textures.get('shrine')?.getSourceImage();
+        if (src) {
+          const c = document.createElement('canvas');
+          c.width = 80; c.height = 104;
+          c.getContext('2d').drawImage(src, 240, 0, 80, 104, 0, 0, 80, 104);
+          url = c.toDataURL();
+        }
       } else {
         url = this.textures.get('house_' + role)?.getSourceImage()?.toDataURL?.() || null;
       }
@@ -5273,10 +5341,14 @@ class MapScene extends Phaser.Scene {
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
+    // Role this wreck will reveal, picked from the player's current restore
+    // order (this house isn't in restoredHouses yet, so the live count IS its
+    // 0-based index). Single-modal guard keeps the count stable while the modal
+    // is open, so recomputing the same index on accept lands on the same role.
+    const restoreOrder = Object.keys(this.save.restoredHouses || {}).length;
+    const prospectiveRole = this._preseedRestoreRole(restoreOrder, house);
     // "shop" if this wreck restores into a themed business, else "house".
-    const isThemed =
-      (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) ||
-      !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
+    const isThemed = prospectiveRole !== 'plain';   // blacksmith / market / trader / wizard
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
@@ -5303,7 +5375,17 @@ class MapScene extends Phaser.Scene {
           }
         }
         this.save.restoredHouses = this.save.restoredHouses || {};
-        this.save.restoredHouses[house.id] = true;
+        // Freeze the restore-order role onto this house so it never shifts.
+        // Recompute the index at accept time (still stable behind the modal
+        // guard) so a stale closure can't desync from the live count.
+        const order = Object.keys(this.save.restoredHouses).length;
+        const restoredRole = this._preseedRestoreRole(order, house);
+        this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
+        // The first wreck restored becomes the starter blacksmith (wooden-tool
+        // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
+        if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
+          this.save.starterBlacksmithId = house.id;
+        }
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.showChestRewardModal) {
@@ -5311,10 +5393,11 @@ class MapScene extends Phaser.Scene {
           // showChestRewardModal's sparkle burst supply the fanfare.
           const role = this._restoredRole(house);
           const INFO = {
-            blacksmith: { name: 'Blacksmith', blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { name: 'Market',     blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
-            trader:     { name: 'Trader',     blurb: 'Barters goods and pays a bonus on every sale.' },
-            plain:      { name: 'House',      blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+            blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage conjures enchanted relics for coin.' },
+            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
           this.showChestRewardModal({
