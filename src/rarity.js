@@ -42,10 +42,11 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use). qty always 1 regardless
-    // of bumps for these. flora maps to the produce 'flowers' item via picker
-    // routing, but we treat it as a small-qty class.
-    singleStackClasses: ['relic', 'animal', 'consumable'],
+    // live catch at a time), consumable (tap-to-use), sapling (you plant one
+    // tree at a time, so a chest yields a single sapling, not a pack). qty
+    // always 1 regardless of bumps for these. flora maps to the produce
+    // 'flowers' item via picker routing, but we treat it as a small-qty class.
+    singleStackClasses: ['relic', 'animal', 'consumable', 'sapling'],
     // Chest tier 1..4 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
@@ -116,14 +117,20 @@
     // mineral/consumable. Seeds still lead the farm/flora biomes (thematic) but
     // no longer dominate the common lowtier/park chests. relic/animal shares
     // are untouched so relic odds stay where they were tuned.
+    // Fruit-tree saplings (kind:'sapling', apple T3 / peach T5) are seeded into
+    // the three "growing things" biomes — farm, park, flora — at a small share
+    // carved out of produce. They were previously the only items no chest could
+    // ever offer. singleStackClasses keeps them to one sapling per chest, and
+    // pickItemInClass slides up to apple (T3) when a low-tier chest rolls the
+    // sapling class.
     'chest:lowtier':    { classBias: { seed:0.28, produce:0.42, mineral:0.14, consumable:0.115, animal:0.005, relic:0.0375 } },
     'chest:commerce':   { classBias: { seed:0.26, produce:0.38, mineral:0.13, consumable:0.155, animal:0.01,  relic:0.0525 } },
     'chest:food':       { classBias: { produce:0.60, seed:0.14, mineral:0.08, consumable:0.10, animal:0.00,  relic:0.06   } },
     'chest:civic':      { classBias: { seed:0.16, produce:0.18, mineral:0.18, consumable:0.27, animal:0.02,  relic:0.15   } },
     'chest:health':     { classBias: { mineral:0.32, produce:0.24, consumable:0.25, seed:0.08, animal:0.00,  relic:0.09   } },
-    'chest:park':       { classBias: { seed:0.24, produce:0.32, animal:0.02, mineral:0.16, consumable:0.165, relic:0.075  } },
-    'chest:farm':       { classBias: { seed:0.30, produce:0.38, animal:0.12, mineral:0.09, consumable:0.07,  relic:0.0375 } },
-    'chest:flora':      { classBias: { seed:0.32, produce:0.30, mineral:0.00, consumable:0.21, animal:0.00,  relic:0.15   } },
+    'chest:park':       { classBias: { seed:0.24, produce:0.28, animal:0.02, mineral:0.16, consumable:0.165, sapling:0.04, relic:0.075  } },
+    'chest:farm':       { classBias: { seed:0.30, produce:0.33, animal:0.12, mineral:0.09, consumable:0.07,  sapling:0.05, relic:0.0375 } },
+    'chest:flora':      { classBias: { seed:0.32, produce:0.26, mineral:0.00, consumable:0.21, animal:0.00,  sapling:0.04, relic:0.15   } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     // Shops use the same deterministic chain. chainSteps maps to the
@@ -223,6 +230,15 @@
     if (!byTier) return null;
     let pool = byTier[tier];
     for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = byTier[t];
+    // Nothing at or below the rolled tier — slide UP to the nearest filled
+    // tier so the class still resolves to a real item instead of returning
+    // null ("Chest had nothing useful."). Classes that don't start at T1 hit
+    // this: consumables begin at T2, saplings at T3. A low-tier chest that
+    // rolls such a class hands out its cheapest member rather than a dead end.
+    if (!pool || !pool.length) {
+      const maxT = CLASS_MAX_TIER[cls] || 0;
+      for (let t = tier + 1; t <= maxT && (!pool || !pool.length); t++) pool = byTier[t];
+    }
     if (!pool || !pool.length) return null;
     // Weighted pick by item.dropWeight (defaults to 1). Lets items like fish
     // declare dropWeight: 0.4 in items.js to show up less often than their
