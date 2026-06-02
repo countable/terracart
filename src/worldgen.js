@@ -1518,6 +1518,22 @@
       if (tooClose) { o._drop = true; continue; }
       (byName.get(key) || byName.set(key, []).get(key)).push(o);
     }
+    // Second pass: drop DIFFERENT-named POI chests that land right beside each
+    // other (within ~1 cell). OSM often tags one physical spot twice with
+    // unrelated labels — e.g. a traffic "signal post" sitting on top of the
+    // "Gordon & Casorso" intersection — which the same-name pass above can't
+    // catch. Keep the NAMED chest (so the meaningful place wins over a generic
+    // marker), else the first seen, and drop its neighbour so two POI sprites
+    // don't stack on adjacent cells.
+    const NEAR_M = CELL_M * 1.2;   // catches same + orthogonally-adjacent cells
+    const keptChests = [];
+    const chestsByPriority = objects
+      .filter(o => o.kind === 'chest' && !o._drop)
+      .sort((a, b) => (b.name ? 1 : 0) - (a.name ? 1 : 0));   // named first
+    for (const o of chestsByPriority) {
+      if (keptChests.some(k => Math.hypot(k.x - o.x, k.y - o.y) <= NEAR_M)) o._drop = true;
+      else keptChests.push(o);
+    }
     const deduped = objects.filter(o => !o._drop);
     return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
   }
@@ -1962,9 +1978,13 @@
             const p = project(lon, lat0);
             const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
             const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            // Peaches are 5× rarer than apples (apple:peach = 5:1). The satellite
+            // colour classifier over-reported peaches, so assign species from a
+            // stable per-cell hash (1 in 6 → peach) instead of trusting it.
+            const ftHash = ((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0;
             binFor(p.tx, p.ty).fruittrees.push({
               kind: 'fruittree', x: cx, y: cy,
-              species: props.species === 'peach' ? 'peach' : 'apple',
+              species: ftHash % 6 === 0 ? 'peach' : 'apple',
               id: `ft_${Math.round(cx)}_${Math.round(cy)}`,
               crown_m: props.crown_m,
               size: props.size,

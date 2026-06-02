@@ -1051,7 +1051,9 @@ Render.drawObjects = function drawObjects(scene) {
               scale: (o) => {
                 const base = 0.85;
                 if (o.planted) return base * (0.5 + 0.125 * _ftStage(o));  // 0.5→1.0
-                return base * (TREE_SIZE_MUL[o.size] || 1);
+                // Wild fruit trees always render at full (mature) size — their
+                // o.size crown class no longer shrinks them.
+                return base;
               },
               after: (s, o) => {
                 // Dim a wild tree only while its fruit is regrowing; a planted
@@ -1059,6 +1061,10 @@ Render.drawObjects = function drawObjects(scene) {
                 // not picked).
                 const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
                 s.setAlpha(dim ? 0.7 : 1);
+                // Fruit trees stand 10% taller than their width. The near-foot
+                // origin (0.5, 0.95) pins the root, so the extra height grows
+                // up from the trunk base rather than shifting the tree down.
+                s.setScale(s.scaleX, s.scaleY * 1.10);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
@@ -1101,7 +1107,12 @@ Render.drawObjects = function drawObjects(scene) {
     // tall, so it sits inside a single square cell, foot-anchored near the
     // cell's front edge. Purely decorative: no interact.js branch matches
     // 'pole', so taps fall through.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
+    // pillar.png's column art fills only the LEFT half of its 16px frame
+    // (cols 0–8; 9–15 are transparent), so a frame-centred origin (0.5) drew
+    // the pole shoved to one side ("right half only"). Anchor the origin at the
+    // art's true horizontal centre (~0.25 of the frame) so the pole sits
+    // centred on its cell.
+    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved

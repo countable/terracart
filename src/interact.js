@@ -808,7 +808,14 @@ const TAP_HANDLERS = [
       let inTapCell = false;
       if (!withinReach && !(o.kind === 'chest' && openedSetTap.has(o.id))) {
         const oc = worldMetersToAbsCell(scene, o.x, o.y);
-        inTapCell = oc.cellIX === tapCell.cellIX && oc.cellIY === tapCell.cellIY;
+        const sameCol = oc.cellIX === tapCell.cellIX;
+        inTapCell = sameCol && oc.cellIY === tapCell.cellIY;
+        // A castle/tower turret rises tall above its foot cell — let a tap on
+        // the empty cell directly ABOVE (north of) the turret activate it too.
+        // North is toward smaller world-y → smaller cellIY (see coords.js).
+        if (!inTapCell && o.kind === 'tower') {
+          inTapCell = sameCol && tapCell.cellIY === oc.cellIY - 1;
+        }
       }
       if (!withinReach && !inTapCell) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
@@ -971,7 +978,9 @@ const TAP_HANDLERS = [
           return true;
         }
         const woodMul = treeWoodMul(o);
-        return startToolWork(ctx, o.x, o.y, 'axe', 0, () => {
+        const chopCost = (typeof effectiveChopCost === 'function')
+          ? effectiveChopCost(save.relics, o) : 0;
+        return startToolWork(ctx, o.x, o.y, 'axe', chopCost, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);

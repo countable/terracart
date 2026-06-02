@@ -548,6 +548,8 @@ const ENERGY_COST = {
   catch: 5,
   unTill: 0,
   pickup: 0,             // wildplants — free
+  chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
+                         // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
 
 // Catching an animal requires holding its favourite food in the selected
@@ -705,6 +707,18 @@ function effectivePickCost(relics) {
   const eq = relics?.pick;
   if (!eq) return ENERGY_COST.rockBreak;
   return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
+}
+// Energy to fell a tree. Bare-handed cost is ENERGY_COST.chop (9) × the tree's
+// size multiplier (small/medium/full → ×1/2/4), so 9 / 18 / 36. An axe slashes
+// that: 66% off at tier 1, scaling linearly to 95% off at tier 7. Floored at 1.
+// `o` is the tree object (its size drives treeWoodMul).
+function effectiveChopCost(relics, o) {
+  const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
+  const base = ENERGY_COST.chop * sizeMul;
+  const tier = relics?.axe?.tier || 0;
+  if (!tier) return base;
+  const off = 0.66 + (0.95 - 0.66) * (tier - 1) / 6;
+  return Math.max(1, Math.round(base * (1 - off)));
 }
 // Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
 // floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
