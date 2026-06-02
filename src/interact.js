@@ -1314,8 +1314,17 @@ const TAP_HANDLERS = [
     // 1-indexed "<stage>/<total>" growth readout for an immature crop, e.g.
     // a freshly-seeded plant (stage 0) reads "1/5"; one short of mature reads
     // "4/5". CROP_NAMES gives a friendly label; fall back to the raw crop id.
-    const stageReadout = () =>
-      `${CROP_NAMES?.[p.crop] || p.crop} ${(p.stage ?? 0) + 1}/${MAX_GROWTH_STAGE + 1}`;
+    // Potato gets descriptive per-stage names instead of the numeric readout:
+    // stage 0..4 → seedling → sprout → small plant → plant → harvest.
+    const POTATO_STAGE_NAMES = [
+      'Potato Seedling', 'Potato Sprout', 'Small Potato Plant',
+      'Potato Plant', 'Potato Harvest',
+    ];
+    const stageReadout = () => {
+      const stage = p.stage ?? 0;
+      if (p.crop === 'potato') return POTATO_STAGE_NAMES[stage];
+      return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
+    };
     const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
