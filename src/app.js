@@ -372,9 +372,9 @@ class MapScene extends Phaser.Scene {
     // household goes happy for the rest of the UTC day and wants a fresh
     // bundle the next day. Pruned to the current day in the accept path.
     if (this.save.houseSatisfied === undefined)   this.save.houseSatisfied = {};
-    // Discovery — lifetime count of rare "golden" flora / trees / animals
-    // found. Earned alongside the 10× money bonus when a golden variant is
-    // harvested or caught (see awardGoldenBonus). Surfaced in the Stats modal;
+    // Discovery — lifetime count of rare "shiny" flora / trees / animals
+    // found. Earned alongside the 10× money bonus when a shiny variant is
+    // harvested or caught (see awardShinyBonus). Surfaced in the Stats modal;
     // reserved as the eventual unlock currency for the Magic Shrine.
     if (this.save.discovery === undefined)        this.save.discovery = 0;
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
@@ -514,6 +514,32 @@ class MapScene extends Phaser.Scene {
       }
       if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
       this.save.inv = merged;
+    }
+    // Rename: golden → shiny. The rare variant (flora / trees / animals) was
+    // formerly called "golden". Fold any saved golden_<kind> inventory stacks
+    // into their shiny_<kind> equivalent (merging counts) so a player's caught
+    // shiny animals carry over. ('goldenfish' is an unrelated fish species and
+    // has no underscore, so it's never matched.)
+    if (Array.isArray(this.save.inv)) {
+      const byId = new Map();
+      const out = [];
+      for (const s of this.save.inv) {
+        if (!s) continue;
+        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7) : s.id;
+        if (id !== s.id) needsMigrationPersist = true;
+        const prev = byId.get(id);
+        if (prev) { prev.count = (prev.count ?? 0) + (s.count ?? 0); }
+        else { const ns = { ...s, id }; byId.set(id, ns); out.push(ns); }
+      }
+      this.save.inv = out;
+    }
+    // Migrate the stored `golden` flag on tamed/released animals to `shiny`
+    // (the in-world code now reads r.shiny) so older saves keep their catches
+    // looking shiny.
+    if (Array.isArray(this.save.released)) {
+      for (const r of this.save.released) {
+        if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsMigrationPersist = true; }
+      }
     }
     // REVIEW SEED (temporary): grant a few fruit-tree saplings once so the new
     // plantable apple (T3) / peach (T5) saplings can be tried out immediately.
@@ -1192,13 +1218,13 @@ class MapScene extends Phaser.Scene {
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (this.save.caught.includes(id)) return;
-          // ~5% of wild animals spawn as the rare golden variant — stamped at
+          // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
           // through tame/release/re-catch. Slimes are energy pests with no
-          // catch/hunt payoff, so they never go golden (a golden slime would
+          // catch/hunt payoff, so they never go shiny (a shiny slime would
           // promise a reward it can't pay).
-          const golden = kindStr !== 'slime' && isGolden(id, GOLDEN_RATE.animal);
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, golden });
+          const shiny = kindStr !== 'slime' && isShiny(id, SHINY_RATE.animal);
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny });
           return;
         }
       }
@@ -1259,7 +1285,7 @@ class MapScene extends Phaser.Scene {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
         if (this.save.caught.includes(r.id)) continue;
-        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, golden: !!r.golden });
+        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
     entry.creatures = creatures;
@@ -2090,11 +2116,11 @@ class MapScene extends Phaser.Scene {
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
       // Butterflies bolt 3× faster than other fauna while the net wheel runs.
-      // Rare golden animals flee at 2× too — consistent with their 2× wander
+      // Rare shiny animals flee at 2× too — consistent with their 2× wander
       // speed, making them a genuinely slippery catch.
       const isButterfly = c.kind === 'butterfly';
-      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 2 : 1;
-      const FLEE_MPS = (isButterfly ? 6 : 2) * goldenFast;
+      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? 2 : 1;
+      const FLEE_MPS = (isButterfly ? 6 : 2) * shinyFast;
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
@@ -2272,15 +2298,15 @@ class MapScene extends Phaser.Scene {
       // bolting away from the player (set in _drawWorkProgress).
       const isButterfly = c.kind === 'butterfly';
       const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
-      // Rare golden animals move at 2× speed — same hop distances, but the
+      // Rare shiny animals move at 2× speed — same hop distances, but the
       // whole step cadence (hop duration + any pause) is halved, so they cover
-      // ground twice as fast. isGolden() is keyed off the creature id, so the
-      // status is stable across reloads (matches the golden-tint in render).
-      const goldenFast = isGolden(c.id, GOLDEN_RATE.animal) ? 0.5 : 1;
+      // ground twice as fast. isShiny() is keyed off the creature id, so the
+      // status is stable across reloads (matches the shiny-tint in render).
+      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
-                   : STEP_MS) * goldenFast;
+                   : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
       // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
@@ -2866,19 +2892,19 @@ class MapScene extends Phaser.Scene {
     // One creature → one inventory entry. Egg / milk yield happens via the
     // produce branch (tap with plant produce selected), not the catch branch.
     const yieldN = 1;
-    // A golden animal stays golden in its own per-kind stack (golden_chicken,
-    // golden_cow, …) — never folded into the plain stack or other goldens. It
+    // A shiny animal stays shiny in its own per-kind stack (shiny_chicken,
+    // shiny_cow, …) — never folded into the plain stack or other shinies. It
     // also pays the headline 10× money + discovery bonus with fanfare.
-    const isGoldenCatch = !!c.golden && !!ITEM_BY_ID[`golden_${c.kind}`];
-    const invId = isGoldenCatch ? `golden_${c.kind}` : c.kind;
+    const isShinyCatch = !!c.shiny && !!ITEM_BY_ID[`shiny_${c.kind}`];
+    const invId = isShinyCatch ? `shiny_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
     this.addToInv(invId, yieldN, true);
     persistSave(this.save);
     const item = ITEM_BY_ID[invId];
     // flashLoot draws the item's sprite (from the itemId arg) beside the text,
     // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isGoldenCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
-    if (isGoldenCatch) this.awardGoldenBonus(c.kind, sx, sy);
+    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
+    if (isShinyCatch) this.awardShinyBonus(c.kind, sx, sy);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -3125,11 +3151,11 @@ class MapScene extends Phaser.Scene {
     } catch (_) {}
   }
 
-  // A rare GOLDEN find (yellow-tinted flora / tree / animal). Pays 10× the
+  // A rare SHINY find (yellow-tinted flora / tree / animal). Pays 10× the
   // harvested/caught item's value in cash, banks a Discovery point, and fires
-  // the golden fanfare. `baseId` is the plain item id used to read the value
+  // the shiny fanfare. `baseId` is the plain item id used to read the value
   // (e.g. 'wood', 'apple', 'cow'). Returns the cash awarded.
-  awardGoldenBonus(baseId, sx, sy) {
+  awardShinyBonus(baseId, sx, sy) {
     const value = (typeof itemValue === 'function')
       ? itemValue(baseId)
       : (PRICES[baseId] ?? 1);
@@ -3137,18 +3163,18 @@ class MapScene extends Phaser.Scene {
     addMoney(this.save, money);
     this.save.discovery = (this.save.discovery || 0) + 1;
     persistSave(this.save);
-    this.flashGolden(money);
+    this.flashShiny(money);
     return money;
   }
 
-  // Golden-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
+  // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a starburst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110).
-  flashGolden(money) {
+  flashShiny(money) {
     if (!this.add) return;
     const x = this.viewCenterX, y = this.viewCenterY - 150;
     try {
-      const banner = this.add.text(x, y, '✨ GOLDEN FIND ✨', {
+      const banner = this.add.text(x, y, '✨ SHINY FIND ✨', {
         font: 'bold 26px monospace', color: '#fff3b0',
         backgroundColor: '#7a5200', stroke: '#000', strokeThickness: 4,
         padding: { left: 14, right: 14, top: 6, bottom: 6 },
@@ -5707,7 +5733,7 @@ class MapScene extends Phaser.Scene {
   // HTML string (style='inline') — the caller picks based on context.
   renderItemIcon(itemId, sizePx, style = 'inline') {
     const item = ITEM_BY_ID[itemId];
-    // Golden variants (golden_chicken, …) have no sprite of their own — they
+    // Shiny variants (shiny_chicken, …) have no sprite of their own — they
     // reuse the base animal's icon, recoloured with the warm filter applied
     // below. Fall back to `item.base` only when there's no dedicated bake.
     const hasOwnBake = !!(window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[itemId]);
@@ -5784,8 +5810,8 @@ class MapScene extends Phaser.Scene {
         + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
     }
-    // Golden variants tint the base sprite warm-gold with a sheen.
-    if (css && item && item.golden) {
+    // Shiny variants tint the base sprite warm-gold with a sheen.
+    if (css && item && item.shiny) {
       css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
         + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
