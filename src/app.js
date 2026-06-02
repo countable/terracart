@@ -55,6 +55,12 @@ const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the 
 const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14]);
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
+// Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
+// Used everywhere the crow pest logic scans `save.planted` so the rule lives
+// in one place.
+const CROW_IGNORED_CROPS = new Set(['potato']);
+function crowEatsCrop(p) { return !CROW_IGNORED_CROPS.has(p.crop); }
+
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
@@ -2105,7 +2111,9 @@ class MapScene extends Phaser.Scene {
     // the last. Now the pump only backfills an emptied field, and slowly, so
     // defeating the crows near your field actually buys a quiet window.
     this._lastPestT = this._lastPestT || 0;
-    if (this.save.planted && this.save.planted.length > 0 && now - this._lastPestT > 90000) {
+    // Only crops crows actually eat (not potato) justify spawning a pest.
+    const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
+    if (hasCrowCrop && now - this._lastPestT > 90000) {
       this._lastPestT = now;
       // Count nearby wild (non-released, not-yet-caught) crows.
       let wildCrows = 0;
@@ -2488,6 +2496,7 @@ class MapScene extends Phaser.Scene {
         const NEAR2 = (this.cellM * 0.5) * (this.cellM * 0.5);
         let landedOn = null;
         for (const pp of this.save.planted) {
+          if (!crowEatsCrop(pp)) continue;   // crows ignore potato crops
           const ddx = pp.x - c.x, ddy = pp.y - c.y;
           if (ddx * ddx + ddy * ddy <= NEAR2) { landedOn = pp; break; }
         }
@@ -2543,6 +2552,7 @@ class MapScene extends Phaser.Scene {
         const DETECT_R = 8 * this.cellM;
         let nearest = null, bestD2 = isPest ? Infinity : DETECT_R * DETECT_R;
         for (const pp of this.save.planted) {
+          if (!crowEatsCrop(pp)) continue;   // crows ignore potato crops
           const dx = pp.x - c.x, dy = pp.y - c.y;
           const d2 = dx * dx + dy * dy;
           if (d2 < bestD2) { bestD2 = d2; nearest = pp; }
