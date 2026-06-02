@@ -101,6 +101,24 @@ const CASTLE_DELIVERY_GATE = 5;
 // house, the player pays a one-time stack of wood (FORT_UNLOCK_WOOD) to open
 // the quartermaster. Recorded per-fort in save.unlockedForts.
 const FORT_UNLOCK_WOOD = 30;
+// Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
+// two nearest houses as blacksmith/trader up front, a wreck reveals its role
+// from the order the player restores it: the opening stretch is a fixed
+// tutorial run (blacksmith, trader, house, market, house, house) and the 15th
+// restore is always a wizard tower. Restores BEYOND these slots fall back to
+// the address-derived Shops.shopType so the wider neighbourhood keeps its
+// organic variety. 'plain' === a plain residential house (no shop). The chosen
+// role is frozen into save.restoredHouses[id] at restore time so it never
+// shifts on later loads.
+const PRESEED_RESTORE_ROLES = {
+  0:  'blacksmith',
+  1:  'trader',
+  2:  'plain',
+  3:  'market',
+  4:  'plain',
+  5:  'plain',
+  14: 'wizard',   // the 15th restored wreck is a wizard tower
+};
 // Delivery wishlists climb in rarity as the player's lifetime tally grows.
 // The "wanted" produce set is biased toward this target tier, which ramps
 // linearly from PRODUCE_TIER_MIN (at 0 deliveries) to PRODUCE_TIER_MAX (at
@@ -1626,6 +1644,14 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
+    // reschedules the NEXT frame only AFTER this callback returns (see
+    // RequestAnimationFrame.step in vendor/phaser.js), so a single uncaught
+    // throw in here would permanently kill the game loop — frozen render plus
+    // a dead input plugin, i.e. "the UI stops accepting taps." Swallowing a
+    // bad frame keeps the loop (and taps) alive; _reportLoopError surfaces the
+    // error so the underlying cause stays diagnosable on a phone.
+    try {
     const dt = dtMs / 1000;
     // Ghost-mode lifecycle: the pad is held iff the player has an amulet AND
     // they're actively touching the pad. On the down-edge, snapshot the body
@@ -1936,6 +1962,30 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     this._drawWorkProgress();
     this.updateHUD();
+    } catch (e) {
+      this._reportLoopError(e);
+    }
+  }
+
+  // Funnel for exceptions thrown inside update(). Keeps the Phaser loop alive
+  // (an escaped throw would stop the RAF reschedule and freeze the game + kill
+  // input) while still surfacing the error: throttled console.error plus a
+  // brief on-screen banner, since DevTools isn't reachable on a phone.
+  _reportLoopError(e) {
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (this._lastLoopErrAt && now - this._lastLoopErrAt < 3000) return;   // throttle a per-frame storm
+    this._lastLoopErrAt = now;
+    try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
+    try {
+      const b = document.getElementById('banner');
+      if (b) {
+        const msg = (e && (e.message || e.toString())) || 'frame error';
+        b.textContent = `⚠ ${msg}`.slice(0, 80);
+        b.style.display = 'block';
+        clearTimeout(this._loopErrBannerT);
+        this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+      }
+    } catch (_) { /* never let error reporting itself throw */ }
   }
 
   // Scan save.planted and bump stage on any watered crop whose 60-minute
@@ -2993,19 +3043,31 @@ class MapScene extends Phaser.Scene {
       // hold, and drift-up. Cheap — getBoundingClientRect + transform set.
       const gameEl = document.getElementById('game');
       const placeIcon = () => {
-        const r = gameEl.getBoundingClientRect();
-        const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
-        const sy = r.height / H;
-        const b = t.getBounds();   // Phaser/game coords
-        const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
-        const cx = b.left + reserveCentreFromLeft;
-        const cy = (b.top + b.bottom) / 2;
-        const px = r.left + cx * sx;
-        const py = r.top  + cy * sy;
-        // Match the text's current scale (0.6 → 1.0 during pop-in) and alpha.
-        iconEl.style.transform =
-          `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
-        iconEl.style.opacity = String(t.alpha);
+        // Runs on the scene 'update' event — INSIDE Phaser's RAF callback but
+        // outside MapScene.update()'s try/catch, so a throw here would escape
+        // and freeze the whole loop. If the text is already destroyed (a tween
+        // onComplete / scene shutdown race could fire between frames), detach
+        // and bail; wrap the rest so a transient layout error can't kill taps.
+        if (!t || !t.scene || t.active === false) {
+          this.events.off('update', placeIcon);
+          iconEl.remove();
+          return;
+        }
+        try {
+          const r = gameEl.getBoundingClientRect();
+          const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
+          const sy = r.height / H;
+          const b = t.getBounds();   // Phaser/game coords
+          const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
+          const cx = b.left + reserveCentreFromLeft;
+          const cy = (b.top + b.bottom) / 2;
+          const px = r.left + cx * sx;
+          const py = r.top  + cy * sy;
+          // Match the text's current scale (0.6 → 1.0 during pop-in) and alpha.
+          iconEl.style.transform =
+            `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
+          iconEl.style.opacity = String(t.alpha);
+        } catch (_) { /* keep the loop alive; the destroy handler will clean up */ }
       };
       this.events.on('update', placeIcon);
       // Clean up alongside the text — covers normal completion AND any
@@ -3572,6 +3634,7 @@ class MapScene extends Phaser.Scene {
     const canAfford = () => (this.save.money ?? 0) >= price;
     this.showOfferModal({
       title: 'The farmhand offers a scarecrow:',
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       blurb: 'Crows and deer steer clear of a planted field.',
       cost: `$${price}`,
@@ -3592,12 +3655,12 @@ class MapScene extends Phaser.Scene {
   buildingFlavorTitle(house, action) {
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isFort   = !!house && house.tier === 11;
-    const st = (!isCastle && !isFort && house && typeof Shops !== 'undefined')
-      ? Shops.shopType(house) : null;
+    const st = (!isCastle && !isFort && house) ? this.houseShopRole(house) : null;
     if (action === 'forge')   return 'The blacksmith will forge:';
     if (action === 'relic') {
       if (isCastle) return "The castle's vault holds:";
       if (isFort)   return 'The fort quartermaster offers a relic:';
+      if (st === 'wizard') return 'The wizard conjures a relic:';
       return 'A villager offers a relic:';
     }
     // 'buy'
@@ -3606,6 +3669,7 @@ class MapScene extends Phaser.Scene {
     if (st === 'market')     return 'The market has fresh stock:';
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
+    if (st === 'wizard')     return 'The wizard conjures a relic:';
     return 'A villager offers:';
   }
   shopInteract(sx, sy, house) {
@@ -3715,9 +3779,11 @@ class MapScene extends Phaser.Scene {
       const cur = this.shopBucketState(house);
       cur.deals += 1;
     };
-    // The starter blacksmith overrides the address-derived shop role so the
-    // forge branch below fires regardless of the underlying house number.
-    const shopType = isStarterSmith ? 'blacksmith' : Shops.shopType(house);
+    // Effective shop role from the frozen restore-order assignment (falls back
+    // to the address-derived type for legacy saves). Returns 'blacksmith' for
+    // the first-restored starter smithy too, so the forge branch fires
+    // regardless of the underlying house number.
+    const shopType = this.houseShopRole(house);
     const isFort = !!house && house.tier === 11;
     // Forced scarecrow shop (the house just past the starter blacksmith).
     // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
@@ -3785,6 +3851,16 @@ class MapScene extends Phaser.Scene {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
+    // Wizard tower (the 15th restored wreck) — a dedicated relic vendor. The
+    // mage always has an enchanted relic on hand (with a re-roll), so it reads
+    // as a guaranteed upgrade stop rather than the 10% lottery a plain house
+    // runs. Falls back to a flavour flash when every slot is maxed.
+    if (shopType === 'wizard') {
+      const offer = this.peekOrBuildRelicOffer(house);
+      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
+      this.flash('The wizard is deep in study — come back later.', sx, sy);
+      return;
+    }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
     if (!shopType && Math.random() < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
@@ -3823,6 +3899,7 @@ class MapScene extends Phaser.Scene {
     const buyQty = TRADE_OFFER_QTY + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
       canAfford: offer.canAfford(),
@@ -4021,11 +4098,38 @@ class MapScene extends Phaser.Scene {
   // tools have been crafted — the smithy keeps doing useful business.
   isStarterBlacksmith(house) {
     if (!house || !house.id) return false;
-    if (this.save.starterBlacksmithId == null) {
-      const id = this.findStarterBlacksmithId();
-      if (id) this.save.starterBlacksmithId = id;
+    // The starter blacksmith is now whichever wreck is restored FIRST (it gets
+    // the 'blacksmith' role + this id stamped at restore time — see
+    // presentWreckRestoreModal). No longer force-anchored to the nearest house,
+    // so there's no lazy nearest-house resolution here.
+    return this.save.starterBlacksmithId != null
+      && this.save.starterBlacksmithId === house.id;
+  }
+
+  // The shop role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
+  // | 'wizard', or null for a plain residential house. Single source of truth
+  // for both the renderer and the interaction handler. Once a wreck is restored
+  // its role is frozen into save.restoredHouses[id] as a role string and read
+  // straight back here. Legacy `true` entries (saved before role-freezing) and
+  // any house consulted before restore fall back to the address-derived
+  // Shops.shopType, plus the first-restored starter blacksmith.
+  houseShopRole(house) {
+    if (!house || house.kind !== 'house') return null;
+    const stored = this.save.restoredHouses && this.save.restoredHouses[house.id];
+    if (typeof stored === 'string') return stored === 'plain' ? null : stored;
+    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
+    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
+  }
+
+  // Resolve the role a wreck reveals when restored, given its 0-based restore
+  // order. Fixed tutorial slots (PRESEED_RESTORE_ROLES) win; everything else
+  // defers to the address-derived shop type so the neighbourhood keeps its
+  // variety. Always returns a concrete role string ('plain' for a house).
+  _preseedRestoreRole(order, house) {
+    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
+      return PRESEED_RESTORE_ROLES[order];
     }
-    return this.save.starterBlacksmithId === house.id;
+    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
   }
 
   findStarterBlacksmithId() {
@@ -4287,6 +4391,7 @@ class MapScene extends Phaser.Scene {
     const first = fmt(1);
     this.showOfferModal({
       title: 'The household wants the full set:',
+      cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
       canAfford: true,
@@ -4527,6 +4632,7 @@ class MapScene extends Phaser.Scene {
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'relic'),
+      cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       blurb,
       cost: `$${offer.price}`,
@@ -4655,6 +4761,7 @@ class MapScene extends Phaser.Scene {
     if (!bars.length) {
       this.showOfferModal({
         title: 'The forge can smelt — once the shrine wills it',
+        cancelLabel: 'Later',
         get: 'Nothing to smelt yet',
         blurb: 'Level the Magic Shrine to L4 (platinum), L5 (crimson), or L6 (frost) to smelt top bars here.',
         cost: '',
@@ -4702,6 +4809,7 @@ class MapScene extends Phaser.Scene {
     const first = fmt(1);
     this.showOfferModal({
       title: 'The blacksmith stokes the crucible:',
+      cancelLabel: 'Later',
       get: first.get,
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
@@ -4845,6 +4953,7 @@ class MapScene extends Phaser.Scene {
       const outItem = ITEM_BY_ID[matching.output];
       this.showOfferModal({
         title: 'The shrine glows. Transform?',
+        cancelLabel: 'Later',
         get: `1× ${this.iconSpanHTML(matching.output)} ${outItem?.name || matching.output}`,
         cost: `1× ${this.iconSpanHTML(matching.input)} ${inItem?.name || matching.input}`,
         canAfford: true,
@@ -4902,6 +5011,7 @@ class MapScene extends Phaser.Scene {
       }).join('<br>');
       this.showOfferModal({
         title: `Magic Crafting Shrine (Level ${lvl})`,
+        cancelLabel: 'Later',
         get: `the shrine hums at full power`,
         blurb: `${reachStatus}<br>Hold a matching produce + tap to transform:<br>${lines}`,
         cost: '',
@@ -4932,6 +5042,7 @@ class MapScene extends Phaser.Scene {
       : 'No transforms unlocked yet.';
     this.showOfferModal({
       title: `Magic Crafting Shrine (Level ${lvl})`,
+      cancelLabel: 'Later',
       get: `Advance to Level ${lvl + 1}`,
       blurb: `${reachStatus}<br>${transformsBlurb}`,
       cost: costHTML,
@@ -5032,6 +5143,7 @@ class MapScene extends Phaser.Scene {
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
       cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
       canAfford: heldCount() >= offer.askQty,
@@ -5246,10 +5358,10 @@ class MapScene extends Phaser.Scene {
 
   // The role a wreck reveals once restored — mirrors render.js _houseTrueRole
   // (minus fort/trailer, which never wreck). 'blacksmith' | 'market' |
-  // 'trader' | 'plain'.
+  // 'trader' | 'wizard' | 'plain'. Reads the frozen restore-order role via
+  // houseShopRole; 'plain' for a role-less residential house.
   _restoredRole(house) {
-    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
-    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+    return this.houseShopRole(house) || 'plain';
   }
 
   // Bake a restored building's sprite to an <img> data URL for the
@@ -5267,6 +5379,16 @@ class MapScene extends Phaser.Scene {
           c.getContext('2d').drawImage(src, 148, 3, 72, 95, 0, 0, 72, 95);
           url = c.toDataURL();
         }
+      } else if (role === 'wizard') {
+        // Wizard towers reuse the shrine spritesheet (wizard.png); crop the
+        // fully-restored top-row tower frame (frame 3 = cols×80px → x:240).
+        const src = this.textures.get('shrine')?.getSourceImage();
+        if (src) {
+          const c = document.createElement('canvas');
+          c.width = 80; c.height = 104;
+          c.getContext('2d').drawImage(src, 240, 0, 80, 104, 0, 0, 80, 104);
+          url = c.toDataURL();
+        }
       } else {
         url = this.textures.get('house_' + role)?.getSourceImage()?.toDataURL?.() || null;
       }
@@ -5280,16 +5402,21 @@ class MapScene extends Phaser.Scene {
     const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
+    // Role this wreck will reveal, picked from the player's current restore
+    // order (this house isn't in restoredHouses yet, so the live count IS its
+    // 0-based index). Single-modal guard keeps the count stable while the modal
+    // is open, so recomputing the same index on accept lands on the same role.
+    const restoreOrder = Object.keys(this.save.restoredHouses || {}).length;
+    const prospectiveRole = this._preseedRestoreRole(restoreOrder, house);
     // "shop" if this wreck restores into a themed business, else "house".
-    const isThemed =
-      (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) ||
-      !!Shops.shopType(house);   // 'blacksmith' | 'market' | 'trader' | null
+    const isThemed = prospectiveRole !== 'plain';   // blacksmith / market / trader / wizard
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       title: 'Restore this wreck?',
+      cancelLabel: 'Later',
       get: `🛠 a working ${isThemed ? 'shop' : 'house'}`,
       blurb: 'Hauls the rubble away and pulls back the boards.',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
@@ -5310,7 +5437,17 @@ class MapScene extends Phaser.Scene {
           }
         }
         this.save.restoredHouses = this.save.restoredHouses || {};
-        this.save.restoredHouses[house.id] = true;
+        // Freeze the restore-order role onto this house so it never shifts.
+        // Recompute the index at accept time (still stable behind the modal
+        // guard) so a stale closure can't desync from the live count.
+        const order = Object.keys(this.save.restoredHouses).length;
+        const restoredRole = this._preseedRestoreRole(order, house);
+        this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
+        // The first wreck restored becomes the starter blacksmith (wooden-tool
+        // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
+        if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
+          this.save.starterBlacksmithId = house.id;
+        }
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.showChestRewardModal) {
@@ -5318,10 +5455,11 @@ class MapScene extends Phaser.Scene {
           // showChestRewardModal's sparkle burst supply the fanfare.
           const role = this._restoredRole(house);
           const INFO = {
-            blacksmith: { name: 'Blacksmith', blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { name: 'Market',     blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
-            trader:     { name: 'Trader',     blurb: 'Barters goods and pays a bonus on every sale.' },
-            plain:      { name: 'House',      blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+            blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage conjures enchanted relics for coin.' },
+            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
           this.showChestRewardModal({
@@ -5368,6 +5506,7 @@ class MapScene extends Phaser.Scene {
     const left = Math.max(0, need - have);
     this.showOfferModal({
       title: 'The castle stays sealed',
+      cancelLabel: 'Later',
       get: `🏰 opens after ${need} deliveries`,
       blurb: "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first.",
       cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
@@ -5396,6 +5535,7 @@ class MapScene extends Phaser.Scene {
     const canAfford = heldCount >= need;
     this.showOfferModal({
       title: 'Unseal this fort?',
+      cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
       blurb: 'Shore up the gate and the garrison will trade relics with you.',
       cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
@@ -5474,6 +5614,7 @@ class MapScene extends Phaser.Scene {
       : undefined;
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'forge'),
+      cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
@@ -5965,9 +6106,13 @@ class MapScene extends Phaser.Scene {
   //   canAfford:    grey out the accept button when false
   //   onAccept:     called after the modal closes
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
+  //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
+  //                 for offers tied to a persistent venue (a shop, a wreck,
+  //                 a sealed building) the player can simply come back to —
+  //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity, tabs }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
@@ -6084,7 +6229,7 @@ class MapScene extends Phaser.Scene {
     }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
-    const cancel = mkBtn('Cancel', false, false);
+    const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });

@@ -458,6 +458,7 @@ Render.drawCells = function drawCells(scene) {
     blacksmith: 0xc25a3a,  // red-brown forge wall
     trader:     0x6a8aa6,  // steel-blue awning
     market:     0xa84a3a,  // red brick roof
+    wizard:     0x7a5aa6,  // arcane purple stone
     fort:       0xa84838,  // red brick stone
     trailer:    0xa8b0c0,  // pale blue trailer
   };
@@ -478,9 +479,8 @@ Render.drawCells = function drawCells(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
     if (o.tier === 11) return 'fort';
     if (!_restoredForCell[o.id] && o.tier === 9) return null;
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
-    return t || null;
+    // Frozen restore-order role (blacksmith/trader/market/wizard) or null/plain.
+    return (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
   };
   for (const [, entry] of (WorldGen.tileCache || new Map())) {
     if (!entry || !entry.objects) continue;
@@ -878,13 +878,11 @@ Render.drawObjects = function drawObjects(scene) {
   const _restored = scene.save.restoredHouses || {};
   const _houseTrueRole = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
-    if (t === 'blacksmith') return 'blacksmith';
-    if (t === 'trader')     return 'trader';
-    if (t === 'market')     return 'market';
-    return 'plain';
+    // Frozen restore-order role: 'blacksmith' | 'trader' | 'market' | 'wizard',
+    // or null → plain residential.
+    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
+    return t || 'plain';
   };
   const _houseRole = (o) => {
     const trueRole = _houseTrueRole(o);
@@ -948,20 +946,31 @@ Render.drawObjects = function drawObjects(scene) {
     house:  {
       key: (o) => {
         const role = _houseRole(o);
-        return role === 'plain' ? 'house' : `house_${role}`;
+        if (role === 'plain')  return 'house';
+        if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
+        return `house_${role}`;
       },
-      frame: (o) => (_houseRole(o) === 'plain' ? 'front' : undefined),
+      // Plain houses pick the 'front' sub-rect of the house tileset; wizard
+      // towers pick the fully-restored top-row tower frame (frame 3) of the
+      // shrine sheet; other themed PNGs are single-image (frame undefined).
+      frame: (o) => {
+        const role = _houseRole(o);
+        if (role === 'plain')  return 'front';
+        if (role === 'wizard') return 3;
+        return undefined;
+      },
       // Anchor the sprite by its BOTTOM-MIDDLE so the house's base sits on the
       // building footprint's centroid (the house x/y is that centroid) — the
       // body then rises north over the outline instead of floating off it.
-      // dyPx nudges the base just BELOW the centroid.
+      // dyPx nudges the base just BELOW the centroid; the taller wizard tower
+      // is foot-seated at the cell's front edge like the standalone shrine.
       origin: [0.5, 1.0],
-      dyPx: 2,
+      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 2),
       scale: (o) => {
         const role = _houseRole(o);
         // Fort PNG is ~3× the others — scale down so it still reads as a
-        // building, not a wall. Plain / blacksmith / trader / trailer share
-        // 0.6 so they look like neighbours from the same village.
+        // building, not a wall. Plain / blacksmith / trader / trailer / wizard
+        // share 0.6 so they look like neighbours from the same village.
         return role === 'fort' ? 0.35 : 0.6;
       } },
     // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
@@ -1337,25 +1346,29 @@ Render.drawObjects = function drawObjects(scene) {
   // should still spot their base across the map. Shops.shopLabel() returns
   // null for non-shopType houses, so we wrap it here so the renderer can
   // also handle the starter case without changing the Shops module.
+  // Display labels for the role-keyed shop signs. Restore-order roles no longer
+  // track the street address, so the label comes from the role rather than
+  // Shops.shopLabel (which is address-derived and would mislabel them).
+  const _ROLE_LABEL = {
+    blacksmith: 'Blacksmith', trader: 'Trader', market: 'Market', wizard: 'Wizard',
+  };
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
     // sign re-emerges with the correct shop / house label.
     if (_houseRole(o) === 'wreck') return null;
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
-    // Forced starter blacksmith — bypass Shops.shopLabel since the address
-    // doesn't end in 9, but the player should still see a smithy sign.
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) {
-      return `Blacksmith ${Shops.toRoman((o.address ?? 0) + 1)}`;
-    }
     // Forced scarecrow shop — signed only while it still has one to sell.
     // After the sale it reverts to its underlying role (handled below).
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) {
       return `Scarecrows ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
-    const shopLbl = Shops.shopLabel(o);
-    if (shopLbl) return shopLbl;
+    // Frozen restore-order shop role (blacksmith / trader / market / wizard).
+    const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
+    if (role && _ROLE_LABEL[role]) {
+      return `${_ROLE_LABEL[role]} ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    }
     // No specialty? Still give the building a label so the map reads as a
     // populated street instead of rows of anonymous huts. Roman-numeral
     // suffix from address+1 keeps consistency with the shop labels above.
@@ -1380,10 +1393,11 @@ Render.drawObjects = function drawObjects(scene) {
     if (!o || o.kind !== 'house' || o.tier !== 9) return false;
     if (_houseRole(o) === 'wreck') return false;                          // hidden until restored
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return false;             // Home
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return false; // starter smithy
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
-    if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return false; // specialty shop
+    // Any frozen shop role (blacksmith / trader / market / wizard, incl. the
+    // starter smithy) is a storefront, not a residential delivery host.
+    if (typeof scene.houseShopRole === 'function' && scene.houseShopRole(o)) return false;
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
@@ -1406,6 +1420,7 @@ Render.drawObjects = function drawObjects(scene) {
     blacksmith: '#c25a3a',
     trader:     '#ffae5c',
     market:     '#5ddcc0',
+    wizard:     '#b98cff',   // arcane violet
   };
   // Fallback inks for the non-specialty building kinds.
   const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
@@ -1413,10 +1428,9 @@ Render.drawObjects = function drawObjects(scene) {
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return _ROLE_INK.blacksmith;
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
     if (t && _ROLE_INK[t]) return _ROLE_INK[t];
     if (o.tier === 12) return _CASTLE_INK;
     if (o.tier === 11) return _FORT_INK;
