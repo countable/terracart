@@ -1779,10 +1779,29 @@ class MapScene extends Phaser.Scene {
         const pip = Math.floor(this._restAccrueE);
         if (pip > 0) {
           this._restAccrueE -= pip;
-          this.save.energy = Math.min(maxE, (this.save.energy ?? 0) + pip);
+          const beforeE = this.save.energy ?? 0;
+          this.save.energy = Math.min(maxE, beforeE + pip);
+          const gainedE = this.save.energy - beforeE;
+          // Accumulate rest gains and splash a throttled green "+N⚡" so a long
+          // rest shows periodic ticks rather than one pop per energy pip.
+          if (gainedE > 0) {
+            this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
+            const tnow = performance.now();
+            if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
+              this._splashEnergyGain(this._restSplashAccum);
+              this._restSplashAccum = 0;
+              this._restSplashNextT = tnow + 1200;
+            }
+          }
           if (this.updateEnergyDOM) this.updateEnergyDOM();
         }
       } else {
+        // Stopped resting — flush any unsplashed accumulation so the last few
+        // points of a short rest still register.
+        if (this._restSplashAccum > 0) {
+          this._splashEnergyGain(this._restSplashAccum);
+          this._restSplashAccum = 0;
+        }
         this._restAccrueE = 0;
       }
       // Stepping on a named path stone claims it. Memoised by absolute cell
@@ -2917,6 +2936,22 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // Small green "+N⚡" splash near the player when energy is RECOVERED
+  // (passive rest, offline rest). Uses flash()'s subtle style rather than the
+  // big loot pop. No-ops before the viewport centre is known (early create).
+  _splashEnergyGain(amount) {
+    if (!(amount > 0) || this.viewCenterX == null) return;
+    const x = this.viewCenterX, y = this.viewCenterY - 70;
+    const t = this.add.text(x, y, `+${amount}⚡`, {
+      font: '12px monospace', color: '#a7ffb0', backgroundColor: '#000a',
+      padding: { x: 4, y: 2 },
+    }).setOrigin(0.5, 1).setDepth(100);
+    this.tweens.add({
+      targets: t, y: y - 30, alpha: 0, duration: 700, delay: 1300,
+      onComplete: () => t.destroy(),
+    });
+  }
+
   // Bigger, longer-dwelling pop for loot pickups (chest opens, treasure X, harvest, debris).
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
@@ -3148,6 +3183,7 @@ class MapScene extends Phaser.Scene {
     this.save.energy = Math.min(maxE, before + restored);
     const gained = this.save.energy - before;
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
+    if (gained > 0) this._splashEnergyGain(gained);
   }
 
   updateEnergyDOM() {
@@ -5461,6 +5497,13 @@ class MapScene extends Phaser.Scene {
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
+        // Forging "settles" the smithy — reset its re-roll count so the next
+        // re-roll cost drops back to the $5 base (cost = 5 × 2^rerolls)
+        // instead of staying inflated from pre-forge re-rolls.
+        if (house && house.id) {
+          const cur = this.shopBucketState(house);
+          if (cur) cur.rerolls = 0;
+        }
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
