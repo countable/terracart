@@ -220,7 +220,7 @@
     async chop_tree() {
       const s = S();
       // Top-tier axe so the nearest tree fells regardless of its size class
-      // (bush→large), species shift (softwood/hardwood), or golden status —
+      // (bush→large), species shift (softwood/hardwood), or shiny status —
       // the test verifies the chop flow, not the axe-tier gate.
       setRelic('axe', 4);
       const tree = nearestObject(o => o.kind === 'tree' && !o.chopped);

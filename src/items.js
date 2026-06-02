@@ -258,17 +258,17 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
-  // Golden (rare, 5%) animal variants — caught from yellow-tinted wild animals.
-  // Each golden kind keeps its OWN inventory stack: a golden chicken never
-  // folds into normal chickens, nor into other golden animals ("not other
-  // goldens"). `base` points at the plain kind so the icon + release path can
-  // reuse the normal sprite/behaviour; `golden` flags the golden sheen. Only
-  // the catch-into-inventory kinds get a golden item — hunted fauna (deer,
-  // crow) drop meat/feather, so there's no live golden animal to keep.
+  // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
+  // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
+  // folds into normal chickens, nor into other shiny animals ("not other
+  // shinys"). `base` points at the plain kind so the icon + release path can
+  // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
+  // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
+  // crow) drop meat/feather, so there's no live shiny animal to keep.
   ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly'].map(k => ({
-    id: `golden_${k}`,
-    name: `Golden ${k.charAt(0).toUpperCase() + k.slice(1)}`,
-    kind: 'animal', base: k, golden: true, baseTier: BASE_TIER[k] || 1,
+    id: `shiny_${k}`,
+    name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
   })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
@@ -443,7 +443,7 @@ const PRICES = {
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
-// Canonical "sell value" of an item. Used for the golden-find money bonus
+// Canonical "sell value" of an item. Used for the shiny-find money bonus
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
 // scales with how prized the thing is rather than flattening to $1.
@@ -453,10 +453,10 @@ function itemValue(id) {
   const t = ITEM_BY_ID[id]?.baseTier || 1;
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
 }
-// Golden animals sell at 10× their plain counterpart's value — a real prize in
+// Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + discovery bonus.
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
-  PRICES[`golden_${k}`] = itemValue(k) * 10;
+  PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 50;
