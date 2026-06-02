@@ -3818,22 +3818,25 @@ class MapScene extends Phaser.Scene {
       this.flash('no deal', sx, sy);
       return;
     }
+    // Low-tier seeds ship a few extra (planted in bulk); everything else is
+    // the flat trade quantity.
+    const buyQty = TRADE_OFFER_QTY + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${TRADE_OFFER_QTY}`,
+      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
       canAfford: offer.canAfford(),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, TRADE_OFFER_QTY);
+        this.addToInv(id, buyQty);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
-        this.flashLoot(`🪙 ${TRADE_OFFER_QTY}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        this.flashLoot(`🪙 ${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
   }
@@ -5017,9 +5020,12 @@ class MapScene extends Phaser.Scene {
       ((this.save.inv || []).find(s => s && s.id === offer.askId)?.count) ?? 0;
     const curState = this.shopBucketState(house);
     const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
+    // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
+    const giveQty = TRADE_OFFER_QTY
+      + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
-      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${TRADE_OFFER_QTY}`,
+      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
       cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
       canAfford: heldCount() >= offer.askQty,
       onAccept: () => {
@@ -5036,13 +5042,13 @@ class MapScene extends Phaser.Scene {
             this.save.selSlot = Math.max(0, this.save.inv.length - 1);
           }
         }
-        this.addToInv(offer.giveId, TRADE_OFFER_QTY);
+        this.addToInv(offer.giveId, giveQty);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(
-          `🪙 ${TRADE_OFFER_QTY}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
+          `🪙 ${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
         );
       },

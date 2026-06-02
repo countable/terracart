@@ -280,6 +280,10 @@ const TAP_HANDLERS = [
         addMoney(save, 1);
         scene.flashLoot('✕ → $1', '#ffd96b');
       } else if (reward.kind === 'item') {
+        // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
+        if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
+          reward.qty += LOW_TIER_SEED_QTY_BONUS;
+        }
         scene.addToInv(reward.id, reward.qty);
         const item = ITEM_BY_ID[reward.id];
         const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;

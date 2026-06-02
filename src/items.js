@@ -787,3 +787,14 @@ const SEED_TIER = Object.fromEntries(
 );
 // Flowers — used by the 'flora' chest category to restrict its T3 picks.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
+
+// Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
+// so the places that hand out seeds — trader barter, treasure X, and cash
+// shops — bundle a few extra. `isLowTierSeed` is the single source of truth for
+// "should this seed get the bulk bonus"; LOW_TIER_SEED_QTY_BONUS is how many
+// extra ship on top of the normal quantity.
+const LOW_TIER_SEED_QTY_BONUS = 2;
+function isLowTierSeed(id) {
+  const it = ITEM_BY_ID[id];
+  return !!it && it.kind === 'seed' && (it.baseTier || 1) <= 2;
+}
