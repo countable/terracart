@@ -3590,6 +3590,7 @@ class MapScene extends Phaser.Scene {
     const canAfford = () => (this.save.money ?? 0) >= price;
     this.showOfferModal({
       title: 'The farmhand offers a scarecrow:',
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       blurb: 'Crows and deer steer clear of a planted field.',
       cost: `$${price}`,
@@ -3854,6 +3855,7 @@ class MapScene extends Phaser.Scene {
     const buyQty = TRADE_OFFER_QTY + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
       canAfford: offer.canAfford(),
@@ -4338,6 +4340,7 @@ class MapScene extends Phaser.Scene {
     const first = fmt(1);
     this.showOfferModal({
       title: 'The household wants the full set:',
+      cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
       canAfford: true,
@@ -4578,6 +4581,7 @@ class MapScene extends Phaser.Scene {
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'relic'),
+      cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       blurb,
       cost: `$${offer.price}`,
@@ -4706,6 +4710,7 @@ class MapScene extends Phaser.Scene {
     if (!bars.length) {
       this.showOfferModal({
         title: 'The forge can smelt — once the shrine wills it',
+        cancelLabel: 'Later',
         get: 'Nothing to smelt yet',
         blurb: 'Level the Magic Shrine to L4 (platinum), L5 (crimson), or L6 (frost) to smelt top bars here.',
         cost: '',
@@ -4753,6 +4758,7 @@ class MapScene extends Phaser.Scene {
     const first = fmt(1);
     this.showOfferModal({
       title: 'The blacksmith stokes the crucible:',
+      cancelLabel: 'Later',
       get: first.get,
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
@@ -4896,6 +4902,7 @@ class MapScene extends Phaser.Scene {
       const outItem = ITEM_BY_ID[matching.output];
       this.showOfferModal({
         title: 'The shrine glows. Transform?',
+        cancelLabel: 'Later',
         get: `1× ${this.iconSpanHTML(matching.output)} ${outItem?.name || matching.output}`,
         cost: `1× ${this.iconSpanHTML(matching.input)} ${inItem?.name || matching.input}`,
         canAfford: true,
@@ -4953,6 +4960,7 @@ class MapScene extends Phaser.Scene {
       }).join('<br>');
       this.showOfferModal({
         title: `Magic Crafting Shrine (Level ${lvl})`,
+        cancelLabel: 'Later',
         get: `the shrine hums at full power`,
         blurb: `${reachStatus}<br>Hold a matching produce + tap to transform:<br>${lines}`,
         cost: '',
@@ -4983,6 +4991,7 @@ class MapScene extends Phaser.Scene {
       : 'No transforms unlocked yet.';
     this.showOfferModal({
       title: `Magic Crafting Shrine (Level ${lvl})`,
+      cancelLabel: 'Later',
       get: `Advance to Level ${lvl + 1}`,
       blurb: `${reachStatus}<br>${transformsBlurb}`,
       cost: costHTML,
@@ -5083,6 +5092,7 @@ class MapScene extends Phaser.Scene {
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
+      cancelLabel: 'Later',
       get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
       cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
       canAfford: heldCount() >= offer.askQty,
@@ -5355,6 +5365,7 @@ class MapScene extends Phaser.Scene {
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       title: 'Restore this wreck?',
+      cancelLabel: 'Later',
       get: `🛠 a working ${isThemed ? 'shop' : 'house'}`,
       blurb: 'Hauls the rubble away and pulls back the boards.',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
@@ -5444,6 +5455,7 @@ class MapScene extends Phaser.Scene {
     const left = Math.max(0, need - have);
     this.showOfferModal({
       title: 'The castle stays sealed',
+      cancelLabel: 'Later',
       get: `🏰 opens after ${need} deliveries`,
       blurb: "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first.",
       cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
@@ -5472,6 +5484,7 @@ class MapScene extends Phaser.Scene {
     const canAfford = heldCount >= need;
     this.showOfferModal({
       title: 'Unseal this fort?',
+      cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
       blurb: 'Shore up the gate and the garrison will trade relics with you.',
       cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
@@ -5550,6 +5563,7 @@ class MapScene extends Phaser.Scene {
       : undefined;
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'forge'),
+      cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       cost: costHTML,
       canAfford: canAfford(),
@@ -6041,9 +6055,13 @@ class MapScene extends Phaser.Scene {
   //   canAfford:    grey out the accept button when false
   //   onAccept:     called after the modal closes
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
+  //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
+  //                 for offers tied to a persistent venue (a shop, a wreck,
+  //                 a sealed building) the player can simply come back to —
+  //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', secondary, quantity, tabs }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
@@ -6160,7 +6178,7 @@ class MapScene extends Phaser.Scene {
     }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
-    const cancel = mkBtn('Cancel', false, false);
+    const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
