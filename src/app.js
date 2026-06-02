@@ -1644,6 +1644,14 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
+    // reschedules the NEXT frame only AFTER this callback returns (see
+    // RequestAnimationFrame.step in vendor/phaser.js), so a single uncaught
+    // throw in here would permanently kill the game loop — frozen render plus
+    // a dead input plugin, i.e. "the UI stops accepting taps." Swallowing a
+    // bad frame keeps the loop (and taps) alive; _reportLoopError surfaces the
+    // error so the underlying cause stays diagnosable on a phone.
+    try {
     const dt = dtMs / 1000;
     // Ghost-mode lifecycle: the pad is held iff the player has an amulet AND
     // they're actively touching the pad. On the down-edge, snapshot the body
@@ -1954,6 +1962,30 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     this._drawWorkProgress();
     this.updateHUD();
+    } catch (e) {
+      this._reportLoopError(e);
+    }
+  }
+
+  // Funnel for exceptions thrown inside update(). Keeps the Phaser loop alive
+  // (an escaped throw would stop the RAF reschedule and freeze the game + kill
+  // input) while still surfacing the error: throttled console.error plus a
+  // brief on-screen banner, since DevTools isn't reachable on a phone.
+  _reportLoopError(e) {
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (this._lastLoopErrAt && now - this._lastLoopErrAt < 3000) return;   // throttle a per-frame storm
+    this._lastLoopErrAt = now;
+    try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
+    try {
+      const b = document.getElementById('banner');
+      if (b) {
+        const msg = (e && (e.message || e.toString())) || 'frame error';
+        b.textContent = `⚠ ${msg}`.slice(0, 80);
+        b.style.display = 'block';
+        clearTimeout(this._loopErrBannerT);
+        this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+      }
+    } catch (_) { /* never let error reporting itself throw */ }
   }
 
   // Scan save.planted and bump stage on any watered crop whose 60-minute
@@ -3011,19 +3043,31 @@ class MapScene extends Phaser.Scene {
       // hold, and drift-up. Cheap — getBoundingClientRect + transform set.
       const gameEl = document.getElementById('game');
       const placeIcon = () => {
-        const r = gameEl.getBoundingClientRect();
-        const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
-        const sy = r.height / H;
-        const b = t.getBounds();   // Phaser/game coords
-        const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
-        const cx = b.left + reserveCentreFromLeft;
-        const cy = (b.top + b.bottom) / 2;
-        const px = r.left + cx * sx;
-        const py = r.top  + cy * sy;
-        // Match the text's current scale (0.6 → 1.0 during pop-in) and alpha.
-        iconEl.style.transform =
-          `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
-        iconEl.style.opacity = String(t.alpha);
+        // Runs on the scene 'update' event — INSIDE Phaser's RAF callback but
+        // outside MapScene.update()'s try/catch, so a throw here would escape
+        // and freeze the whole loop. If the text is already destroyed (a tween
+        // onComplete / scene shutdown race could fire between frames), detach
+        // and bail; wrap the rest so a transient layout error can't kill taps.
+        if (!t || !t.scene || t.active === false) {
+          this.events.off('update', placeIcon);
+          iconEl.remove();
+          return;
+        }
+        try {
+          const r = gameEl.getBoundingClientRect();
+          const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
+          const sy = r.height / H;
+          const b = t.getBounds();   // Phaser/game coords
+          const reserveCentreFromLeft = (10 + RESERVE / 2) * t.scaleX;
+          const cx = b.left + reserveCentreFromLeft;
+          const cy = (b.top + b.bottom) / 2;
+          const px = r.left + cx * sx;
+          const py = r.top  + cy * sy;
+          // Match the text's current scale (0.6 → 1.0 during pop-in) and alpha.
+          iconEl.style.transform =
+            `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
+          iconEl.style.opacity = String(t.alpha);
+        } catch (_) { /* keep the loop alive; the destroy handler will clean up */ }
       };
       this.events.on('update', placeIcon);
       // Clean up alongside the text — covers normal completion AND any
