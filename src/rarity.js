@@ -36,10 +36,11 @@
     chainQtyP:           0.33,   // per chain step, P(qty-up) vs (1-chainQtyP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+qty. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
     amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
     // Quantity model: each qty BUMP (from the chain or jackpot) adds
-    // 1..tierQtyPerBump[itemTier] to the stack. A T1 seed with 2 bumps can
-    // land at 10 (two random(1..5) rolls + 1 base); a T4 seed with 2 bumps
+    // 1..tierQtyPerBump[itemTier] to the stack. A T1 produce with 2 bumps can
+    // land at 11 (two random(1..5) rolls + 1 base); a T4 item with 2 bumps
     // tops out at 3 (two random(1..1) rolls + 1 base). Index by item tier.
-    // Index 0 is unused; tiers 1..7.
+    // Index 0 is unused; tiers 1..7. NOTE: T1 seeds bypass this curve for a
+    // more generous planting pack (base 2-3, +2-3 per bracket) — see pickReward.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
     // live catch at a time), consumable (tap-to-use), sapling (you plant one
@@ -413,8 +414,9 @@
     const id = pickItemInClass(cls, tier, rng);
     if (!id) return null;
     // Quantity from chain+jackpot qty BUMPS. Each bump adds 1..N to the
-    // stack where N is tierQtyPerBump[itemTier]. A T1 seed bump adds 1..5,
-    // a T4 seed bump adds exactly 1 — high-tier items refuse to pack.
+    // stack where N is tierQtyPerBump[itemTier]. A T1 produce bump adds 1..5,
+    // a T4 item bump adds exactly 1 — high-tier items refuse to pack. T1 seeds
+    // use a dedicated, more generous pack curve (see the seed branch below).
     // Single-stack classes (animal, consumable, relic) ignore bumps; their
     // accumulated bracket converts to wasted-qty-bumps for consolation gold.
     // Shops (ctx.singleItem) also force qty=1 — they sell one thing at a
@@ -430,6 +432,15 @@
       if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
     } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls)) {
       wastedQtyBumps += bracket;          // bracket is dead for these classes
+    } else if (cls === 'seed' && itemTier <= 1) {
+      // T1 seeds (potato / rockfruit / berry / cress) ship in generous
+      // planting packs: a 2-3 base plus 2-3 per qty bracket, so a single
+      // low-tier chest is worth a row in the field. Higher-tier seeds fall
+      // through to the standard per-bump curve below, so rare flower seeds
+      // stay scarce. Resulting stack sizes by bracket:
+      //   0 → 2-3,  1 → 4-6,  2 → 6-9,  3 → 8-12
+      qty = 2 + Math.floor(rng() * 2);
+      for (let i = 0; i < bracket; i++) qty += 2 + Math.floor(rng() * 2);
     } else {
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;
       for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
