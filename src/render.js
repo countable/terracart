@@ -1736,13 +1736,39 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
+  const _goldNow = Date.now();
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     // Rare golden wild flora gets the warm sheen; everything else (farmed crops,
     // placed rocks) renders untinted. Pooled sprites keep their last tint, so
-    // set it explicitly every frame.
-    s.setTint((p.wildId && isGolden(p.wildId, GOLDEN_RATE.flora)) ? GOLDEN_TINT : 0xffffff);
+    // set it explicitly every frame. A flat gold multiply on already-green
+    // flora reads too subtly (the player can't spot a golden harvest), so a
+    // golden plant also TWINKLES: its tint shimmers between warm gold and a
+    // pale near-white gold while it gently pulses in scale. Motion + brightness
+    // are renderer-agnostic (Phaser.AUTO may fall back to canvas, so a WebGL
+    // glow FX wouldn't be reliable) and make a golden plant unmistakable.
+    const isGoldFlora = !!(p.wildId && isGolden(p.wildId, GOLDEN_RATE.flora));
+    let goldScale = 1;
+    if (isGoldFlora) {
+      // Desync each plant's twinkle off a stable per-id phase so a field of
+      // goldens shimmers out of step rather than blinking in unison.
+      const idH = ((p.wildId || '').length * 2654435761) >>> 0;
+      const phase = ((_goldNow + idH) % 1100) / 1100;          // 0..1
+      const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);  // 0..1
+      goldScale = 1.0 + 0.12 * wave;                           // 1.00..1.12 size pulse
+      // Lerp the tint between deep gold and a bright pale gold (toward white,
+      // which under a multiply tint brightens the sprite back up — a glint).
+      const lo = GOLDEN_TINT, hi = 0xfff6cc;
+      const lr = (lo >> 16) & 0xff, lg = (lo >> 8) & 0xff, lb = lo & 0xff;
+      const hr = (hi >> 16) & 0xff, hg = (hi >> 8) & 0xff, hb = hi & 0xff;
+      const r = Math.round(lr + (hr - lr) * wave);
+      const g = Math.round(lg + (hg - lg) * wave);
+      const b = Math.round(lb + (hb - lb) * wave);
+      s.setTint((r << 16) | (g << 8) | b);
+    } else {
+      s.setTint(0xffffff);
+    }
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -1801,7 +1827,7 @@ Render.drawObjects = function drawObjects(scene) {
     // centre. Stages 1+ grow upward and look right centered.
     const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
     const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    const cropScl = (ov && ov.scale != null) ? ov.scale : 2;
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * goldScale;
     s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy));
   });
 
