@@ -50,7 +50,14 @@ const GOLDEN_TINT = 0xffd23a;
 // Discrete DeepForest crown-size tiers (small/medium/large). Mirrors the
 // render.js fruit-tree spec so a tree's gameplay size and sprite size match.
 const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
-function treeScale(o) {
+// Maples render 10% smaller than their canopy class at every size — pines (and
+// the other non-maple species) read as the generally larger tree. This is a
+// VISUAL-only factor: treeSizeClass keys off treeBaseScale (below) so a maple's
+// gameplay size / axe-tier / wood yield is unchanged by the shrink.
+const MAPLE_VISUAL_MUL = 0.90;
+// Gameplay/classification scale — the canopy size BEFORE the maple visual
+// shrink. treeSizeClass thresholds against this so the size tiers stay stable.
+function treeBaseScale(o) {
   const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
   // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
   // sprite tiers, which the "tier harvesting by size" gating reads back via
@@ -62,6 +69,10 @@ function treeScale(o) {
   if (o.crown_m == null) return base;
   const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
   return base * mul;
+}
+// Rendered sprite scale — the canopy size with the maple shrink folded in.
+function treeScale(o) {
+  return treeBaseScale(o) * (o.species === 'maple' ? MAPLE_VISUAL_MUL : 1);
 }
 // 'full' (needs an Iron axe, 4× wood) | 'medium' (Copper axe, 2× wood) |
 // 'small' (any axe, base wood). Golden trees are handled separately — they
@@ -75,8 +86,9 @@ function treeSizeClass(o) {
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
-  // Size-less trees (OSM / procedural forest) fall back to the sprite scale.
-  const s = treeScale(o);
+  // Size-less trees (OSM / procedural forest) fall back to the canopy scale —
+  // the pre-maple-shrink value so a maple still classes 'full' off its 0.85.
+  const s = treeBaseScale(o);
   if (s >= 0.85) return 'full';
   if (s >= 0.62) return 'medium';
   return 'small';

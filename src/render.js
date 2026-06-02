@@ -999,7 +999,10 @@ Render.drawObjects = function drawObjects(scene) {
               // Shared with the harvest gating in interact.js (util.treeScale)
               // so a tree's visual size and the axe tier it demands stay in
               // lockstep — bigger sprite, sturdier axe, more wood. treeScale
-              // honours the discrete o.size crown class too.
+              // honours the discrete o.size crown class too. (One deliberate
+              // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
+              // their size class keys off the un-shrunk treeBaseScale, so the
+              // visual shrink doesn't change a maple's axe tier or wood yield.)
               scale:  (o) => treeScale(o),
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
