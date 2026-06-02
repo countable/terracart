@@ -110,14 +110,20 @@
     // Relic weights bumped +50% across all chest contexts (per user) — chest
     // relic/armor odds now run ~3.75%-15% by class (weightedPick normalises, so
     // raising only the relic share draws proportionally off the existing mix).
-    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.06, animal:0.005, relic:0.0375 } },
-    'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.0525 } },
-    'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.06   } },
-    'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.15   } },
-    'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.09   } },
-    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.075  } },
-    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.0375 } },
-    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.15   } },
+    // Seed share trimmed across the board (per user) — seeds were turning up as
+    // the #1 drop in most chests, drowning out produce/minerals/consumables.
+    // The freed weight rolls mostly into produce, with a little into
+    // mineral/consumable. Seeds still lead the farm/flora biomes (thematic) but
+    // no longer dominate the common lowtier/park chests. relic/animal shares
+    // are untouched so relic odds stay where they were tuned.
+    'chest:lowtier':    { classBias: { seed:0.28, produce:0.42, mineral:0.14, consumable:0.115, animal:0.005, relic:0.0375 } },
+    'chest:commerce':   { classBias: { seed:0.26, produce:0.38, mineral:0.13, consumable:0.155, animal:0.01,  relic:0.0525 } },
+    'chest:food':       { classBias: { produce:0.60, seed:0.14, mineral:0.08, consumable:0.10, animal:0.00,  relic:0.06   } },
+    'chest:civic':      { classBias: { seed:0.16, produce:0.18, mineral:0.18, consumable:0.27, animal:0.02,  relic:0.15   } },
+    'chest:health':     { classBias: { mineral:0.32, produce:0.24, consumable:0.25, seed:0.08, animal:0.00,  relic:0.09   } },
+    'chest:park':       { classBias: { seed:0.24, produce:0.32, animal:0.02, mineral:0.16, consumable:0.165, relic:0.075  } },
+    'chest:farm':       { classBias: { seed:0.30, produce:0.38, animal:0.12, mineral:0.09, consumable:0.07,  relic:0.0375 } },
+    'chest:flora':      { classBias: { seed:0.32, produce:0.30, mineral:0.00, consumable:0.21, animal:0.00,  relic:0.15   } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     // Shops use the same deterministic chain. chainSteps maps to the
