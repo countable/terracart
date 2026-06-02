@@ -1,10 +1,5 @@
 # CLAUDE.md
 
-I am a new programmer on Clark's computer, named Ari.
-
-Please help me learn vibe coding and programming as I work on this project. Explain technical terms as you go, so I can follow along.
-Ask me questions to help me understand key concepts about software development using AI agents/assistants.
-
 ## Parallelism rules
 
 - **Don't use `git stash` or `git worktree`** for parallel work.
@@ -30,6 +25,21 @@ Ask me questions to help me understand key concepts about software development u
   return — this avoids merge-conflict-style line-number drift between
   parallel agents touching `app.js`.
 
+## QC rules
+
+- **Interactables must be clearly in one cell.** Other than houses and fauna,
+  every interactable should visually occupy a single tile — its art and
+  collision box must align to the same cell. If it appears to straddle a cell
+  boundary, or if the sprite and hitbox don't obviously belong to the same
+  cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
+
+## Testing
+
+- The test harness (`test/run_tests.py`) needs a browser, which isn't always
+  available in this environment. When you can't run it, just say the tests
+  weren't run and rely on a careful code review — **don't editorialize about
+  lacking browser access or blocked downloads.** State it plainly and move on.
+
 ## Commits
 
 - Commit and push freely as work completes; no need to ask first.
@@ -43,3 +53,6 @@ Ask me questions to help me understand key concepts about software development u
   if the session was started on one. If you find yourself on a
   non-`main` branch, switch to `main`, merge anything you've done so
   far, and continue there. Push to `main` directly.
+- **After a major task, merge to `main` and push.** If work happened on a
+  non-`main` branch, merge it into `main` (`git merge`, never rebase) and
+  `git push` `main` once the task is complete.

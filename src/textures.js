@@ -1,11 +1,10 @@
-// Procedural textures + flora decals + per-POI concrete-pad shapes.
+// Procedural textures + per-POI concrete-pad shapes.
 // Extracted from app.js for maintainability. Loaded BEFORE app.js so all
-// names (BIOME_TEX, draw* fns, makeBiomeTextures, makeFloraTextures, …) are
-// available as plain globals.
+// names (BIOME_TEX, draw* fns, makeBiomeTextures, …) are available as plain globals.
 //
 // Depends on:
 //   nothing external. Pure draws-to-canvas — no Phaser scene work other than
-//   makeBiomeTextures/makeFloraTextures which take the scene as a parameter.
+//   makeBiomeTextures which takes the scene as a parameter.
 //
 // Does NOT include makePlaqueTextures: it depends on per-crop globals
 // (CROP_ROW, PRODUCE_COL) that still live in app.js.
@@ -72,6 +71,37 @@ const WATER_AUTOTILE_FRAME = {
 // Keeps peninsula / strip / isolated cells from going invisible; they read
 // as plain water without the proper edge art (acceptable for first pass).
 const WATER_AUTOTILE_FALLBACK = WATER_AUTOTILE_FRAME[15];
+
+// === Water 8-neighbour BLOB autotile (Godot 47-tile sheet) ==============
+// Upgrades the cardinal Wang above: the full 8-neighbour blob can draw INNER
+// corners (water wrapping a diagonal), which the old 9-tile cardinal set
+// structurally could not — that was the source of the shore "gaps".
+// Mask bits use the documented Godot/47-tile convention:
+//   TL=1, T=2, TR=4, L=8, R=16, BL=32, B=64, BR=128  (set = neighbour is WATER)
+// Diagonals only matter when both their adjacent sides are water (the 256→47
+// reduction). WATER_BLOB[mask] is a 256-entry table mapping every neighbour
+// mask to a frame in the 'autotiles' sheet (assets/Objects/Autotiles_Godot_16x16.png,
+// 12 cols × 56 rows of 16×16; the water↔grass blob lives in rows 8-15, frames
+// indexed row*12+col). The candidate pool is RESTRICTED to rows 8-11 — the
+// "water on OPAQUE green grass" copies. Rows 12-15 are the SAME tiles with the
+// grass left TRANSPARENT (Godot draws the grass on a separate layer); we draw
+// over a flat water-blue fill, so a transparent tile would show blue through
+// the grass half ("random blue grass"). Derived by tools (temp/autotile_fix.py)
+// by best-matching each of the 47 blob configs to an opaque rows-8-11 tile by
+// shape; center/fallback = frame 129. Edges + inner corners verified clean.
+const WATER_BLOB_CENTER = 129;
+const WATER_BLOB = [132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,109,109,109,109,109,109,124,124,98,98,110,100,98,98,103,142,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,109,109,109,109,109,109,124,124,102,102,136,119,102,102,117,126,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,112,112,112,112,112,112,116,116,101,101,139,130,101,101,128,125,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,112,112,112,112,112,112,116,116,106,106,105,114,106,106,113,129];
+
+// === Sand 8-neighbour BLOB autotile (Godot grass↔sand band, rows 16-19) =====
+// Same scheme/method as WATER_BLOB, one band down the same 'autotiles' sheet.
+// Frames index the grass↔sand blob (rows 16-19, frames 192-239) — all opaque,
+// so no rows-filter needed. Sand cells round off against any non-sand neighbour
+// with a grass edge whose green is 0x479757 (matches COLORS[0]/the shore grass —
+// seamless sand↔grass). Beaches (sand↔water) get a thin grass/wet strip for now;
+// the dedicated water↔sand band (rows 28-31) is a later refinement.
+// Derived by tools (temp/sand_gen.py); center/fallback = frame 225 (all sand).
+const SAND_BLOB_CENTER = 225;
+const SAND_BLOB = [204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,205,205,205,205,205,205,220,220,206,206,206,196,206,206,199,238,204,204,204,204,204,204,204,204,211,211,211,227,211,211,211,227,205,205,205,205,205,205,220,220,232,232,232,215,232,232,213,222,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,208,208,208,208,208,208,212,212,235,235,235,226,235,235,224,221,204,204,204,204,204,204,204,204,211,211,211,227,211,211,211,227,208,208,208,208,208,208,212,212,201,201,201,210,201,201,209,225];
 
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
@@ -316,76 +346,6 @@ function drawRockTex(ctx, size, rng) {
 // sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
 // blade colours / shading next to the hand-painted wilderness art.)
 
-// === Procedural decorative flora ===
-// Tiny non-interactable sprites drawn on transparent 16×16 canvases.
-function drawFlora(ctx, kind, variant) {
-  ctx.clearRect(0, 0, 16, 16);
-  if (kind === 'flower') {
-    // Color per polygon (not per cell). Saturated primaries so a field of flowers
-    // reads as a single distinct color.
-    const palettes = [
-      { petal: '#ffe14a', center: '#c25400' },   // yellow
-      { petal: '#e23a3a', center: '#ffe46b' },   // red
-      { petal: '#4a82ff', center: '#ffe46b' },   // blue
-      { petal: '#b15cff', center: '#ffe46b' },   // purple
-    ];
-    const p = palettes[variant % palettes.length];
-    ctx.fillStyle = '#2e5a2e';
-    ctx.fillRect(8, 9, 1, 5);
-    ctx.fillStyle = p.petal;
-    ctx.fillRect(7, 5, 3, 2);
-    ctx.fillRect(7, 8, 3, 2);
-    ctx.fillRect(5, 6, 2, 3);
-    ctx.fillRect(10, 6, 2, 3);
-    ctx.fillStyle = p.center;
-    ctx.fillRect(8, 7, 1, 1);
-  } else if (kind === 'pebble') {
-    const sets = [
-      [[7,9,2,2],[10,11,2,1]],
-      [[6,10,3,2],[10,10,1,2],[11,11,1,1]],
-      [[8,11,2,1],[6,12,2,1]],
-    ];
-    const set = sets[variant % sets.length];
-    for (const [x, y, w, h] of set) {
-      ctx.fillStyle = '#000a';
-      ctx.fillRect(x, y + 1, w, 1);
-      ctx.fillStyle = '#7d736b';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#bcb5a7';
-      ctx.fillRect(x, y, w, 1);
-    }
-  } else if (kind === 'mushroom') {
-    const big = variant === 0;
-    const cx = 8, cy = big ? 9 : 10;
-    ctx.fillStyle = '#f5e8c6';
-    ctx.fillRect(cx, cy, big ? 2 : 1, big ? 3 : 2);
-    ctx.fillStyle = '#b8242c';
-    if (big) {
-      ctx.fillRect(cx - 2, cy - 2, 5, 2);
-      ctx.fillRect(cx - 1, cy - 3, 3, 1);
-    } else {
-      ctx.fillRect(cx - 1, cy - 1, 3, 1);
-      ctx.fillRect(cx, cy - 2, 1, 1);
-    }
-    ctx.fillStyle = '#fff';
-    if (big) { ctx.fillRect(cx - 1, cy - 2, 1, 1); ctx.fillRect(cx + 1, cy - 1, 1, 1); }
-    else { ctx.fillRect(cx, cy - 1, 1, 1); }
-  }
-}
-
-function makeFloraTextures(scene) {
-  const SPECS = { flower: 4, mushroom: 2 };
-  for (const [kind, n] of Object.entries(SPECS)) {
-    for (let v = 0; v < n; v++) {
-      const key = `flora_${kind}_${v}`;
-      if (scene.textures.exists(key)) continue;
-      const tex = scene.textures.createCanvas(key, 16, 16);
-      drawFlora(tex.getContext(), kind, v);
-      tex.refresh();
-    }
-  }
-}
-
 // Simple procedural castle turret — narrow stone column with crenellated top.
 // One 24×40 canvas, anchor at bottom-centre so it sits on its cell.
 function makeTowerTexture(scene) {
@@ -452,6 +412,92 @@ function makeTowerTexture(scene) {
   ctx.lineTo(bodyX + bodyW, bodyBot);
   ctx.closePath();
   ctx.stroke();
+  tex.refresh();
+}
+
+// Procedural "pot of gold" — the in-world art for the coin-burst POIs
+// (ATM + bicycle_parking). Tapping one of these spills a burst of collectible
+// coins, so a little cast-iron cauldron brimming with gold reads the mechanic
+// at a glance (and replaces the old tinted-chest stand-in flagged in render.js).
+// Single-frame canvas texture keyed 'potofgold'; the render spec leaves `frame`
+// undefined for it, exactly like the themed-house sprites.
+function makePotOfGoldTexture(scene) {
+  const KEY = 'potofgold';
+  if (scene.textures.exists(KEY)) return;
+  const W = 24, H = 22;
+  const tex = scene.textures.createCanvas(KEY, W, H);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, H);
+  const cx = 12;
+
+  // ── Cast-iron cauldron body ─────────────────────────────────────────
+  // A dark rounded pot drawn as an ellipse, with a belly highlight/shadow
+  // and three stubby feet so it reads as a pot rather than a blob.
+  const bodyCY = 14, bodyRX = 9, bodyRY = 7;
+  ctx.fillStyle = '#2b2b32';
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';   // left-belly highlight
+  ctx.beginPath();
+  ctx.ellipse(cx - 3, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';          // right-belly shadow
+  ctx.beginPath();
+  ctx.ellipse(cx + 4, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rim band + dark inner mouth (so the gold reads as overflowing the pot).
+  ctx.fillStyle = '#3b3b44';
+  ctx.beginPath();
+  ctx.ellipse(cx, 8, 9, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a1a1e';
+  ctx.beginPath();
+  ctx.ellipse(cx, 8, 7, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Three little feet.
+  ctx.fillStyle = '#1f1f24';
+  ctx.fillRect(cx - 7, 19, 3, 2);
+  ctx.fillRect(cx - 1, 20, 3, 2);
+  ctx.fillRect(cx + 4, 19, 3, 2);
+
+  // ── Gold pile overflowing the mouth ─────────────────────────────────
+  const gold = '#ffcf3a', goldHi = '#ffe98a', goldLo = '#e0a020';
+  ctx.fillStyle = gold;                        // base mound
+  ctx.beginPath();
+  ctx.ellipse(cx, 7, 8, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Rounded coin bumps on top — each is a low-shadow + body + highlight dot.
+  const coins = [
+    [cx - 4, 5, 2.4], [cx + 1, 4, 2.6], [cx + 5, 6, 2.2],
+    [cx - 1, 7, 2.2], [cx + 3, 8, 1.8],
+  ];
+  for (const [x, y, r] of coins) {
+    ctx.fillStyle = goldLo;
+    ctx.beginPath(); ctx.ellipse(x, y + 0.6, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = goldHi;
+    ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.25, r * 0.4, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // A couple of coins spilling down each side of the pot.
+  for (const [x, y] of [[cx - 8, 11], [cx + 9, 12]]) {
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.ellipse(x, y, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = goldHi;
+    ctx.beginPath(); ctx.ellipse(x - 0.4, y - 0.4, 0.8, 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Crisp dark outline along the lower belly for pixel-art pop (the top is
+  // hidden behind the gold, so only stroke the visible bottom arc).
+  ctx.strokeStyle = '#15151a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, Math.PI * 0.12, Math.PI * 0.88);
+  ctx.stroke();
+
   tex.refresh();
 }
 

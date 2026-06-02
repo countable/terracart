@@ -15,4 +15,11 @@ satextract/_merge_out.txt
 
 # Claude session-local state
 .claude/scheduled_tasks.lock
-.claude/worktrees/
+.claude/worktrees/tiles_cache/
+data/*_review.png
+data/trees_z20_min30.png
+
+# Generated satellite tile cache (satextract)
+tiles_cache/
+data/game_*.png
+data/g[0-9]*_*.png
