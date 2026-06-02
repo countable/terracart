@@ -1708,7 +1708,9 @@ class MapScene extends Phaser.Scene {
               this.collapseGhost();
               break;
             }
-            this.save.energy = Math.max(0, (this.save.energy ?? 0) - 1);
+            const beforeGhost = this.save.energy ?? 0;
+            this.save.energy = Math.max(0, beforeGhost - 1);
+            this._warnIfTiring(beforeGhost);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
           if (!this._bodyM) break;   // collapse happened inside inner loop
@@ -2173,6 +2175,7 @@ class MapScene extends Phaser.Scene {
           if (before > 0) {
             this.save.energy = Math.max(0, before - 3);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
+            this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
         }
@@ -3167,9 +3170,27 @@ class MapScene extends Phaser.Scene {
       if (sx != null && sy != null) this.flash('too tired', sx, sy);
       return false;
     }
-    this.save.energy = Math.max(0, (this.save.energy ?? 0) - cost);
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.max(0, before - cost);
+    this._warnIfTiring(before, sx, sy);
     this.updateEnergyDOM();
     return true;
+  }
+
+  // Reach shrinks by a cell once energy drops below 30% (see coords.js
+  // reachRadiusM). Flash a "getting tired" warning the first time a drain
+  // crosses that threshold so the smaller reach isn't a silent surprise.
+  // `before` is the energy reading just before the drain; sx/sy are optional
+  // and default to the view centre.
+  _warnIfTiring(before, sx, sy) {
+    // A Potion of Reach pins reach to the full view regardless of energy, so
+    // crossing the threshold doesn't actually shrink anything — stay quiet.
+    if ((this.save.reachPotionUntil ?? 0) > Date.now()) return;
+    const TIRED = 0.30 * (this.save.maxEnergy ?? 100);
+    if (before >= TIRED && (this.save.energy ?? 0) < TIRED) {
+      this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
+                                    sy != null ? sy : this.viewCenterY);
+    }
   }
 
   // Eat one of the selected food stack (consumes 1, restores FOOD_ENERGY[id]).
