@@ -4207,10 +4207,17 @@ class MapScene extends Phaser.Scene {
     if (!house?.id) return [];
     const dayKey = this._deliveryDayKey();
     if (house._wantedProduce && house._wantedProduceDay === dayKey) return house._wantedProduce;
-    const universe = (typeof ITEMS !== 'undefined')
+    let universe = (typeof ITEMS !== 'undefined')
       ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
       : [];
     if (!universe.length) return [];
+    // The player's first 3 lifetime deliveries ask for TIER-1 produce only, so
+    // the starter loop never demands a crop they can't yet grow. After that the
+    // usual _wantedTargetTier ramp takes over.
+    if ((this.save.deliveryCount ?? 0) < 3) {
+      const t1 = universe.filter(id => this._produceTier(id) <= 1);
+      if (t1.length) universe = t1;
+    }
     const rng = this.wantedProduceRng(house, dayKey);
     const count = 2 + Math.floor(rng() * 2);  // 2 or 3
     const target = this._wantedTargetTier();
