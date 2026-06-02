@@ -543,9 +543,12 @@ const ENERGY_COST = {
   till: 2,
   plant: 1,
   harvest: 1,
-  rockBreak: 10,         // mitigated by pick relic tier (see effectivePickCost)
+  rockBreak: 9,          // bare-handed; a Wood pick cuts it to 3 (effectivePickCost).
+                         // The in-world rock cost also scales with how far the rock
+                         // out-tiers your pick — see the rock-break handler.
   rockPlace: 1,
-  catch: 5,
+  catch: 9,              // bare-handed; a Wood bug net cuts it to 3 (effectiveCatchCost)
+  fish: 9,               // bare-handed cast; a Wood rod cuts it to 3 (effectiveFishCost)
   unTill: 0,
   pickup: 0,             // wildplants — free
   chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
@@ -702,23 +705,40 @@ function maxEnergyFromArmor(armor) {
   }
   return m;
 }
-// Pick relic: per-tier 15% reduction in cost/time, floor at 2.
-function effectivePickCost(relics) {
-  const eq = relics?.pick;
-  if (!eq) return ENERGY_COST.rockBreak;
-  return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
-}
-// Energy to fell a tree. Bare-handed cost is ENERGY_COST.chop (9) × the tree's
-// size multiplier (small/medium/full → ×1/2/4), so 9 / 18 / 36. An axe slashes
-// that: 66% off at tier 1, scaling linearly to 95% off at tier 7. Floored at 1.
-// `o` is the tree object (its size drives treeWoodMul).
-function effectiveChopCost(relics, o) {
-  const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
-  const base = ENERGY_COST.chop * sizeMul;
-  const tier = relics?.axe?.tier || 0;
+// Shared tool-tier energy discount for the "work" actions (chop / rock-break /
+// catch / fish). Bare hands (tier 0) pay the full base; a tier-1 (Wood) tool
+// knocks 66% off — so the spec's "9 bare-handed → 3 with a wooden tool" — and
+// the discount ramps linearly to 95% off at tier 7. Floored at 1 so even a
+// frost-tier tool never makes the work entirely free.
+function toolEnergyCost(base, tier) {
   if (!tier) return base;
   const off = 0.66 + (0.95 - 0.66) * (tier - 1) / 6;
   return Math.max(1, Math.round(base * (1 - off)));
+}
+// Pick relic: bare-handed rock-break is ENERGY_COST.rockBreak (9); a Wood pick
+// → 3, scaling to ~1 at tier 7. (The in-world handler additionally surcharges
+// rocks that out-tier your pick — this catalog value is the at-or-above-tier
+// baseline.)
+function effectivePickCost(relics) {
+  return toolEnergyCost(ENERGY_COST.rockBreak, relics?.pick?.tier || 0);
+}
+// Energy to fell a tree. Bare-handed cost is ENERGY_COST.chop (9) × the tree's
+// size multiplier (small/medium/full → ×1/2/4), so 9 / 18 / 36. An axe slashes
+// that on the shared curve: 66% off at tier 1 (small tree 9 → 3), to 95% off at
+// tier 7, floored at 1. `o` is the tree object (its size drives treeWoodMul).
+function effectiveChopCost(relics, o) {
+  const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
+  return toolEnergyCost(ENERGY_COST.chop * sizeMul, relics?.axe?.tier || 0);
+}
+// Bug Net: bare-handed catch is ENERGY_COST.catch (9); a Wood net → 3, scaling
+// to ~1 at tier 7. The net ALSO shortens the catch wheel (see toolDurationMs).
+function effectiveCatchCost(relics) {
+  return toolEnergyCost(ENERGY_COST.catch, relics?.bugnet?.tier || 0);
+}
+// Fishing Rod: bare-handed cast is ENERGY_COST.fish (9); a Wood rod → 3, scaling
+// to ~1 at tier 7. The rod ALSO speeds the cast and improves the catch table.
+function effectiveFishCost(relics) {
+  return toolEnergyCost(ENERGY_COST.fish, relics?.rod?.tier || 0);
 }
 // Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
 // floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free

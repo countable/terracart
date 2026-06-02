@@ -1120,11 +1120,26 @@ test('eating pairy arms chest compass for 5 minutes toward nearest unopened ches
 test('pick relic reduces rock-break energy cost', () => {
   const base = effectivePickCost(null);
   assert.eq(base, ENERGY_COST.rockBreak, 'no relic = base cost');
+  assert.eq(base, 9, 'bare-handed rock-break = 9');
   const t1 = effectivePickCost({ pick: { tier: 1 } });
   const t7 = effectivePickCost({ pick: { tier: 7 } });
-  assert.lt(t1, base, 'tier-1 pick cheaper than no pick');
+  assert.eq(t1, 3,    'wooden (tier-1) pick = 3');
   assert.lt(t7, t1,   'tier-7 pick cheaper than tier-1');
-  assert.gt(t7, 1,    'cost floors at 2 (not 0)');
+  assert.eq(t7, 1,    'cost floors at 1 (not 0)');
+});
+
+test('bug net reduces catch energy cost (9 bare-handed → 3 wooden)', () => {
+  assert.eq(effectiveCatchCost(null), 9, 'bare-handed catch = 9');
+  assert.eq(effectiveCatchCost({ bugnet: { tier: 1 } }), 3, 'wooden net = 3');
+  assert.lt(effectiveCatchCost({ bugnet: { tier: 7 } }),
+            effectiveCatchCost({ bugnet: { tier: 1 } }), 'tier-7 net cheaper than tier-1');
+});
+
+test('fishing rod reduces cast energy cost (9 bare-handed → 3 wooden)', () => {
+  assert.eq(effectiveFishCost(null), 9, 'bare-handed cast = 9');
+  assert.eq(effectiveFishCost({ rod: { tier: 1 } }), 3, 'wooden rod = 3');
+  assert.lt(effectiveFishCost({ rod: { tier: 7 } }),
+            effectiveFishCost({ rod: { tier: 1 } }), 'tier-7 rod cheaper than tier-1');
 });
 
 test('ring relic boosts loot tier roll (forced RNG)', () => {

@@ -642,7 +642,8 @@ const TAP_HANDLERS = [
       : (save.relics?.bugnet ? 3000 : 9000);
     // Catching costs energy (refunded if the player cancels the wheel; not
     // refunded if the animal escapes the player's reach — the attempt was made).
-    const catchCost = ENERGY_COST?.catch ?? 0;
+    const catchCost = (typeof effectiveCatchCost === 'function')
+      ? effectiveCatchCost(save.relics) : (ENERGY_COST?.catch ?? 0);
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
     scene.startCatchProgress(victim, catchMs, () => {
@@ -1417,7 +1418,9 @@ const TAP_HANDLERS = [
     // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier AND
     // improves the catch; bare hands fish at tier 0 (higher skunk rate, minnow-
     // heavy weights) so only owning a rod improves the catch (spec §FISHING).
-    if (!scene.spendEnergy(5, sx, sy)) return true;
+    const fishCost = (typeof effectiveFishCost === 'function')
+      ? effectiveFishCost(save.relics) : (ENERGY_COST?.fish ?? 9);
+    if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
     // the can up here as part of the cast so owning a rod never costs you your
     // watering charges. Bare-handed casts without a can simply skip this.
