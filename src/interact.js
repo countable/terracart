@@ -1065,12 +1065,13 @@ const TAP_HANDLERS = [
             return true;
           }
         }
-        // Energy scales with how far the rock out-tiers your pick: a flat 3 at
-        // (or above) the rock's own tier, +9 for every tier the rock sits above
-        // the pick. Plain rock counts as tier 1, so bare hands (tier 0) pay 9 —
-        // same as mining a regular tier-1 rock one tier above your tool.
+        // Energy is the shared tool-tier baseline (9 bare-handed → 3 Wood → 1
+        // Frost, probabilistic between via effectivePickCost) OR a +9-per-tier
+        // surcharge when the rock out-tiers your pick, whichever is greater.
+        // Plain rock counts as tier 1, so bare hands (tier 0) pay 9; a Frost
+        // pick on plain rock pays the 1 baseline.
         const rockTier = o.yieldTier || 1;
-        const cost = Math.max(3, 9 * (rockTier - pickTier));
+        const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
         if (!scene.spendEnergy(cost, sx, sy)) return true;
         const durMs = (typeof toolDurationMs === 'function')
           ? toolDurationMs(save.relics, 'pick')
