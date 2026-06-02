@@ -897,9 +897,11 @@ Render.drawObjects = function drawObjects(scene) {
     return 'wreck';
   };
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
-  // Three discrete in-game size tiers from the DeepForest crown size class.
-  // OSM trees (no size) fall back to crown_m, then the flat species scale.
-  const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
+  // Four discrete in-game size tiers from the DeepForest crown size class —
+  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees (no
+  // size) fall back to crown_m, then the flat species scale. (Authoritative
+  // copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
+  const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
@@ -980,12 +982,16 @@ Render.drawObjects = function drawObjects(scene) {
     // on every species sheet. Origin sits a touch above the very bottom
     // because the 64px frame includes a few px of empty space under the roots.
     tree:   { key: (o) => {
+                // Smallest crown tier renders as a bush, not a tree.
+                if (treeSizeClass(o) === 'bush') return 'bushes';
                 if (o.species === 'pine')     return 'pine_tree';
                 if (o.species === 'birch')    return 'birch_tree';
                 if (o.species === 'mahogany') return 'mahogany_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
+                // bushes.png frame 0 is the lush top-left green bush.
+                if (treeSizeClass(o) === 'bush') return 0;
                 if (o.species && o.species !== 'maple') return 3;
                 // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
                 // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
@@ -995,7 +1001,10 @@ Render.drawObjects = function drawObjects(scene) {
                 if (o.size) return 3;
                 return Phaser.Math.Clamp(o.variant || 2, 1, 3);
               },
-              origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
+              origin: (o) => {
+                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
+                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
+              },
               // Shared with the harvest gating in interact.js (util.treeScale)
               // so a tree's visual size and the axe tier it demands stay in
               // lockstep — bigger sprite, sturdier axe, more wood. treeScale
@@ -1003,7 +1012,10 @@ Render.drawObjects = function drawObjects(scene) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              scale:  (o) => treeScale(o),
+              // Bushes use the 48×48 bushes sheet — render at a fixed small
+              // scale (≈21px, comfortably inside one 32px cell) independent of
+              // the species/canopy tree scale. Larger tiers use treeScale.
+              scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
@@ -1015,6 +1027,9 @@ Render.drawObjects = function drawObjects(scene) {
               // gap scales with the sprite, so the smaller tier's foot lands
               // below the larger tiers' standing line. Lift it back up 3px.
               dyPx: (o) => {
+                // Bushes are short and centred on their cell — foot-anchor at
+                // the cell's front edge with no pine-class root padding.
+                if (treeSizeClass(o) === 'bush') return CELL_PX * 0.5;
                 const base = (o.species && o.species !== 'maple')
                   ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
                 return treeSizeClass(o) === 'small' ? base - 3 : base;

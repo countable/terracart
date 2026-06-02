@@ -1901,7 +1901,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=6')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=7')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();

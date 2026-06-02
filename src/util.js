@@ -47,9 +47,12 @@ const GOLDEN_TINT = 0xffd23a;
 // optional DeepForest crown_m) so it stays stable across reloads/re-rasterise
 // without storing anything. render.js scales the sprite by the SAME value, so
 // the visual size and the gameplay size never diverge.
-// Discrete DeepForest crown-size tiers (small/medium/large). Mirrors the
-// render.js fruit-tree spec so a tree's gameplay size and sprite size match.
-const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
+// Discrete DeepForest crown-size tiers. The smallest crowns ('bush') render as
+// bushes (see render.js); 'small'/'medium'/'large' are the three tree sizes
+// above. The multiplier feeds the gameplay/classification scale below — bushes
+// render off their own fixed scale in render.js, so this value just keeps a
+// bush classing below 'small' for any size-less fallback path.
+const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
 // Maples render 10% smaller than their canopy class at every size — pines (and
 // the other non-maple species) read as the generally larger tree. This is a
 // VISUAL-only factor: treeSizeClass keys off treeBaseScale (below) so a maple's
@@ -75,14 +78,16 @@ function treeScale(o) {
   return treeBaseScale(o) * (o.species === 'maple' ? MAPLE_VISUAL_MUL : 1);
 }
 // 'full' (needs an Iron axe, 4× wood) | 'medium' (Copper axe, 2× wood) |
-// 'small' (any axe, base wood). Golden trees are handled separately — they
-// need a Gold axe regardless of size.
+// 'small' (any axe, base wood) | 'bush' (smallest crowns — any axe, base wood,
+// rendered as a bush). Golden trees are handled separately — they need a Gold
+// axe regardless of size.
 function treeSizeClass(o) {
   // Detected trees carry a discrete DeepForest crown class — map it straight to
   // the gameplay class so the axe-tier gate tracks the SIZE, not the species
   // sprite scale (a maple's base 0.85 would otherwise push every 'small' maple
-  // up into 'medium'/'full'). small→small (Wood), medium→medium (Copper),
-  // large→full (Iron).
+  // up into 'medium'/'full'). bush→bush (Wood), small→small (Wood),
+  // medium→medium (Copper), large→full (Iron).
+  if (o.size === 'bush')   return 'bush';
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
@@ -93,14 +98,34 @@ function treeSizeClass(o) {
   if (s >= 0.62) return 'medium';
   return 'small';
 }
-// Axe tier required to fell a tree: Gold(4) for golden, Iron(3) for full,
-// Copper(2) for medium, any(1) for small. Wood is multiplied 4×/2×/1× to match.
+// Species shifts the felling difficulty on top of the size class. Pine is a
+// SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
+// HARDWOOD — one tier tougher. Every other species fells at its plain size
+// tier. (This only moves the axe gate; wood yield still tracks size below.)
+function treeSpeciesTierShift(o) {
+  if (o.species === 'pine')  return -1;   // softwood
+  if (o.species === 'maple') return +1;   // hardwood
+  return 0;
+}
+// Player-facing name for a tree species. Pine reads as "softwood", maple as
+// "hardwood"; other species keep their own name.
+function treeSpeciesName(o) {
+  if (o.species === 'pine')  return 'softwood';
+  if (o.species === 'maple') return 'hardwood';
+  return o.species || 'tree';
+}
+// Axe tier required to fell a tree: Gold(4) for golden, otherwise the size
+// tier — Iron(3) full, Copper(2) medium, any(1) small/bush — shifted by species
+// (softwood −1 / hardwood +1) and clamped to the 1–3 axe range. Wood is
+// multiplied 4×/2×/1× off the SIZE class, so yield ignores the species shift.
 function treeAxeReqTier(o) {
   if (isGolden(o.id, GOLDEN_RATE.tree)) return 4;
   const size = treeSizeClass(o);
-  return size === 'full' ? 3 : size === 'medium' ? 2 : 1;
+  const base = size === 'full' ? 3 : size === 'medium' ? 2 : 1;
+  return Math.max(1, Math.min(3, base + treeSpeciesTierShift(o)));
 }
 function treeWoodMul(o) {
   const size = treeSizeClass(o);
+  // bush & small both yield base (1×) wood; medium 2×, full (large) 4×.
   return size === 'full' ? 4 : size === 'medium' ? 2 : 1;
 }

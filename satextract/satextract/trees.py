@@ -107,10 +107,15 @@ def detect_trees(image, origin_px, zoom, score_thresh=0.30,
             arr, row["xmin"], row["ymin"], row["xmax"], row["ymax"])
         crown_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
 
-        # Size class from crown diameter (m)
-        if crown_m < 2.0:
+        # Size class from crown diameter (m). Four tiers: the smallest crowns
+        # render as bushes; the three larger tiers are the small/medium/large
+        # trees. Thresholds chosen to spread the observed crown distribution
+        # (min ~1.4 m, median ~2.5 m, max ~13 m) across all four buckets.
+        if crown_m < 1.8:
+            size = "bush"
+        elif crown_m < 2.5:
             size = "small"
-        elif crown_m < 3.5:
+        elif crown_m < 4.0:
             size = "medium"
         else:
             size = "large"

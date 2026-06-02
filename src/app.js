@@ -2870,7 +2870,7 @@ class MapScene extends Phaser.Scene {
     this.playerM.y = best.y - this.startWorldM.y + 4;
     this.gpsM = { x: this.playerM.x, y: this.playerM.y };
     this._ease = null;
-    this.flash(`→ ${best.species || 'tree'} (${this._indivTreeVisited.size}/${all.length})`,
+    this.flash(`→ ${treeSpeciesName(best)} (${this._indivTreeVisited.size}/${all.length})`,
                this.viewCenterX, this.viewCenterY - 40);
   }
 
