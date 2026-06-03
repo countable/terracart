@@ -58,6 +58,10 @@ const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
 // VISUAL-only factor: treeSizeClass keys off treeBaseScale (below) so a maple's
 // gameplay size / axe-tier / wood yield is unchanged by the shrink.
 const MAPLE_VISUAL_MUL = 0.90;
+// Maple's medium/large canopies still render ~10% oversized relative to the
+// other species at those sizes — knock an extra 10% off those two classes
+// only (stacks on MAPLE_VISUAL_MUL). Visual-only, like the factor above.
+const MAPLE_BIG_VISUAL_MUL = 0.90;
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
 // shrink. treeSizeClass thresholds against this so the size tiers stay stable.
 function treeBaseScale(o) {
@@ -74,8 +78,13 @@ function treeBaseScale(o) {
   return base * mul;
 }
 // Rendered sprite scale — the canopy size with the maple shrink folded in.
+// Maple gets the flat 10% shrink at every size, plus a further 10% on the two
+// biggest classes (medium/large) which still read oversized.
 function treeScale(o) {
-  return treeBaseScale(o) * (o.species === 'maple' ? MAPLE_VISUAL_MUL : 1);
+  if (o.species !== 'maple') return treeBaseScale(o);
+  const cls = treeSizeClass(o);
+  const bigMul = (cls === 'full' || cls === 'medium') ? MAPLE_BIG_VISUAL_MUL : 1;
+  return treeBaseScale(o) * MAPLE_VISUAL_MUL * bigMul;
 }
 // 'full' (needs an Iron axe, 4× wood) | 'medium' (Copper axe, 2× wood) |
 // 'small' (any axe, base wood) | 'bush' (smallest crowns — any axe, base wood,
