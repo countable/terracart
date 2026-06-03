@@ -1120,6 +1120,7 @@ const TAP_HANDLERS = [
           scene.addToInv(primaryBar, 1);
           // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
           let flashId = primaryBar;
+          let gemsFound = 0;
           const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['emerald', 'ruby'] };
           const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
           const gems = GEM_BY_TIER[t];
@@ -1127,13 +1128,21 @@ const TAP_HANDLERS = [
             const gemId = pickFromArray(gems);
             scene.addToInv(gemId, 1);
             flashId = gemId;
+            gemsFound++;
           }
           // T7 rocks have a bonus 25% chance for a second ruby on top.
           if (t === 7 && Math.random() < 0.25) {
             scene.addToInv('ruby', 1);
             flashId = 'ruby';
+            gemsFound++;
           }
           persistSave(save);
+          // Finding a gem is a rare score — fire the jackpot fanfare (banner +
+          // radiating stars) on top of the usual loot flash, sized to the gem
+          // count so a T7 double-ruby reads even bigger.
+          if (gemsFound >= 1 && typeof scene.flashJackpot === 'function') {
+            scene.flashJackpot(gemsFound);
+          }
           const item = ITEM_BY_ID[flashId];
           // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
           // showed a gem glyph instead of the mined bar/gem icon).
