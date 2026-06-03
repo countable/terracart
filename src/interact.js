@@ -1086,16 +1086,18 @@ const TAP_HANDLERS = [
           const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
           if (isPlain) {
             // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit)
-            // plus a small chance per tier of cracking open a sliver of ore.
-            // Per-tier probability is 1/(2*t²): T1 50 %, T2 12.5 %, T3
-            // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
-            // cave can yield multiple low-tier bars, while T7 lucky
-            // strikes stay genuinely rare (~1 in 100).
+            // and coal (the common byproduct), plus a small chance per tier of
+            // cracking open a sliver of ore. Ore rolls START at copper (t=2):
+            // BARS[1] and BARS[2] are both copper, so the old t=1 pass handed
+            // out copper 50 % of the time on top of t=2 — plain rock gave
+            // copper more than half the swings. Now per-tier P is 1/(2*t²) from
+            // copper: ~12.5 % copper, ~5.6 % iron, ~3.1 % gold … ~1 % frost.
+            // Independent rolls, so a lucky cave can still yield multiple bars.
             const qty = randInt(1, 3);
             scene.addToInv('rockfruit', qty);
-            if (Math.random() < 0.15) scene.addToInv('coal', 1);
+            if (Math.random() < 0.50) scene.addToInv('coal', 1);
             let flashId = 'rockfruit';
-            for (let t = 1; t <= 7; t++) {
+            for (let t = 2; t <= 7; t++) {
               if (Math.random() < 1 / (2 * t * t)) {
                 const bar = BARS[t];
                 if (bar) { scene.addToInv(bar, 1); flashId = bar; }
