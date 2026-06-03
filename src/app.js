@@ -183,6 +183,12 @@ const INDOOR_FULL_REST_S = 300;
 // building — a full bar in 90s (~3.3× the indoor rate). The hearth bonus: your
 // own place recovers you quickly. See isRestingAtHome + the rest loop in update.
 const HOME_FULL_REST_S = 90;
+// Resting near a lit campfire (burned from a coal on bare ground) refills the
+// bar outdoors, but slowly — a full bar in 6 min (slower than any building).
+// The trade-off: a fire also repels slimes nearby, so it makes a safe, slow
+// recovery spot out in the wild. See the fire-warmth block in update().
+const FIRE_FULL_REST_S = 360;
+const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Time-since-tab-close that grants the FULL energy bar back. Closing the tab
 // or backgrounding the app for an hour returns at 100% energy; shorter rests
 // are pro-rated linearly.
@@ -1856,6 +1862,42 @@ class MapScene extends Phaser.Scene {
         }
         this._restAccrueE = 0;
       }
+      // Campfire warmth: standing within FIRE_REST_R cells of a lit fire slowly
+      // restores energy — the same accumulator trick as indoor rest, but it
+      // works outdoors and is slower (FIRE_FULL_REST_S). Independent of the
+      // indoor/home rest above; a fire can't sit on a building cell so the two
+      // rarely overlap.
+      const fires = this.save.fires;
+      if (fires && fires.length && (this.save.energy ?? 0) < maxE) {
+        const FIRE_R2 = (FIRE_REST_R * this.cellM) * (FIRE_REST_R * this.cellM);
+        let nearFire = false;
+        for (const fr of fires) {
+          const dxf = fr.x - pWX, dyf = fr.y - pWY;
+          if (dxf * dxf + dyf * dyf < FIRE_R2) { nearFire = true; break; }
+        }
+        if (nearFire) {
+          this._fireAccrueE = (this._fireAccrueE || 0) + maxE * (dt / FIRE_FULL_REST_S);
+          const pip = Math.floor(this._fireAccrueE);
+          if (pip > 0) {
+            this._fireAccrueE -= pip;
+            const beforeE = this.save.energy ?? 0;
+            this.save.energy = Math.min(maxE, beforeE + pip);
+            const gainedE = this.save.energy - beforeE;
+            if (gainedE > 0) {
+              this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
+              const tnow = performance.now();
+              if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
+                this._splashEnergyGain(this._restSplashAccum);
+                this._restSplashAccum = 0;
+                this._restSplashNextT = tnow + 1200;
+              }
+            }
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
+          }
+        } else {
+          this._fireAccrueE = 0;
+        }
+      }
       // Stepping on a named path stone claims it. Memoised by absolute cell
       // index so we only do the lookup once per cell-change — without this
       // every frame inside the same cell would re-walk the pathNames map.
@@ -2478,6 +2520,19 @@ class MapScene extends Phaser.Scene {
             for (const sc of this.save.scarecrows) {
               const dxs = sc.x - tx, dys = sc.y - ty;
               if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
+            }
+            if (blocked) continue;
+          }
+          // Fire aversion (slime only) — a lit campfire repels slimes exactly
+          // like a scarecrow repels crows/deer: refuse any target within 4 m of
+          // an active fire, so slimes can't ooze into (or steal energy across)
+          // the warm ring around a campfire.
+          if (c.kind === 'slime' && this.save.fires && this.save.fires.length) {
+            const FR_R2 = (4 * this.cellM) * (4 * this.cellM);
+            let blocked = false;
+            for (const fr of this.save.fires) {
+              const dxf = fr.x - tx, dyf = fr.y - ty;
+              if (dxf * dxf + dyf * dyf < FR_R2) { blocked = true; break; }
             }
             if (blocked) continue;
           }

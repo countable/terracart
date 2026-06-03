@@ -818,6 +818,12 @@ Render.drawObjects = function drawObjects(scene) {
     o: { kind: '_scarecrow', x: sc.x, y: sc.y, id: `scarecrow_${sc.x.toFixed(2)}_${sc.y.toFixed(2)}` },
     dx: sc.x - pWorldX, dy: sc.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
+  // Placed campfires (burned from a coal) render like scarecrows — through the
+  // shared object pool so they depth-sort and clip with everything else.
+  const fireList = (scene.save.fires || []).map(fr => ({
+    o: { kind: '_fire', x: fr.x, y: fr.y, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` },
+    dx: fr.x - pWorldX, dy: fr.y - pWorldY,
+  })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
   // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
   // Hide objects that are temporarily gone:
@@ -848,6 +854,7 @@ Render.drawObjects = function drawObjects(scene) {
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
   for (const sc of scarecrowList) filteredObj.push(sc);
+  for (const fr of fireList) filteredObj.push(fr);
   filteredObj.sort((a, b) => a.dy - b.dy);
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
@@ -984,6 +991,13 @@ Render.drawObjects = function drawObjects(scene) {
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
     // small at, while still fitting inside its single cell (QC rule).
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455 },
+    // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
+    // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
+    // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
+    // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
+    _fire: { key: 'bonfire',
+             frame: () => Math.floor(performance.now() / 130) % 6,
+             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk

@@ -1085,8 +1085,8 @@ const TAP_HANDLERS = [
           // bar. Higher tiers still get bonus gems on top via the GEM table.
           const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
           if (isPlain) {
-            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit)
-            // and coal (the common byproduct), plus a small chance per tier of
+            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit),
+            // coal on ~20 % of breaks, plus a small chance per tier of
             // cracking open a sliver of ore. Ore rolls START at copper (t=2):
             // BARS[1] and BARS[2] are both copper, so the old t=1 pass handed
             // out copper 50 % of the time on top of t=2 — plain rock gave
@@ -1095,7 +1095,7 @@ const TAP_HANDLERS = [
             // Independent rolls, so a lucky cave can still yield multiple bars.
             const qty = randInt(1, 3);
             scene.addToInv('rockfruit', qty);
-            if (Math.random() < 0.50) scene.addToInv('coal', 1);
+            if (Math.random() < 0.20) scene.addToInv('coal', 1);
             let flashId = 'rockfruit';
             for (let t = 2; t <= 7; t++) {
               if (Math.random() < 1 / (2 * t * t)) {
@@ -1314,6 +1314,36 @@ const TAP_HANDLERS = [
       save.scarecrows.push({ x: cwmx, y: cwmy });
     },
     flashMsg: '🪦 The scarecrow watches.',
+  })},
+
+  // 2-extinguish-fire) Tap a placed campfire (any tap, any selection) to put it
+  // out. The coal already burned, so there's no refund — this just clears the
+  // cell. Runs before light-fire so tapping a fire never stacks a second one.
+  { name: 'extinguish-fire', try: (ctx) => {
+    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const arr = save.fires = save.fires || [];
+    const half = scene.cellM / 2;
+    const idx = arr.findIndex(f => Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    if (idx < 0) return false;
+    arr.splice(idx, 1);
+    ctx.dirty = true;
+    scene.flash('🔥 out', sx, sy);
+    return true;
+  }},
+
+  // 2-light-fire) With coal selected, burn it to light a campfire on an empty
+  // bare (tillable) cell. The fire repels slimes within 4 m — the same way a
+  // scarecrow repels crows/deer — and slowly restores energy to anyone resting
+  // near it (see app.js). Coal is consumed; the fire persists until tapped out.
+  { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
+    itemId: 'coal',
+    extraGuard: ({ save, cwmx, cwmy }) =>
+      !(save.fires || []).some(f => Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
+    place: ({ save, cwmx, cwmy }) => {
+      save.fires = save.fires || [];
+      save.fires.push({ x: cwmx, y: cwmy });
+    },
+    flashMsg: '🔥 The fire crackles.',
   })},
 
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.

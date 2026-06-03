@@ -131,6 +131,10 @@ const ASSETS = {
   // Lush round bushes — 144×288 = 3 cols × 6 rows of 48×48 frames. Replaces
   // the old bare-twig Props.png frame as the in-world shrub wildplant art.
   bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 48 },
+  // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
+  // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
+  // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
+  bonfire:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bonfire.png', frameWidth: 16, frameHeight: 32 },
   // Terrains autotile sheet — 512×368 = 32 cols × 23 rows of 16×16 frames.
   // Copied out of the gitignored Sprites/1_Terrains_16x16.png dump into tracked
   // Objects/Terrains_16x16.png (same convention as the Wilderness art above).
