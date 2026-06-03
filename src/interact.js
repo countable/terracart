@@ -18,17 +18,13 @@
 //                  reach constants (REACH_*).
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
 //   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
-//   loot.js      — pickTreasure, pickLoot, rusticifyName, WILD_TREASURE
+//   loot.js      — POI_CATEGORY, chestTier, rusticifyName, WILD_TREASURE
+//   rarity.js    — pickReward, rollGearUpgrade
 //   save.js      — persistSave
 //
 // Exports as globals:
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
-
-// Two object-position points within this squared screen-pixel distance are
-// treated as the same world object (de-dupes overlapping POI/tree/chest sprites
-// when the player taps a busy corner). 40² = ~1.25 cells at CELL_PX=32.
-const TAP_DEDUPE_R2 = 40 * 40;
 
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
 // splice it out and clamp selSlot so it still points at a valid slot. Used by
@@ -45,24 +41,60 @@ function consumeSelected(save, n = 1) {
   }
 }
 
-// Nearest item in a WorldGen layer to (px, py) within reachM that passes
+// Unique id for an animal/slime released (or tamed) at a spot. `extra`
+// disambiguates a batch released in the same tick (the per-item index).
+function releasedId(kind, extra) {
+  const tail = extra === undefined ? '' : `_${extra}`;
+  return `released_${kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}${tail}`;
+}
+
+// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is 0.1 for
+// an exact snapped-center match, or cellHalfM to accept anything overlapping.
+const inPlantedCell = (p, cwmx, cwmy, eps) =>
+  Math.abs(p.x - cwmx) < eps && Math.abs(p.y - cwmy) < eps;
+
+// Gate a feeding action behind a "Feed <food> to the <fauna>?" confirmation.
+// `doFeed` performs the actual feed AND must persist its own state: it runs
+// asynchronously from the modal callback, after interactTap has already
+// returned (so the ctx.dirty → persistSave path no longer applies). When the
+// scene can't show the modal (headless/test scene) or we're in TEST_MODE, the
+// feed runs immediately so the deterministic test suite stays synchronous.
+function confirmFeed(scene, foodId, faunaKind, doFeed) {
+  const canModal = typeof scene.showFeedConfirm === 'function'
+    && !(typeof window !== 'undefined' && window.__TEST_MODE);
+  if (!canModal) { doFeed(); return; }
+  scene.showFeedConfirm({ foodId, faunaKind, onConfirm: doFeed });
+}
+
+// Nearest item in a WorldGen layer to (px, py) within reach that passes
 // `accept`, or null. Centralizes the bestD2 scan every "tap the closest X"
 // handler repeats. `accept` may be omitted to consider all items.
-function findClosestItem(layer, px, py, reachM, accept) {
-  let best = null, bestD2 = reachM * reachM;
+// `reach` is either a fixed radius (m) or a function(item) → radius, so a
+// layer with differently-sized items (e.g. a cow vs a chicken) can gate each
+// item by its own footprint instead of one flat disk.
+function findClosestItem(layer, px, py, reach, accept) {
+  let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (accept && !accept(item)) return;
+    const r = typeof reach === 'function' ? reach(item) : reach;
     const d2 = distM2(item.x, item.y, px, py);
-    if (d2 < bestD2) { bestD2 = d2; best = item; }
+    if (d2 <= r * r && d2 < bestD2) { bestD2 = d2; best = item; }
   });
   return best;
 }
 
 // Shared "too far to reach from the player's cell" guard. Flashes and returns
-// true when (x, y) is beyond REACH_FAR_M of the player cell centre, so callers
-// do `if (tooFar(ctx, x, y)) return 'far';`.
+// true when (x, y) is beyond the player's reach radius (measured from the
+// player cell centre), so callers do `if (tooFar(ctx, x, y)) return 'far';`.
+// The radius is the SAME shrine/energy-scaled value the lit silhouette and
+// cell-tap gate use (coords.js reachRadiusM) — never the old fixed 16 m — so
+// growing your reach at the shrine extends object/creature/treasure taps too,
+// and the lit area stays the tappable area. Falls back to REACH_FAR_M only if
+// the helper is somehow unavailable.
 function tooFar(ctx, x, y) {
-  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > REACH_FAR_M * REACH_FAR_M) {
+  const reachM = (typeof reachRadiusM === 'function')
+    ? reachRadiusM(ctx.scene) : REACH_FAR_M;
+  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
     ctx.scene.flash('Just out of reach.', ctx.sx, ctx.sy);
     return true;
   }
@@ -87,6 +119,54 @@ const TERRAIN = {
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
 };
 
+// GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
+// HALF the time (spec §cells: "grassland biome cells till in half the time").
+const GRASSLAND_TILL = new Set([
+  WorldGen.T.GRASS, WorldGen.T.PARK, WorldGen.T.SCHOOL, WorldGen.T.PLAYGROUND,
+  WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
+]);
+
+// Equip a relic or armor reward from a chest / fishing jackpot. Mutates save
+// and calls scene.markRelicsDirty. Caller is responsible for persistence
+// (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
+function equipGearReward(reward, save, scene) {
+  if (reward.kind === 'armor') {
+    save.armor = save.armor || {};
+    if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
+      const oldMax = scene.getMaxEnergy();           // capture BEFORE mutating armor
+      save.armor[reward.slot] = { tier: reward.tier };
+      const newMax = maxEnergyFromArmor(save.armor);
+      const bump = Math.max(0, newMax - oldMax);
+      save.maxEnergy = newMax;
+      save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
+    } else {
+      save.armor[reward.slot] = { tier: reward.tier };
+    }
+  } else {
+    save.relics = save.relics || {};
+    save.relics[reward.slot] = { tier: reward.tier };
+  }
+  scene.markRelicsDirty?.();
+}
+
+// Shared work-queue launcher for tool-driven interactions (chop, mine, pick).
+// Looks up the correct duration from toolDurationMs (falling back to 9s
+// bare-hands / 3s T1 if the helper isn't available), optionally pre-spends
+// energy (returning true without starting if the player can't afford it),
+// then starts the progress wheel. Always returns true (consumed the tap).
+//   relicSlot  — the relic key passed to toolDurationMs ('axe', 'pick', etc.)
+//   energyCost — energy to spend up-front (0 / falsy = free)
+//   onComplete — callback fired when the wheel finishes
+function startToolWork(ctx, x, y, relicSlot, energyCost, onComplete) {
+  const { scene, save, sx, sy } = ctx;
+  const durMs = (typeof toolDurationMs === 'function')
+    ? toolDurationMs(save.relics, relicSlot)
+    : (save.relics?.[relicSlot] ? 3000 : 9000);
+  if (energyCost && !scene.spendEnergy(energyCost, sx, sy)) return true;
+  scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0, relicSlot);
+  return true;
+}
+
 // Shared "drop a held item onto an empty tillable cell" path for the
 // place-scarecrow / place-rock handlers — they were ~95% identical (same
 // tilled/occupied guards, same 0.1m overlap epsilon against save.planted,
@@ -108,7 +188,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
         isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
         (!extraGuard || extraGuard(ctx)) &&
-        !save.planted.some(p => Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1))) {
+        !save.planted.some(p => inPlantedCell(p, cwmx, cwmy, 0.1)))) {
     return false;
   }
   if (energyKey && !scene.spendEnergy(ENERGY_COST?.[energyKey] ?? 0, sx, sy)) return true;
@@ -164,6 +244,17 @@ const TAP_HANDLERS = [
       });
       return true;
     }
+    if (sel.id === 'reach_potion') {
+      scene.showOfferModal({
+        title: 'Drink the Potion of Reach?',
+        get: '✨ full-screen reach for 1 min',
+        cost: `1× ✨ Potion of Reach`,
+        canAfford: true,
+        acceptLabel: 'Drink',
+        onAccept: () => scene.drinkReachPotion(),
+      });
+      return true;
+    }
     return false;
   }},
 
@@ -181,24 +272,18 @@ const TAP_HANDLERS = [
       if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
-      // Starter crates carry a fixed `starterLoot` payload (5 wood / 5
-      // rockfruit) so the player gets a deterministic head start on the
-      // first restoration. Skip the rarity picker for these and synthesize
-      // the same shape pickReward returns so the rest of the flash /
-      // accept logic keeps working.
-      let reward;
-      if (tr.starterLoot) {
-        reward = { kind: 'item', id: tr.starterLoot.id, qty: tr.starterLoot.qty, jackpot: 0, consolation: 0 };
-      } else {
-        reward = (typeof pickReward === 'function')
-          ? pickReward('treasure:default', save) : null;
-      }
+      const reward = (typeof pickReward === 'function')
+        ? pickReward('treasure:default', save) : null;
       if (!reward) {
         // Shouldn't happen — context exists — but bail safely if rarity.js
         // is missing or the pool is empty.
         addMoney(save, 1);
         scene.flashLoot('✕ → $1', '#ffd96b');
       } else if (reward.kind === 'item') {
+        // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
+        if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
+          reward.qty += LOW_TIER_SEED_QTY_BONUS;
+        }
         scene.addToInv(reward.id, reward.qty);
         const item = ITEM_BY_ID[reward.id];
         const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;
@@ -241,8 +326,8 @@ const TAP_HANDLERS = [
   // selected inventory slot:
   //
   //   FAVOURITE FOOD                 → catch (consumes 1, spends energy).
-  //                                    chicken→rainberry, cow→pairy,
-  //                                    cat→milk, dog→egg.
+  //                                    chicken→any seed, cow→pairy,
+  //                                    cat→milk or any fish, dog→meat.
   //   PLANT PRODUCE on chicken/cow   → feed for produce: consume the
   //                                    plant, gain 1 egg (chicken) or
   //                                    1 milk (cow). Any crop produce or
@@ -262,117 +347,118 @@ const TAP_HANDLERS = [
   // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const target = findClosestItem('creatures', wm.x, wm.y, REACH_CREATURE_M,
+    // Per-kind tap radius (m), scaled to each animal's on-ground footprint
+    // rather than a flat 4 m disk that made even a chicken tappable a whole
+    // cell away. Bigger animals (cow/deer) keep a larger grab; small ones
+    // (chicken/rabbit/butterfly) tighten up. Mirrors the render scales in
+    // render.js (cow 1.5 > deer/crow 1.3 > chicken 1.2 > rabbit footprint).
+    const CREATURE_TAP_R = {
+      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7, slime: 1.7,
+      chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
+    };
+    const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
+    const target = findClosestItem('creatures', wm.x, wm.y, creatureTapR,
       (c) => !save.caught.includes(c.id));
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
-    // and the lit reach indicator). The 4m REACH_CREATURE_M above is tap-
+    // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-
     // forgiveness measured from the TAP point, not the player — without this a
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
     // the reach outline ⇔ tap-accept invariant (QC §7).
     if (tooFar(ctx, target.x, target.y)) return 'far';
-    // Wilderness creatures: rabbit has no relic gate; deer needs ANY weapon
-    // relic equipped (sword / bow / staff — hunting is hunting); crow /
-    // butterfly require the Bug Net. Drops are a fixed loot id, not the
-    // kind name, so we handle inventory + caught tracking inline instead of
-    // routing through scene.catchCreature (which is wired for the
-    // favourite-food chicken/cow yield logic). Bug Net tier discounts catch
-    // energy: 5 → max(1, 5 - tier).
-    //
-    // Catching adds the live animal itself to the inventory — not a derived
-    // product (the player can decide later whether to process the animal
-    // into meat / pelt / feather). The animal id matches target.kind so the
-    // catalog needs deer/rabbit/crow/butterfly entries with kind:'animal'.
-    const WILDERNESS_KINDS = new Set(['deer', 'rabbit', 'crow', 'butterfly']);
-    if (WILDERNESS_KINDS.has(target.kind)) {
-      // Two tap modes for wilderness fauna, by KIND:
-      //
-      //   crow + deer   →  HUNT with a weapon (sword / bow / staff). Tap
-      //                    drops a processed product (feather / meat). With
-      //                    no weapon equipped, the creature gets SCARED and
-      //                    flees the player for 60 s — wanderCreatures
-      //                    honours _scaredUntilT.
-      //   butterfly     →  CATCH alive with the bug net (kept in the inv
-      //                    as a live animal).
-      //   rabbit        →  CATCH alive bare-handed, no relic gate.
-      const r = save.relics || {};
-      const hasWeapon = !!(r.sword || r.bow || r.staff);
-      const isHuntable = target.kind === 'crow' || target.kind === 'deer';
-      if (isHuntable) {
-        if (!hasWeapon) {
-          // Scare the creature instead of catching it — it flees for SCARE_MS
-          // (wanderCreatures inverts its angle toward the player while
-          // _scaredUntilT is in the future), then drifts back home.
-          //
-          // For CROWS this is a flock "shoo": the tapped bird AND every other
-          // wild crow within SHOO_R scatters at once. Scaring a single crow
-          // felt useless — the rest of the flock kept circling the field and
-          // the pest-pump refilled the gap within seconds — so one tap now
-          // clears the whole neighbourhood. SCARE_MS (90 s) matches the
-          // pest-respawn interval so a shoo buys a full quiet window.
-          const SCARE_MS = 90 * 1000;
-          const until = performance.now() + SCARE_MS;
-          target._scaredUntilT = until;
-          let shooed = 1;
-          if (target.kind === 'crow') {
-            const SHOO_R2 = (6 * scene.cellM) * (6 * scene.cellM);
-            WorldGen.forEachItem('creatures', (other) => {
-              if (other === target || other.kind !== 'crow') return;
-              if (typeof other.id === 'string' && other.id.startsWith('released_')) return;
-              if (save.caught.includes(other.id)) return;
-              const dx = other.x - target.x, dy = other.y - target.y;
-              if (dx * dx + dy * dy <= SHOO_R2) { other._scaredUntilT = until; shooed++; }
-            });
-          }
-          const msg = target.kind === 'crow'
-            ? (shooed > 1 ? `🪶 flock scatters ×${shooed}` : '🪶 runs away')
-            : '🦌 runs away';
-          scene.flash(msg, sx, sy);
-          ctx.dirty = true;
-          return true;
-        }
-        // Successful hunt — pick one of the player's equipped weapons at
-        // random for the on-screen "swing" flash. Looks like a quick
-        // animated tap of the actual relic the player is holding.
-        const weapons = [];
-        if (r.sword) weapons.push('🗡');
-        if (r.bow)   weapons.push('🏹');
-        if (r.staff) weapons.push('🪄');
-        const wepIcon = pickFromArray(weapons) || '⚔';
-        const cost = Math.max(1, (ENERGY_COST?.catch ?? 0));
-        if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const dropId = target.kind === 'crow' ? 'crow_feather' : 'meat';
-        save.caught.push(target.id);
-        save.caughtKinds = save.caughtKinds || {};
-        save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-        scene.addToInv(dropId, 1);
-        ctx.dirty = true;
-        // Two-line flash: weapon icon "swung" at the target, then the drop
-        // label slightly above it. flashLoot already tweens upward + fades.
-        scene.flash(wepIcon, sx, sy);
-        const item = ITEM_BY_ID[dropId];
-        scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
-        return true;
-      }
-      // Bug-net path for butterflies; bare-handed catch for rabbits.
-      const isFlying = target.kind === 'butterfly';
-      if (isFlying && !save.relics?.bugnet) {
-        scene.flash('It flits away on the breeze.', sx, sy);
-        return true;
-      }
-      const baseCost = ENERGY_COST?.catch ?? 0;
-      const bugnetTier = save.relics?.bugnet?.tier || 0;
-      const energyCost = Math.max(1, baseCost - bugnetTier);
-      if (!scene.spendEnergy(energyCost, sx, sy)) return true;
-      save.caught.push(target.id);
-      save.caughtKinds = save.caughtKinds || {};
-      save.caughtKinds[target.kind] = (save.caughtKinds[target.kind] || 0) + 1;
-      scene.addToInv(target.kind, 1);
-      ctx.dirty = true;
-      const item = ITEM_BY_ID[target.kind];
-      scene.flashLoot(`+1 ${item?.name || target.kind}`, '#ffe066', 1, target.kind);
+
+    // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
+    // (livestock, cats/dogs, even pests like slimes / crows / deer) befriends
+    // it in place instead of catching or fighting. Checked before the slime /
+    // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
+    // (id starts with 'released_') skip this and fall through to petting.
+    const _isReleased = typeof target.id === 'string' && target.id.startsWith('released_');
+    const _mangoSel = getSelectedSlot(save);
+    if (!_isReleased && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+      const doMangoTame = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        if (!save.caught.includes(target.id)) save.caught.push(target.id);
+        const tx2 = Math.floor(target.x / scene.tileEdgeM);
+        const ty2 = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = releasedId(target.kind);
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx: tx2, ty: ty2, shiny: !!target.shiny });
+        target.id = tameId;   // convert the in-world creature in place → now tame
+        scene.flashLoot(`🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1.2, 'mango');
+        persistSave(save);
+      };
+      confirmFeed(scene, 'mango', target.kind, doMangoTame);
       return true;
     }
+
+    // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED via a work
+    // queue rather than caught alive. A weapon (sword / bow / staff) speeds
+    // the kill up by tier; bare-handed still works but is a long slog. On
+    // completion the creature is removed from the world (marked caught) and
+    // drops its product if it has one (crow → feather, deer → meat; slimes
+    // drop nothing — they're just an energy pest). The defeat is FREE (no
+    // energy spent): your TIME at the work wheel IS the cost, which also means
+    // you can still kill the very slime that's draining you when low on energy.
+
+    // Secret: slime can be tamed with a sapphire (hinted only via book tips).
+    // Checked before DEFEAT_KINDS so the sapphire path wins over the work queue.
+    if (target.kind === 'slime') {
+      const selNow = getSelectedSlot(save);
+      if (selNow?.id === 'sapphire' && (selNow.count ?? 0) > 0) {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        if (!save.caught.includes(target.id)) save.caught.push(target.id);
+        const tx2 = Math.floor(target.x / scene.tileEdgeM);
+        const ty2 = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = releasedId('slime');
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: 'slime', id: tameId, tx: tx2, ty: ty2 });
+        target.id = tameId;
+        ctx.dirty = true;
+        scene.flashLoot('💎 slime tamed!', '#aa88ff', 1.2, 'sapphire');
+        return true;
+      }
+    }
+
+    const DEFEAT_KINDS = new Set(['slime', 'crow', 'deer']);
+    if (DEFEAT_KINDS.has(target.kind)) {
+      const r = save.relics || {};
+      const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
+      const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
+      const weaponSlot = weaponTier > 0 ? bestWeapon : null;
+      // Weapon uses the shared spec tool ladder via toolDurationMs (wood 3s …
+      // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
+      const durMs = (typeof toolDurationMs === 'function')
+        ? toolDurationMs(r, weaponSlot)
+        : (weaponTier > 0 ? Math.max(300, 3000 - (weaponTier - 1) * 450) : 9000);
+      const victim = target;
+      const dropId = victim.kind === 'crow' ? 'crow_feather'
+                   : victim.kind === 'deer' ? 'meat'
+                   : null;
+      scene.startWorkProgress(victim.x, victim.y, () => {
+        save.caught.push(victim.id);
+        if (dropId) {
+          scene.addToInv(dropId, 1);
+          const item = ITEM_BY_ID[dropId];
+          scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+        } else {
+          scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
+        }
+        persistSave(save);
+        // Rare shiny deer / crow — hunted fauna drop their product (meat /
+        // feather), so there's no live shiny animal to keep, but the shiny
+        // find still pays the 10× money + discovery bonus with fanfare.
+        if (victim.shiny && dropId) {
+          scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
+        }
+      }, durMs, 0, weaponSlot);
+      return true;
+    }
+    // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
+    // the unified tame-or-catch logic below: favourite food TAMES (befriends in
+    // place); an empty hand starts the CATCH work queue. Slimes/crows/deer were
+    // defeated above and never reach here.
     const sel = getSelectedSlot(save);
     // ANIMAL_FOOD is keyed by creature kind. The catalog now stores either a
     // single string ('rainberry') or an array of accepted ids (e.g. cats take
@@ -383,11 +469,9 @@ const TAP_HANDLERS = [
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
     // "Plant produce" = anything tagged kind:'produce' that came from a plant
-    // — farmed crops carry an `item.crop` ref; longgrass too; the bare
-    // 'flowers' pickup is a wild plant with no .crop but still plant-origin.
+    // — farmed crops carry an `item.crop` ref; longgrass too.
     // Excludes egg / milk (also kind:'produce' but they're animal-source).
-    const isPlantProduce = selItem && selItem.kind === 'produce'
-      && (!!selItem.crop || sel.id === 'flowers');
+    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
 
     // ── TAME PETS — released animals (id starts with 'released_'). Tame
     // pets never get "yuck'd"; tapping them with any item (or none) plays
@@ -396,7 +480,15 @@ const TAP_HANDLERS = [
     // double chance, and — for cats — kicks off a 5-minute follow timer
     // the wander loop honours.
     const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
-    if (isTame) {
+    // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
+    // produce path below — that's where milk / eggs are granted and where the
+    // petting boost armed here is consumed. Without this exception the isTame
+    // block swallows every tap, so a tame cow/chicken only ever gets petted and
+    // never produces (the reported "cow gives no milk when fed" bug). Petting
+    // with an empty hand or a non-produce treat still runs the pet branch.
+    const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
+      && (target.kind === 'cow' || target.kind === 'chicken');
+    if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
       const sound = SOUND[target.kind] || 'happy';
@@ -407,39 +499,64 @@ const TAP_HANDLERS = [
         && sel && animalLikesFood(target.kind, sel.id);
       const isTreat = sel && (sel.count ?? 0) > 0
         && (likesTame || isPlantProduce);
-      target._pettedUntilT = performance.now() + 10 * 60 * 1000;
-      // Mirror the boost expiry into the save as EPOCH ms (keyed by creature
-      // id, like save.lastProduce). Creatures are re-spawned from tile data on
-      // every reload and lose their in-memory _pettedUntilT (which is a
-      // performance.now value that also resets to ~0 on reload), so the produce
-      // path below reads this persisted copy — otherwise the +50% double-yield
-      // silently never survived a tile change or restart.
-      save.petBoost = save.petBoost || {};
-      save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
-      if (target.kind === 'cat') {
-        target._followUntilT = performance.now() + 5 * 60 * 1000;
-      }
-      // Arming the boost is state worth persisting even when the pet was pet
-      // empty-handed (no treat consumed).
-      ctx.dirty = true;
+      // Pet the animal: arm the +50% double-yield boost and (for treats) eat
+      // the held item. Both the in-memory timer and a persisted EPOCH-ms mirror
+      // are set — creatures are re-spawned from tile data on every reload and
+      // lose their in-memory _pettedUntilT (a performance.now value that also
+      // resets to ~0 on reload), so the produce path below reads the persisted
+      // copy; otherwise the boost would silently never survive a tile change.
+      const doPet = () => {
+        target._pettedUntilT = performance.now() + 10 * 60 * 1000;
+        save.petBoost = save.petBoost || {};
+        save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
+        if (target.kind === 'cat') {
+          target._followUntilT = performance.now() + 5 * 60 * 1000;
+        }
+        if (isTreat) {
+          consumeSelected(save);
+          scene.buildInventoryDOM();
+        }
+        scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
+        persistSave(save);
+      };
+      // A treat is FED → confirm what's going to the pet first. An empty-handed
+      // (or non-treat) pet consumes nothing, so it stays instant.
       if (isTreat) {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
+        confirmFeed(scene, sel.id, target.kind, doPet);
+      } else {
+        doPet();
       }
-      scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
       return true;
     }
 
-    // 1. Favourite → catch. animalLikesFood handles the chicken-eats-any-
-    // seed special case so the catch check (built from ANIMAL_FOOD) doesn't
-    // have to enumerate every crop_seed id.
+    // 1. Favourite food → TAME (befriend in place), NOT catch. Converts the
+    // wild animal into a tame 'released_' pet at its spot: it stays in the
+    // world, becomes pettable / produces / follows, but does NOT enter your
+    // inventory. Capturing-into-inventory is the separate CATCH work queue
+    // below. animalLikesFood handles the chicken-eats-any-seed special case.
+    // Guarded on !isTame so an already-tame cow fed its favourite (pairy, which
+    // is also plant produce) doesn't re-tame — it falls through to milk instead.
     const likes = (typeof animalLikesFood === 'function') && sel
       && animalLikesFood(target.kind, sel.id);
-    if (sel && likes && (sel.count ?? 0) > 0) {
-      if (!scene.spendEnergy(ENERGY_COST?.catch ?? 0, sx, sy)) return true;
-      consumeSelected(save);
-      scene.buildInventoryDOM();
-      scene.catchCreature(target, sx, sy);
+    if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
+      const favId = sel.id;
+      const doTame = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        // Stop the wild one respawning, then re-add it as a tame pet at the same
+        // spot so the bond persists across reloads (mirrors the release handler).
+        const oldId = target.id;
+        if (!save.caught.includes(oldId)) save.caught.push(oldId);
+        const tx = Math.floor(target.x / scene.tileEdgeM);
+        const ty = Math.floor(target.y / scene.tileEdgeM);
+        const tameId = releasedId(target.kind);
+        save.released = save.released || [];
+        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny });
+        target.id = tameId;   // convert the in-world object in place → now tame
+        scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
+        persistSave(save);
+      };
+      confirmFeed(scene, favId, target.kind, doTame);
       return true;
     }
     // 2. Plant produce → produce (chicken / cow only). Recently-petted
@@ -462,60 +579,78 @@ const TAP_HANDLERS = [
         save.lastProduce = save.lastProduce || {};
         const lastT = save.lastProduce[target.id] || target._lastProduceT || 0;
         if (now - lastT < PRODUCE_COOLDOWN_MS) {
-          // Still on cooldown — refuse without consuming the produce.
+          // Still on cooldown — refuse without consuming the produce. Bail
+          // before the confirm dialog so we don't ask about a feed that can't
+          // happen yet.
           const remainMs = PRODUCE_COOLDOWN_MS - (now - lastT);
           const mins = Math.max(1, Math.ceil(remainMs / 60000));
           const verb = target.kind === 'chicken' ? 'laid' : 'milked';
           scene.flash(`already ${verb} (${mins}m)`, sx, sy);
           return true;
         }
-        consumeSelected(save);
-        // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
-        // and fall back to the in-memory timer for boosts armed this session.
-        save.petBoost = save.petBoost || {};
-        const petted = (save.petBoost[target.id] || 0) > Date.now()
-          || (target._pettedUntilT && target._pettedUntilT > performance.now());
-        const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
-        if (petted) {                            // consume the boost (both copies)
-          delete save.petBoost[target.id];
-          target._pettedUntilT = 0;
-        }
-        scene.addToInv(yieldId, yieldN);
-        scene.buildInventoryDOM();
-        scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
-        // Stamp the cooldown on the creature (in-memory) AND in the save
-        // (survives tile reload + game restart).
-        target._lastProduceT = now;
-        save.lastProduce[target.id] = now;
-        ctx.dirty = true;
+        const feedId = sel.id;
+        const doFeed = () => {
+          consumeSelected(save);
+          // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
+          // and fall back to the in-memory timer for boosts armed this session.
+          save.petBoost = save.petBoost || {};
+          const petted = (save.petBoost[target.id] || 0) > Date.now()
+            || (target._pettedUntilT && target._pettedUntilT > performance.now());
+          const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
+          if (petted) {                            // consume the boost (both copies)
+            delete save.petBoost[target.id];
+            target._pettedUntilT = 0;
+          }
+          scene.addToInv(yieldId, yieldN);
+          scene.buildInventoryDOM();
+          scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+          // Stamp the cooldown on the creature (in-memory) AND in the save
+          // (survives tile reload + game restart). Re-read the clock here since
+          // the confirm dialog may have sat open for a while.
+          const stamp = Date.now();
+          target._lastProduceT = stamp;
+          save.lastProduce[target.id] = stamp;
+          persistSave(save);
+        };
+        confirmFeed(scene, feedId, target.kind, doFeed);
         return true;
       }
     }
-    // 3. Any other food → yuck. Wasted bite.
+    // 3. Any other food → yuck. Wasted bite. Confirm first so a stray tap
+    // doesn't silently burn a food item the animal won't even accept.
     if (sel && isEdible && (sel.count ?? 0) > 0) {
-      consumeSelected(save);
-      scene.buildInventoryDOM();
-      scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, sel.id);
-      ctx.dirty = true;
+      const yuckId = sel.id;
+      const doYuck = () => {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, yuckId);
+        persistSave(save);
+      };
+      confirmFeed(scene, yuckId, target.kind, doYuck);
       return true;
     }
-    // 4. Hint — give each species its own short flavoured cue so the wild
-    // hint reads as the animal's own behaviour, not a system requirement.
-    // Cats list milk first so "Sniffs for milk." reads cleanly; chickens
-    // accept ANY seed so theirs is "Cluck-cluck — wants seed."; everything
-    // else falls back to the generic "Eyes a X…".
-    let hint;
-    if (target.kind === 'chicken') {
-      hint = 'Cluck-cluck — wants seed.';
-    } else if (target.kind === 'cat') {
-      hint = 'Sniffs for milk.';
-    } else if (target.kind === 'dog') {
-      hint = 'Eyes meat hungrily…';
-    } else {
-      const wantName = wantPrimary ? (ITEM_BY_ID[wantPrimary]?.name || wantPrimary) : 'food';
-      hint = `Eyes a ${wantName}…`;
-    }
-    scene.flash(hint, sx, sy);
+    // 4. CATCH via work queue. Reached with an empty hand (or any non-food,
+    // non-favourite selection) — favourite food TAMED above, edible food was
+    // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
+    // (startCatchProgress); if it stays outside the player's reach for 1 s the
+    // catch fails (butterflies: 3× faster flee, 2 s grace). A Bug Net shortens
+    // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
+    // that a slow target usually slips out of reach and escapes. Butterflies
+    // catch bare-handed too — no tool gate.
+    const catchMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'bugnet')
+      : (save.relics?.bugnet ? 3000 : 9000);
+    // Catching costs energy (refunded if the player cancels the wheel; not
+    // refunded if the animal escapes the player's reach — the attempt was made).
+    const catchCost = (typeof effectiveCatchCost === 'function')
+      ? effectiveCatchCost(save.relics) : (ENERGY_COST?.catch ?? 0);
+    if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
+    const victim = target;
+    scene.startCatchProgress(victim, catchMs, () => {
+      scene.catchCreature(victim, sx, sy);
+    }, () => {
+      scene.flash('🏃 it got away', scene.viewCenterX, scene.viewCenterY - 60);
+    }, 'bugnet', catchCost);
     return true;
   }},
 
@@ -555,32 +690,18 @@ const TAP_HANDLERS = [
         persistSave(save);
         if (bonus) scene.flashLoot(`${outId}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(`+1 ${outId}`, undefined, 1, outId);
+        // Rare shiny flora — 10× money + a discovery point, on top of the
+        // normal pickup, with fanfare.
+        if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
       };
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
       if (reqRelic) {
-        // Duration scales with tool tier (10s bare → 3s wood → 0.5s frost),
-        // same curve for both pick and axe slots.
-        const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, reqRelic)
-          : (save.relics?.[reqRelic] ? 3000 : 10000);
-        scene.startWorkProgress(wp.x, wp.y, award, durMs);
+        startToolWork(ctx, wp.x, wp.y, reqRelic, 0, award);
       } else {
         award();
         ctx.dirty = true;
       }
-      return true;
-    }
-    // 1a') Pick the polygon flower CLOSEST to the tap within REACH_WILDPLANT_M.
-    const bestF = findClosestItem('objects', wm.x, wm.y, REACH_WILDPLANT_M,
-      (o) => o.kind === 'flora' && o.deco === 'flower' && !pickedSet.has(o.id));
-    if (bestF) {
-      const o = bestF;
-      if (tooFar(ctx, o.x, o.y)) return 'far';
-      save.picked = [...pickedSet, o.id];
-      scene.addToInv('flowers', 1);
-      ctx.dirty = true;
-      scene.flashLoot(`+1 🌼 flowers`);
       return true;
     }
     return false;
@@ -637,30 +758,67 @@ const TAP_HANDLERS = [
       const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
       return ao - bo;
     });
-    const seenTapByIdent = new Map();
+    // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
+    // is identical to what's drawn. Sharing the same cell key (chest ids are cell-snapped)
+    // avoids the order-dependent "see a crate but can't tap it" mismatch.
+    // The till handler below treats an object as "occupied" whenever its FOOT
+    // sits in the tapped cell — a cell-shaped target. The reach test here is a
+    // circle of radius REACH_OBJECT_M (3.5m) around the foot, measured from the
+    // raw tap. The two disagree at the corners: a tap near the far corner of an
+    // object's own 5m cell is ~3.54m from the foot, just past 3.5m, so the
+    // object falls through and till reports "occupied: chest" even though you
+    // clearly tapped it. Compute the tapped cell once so the open-test can also
+    // accept any object whose foot shares the tapped cell — symmetric with the
+    // occupied-guard, no more "tapped the chest but it won't open".
+    const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
+    const seenTapCell = new Set();
     const isDupTapChest = (o) => {
-      const ident = o.name || o.poiClass;
-      if (!ident) return false;
-      let list = seenTapByIdent.get(ident);
-      if (list) {
-        for (const p of list) {
-          if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < TAP_DEDUPE_R2) return true;
-        }
-      } else {
-        list = [];
-        seenTapByIdent.set(ident, list);
-      }
-      list.push({ x: o.x, y: o.y });
+      // scene.cellM, NOT this.cellM: these handlers are arrow fns defined at
+      // module top level, so `this` is the global object (window) here, not the
+      // scene — `this.cellM` was undefined, making every key "NaN_NaN". That
+      // collapsed ALL loaded chests to one dedupe key, so only the first chest
+      // iterated stayed tappable and every other chest fell through to the till
+      // handler's "occupied: chest" flash. Mirror render.js, which uses scene.cellM.
+      const k = Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
+      if (seenTapCell.has(k)) return true;
+      seenTapCell.add(k);
       return false;
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // Shrine + house/tower share the wider house-sized reach: their sprites
-      // are taller than the default 3.5m hit zone (fountain is ~9m tall in
-      // world units), so a tap on the visible top of the sprite would otherwise
-      // miss-and-fall-through to the till handler under it.
-      const r = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || o.kind === 'well') ? REACH_HOUSE_M : REACH_OBJECT_M;
-      if (distM2(o.x, o.y, wm.x, wm.y) >= r * r) continue;
+      // are taller than the default 3.5m hit zone, so a tap on the visible top
+      // of the sprite would otherwise miss-and-fall-through to the till handler
+      // under it. Wells are deliberately NOT here — they must activate on their
+      // own cell only (a tap on the cell above should not trigger them).
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine');
+      const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
+      // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
+      // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
+      // north of the foot — rather than the foot itself. This lets a tap on the
+      // visible body of a SMALL/MEDIUM house (whose footprint is only 1-2 cells,
+      // all tucked under the roof) activate it, instead of missing the 6m foot
+      // circle and falling through to the till handler.
+      const oy = tallSprite ? o.y - HOUSE_HIT_RISE_M : o.y;
+      // Accept the tap if it lands within the sprite's reach circle OR anywhere
+      // in the object's own cell (so corner taps don't fall through to the till
+      // "occupied" guard). Opened chests are excluded from the cell-fallback so
+      // their cell stays tillable — the till guard skips them too, and a tap
+      // right on one still flashes "Picked clean already" via the reach circle.
+      const withinReach = distM2(o.x, oy, wm.x, wm.y) < r * r;
+      let inTapCell = false;
+      if (!withinReach && !(o.kind === 'chest' && openedSetTap.has(o.id))) {
+        const oc = worldMetersToAbsCell(scene, o.x, o.y);
+        const sameCol = oc.cellIX === tapCell.cellIX;
+        inTapCell = sameCol && oc.cellIY === tapCell.cellIY;
+        // A castle/tower turret rises tall above its foot cell — let a tap on
+        // the empty cell directly ABOVE (north of) the turret activate it too.
+        // North is toward smaller world-y → smaller cellIY (see coords.js).
+        if (!inTapCell && o.kind === 'tower') {
+          inTapCell = sameCol && tapCell.cellIY === oc.cellIY - 1;
+        }
+      }
+      if (!withinReach && !inTapCell) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (o.kind === 'groundstack') {
         // Already-picked stacks are filtered out at render time, but the
@@ -689,99 +847,89 @@ const TAP_HANDLERS = [
           // (defensive — keeps these POIs usable if app.js is out of sync).
         }
         if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
-        // A chest the player previously opened but LEFT FOR LATER (bag was full)
-        // remembers exactly what it rolled: reopen serves that same loot, and we
-        // skip the relic re-roll below so leaving-and-reopening can't fish for a
-        // better drop.
+        // A chest previously left-for-later has its exact loot saved in
+        // chestHold; reopening replays that same roll. Fresh opens go through
+        // pickReward which handles items AND relics (biome-specific weights).
         const held = save.chestHold && save.chestHold[o.id];
-        // 10% chance to roll a relic reward instead of normal loot. The picker
-        // is biased by the chest's TIER (lowtier → wood, flora → frost) and
-        // gated by player harvests/cow catch. If the rolled slot/tier would be
-        // an upgrade → equip it. Otherwise → half its gold value as a
-        // consolation (player always gets something useful).
-        if (!held && Math.random() < 0.10) {
-          const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
-          const reward = (typeof pickChestRelic === 'function')
-            ? pickChestRelic(undefined, save, save.relics, chestT, save.armor)
-            : null;
-          if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-            const kind = reward.kind;
-            if (kind === 'armor') {
-              save.armor = save.armor || {};
-              save.armor[reward.slot] = { tier: reward.tier };
-              // Armor bumps maxEnergy — bring current energy along by the
-              // delta so the new ceiling isn't just a future-cap.
-              if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
-                const newMax = maxEnergyFromArmor(save.armor);
-                const bump = Math.max(0, newMax - scene.getMaxEnergy());
-                save.maxEnergy = newMax;
-                save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
-              }
-            } else {
-              save.relics[reward.slot] = { tier: reward.tier };
-            }
-            scene.markRelicsDirty?.();
-            save.opened.push(o.id);
-            ctx.dirty = true;
-            const name = (typeof gearName === 'function')
-              ? gearName(kind, reward.slot, reward.tier)
-              : `${reward.slot} T${reward.tier}`;
-            const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML(kind, reward.slot, reward.tier, 64)
-              : '★';
-            scene.showChestRewardModal({
-              iconHTML, name, sub: 'equipped', color: '#ffe066',
-            });
-            return true;
-          }
-          if (reward?.kind === 'gold') {
-            addMoney(save, reward.amount);
-            save.opened.push(o.id);
-            ctx.dirty = true;
-            const gearKind = reward.gearKind || 'relic';
-            const name = (typeof gearName === 'function')
-              ? gearName(gearKind, reward.slot, reward.tier)
-              : `${reward.slot} T${reward.tier}`;
-            const iconHTML = scene.gearIconHTML
-              ? scene.gearIconHTML(gearKind, reward.slot, reward.tier, 64)
-              : '★';
-            scene.showChestRewardModal({
-              iconHTML, name: `+$${reward.amount}`,
-              sub: `${name} (already owned)`, color: '#ffd96b',
-            });
-            return true;
-          }
-          // reward is null (no allowed tiers — very early game) — fall through.
+        const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+        const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+        const result = held
+          ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
+          // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9
+          // potato seeds) so the first restoration loop is deterministic —
+          // skip the rarity picker and synthesize the same item shape it
+          // returns, then fall through to the normal item/modal path below.
+          : (o.fixedLoot
+              ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
+              : ((typeof pickReward === 'function')
+                  ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                  : null));
+        if (!result) {
+          addMoney(save, 1);
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          scene.flash('Chest had nothing useful.', sx, sy);
+          return true;
         }
-        const loot = held ? { id: held.id, n: held.n }
-                          : pickLoot(undefined, o.poiClass, save.relics);
-        const lootName = (ITEM_BY_ID[loot.id]?.name || loot.id).toString();
-        const lootColor = tierInfo(loot.id).color;
+        if (result.consolation > 0) addMoney(save, result.consolation);
+        if (result.kind === 'relic' || result.kind === 'armor') {
+          // A chest gear roll can yield a relic OR armor (armor is just another
+          // gear slot). equipGearReward handles both — armor also bumps max/cur
+          // energy by the delta.
+          equipGearReward(result, save, scene);
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          const name = (typeof gearName === 'function')
+            ? gearName(result.kind, result.slot, result.tier)
+            : `${result.slot} T${result.tier}`;
+          const iconHTML = scene.gearIconHTML
+            ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
+          scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: '#ffe066' });
+          return true;
+        }
+        if (result.kind === 'gold') {
+          // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
+          save.opened.push(o.id);
+          ctx.dirty = true;
+          addMoney(save, result.amount || 0);
+          const gearKind = result.gearKind || 'relic';
+          const name = (typeof gearName === 'function')
+            ? gearName(gearKind, result.slot, result.tier)
+            : `${result.slot} T${result.tier}`;
+          const iconHTML = scene.gearIconHTML
+            ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
+          scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa' });
+          return true;
+        }
+        // kind === 'item'
+        const lootId  = result.id;
+        const lootQty = result.qty;
+        const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
+        const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : '#ffe066';
         // Chest loot gets the full ceremony modal — quick-feedback flashLoot
         // is reserved for X-marks / harvest / mining (cheap repeating rewards).
-        const iconHTML = scene.iconSpanHTML
-          ? scene.iconSpanHTML(loot.id, 64) : '';
-        const qtyLabel = loot.n > 1 ? `× ${loot.n}` : null;
+        const iconHTML = scene.iconSpanHTML ? scene.iconSpanHTML(lootId, 64) : '';
+        const qtyLabel = lootQty > 1 ? `× ${lootQty}` : null;
         // If the loot won't fully fit, don't silently drop the overflow — let the
         // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
         // (chest kept, its exact contents remembered in save.chestHold). Modal
         // buttons fire after this handler returns, so they persist themselves.
-        const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(loot.id) : Infinity;
-        if (loot.n > room) {
+        const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
+        if (lootQty > room) {
           scene.showChestRewardModal({
             iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
             sub: room > 0
-              ? `Bag full — room for only ${room} of ${loot.n}.`
+              ? `Bag full — room for only ${room} of ${lootQty}.`
               : 'Your bag is full.',
             actions: [
               { label: 'Leave for later', primary: true, onClick: () => {
                 save.chestHold = save.chestHold || {};
-                save.chestHold[o.id] = { id: loot.id, n: loot.n };
+                save.chestHold[o.id] = { id: lootId, n: lootQty };
                 persistSave(save);
                 scene.flash?.('Left it in the chest.', sx, sy);
               } },
               { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
-                if (room > 0) scene.addToInv(loot.id, loot.n);   // takes `room`; bag-full flash covers the rest
+                if (room > 0) scene.addToInv(lootId, lootQty);
                 save.opened.push(o.id);
                 if (save.chestHold) delete save.chestHold[o.id];
                 persistSave(save);
@@ -791,13 +939,11 @@ const TAP_HANDLERS = [
           return true;
         }
         // Fits fully — take it and empty the chest.
-        scene.addToInv(loot.id, loot.n);
+        scene.addToInv(lootId, lootQty);
         save.opened.push(o.id);
         if (save.chestHold) delete save.chestHold[o.id];
         ctx.dirty = true;
-        scene.showChestRewardModal({
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-        });
+        scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
         return true;
       }
       if (o.kind === 'well') {
@@ -821,19 +967,32 @@ const TAP_HANDLERS = [
         // cell — let the next handler claim the tap instead of consuming it
         // with a 'stump' flash that the player can't act on.
         if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
-        if (!save.relics?.axe) { scene.flash('Bare hands. The bark holds.', sx, sy); return true; }
-        const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, 'axe') : 3000;
-        scene.startWorkProgress(o.x, o.y, () => {
+        // Bigger trees need a sturdier axe and pay out proportionally more
+        // wood: full-size → Iron axe (4× wood), medium → Copper (2×), small /
+        // bush → any axe (base). Softwood (pine) fells one tier easier,
+        // hardwood (maple) one tier harder (clamped to the axe range). Rare
+        // shiny trees demand a Gold axe whatever their size. An axe below the
+        // required tier just bounces with a hint.
+        const reqTier = treeAxeReqTier(o);
+        const axeTier = save.relics?.axe?.tier || 0;
+        if (axeTier < reqTier) {
+          const need = TIER_BY_NUM[reqTier]?.name || 'better';
+          scene.flash(`Need a ${need} axe to fell this ${treeSpeciesName(o)} tree.`, sx, sy);
+          return true;
+        }
+        const woodMul = treeWoodMul(o);
+        const chopCost = (typeof effectiveChopCost === 'function')
+          ? effectiveChopCost(save.relics, o) : 0;
+        return startToolWork(ctx, o.x, o.y, 'axe', chopCost, () => {
           o.chopped = true;
           save.chopped = save.chopped || [];
           if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
-          // Trees drop 2-3 wood logs (more generous than the shrub's 1).
-          scene.addToInv('wood', randInt(2, 3));
+          scene.addToInv('wood', randInt(2, 3) * woodMul);
           persistSave(save);
-          scene.flash('🌲 Felled.', sx, sy);
-        }, durMs);
-        return true;
+          scene.flash(`🌲 Felled ${treeSpeciesName(o)} tree.`, sx, sy);
+          // Rare shiny tree — 10× wood value in cash + a discovery point.
+          if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
+        });
       }
       if (o.kind === 'house' || o.kind === 'tower') {
         scene.shopInteract(sx, sy, o);
@@ -850,16 +1009,34 @@ const TAP_HANDLERS = [
         return true;
       }
       if (o.kind === 'fruittree') {
-        const pickedSet = new Set(save.picked || []);
-        if (pickedSet.has(o.id)) {
-          scene.flash('Not ripe yet — give it time.', sx, sy);
+        const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
+        // A planted sapling can't be harvested until it has matured (reached
+        // its fruiting stage). ~12 min sprout→fruit (4 × 3-min stages).
+        if (o.planted) {
+          const FRUIT_STAGE_MS = 3 * 60 * 1000;
+          const elapsed = Date.now() - (o.planted_t || 0);
+          if (elapsed < 4 * FRUIT_STAGE_MS) {
+            const minsLeft = Math.max(1, Math.ceil((4 * FRUIT_STAGE_MS - elapsed) / 60000));
+            scene.flash(`Still growing — ${minsLeft}m`, sx, sy);
+            return true;
+          }
+        }
+        save.fruitPicked = save.fruitPicked || {};
+        const pickedAt = save.fruitPicked[o.id];
+        if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
+          const msLeft = FRUIT_RESPAWN_MS - (Date.now() - pickedAt);
+          const hrsLeft = Math.ceil(msLeft / 3600000);
+          const left = hrsLeft > 1 ? `${hrsLeft}h` : `${Math.max(1, Math.ceil(msLeft / 60000))}m`;
+          scene.flash(`Picked — ripe again in ${left}`, sx, sy);
           return true;
         }
-        save.picked = [...pickedSet, o.id];
+        save.fruitPicked[o.id] = Date.now();
         scene.addToInv(o.species, randInt(1, 2));
         ctx.dirty = true;
         const item = ITEM_BY_ID[o.species];
         scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
+        // Rare shiny fruit tree — 10× fruit value in cash + a discovery point.
+        if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus(o.species, sx, sy);
         return true;
       }
       if (o.kind === 'mineralrock') {
@@ -870,45 +1047,46 @@ const TAP_HANDLERS = [
         // hit this branch in practice; keep the guard for taps that race a
         // render frame or hit a stale object reference.)
         if (scene.brokenRockSet.has(o.id)) return true;
-        const pickTier = save.relics?.pick?.tier || 0;
         const isCave = o.caveVariant != null;
-        if (pickTier < o.requiredTier) {
-          // Flavour: name the player's CURRENT pick (the one that's too
-          // weak) rather than telling them what tier they'd need. Player
-          // already feels the "this one isn't enough" — naming their tool
-          // makes the failure read like an in-world moment instead of a
-          // game-system error.
-          let msg;
-          if (pickTier <= 0) {
-            msg = 'Bare hands just bounce off.';
-          } else {
-            const tName = (typeof TIER_BY_NUM !== 'undefined')
-              ? (TIER_BY_NUM[pickTier]?.name || `T${pickTier}`)
-              : `T${pickTier}`;
-            msg = `${tName} pick just bounces off.`;
+        // "Plain rock" = a cave rock OR a T1 deposit. Both render as the vanilla
+        // rock sprite and drop rockfruit (stone), not a bar — ore proper starts
+        // at copper (T2). Plain rock is bare-hand-breakable and ungated.
+        const isPlain = isCave || (o.yieldTier || 1) <= 1;
+        const pickTier = save.relics?.pick?.tier || 0;
+        // Pick-tier gate on ORE rocks (T2+): copper-bearing rock needs a Wood
+        // pick, and every fancier ore needs a pick one tier below its own
+        // (requiredTier = max(1, yieldTier-1), set in worldgen). Pickaxe tier
+        // ALSO affects SPEED (toolDurationMs: 9s bare → 0.3s frost).
+        if (!isPlain) {
+          const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
+          if (pickTier < reqTier) {
+            const need = TIER_BY_NUM[reqTier]?.name || 'better';
+            scene.flash(`Need a ${need} pick to mine this ore.`, sx, sy);
+            return true;
           }
-          scene.flash(msg, sx, sy);
-          return true;
         }
-        // Cave rocks are plain — quick (3s) and cheap (10 energy). Ore
-        // rocks scale work + cost by their YIELD tier (the richer the
-        // rock, the harder it is to crack open).
-        const tierForWork = isCave ? 1 : (o.yieldTier || 1);
-        const cost = 10 + (tierForWork - 1) * 4;
+        // Energy is the shared tool-tier baseline (9 bare-handed → 3 Wood → 1
+        // Frost, probabilistic between via effectivePickCost) OR a +9-per-tier
+        // surcharge when the rock out-tiers your pick, whichever is greater.
+        // Plain rock counts as tier 1, so bare hands (tier 0) pay 9; a Frost
+        // pick on plain rock pays the 1 baseline.
+        const rockTier = o.yieldTier || 1;
+        const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
         if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const durMs = (3 + (tierForWork - 1) * 1) * 1000;
+        const durMs = (typeof toolDurationMs === 'function')
+          ? toolDurationMs(save.relics, 'pick')
+          : (save.relics?.pick ? 3000 : 9000);
         scene.startWorkProgress(o.x, o.y, () => {
           scene.brokenRockSet.add(o.id);
           save.brokenRocks = [...scene.brokenRockSet];
-          // Bar lookup is shared between the cave-rock lucky-strike and the
-          // ore-rock primary drop. Slot 0 is unused (tier index starts at 1).
-          // T1/T2 → copper, T3 → iron, T4-T7 → gold (platinum / crimson /
-          // frost bars are blacksmith-smelting only — high-tier rocks just
-          // pay out gold + extra gems via the GEM table below).
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'gold_bar', 'gold_bar', 'gold_bar'];
-          if (isCave) {
-            // Plain cave rock — primarily stone (1-3 rockfruit) plus a
-            // small chance per tier of cracking open a sliver of ore.
+          // Bar lookup is shared between the plain-rock lucky-strike and the
+          // ore-rock primary drop. Slot 0/1 are unused for the primary drop
+          // (ore starts at copper = T2); each tier T2+ yields its OWN namesake
+          // bar. Higher tiers still get bonus gems on top via the GEM table.
+          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+          if (isPlain) {
+            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit)
+            // plus a small chance per tier of cracking open a sliver of ore.
             // Per-tier probability is 1/(2*t²): T1 50 %, T2 12.5 %, T3
             // ~5.6 %, T4 ~3.1 % … T7 ~1 %. Independent rolls so a lucky
             // cave can yield multiple low-tier bars, while T7 lucky
@@ -960,7 +1138,7 @@ const TAP_HANDLERS = [
           // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
           // showed a gem glyph instead of the mined bar/gem icon).
           scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
-        }, durMs, cost);   // cost = refund if the player cancels mid-mine
+        }, durMs, cost, 'pick');   // cost = refund if the player cancels mid-mine
         return true;
       }
     }
@@ -1047,12 +1225,17 @@ const TAP_HANDLERS = [
       scene.flash("can't release here", sx, sy);
       return true;
     }
+    // Shiny animals release as their plain kind (so the world creature
+    // renders + behaves normally) but carry a shiny flag so they tint gold and
+    // re-catch back into the shiny stack.
+    const baseKind = item.base || item.id;
+    const isShinyItem = !!item.shiny;
     // Chickens are flock animals — one "release" drops a clutch of 4 hens, so
     // you need at least 4 in the stack to place any. Cows (and any future
     // non-flock animal) still release one at a time.
-    const flockSize = item.id === 'chicken' ? 4 : 1;
+    const flockSize = baseKind === 'chicken' ? 4 : 1;
     if ((sel.count ?? 0) < flockSize) {
-      scene.flash(`Need ${flockSize} ${item.id}s for a flock.`, sx, sy);
+      scene.flash(`Need ${flockSize} ${item.name || item.id}s for a flock.`, sx, sy);
       return true;
     }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
@@ -1067,9 +1250,9 @@ const TAP_HANDLERS = [
       const angle = (i / flockSize) * Math.PI * 2;
       const ox = flockSize === 1 ? 0 : Math.cos(angle) * SPREAD;
       const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
-      const id = `released_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1e6)}_${i}`;
-      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id, tx, ty });
-      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: item.id, id });
+      const id = releasedId(baseKind, i);
+      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, tx, ty, shiny: isShinyItem });
+      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, shiny: isShinyItem });
     }
     consumeSelected(save, flockSize);
     ctx.dirty = true;
@@ -1133,55 +1316,33 @@ const TAP_HANDLERS = [
     flashMsg: '🪨 Stone set.',
   })},
 
-  // 2-rock) Tap a natural rock cell → break it. Requires a pickaxe relic;
-  // costs energy (mitigated by pick tier).
-  { name: 'rock', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    if (cell.type !== TERRAIN.ROCK) return false;
-    if (scene.brokenRockSet.has(cellKey)) {
-      scene.flash('Rubble — nothing salvageable.', sx, sy);
-      return true;
-    }
-    // No pickaxe? Bare-handed mining still works — it just takes ~3× longer.
-    // Bare hands: 10s · Wood: 3s · Copper: 2.25s · Iron: 1.5s · floor 0.5s.
-    // Energy cost is unchanged (pick tier already discounts via
-    // effectivePickCost).
-    const cost = (typeof effectivePickCost === 'function')
-      ? effectivePickCost(save.relics) : (ENERGY_COST?.rockBreak ?? 0);
-    if (!scene.spendEnergy(cost, sx, sy)) return true;
-    const durMs = (typeof pickDurationMs === 'function')
-      ? pickDurationMs(save.relics)
-      : (save.relics?.pick ? 3000 : 10000);
-    scene.startWorkProgress(cwmx, cwmy, () => {
-      scene.brokenRockSet.add(cellKey);
-      save.brokenRocks = [...scene.brokenRockSet];
-      const r = Math.random();
-      let msg = '💥 broken';
-      // Cumulative probability table — rarer rewards come first so each
-      // bucket adds its own slice. ~30% of rocks now drop coal/gems.
-      if (r < 0.002)        { scene.addToInv('emerald', 1);          msg = '💥 → ✨ emerald'; }
-      else if (r < 0.008)   { scene.addToInv('ruby', 1);              msg = '💥 → ✨ ruby'; }
-      else if (r < 0.025)   { scene.addToInv('sapphire', 1);          msg = '💥 → ✨ sapphire'; }
-      else if (r < 0.030)   { scene.addToInv('gemfruit', 1);          msg = '💥 → ✨ gemfruit'; }
-      else if (r < 0.040)   { addMoney(save, 25); msg = '💥 → $25'; }
-      else if (r < 0.060)   { scene.addToInv('gemfruit_seed', 1);     msg = '💥 → gemfruit seed'; }
-      else if (r < 0.130)   { addMoney(save,  5); msg = '💥 → $5'; }
-      else if (r < 0.430)   { scene.addToInv('coal', randInt(1, 2)); msg = '💥 → coal'; }
-      else if (r < 0.700)   { scene.addToInv('rockfruit_seed', 1);    msg = '💥 → rock seed'; }
-      persistSave(save);
-      scene.flash(msg, sx, sy);
-    }, durMs, cost);   // cost = refund if the player cancels mid-break
-    return true;
-  }},
-
-  // 2a) Tap a planted cell → harvest / advance / water / nag.
+  // 2a) Tap a planted cell → harvest / advance / water / stage readout.
   { name: 'planted', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    // Match against the whole CELL the tap lands in (same half-cell epsilon the
+    // till path uses below), not a tight 0.1m epsilon. A planted cell must
+    // always be handled here so a tap on an immature crop reports its growth
+    // stage — it must never fall through to the till path's "occupied:" message.
+    const cellHalfM = scene.cellM / 2;
     const plantedIdx = save.planted.findIndex(p =>
-      Math.abs(p.x - cwmx) < 0.1 && Math.abs(p.y - cwmy) < 0.1);
+      Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
-    const stageHoldMs = 60 * 60 * 1000;
+    // 1-indexed "<stage>/<total>" growth readout for an immature crop, e.g.
+    // a freshly-seeded plant (stage 0) reads "1/5"; one short of mature reads
+    // "4/5". CROP_NAMES gives a friendly label; fall back to the raw crop id.
+    // Potato gets descriptive per-stage names instead of the numeric readout:
+    // stage 0..4 → seedling → sprout → small plant → plant → harvest.
+    const POTATO_STAGE_NAMES = [
+      'Potato Seedling', 'Potato Sprout', 'Small Potato Plant',
+      'Potato Plant', 'Potato Harvest',
+    ];
+    const stageReadout = () => {
+      const stage = p.stage ?? 0;
+      if (p.crop === 'potato') return POTATO_STAGE_NAMES[stage];
+      return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
+    };
+    const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
       p.stage = (p.stage ?? 0) + 1;
@@ -1203,11 +1364,6 @@ const TAP_HANDLERS = [
       scene.addToInv(p.crop, yieldN);
       const gotSeed = Math.random() < (0.25 + qual * 0.10);
       if (gotSeed) scene.addToInv(`${p.crop}_seed`, 1);
-      // Track harvest milestones — gates which relic tiers can drop from chests
-      // (sunflower→Gold, fireflower→Crimson, iceflower→Frost). See loot.js
-      // pickChestRelic / chestRelicAllowedTiers.
-      save.harvested = save.harvested || {};
-      save.harvested[p.crop] = (save.harvested[p.crop] || 0) + 1;
       ctx.dirty = true;
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
@@ -1225,11 +1381,13 @@ const TAP_HANDLERS = [
         if (filled) save.canCharges -= 1;
       }
       ctx.dirty = true;
-      scene.flash(p.canBoost ? `💧 watered +${p.canBoost}` : '💧 watered', sx, sy);
+      // Water the plant AND report its growth progress so the player can see
+      // how close it is to harvest (e.g. "Pairy 2/5").
+      scene.flash(stageReadout(), sx, sy);
       return true;
     }
-    const minsLeft = Math.max(1, Math.ceil((stageHoldMs - sinceWater) / 60000));
-    scene.flash(`growing… ${minsLeft}m`, sx, sy);
+    // Already watered and still growing: show the growth-stage readout.
+    scene.flash(stageReadout(), sx, sy);
     return true;
   }},
 
@@ -1257,19 +1415,24 @@ const TAP_HANDLERS = [
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
-    if (!save.relics?.rod) {
-      scene.flash('You watch the ripples for a while.', sx, sy);
-      return true;
-    }
-    if (!scene.spendEnergy(5, sx, sy)) return true;
-    // The rod owns water taps, so a rod owner can't reach 'can-refill'. Top
-    // the can up here as part of the cast (the line's in the water anyway)
-    // so owning a rod never costs you your watering charges.
+    // No rod? You can still fish BARE-HANDED — it just takes 3× as long (the
+    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier AND
+    // improves the catch; bare hands fish at tier 0 (higher skunk rate, minnow-
+    // heavy weights) so only owning a rod improves the catch (spec §FISHING).
+    const fishCost = (typeof effectiveFishCost === 'function')
+      ? effectiveFishCost(save.relics) : (ENERGY_COST?.fish ?? 9);
+    if (!scene.spendEnergy(fishCost, sx, sy)) return true;
+    // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
+    // the can up here as part of the cast so owning a rod never costs you your
+    // watering charges. Bare-handed casts without a can simply skip this.
     if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
+    const castMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'rod') : (save.relics?.rod ? 3000 : 9000);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
-      const tier = save.relics?.rod?.tier || 1;
+      const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
       // Per user: most of the wait results in nothing on a low-tier rod,
       // and that "skunk" rate falls as the rod climbs. Linear ramp:
+      //   tier 0 (bare hands) → 55%
       //   T1 → 50%  (the user's "half the time")
       //   T7 → 20%
       // Formula: max(0.20, 0.55 - tier * 0.05). T7 floors at 0.20.
@@ -1278,35 +1441,32 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // 2% per cast → relic jackpot. Pick a random slot, random tier in
-      // 1..rod_tier. Equips it if it's better than the current slot;
-      // otherwise the relic is kept as a salvage event (recorded on
-      // save.relicsCaught) and the flash explains the outcome. Returns
-      // before the regular fish loot table so no double drop.
+      // 2% per cast → gear jackpot. The rolled tier is capped by the loot rule
+      // (chestT=2 → preferred tier clamp in rollGearUpgrade); harvest/catch
+      // milestone gating was removed, so this always yields a gear roll. An
+      // upgrade auto-equips; a dupe cashes out as consolation gold.
       if (Math.random() < 0.02) {
-        const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
-        if (slots.length) {
-          const slot = pickFromArray(slots);
-          const relicTier = randInt(1, tier);
-          save.relicsCaught = save.relicsCaught || [];
-          save.relicsCaught.push({ slot, tier: relicTier, t: Date.now() });
-          const cur = save.relics?.[slot];
-          let equipped = false;
-          if (!cur || (cur.tier ?? 0) < relicTier) {
-            save.relics = save.relics || {};
-            save.relics[slot] = { tier: relicTier };
-            equipped = true;
-          }
+        const reward = (typeof rollGearUpgrade === 'function')
+          ? rollGearUpgrade(undefined, save, save.relics, 2, save.armor)
+          : null;
+        if (reward?.kind === 'relic' || reward?.kind === 'armor') {
+          equipGearReward(reward, save, scene);
           persistSave(save);
           const label = (typeof gearName === 'function')
-            ? gearName('relic', slot, relicTier)
-            : `${slot} T${relicTier}`;
-          scene.flashLoot(equipped
-            ? `✨ ${label} (equipped!)`
-            : `✨ ${label} (already better)`,
-            '#ffd96b', 1.6);
+            ? gearName(reward.kind, reward.slot, reward.tier)
+            : `${reward.slot} T${reward.tier}`;
+          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffd96b', 1.6);
           return;
         }
+        if (reward?.kind === 'gold') {
+          const label = (typeof gearName === 'function')
+            ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier)
+            : `${reward.slot} T${reward.tier}`;
+          scene.flashLoot(`✨ ${label} (already better)`, '#aaa', 1.2);
+          persistSave(save);
+          return;
+        }
+        // reward null (no milestones yet) — fall through to fish table.
       }
       // 6% per cast → junk pull (old boot). Below the relic jackpot in the
       // order so the 2% jackpot wins the cast outright when both would
@@ -1332,7 +1492,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, 7000, 5);   // 5 = refund if the player cancels the cast
+    }, castMs, 5, 'rod');   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
     return true;
   }},
 
@@ -1358,7 +1518,7 @@ const TAP_HANDLERS = [
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!item || item.kind !== 'seed') {
+    if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
@@ -1366,10 +1526,46 @@ const TAP_HANDLERS = [
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
-      scene.flash('That seed pouch is empty.', sx, sy);
+      scene.flash('That pouch is empty.', sx, sy);
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
+    if (item.kind === 'sapling') {
+      // Plant a fruit-tree sapling → a growing `fruittree` (persisted in
+      // save.fruittrees, re-injected per tile in spawnInTile). It advances
+      // through the species sheet's life-cycle frames and bears fruit at
+      // maturity (render.js fruittree spec + the fruittree harvest handler).
+      save.fruittrees = save.fruittrees || [];
+      const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
+      const planted_t = Date.now();
+      const species = item.grows === 'peach' ? 'peach' : 'apple';
+      if (!save.fruittrees.some(f => f.id === id)) {
+        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id });
+      }
+      // It's a tree now, not soil — drop the tilled marker.
+      scene.tilledSet.delete(cellKey);
+      save.tilled = [...scene.tilledSet];
+      // Inject the growing fruittree straight into the covering tile's LIVE
+      // cache entry (mirrors spawnInTile's fruittree block) so it appears at
+      // once. Deleting the cache entry instead — as this used to do — dropped
+      // the tile's ground `grid`, so the synchronous ground render fell back to
+      // grass for every cell (the "whole landscape goes green" crash) until the
+      // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.
+      const tEdge = scene.tileEdgeM;
+      const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
+      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      if (entry) {
+        entry.objects = entry.objects || [];
+        if (!entry.objects.some(o => o.id === id)) {
+          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species, id, planted: true, planted_t });
+        }
+      }
+      consumeSelected(save);
+      ctx.dirty = true;
+      scene.buildInventoryDOM();
+      scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      return true;
+    }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
     consumeSelected(save);
     ctx.dirty = true;
@@ -1380,13 +1576,13 @@ const TAP_HANDLERS = [
 
   // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
   { name: 'till', try: (ctx) => {
-    const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     const cellHalfM = scene.cellM / 2;
     const pickedAll = new Set(save.picked || []);
     let blocker = null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'rock';
     if (!blocker) {
-      const pp = save.planted.find(p => Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
+      const pp = save.planted.find(p => inPlantedCell(p, cwmx, cwmy, cellHalfM));
       if (pp) blocker = pp.crop || 'crop';
     }
     if (!blocker) {
@@ -1396,7 +1592,6 @@ const TAP_HANDLERS = [
         if (wp) { blocker = wp.crop || 'plant'; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          o.kind !== 'flora' &&
           !(o.kind === 'chest' && openedSet.has(o.id)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
@@ -1414,10 +1609,19 @@ const TAP_HANDLERS = [
     const tillCost = (typeof effectiveTillCost === 'function')
       ? effectiveTillCost(save.relics) : (ENERGY_COST?.till ?? 0);
     if (!scene.spendEnergy(tillCost, sx, sy)) return true;
-    scene.tilledSet.add(cellKey);
-    save.tilled = [...scene.tilledSet];
-    ctx.dirty = true;
-    scene.flash('tilled', sx, sy);
+    // Tilling runs a WORK WHEEL. Duration follows the shared tool ladder via the
+    // hoe slot (bare hands 9s; a Hoe relic speeds it by tier). GRASSLAND-biome
+    // cells till in HALF the time (spec §cells). Energy is pre-spent and refunds
+    // if the player cancels the wheel.
+    let tillMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 3000 : 9000);
+    if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
+    scene.startWorkProgress(cwmx, cwmy, () => {
+      scene.tilledSet.add(cellKey);
+      save.tilled = [...scene.tilledSet];
+      persistSave(save);
+      scene.flash('tilled', sx, sy);
+    }, tillMs, tillCost, 'hoe');
     return true;
   }},
 ];

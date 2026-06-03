@@ -54,7 +54,7 @@ const Render = {};
 // Fallback fill for cells whose terrain type has no COLORS entry (and for the
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
-const GRASS_FALLBACK_COLOR = 0x5fa84a;
+const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -118,22 +118,6 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
-  let decoIdx = 0;
-  // Grass-family biomes that look better with the occasional Props.png tuft
-  // sprinkled in. Keeping the set tight (no roads, water, buildings, rock,
-  // sand, etc.) avoids decos appearing in places where they'd read as litter.
-  const DECO_BIOMES = new Set([0 /*grass*/, 6 /*park*/, 15 /*school*/, 18 /*playground*/,
-                               19 /*pitch*/, 21 /*golf*/, 22 /*orchard*/]);
-  // Props.png is 22 cols × 12 rows of 16×16 frames. Col 7 row 0 is the
-  // canonical spring-green grass tuft; rows 1/2/3 of the same column are
-  // yellow-spring, autumn-brown, winter-snow — out of place on a green
-  // field. Per user: the (7,3) winter tuft should be (7,0) spring instead.
-  // Frame indices: row * 22 + col.
-  const DECO_FRAMES = [0 * 22 + 7, 1 * 22 + 7, 2 * 22 + 7];   // 7, 29, 51
-  // 8% of qualifying cells get a deco. The probability check uses the same
-  // FNV-style hash that picks the biome-noise variant, just mixed with a
-  // different constant so the two streams don't correlate.
-  const DECO_P = 0.08;
   // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
   // 15-16 contain art. Each road tier picks ONE frame so the same road class
   // reads visually consistent across cells; different tiers look distinct.
@@ -149,12 +133,16 @@ Render.drawCells = function drawCells(scene) {
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // Reuses the cobblePool slot for the overlay sprite but swaps its texture
   // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
-  // 16×16 frames). Frame 33 = row 4 col 1 = the middle plank of one of the
-  // standalone 3-cell horizontal bridges in the lower half of the sheet
-  // (clean planks, no end-caps, no railing posts). Pier cells are NOT roads
-  // (no road-letter labels) and NOT paths (no path-stone activation tint).
+  // 16×16 frames). Frame 20 = row 2 col 4 = an interior tile of the continuous
+  // plank-deck band (frames 16-23): 100% opaque wood, no baked-in water, no
+  // gaps, no support posts — so it tiles edge-to-edge across adjacent pier
+  // cells (vertical OR horizontal runs) as clean decking. The earlier choice
+  // (frame 33) was a bridge-span tile with baked-in blue water + a diagonal
+  // support leg + transparent holes, which rendered as fragmented "docks with
+  // posts and water patches" instead of a solid walkway. Pier cells are NOT
+  // roads (no road-letter labels) and NOT paths (no path-stone activation tint).
   const PIER = 23;
-  const PIER_FRAME = 33;
+  const PIER_FRAME = 20;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
@@ -204,7 +192,7 @@ Render.drawCells = function drawCells(scene) {
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
-      if (isRoad(type)) {
+      if (isRoad(type) || type === PATH) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
         color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
@@ -303,14 +291,38 @@ Render.drawCells = function drawCells(scene) {
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
         } else if (type === 3) {
-          const tn = T(col, row - 1), ts2 = T(col, row + 1);
-          const tw = T(col - 1, row), te = T(col + 1, row);
-          const mask = (tn === 3 ? 1 : 0)
-                     | (te === 3 ? 2 : 0)
-                     | (ts2 === 3 ? 4 : 0)
-                     | (tw === 3 ? 8 : 0);
-          texKey = 'terrains';
-          texFrame = WATER_AUTOTILE_FRAME[mask] ?? WATER_AUTOTILE_FALLBACK;
+          // 8-neighbour BLOB autotile (see WATER_BLOB in textures.js). Bit set
+          // = that neighbour is also water. Convention: TL=1,T=2,TR=4,L=8,R=16,
+          // BL=32,B=64,BR=128. The blob draws inner corners the old cardinal
+          // Wang could not — closing the shore gaps.
+          const W = (t) => (t === 3 ? 1 : 0);
+          const mask = W(T(col - 1, row - 1)) * 1
+                     + W(T(col,     row - 1)) * 2
+                     + W(T(col + 1, row - 1)) * 4
+                     + W(T(col - 1, row    )) * 8
+                     + W(T(col + 1, row    )) * 16
+                     + W(T(col - 1, row + 1)) * 32
+                     + W(T(col,     row + 1)) * 64
+                     + W(T(col + 1, row + 1)) * 128;
+          texKey = 'autotiles';
+          texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
+        } else if (type === 2) {
+          // SAND beaches — same 8-neighbour blob (SAND_BLOB in textures.js),
+          // drawing grass edges where sand meets any non-sand neighbour. Sand
+          // sits between grass and water; this rounds it off against everything
+          // (a thin grass/wet strip at the waterline — the dedicated water↔sand
+          // tiles are a later refinement). Bit set = neighbour is also sand.
+          const S = (t) => (t === 2 ? 1 : 0);
+          const mask = S(T(col - 1, row - 1)) * 1
+                     + S(T(col,     row - 1)) * 2
+                     + S(T(col + 1, row - 1)) * 4
+                     + S(T(col - 1, row    )) * 8
+                     + S(T(col + 1, row    )) * 16
+                     + S(T(col - 1, row + 1)) * 32
+                     + S(T(col,     row + 1)) * 64
+                     + S(T(col + 1, row + 1)) * 128;
+          texKey = 'autotiles';
+          texFrame = SAND_BLOB[mask] ?? SAND_BLOB_CENTER;
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
@@ -348,37 +360,6 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Sparse ground decoration — one Props.png tuft per visible cell, hidden
-      // unless this is a grass-family biome AND the per-cell hash crosses the
-      // 8% threshold. Seeded by abs cell coords so the same world cell always
-      // shows the same deco frame (or none) without persisting anything to
-      // save. Skipped on tilled cells so a deco frame doesn't sit on top of
-      // dirt + a seedling looking like an unrelated weed.
-      {
-        const ds = scene.groundDecoPool[decoIdx++];
-        if (ds) {
-          if (!isTilled && DECO_BIOMES.has(type)) {
-            // FNV-ish mix — different constants than the noise hash above so
-            // the decoration roll doesn't correlate with the noise variant.
-            let dh = (absCellIX * 374761393) ^ (absCellIY * 668265263);
-            dh = ((dh ^ (dh >>> 13)) * 1274126177) >>> 0;
-            // Convert to [0, 1).
-            const roll = (dh & 0xffffff) / 0x1000000;
-            if (roll < DECO_P) {
-              const frame = DECO_FRAMES[(dh >>> 24) % DECO_FRAMES.length];
-              ds.setTexture('props', frame)
-                .setPosition(Math.round(sx) + CELL_PX / 2, Math.round(sy) + CELL_PX / 2)
-                .setDisplaySize(CELL_PX, CELL_PX)
-                .setVisible(true);
-            } else {
-              ds.setVisible(false);
-            }
-          } else {
-            ds.setVisible(false);
-          }
-        }
-      }
-
       // Embossed road-name letter — one per road/path cell, low-alpha "carved" look.
       {
         const lt = scene.letterPool[letterIdx++];
@@ -397,9 +378,9 @@ Render.drawCells = function drawCells(scene) {
             // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
             // Phaser Text textures include the font's internal padding (typically
             // baseline gap + a 1-2px buffer). y still nudged -2 to optically
-            // centre the glyph in the cobble; x shifted +1 right of cell centre
-            // so the letter rides the cobble rather than its left gutter.
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2 + 1, sy + CELL_PX / 2 - 2)
+            // centre the glyph in the cobble; x sits at cell centre (the prior
+            // +1 nudge read 1px too far right).
+            lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2 - 2)
               .setRotation(0).setVisible(true);
           } else {
             lt.setVisible(false);
@@ -477,6 +458,7 @@ Render.drawCells = function drawCells(scene) {
     blacksmith: 0xc25a3a,  // red-brown forge wall
     trader:     0x6a8aa6,  // steel-blue awning
     market:     0xa84a3a,  // red brick roof
+    wizard:     0x7a5aa6,  // arcane purple stone
     fort:       0xa84838,  // red brick stone
     trailer:    0xa8b0c0,  // pale blue trailer
   };
@@ -497,9 +479,8 @@ Render.drawCells = function drawCells(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
     if (o.tier === 11) return 'fort';
     if (!_restoredForCell[o.id] && o.tier === 9) return null;
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
-    return t || null;
+    // Frozen restore-order role (blacksmith/trader/market/wizard) or null/plain.
+    return (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
   };
   for (const [, entry] of (WorldGen.tileCache || new Map())) {
     if (!entry || !entry.objects) continue;
@@ -562,6 +543,51 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
+      // Tier 12 (castle) — STONE RAMPART: crenellated battlements along every
+      // perimeter edge. The keep's answer to the tier-11 wooden palisade —
+      // square merlons separated by crenel gaps, in cool grey stone, so the
+      // castle reads as a walled fortress. Drawn INSTEAD of the tier-9/12
+      // extrusion + outline below (same continue trick the palisade uses).
+      if (type === 12) {
+        const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
+              STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
+        const MERLONS = 4, SPAN = CELL_PX / MERLONS, MW = 5;  // 5px tooth, 3px gap ×4 = 32
+        const WALL = 6;          // south wall-face height (the lit 3-D face)
+        const TOOTH = 2;         // how far merlons poke past the footprint edge
+        // South edge — a stone wall face hangs BELOW the cell, capped with
+        // merlons that rise a couple px onto the cell's own bottom edge.
+        if (!isB(T(col, row + 1))) {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          g.fillStyle(STONE_DARK, 1);   g.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          for (let i = 0; i < MERLONS; i++) {
+            const mx = sx + i * SPAN;
+            g.fillStyle(STONE_BODY, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, WALL + TOOTH);
+            g.fillStyle(STONE_LITE, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, 1);
+          }
+          // vertical mortar joints between merlons
+          g.fillStyle(STONE_DARK, 0.5);
+          for (let i = 1; i < MERLONS; i++) g.fillRect(sx + i * SPAN - 1, sy + CELL_PX, 1, WALL);
+        }
+        // North edge — crenellated strip on the cell's top, teeth poking UP.
+        const capH = (x, y) => {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, CELL_PX, 4);
+          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, CELL_PX, 1);
+          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
+            g.fillRect(x + i * SPAN, y - TOOTH, MW, TOOTH + 1);
+        };
+        // Vertical edge — crenellated strip down the side, teeth poking OUT by
+        // `dir` (-1 left, +1 right).
+        const capV = (x, y, dir) => {
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, 4, CELL_PX);
+          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, 1, CELL_PX);
+          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
+            g.fillRect(dir < 0 ? x - TOOTH : x + 4 - 1, y + i * SPAN, TOOTH + 1, MW);
+        };
+        if (!isB(T(col, row - 1))) capH(sx, sy);
+        if (!isB(T(col - 1, row))) capV(sx, sy, -1);
+        if (!isB(T(col + 1, row))) capV(sx + CELL_PX - 4, sy, +1);
+        continue;
+      }
       // South wall: tier-specific extrusion, darker shade of the building
       // tier — biased toward the themed-house primary if this cell hosts
       // one (look up by absolute cell key; falls back to the neutral
@@ -588,10 +614,10 @@ Render.drawCells = function drawCells(scene) {
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
-  // feet, so reach depends only on which cell they're standing in (3 cells in
-  // each cardinal direction, always — independent of intra-cell position).
-  // For each reachable cell, draw only the sides whose neighbour is NOT
-  // reachable. Result is the staircase silhouette of the reach region.
+  // feet, so reach depends only on which cell they're standing in (a fixed
+  // number of cells in each cardinal direction — independent of intra-cell
+  // position). For each reachable cell, draw only the sides whose neighbour is
+  // NOT reachable. Result is the staircase silhouette of the reach region.
   // Visual reach: delegate to the shared cellInReach helper (coords.js)
   // so the lit area on screen and the tap-accept area in interact.js are
   // computed from the same integer-cell math. Earlier this path used a
@@ -599,6 +625,10 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
+  // cellInReach handles all reach tiers via coords.js reachRadiusM: 0 energy =
+  // no reach, <30% energy drops one whole cell (floored at 1), and the base
+  // radius is 2 cells growing to 5 via shrine upgrades. isReach delegates
+  // entirely so the visual outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
@@ -665,25 +695,6 @@ Render.drawCells = function drawCells(scene) {
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
-  // Starter-trail treasures render as box sprites — a clearer "go pick up
-  // these crates" affordance for first-time players than the scratched-X.
-  // Pooled to avoid per-frame alloc; unused slots are hidden between frames.
-  scene.starterBoxPool = scene.starterBoxPool || [];
-  let boxIdx = 0;
-  const drawBox = (tr) => {
-    if (!tr || found.has(tr.id)) return;
-    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
-    const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    let s = scene.starterBoxPool[boxIdx];
-    if (!s) {
-      s = scene.add.image(0, 0, 'box').setOrigin(0.5, 0.9).setDepth(50);
-      scene.starterBoxPool.push(s);
-    }
-    s.setPosition(Math.round(cx), Math.round(cy)).setScale(1.2).setVisible(true);
-    boxIdx++;
-  };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
   // gets expensive once a session has visited many tiles.
@@ -695,17 +706,9 @@ Render.drawCells = function drawCells(scene) {
         if (!entry) continue;
         drawX(entry.treasure);
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
-        if (entry.extraTreasures) {
-          for (const tr of entry.extraTreasures) {
-            if (tr.n != null) drawBox(tr);
-            else drawX(tr);
-          }
-        }
+        if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
       }
     }
-  }
-  for (; boxIdx < scene.starterBoxPool.length; boxIdx++) {
-    scene.starterBoxPool[boxIdx].setVisible(false);
   }
 };
 
@@ -733,25 +736,21 @@ Render.drawObjects = function drawObjects(scene) {
   });
   const objList = [], creatureList = [], plantedList = [];
   const pickedSet = new Set(scene.save.picked || []);
-  // Cross-tile POI dedupe — MVT duplicates the same POI across adjacent tile borders, and
-  // an OSM area POI can be represented multiple times with up to ~15m offsets. We dedupe
-  // by ident (name || poiClass) + a distance check (< DEDUPE_R) instead of a fixed-bucket
-  // hash, so near-duplicates at unfortunate coords still collapse.
-  const DEDUPE_R2 = 40 * 40;
-  const seenByIdent = new Map(); // ident → [{x, y}, ...]
+  // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
+  // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
+  // tiles — and any two chests that land in the same 5 m cell — collapse to a single
+  // crate. The key is derived from world position, so *which* copy survives no longer
+  // depends on tile-iteration or load order: that order-dependence is what made crates
+  // blink in and out as you walked (worst in dense areas like Seattle where many
+  // same-named/same-class POIs sit close together). We intentionally no longer collapse
+  // distinct POIs that merely share a name within ~40 m — those are different crates and
+  // now both stay visible.
+  const seenCell = new Set();
+  const cellKey = (o) => Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
   const isDupChest = (o) => {
-    const ident = o.name || o.poiClass;
-    if (!ident) return false;
-    let list = seenByIdent.get(ident);
-    if (list) {
-      for (const p of list) {
-        if ((p.x - o.x) * (p.x - o.x) + (p.y - o.y) * (p.y - o.y) < DEDUPE_R2) return true;
-      }
-    } else {
-      list = [];
-      seenByIdent.set(ident, list);
-    }
-    list.push({ x: o.x, y: o.y });
+    const k = cellKey(o);
+    if (seenCell.has(k)) return true;
+    seenCell.add(k);
     return false;
   };
   // Iterate only the player's 3×3 tile neighbourhood instead of every entry
@@ -772,8 +771,6 @@ Render.drawObjects = function drawObjects(scene) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
-          // Picked flowers stay gone — skip rendering them.
-          if (o.kind === 'flora' && o.id && pickedSet.has(o.id)) continue;
           objList.push({ o, dx, dy });
         }
       }
@@ -844,8 +841,7 @@ Render.drawObjects = function drawObjects(scene) {
     // (cache evict + walk back) doesn't respawn them.
     !(o.kind === 'mineralrock' && brokenRockSet.has(o.id)) &&
     // Ground stacks vanish once picked up. Same key (save.picked) as the
-    // wildplant + flora pickup tracking, so existing UIs / saves don't
-    // grow a new field.
+    // wildplant pickup tracking, so existing UIs / saves don't grow a new field.
     !(o.kind === 'groundstack' && pickedSetObj.has(o.id))
   );
   // Merge in placed scarecrows so they go through the same sprite pool +
@@ -856,14 +852,18 @@ Render.drawObjects = function drawObjects(scene) {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
-  // hides — used for flora variants that haven't baked yet.
+  // hides — used for variants that haven't baked yet.
   // Lowtier chests (chestTier === 1) render the `box` sprite instead of the
   // chest sprite. The save.opened filter above already removes opened chests
   // from objList, so this branch only ever sees unopened ones.
   const _chestIsBox = (o) => {
+    if (o.crate) return true;   // starter supply crates always use the box sprite
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
   };
+  // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
+  // collectible coins, so they render as a "pot of gold" instead of a chest.
+  const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
   const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
@@ -878,13 +878,11 @@ Render.drawObjects = function drawObjects(scene) {
   const _restored = scene.save.restoredHouses || {};
   const _houseTrueRole = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return 'blacksmith';
     if (o.tier === 11) return 'fort';
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
-    if (t === 'blacksmith') return 'blacksmith';
-    if (t === 'trader')     return 'trader';
-    if (t === 'market')     return 'market';
-    return 'plain';
+    // Frozen restore-order role: 'blacksmith' | 'trader' | 'market' | 'wizard',
+    // or null → plain residential.
+    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
+    return t || 'plain';
   };
   const _houseRole = (o) => {
     const trueRole = _houseTrueRole(o);
@@ -896,6 +894,43 @@ Render.drawObjects = function drawObjects(scene) {
     if (_restored[o.id]) return trueRole;
     return 'wreck';
   };
+  // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
+  // Four discrete in-game size tiers from the DeepForest crown size class —
+  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees (no
+  // size) fall back to crown_m, then the flat species scale. (Authoritative
+  // copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
+  const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
+  // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
+  // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
+  // and Peach sheets DON'T share a layout, so map each explicitly:
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom, 7 fruiting (apples).
+  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom, 5 fruiting (peaches).
+  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  const FRUIT_FRAMES = {
+    apple: { grow: [0, 2, 4, 5, 7], fruit: 7, bare: 4 },
+    peach: { grow: [0, 2, 3, 4, 5], fruit: 5, bare: 3 },
+  };
+  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
+  const FRUIT_STAGE_MS = 3 * 60 * 1000;   // 3 min/stage → ~12 min sprout→fruit
+  const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // fruit yields once per 24h
+  // Growth stage 0..4 of a planted sapling from elapsed real time.
+  const _ftStage = (o) => Math.min(4,
+    Math.floor((Date.now() - (o.planted_t || 0)) / FRUIT_STAGE_MS));
+  const _ftPicked = (o) => {
+    const fp = scene.save.fruitPicked;
+    const at = fp && fp[o.id];
+    return at && Date.now() - at < FRUIT_RESPAWN_MS;
+  };
+  // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
+  // multiplicative tint shifts the sprite's hue without darkening it to mud.
+  const _crownTint = (hex) => {
+    if (typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return 0xffffff;
+    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 0xffffff;
+    r = (r + 255) >> 1; g = (g + 255) >> 1; b = (b + 255) >> 1;
+    return (r << 16) | (g << 8) | b;
+  };
+
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
@@ -911,18 +946,31 @@ Render.drawObjects = function drawObjects(scene) {
     house:  {
       key: (o) => {
         const role = _houseRole(o);
-        return role === 'plain' ? 'house' : `house_${role}`;
+        if (role === 'plain')  return 'house';
+        if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
+        return `house_${role}`;
       },
-      frame: (o) => (_houseRole(o) === 'plain' ? 'front' : undefined),
-      origin: [0.5, 0.9],
-      // Houses sit 5px lower than their nominal cell foot so the brick base
-      // tucks into the ground instead of floating above the cobble line.
-      dyPx: 5,
+      // Plain houses pick the 'front' sub-rect of the house tileset; wizard
+      // towers pick the fully-restored top-row tower frame (frame 3) of the
+      // shrine sheet; other themed PNGs are single-image (frame undefined).
+      frame: (o) => {
+        const role = _houseRole(o);
+        if (role === 'plain')  return 'front';
+        if (role === 'wizard') return 3;
+        return undefined;
+      },
+      // Anchor the sprite by its BOTTOM-MIDDLE so the house's base sits on the
+      // building footprint's centroid (the house x/y is that centroid) — the
+      // body then rises north over the outline instead of floating off it.
+      // dyPx nudges the base just BELOW the centroid; the taller wizard tower
+      // is foot-seated at the cell's front edge like the standalone shrine.
+      origin: [0.5, 1.0],
+      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 2),
       scale: (o) => {
         const role = _houseRole(o);
         // Fort PNG is ~3× the others — scale down so it still reads as a
-        // building, not a wall. Plain / blacksmith / trader / trailer share
-        // 0.6 so they look like neighbours from the same village.
+        // building, not a wall. Plain / blacksmith / trader / trailer / wizard
+        // share 0.6 so they look like neighbours from the same village.
         return role === 'fort' ? 0.35 : 0.6;
       } },
     // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
@@ -931,9 +979,11 @@ Render.drawObjects = function drawObjects(scene) {
     // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
     // trees — so the tower stands inside its own single cell.
     tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
-    // Placed scarecrow — 32×32 image with the pole base at the bottom of the
-    // sprite; origin (0.5, 1) anchors that base on the placement cell.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 1.0], scale: 1.0 },
+    // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
+    // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
+    // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
+    // small at, while still fitting inside its single cell (QC rule).
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -941,69 +991,133 @@ Render.drawObjects = function drawObjects(scene) {
     // on every species sheet. Origin sits a touch above the very bottom
     // because the 64px frame includes a few px of empty space under the roots.
     tree:   { key: (o) => {
+                // Smallest crown tier renders as a bush, not a tree.
+                if (treeSizeClass(o) === 'bush') return 'bushes';
                 if (o.species === 'pine')     return 'pine_tree';
                 if (o.species === 'birch')    return 'birch_tree';
                 if (o.species === 'mahogany') return 'mahogany_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
+                // bushes.png frame 0 is the lush top-left green bush.
+                if (treeSizeClass(o) === 'bush') return 0;
                 if (o.species && o.species !== 'maple') return 3;
-                return Phaser.Math.Clamp(o.variant || 2, 0, 4);
+                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
+                // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
+                // standing tree never renders as a stump. Detected trees carry a
+                // real size class → always mature (frame 3); their variety comes
+                // from the size-class scale, not the growth-stage frame.
+                if (o.size) return 3;
+                return Phaser.Math.Clamp(o.variant || 2, 1, 3);
               },
-              origin: (o) => (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95],
-              scale:  (o) => {
-                const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
-                // DeepForest trees carry a crown diameter (m); scale the sprite
-                // around a 5 m reference (the median detection) so small crowns
-                // read smaller and big ones bigger. Clamp 0.8–1.6 so tiny
-                // detections stay visible and huge ones don't dominate. OSM
-                // trees have no crown_m and keep the flat species scale.
-                if (o.crown_m == null) return base;
-                const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
-                return base * mul;
+              origin: (o) => {
+                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
+                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
               },
+              // Shared with the harvest gating in interact.js (util.treeScale)
+              // so a tree's visual size and the axe tier it demands stay in
+              // lockstep — bigger sprite, sturdier axe, more wood. treeScale
+              // honours the discrete o.size crown class too. (One deliberate
+              // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
+              // their size class keys off the un-shrunk treeBaseScale, so the
+              // visual shrink doesn't change a maple's axe tier or wood yield.)
+              // Bushes use the 48×48 bushes sheet — render at a fixed small
+              // scale (≈21px, comfortably inside one 32px cell) independent of
+              // the species/canopy tree scale. Larger tiers use treeScale.
+              scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),
               // sy is the cell CENTRE; a foot-anchored tree there leaves its
               // trunk base mid-cell so the canopy spills up into the tile
               // above. Nudge the foot down to the cell's front (bottom) edge
-              // so each tree stands inside its own cell.
-              dyPx: CELL_PX * 0.5 },
-    chest:  { key: (o) => _chestIsBox(o) ? 'box' : 'chest',
+              // so each tree stands inside its own cell. The pine-class sheets
+              // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
+              // the frame bottom) sit ~10px high vs maple — nudge them lower.
+              // Small-class trees (scale ×0.8) read ~3px too low: the foot
+              // origin sits a hair below the art's true trunk base, and that
+              // gap scales with the sprite, so the smaller tier's foot lands
+              // below the larger tiers' standing line. Lift it back up 3px.
+              dyPx: (o) => {
+                // Bushes are short and centred on their cell — foot-anchor at
+                // the cell's front edge with no pine-class root padding.
+                if (treeSizeClass(o) === 'bush') return CELL_PX * 0.5;
+                const base = (o.species && o.species !== 'maple')
+                  ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
+                return treeSizeClass(o) === 'small' ? base - 3 : base;
+              },
+              // Sampled crown colour → a subtle hue tint (DeepForest trees only).
+              after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
+    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
-              frame: 0, origin: [0.5, 0.9], scale: 2.0,
-              // Coin-burst POIs (bicycle_parking + atm) reuse the chest sprite
-              // but get a tint so the player can spot them: ATM = green, bike
-              // rack = gold. TODO: swap in a proper bike sprite if/when one
-              // lands in Sprites/Vehicles_16x16/ (currently only Tractor).
+              // Coin-burst POIs (ATM + bicycle_parking) render the procedural
+              // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
+              // which is single-frame — so leave `frame` undefined for them,
+              // exactly like the themed-house sprites. The pot art is already
+              // gold, so no tint is applied.
+              frame: (o) => _isCoinBurst(o) ? undefined : 0,
+              origin: (o) => _isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9],
+              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0,
+              dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
+              dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
+    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
+              frame: (o) => {
+                const fr = _ftSpec(o);
+                if (o.planted) {
+                  // Planted sapling grows through the art's life-cycle frames.
+                  const st = _ftStage(o);
+                  if (st >= 4 && _ftPicked(o)) return fr.bare;  // regrowing
+                  return fr.grow[st];
+                }
+                // Wild (detected/orchard) trees are mature & fruiting; show the
+                // fruitless mature frame briefly after a pick.
+                return _ftPicked(o) ? fr.bare : fr.fruit;
+              },
+              origin: [0.5, 0.95],
+              scale: (o) => {
+                const base = 0.85;
+                if (o.planted) return base * (0.5 + 0.125 * _ftStage(o));  // 0.5→1.0
+                // Wild fruit trees always render at full (mature) size — their
+                // o.size crown class no longer shrinks them.
+                return base;
+              },
               after: (s, o) => {
-                if (o.poiClass === 'atm') s.setTint(0x6fdc7a);
-                else if (o.poiClass === 'bicycle_parking') s.setTint(0xffcf3a);
-              } },
-    fruittree: { key: (o) => `${o.species}_tree`, frame: 0,
-              origin: [0.5, 0.95], scale: 0.85,
-              after: (s, o) => {
-                // Dim picked fruit trees so the player can see they haven't
-                // re-ripened yet. Picked state lives in save.picked keyed by id.
-                const picked = scene.save.picked && scene.save.picked.includes(o.id);
-                s.setAlpha(picked ? 0.55 : 1);
+                // Dim a wild tree only while its fruit is regrowing; a planted
+                // sapling that hasn't matured yet is full-alpha (it's growing,
+                // not picked).
+                const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
+                s.setAlpha(dim ? 0.7 : 1);
+                // Fruit trees stand 10% taller than their width. The near-foot
+                // origin (0.5, 0.95) pins the root, so the extra height grows
+                // up from the trunk base rather than shifting the tree down.
+                s.setScale(s.scaleX, s.scaleY * 1.10);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
               // scale 1.6. Two safe pickranges:
-              //   CAVE → row 15, cols 3..6 (the four "nice vanilla" rocks
-              //                              the user identified; 4 vars)
-              //   ORE  → row 0,  col by tier (small gem-on-pebble, 11 vars)
-              // Both produce visually compact rocks; ore col varies by tier
-              // for distinct gem colours.
+              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
+              //           the user identified; 4 vars). Used by cave rock AND
+              //           T1 ore — T1 shows no visible ore, it's just plain
+              //           rock that happens to yield a little copper.
+              //   ORE   → row 0, the ore-stone per yield tier. The top row is
+              //           ore stones in tier order starting at copper — copper
+              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
+              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           so the rock you see matches the bar it drops.
               frame: (o) => {
-                if (o.caveVariant != null) {
-                  const caveCol = 3 + (o.caveVariant % 4);   // 3..6
-                  return 15 * MINERALROCK_COLS + caveCol;
-                }
                 const tier = o.yieldTier || o.requiredTier || 1;
-                const col = (tier - 1) % MINERALROCK_COLS;
+                // Cave rock and T1 ore both render as a plain rock variant.
+                if (o.caveVariant != null || tier <= 1) {
+                  const v = o.caveVariant != null
+                    ? (o.caveVariant % 4)
+                    : (((Math.round(o.x) + Math.round(o.y)) % 4) + 4) % 4;
+                  return 15 * MINERALROCK_COLS + (3 + v);   // cols 3..6
+                }
+                // T2-T7 → ore-stone column. Index by yieldTier; col 4 is
+                // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
+                // crimson 5, frost 6).
+                const ORE_COL_BY_TIER = [0, 0, 0, 1, 2, 3, 5, 6];
+                const col = ORE_COL_BY_TIER[tier] ?? 0;
                 return 0 * MINERALROCK_COLS + col;
               },
               // Origin (0.5, 0.5) — centre the sprite in its cell. The
@@ -1012,16 +1126,17 @@ Render.drawObjects = function drawObjects(scene) {
               // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
               // read as off-centre by almost a whole cell.
               origin: [0.5, 0.5], scale: 1.6 },
-    // Flora (flower decals) live ON the ground tile, not standing on it —
-    // centre the sprite in the cell so the petals land where the cell does.
-    flora:  { key: (o) => `flora_${o.deco}_${o.variant ?? 0}`,
-              origin: [0.5, 0.5],  scale: 1.8 },
     // Stone pillar — decorative stand-in for OSM utility poles / posts. The
     // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
     // tall, so it sits inside a single square cell, foot-anchored near the
     // cell's front edge. Purely decorative: no interact.js branch matches
     // 'pole', so taps fall through.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
+    // pillar.png's column art fills only the LEFT half of its 16px frame
+    // (cols 0–8; 9–15 are transparent), so a frame-centred origin (0.5) drew
+    // the pole shoved to one side ("right half only"). Anchor the origin at the
+    // art's true horizontal centre (~0.25 of the frame) so the pole sits
+    // centred on its cell.
+    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
@@ -1029,16 +1144,17 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 1.18, dyPx: CELL_PX * 0.18 },
-    // Magic Crafting Shrine — 48×64 water-fountain sprite. Frame = current
-    // shrine level (row-major across the 4×2 grid) so the fountain visibly
-    // evolves as the player levels it up: L1 → frame 0, L7 → frame 6.
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2 },
+    // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
+    // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
+    // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
+    // L5-6→2, L7→3 (fully restored).
     shrine: { key: 'shrine',
               frame: (o) => {
                 const lvl = Math.min(7, Math.max(1, scene.save.shrineLevel || 1));
-                return lvl - 1;
+                return Math.min(3, Math.floor((lvl - 1) / 2));
               },
-              origin: [0.5, 1.0], scale: 0.85 },
+              origin: [0.5, 1.0], scale: 0.6, dyPx: CELL_PX * 0.5 },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
@@ -1066,9 +1182,12 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      let w = CELL_PX * 1.5, dyFoot = 5;
+      // dyFoot must match the house sprite's base (origin 1.0 + dyPx 2 ⇒ base
+      // at sy+2), so the contact shadow tucks under the building instead of
+      // sitting a few px below it (which read as the house floating).
+      let w = CELL_PX * 1.5, dyFoot = 2;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 7; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 4; }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
        .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
@@ -1098,12 +1217,18 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.kind === 'house' && _houseRole(o) === 'plain') {
       tint = Shops.shopTint(o) || 0xffffff;
     }
+    // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
+    // player can spot a shiny harvest from across the tile.
+    if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
+      tint = SHINY_TINT;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const dyPx = spec.dyPx || 0;
+    const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     s.setOrigin(origin[0], origin[1])
      .setScale(scl)
-     .setPosition(Math.round(sx), Math.round(sy) + dyPx)
+     .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
     // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
@@ -1186,8 +1311,21 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
-    tx.setColor(LABEL_INK);
-    tx.setBackgroundColor(LABEL_BG);
+    // Lowtier crates (the `box` sprite) get white lettering with a soft drop
+    // shadow and NO stone plank — the label floats over the crate like the
+    // house signs do. Higher-tier chests keep the blue-on-stone tablet. The
+    // pool is shared across both kinds, so set the full style every frame.
+    if (_chestIsBox(o)) {
+      tx.setColor('#ffffff');
+      tx.setBackgroundColor(null);
+      tx.setStroke('#000000', 0);
+      tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, true, true);
+    } else {
+      tx.setColor(LABEL_INK);
+      tx.setBackgroundColor(LABEL_BG);
+      tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
+      tx.setShadow(0, 0, 'rgba(0,0,0,0)', 0, false, false);
+    }
     // Always full opacity — opened chests keep their concrete-pad label
      // legible (per user: the dimmed-after-open look made closed shops read
      // as inactive). The opened/closed state is already conveyed by the
@@ -1208,19 +1346,29 @@ Render.drawObjects = function drawObjects(scene) {
   // should still spot their base across the map. Shops.shopLabel() returns
   // null for non-shopType houses, so we wrap it here so the renderer can
   // also handle the starter case without changing the Shops module.
+  // Display labels for the role-keyed shop signs. Restore-order roles no longer
+  // track the street address, so the label comes from the role rather than
+  // Shops.shopLabel (which is address-derived and would mislabel them).
+  const _ROLE_LABEL = {
+    blacksmith: 'Blacksmith', trader: 'Trader', market: 'Market', wizard: 'Wizard',
+  };
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
     // sign re-emerges with the correct shop / house label.
     if (_houseRole(o) === 'wreck') return null;
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
-    // Forced starter blacksmith — bypass Shops.shopLabel since the address
-    // doesn't end in 9, but the player should still see a smithy sign.
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) {
-      return `Blacksmith ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    // Forced scarecrow shop — signed only while it still has one to sell.
+    // After the sale it reverts to its underlying role (handled below).
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) {
+      return `Scarecrows ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
-    const shopLbl = Shops.shopLabel(o);
-    if (shopLbl) return shopLbl;
+    // Frozen restore-order shop role (blacksmith / trader / market / wizard).
+    const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
+    if (role && _ROLE_LABEL[role]) {
+      return `${_ROLE_LABEL[role]} ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    }
     // No specialty? Still give the building a label so the map reads as a
     // populated street instead of rows of anonymous huts. Roman-numeral
     // suffix from address+1 keeps consistency with the shop labels above.
@@ -1228,28 +1376,41 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 12) return `Castle ${roman}`;
     if (o.tier === 11) return `Fort ${roman}`;
     if (o.tier === 9) {
-      // Plain residential — the delivery wishlist (2-3 produce this household
-      // buys at full price) is drawn as item ICONS by the DOM produce-sign
-      // overlay below, not as emoji text. Fall back to a plain "House III"
-      // label only when there's no wishlist to show.
-      const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
-      if (wanted.length) return null;   // the icon plaque handles it
+      // Plain residential — the delivery callout (wishlist icons while hungry,
+      // a happy face once fed) is drawn by the DOM produce-sign overlay below,
+      // not as emoji text. Fall back to a plain "House III" label only for
+      // non-host tier-9 buildings that have no callout to show.
+      if (_houseIsHost(o)) return null;   // the roof bubble handles it
       return `House ${roman}`;
     }
     return null;
   };
-  // The residential wishlist a house should show as an ICON plaque, or null.
-  // Mirrors the gating in _houseSignText's tier-9 branch so each house gets
-  // exactly one of {text sign, icon plaque, nothing}.
-  const _houseProduceWanted = (o) => {
-    if (!o || o.kind !== 'house' || o.tier !== 9) return null;
-    if (_houseRole(o) === 'wreck') return null;                          // hidden until restored
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return null;             // Home
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return null; // starter smithy
-    if (typeof Shops !== 'undefined' && Shops.shopLabel(o)) return null; // specialty shop
+  // True if this house is a residential delivery host — a plain tier-9 home
+  // (not a wreck, the player's own home, the starter smithy, a scarecrow shop,
+  // or any specialty shop) that asks for produce bundles. Hosts always show a
+  // roof callout: a wishlist while hungry, a happy face once fed for the day.
+  const _houseIsHost = (o) => {
+    if (!o || o.kind !== 'house' || o.tier !== 9) return false;
+    if (_houseRole(o) === 'wreck') return false;                          // hidden until restored
+    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return false;             // Home
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
+    // Any frozen shop role (blacksmith / trader / market / wizard, incl. the
+    // starter smithy) is a storefront, not a residential delivery host.
+    if (typeof scene.houseShopRole === 'function' && scene.houseShopRole(o)) return false;
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
-    return wanted.length ? wanted : null;
+    return wanted.length > 0;
   };
+  // Has this host already been fed today (so it shows a happy face, not a
+  // wishlist)? The interact handler stamps it on delivery; both reset at the
+  // UTC day boundary.
+  const _houseSatisfied = (o) =>
+    (typeof scene.isHouseSatisfied === 'function') && scene.isHouseSatisfied(o);
+  // The residential wishlist a house should show as an ICON plaque, or null —
+  // a host that's still hungry today. A satisfied host returns null here and
+  // shows the happy bubble instead (see the produce-sign block below).
+  const _houseProduceWanted = (o) =>
+    (_houseIsHost(o) && !_houseSatisfied(o)) ? scene.wantedProduce(o) : null;
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
   // foundation read as the same "house identity" at a glance. Plain houses /
@@ -1259,6 +1420,7 @@ Render.drawObjects = function drawObjects(scene) {
     blacksmith: '#c25a3a',
     trader:     '#ffae5c',
     market:     '#5ddcc0',
+    wizard:     '#b98cff',   // arcane violet
   };
   // Fallback inks for the non-specialty building kinds.
   const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
@@ -1266,13 +1428,29 @@ Render.drawObjects = function drawObjects(scene) {
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
-    if (scene.save.starterBlacksmithId && scene.save.starterBlacksmithId === o.id) return _ROLE_INK.blacksmith;
-    const t = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
+    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
+        && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
+    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
     if (t && _ROLE_INK[t]) return _ROLE_INK[t];
     if (o.tier === 12) return _CASTLE_INK;
     if (o.tier === 11) return _FORT_INK;
     if (o.tier === 9)  return _HOUSE_INK;
     return Shops.shopInk(o);
+  };
+  // Lighten any #rgb / #rrggbb sign colour 30% toward white. Applied to every
+  // house label so the whole set of signs reads a shade brighter against the
+  // building art. Non-hex inputs pass through unchanged.
+  const _lighten30 = (col) => {
+    if (typeof col !== 'string' || col[0] !== '#') return col;
+    let h = col.slice(1);
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (h.length !== 6) return col;
+    const n = parseInt(h, 16);
+    const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+    const lr = Math.round(r + (255 - r) * 0.30);
+    const lg = Math.round(g + (255 - g) * 0.30);
+    const lb = Math.round(b + (255 - b) * 0.30);
+    return '#' + ((1 << 24) | (lr << 16) | (lg << 8) | lb).toString(16).slice(1);
   };
   const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
   let sli = 0;
@@ -1299,7 +1477,7 @@ Render.drawObjects = function drawObjects(scene) {
     // pool creation so position y = label top). +5 follows the house
     // sprite's own dyPx so the sign stays glued to the doorstep.
     tx.setText(_houseSignText(o))
-      .setColor(_houseSignInk(o))
+      .setColor(_lighten30(_houseSignInk(o)))
       .setPosition(Math.round(sx), Math.round(sy + 7) + 5)
       .setVisible(true);
     sli++;
@@ -1328,43 +1506,79 @@ Render.drawObjects = function drawObjects(scene) {
       scene.events.once('shutdown', drop);
       scene.events.once('destroy', drop);
     }
+    // While a full-screen dialog is open, suppress the wishlist callouts.
+    // They live in <body> (z-index 4), but every modal is appended inside
+    // #game, whose CSS transform makes it a stacking context with effective
+    // z-index:auto — so the modal's higher internal z-index can NOT paint
+    // over a positive-z-index body child, and the bubble pokes through the
+    // dim. A correctly layered callout would sit under the modal dim
+    // (invisible) anyway, so just hide them. Skipping the build loop leaves
+    // psi at 0, so the hide-tail below collapses the whole pool. Add new
+    // full-screen modal ids here if more are introduced.
+    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'stats-modal'];
+    const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
     let psi = 0;
-    if (gameEl) {
+    if (gameEl && !dialogOpen) {
       const rect = gameEl.getBoundingClientRect();
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
-      const ICON_GAME = 13;                    // per-icon side in game px
+      const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
       for (const it of filteredObj) {
-        const wanted = _houseProduceWanted(it.o);
-        if (!wanted) continue;
+        // Every delivery host gets a roof callout. While hungry it's the
+        // wishlist of produce icons; once a bundle's been delivered today the
+        // house is happy and shows a smiling face instead (it'll want a fresh
+        // bundle tomorrow). Non-host buildings get nothing here.
+        if (!_houseIsHost(it.o)) continue;
+        const happy = _houseSatisfied(it.o);
+        const wanted = happy ? null : scene.wantedProduce(it.o);
         const { sx, sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
-          el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:2px;'
-            + 'padding:2px 3px;background:rgba(0,0,0,0.55);border-radius:4px;'
+          // White rounded callout — a little speech bubble that floats above the
+          // house roof (where the old open/busy pip used to sit). The downward
+          // tail is a separate child triangle added during the icon rebuild.
+          el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:3px;'
+            + 'align-items:center;padding:3px 5px;background:#fff;border-radius:7px;'
+            + 'border:1px solid rgba(0,0,0,0.18);box-shadow:0 1px 3px rgba(0,0,0,0.4);'
             + 'pointer-events:none;z-index:4;will-change:transform;';
           document.body.appendChild(el);
           slot = { el, key: null };
           pool.push(slot);
         }
-        // Rebuild icons only when the wishlist or icon size changes — the
-        // produce set is memoized per house, so this is normally a no-op.
-        const key = it.o.id + '|' + wanted.join(',') + '|' + sizePx;
+        // Rebuild contents only when the wishlist / happy state / icon size
+        // changes — the produce set is memoized per house, so this is normally
+        // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
+        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          for (const id of wanted) {
+          if (happy) {
+            // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
+            const face = document.createElement('div');
+            face.textContent = '😊';
+            face.style.cssText = `font-size:${sizePx}px;line-height:1;`;
+            slot.el.appendChild(face);
+          } else for (const id of wanted) {
             const ic = scene.renderItemIcon ? scene.renderItemIcon(id, sizePx, 'block') : null;
             if (ic) slot.el.appendChild(ic);
           }
+          // Downward tail — a CSS triangle absolutely positioned at the bubble's
+          // bottom centre so it points at the house. position:absolute keeps it
+          // out of the flex flow, so it doesn't shift the icon row.
+          const tail = document.createElement('div');
+          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+            + 'border-top:6px solid #fff;transform:translateX(-50%);'
+            + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+          slot.el.appendChild(tail);
           slot.key = key;
         }
-        // Centre the plaque on the house foot, just below it (matches the
-        // text sign's sy+7). translateX(-50%) centres without a scale term
-        // because the icons are already sized in screen px.
+        // Float the bubble ABOVE the house roof: translate(-50%,-100%) anchors it
+        // by its bottom-centre at sy-18 — where the old open pip tucked — so the
+        // bubble and its tail rise above the building like a callout.
         const px = rect.left + sx * scale;
-        const py = rect.top  + (sy + 7) * scale;
-        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translateX(-50%)`;
+        const py = rect.top  + (sy - 18) * scale;
+        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
         slot.el.style.display = 'flex';
         psi++;
       }
@@ -1398,6 +1612,17 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet — the pip would read as a contradiction.
     if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
+    // Sealed castles (delivery gate not yet met) aren't open for business —
+    // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
+    // and bail above, but keep this for safety.)
+    if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
+    // Locked forts (not yet unsealed with wood) aren't trading either — skip
+    // the pip until the player pays the quartermaster.
+    if (typeof scene._isFortLocked === 'function' && scene._isFortLocked(o)) continue;
+    // Hosts (residential delivery houses) show their roof callout — wishlist
+    // or happy face — where this pip would sit (see the produce-sign block
+    // above), so they skip the separate open/busy pip entirely.
+    if (_houseIsHost(o)) continue;
     const { sx, sy } = project(dx, dy);
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
@@ -1511,9 +1736,39 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
+  const _shinyNow = Date.now();
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    // Rare shiny wild flora gets the warm sheen; everything else (farmed crops,
+    // placed rocks) renders untinted. Pooled sprites keep their last tint, so
+    // set it explicitly every frame. A flat gold multiply on already-green
+    // flora reads too subtly (the player can't spot a shiny harvest), so a
+    // shiny plant also TWINKLES: its tint shimmers between warm gold and a
+    // pale near-white gold while it gently pulses in scale. Motion + brightness
+    // are renderer-agnostic (Phaser.AUTO may fall back to canvas, so a WebGL
+    // glow FX wouldn't be reliable) and make a shiny plant unmistakable.
+    const isShinyFlora = !!(p.wildId && isShiny(p.wildId, SHINY_RATE.flora));
+    let shinyScale = 1;
+    if (isShinyFlora) {
+      // Desync each plant's twinkle off a stable per-id phase so a field of
+      // shinys shimmers out of step rather than blinking in unison.
+      const idH = ((p.wildId || '').length * 2654435761) >>> 0;
+      const phase = ((_shinyNow + idH) % 1100) / 1100;          // 0..1
+      const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);  // 0..1
+      shinyScale = 1.0 + 0.12 * wave;                           // 1.00..1.12 size pulse
+      // Lerp the tint between deep gold and a bright pale gold (toward white,
+      // which under a multiply tint brightens the sprite back up — a glint).
+      const lo = SHINY_TINT, hi = 0xfff6cc;
+      const lr = (lo >> 16) & 0xff, lg = (lo >> 8) & 0xff, lb = lo & 0xff;
+      const hr = (hi >> 16) & 0xff, hg = (hi >> 8) & 0xff, hb = hi & 0xff;
+      const r = Math.round(lr + (hr - lr) * wave);
+      const g = Math.round(lg + (hg - lg) * wave);
+      const b = Math.round(lb + (hb - lb) * wave);
+      s.setTint((r << 16) | (g << 8) | b);
+    } else {
+      s.setTint(0xffffff);
+    }
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -1572,7 +1827,8 @@ Render.drawObjects = function drawObjects(scene) {
     // centre. Stages 1+ grow upward and look right centered.
     const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
     const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    s.setOrigin(0.5, oy).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale;
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy));
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -1580,7 +1836,7 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = 60 * 60 * 1000;
+  const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + app.js
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
@@ -1685,6 +1941,21 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(Math.floor(performance.now() / 100) % 7);
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
+    } else if (c.kind === 'slime') {
+      // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
+      // vertical hop — phase-offset per slime via a cached id hash — gives the
+      // chicken-like bounce even while idle; slimes are always jiggling.
+      if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
+      s.setFrame(Math.floor(performance.now() / 160) % 4);
+      if (c._hopSeed == null) {
+        let h = 0; const id = c.id || '';
+        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+        c._hopSeed = h % 600;
+      }
+      const ph = ((performance.now() + c._hopSeed) % 600) / 600;   // 0..1 per hop
+      const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
+      s.setOrigin(0.5, 0.9).setScale(1.2).setPosition(Math.round(sx), Math.round(sy) - Math.round(hopPx));
+      s.setFlipX(!!c._faceFlip);
     } else {
       // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
       // Per user → 1.20 (still well under the cow's 1.20 because the chicken
@@ -1693,5 +1964,8 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
+    // Rare shiny animals wear the warm sheen. Pooled sprites keep their last
+    // tint, so set white explicitly for the common (non-shiny) case.
+    s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
   });
 };

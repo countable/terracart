@@ -57,6 +57,71 @@
     // overlay via the cobblePool — see render.js PIER_FRAME.
     PIER: 23,
   };
+
+  // --- Walkability / spawnability (single source of truth) ---
+  // "Walkable" = anywhere a person could legally and safely stand on foot.
+  // We DON'T derive this from an external walkability dataset — the terrain
+  // grid is already rasterized from OSM (OpenFreeMap) vector tiles, so the
+  // cell's class IS the walkability signal. Walkable is the whole map minus
+  // three groups:
+  //   - WATER            (can't stand on it)
+  //   - every ROAD tier  (unsafe/illegal to stand in traffic)
+  //   - every BUILDING   (solid footprint — you walk around it)
+  // Everything else stays walkable: PATH/pedestrian squares, PIER, parks,
+  // SAND/beaches, grass, forest, farmland, rock, playgrounds, pitches, etc.
+  const NON_WALKABLE = new Set([
+    T.WATER,
+    T.ROAD, T.ROAD_MD, T.ROAD_LG,
+    T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+  ]);
+  function isWalkable(t) { return !NON_WALKABLE.has(t); }
+
+  // Default Chebyshev radius for the residential-frontage test: a private cell
+  // is only spawnable if a public anchor sits within this many cells.
+  const SPAWN_FRONTAGE = 3;
+
+  // Terrain that counts as a "public anchor" for the frontage test. Being near
+  // any of these is what makes a RESIDENTIAL cell read as street frontage / the
+  // edge of public space rather than someone's back garden:
+  //   - every road tier + footpaths/pedestrian squares (the kerb / sidewalk)
+  //   - clearly public open space we can detect from OSM: parks, playgrounds,
+  //     sports pitches, golf courses, beaches, piers.
+  const PUBLIC_NEAR = new Set([
+    T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
+    T.PARK, T.PLAYGROUND, T.PITCH, T.GOLF, T.SAND, T.PIER,
+  ]);
+
+  // Is (cx,cy) a legitimate place to spawn a pickup? THE single rule every
+  // spawner shares. Walkable (never water/road/building) AND not deep in
+  // private property. RESIDENTIAL cells model someone's yard/lot, so a spawn is
+  // only allowed there when — within `frontage` cells (Chebyshev) — there's a
+  // public anchor: a road/path, a detectable public area (PUBLIC_NEAR), or a
+  // POI. Unifies the legacy _xRoadOK (app.js) and _mrNearRoadWithin (worldgen).
+  //   grid/w/h : flat terrain array + its cell dimensions
+  //   opts.frontage : override the default radius (SPAWN_FRONTAGE)
+  //   opts.pois     : array of {ix,iy} cell coords of nearby POIs/chests —
+  //                   a residential cell within `frontage` of one is fair game
+  function isSpawnCell(grid, w, h, cx, cy, opts) {
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
+    const here = grid[cy * w + cx];
+    if (!isWalkable(here)) return false;          // never on water/road/building
+    if (here !== T.RESIDENTIAL) return true;      // public / open ground — always ok
+    const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
+    for (let dy = -frontage; dy <= frontage; dy++) {
+      for (let dx = -frontage; dx <= frontage; dx++) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (PUBLIC_NEAR.has(grid[ny * w + nx])) return true;
+      }
+    }
+    const pois = opts && opts.pois;
+    if (pois) {
+      for (let i = 0; i < pois.length; i++) {
+        if (Math.max(Math.abs(pois[i].ix - cx), Math.abs(pois[i].iy - cy)) <= frontage) return true;
+      }
+    }
+    return false;
+  }
   // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
   // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
   // schools/malls/civic in LARGE.
@@ -396,26 +461,6 @@
   // that shares the same polygon key. (Was `0xdeadbeef`.)
   const NUT_RNG_SALT = 0xdeadbeef;
 
-  // Per-biome decorative items (purely visual, non-interactable). Stored as
-  // { kind: 'flora', x, y, deco: '<kind>', variant: 0..N } and rendered by app.js
-  // using procedurally-generated 16x16 textures.
-  // dMin/dMax is the per-polygon density range — each polygon rolls its own
-  // density inside this range (so some grass fields are barren, others bloom).
-  // Every grass/park polygon shows SOME flowers (dMin > 0) so a grass tile
-  // never reads as flowerless. dMax stays modest — fields shouldn't be
-  // wall-to-wall blossoms. Polygon picks one density + one color variant.
-  const FLORA_BY_TYPE = {
-    [T.GRASS]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PARK]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.GOLF]:       { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PITCH]:      { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.PLAYGROUND]: { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    [T.WETLAND]:    { deco: 'flower', dMin: 0.015, dMax: 0.06 },
-    // Mushroom decals belong to shady residential yards, not open grass fields.
-    [T.RESIDENTIAL]: { deco: 'mushroom', dMin: 0.01, dMax: 0.035 },
-  };
-  const FLORA_VARIANTS = { flower: 4, mushroom: 2 };
-
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
@@ -428,44 +473,6 @@
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
     const rng = makeRng(tx * HASH_MUL_X ^ ty * HASH_MUL_Y);
-
-    // Spawn purely-decorative flora (flowers/pebbles/mushrooms) inside a polygon at
-    // very low density. Snapped to the local cell grid like debris, but stored
-    // separately so it never gets picked up.
-    function spawnFlora(rings, deco, polyKey, dMin, dMax) {
-      const prng = makeRng(polyKey ^ 0xc0ffee);
-      const variants = FLORA_VARIANTS[deco] || 1;
-      // Per-polygon density inside the [dMin, dMax] range — some fields are
-      // barren, some are dense. Density of 0 means we skip this polygon entirely.
-      const density = dMin + prng() * (dMax - dMin);
-      if (density <= 0.0001) return;
-      // Flowers pick ONE color per polygon (so a whole field reads as e.g. all
-      // yellow or all red). Pebbles/mushrooms vary per-item for organic look.
-      const polyVariant = Math.floor(prng() * variants);
-      const bb = bboxOf(rings);
-      const stepMvt = 5 / mvtToM;
-      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
-          const localIX = Math.floor(xx * mvtToCell);
-          const localIY = Math.floor(yy * mvtToCell);
-          if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
-          if (prng() < density) {
-            const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
-            const variant = (deco === 'flower') ? polyVariant : Math.floor(prng() * variants);
-            // Stable id keyed on tile + local cell so save.picked persists across reloads.
-            objects.push({
-              kind: 'flora',
-              x: cx, y: cy,
-              deco,
-              variant,
-              id: `fl_${tx}_${ty}_${localIX}_${localIY}`,
-              _ix: localIX, _iy: localIY,  // for post-pass biome filter
-            });
-          }
-        }
-      }
-    }
 
     // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
     // density seed = polygon centroid → stable across reloads.
@@ -510,8 +517,7 @@
       my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
     });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
-    // the terrain `grid[]`, wildplants (spawnDebris) and flora (spawnFlora)
-    // already use. Every placed object must share this one grid: structs
+    // the terrain `grid[]` and wildplants (spawnDebris) already use. Every placed object must share this one grid: structs
     // (trees / rocks / fruit trees / houses) used to snap to a GLOBAL 5 m grid
     // anchored at the world origin, which is offset from this tile-local grid
     // by a sub-cell fraction. That misalignment meant a tree and a wildplant
@@ -593,11 +599,20 @@
                 const jy = bb.minY + rng2() * (bb.maxY - bb.minY);
                 if (!pointInRings(f.geom, jx, jy)) continue;
                 const { cx, cy } = snapCell(jx, jy);
-                // Tier 1 mineral rock — the cheap one. Sprinkle different
-                // tiers occasionally (5 % each up to T3) for variety.
+                // Cheap quarry rock. Roll a YIELD tier (mostly T1, occasional
+                // T2/T3 for variety) and DERIVE the pick requirement from it —
+                // the same single-field model the cluster spawner uses (see
+                // _pushMineralrock above). yieldTier drives the sprite, the
+                // metal drop, AND the required pick together, so the rock can't
+                // look like one tier but pay out another. (Previously this set
+                // requiredTier directly and left yieldTier undefined, so the
+                // mining code's `yieldTier || 1` fallback always dropped copper
+                // while the sprite/pick used the higher requiredTier — the
+                // "looks like iron, needs an iron pick, drops copper" bug.)
                 const r = rng2();
-                const requiredTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
-                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier,
+                const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
+                const requiredTier = Math.max(1, yieldTier - 1);
+                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier, yieldTier,
                   id: `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
                 placed++;
               }
@@ -621,10 +636,6 @@
               const density = ((seed % 1000) / 1000) * LONGGRASS_MAX_DENSITY;
               if (density > 0) spawnDebris(f.geom, 'longgrass', seed, density, density);
             }
-
-            // Per-polygon FLORA (purely decorative drops: flowers / pebbles / mushrooms).
-            const florax = FLORA_BY_TYPE[t];
-            if (florax) spawnFlora(f.geom, florax.deco, polyKey, florax.dMin, florax.dMax);
 
             // Scattered Trees on wood/forest landcover. Each polygon picks ONE
             // species (maple/pine/birch/mahogany) so a single forest reads as a
@@ -665,7 +676,10 @@
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                const FRUIT_SPECIES = ['apple', 'cherry', 'peach', 'banana', 'orange', 'mango', 'coconut', 'apricot'];
+                // Only two fruit-tree species are available in the world now:
+                // common apple, rare peach. Peach is 6x as rare → 1 orchard
+                // polygon in 7 is peach. One species per orchard polygon.
+                const FRUIT_SPECIES = ((polyKey >>> 8) % 7 === 0) ? ['peach'] : ['apple'];
                 const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
                 const species = FRUIT_SPECIES[speciesIdx];
                 const bb = bboxOf(f.geom);
@@ -730,14 +744,66 @@
                 id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
             };
 
-            // Residential mineral clusters — a few abandoned-yard / construction
-            // piles in town. Sparse: pivot grid is ~30 m so most residential
-            // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
-            // grouped within ~6 m. Gives the early game a reliable urban source
-            // of stone + low-tier ore without flooding sidewalks with rocks.
+            // Turn a list of per-tier weights into a cumulative table + total,
+            // as _pushMineralrock's tier roll expects.
+            const cumWeights = (weights) => {
+              const tierW = []; let totalW = 0;
+              for (const w of weights) { totalW += w; tierW.push(totalW); }
+              return { tierW, totalW };
+            };
+
+            // Scatter mineralrock clusters across a polygon's bbox. At each pivot
+            // on a `pivotStep` grid that lies inside the polygon, fire a cluster
+            // with probability `fireChance`; each cluster drops
+            // clusterMin..clusterMin+clusterSpan-1 rocks jittered within `clusterR`
+            // of the pivot, routed through _pushMineralrock. RNG draw order is
+            // identical to the old inline loops (fire roll, count roll, then jx/jy
+            // per rock) so world seeds reproduce exactly.
+            //
+            // VEINS: if the caller supplies `veinChance` + raw `weights`, each
+            // fired cluster rolls once more; on a hit it becomes a "vein" — one
+            // randomly chosen tier has its weight multiplied by `veinMul` (10×)
+            // for that cluster only. This concentrates a single ore/crystal in
+            // a few clusters (the veins) without shifting the global rarity much,
+            // since the 70 % cave-rock split is untouched and the random tier
+            // pick spreads the boost across all tiers over many clusters. The
+            // extra rng() draws happen only when `veinChance` is set, so callers
+            // that don't pass it (industrial, ROCK) reproduce their seeds exactly.
+            const _spawnRockClusters = (rng, geom, o) => {
+              const bb = bboxOf(geom);
+              const veinMul = o.veinMul || 10;
+              for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
+                for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
+                  if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
+                  if (rng() > o.fireChance) continue;
+                  const clusterN = o.clusterMin + Math.floor(rng() * o.clusterSpan);
+                  // Per-cluster tier table — defaults to the shared one, but a
+                  // vein cluster gets a fresh table with one tier boosted 10×.
+                  let tierW = o.tierW, totalW = o.totalW;
+                  if (o.veinChance && o.weights && rng() < o.veinChance) {
+                    const veinTier = Math.floor(rng() * o.weights.length);
+                    const boosted = o.weights.slice();
+                    boosted[veinTier] *= veinMul;
+                    ({ tierW, totalW } = cumWeights(boosted));
+                  }
+                  for (let k = 0; k < clusterN; k++) {
+                    const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
+                    const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
+                    _pushMineralrock(rng, jx, jy, tierW, totalW, o.residential);
+                  }
+                }
+              }
+            };
+
+            // Residential mineral clusters — abandoned-yard / construction
+            // piles in town. Pivot grid is ~24 m and ~59 % of candidates fire,
+            // so a residential polygon spawns a handful of clusters; each is a
+            // group of low-tier rocks within ~7 m. Gives the early game a
+            // reliable urban source of stone + low-tier ore. ~30 % of clusters
+            // are "veins" with one ore/crystal tier concentrated 10× (see the
+            // vein path in _spawnRockClusters) without flooding sidewalks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
               // Explicit tier weights for residential — user-tuned to hit:
@@ -749,21 +815,17 @@
               // Of TOTAL rock count. Within the 30 % ore subset that's
               // copper 0.55, iron 0.22, gold 0.08, crystals 0.14.
               const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
-              const tierW = [];
-              let totalW = 0;
-              for (const w of weights) { totalW += w; tierW.push(totalW); }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (resRng() > 0.45) continue;   // 45 % of pivots fire a cluster
-                  const clusterN = 25 + Math.floor(resRng() * 16);   // 25..40 rocks per cluster (residential rocks survive the road-adjacency filter at a lower rate, so input has to overshoot)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (resRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (resRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(resRng, jx, jy, tierW, totalW, /* residential */ true);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(weights);
+              // 25..40 rocks per cluster: residential rocks survive the
+              // road-adjacency filter at a lower rate, so input must overshoot.
+              // fireChance 0.585 = 0.45 × 1.3 → 30 % more clusters than before.
+              // veinChance 0.30: ~30 % of clusters become a "vein" where one
+              // random tier is 10× more likely (see _spawnRockClusters). Pass
+              // the raw `weights` so the vein path can rebuild a boosted table.
+              _spawnRockClusters(resRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.585,
+                clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true,
+                weights, veinChance: 0.30, veinMul: 10 });
               // Sparse pickable wild mushrooms in residential yards — same crop
               // as the forest clusters but rarer. Independent RNG stream so they
               // don't co-locate with the rock clusters above.
@@ -777,66 +839,34 @@
             // very rare via the geometric tail (~3 % per cluster pick).
             if (t === T.INDUSTRIAL) {
               const indRng = makeRng((polyKey ^ 0xC0A11D) >>> 0);
-              const bb = bboxOf(f.geom);
               const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
               const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
               // Slower tier dropoff than residential — mid-tier ore (gold,
               // platinum) shows up regularly while T7 stays ~3 % per ore pick.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(1.6, t2 - 1);
-                totalW += w;
-                tierW.push(totalW);
-              }
-              for (let yy = bb.minY; yy <= bb.maxY; yy += pivotStep) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += pivotStep) {
-                  if (!pointInRings(f.geom, xx + pivotStep * 0.5, yy + pivotStep * 0.5)) continue;
-                  if (indRng() > 0.80) continue;   // 80 % of pivots fire — "lots"
-                  const clusterN = 18 + Math.floor(indRng() * 16);   // 18..33 rocks per cluster (3× the prior 6..11)
-                  for (let k = 0; k < clusterN; k++) {
-                    const jx = xx + (indRng() - 0.5) * 2 * clusterR;
-                    const jy = yy + (indRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(indRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(1.6, i)));
+              // 80 % fire — "lots"; 18..33 rocks per cluster (3× the prior 6..11).
+              _spawnRockClusters(indRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.80,
+                clusterMin: 18, clusterSpan: 16, tierW, totalW });
             }
 
-            // Mineral-rich rocks on ROCK terrain. Rare — most are low-tier, with
-            // ultra-rare high-tier finds via 1/2^(t-1) weighting (T1 ~64%, T7 ~1%).
+            // Dense mineral rock clusters on ROCK terrain (scree / cliff landcover).
+            // Cluster style mirrors residential but at higher density — tight 12 m
+            // pivot grid, 70 % fire rate, 10-19 rocks per cluster. Tier weights use
+            // a steeper geometric decay than industrial so low-tier stones dominate
+            // but rare wilderness finds (T5-T7) are still possible.
             if (t === T.ROCK) {
               const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
-              const bb = bboxOf(f.geom);
-              const stepMvt = 15 / mvtToM;   // one candidate per ~15m
-              // Precompute tier-weight CDF: w[i] = 1 / 2^i for i = 0..6.
-              // 70 % of these spawns are still plain CAVE rock per the
-              // shared helper; this curve only governs the ore subset.
-              const tierW = [];
-              let totalW = 0;
-              for (let t2 = 1; t2 <= 7; t2++) {
-                const w = 1 / Math.pow(2, t2 - 1);
-                totalW += w;
-                tierW.push(totalW);
-              }
-              const clusterR = 5 / mvtToM;       // ~5 m cluster radius
-              for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-                for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                  const cxMvt = xx + stepMvt * 0.5;
-                  const cyMvt = yy + stepMvt * 0.5;
-                  if (!pointInRings(f.geom, cxMvt, cyMvt)) continue;
-                  if (rockRng() > 0.55) continue;   // 55% chance per candidate
-                  // Triple-up: 3 rocks per fired candidate, slight jitter
-                  // inside ~5 m so they read as a small pile rather than
-                  // a single boulder. Brings wilderness ROCK density in
-                  // line with the residential / industrial cluster bump.
-                  for (let k = 0; k < 3; k++) {
-                    const jx = cxMvt + (rockRng() - 0.5) * 2 * clusterR;
-                    const jy = cyMvt + (rockRng() - 0.5) * 2 * clusterR;
-                    _pushMineralrock(rockRng, jx, jy, tierW, totalW);
-                  }
-                }
-              }
+              const pivotStep = 12 / mvtToM;
+              const clusterR  =  6 / mvtToM;
+              // 1/2^(t-1): T1 ~50%, T2 ~25%, T3 ~13% … T7 ~1% of ore subset.
+              // _pushMineralrock still routes 70% of picks to cave rock.
+              const { tierW, totalW } = cumWeights(
+                Array.from({ length: 7 }, (_, i) => 1 / Math.pow(2, i)));
+              _spawnRockClusters(rockRng, f.geom, {
+                pivotStep, clusterR, fireChance: 0.70,
+                clusterMin: 10, clusterSpan: 10, tierW, totalW });
             }
           }
         } else if (f.type === 2 && name === 'transportation') {
@@ -927,11 +957,6 @@
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
             objects.push({ kind: 'chest', x: cx, y: cy, id,
               poiClass: cls, name: f.tags.name || '' });
-            // (Garden flower burst is emitted AFTER the chest relocation
-            // pass below — see the `if (cls === 'garden')` block after the
-            // onBuilding / offsetForPlacement branches. Doing it here would
-            // (a) break the `lastChest = objects[objects.length-1]` lookup
-            // and (b) position floras around the un-relocated chest.)
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -1068,42 +1093,6 @@
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
                 lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
-              }
-            }
-            // Garden POIs get a flower burst — 6–8 flora decorations scattered
-            // in a 1–3 cell ring around the chest's FINAL position. Emitted
-            // here (after relocation) so positions reflect the actual chest
-            // cell, and after the `lastChest` lookups above so we don't break
-            // them by pushing non-chest objects on top of the stack.
-            //
-            // Each flora carries `_ix`/`_iy` because the unified occupancy
-            // post-pass (below) reads `grid[o._iy * w + o._ix]` to gate flora
-            // by terrain. Without those, every burst flora was being dropped
-            // (grid[NaN] = undefined, fails FLORA_OK).
-            if (cls === 'garden') {
-              const FLOWER_VARIANTS = 4;
-              // Use the chest's final cell as the burst centre. After the
-              // branches above, cellIX/cellIY point at the chest cell (either
-              // the building-perimeter cell or the road-offset placement).
-              const chestObj = objects[objects.length - 1];
-              const chestX = (chestObj && chestObj.kind === 'chest') ? chestObj.x : cx;
-              const chestY = (chestObj && chestObj.kind === 'chest') ? chestObj.y : cy;
-              const burstSeed = ((Math.round(chestX) * BURST_MUL_X) ^ (Math.round(chestY) * BURST_MUL_Y)) >>> 0;
-              const brng = makeRng(burstSeed);
-              const burstN = 6 + Math.floor(brng() * 3);   // 6..8
-              for (let i = 0; i < burstN; i++) {
-                const ang = brng() * Math.PI * 2;
-                const r   = (1 + brng() * 2) * cellWidthM;   // 1–3 cells out
-                const fx  = snap(chestX + Math.cos(ang) * r);
-                const fy  = snap(chestY + Math.sin(ang) * r);
-                // Compute the local-tile cell index for the post-pass filter.
-                const fIx = Math.floor((fx - tileOriginMx) / mvtToM * mvtToCell);
-                const fIy = Math.floor((fy - tileOriginMy) / mvtToM * mvtToCell);
-                if (fIx < 0 || fIy < 0 || fIx >= w || fIy >= h) continue;
-                objects.push({ kind: 'flora', deco: 'flower', x: fx, y: fy,
-                  variant: Math.floor(brng() * FLOWER_VARIANTS),
-                  _ix: fIx, _iy: fIy,
-                  id: `gb_${Math.round(fx)}_${Math.round(fy)}` });
               }
             }
             // No synthesized pad when the POI dissolved a building (the building IS the pad).
@@ -1243,6 +1232,17 @@
       // back yard for. Keep them exempt from the residential proximity
       // check below.
       const _mrSkipKind = (k) => k === 'house' || k === 'tower';
+      // POI chests are real-world destinations and count as public anchors for
+      // the shared isSpawnCell rule below. Snapshot their cell coords now,
+      // before we start splicing `objects`.
+      const _mrSpawnOpts = {
+        pois: objects
+          .filter(o => o.kind === 'chest')
+          .map(o => ({
+            ix: Math.floor((o.x - tileOriginMx) / _mrCellW),
+            iy: Math.floor((o.y - tileOriginMy) / _mrCellW),
+          })),
+      };
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
         if (_mrSkipKind(o.kind)) continue;
@@ -1266,18 +1266,16 @@
           delete o._residential;
           continue;
         }
-        // Every OTHER object that landed on a residential cell must be
-        // within Chebyshev 2 of a road — this stops chests, fruit trees,
-        // POI props and other interactables from baiting the player into
-        // someone's back yard. (Was 3; tightened to 2 per user feedback —
-        // 3 cells deep into a lot still feels like trespassing.) Forts,
-        // castles, houses and towers are already exempt above.
+        // Every OTHER object that landed on a residential cell must pass the
+        // shared spawn rule (isSpawnCell): near a road/path, a detectable
+        // public area, or a POI — otherwise it'd bait the player into someone's
+        // back yard. Forts, castles, houses and towers are already exempt above.
         if (here === T.RESIDENTIAL) {
-          if (!_mrNearRoadWithin(ix, iy, 2)) { objects.splice(i, 1); continue; }
+          if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) { objects.splice(i, 1); continue; }
         }
       }
-      // Same proximity rule for the parallel `wildplants` list — any wild
-      // pickup on a residential cell must be within 2 of a road. (DEBRIS_CROP
+      // Same shared rule for the parallel `wildplants` list — any wild pickup
+      // that ended up on a residential cell must pass isSpawnCell. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
       for (let i = wildplants.length - 1; i >= 0; i--) {
@@ -1286,19 +1284,19 @@
         const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!_mrNearRoadWithin(ix, iy, 2)) wildplants.splice(i, 1);
+        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
       }
       // Parking-treasure X marks live in a third array (parkingTreasures)
-      // and were missed by both filters above. Apply the same residential
-      // rule — a buried-X on a residential cell must be ≤ 2 from a road,
-      // else drop. Non-residential parking lots (the typical case) stay.
+      // and were missed by both filters above. Apply the same shared rule — a
+      // buried-X on a residential cell must pass isSpawnCell, else drop.
+      // Non-residential parking lots (the typical case) stay.
       for (let i = parkingTreasures.length - 1; i >= 0; i--) {
         const t = parkingTreasures[i];
         const ix = Math.floor((t.x - tileOriginMx) / _mrCellW);
         const iy = Math.floor((t.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!_mrNearRoadWithin(ix, iy, 2)) parkingTreasures.splice(i, 1);
+        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) parkingTreasures.splice(i, 1);
       }
     }
 
@@ -1344,8 +1342,8 @@
       }
     }
 
-    // Unified occupancy pass — at most one interactable / decorative object
-    // per cell. Strict priority: chest > house > tree > wildplant > flora.
+    // Unified occupancy pass — at most one object per cell.
+    // Strict priority: chest > house > tree > wildplant.
     // The first one to claim a cell wins; everything else in that cell is
     // dropped so we never have shrubs hiding under chests or pads.
     const occupiedCells = new Set();
@@ -1356,8 +1354,7 @@
     };
 
     // 1) High-priority objects first (chest > house > fruittree > tree > mineralrock).
-    //    These never get displaced — they claim their cells and everything else
-    //    (wildplants, flora) must avoid those cells.
+    //    These never get displaced — they claim their cells and wildplants must avoid those cells.
     //    Priority numbers are descending so the sort places higher-priority kinds
     //    first. Within one priority (e.g. house/tower, or two trees) the winner
     //    of a contested cell must be fixed by data, not array order — JS sort
@@ -1395,32 +1392,11 @@
       }
     }
 
-    // 3) Flora — lowest priority. Must sit on grass/park/forest/sand/rock/
-    //    farmland AND on a cell that isn't already claimed.
-    const florae = objects.filter(o => o.kind === 'flora');
-    const keptFlora = [];
-    const FLORA_OK = new Set([T.SAND, T.FARMLAND, T.ROCK, ...FOREST_PARK_GRASS]); // 2, 4, 10 + FOREST_PARK_GRASS
-    // Per-deco terrain gate. Mushroom decals are residential-only (they must
-    // never bleed onto the grassy FLORA_OK set); flowers use the default set.
-    const FLORA_ALLOWED = { mushroom: new Set([T.RESIDENTIAL]) };
-    for (const o of florae) {
-      const ct = grid[o._iy * w + o._ix];
-      const cellKey = `${o._ix}_${o._iy}`;
-      if (!(FLORA_ALLOWED[o.deco] || FLORA_OK).has(ct)) continue;
-      if (occupiedCells.has(cellKey)) continue;
-      occupiedCells.add(cellKey);
-      delete o._ix; delete o._iy;
-      keptFlora.push(o);
-    }
-
-    // Rebuild objects = kept structures + kept flora (preserve everything else
-    // like plaques if they sneak in via future code — anything not in our
-    // priority maps just passes through, but currently nothing else exists).
-    const otherKinds = objects.filter(o =>
-      STRUCT_PRIO[o.kind] == null && o.kind !== 'flora');
+    // Rebuild objects = kept structures (preserve everything else
+    // like plaques if they sneak in via future code).
+    const otherKinds = objects.filter(o => STRUCT_PRIO[o.kind] == null);
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
-    for (const o of keptFlora)   objects.push(o);
     for (const o of otherKinds)  objects.push(o);
     // Road-name letters: walk each transportation_name line at ~1 cell per step
     // and stamp ONE letter per road cell, cycling through "FIRSTWORD " (the
@@ -1528,7 +1504,15 @@
           cells.push(idx);
           const nm = pathNames[`${cx}_${cy}`];
           if (realName == null && nm) realName = nm;
-          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          // 8-connected: thin (r=0) paths are stamped by Bresenham, whose
+          // diagonal steps leave consecutive cells touching only at a corner.
+          // A 4-connected fill would shatter such a staircase footpath into
+          // many 1-cell components, so a 12-cell diagonal trail never reaches
+          // the 10-stone coin milestone or the 8-cell completion floor and
+          // pays nothing. Including diagonals keeps the whole path one named
+          // component.
+          for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1],
+                                     [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
             const nx = cx + ddx, ny = cy + ddy;
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
             const ni = ny * w + nx;
@@ -1560,6 +1544,22 @@
       const tooClose = prev && prev.some(p => Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M);
       if (tooClose) { o._drop = true; continue; }
       (byName.get(key) || byName.set(key, []).get(key)).push(o);
+    }
+    // Second pass: drop DIFFERENT-named POI chests that land right beside each
+    // other (within ~1 cell). OSM often tags one physical spot twice with
+    // unrelated labels — e.g. a traffic "signal post" sitting on top of the
+    // "Gordon & Casorso" intersection — which the same-name pass above can't
+    // catch. Keep the NAMED chest (so the meaningful place wins over a generic
+    // marker), else the first seen, and drop its neighbour so two POI sprites
+    // don't stack on adjacent cells.
+    const NEAR_M = CELL_M * 1.2;   // catches same + orthogonally-adjacent cells
+    const keptChests = [];
+    const chestsByPriority = objects
+      .filter(o => o.kind === 'chest' && !o._drop)
+      .sort((a, b) => (b.name ? 1 : 0) - (a.name ? 1 : 0));   // named first
+    for (const o of chestsByPriority) {
+      if (keptChests.some(k => Math.hypot(k.x - o.x, k.y - o.y) <= NEAR_M)) o._drop = true;
+      else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
     return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
@@ -1696,6 +1696,26 @@
         const occupied = new Set();
         for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
         for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
+        // Residential yard rule for the sidecar injections below. These are
+        // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
+        // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
+        // only RESIDENTIAL cells are gated (non-residential placements pass
+        // through); POI chests — both already placed and the ones we're about to
+        // inject — count as public anchors.
+        const _sxCell = (wx, wy) => ({
+          ix: Math.floor((wx - x * tileEdgeM) / mPerCell),
+          iy: Math.floor((wy - y * tileEdgeM) / mPerCell),
+        });
+        const _sxPois = [];
+        for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
+        for (const ch of (bin.chests || [])) _sxPois.push(_sxCell(ch.x, ch.y));
+        const _sxSpawnOpts = { pois: _sxPois };
+        const _sxYardOK = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+          if (grid[iy * cpe + ix] !== T.RESIDENTIAL) return true;
+          return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+        };
         // Streams (OSM waterway=stream) reach the sidecar as single centroid
         // points (the LineString was reduced upstream). Stamp a small 3×3 water
         // patch over each centroid so the stream reads as water on the map —
@@ -1721,17 +1741,47 @@
             }
           }
         }
-        for (const t of bin.trees) {
-          if (onWater(t.x, t.y)) continue;
-          const k = cellKeyOf(t.x, t.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          const c = localCentre(t.x, t.y);
-          t.x = c.x; t.y = c.y;
+        // Trees + fruit trees can NEVER sit on a building footprint, road, path,
+        // water or other hard/interactable cell. When a detection lands on one,
+        // relocate it to a favourable empty neighbour cell; drop it only if no
+        // neighbour works. One tree per cell — process largest crown first so the
+        // biggest tree wins a contested cell and smaller ones spill to neighbours.
+        const TREE_BLOCK = new Set([
+          T.WATER, T.PIER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
+          T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+        ]);
+        const tryTreeCell = (ix, iy) => {
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+          if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
+          if (occupied.has(`${ix}_${iy}`)) return null;
+          const wcx = x * tileEdgeM + (ix + 0.5) * mPerCell;
+          const wcy = y * tileEdgeM + (iy + 0.5) * mPerCell;
+          if (!_sxYardOK(wcx, wcy)) return null;
+          return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
+        };
+        // 4-neighbours first (closer, axis-aligned), then diagonals.
+        const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        const placeTree = (wx, wy) => {
+          const ix = Math.floor((wx - x * tileEdgeM) / mPerCell);
+          const iy = Math.floor((wy - y * tileEdgeM) / mPerCell);
+          let r = tryTreeCell(ix, iy);
+          if (r) return r;
+          for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+          return null;
+        };
+        const allTrees = [...bin.trees, ...(bin.fruittrees || [])]
+          .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+        for (const t of allTrees) {
+          const r = placeTree(t.x, t.y);
+          if (!r) continue;
+          occupied.add(r.key);
+          t.x = r.x; t.y = r.y;
           entry.objects.push(t);
         }
         for (const s of bin.shrubs) {
           if (onWater(s.x, s.y)) continue;
+          if (!_sxYardOK(s.x, s.y)) continue;
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1741,6 +1791,7 @@
         }
         for (const p of (bin.poles || [])) {
           if (onWater(p.x, p.y)) continue;
+          if (!_sxYardOK(p.x, p.y)) continue;
           const k = cellKeyOf(p.x, p.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1753,6 +1804,7 @@
         const _ROADISH = (tt) => tt === T.ROAD || tt === T.ROAD_MD || tt === T.ROAD_LG || tt === T.PATH;
         for (const wl of (bin.wells || [])) {
           if (onWater(wl.x, wl.y)) continue;
+          if (!_sxYardOK(wl.x, wl.y)) continue;
           const k = cellKeyOf(wl.x, wl.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
@@ -1786,36 +1838,17 @@
         }
         // POI chests (bus stops, signals, crossings, gates, towers, pitches,
         // gardens, bicycle racks, …). poiClass drives loot / tier / label /
-        // coin-burst via loot.js + the render/interact chest paths. Garden
-        // chests additionally scatter a small decorative flower burst.
-        const FLOWER_VARIANTS = 4;
+        // coin-burst via loot.js + the render/interact chest paths.
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
+          if (!_sxYardOK(ch.x, ch.y)) continue;
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
           const c = localCentre(ch.x, ch.y);
           ch.x = c.x; ch.y = c.y;
-          const isGarden = ch.garden;
           delete ch.garden;   // internal flag — don't leak into the chest object
           entry.objects.push(ch);
-          if (isGarden) {
-            // 6–8 flowers in a 1–3 cell ring around the chest. Decorative flora
-            // (same kind the MVT garden burst emits) — pickable as 'flowers'.
-            const burstSeed = ((Math.round(ch.x) * BURST_MUL_X) ^ (Math.round(ch.y) * BURST_MUL_Y)) >>> 0;
-            const brng = makeRng(burstSeed);
-            const burstN = 6 + Math.floor(brng() * 3);
-            for (let i = 0; i < burstN; i++) {
-              const ang = brng() * Math.PI * 2;
-              const rad = (1 + brng() * 2) * mPerCell;
-              const c2 = localCentre(ch.x + Math.cos(ang) * rad, ch.y + Math.sin(ang) * rad);
-              entry.objects.push({ kind: 'flora', deco: 'flower',
-                x: c2.x, y: c2.y, variant: Math.floor(brng() * FLOWER_VARIANTS),
-                // index `i` keeps the id unique when two burst flowers snap to
-                // the same cell (else picking one silently consumes both).
-                id: `gb_${Math.round(c2.x)}_${Math.round(c2.y)}_${i}` });
-            }
-          }
         }
         // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
         // spot" mark, claimed via the treasure handler (same array the MVT
@@ -1824,6 +1857,7 @@
         for (const pk of (bin.parking || [])) {
           const c = localCentre(pk.x, pk.y);
           pk.x = c.x; pk.y = c.y;
+          if (!_sxYardOK(pk.x, pk.y)) continue;
           // Skip if an X already sits within ~8m — the MVT parking path fills
           // the SAME array (before this injection) and snaps on a slightly
           // different basis, so the same lot present in both sources would
@@ -1878,8 +1912,9 @@
     if (_satextractPromise) return _satextractPromise;
     const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
     // DeepForest detections below this confidence are dropped on load. OSM
-    // trees carry no `score` and are always kept.
-    const SATEXTRACT_TREE_MIN_SCORE = 0.4;
+    // trees carry no `score` and are always kept. The z20 classified run is
+    // already filtered at 0.30 (the reviewed sweet spot), so match it here.
+    const SATEXTRACT_TREE_MIN_SCORE = 0.30;
     const tileEdgeM = tileEdgeMeters(lat);
     const project = (lon, lat0) => {
       const px = lonLatToWorldPx(lon, lat0, Z);
@@ -1893,7 +1928,7 @@
     // name is otherwise stable, so without a cache-bust the browser serves a
     // stale copy and freshly-extracted features (poles, relocated trees) never
     // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=4')
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=7')
       .then(r => (r.ok ? r.json() : null))
       .then(gj => {
         const bins = new Map();
@@ -1901,7 +1936,7 @@
           const k = `${tx}_${ty}`;
           let b = bins.get(k);
           if (!b) {
-            b = { trees: [], shrubs: [], poles: [],
+            b = { trees: [], fruittrees: [], shrubs: [], poles: [],
                   wells: [], chests: [], parking: [], streams: [] };
             bins.set(k, b);
           }
@@ -1949,13 +1984,38 @@
             binFor(p.tx, p.ty).trees.push({
               kind: 'tree', x: cx, y: cy,
               variant: 1 + (seed % 4),
-              species: TREE_SPECIES[seed % TREE_SPECIES.length],
+              // DeepForest trees carry a colour-classified species (pine/maple);
+              // OSM trees have none → fall back to the seeded random species.
+              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
-              // DeepForest crown diameter (metres) → sprite size in render.js.
-              // Undefined for OSM trees, which fall back to the flat species scale.
+              // DeepForest crown diameter (metres) + discrete size class + sampled
+              // crown colour → sprite size / tint in render.js. Undefined for OSM
+              // trees, which fall back to the flat species scale and no tint.
               crown_m: props.crown_m,
+              size: props.size,
+              crown_color: props.crown_color,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
+              individual: true,
+            });
+          } else if (kind === 'fruittree') {
+            // DeepForest tree colour-classified as a fruit tree (apple/peach).
+            const props = f.properties || {};
+            if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
+            const p = project(lon, lat0);
+            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
+            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
+            // Peaches are 5× rarer than apples (apple:peach = 5:1). The satellite
+            // colour classifier over-reported peaches, so assign species from a
+            // stable per-cell hash (1 in 6 → peach) instead of trusting it.
+            const ftHash = ((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0;
+            binFor(p.tx, p.ty).fruittrees.push({
+              kind: 'fruittree', x: cx, y: cy,
+              species: ftHash % 6 === 0 ? 'peach' : 'apple',
+              id: `ft_${Math.round(cx)}_${Math.round(cy)}`,
+              crown_m: props.crown_m,
+              size: props.size,
+              wild: true,            // mature & fruiting (vs a planted sapling)
               individual: true,
             });
           } else if (POLE_KINDS.has(kind)) {
@@ -2054,6 +2114,6 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem,
+    forEachItem, isWalkable, isSpawnCell,
   };
 })(window);

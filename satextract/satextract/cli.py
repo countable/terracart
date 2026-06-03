@@ -55,6 +55,14 @@ def main(argv=None):
                         "quality, ~3-5x slower on CPU), or a full HF model id.")
     p.add_argument("--box_threshold", type=float, default=0.30,
                    help="objects: min box confidence (lower = more recall/noise)")
+    p.add_argument("--tree_score_thresh", type=float, default=0.30,
+                   help="trees: min DeepForest crown confidence "
+                        "(lower = more recall/noise). Default 0.30.")
+    p.add_argument("--tree_device", default=None,
+                   help="trees: 'cuda' or 'cpu'. Default auto (GPU if present).")
+    p.add_argument("--tree_batch_size", type=int, default=4,
+                   help="trees: DeepForest patch batch size (raise on GPU "
+                        "for throughput; lower if you hit VRAM limits).")
     p.add_argument("--tile_size", type=int, default=1024,
                    help="objects: crop edge in px. Smaller crops make objects "
                         "fill more of the model input -> better small-object "
@@ -104,7 +112,10 @@ def main(argv=None):
     if "trees" in sources:
         from . import trees
         print("Running DeepForest…", file=sys.stderr)
-        feats += trees.detect_trees(image, origin_px, args.zoom)
+        feats += trees.detect_trees(image, origin_px, args.zoom,
+                                    score_thresh=args.tree_score_thresh,
+                                    device=args.tree_device,
+                                    batch_size=args.tree_batch_size)
 
     if "objects" in sources:
         from . import objects
