@@ -85,8 +85,8 @@ function treeSizeClass(o) {
   // Detected trees carry a discrete DeepForest crown class — map it straight to
   // the gameplay class so the axe-tier gate tracks the SIZE, not the species
   // sprite scale (a maple's base 0.85 would otherwise push every 'small' maple
-  // up into 'medium'/'full'). bush→bush (Wood), small→small (Wood),
-  // medium→medium (Copper), large→full (Iron).
+  // up into 'medium'/'full'). bush→bush (Wood 1), small→small (Copper 2),
+  // medium→medium (Iron 3), large→full (Gold 4).
   if (o.size === 'bush')   return 'bush';
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
@@ -114,15 +114,17 @@ function treeSpeciesName(o) {
   if (o.species === 'maple') return 'hardwood';
   return o.species || 'tree';
 }
-// Axe tier required to fell a tree: Gold(4) for shiny, otherwise the size
-// tier — Iron(3) full, Copper(2) medium, any(1) small/bush — shifted by species
-// (softwood −1 / hardwood +1) and clamped to the 1–3 axe range. Wood is
-// multiplied 4×/2×/1× off the SIZE class, so yield ignores the species shift.
+// Axe tier required to fell a tree: Gold(4) for shiny, otherwise +1 axe tier
+// per size class — bush(Wood 1) → small(Copper 2) → medium(Iron 3) →
+// full(Gold 4) — shifted by species (softwood −1 / hardwood +1) and clamped
+// to the 1–4 axe range. Wood is multiplied 4×/2×/1× off the SIZE class, so
+// yield ignores the species shift.
 function treeAxeReqTier(o) {
   if (isShiny(o.id, SHINY_RATE.tree)) return 4;
   const size = treeSizeClass(o);
-  const base = size === 'full' ? 3 : size === 'medium' ? 2 : 1;
-  return Math.max(1, Math.min(3, base + treeSpeciesTierShift(o)));
+  // +1 required axe tier for every step up in size class.
+  const base = size === 'full' ? 4 : size === 'medium' ? 3 : size === 'small' ? 2 : 1;
+  return Math.max(1, Math.min(4, base + treeSpeciesTierShift(o)));
 }
 function treeWoodMul(o) {
   const size = treeSizeClass(o);
