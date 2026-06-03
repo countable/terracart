@@ -1182,12 +1182,16 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      // dyFoot must match the house sprite's base (origin 1.0 + dyPx 2 ⇒ base
-      // at sy+2), so the contact shadow tucks under the building instead of
-      // sitting a few px below it (which read as the house floating).
-      let w = CELL_PX * 1.5, dyFoot = 2;
+      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5). Placing its
+      // centre AT the sprite base (sy+2) therefore left the ellipse's whole
+      // lower half — ~10px — dangling below the foot, reading as a detached
+      // shadow on the ground with the house floating above it. Lift the centre
+      // ABOVE the base so the bulk tucks behind/under the building and only a
+      // thin contact crescent shows at the foot, grounding it. Taller/wider
+      // buildings (fort) lift less since their footprint is broader.
+      let w = CELL_PX * 1.5, dyFoot = -4;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 4; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = -2; }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
        .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
