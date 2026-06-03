@@ -131,7 +131,10 @@ function treeSpeciesName(o) {
 function treeAxeReqTier(o) {
   if (isShiny(o.id, SHINY_RATE.tree)) return 4;
   const size = treeSizeClass(o);
-  // +1 required axe tier for every step up in size class; bush needs no axe.
+  // Bushes are one uniform type — always bare-hands (tier 0), no wood/species
+  // shift, so a maple bush is no harder than any other.
+  if (size === 'bush') return 0;
+  // +1 required axe tier for every step up in size class.
   const base = size === 'full' ? 3 : size === 'medium' ? 2 : size === 'small' ? 1 : 0;
   return Math.max(0, Math.min(4, base + treeSpeciesTierShift(o)));
 }

@@ -1044,7 +1044,12 @@ Render.drawObjects = function drawObjects(scene) {
                 return treeSizeClass(o) === 'small' ? base - 3 : base;
               },
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
-              after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
+              // Bushes are one uniform type — skip the per-tree crown tint so
+              // every bush renders as the same plain green sprite (an odd
+              // sampled colour otherwise made some bushes look broken).
+              after: (s, o) => {
+                if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+              } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
