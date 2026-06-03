@@ -759,27 +759,49 @@
             // of the pivot, routed through _pushMineralrock. RNG draw order is
             // identical to the old inline loops (fire roll, count roll, then jx/jy
             // per rock) so world seeds reproduce exactly.
+            //
+            // VEINS: if the caller supplies `veinChance` + raw `weights`, each
+            // fired cluster rolls once more; on a hit it becomes a "vein" — one
+            // randomly chosen tier has its weight multiplied by `veinMul` (10×)
+            // for that cluster only. This concentrates a single ore/crystal in
+            // a few clusters (the veins) without shifting the global rarity much,
+            // since the 70 % cave-rock split is untouched and the random tier
+            // pick spreads the boost across all tiers over many clusters. The
+            // extra rng() draws happen only when `veinChance` is set, so callers
+            // that don't pass it (industrial, ROCK) reproduce their seeds exactly.
             const _spawnRockClusters = (rng, geom, o) => {
               const bb = bboxOf(geom);
+              const veinMul = o.veinMul || 10;
               for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
                 for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
                   if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
                   if (rng() > o.fireChance) continue;
                   const clusterN = o.clusterMin + Math.floor(rng() * o.clusterSpan);
+                  // Per-cluster tier table — defaults to the shared one, but a
+                  // vein cluster gets a fresh table with one tier boosted 10×.
+                  let tierW = o.tierW, totalW = o.totalW;
+                  if (o.veinChance && o.weights && rng() < o.veinChance) {
+                    const veinTier = Math.floor(rng() * o.weights.length);
+                    const boosted = o.weights.slice();
+                    boosted[veinTier] *= veinMul;
+                    ({ tierW, totalW } = cumWeights(boosted));
+                  }
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
-                    _pushMineralrock(rng, jx, jy, o.tierW, o.totalW, o.residential);
+                    _pushMineralrock(rng, jx, jy, tierW, totalW, o.residential);
                   }
                 }
               }
             };
 
-            // Residential mineral clusters — a few abandoned-yard / construction
-            // piles in town. Sparse: pivot grid is ~30 m so most residential
-            // polygons spawn 0-1 clusters; each cluster is 3-5 low-tier rocks
-            // grouped within ~6 m. Gives the early game a reliable urban source
-            // of stone + low-tier ore without flooding sidewalks with rocks.
+            // Residential mineral clusters — abandoned-yard / construction
+            // piles in town. Pivot grid is ~24 m and ~59 % of candidates fire,
+            // so a residential polygon spawns a handful of clusters; each is a
+            // group of low-tier rocks within ~7 m. Gives the early game a
+            // reliable urban source of stone + low-tier ore. ~30 % of clusters
+            // are "veins" with one ore/crystal tier concentrated 10× (see the
+            // vein path in _spawnRockClusters) without flooding sidewalks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
@@ -796,9 +818,14 @@
               const { tierW, totalW } = cumWeights(weights);
               // 25..40 rocks per cluster: residential rocks survive the
               // road-adjacency filter at a lower rate, so input must overshoot.
+              // fireChance 0.585 = 0.45 × 1.3 → 30 % more clusters than before.
+              // veinChance 0.30: ~30 % of clusters become a "vein" where one
+              // random tier is 10× more likely (see _spawnRockClusters). Pass
+              // the raw `weights` so the vein path can rebuild a boosted table.
               _spawnRockClusters(resRng, f.geom, {
-                pivotStep, clusterR, fireChance: 0.45,
-                clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true });
+                pivotStep, clusterR, fireChance: 0.585,
+                clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true,
+                weights, veinChance: 0.30, veinMul: 10 });
               // Sparse pickable wild mushrooms in residential yards — same crop
               // as the forest clusters but rarer. Independent RNG stream so they
               // don't co-locate with the rock clusters above.
