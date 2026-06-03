@@ -108,12 +108,12 @@ function treeSizeClass(o) {
   return 'small';
 }
 // Species shifts the felling difficulty on top of the size class. Pine is a
-// SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
-// HARDWOOD — one tier tougher. Every other species fells at its plain size
-// tier. (This only moves the axe gate; wood yield still tracks size below.)
+// SOFTWOOD — one tier easier to fell than its size would imply. Every other
+// species (maple/hardwood included) fells at its plain size tier — a full
+// maple is Iron, a medium maple Copper, matching its size rather than a tier
+// above. (This only moves the axe gate; wood yield still tracks size below.)
 function treeSpeciesTierShift(o) {
-  if (o.species === 'pine')  return -1;   // softwood
-  if (o.species === 'maple') return +1;   // hardwood
+  if (o.species === 'pine')  return -1;   // softwood — easier
   return 0;
 }
 // Player-facing name for a tree species. Pine reads as "softwood", maple as
@@ -125,9 +125,9 @@ function treeSpeciesName(o) {
 }
 // Axe tier required to fell a tree: Gold(4) for shiny, otherwise +1 axe tier
 // per size class — bush(hands 0) → small(Wood 1) → medium(Copper 2) →
-// full(Iron 3) — shifted by species (softwood −1 / hardwood +1) and clamped
-// to the 0–4 range (0 = bare hands). Wood is multiplied 4×/2×/1× off the SIZE
-// class, so yield ignores the species shift.
+// full(Iron 3) — softwood shifts −1 (easier); other species fell at their
+// plain size tier. Clamped to the 0–4 range (0 = bare hands). Wood is
+// multiplied 4×/2×/1× off the SIZE class, so yield ignores the species shift.
 function treeAxeReqTier(o) {
   if (isShiny(o.id, SHINY_RATE.tree)) return 4;
   const size = treeSizeClass(o);
