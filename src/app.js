@@ -2131,7 +2131,12 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
-  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null) {
+  // `trackCreature` (optional): a moving target (e.g. a deer/crow being hunted)
+  // whose position the wheel follows and whose escape ABORTS the action. Unlike
+  // startCatchProgress' `flee`, the wheel does NOT drive the creature — its own
+  // wander/flee AI does — track just re-anchors the wheel over it and cancels if
+  // it slips out of reach. Omit it for static targets (rock / tree / fish).
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._workProgressIcon?.remove();
     this._workProgressIcon = null;
     if (toolSlot) {
@@ -2145,7 +2150,7 @@ class MapScene extends Phaser.Scene {
         this._workProgressIcon = el;
       }
     }
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
@@ -2244,6 +2249,31 @@ class MapScene extends Phaser.Scene {
         }
       } else {
         wp._outSinceT = null;                // back in reach — reset grace
+      }
+    }
+    // Tracked defeat target (deer / crow / slime hunt): the creature moves under
+    // its OWN wander/flee AI, not the wheel. Keep the wheel drawn over it, and
+    // abort the hunt if it escapes the player's reach for a short grace window —
+    // previously the defeat wheel was anchored to a FIXED point and happily ran
+    // to completion even after a fleeing deer had bounded clear out of range.
+    if (wp.track) {
+      const c = wp.track;
+      wp.worldX = c.x; wp.worldY = c.y;        // follow the target
+      const px = this.startWorldM.x + this.playerM.x;
+      const py = this.startWorldM.y + this.playerM.y;
+      const reachM = (typeof reachRadiusM === 'function')
+        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
+      const ndx = c.x - px, ndy = c.y - py;
+      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      if (outOfRange) {
+        wp._outSinceT = wp._outSinceT ?? now;
+        if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
+          this.cancelWorkProgress();
+          if (this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
+          return;
+        }
+      } else {
+        wp._outSinceT = null;
       }
     }
     const dur = wp.durationMs || 3000;
@@ -2391,6 +2421,14 @@ class MapScene extends Phaser.Scene {
       const isRabbit = c.kind === 'rabbit' && !isTame;
       const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
       const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
+      // Deer: skittish wild grazers. They used to just amble at the base wander
+      // speed, so a player could stroll right up and the deer never reacted
+      // ("very slow at escaping"). Give them a proper flight response — once the
+      // player closes within 5 cells a wild deer bolts directly away in long,
+      // fast strides (even quicker than a rabbit, befitting their size/speed).
+      const isDeer = c.kind === 'deer' && !isTame;
+      const DEER_FLEE_R2 = (5 * this.cellM) ** 2;
+      const deerFleeing = isDeer && (ddx * ddx + ddy * ddy <= DEER_FLEE_R2);
       // Butterflies flit constantly; after a failed net-catch they spend 2 min
       // bolting away from the player (set in _drawWorkProgress).
       const isButterfly = c.kind === 'butterfly';
@@ -2403,12 +2441,14 @@ class MapScene extends Phaser.Scene {
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
+                   : deerFleeing ? 340
                    : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
       // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
                   : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
+                  : deerFleeing ? STEP_M * 1.8
                   : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2540,6 +2580,10 @@ class MapScene extends Phaser.Scene {
           } else if (rabbitFleeing) {
             // Flee directly away from player with wide jitter so it zig-zags.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
+          } else if (deerFleeing) {
+            // Bound straight away from the player with only mild jitter — a deer
+            // runs in a committed line rather than a rabbit's panicked zig-zag.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
           } else if (butterflyEscaping) {
             // Bolt away from the player, careening with wide jitter.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;

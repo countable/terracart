@@ -499,7 +499,7 @@ const TAP_HANDLERS = [
         if (victim.shiny && dropId) {
           scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
         }
-      }, durMs * hpMul, 0, weaponSlot);
+      }, durMs * hpMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
@@ -848,7 +848,13 @@ const TAP_HANDLERS = [
       // of the sprite would otherwise miss-and-fall-through to the till handler
       // under it. Wells are deliberately NOT here — they must activate on their
       // own cell only (a tap on the cell above should not trigger them).
-      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine');
+      // Produce-stand chests render as an 80px market stall that rises ~1.5
+      // cells north of its foot (loot.js produceStandFor), so they need the
+      // same tall-sprite reach — without it a tap on the awning missed the
+      // foot-cell chest and fell through to the till handler, starting a
+      // phantom work wheel that made it feel like taps had stopped working.
+      const isStand = o.kind === 'chest' && typeof produceStandFor === 'function' && !!produceStandFor(o);
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || isStand);
       const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
       // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
       // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
@@ -868,10 +874,10 @@ const TAP_HANDLERS = [
         const oc = worldMetersToAbsCell(scene, o.x, o.y);
         const sameCol = oc.cellIX === tapCell.cellIX;
         inTapCell = sameCol && oc.cellIY === tapCell.cellIY;
-        // A castle/tower turret rises tall above its foot cell — let a tap on
-        // the empty cell directly ABOVE (north of) the turret activate it too.
-        // North is toward smaller world-y → smaller cellIY (see coords.js).
-        if (!inTapCell && o.kind === 'tower') {
+        // A castle/tower turret (and a market stall) rises tall above its foot
+        // cell — let a tap on the empty cell directly ABOVE (north of) it
+        // activate it too. North is toward smaller world-y → smaller cellIY.
+        if (!inTapCell && (o.kind === 'tower' || isStand)) {
           inTapCell = sameCol && tapCell.cellIY === oc.cellIY - 1;
         }
       }
@@ -910,6 +916,10 @@ const TAP_HANDLERS = [
         const held = save.chestHold && save.chestHold[o.id];
         const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
         const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+        // Produce/food stands sell ONE item themed off the POI name (loot.js).
+        // It overrides the random rarity roll so the stall always hands over a
+        // small stack of exactly what its awning advertises.
+        const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
         const result = held
           ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
           // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9
@@ -918,9 +928,11 @@ const TAP_HANDLERS = [
           // returns, then fall through to the normal item/modal path below.
           : (o.fixedLoot
               ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
-              : ((typeof pickReward === 'function')
-                  ? pickReward('chest:' + category, save, undefined, { tier: chestT })
-                  : null));
+              : (stand
+                  ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
+                  : ((typeof pickReward === 'function')
+                      ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                      : null)));
         if (!result) {
           addMoney(save, 1);
           save.opened.push(o.id);

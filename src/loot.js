@@ -247,6 +247,107 @@ function chestTier(poiClass) {
   return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
 }
 
+// === Themed produce / food stands ==========================================
+// A subset of RETAIL POIs (food / commerce / flora) render as a little market
+// stall instead of a chest, and sell ONE produce/food item themed off the
+// POI's name (or, failing that, its class). The mapping is deterministic — NOT
+// random — keyed off ~100 common shop-name words, so a "Pizzeria" always sells
+// the same thing and every fish stall looks the same. produceStandFor() returns
+// { item, frame } (frame = the market_stand awning-colour for the item family)
+// or null. Used by render.js (sprite) and interact.js (loot).
+//
+// item → awning frame in the market_stand spritesheet (the product "family").
+const STAND_ITEM_FRAME = {
+  // fruit (orange, 0)
+  apple: 0, cherry: 0, peach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
+  // veg / grocer (green, 1)
+  potato: 1, onion: 1, cress: 1, nut: 1, mushroom: 1,
+  // meat (red, 2)
+  meat: 2,
+  // fish (teal, 3)
+  salmon: 3, bass: 3, trout: 3, minnow: 3, goldenfish: 3,
+  // coffee / bakery (brown, 4)
+  coffee: 4,
+  // dairy / egg (pale yellow, 5)
+  milk: 5, egg: 5,
+  // flowers / garden (pink, 6)
+  flowers: 6,
+};
+// Shop-name word → the item that stall sells. Lowercase, matched as whole
+// tokens of the POI name (split on non-letters). ~100 common words.
+const STAND_KEYWORD_ITEM = {
+  // fruit
+  fruit: 'apple', fruits: 'apple', orchard: 'apple', apple: 'apple', apples: 'apple',
+  cider: 'apple', orange: 'orange', oranges: 'orange', citrus: 'orange', juice: 'orange',
+  peach: 'peach', peaches: 'peach', cherry: 'cherry', cherries: 'cherry',
+  banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
+  coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
+  smoothie: 'berry', jam: 'berry',
+  // veg / grocer / pub-grub
+  grocer: 'potato', grocery: 'potato', greengrocer: 'potato', market: 'potato',
+  produce: 'potato', veg: 'potato', vegetable: 'potato', vegetables: 'potato',
+  veggie: 'potato', potato: 'potato', potatoes: 'potato', spud: 'potato',
+  chips: 'potato', fries: 'potato', organic: 'potato', harvest: 'potato',
+  fresh: 'potato', farmstand: 'potato', pub: 'potato', tavern: 'potato',
+  bar: 'potato', inn: 'potato', saloon: 'potato',
+  onion: 'onion', onions: 'onion', salad: 'cress', greens: 'cress',
+  mushroom: 'mushroom', mushrooms: 'mushroom', fungi: 'mushroom',
+  nut: 'nut', nuts: 'nut',
+  pizza: 'mushroom', pizzeria: 'mushroom', italian: 'mushroom', pasta: 'mushroom',
+  trattoria: 'mushroom',
+  // meat
+  steak: 'meat', steaks: 'meat', ribeye: 'meat', grill: 'meat', grille: 'meat',
+  bbq: 'meat', barbecue: 'meat', smokehouse: 'meat', butcher: 'meat', butchers: 'meat',
+  meat: 'meat', meats: 'meat', burger: 'meat', burgers: 'meat', kebab: 'meat',
+  deli: 'meat', sausage: 'meat', chop: 'meat', chophouse: 'meat', jerky: 'meat',
+  bacon: 'meat', ham: 'meat',
+  // fish
+  fish: 'salmon', fishery: 'salmon', seafood: 'salmon', sushi: 'salmon',
+  sashimi: 'salmon', fishmonger: 'salmon', oyster: 'bass', chippy: 'bass',
+  catch: 'bass', salmon: 'salmon', trout: 'trout', bass: 'bass', cod: 'bass',
+  tuna: 'salmon',
+  // coffee / bakery
+  cafe: 'coffee', coffee: 'coffee', espresso: 'coffee', latte: 'coffee',
+  mocha: 'coffee', cappuccino: 'coffee', roast: 'coffee', bean: 'coffee',
+  beans: 'coffee', brew: 'coffee', tea: 'coffee', teahouse: 'coffee',
+  bakery: 'coffee', baker: 'coffee', bread: 'coffee', patisserie: 'coffee',
+  pastry: 'coffee', cake: 'coffee', bun: 'coffee', donut: 'coffee',
+  // dairy / egg
+  dairy: 'milk', milk: 'milk', creamery: 'milk', cheese: 'milk',
+  cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', icecream: 'milk',
+  egg: 'egg', eggs: 'egg', poultry: 'egg', henhouse: 'egg',
+  // flowers / garden
+  florist: 'flowers', flower: 'flowers', flowers: 'flowers', bloom: 'flowers',
+  blossom: 'flowers', petal: 'flowers', nursery: 'flowers', garden: 'flowers',
+  botanic: 'flowers', bouquet: 'flowers', posy: 'flowers',
+};
+// Fallback when the NAME has no product word but the POI's CLASS implies one.
+const STAND_CLASS_ITEM = {
+  butcher: 'meat', bakery: 'coffee', grocery: 'potato', greengrocer: 'potato',
+  supermarket: 'potato', convenience: 'potato', florist: 'flowers',
+  garden_centre: 'flowers', garden: 'flowers', ice_cream: 'milk',
+  cafe: 'coffee', fast_food: 'meat', alcohol_shop: 'potato', beer: 'potato',
+};
+const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
+function produceStandFor(o) {
+  if (!o || o.kind !== 'chest') return null;
+  if (o._standCache !== undefined) return o._standCache;   // computed once per object
+  let res = null;
+  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass])) {
+    let item = null;
+    // The shop's own branding wins; fall back to the class word.
+    const toks = String(o.name || '').toLowerCase().split(/[^a-z]+/);
+    for (const t of toks) { if (STAND_KEYWORD_ITEM[t]) { item = STAND_KEYWORD_ITEM[t]; break; } }
+    if (!item) item = STAND_CLASS_ITEM[o.poiClass] || null;
+    if (item && STAND_ITEM_FRAME[item] !== undefined &&
+        (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
+      res = { item, frame: STAND_ITEM_FRAME[item] };
+    }
+  }
+  o._standCache = res;
+  return res;
+}
+
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
 // Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
