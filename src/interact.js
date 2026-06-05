@@ -468,7 +468,7 @@ const TAP_HANDLERS = [
         if (victim.shiny && dropId) {
           scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
         }
-      }, durMs, 0, weaponSlot);
+      }, durMs, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
