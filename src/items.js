@@ -110,6 +110,14 @@ const MINERAL_ICON_SHEET = {
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
+  // Same Food Icons family (32×16, frame 0 = whole fruit). These carry a
+  // `crop` ref but no in-world growth sprite, and there's no crops.png row for
+  // them — so without an entry here inventoryIconSource returned null and they
+  // rendered as a bare '?' in chest rewards / inventory (user hit it on apricot).
+  banana:   { sheet: 'icon_banana',  frame: 0 },
+  orange:   { sheet: 'icon_orange',  frame: 0 },
+  coconut:  { sheet: 'icon_coconut', frame: 0 },
+  apricot:  { sheet: 'icon_apricot', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
