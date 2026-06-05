@@ -65,6 +65,13 @@ function crowEatsCrop(p) { return !CROW_IGNORED_CROPS.has(p.crop); }
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
+// Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
+// visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
+// debug "taps randomly stop working". On by default in DEBUG builds; force on
+// anywhere with ?debugtaps in the URL. Set window.DEBUG_TAPS = false to silence.
+if (typeof window !== 'undefined') {
+  window.DEBUG_TAPS = DEBUG || /[?&]debugtaps\b/.test(location.search || '');
+}
 
 // --- Tap reach radii (metres). Used by handleWorldTap distance checks. ---
 // (Creatures use a per-kind tap radius in interact.js, not a flat constant.)

@@ -1739,9 +1739,33 @@ const TAP_HANDLERS = [
   }},
 ];
 
+// Tap diagnostics. "Taps randomly stop working" is otherwise invisible — the
+// DOM inventory bar keeps working because it isn't a canvas tap, so the only
+// signal is that the world stops responding. When window.DEBUG_TAPS is on, this
+// surfaces WHY a canvas tap produced no visible action: it flashes near the tap
+// AND logs to console. Three telltales it distinguishes:
+//   • "outside play area"  → the view-bounds guard rejected it; if EVERY tap
+//      (even centre-screen) says this, scene.viewLeft/viewSize are corrupt.
+//   • "an action was in progress" → a work wheel ate the tap (a STUCK wheel
+//      shows this on every tap while nothing visibly progresses).
+//   • "nothing here responded" → reached the handlers but none matched.
+// The ABSENCE of any flash on a debug tap is itself the clue that the tap never
+// reached interactTap at all (Phaser input disabled or an overlay swallowing it).
+function _tapDiag(scene, sx, sy, reason) {
+  if (typeof window === 'undefined' || !window.DEBUG_TAPS) return;
+  try { console.debug('[tap]', reason, `@(${Math.round(sx)},${Math.round(sy)})`); } catch (_) {}
+  if (typeof scene.flash === 'function') scene.flash(`⚠ ${reason}`, sx, sy);
+}
+
 function interactTap(scene, sx, sy) {
   if (sx < scene.viewLeft || sx > scene.viewLeft + scene.viewSize ||
-      sy < scene.viewTop  || sy > scene.viewTop  + scene.viewSize) return;
+      sy < scene.viewTop  || sy > scene.viewTop  + scene.viewSize) {
+    _tapDiag(scene, sx, sy,
+      `tap outside play area — x${Math.round(sx)} ∉ [${Math.round(scene.viewLeft)},`
+      + `${Math.round(scene.viewLeft + scene.viewSize)}], y${Math.round(sy)} ∉ `
+      + `[${Math.round(scene.viewTop)},${Math.round(scene.viewTop + scene.viewSize)}]`);
+    return;
+  }
   const wm = scene.screenToWorldMeters(sx, sy);
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   // Reach is measured from the character's visible feet, not the sprite center,
@@ -1760,9 +1784,16 @@ function interactTap(scene, sx, sy) {
   const pCellCentre = absCellCenterMeters(scene, pCell.cellIX, pCell.cellIY);
   const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY,
                 pCellCx: pCellCentre.x, pCellCy: pCellCentre.y, sx, sy, dirty: false };
+  let consumedBy = null;
   for (const h of TAP_HANDLERS) {
     const consumed = h.try(ctx);
-    if (consumed === true || consumed === 'far') break;
+    if (consumed === true || consumed === 'far') { consumedBy = h.name; break; }
   }
   if (ctx.dirty) persistSave(scene.save);
+  // Surface the "my tap did nothing" cases so the player can see the cause.
+  if (!consumedBy) {
+    _tapDiag(scene, sx, sy, 'nothing here responded to the tap');
+  } else if (consumedBy === 'work-progress') {
+    _tapDiag(scene, sx, sy, 'an action was in progress — tap cancelled it');
+  }
 }
