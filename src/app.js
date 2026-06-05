@@ -2211,6 +2211,23 @@ class MapScene extends Phaser.Scene {
     const wp = this._workProgress;
     if (!wp) return;
     const now = performance.now();
+    // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
+    // fail, or cancel), so one that has outlived that by a wide margin is
+    // orphaned — e.g. its completion / flee / track code threw (the update loop
+    // is kept alive by _reportLoopError, so a per-frame throw won't surface),
+    // leaving _workProgress set forever. That makes the interact.js work-progress
+    // tap guard swallow EVERY tap, which reads as "taps randomly stopped
+    // working". Force-clear it here, at the very top — above the flee/track
+    // blocks that might be the thing throwing — so the loop self-heals within a
+    // few seconds. Generous +8s margin so a legitimately long bare-hands wheel
+    // (9s) is never cut short.
+    if (now - (wp.startT || now) > (wp.durationMs || 3000) + 8000) {
+      try { console.warn('[wheel] watchdog cleared an orphaned work wheel after',
+        Math.round(now - (wp.startT || now)), 'ms (dur', wp.durationMs, ')'); } catch (_) {}
+      this.cancelWorkProgress();
+      try { this.flash?.('(cleared a stuck action)', this.viewCenterX, this.viewCenterY - 60); } catch (_) {}
+      return;
+    }
     // Fleeing catch target: it backs away from the player at FLEE_MPS while the
     // wheel runs. If it stays outside the player's reach long enough the catch
     // fails. The wheel anchor (worldX/Y) follows the creature so it stays drawn
