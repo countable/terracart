@@ -605,6 +605,10 @@ class MapScene extends Phaser.Scene {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
     };
+    // Publish the spawn origin to the home-area hub (home.js) so worldgen can
+    // ask "is this near home?" while building tiles — set before the first
+    // ensureTilesAround() below.
+    if (typeof HomeArea !== 'undefined') HomeArea.setOrigin(this.startWorldM.x, this.startWorldM.y);
 
     this.playerM = { x: 0, y: 0 };
     this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement

@@ -685,7 +685,9 @@
                       // every other tree → felling one cleared the grove.
                       objects.push({ kind: 'tree', x: cx, y: cy,
                         variant: 1 + Math.floor(rng() * 4),
-                        species,
+                        // Trees near the start are softwood (home.js) for easy early wood.
+                        species: (typeof HomeArea !== 'undefined')
+                          ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
                         id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
                     }
                   }
@@ -2018,7 +2020,10 @@
               variant: 1 + (seed % 4),
               // DeepForest trees carry a colour-classified species (pine/maple);
               // OSM trees have none → fall back to the seeded random species.
-              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
+              // Trees near the start are forced softwood (home.js) for easy early wood.
+              species: (typeof HomeArea !== 'undefined')
+                ? HomeArea.softwoodSpeciesNear(cx, cy, props.species || TREE_SPECIES[seed % TREE_SPECIES.length])
+                : (props.species || TREE_SPECIES[seed % TREE_SPECIES.length]),
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
               // DeepForest crown diameter (metres) + discrete size class + sampled
               // crown colour → sprite size / tint in render.js. Undefined for OSM
