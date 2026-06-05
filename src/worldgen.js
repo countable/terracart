@@ -460,6 +460,22 @@
   // Salt for the rare-nut RNG stream in forests — independent of the shrub stream
   // that shares the same polygon key. (Was `0xdeadbeef`.)
   const NUT_RNG_SALT = 0xdeadbeef;
+  // ── Rare wild flora ──────────────────────────────────────────────────────
+  // Prized foraged flowers, sprinkled at very low density (rarer than nuts) so
+  // stumbling on a bloom feels like a find. Meadow flora share the grassland
+  // family with longgrass; woodland flora grow among the forest trees. Each
+  // flower picks like any wildplant (instant, no tool) and can roll the
+  // shiny-flora sheen. Art = distinct single-cell Props.png frames (see
+  // CROP_SPRITE in items.js). Each gets its own RNG salt so its stream never
+  // co-locates with shrubs / longgrass / nuts / mushrooms / other flora.
+  const MEADOW_FLORA = [
+    { crop: 'forgetmenot', salt: 0xF10A0001, dMin: 0.006, dMax: 0.020 },
+    { crop: 'marigold',    salt: 0xF10A0002, dMin: 0.004, dMax: 0.012 },
+  ];
+  const FOREST_FLORA = [
+    { crop: 'wildrose',    salt: 0xF10A0003, dMin: 0.004, dMax: 0.012 },
+    { crop: 'starflower',  salt: 0xF10A0004, dMin: 0.002, dMax: 0.006 },
+  ];
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -635,6 +651,11 @@
               const seed = (polyKey ^ LONGGRASS_RNG_SALT) >>> 0;
               const density = ((seed % 1000) / 1000) * LONGGRASS_MAX_DENSITY;
               if (density > 0) spawnDebris(f.geom, 'longgrass', seed, density, density);
+              // Rare meadow flowers share the grassland family. Independent
+              // low-density streams so a field occasionally hides a bloom.
+              for (const fl of MEADOW_FLORA) {
+                spawnDebris(f.geom, fl.crop, (polyKey ^ fl.salt) >>> 0, fl.dMin, fl.dMax);
+              }
             }
 
             // Scattered Trees on wood/forest landcover. Each polygon picks ONE
@@ -672,6 +693,11 @@
                 // Rare mushroom clusters in the same forest polygon. Independent RNG
                 // stream (different salt) so they don't co-locate with shrubs/nuts.
                 spawnDebris(f.geom, 'mushroom', (polyKey ^ 0xBADF00D) >>> 0, 0.04, 0.10);
+                // Rare woodland flowers among the trees — sparse, each on its
+                // own stream so finds scatter rather than cluster.
+                for (const fl of FOREST_FLORA) {
+                  spawnDebris(f.geom, fl.crop, (polyKey ^ fl.salt) >>> 0, fl.dMin, fl.dMax);
+                }
               }
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
@@ -1319,6 +1345,12 @@
       longgrass: GRASSLAND_FAMILY,
       nut:       new Set([T.FOREST]),                  // forest only (1)
       mushroom:  new Set([T.FOREST, T.RESIDENTIAL]),   // forest + residential yards (1, 5)
+      // Rare wild flora — keep each bloom on its native biome so a flower
+      // never survives onto a paved-over cell (matches its spawn pass above).
+      forgetmenot: GRASSLAND_FAMILY,
+      marigold:    GRASSLAND_FAMILY,
+      wildrose:    new Set([T.FOREST]),
+      starflower:  new Set([T.FOREST]),
       // rockfruit + anything else → GROUND fallback
     };
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
