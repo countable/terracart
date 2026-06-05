@@ -110,6 +110,10 @@ const MINERAL_ICON_SHEET = {
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
+  apricot:  { sheet: 'icon_apricot', frame: 0 },
+  banana:   { sheet: 'icon_banana',  frame: 0 },
+  orange:   { sheet: 'icon_orange',  frame: 0 },
+  coconut:  { sheet: 'icon_coconut', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
