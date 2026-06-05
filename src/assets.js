@@ -128,9 +128,11 @@ const ASSETS = {
   // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
   // the procedural longgrass texture.
   props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
-  // Lush round bushes — 144×288 = 3 cols × 6 rows of 48×48 frames. Replaces
+  // Lush round bushes — 144×288 = 3 cols × 9 rows of 48×32 frames. Replaces
   // the old bare-twig Props.png frame as the in-world shrub wildplant art.
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 48 },
+  // (The rows are 32px tall, not 48 — slicing at 48 made frame 0 grab one
+  // bush PLUS the top half of the bush below it: "1.5 copies" of the sprite.)
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 32 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
