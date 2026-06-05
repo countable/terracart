@@ -4293,21 +4293,29 @@ class MapScene extends Phaser.Scene {
     return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
   }
 
-  // True for the first 3 RESTORED residential (delivery) houses, by restore
-  // order. restoredHouses keys preserve insertion order, so the first three
-  // entries stored as 'plain' are the earliest-restored delivery houses — they
-  // get pinned to TIER-1 produce wishlists (see wantedProduce).
-  isEarlyDeliveryHouse(house) {
-    if (!house?.id) return false;
+  // 0-based position of this house among restored residential (delivery)
+  // houses, in restore order; -1 if it isn't a (restored) delivery house.
+  // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
+  // the Nth-restored delivery house. Drives the scripted early wishlists
+  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
+  deliveryHouseOrder(house) {
+    if (!house?.id) return -1;
     const rh = this.save.restoredHouses || {};
-    if (rh[house.id] !== 'plain') return false;       // not a (restored) delivery house
+    if (rh[house.id] !== 'plain') return -1;          // not a (restored) delivery house
     let n = 0;
     for (const id of Object.keys(rh)) {
       if (rh[id] !== 'plain') continue;
-      if (id === house.id) return n < 3;
+      if (id === house.id) return n;
       n++;
     }
-    return false;
+    return -1;
+  }
+
+  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
+  // produce wishlists (see wantedProduce).
+  isEarlyDeliveryHouse(house) {
+    const o = this.deliveryHouseOrder(house);
+    return o >= 0 && o < 3;
   }
 
   // Every restored delivery house currently asking for a bundle (not satisfied
@@ -4561,6 +4569,17 @@ class MapScene extends Phaser.Scene {
     if (!house?.id) return [];
     const dayKey = this._deliveryDayKey();
     if (house._wantedProduce && house._wantedProduceDay === dayKey) return house._wantedProduce;
+    // The 4th delivery house always wants the common foraged-flower trio — a
+    // scripted nudge toward flower-picking once the T1-produce starter run
+    // (houses 1-3) is done.
+    if (this.deliveryHouseOrder(house) === 3) {
+      const trio = ['forgetmenot', 'marigold', 'wildrose'].filter(id => ITEM_BY_ID[id]);
+      if (trio.length) {
+        house._wantedProduce = trio;
+        house._wantedProduceDay = dayKey;
+        return trio;
+      }
+    }
     let universe = (typeof ITEMS !== 'undefined')
       ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
       : [];
