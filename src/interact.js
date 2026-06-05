@@ -475,6 +475,10 @@ const TAP_HANDLERS = [
       const durMs = (typeof toolDurationMs === 'function')
         ? toolDurationMs(r, weaponSlot)
         : (weaponTier > 0 ? Math.max(300, 3000 - (weaponTier - 1) * 450) : 9000);
+      // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
+      // so a shiny crow/deer is markedly tougher to bring down than its plain
+      // kind (slimes never spawn shiny, so this only ever hits crow/deer here).
+      const hpMul = target.shiny ? 2 : 1;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -495,7 +499,7 @@ const TAP_HANDLERS = [
         if (victim.shiny && dropId) {
           scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
         }
-      }, durMs, 0, weaponSlot);
+      }, durMs * hpMul, 0, weaponSlot);
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
@@ -680,9 +684,13 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    const catchMs = (typeof toolDurationMs === 'function')
+    let catchMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'bugnet')
       : (save.relics?.bugnet ? 3000 : 9000);
+    // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
+    // a shiny animal (which also flees at 2× speed) is much harder to net: it
+    // has more time to slip out of reach and escape. Plain kinds are unchanged.
+    if (target.shiny) catchMs *= 2;
     // Catching costs energy (refunded if the player cancels the wheel; not
     // refunded if the animal escapes the player's reach — the attempt was made).
     const catchCost = (typeof effectiveCatchCost === 'function')
