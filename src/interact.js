@@ -105,12 +105,23 @@ function findClosestItem(layer, px, py, reach, accept, offset) {
 function tooFar(ctx, x, y) {
   const { scene } = ctx;
   if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
-    const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
-    if (!cellInReach(scene, cellIX, cellIY)) {
-      scene.flash('Just out of reach.', ctx.sx, ctx.sy);
-      return true;
+    // Reach gate = "is it in a lit cell?" — byte-identical to the on-screen
+    // highlight (render.js drawCells / cellInReach). An entity counts as in
+    // reach if EITHER its own foot cell is lit OR the cell the player actually
+    // TAPPED is lit. The tapped-cell clause is what keeps the highlight honest
+    // for tall sprites: a tree/house at the south edge of the reach draws its
+    // canopy in a lit cell while its FOOT sits one cell further south (unlit),
+    // so a foot-cell-only test flashed "out of reach" on a tap that clearly
+    // landed inside the highlighted square. Honour whichever cell the player
+    // pointed at — if it's lit, the tap is in reach.
+    const foot = worldMetersToAbsCell(scene, x, y);
+    if (cellInReach(scene, foot.cellIX, foot.cellIY)) return false;
+    if (ctx.wm) {
+      const tap = worldMetersToAbsCell(scene, ctx.wm.x, ctx.wm.y);
+      if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
     }
-    return false;
+    scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    return true;
   }
   // Fallback (helpers somehow unavailable): legacy Euclidean foot→cell-centre gate.
   const reachM = (typeof reachRadiusM === 'function')
