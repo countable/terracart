@@ -708,6 +708,14 @@ class MapScene extends Phaser.Scene {
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
     this.creaturesContainer = this.add.container(0, 0);
+    // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
+    // animal / wild plant / tree. Added AFTER creaturesContainer so the spark
+    // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
+    // cue: the multiply setTint() used elsewhere silently no-ops under the
+    // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
+    // on those devices. The spark texture is baked gold and animates via
+    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
+    this.sparkContainer = this.add.container(0, 0);
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
 
@@ -751,6 +759,7 @@ class MapScene extends Phaser.Scene {
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
+    this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
@@ -789,6 +798,23 @@ class MapScene extends Phaser.Scene {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
+    // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
+    // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
+    // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
+    if (!this.textures.exists('shiny_spark')) {
+      const pg = this.make.graphics({ x: 0, y: 0, add: false });
+      const C = 16;
+      // Soft outer glow.
+      pg.fillStyle(0xfff3b0, 0.85); pg.fillCircle(C, C, 4);
+      // Two crossed slim diamonds form the 4-point sparkle.
+      pg.fillStyle(0xffd23a, 1);
+      pg.fillPoints([{ x: C, y: C - 14 }, { x: C + 2.8, y: C }, { x: C, y: C + 14 }, { x: C - 2.8, y: C }], true);
+      pg.fillPoints([{ x: C - 14, y: C }, { x: C, y: C - 2.8 }, { x: C + 14, y: C }, { x: C, y: C + 2.8 }], true);
+      // White-hot core sells the glint.
+      pg.fillStyle(0xffffff, 1); pg.fillCircle(C, C, 2);
+      pg.generateTexture('shiny_spark', 32, 32);
+      pg.destroy();
+    }
     // Shadow pool — one sprite per visible building. Sized to the worst case
     // (every object cell could be a building); reuses the object pool budget.
     this.shadowPool = [];
@@ -809,6 +835,7 @@ class MapScene extends Phaser.Scene {
     this.objectsContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
+    this.sparkContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.
