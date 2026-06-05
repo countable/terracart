@@ -2036,6 +2036,32 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
+    // the house the player picked from the delivery menu (openDeliveryMenu).
+    // Same edge-compass geometry as the pairy arrow but persistent (no blink),
+    // cleared once the player arrives or the house is satisfied for the day.
+    if (this.deliveryCompass) {
+      const dayKey = this._deliveryDayKey();
+      const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
+      const dxM = this.deliveryCompass.x - pWX, dyM = this.deliveryCompass.y - pWY;
+      const mag = Math.hypot(dxM, dyM);
+      if (satisfied || mag < this.cellM * 1.2) {
+        this.deliveryCompass = null;
+      } else {
+        const ux = dxM / mag, uy = dyM / mag;
+        const dist = Math.min(this.viewSize / 2 - 18, 140);
+        const cx = this.viewCenterX, cy = this.viewCenterY;
+        const tipX = cx + ux * dist, tipY = cy + uy * dist;
+        const pxN = -uy, pyN = ux;
+        const back = 14, halfW = 7;
+        const blx3 = tipX - ux * back + pxN * halfW, bly3 = tipY - uy * back + pyN * halfW;
+        const brx3 = tipX - ux * back - pxN * halfW, bry3 = tipY - uy * back - pyN * halfW;
+        this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx3, bly3, brx3, bry3, 0.9, 0xffffff);
+      }
+    }
+
     if (!this._lastCheckM ||
         Math.hypot(this.playerM.x - this._lastCheckM.x, this.playerM.y - this._lastCheckM.y) > 20) {
       this._lastCheckM = { ...this.playerM };
@@ -3982,10 +4008,17 @@ class MapScene extends Phaser.Scene {
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
-    const sellsProduce = (shopType === 'market')
-      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
+    // The tutorial's first market is the guaranteed beginner SEED shop: it
+    // rotates through T1/T2 (low-tier) seeds only, never produce or higher-tier
+    // crops the player can't use yet.
+    const isFirstMarket = this.isFirstMarket(house);
+    const sellsProduce = !isFirstMarket && ((shopType === 'market')
+      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3));
     let id;
-    if (sellsProduce) {
+    if (isFirstMarket) {
+      const lowSeeds = BUY_LIST.filter(isLowTierSeed);
+      id = lowSeeds[(this.save.buyIndex ?? 0) % lowSeeds.length] || BUY_LIST[0];
+    } else if (sellsProduce) {
       // Cycle through produce, weighted toward the buyIndex so it still rotates.
       const produceIds = Object.keys(CROP_ROW);
       id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
@@ -4240,6 +4273,115 @@ class MapScene extends Phaser.Scene {
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
   }
 
+  // The tutorial's first restored market (PRESEED_RESTORE_ROLES order 3) is the
+  // player's guaranteed early SEED shop: it vends only T1/T2 seeds for cash
+  // instead of the produce a normal market sells, so a beginner always has a
+  // reliable source of plantable starter crops. Memoize its id; self-heal for
+  // saves that restored it before this stamp existed by scanning restoredHouses
+  // in insertion order (object keys preserve insert order, so the first 'market'
+  // entry is the earliest-restored market).
+  ensureFirstMarketId() {
+    if (this.save.firstMarketId) return this.save.firstMarketId;
+    const rh = this.save.restoredHouses || {};
+    for (const id of Object.keys(rh)) {
+      if (rh[id] === 'market') { this.save.firstMarketId = id; persistSave(this.save); return id; }
+    }
+    return null;
+  }
+
+  isFirstMarket(house) {
+    return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
+  }
+
+  // True for the first 3 RESTORED residential (delivery) houses, by restore
+  // order. restoredHouses keys preserve insertion order, so the first three
+  // entries stored as 'plain' are the earliest-restored delivery houses — they
+  // get pinned to TIER-1 produce wishlists (see wantedProduce).
+  isEarlyDeliveryHouse(house) {
+    if (!house?.id) return false;
+    const rh = this.save.restoredHouses || {};
+    if (rh[house.id] !== 'plain') return false;       // not a (restored) delivery house
+    let n = 0;
+    for (const id of Object.keys(rh)) {
+      if (rh[id] !== 'plain') continue;
+      if (id === house.id) return n < 3;
+      n++;
+    }
+    return false;
+  }
+
+  // Every restored delivery house currently asking for a bundle (not satisfied
+  // today), nearest first, with its wanted produce + distance in metres. Drives
+  // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
+  // excluded — only plain residential delivery houses appear.
+  knownDeliveryHouses() {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const out = [];
+    const seen = new Set();
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house' || !o.id || seen.has(o.id)) continue;
+        if (o.tier === 11 || o.tier === 12) continue;             // forts / civic slabs
+        if (this.houseShopRole(o) !== null) continue;             // only plain (no shop role)
+        if (this._isHouseWreck && this._isHouseWreck(o)) continue; // still a wreck
+        if (this.isStarterShop(o)) continue;                      // home sells, doesn't ask
+        if (this.isHouseSatisfied(o)) continue;                   // happy until tomorrow
+        const wanted = this.wantedProduce(o);
+        if (!wanted.length) continue;
+        seen.add(o.id);
+        const dx = o.x - pWX, dy = o.y - pWY;
+        out.push({ id: o.id, x: o.x, y: o.y, wanted, dist: Math.hypot(dx, dy) });
+      }
+    }
+    out.sort((a, b) => a.dist - b.dist);
+    return out;
+  }
+
+  // Point the white waypoint arrow at a delivery house (cleared automatically
+  // once the player reaches it or it's satisfied — see the update loop).
+  setDeliveryCompass(id, x, y) {
+    this.deliveryCompass = { id, x, y };
+  }
+
+  // Delivery list overlay: tap a row to aim the white waypoint arrow at that
+  // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
+  openDeliveryMenu() {
+    const { wrap, box, mount } = this.makeModalShell('delivery-menu',
+      { maxWidth: 320, textAlign: 'left', onClose: () => {} });
+    const title = document.createElement('div');
+    title.style.cssText = 'font:700 14px ui-monospace,monospace;color:#ffe066;margin-bottom:8px;text-align:center;';
+    title.textContent = 'Deliveries';
+    box.appendChild(title);
+    const houses = this.knownDeliveryHouses();
+    if (!houses.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px ui-monospace,monospace;';
+      empty.textContent = 'No delivery requests nearby. Restore a house to start.';
+      box.appendChild(empty);
+    } else {
+      for (const h of houses) {
+        const row = document.createElement('button');
+        row.style.cssText =
+          'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
+          + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
+          + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
+        const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
+        row.innerHTML =
+          `<span style="flex:1;display:flex;align-items:center;gap:4px;">${icons}</span>`
+          + `<span style="opacity:.7;white-space:nowrap;">${Math.round(h.dist)}m ›</span>`;
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.setDeliveryCompass(h.id, h.x, h.y);
+          wrap.remove();
+          this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
+        });
+        box.appendChild(row);
+      }
+    }
+    mount();
+  }
+
   findStarterBlacksmithId() {
     // Resolve the starter shop first — needed both to anchor the search and
     // to exclude it from the candidate list. Goes through the guarded
@@ -4423,10 +4565,10 @@ class MapScene extends Phaser.Scene {
       ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
       : [];
     if (!universe.length) return [];
-    // The player's first 3 lifetime deliveries ask for TIER-1 produce only, so
-    // the starter loop never demands a crop they can't yet grow. After that the
-    // usual _wantedTargetTier ramp takes over.
-    if ((this.save.deliveryCount ?? 0) < 3) {
+    // The first 3 delivery houses (by restore order) only ever ask for TIER-1
+    // produce, so the starter loop never demands a crop the player can't yet
+    // grow. Every later house follows the usual _wantedTargetTier ramp.
+    if (this.isEarlyDeliveryHouse(house)) {
       const t1 = universe.filter(id => this._produceTier(id) <= 1);
       if (t1.length) universe = t1;
     }
@@ -5555,6 +5697,11 @@ class MapScene extends Phaser.Scene {
         // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
+        }
+        // The first restored market becomes the guaranteed T1/T2 seed shop
+        // (see isFirstMarket / the buy branch in shopInteract).
+        if (restoredRole === 'market' && this.save.firstMarketId == null) {
+          this.save.firstMarketId = house.id;
         }
         persistSave(this.save);
         this.buildInventoryDOM();

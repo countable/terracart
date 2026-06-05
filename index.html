@@ -214,6 +214,7 @@
   <details id="menu">
     <summary>☰</summary>
     <div class="items">
+      <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
@@ -354,6 +355,11 @@
       const m = document.getElementById('menu');
       if (m && m.open && !m.contains(e.target)) m.open = false;
     }, true);
+    document.getElementById('delivery-list').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.openDeliveryMenu) window.__scene.openDeliveryMenu();
+    });
     document.getElementById('stats-relics').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -593,6 +599,6 @@
   <script src="src/assets.js?v=168"></script>
   <script src="src/sandbox.js?v=29"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=290"></script>
+  <script src="src/app.js?v=291"></script>
 </body>
 </html>
