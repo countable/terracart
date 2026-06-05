@@ -69,6 +69,15 @@ const CROP_SPRITE = {
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
   shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
+  // ── Rare wild flora ── prized foraged flowers. Each is a distinct
+  // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
+  // They spawn sparsely on a matching biome (see MEADOW_FLORA / FOREST_FLORA in
+  // worldgen.js) and pick like any wildplant. Default scale 2 renders the 16px
+  // frame at 32px = one game cell, so each bloom sits cleanly inside its tile.
+  forgetmenot: { sheet: 'props', custom: true, frame: 76 },  // blue forget-me-not cluster (row 3, col 10)
+  marigold:    { sheet: 'props', custom: true, frame: 34 },  // golden marigold (row 1, col 12)
+  wildrose:    { sheet: 'props', custom: true, frame: 30 },  // red wild rose (row 1, col 8)
+  starflower:  { sheet: 'props', custom: true, frame: 102 }, // glowing purple star-flower (row 4, col 14)
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -206,6 +215,10 @@ const BASE_TIER = {
   platinum_bar: 5, crimson_bar: 6, frost_bar: 7,
   // Wild produce / animal output
   longgrass: 1, flowers: 1, mushroom: 1, boot: 1,
+  // Rare wild flora — foraged flowers, climbing from meadow-common
+  // (forget-me-not) to the glowing starflower (rarest). Tier drives the
+  // shiny-find bonus and loot-value scaling.
+  forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
@@ -282,6 +295,15 @@ const ITEMS = [
   { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
+  // Rare wild flora — prized foraged flowers picked from sparse blooms in
+  // grasslands (forget-me-not, marigold) and forests (wild rose, starflower).
+  // Wild-only: not plantable, no seed. `crop` points at the CROP_SPRITE frame
+  // so inventory / map / shop all draw the same Props.png flower, and the
+  // wildplant pick path can roll the shiny-flora sheen on them.
+  { id: 'forgetmenot', name: 'Forget-me-not', kind: 'produce', crop: 'forgetmenot' },
+  { id: 'marigold',    name: 'Marigold',      kind: 'produce', crop: 'marigold' },
+  { id: 'wildrose',    name: 'Wild Rose',     kind: 'produce', crop: 'wildrose' },
+  { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself (tap your own feet with one selected).
   // Flute: lures wandering chickens + cows within 30m toward you.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
@@ -405,6 +427,12 @@ const PRICES = {
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  // Rare wild flora — sell value climbs with rarity; the glowing starflower
+  // is a premium forage find (between gemfruit and the magical iceflower).
+  forgetmenot: 14,
+  marigold:    45,
+  wildrose:    35,
+  starflower: 130,
   shell: 6,        // beach pickup — small collectible
   boot: 2,         // fishing junk — old boot, the joke is finding it
 
