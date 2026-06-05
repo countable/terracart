@@ -1201,12 +1201,16 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      // dyFoot must match the house sprite's base (origin 1.0 + dyPx 2 ⇒ base
-      // at sy+2), so the contact shadow tucks under the building instead of
-      // sitting a few px below it (which read as the house floating).
-      let w = CELL_PX * 1.5, dyFoot = 2;
+      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5). Placing its
+      // centre AT the sprite base (sy+2) therefore left the ellipse's whole
+      // lower half — ~10px — dangling below the foot, reading as a detached
+      // shadow on the ground with the house floating above it. Lift the centre
+      // ABOVE the base so the bulk tucks behind/under the building and only a
+      // thin contact crescent shows at the foot, grounding it. Taller/wider
+      // buildings (fort) lift less since their footprint is broader.
+      let w = CELL_PX * 1.5, dyFoot = -4;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 4; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = -2; }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
        .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
@@ -1986,5 +1990,43 @@ Render.drawObjects = function drawObjects(scene) {
     // Rare shiny animals wear the warm sheen. Pooled sprites keep their last
     // tint, so set white explicitly for the common (non-shiny) case.
     s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
+  });
+
+  // Renderer-AGNOSTIC shiny markers. The gold setTint() above (and on trees /
+  // wild flora) is a WebGL multiply that silently does NOTHING under Phaser's
+  // Canvas fallback, so on those devices a shiny animal/plant looked identical
+  // to a plain one — players reported never seeing shinies. Float a baked-gold
+  // sparkle above every shiny entity instead: its colour is in the texture and
+  // it animates with pure transforms (scale / alpha / rotation + a small bob),
+  // both of which render under WebGL and Canvas alike. The existing tint/twinkle
+  // stays as an extra flourish where WebGL is available.
+  const sparkList = [];
+  const pushSpark = (it, dyOff, id) => sparkList.push({ dx: it.dx, dy: it.dy, dyOff, id: id || '' });
+  for (const it of creatureList) if (it.c.shiny) pushSpark(it, 36, it.c.id);
+  for (const it of plantedList) {
+    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, 22, it.p.wildId);
+  }
+  for (const it of objList) {
+    if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
+      pushSpark(it, 44, it.o.id);
+    }
+  }
+  const _sparkNow = Date.now();
+  Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkList, (s, item) => {
+    setTextureIfDifferent(s, 'shiny_spark');
+    const { sx, sy } = project(item.dx, item.dy);
+    // Desync each marker's twinkle off a stable per-id phase so a cluster of
+    // shinies shimmers out of step rather than blinking in unison.
+    let h = 0; const id = item.id;
+    for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+    const phase = ((_sparkNow + (h % 1300)) % 1300) / 1300;        // 0..1
+    const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
+    const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
+    s.setOrigin(0.5, 0.5)
+     .setScale(0.5 + 0.30 * wave)                                  // ~16..~26px from 32px tex
+     .setAlpha(0.55 + 0.45 * wave)
+     .setAngle(phase * 360)                                        // slow shimmer spin
+     .setTint(0xffffff)
+     .setPosition(Math.round(sx), Math.round(sy) - item.dyOff + bob);
   });
 };

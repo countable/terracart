@@ -83,19 +83,35 @@ function findClosestItem(layer, px, py, reach, accept) {
   return best;
 }
 
-// Shared "too far to reach from the player's cell" guard. Flashes and returns
-// true when (x, y) is beyond the player's reach radius (measured from the
-// player cell centre), so callers do `if (tooFar(ctx, x, y)) return 'far';`.
-// The radius is the SAME shrine/energy-scaled value the lit silhouette and
-// cell-tap gate use (coords.js reachRadiusM) — never the old fixed 16 m — so
-// growing your reach at the shrine extends object/creature/treasure taps too,
-// and the lit area stays the tappable area. Falls back to REACH_FAR_M only if
-// the helper is somehow unavailable.
+// Shared "too far to reach" guard. Flashes and returns true when (x, y) is
+// beyond the player's reach, so callers do `if (tooFar(ctx, x, y)) return 'far';`.
+//
+// Judges reach by the CELL that (x, y) falls in, via the shared cellInReach
+// (coords.js) — the exact same integer cell-index math the lit reach silhouette
+// (render.js drawCells) and the cell-resolve tap gate use. This keeps the lit
+// area byte-identical to the tappable area for objects/creatures/treasure too.
+//
+// Earlier this measured a raw Euclidean distance from (x, y) to the player CELL
+// CENTRE. For objects whose world point sits off its cell centre — e.g. a house
+// FOOT, up to ~0.7·cellM from the centre of its cell — a cell that was lit (and
+// passed the cell gate) could still trip this Euclidean gate at the reach edge,
+// flashing "Just out of reach" only some of the time depending on where the
+// foot sat and cardinal-vs-diagonal geometry. Going cell-based removes that drift.
 function tooFar(ctx, x, y) {
+  const { scene } = ctx;
+  if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
+    if (!cellInReach(scene, cellIX, cellIY)) {
+      scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+      return true;
+    }
+    return false;
+  }
+  // Fallback (helpers somehow unavailable): legacy Euclidean foot→cell-centre gate.
   const reachM = (typeof reachRadiusM === 'function')
-    ? reachRadiusM(ctx.scene) : REACH_FAR_M;
+    ? reachRadiusM(scene) : REACH_FAR_M;
   if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
-    ctx.scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    scene.flash('Just out of reach.', ctx.sx, ctx.sy);
     return true;
   }
   return false;

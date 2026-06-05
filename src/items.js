@@ -139,6 +139,12 @@ const MINERAL_ICON_SHEET = {
   // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
   // sheet; frame 0 is the canonical cowrie used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
+  // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
+  // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
+  // crop/grows key, so without this entry inventoryIconSource returned null
+  // and the house delivery callout (and inventory) rendered a bare '·'
+  // placeholder instead of the flower art.
+  flowers:      { sheet: 'props',       frame: 12 },
   // Fruit-tree saplings — the young-tree frame off the species sheet (32px
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
