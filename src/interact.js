@@ -697,7 +697,13 @@ const TAP_HANDLERS = [
       const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
       const reqRelic = WORK_RELIC[wp.crop];
       if (reqRelic) {
-        startToolWork(ctx, wp.x, wp.y, reqRelic, 0, award);
+        // Chopping a shrub is real felling work — charge the shared 9/3/1 tool
+        // curve off the axe tier (9 bare-handed, 3 with a Wood axe … 1 frost).
+        // rockfruit debris stays free to gather.
+        const workCost = (wp.crop === 'shrub' && typeof toolEnergyExpected === 'function')
+          ? probEnergy(toolEnergyExpected(save.relics?.axe?.tier || 0))
+          : 0;
+        startToolWork(ctx, wp.x, wp.y, reqRelic, workCost, award);
       } else {
         award();
         ctx.dirty = true;
