@@ -3997,14 +3997,12 @@ class MapScene extends Phaser.Scene {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
-    // Wizard tower (the 15th restored wreck) — a dedicated relic vendor. The
-    // mage always has an enchanted relic on hand (with a re-roll), so it reads
-    // as a guaranteed upgrade stop rather than the 10% lottery a plain house
-    // runs. Falls back to a flavour flash when every slot is maxed.
+    // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
+    // mage now trades the player's hard-won Discovery badges for an "Inner
+    // Light": one +0.5-cell reach (range) upgrade per 5 badges. See
+    // presentInnerLightOffer.
     if (shopType === 'wizard') {
-      const offer = this.peekOrBuildRelicOffer(house);
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
-      this.flash('The wizard is deep in study — come back later.', sx, sy);
+      this.presentInnerLightOffer(sx, sy, recordDeal);
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
@@ -5174,6 +5172,50 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
+  // ─── Wizard tower: Inner Light (Discovery → reach) ───────────────
+  // The wizard tower spends the player's Discovery badges on an "Inner
+  // Light": each one is a +0.5-cell reach (range) upgrade, sharing the same
+  // reachUpgrades ladder the Magic Shrine feeds (capped at 5 cells / 6
+  // upgrades). This is an alternate, exploration-gated path to wider reach —
+  // each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery badges.
+  WIZARD_INNER_LIGHT_COST = 5;
+  presentInnerLightOffer(sx, sy, recordDeal) {
+    const cost = this.WIZARD_INNER_LIGHT_COST;
+    const claimed = this.save.reachUpgrades ?? 0;
+    // Reach already maxed — the Inner Light has nothing left to widen.
+    if (claimed >= this.REACH_UPGRADE_MAX) {
+      this.flash('The wizard nods — your sight already spans the world.', sx, sy);
+      return;
+    }
+    const have = this.save.discovery ?? 0;
+    const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
+    this.showOfferModal({
+      title: 'The wizard offers an Inner Light:',
+      cancelLabel: 'Later',
+      acceptLabel: 'Kindle',
+      get: `🔆 Inner Light — reach ${reachAfter} cells`,
+      cost: `🔆 ${cost} Discovery (you have ${have})`,
+      canAfford: have >= cost,
+      onAccept: () => {
+        if ((this.save.discovery ?? 0) < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
+        if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
+        this.save.discovery -= cost;
+        this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
+        recordDeal();
+        // The reach silhouette redraws every frame from reachRadiusM, so the
+        // wider reach shows on the next frame with no explicit invalidation.
+        persistSave(this.save);
+        this.showChestRewardModal({
+          header: '✨ Inner Light kindled ✨',
+          iconHTML: '',
+          name: `Reach ${reachAfter} cells`,
+          sub: `The wizard channels your discoveries into wider sight.`,
+          color: '#ffd23a',
+        });
+      },
+    });
+  }
+
   // ─── Shrine reach upgrades ───────────────────────────────────────
   // Six claimable +0.5-cell reach steps (2 cells → 5) interleaved with the
   // main shrine levels. The Nth upgrade (1-indexed) requires:
@@ -5744,7 +5786,7 @@ class MapScene extends Phaser.Scene {
             blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
             market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
             trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage conjures enchanted relics for coin.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a reach upgrade.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
