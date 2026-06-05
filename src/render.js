@@ -1045,19 +1045,26 @@ Render.drawObjects = function drawObjects(scene) {
               },
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o) => { if (o.crown_color) s.setTint(_crownTint(o.crown_color)); } },
-    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
+    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
+                        : (produceStandFor(o) ? 'market_stand'
+                        : (_chestIsBox(o) ? 'box' : 'chest')),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
               // exactly like the themed-house sprites. The pot art is already
-              // gold, so no tint is applied.
-              frame: (o) => _isCoinBurst(o) ? undefined : 0,
-              origin: (o) => _isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9],
-              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0,
+              // gold, so no tint is applied. Produce stands pick the market_stand
+              // awning frame for their product family (see produceStandFor).
+              frame: (o) => { const st = produceStandFor(o);
+                              return _isCoinBurst(o) ? undefined : (st ? st.frame : 0); },
+              // Stand: 80×80 stall art, foot-anchored like a small house so its
+              // body rises north over the POI cell.
+              origin: (o) => produceStandFor(o) ? [0.5, 1.0]
+                           : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : 2.0),
               dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
-              dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
+              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : 0) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);

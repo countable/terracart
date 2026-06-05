@@ -869,6 +869,10 @@ const TAP_HANDLERS = [
         const held = save.chestHold && save.chestHold[o.id];
         const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
         const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+        // Produce/food stands sell ONE item themed off the POI name (loot.js).
+        // It overrides the random rarity roll so the stall always hands over a
+        // small stack of exactly what its awning advertises.
+        const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
         const result = held
           ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
           // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9
@@ -877,9 +881,11 @@ const TAP_HANDLERS = [
           // returns, then fall through to the normal item/modal path below.
           : (o.fixedLoot
               ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
-              : ((typeof pickReward === 'function')
-                  ? pickReward('chest:' + category, save, undefined, { tier: chestT })
-                  : null));
+              : (stand
+                  ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
+                  : ((typeof pickReward === 'function')
+                      ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                      : null)));
         if (!result) {
           addMoney(save, 1);
           save.opened.push(o.id);

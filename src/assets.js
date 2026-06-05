@@ -22,6 +22,10 @@ const ASSETS = {
   // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
   // Frames: 0 = closed, 1 = open.
   chest:   { kind: 'spritesheet', path: 'assets/Objects/chest.png',            frameWidth: 32, frameHeight: 16 },
+  // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
+  // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
+  // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
+  market_stand: { kind: 'spritesheet', path: 'assets/Objects/market_stand.png?v=1', frameWidth: 80, frameHeight: 80 },
   // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
   // In-world growth: col 0 (sprout) -> col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
   crops:   {
