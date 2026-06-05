@@ -1035,7 +1035,7 @@ Render.drawObjects = function drawObjects(scene) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×48 bushes sheet — render at a fixed small
+              // Bushes use the 48×32 bushes sheet — render at a fixed small
               // scale (≈21px, comfortably inside one 32px cell) independent of
               // the species/canopy tree scale. Larger tiers use treeScale.
               scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),

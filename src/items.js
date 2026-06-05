@@ -52,8 +52,8 @@ const CROP_SPRITE = {
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
-  // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
-  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
+  // Shrub — round lush bush from bushes.png (144×288 = 3×9 of 48×32 frames).
+  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px-wide
   // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
   shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
   // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
