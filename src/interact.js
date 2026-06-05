@@ -807,7 +807,13 @@ const TAP_HANDLERS = [
       // of the sprite would otherwise miss-and-fall-through to the till handler
       // under it. Wells are deliberately NOT here — they must activate on their
       // own cell only (a tap on the cell above should not trigger them).
-      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine');
+      // Produce-stand chests render as an 80px market stall that rises ~1.5
+      // cells north of its foot (loot.js produceStandFor), so they need the
+      // same tall-sprite reach — without it a tap on the awning missed the
+      // foot-cell chest and fell through to the till handler, starting a
+      // phantom work wheel that made it feel like taps had stopped working.
+      const isStand = o.kind === 'chest' && typeof produceStandFor === 'function' && !!produceStandFor(o);
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || isStand);
       const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
       // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
       // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
@@ -827,10 +833,10 @@ const TAP_HANDLERS = [
         const oc = worldMetersToAbsCell(scene, o.x, o.y);
         const sameCol = oc.cellIX === tapCell.cellIX;
         inTapCell = sameCol && oc.cellIY === tapCell.cellIY;
-        // A castle/tower turret rises tall above its foot cell — let a tap on
-        // the empty cell directly ABOVE (north of) the turret activate it too.
-        // North is toward smaller world-y → smaller cellIY (see coords.js).
-        if (!inTapCell && o.kind === 'tower') {
+        // A castle/tower turret (and a market stall) rises tall above its foot
+        // cell — let a tap on the empty cell directly ABOVE (north of) it
+        // activate it too. North is toward smaller world-y → smaller cellIY.
+        if (!inTapCell && (o.kind === 'tower' || isStand)) {
           inTapCell = sameCol && tapCell.cellIY === oc.cellIY - 1;
         }
       }
