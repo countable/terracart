@@ -1725,6 +1725,9 @@ const TAP_HANDLERS = [
     // if the player cancels the wheel.
     let tillMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 3000 : 9000);
+    // Global 2× tilling speed-up — applied on top of the tool-tier ladder and
+    // the grassland half-time below, so every till is twice as fast everywhere.
+    tillMs = Math.round(tillMs / 2);
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
