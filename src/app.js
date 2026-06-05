@@ -378,11 +378,13 @@ class MapScene extends Phaser.Scene {
     // household goes happy for the rest of the UTC day and wants a fresh
     // bundle the next day. Pruned to the current day in the accept path.
     if (this.save.houseSatisfied === undefined)   this.save.houseSatisfied = {};
-    // Discovery — lifetime count of rare "shiny" flora / trees / animals
-    // found. Earned alongside the 10× money bonus when a shiny variant is
-    // harvested or caught (see awardShinyBonus). Surfaced in the Stats modal;
-    // reserved as the eventual unlock currency for the Magic Shrine.
+    // Discovery — count of UNIQUE rare "shiny" types (flora / trees / animals)
+    // found: at most one per type of interactable. Earned alongside the 10×
+    // money bonus the first time a given shiny type is harvested or caught (see
+    // awardShinyBonus; the per-type ledger is save.discovered). Surfaced in the
+    // Stats modal; reserved as the eventual unlock currency for the Magic Shrine.
     if (this.save.discovery === undefined)        this.save.discovery = 0;
+    if (this.save.discovered === undefined)       this.save.discovered = {};
     // Self-heal pre-fix save state: pre-fix, forest trees spawned without
     // an `id` field, so chopping one pushed `undefined` into save.chopped.
     // A `choppedSet.has(undefined)` lookup then matched every other tree
@@ -3269,16 +3271,25 @@ class MapScene extends Phaser.Scene {
       : (PRICES[baseId] ?? 1);
     const money = Math.max(10, Math.round(value * 10));
     addMoney(this.save, money);
-    this.save.discovery = (this.save.discovery || 0) + 1;
+    // Discovery badge: at most ONE per type of interactable (keyed by baseId —
+    // the species/kind/produce id). The first shiny of a given type banks a
+    // Discovery point; later shinies of the same type still pay the cash
+    // windfall but don't re-award the badge.
+    const found = this.save.discovered = this.save.discovered || {};
+    const isNew = !found[baseId];
+    if (isNew) {
+      found[baseId] = 1;
+      this.save.discovery = (this.save.discovery || 0) + 1;
+    }
     persistSave(this.save);
-    this.flashShiny(money);
+    this.flashShiny(money, isNew);
     return money;
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a starburst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110).
-  flashShiny(money) {
+  flashShiny(money, isNew = true) {
     if (!this.add) return;
     const x = this.viewCenterX, y = this.viewCenterY - 150;
     try {
@@ -3292,7 +3303,8 @@ class MapScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       this.tweens.add({ targets: banner, y: y - 60, alpha: 0,
         duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
-      const sub = this.add.text(x, y + 8, `+$${money}   🔆 +1 Discovery`, {
+      const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
+      const sub = this.add.text(x, y + 8, subText, {
         font: 'bold 16px monospace', color: '#ffd23a',
         backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
         padding: { left: 8, right: 8, top: 3, bottom: 3 },
