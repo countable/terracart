@@ -72,12 +72,17 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
 // `reach` is either a fixed radius (m) or a function(item) → radius, so a
 // layer with differently-sized items (e.g. a cow vs a chicken) can gate each
 // item by its own footprint instead of one flat disk.
-function findClosestItem(layer, px, py, reach, accept) {
+function findClosestItem(layer, px, py, reach, accept, offset) {
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (accept && !accept(item)) return;
     const r = typeof reach === 'function' ? reach(item) : reach;
-    const d2 = distM2(item.x, item.y, px, py);
+    // Optional per-item position offset (metres) — lets a caller test the tap
+    // against where an item is DRAWN rather than its logical cell (e.g. a flyer
+    // rendered floated north of its ground point). Default: no offset.
+    let ix = item.x, iy = item.y;
+    if (offset) { const o = offset(item); if (o) { ix += o.dx || 0; iy += o.dy || 0; } }
+    const d2 = distM2(ix, iy, px, py);
     if (d2 <= r * r && d2 < bestD2) { bestD2 = d2; best = item; }
   });
   return best;
@@ -373,8 +378,19 @@ const TAP_HANDLERS = [
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
     };
     const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
+    // Flyers/hoverers are RENDERED floated north of their ground cell (crow
+    // sy-14, butterfly sy-8 in render.js — 14px == scene.feetOffsetM). A tap on
+    // the visible bird therefore lands ~2 m north of its logical (x,y); with a
+    // 1.7 m crow disk centred on the ground point the sprite was unreachable and
+    // the tap fell through to the cell underneath. Offset the tap-test by the
+    // same float so a flyer is tested where it's drawn (north = −y).
+    const CREATURE_FLOAT_PX = { crow: 14, butterfly: 8 };
+    const creatureTapOffset = (c) => {
+      const px = CREATURE_FLOAT_PX[c.kind] || 0;
+      return px ? { dx: 0, dy: -(px / 14) * scene.feetOffsetM } : null;
+    };
     const target = findClosestItem('creatures', wm.x, wm.y, creatureTapR,
-      (c) => !save.caught.includes(c.id));
+      (c) => !save.caught.includes(c.id), creatureTapOffset);
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
     // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-
