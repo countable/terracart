@@ -1270,9 +1270,9 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o);
   });
 
-  // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.
-  // The chest sits in the shape's designated cell; the pad image is anchored
-  // so that cell's centre lines up with the chest's ground point.
+  // POI pads — one rounded, slightly-oversized concrete slab under every
+  // pad-bearing chest. The pad image is anchored so its cell centre lines up
+  // with the chest's ground point (the slab spills ~10% past the cell).
   // lowtier POIs (bus stops/intersections/fuel/etc.) skip the pad entirely.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];

@@ -395,13 +395,15 @@ test('water cells are blocked from tilling', (scene) => {
 // 5. Pad shape mapping
 // ───────────────────────────────────────────────────────────────────────
 
-test('POI categories resolve to expected pad shapes', () => {
-  assert.eq(padShapeKeyForPoi('school'), 'triangle', 'school → triangle');
-  assert.eq(padShapeKeyForPoi('pitch'), 'square2', 'pitch → square2');
-  assert.eq(padShapeKeyForPoi('place_of_worship'), 'cross', 'chapel → cross');
-  assert.eq(padShapeKeyForPoi('pharmacy'), 'cross', 'pharmacy → cross');
-  assert.eq(padShapeKeyForPoi('restaurant'), 'line3h', 'restaurant → line3h (food)');
-  assert.eq(padShapeKeyForPoi('playground'), 'line3v', 'playground → line3v');
+test('pad-bearing POIs resolve to the single round pad', () => {
+  // Every pad-bearing POI now gets the same single rounded pad.
+  assert.eq(padShapeKeyForPoi('school'), 'round1', 'school → round1');
+  assert.eq(padShapeKeyForPoi('pitch'), 'round1', 'pitch → round1');
+  assert.eq(padShapeKeyForPoi('place_of_worship'), 'round1', 'chapel → round1');
+  assert.eq(padShapeKeyForPoi('pharmacy'), 'round1', 'pharmacy → round1');
+  assert.eq(padShapeKeyForPoi('restaurant'), 'round1', 'restaurant → round1 (food)');
+  assert.eq(padShapeKeyForPoi('playground'), 'round1', 'playground → round1');
+  // Lowtier classes still render a bare chest with no pad.
   assert.eq(padShapeKeyForPoi('bus'), null, 'bus → no pad');
   assert.eq(padShapeKeyForPoi('gate'), null, 'gate → no pad');
 });
