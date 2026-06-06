@@ -1315,6 +1315,22 @@
             || tc === T.PATH     || tc === T.WATER    || tc === T.PIER
             || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       };
+      // A house/tower sprite is foot-anchored on its footprint and its base
+      // overhangs the immediately adjacent cells, so a rock one cell off the
+      // footprint still reads as sitting ON the building's foundation. Keep a
+      // one-cell moat clear of rocks around every building cell.
+      const _mrNearBuilding = (ix, iy) => {
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = ix + dx, ny = iy + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const tc = grid[ny * w + nx];
+            if (tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE) return true;
+          }
+        }
+        return false;
+      };
       // The grid is indexed in the TILE's cell basis — cell width =
       // tileEdgeM / cellsPerEdge, NOT the global CELL_M (5 m). Round-up
       // from cellsPerEdge × CELL_M to tileEdgeM produces ~0.03 m of
@@ -1348,6 +1364,8 @@
         const here = grid[iy * w + ix];
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
+          // Never sit a rock on a building's foundation (footprint edge / base).
+          if (_mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
           // A rock whose FINAL cell turned out to be residential must pass the
           // same shared spawn rule as every other object (isSpawnCell: near a
           // road/path, a detectable public area, or a POI) — otherwise it'd
