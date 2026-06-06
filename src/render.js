@@ -605,6 +605,23 @@ Render.drawCells = function drawCells(scene) {
       g.fillRect(sx, sy, CELL_PX, CELL_PX);
     }
   }
+  // Underground the torch bubble itself is dimmer than full daylight — lay a
+  // faint black wash over the lit reach cells too (the surrounding rock is far
+  // darker still, so the bubble stays clearly readable). Deepens slightly per
+  // level, like the surrounding dim, so descents feel progressively gloomier.
+  if (depth > 0) {
+    const litDim = Math.min(0.40, 0.26 + 0.03 * (depth - 1));
+    g.fillStyle(0x000000, litDim);
+    for (let row = -1; row <= VIEW_CELLS; row++) {
+      for (let col = -1; col <= VIEW_CELLS; col++) {
+        if (!isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
+        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
+    }
+  }
   // Low energy tints the lit range pink — the Inner Light guttering as the
   // player tires. Reach no longer shrinks (coords.js reachRadiusM), but this
   // pink wash is the cue that you're running low and should rest before energy
