@@ -2173,13 +2173,21 @@ class MapScene extends Phaser.Scene {
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
     try {
-      const b = document.getElementById('banner');
-      if (b) {
-        const msg = (e && (e.message || e.toString())) || 'frame error';
-        b.textContent = `⚠ ${msg}`.slice(0, 80);
-        b.style.display = 'block';
-        clearTimeout(this._loopErrBannerT);
-        this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+      const msg = (e && (e.message || e.toString())) || 'frame error';
+      const stack = (e && e.stack) || '';
+      // Prefer the copyable error overlay (index.html) so the full message +
+      // stack can be read/copied on a phone. Fall back to the transient
+      // #banner flash only if the overlay isn't wired up.
+      if (typeof window !== 'undefined' && typeof window.showError === 'function') {
+        window.showError(`⚠ ${msg}`, stack);
+      } else {
+        const b = document.getElementById('banner');
+        if (b) {
+          b.textContent = `⚠ ${msg}`.slice(0, 80);
+          b.style.display = 'block';
+          clearTimeout(this._loopErrBannerT);
+          this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+        }
       }
     } catch (_) { /* never let error reporting itself throw */ }
   }

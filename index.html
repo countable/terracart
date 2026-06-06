@@ -96,6 +96,31 @@
       background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
     }
+    /* Copyable error overlay. Unlike #banner (a transient connection-status
+       flash), this stays on screen until dismissed and is fully selectable so
+       the whole message + stack can be read or copied on a phone where
+       DevTools isn't reachable. */
+    #errbar {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
+      background: #b71c1c; color: #fff; padding: 8px 10px; border-radius: 8px;
+      font: 12px/1.45 ui-monospace, monospace; display: none; z-index: 20;
+      box-shadow: 0 4px 16px #0008;
+      white-space: pre-wrap; word-break: break-word;
+      -webkit-user-select: text; user-select: text;
+    }
+    #errbar .errmsg { font-weight: 700; }
+    #errbar .errstack {
+      margin-top: 6px; font-size: 11px; opacity: .92; white-space: pre-wrap;
+    }
+    #errbar .errbtns {
+      display: flex; gap: 8px; margin-top: 8px;
+      position: sticky; bottom: 0;
+    }
+    #errbar button {
+      font: 700 12px ui-monospace, monospace; color: #b71c1c; background: #fff;
+      border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+    }
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
@@ -210,6 +235,14 @@
   <div id="frame">
     <div id="game">
       <div id="banner">reconnecting…</div>
+      <div id="errbar">
+        <div class="errmsg"></div>
+        <div class="errstack"></div>
+        <div class="errbtns">
+          <button type="button" data-act="copy">Copy</button>
+          <button type="button" data-act="dismiss">Dismiss</button>
+        </div>
+      </div>
     </div>
   </div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
@@ -644,22 +677,64 @@
     });
 
     // ───────────────────────────────────────────────────────────────
-    // Mobile error surfacing — DevTools isn't reachable on phones, so
-    // any uncaught JS error is flashed to #banner instead of dying silently.
-    function showError(msg) {
-      const b = document.getElementById('banner');
-      if (!b) return;
-      b.textContent = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
-      b.style.display = 'block';
-      clearTimeout(showError._t);
-      showError._t = setTimeout(() => { b.style.display = 'none'; }, 6000);
+    // Mobile error surfacing — DevTools isn't reachable on phones, so any
+    // uncaught JS error is shown in a copyable overlay (#errbar) instead of a
+    // truncated flash. The FULL message + stack stay on screen until dismissed
+    // so they can actually be read and copied (Copy button → clipboard).
+    const errbar     = document.getElementById('errbar');
+    const errMsgEl   = errbar && errbar.querySelector('.errmsg');
+    const errStackEl = errbar && errbar.querySelector('.errstack');
+    let errFullText  = '';
+    function showError(msg, detail) {
+      if (!errbar) return;
+      errMsgEl.textContent = msg || 'error';
+      errStackEl.textContent = detail || '';
+      errStackEl.style.display = detail ? 'block' : 'none';
+      errFullText = detail ? `${msg}\n\n${detail}` : (msg || '');
+      errbar.style.display = 'block';
+      errbar.scrollTop = 0;
+    }
+    // Expose so the in-game loop-error handler (app.js) can route through the
+    // same copyable overlay instead of writing a truncated #banner string.
+    window.showError = showError;
+    if (errbar) {
+      errbar.addEventListener('click', async (ev) => {
+        const act = ev.target && ev.target.dataset && ev.target.dataset.act;
+        if (act === 'dismiss') { errbar.style.display = 'none'; return; }
+        if (act !== 'copy') return;
+        const btn = ev.target, old = btn.textContent;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(errFullText);
+          } else {
+            // Fallback for non-secure contexts (clipboard API needs HTTPS):
+            // select the overlay contents and use execCommand.
+            const range = document.createRange();
+            range.selectNodeContents(errbar);
+            const sel = getSelection();
+            sel.removeAllRanges(); sel.addRange(range);
+            document.execCommand('copy');
+            sel.removeAllRanges();
+          }
+          btn.textContent = 'Copied!';
+        } catch (_) {
+          btn.textContent = 'Copy failed';
+        }
+        setTimeout(() => { btn.textContent = old; }, 1400);
+      });
     }
     window.addEventListener('error', (e) => {
-      showError(`⚠ ${e.message || 'script error'}`);
+      const err = e.error;
+      const msg = (err && err.message) || e.message || 'script error';
+      const stack = (err && err.stack)
+        || (e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : '');
+      showError(`⚠ ${msg}`, stack);
     });
     window.addEventListener('unhandledrejection', (e) => {
       const r = e.reason;
-      showError(`⚠ ${(r && (r.message || r.toString())) || 'promise rejection'}`);
+      const msg = (r && (r.message || r.toString())) || 'promise rejection';
+      const stack = (r && r.stack) || '';
+      showError(`⚠ ${msg}`, stack);
     });
 
     // ───────────────────────────────────────────────────────────────
@@ -693,6 +768,6 @@
   <script src="src/assets.js?v=171"></script>
   <script src="src/sandbox.js?v=29"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=298"></script>
+  <script src="src/app.js?v=299"></script>
 </body>
 </html>
