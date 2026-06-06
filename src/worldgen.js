@@ -2253,12 +2253,12 @@
   }
 
   // Surface entrances: ~30 % of residential rock clusters get a down-staircase
-  // beside them (so caves are common in town), and every tile that has any cave
-  // rock is guaranteed at least one entrance.
+  // beside them (so caves are common in town), and every tile is guaranteed at
+  // least one entrance — anchored to a cave rock where one exists, otherwise on
+  // a random walkable cell.
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM) {
     const caveRocks = (entry.objects || []).filter(
       o => o.kind === 'mineralrock' && o.caveVariant != null);
-    if (!caveRocks.length) return;
     const N = entry.cellsPerEdge, grid = entry.grid;
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
     const used = new Set();
@@ -2282,6 +2282,22 @@
       return false;
     };
 
+    // Drop a down-staircase on a random walkable cell (used when the tile has
+    // no cave rock to anchor to). Returns true on success.
+    const placeRandomWalkable = () => {
+      const cells = [];
+      for (let i = 0; i < grid.length; i++) {
+        if (!used.has(i) && isWalkable(grid[i])) cells.push(i);
+      }
+      if (!cells.length) return false;
+      const idx = cells[Math.floor(rng() * cells.length)];
+      used.add(idx);
+      const { x, y } = cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
+      entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
+        id: caveStairId('down', 0, x, y) });
+      return true;
+    };
+
     // Group cave rocks by their residential cluster id. Non-residential rocks
     // (industrial / ROCK terrain) carry no cluster id and fall through to the
     // per-tile guarantee below.
@@ -2300,8 +2316,12 @@
       }
     }
 
-    // Guarantee at least one cave per tile that has any cave rock.
-    if (placed === 0) placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]);
+    // Guarantee at least one cave per tile: beside a random cave rock if the
+    // tile has any, otherwise on a random walkable cell.
+    if (placed === 0) {
+      if (caveRocks.length) placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]);
+      else placeRandomWalkable();
+    }
   }
 
   async function loadCaveTile(cache, depth, key, x, y, lat) {
