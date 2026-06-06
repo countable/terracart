@@ -435,6 +435,11 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
+    // Cave walls the player has mined into walkable floor. Keys are
+    // "<depth>:<absCellIX>_<absCellIY>" so the same GPS-mirrored cell can be dug
+    // independently on each level. Re-applied to a cave tile's grid on load.
+    this.save.dugWalls = this.save.dugWalls || [];
+    this.dugWallSet = new Set(this.save.dugWalls);
     // All one-time save-shape migrations — slot/default backfills, the maxEnergy
     // re-derive, the history cap, and the data migrations (inv string→object,
     // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
@@ -1294,6 +1299,8 @@ class MapScene extends Phaser.Scene {
         // Surface fauna on depth 0; hostile wandering monsters underground.
         if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
         else if (this.depth > 0 && !entry.creatures) this.spawnCaveCreatures(entry, tx, ty, this.depth);
+        // Re-open any walls the player has already mined on this level.
+        if (this.depth > 0) this._applyDugWalls(entry, tx, ty);
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
@@ -3142,6 +3149,35 @@ class MapScene extends Phaser.Scene {
     const c = this.cellAt(wmx, wmy);
     if (!c.loaded) return false;
     return !WorldGen.isWalkable(c.type);
+  }
+  // Mine a blocking cave wall into walkable floor. Mutates the live tile grid
+  // (so collision + rendering update at once) and records the dug cell so the
+  // passage is re-opened whenever this tile is regenerated (_applyDugWalls).
+  digCaveWall(tx, ty, ix, iy, cellIX, cellIY) {
+    const N = this.cellsPerTile;
+    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    if (entry && entry.grid) entry.grid[iy * N + ix] = 24;   // CAVE_FLOOR
+    this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
+    this.save.dugWalls = [...this.dugWallSet];
+  }
+  // Re-apply previously-dug walls to a freshly (re)generated cave tile's grid.
+  // Cave tiles are derived from the surface on demand, so a dug-out cell would
+  // otherwise come back as solid rock after the tile is evicted and reloaded.
+  _applyDugWalls(entry, tx, ty) {
+    if (!entry || !entry.grid || !this.dugWallSet.size) return;
+    const N = entry.cellsPerEdge;
+    const prefix = `${entry.depth}:`;
+    for (const k of this.dugWallSet) {
+      if (!k.startsWith(prefix)) continue;
+      const coord = k.slice(prefix.length);          // "absIX_absIY"
+      const us = coord.indexOf('_');
+      const aix = parseInt(coord.slice(0, us), 10);
+      const aiy = parseInt(coord.slice(us + 1), 10);
+      const ix = aix - tx * N, iy = aiy - ty * N;
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+      const idx = iy * N + ix;
+      if (entry.grid[idx] === 25) entry.grid[idx] = 24;   // CAVE_WALL → CAVE_FLOOR
+    }
   }
   // Axis-separated collision: if the new X (with old Y) lands in rock, revert X;
   // then test the new Y with the resolved X and revert Y if blocked. The result

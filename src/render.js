@@ -235,7 +235,10 @@ Render.drawCells = function drawCells(scene) {
       const absCellIX = baseCellIX + ox;
       const absCellIY = baseCellIY + oy;
       const tilledKey = cellKeyFromAbsCell(absCellIX, absCellIY);
-      let isTilled = scene.tilledSet && scene.tilledSet.has(tilledKey);
+      // Tilling is a surface-only activity (cave floor isn't tillable). Gate the
+      // overlay on depth 0 so surface farm plots don't bleed through onto the
+      // underground levels directly below them (same GPS-mirrored cell coords).
+      let isTilled = (scene.depth ?? 0) === 0 && scene.tilledSet && scene.tilledSet.has(tilledKey);
       // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
@@ -768,7 +771,13 @@ Render.drawObjects = function drawObjects(scene) {
       }
     }
   }
+  // Planted crops are tagged with the depth they were sown at (surface = 0 for
+  // legacy saves). Only draw the ones that belong to the level you're standing
+  // on, so surface farms don't render underground (and future cave crops won't
+  // render on the surface).
+  const _curDepth = scene.depth ?? 0;
   for (const p of scene.save.planted) {
+    if ((p.depth ?? 0) !== _curDepth) continue;
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
@@ -776,7 +785,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.
-  if (scene.placedRockSet) {
+  if (scene.placedRockSet && _curDepth === 0) {
     for (const key of scene.placedRockSet) {
       const [ixStr, iyStr] = key.split('_');
       const absIX = parseInt(ixStr, 10), absIY = parseInt(iyStr, 10);

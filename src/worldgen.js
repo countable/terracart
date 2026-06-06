@@ -371,6 +371,19 @@
     if (global.WorldGen) global.WorldGen.tileCache = tileCache;
     return tileCache;
   }
+
+  // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock), scaled
+  // by DEPTH so ore is rare in daylight and grows richer the deeper you mine.
+  // Copper is ~25 % of the ore subset (see the residential/cave tier weights),
+  // so 1 − caveRockP(depth) gives the ore fraction and ×0.25 the copper fraction:
+  //   surface (depth 0) → 0.80 plain → 0.20 ore → ~5 %  copper-bearing rock
+  //   one level down (1) → 0.20 plain → 0.80 ore → ~20 % copper-bearing rock
+  //   deeper            → less plain still (ore keeps climbing, floored at 0.10)
+  function caveRockP(depth) {
+    if (!depth || depth <= 0) return 0.80;
+    return Math.max(0.10, 0.20 - 0.03 * (depth - 1));
+  }
+
   const idbName = 'mapgame-tiles';
   let idb;
   function openIDB() {
@@ -776,7 +789,10 @@
             // Also: never spawn on a BUILDING cell, even if the polygon
             // happens to overlap (residential polygons often contain
             // painted building footprints).
-            const _CAVE_ROCK_P = 0.70;
+            // Surface generation always runs at depth 0, so ore here is the
+            // rare end of the depth curve (~5 % copper). caveRockP makes the
+            // underground levels (loadCaveTile) far richer.
+            const _CAVE_ROCK_P = caveRockP(0);
             const _CAVE_VARIANTS = 4;        // row 15 cols 3..6 — see render.js
             // NOTE: we used to do an inline "blocked cell" / "near road"
             // check here, but it was racy — the MVT polygon loop processes
@@ -877,14 +893,12 @@
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
-              // Explicit tier weights for residential — user-tuned to hit:
-              //   ~70 %   vanilla cave  (handled at the helper, not here)
-              //   ~20 %   copper        T1 + T2 of the ore subset
-              //   ~8  %   iron          T3
-              //   ~3  %   gold          T4
-              //   ~5  %   crystals      T5 + T6 + T7
-              // Of TOTAL rock count. Within the 30 % ore subset that's
-              // copper 0.55, iron 0.22, gold 0.08, crystals 0.14.
+              // Tier weights for the ORE subset (the share that isn't plain
+              // cave rock — caveRockP(0) ⇒ ~80 % plain on the surface). Copper
+              // is T2 at weight 0.25 of the subset, so copper-bearing rock is
+              // ~0.20 × 0.25 ≈ 5 % of all surface rocks (the calibration target).
+              // Underground the same shape is reused with a far smaller plain
+              // fraction, lifting copper toward ~20 % and up (see spawnCaveRocks).
               const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
               const { tierW, totalW } = cumWeights(weights);
               // 25..40 rocks per cluster: residential rocks survive the
@@ -2306,6 +2320,54 @@
     }
   }
 
+  // Scatter mineralrock clusters across a cave level's floor. Caves used to be
+  // bare rock-and-staircase shells; this fills them with "lots of rock clusters"
+  // (the deeper, the richer — see caveRockP). Each rock rolls plain-vs-ore the
+  // same way the surface spawner does, but with the depth-scaled plain fraction
+  // so copper climbs from ~5 % on the surface to ~20 %+ underground. Rocks are
+  // placed only on CAVE_FLOOR cells and never on a staircase cell (`occupied`).
+  // Deterministic per tile+depth so a level looks identical across reloads.
+  function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
+    const plainP = caveRockP(depth);
+    // Same copper-dominant ore shape as the residential surface clusters.
+    const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
+    let totalW = 0; const tierW = weights.map(w => (totalW += w));
+    const CAVE_VARIANTS = 4;     // plain-rock art variants (render.js)
+    const PIVOT = 6;             // a cluster candidate every 6 cells — dense
+    const FIRE = 0.85;           // most candidates fire → "lots" of clusters
+    const CLUSTER_MIN = 5, CLUSTER_SPAN = 6;   // 5..10 rocks per cluster
+    const RADIUS = 2;            // rocks jitter within ±2 cells of the pivot
+    for (let py = 1; py < N; py += PIVOT) {
+      for (let px = 1; px < N; px += PIVOT) {
+        if (rng() > FIRE) continue;
+        const n = CLUSTER_MIN + Math.floor(rng() * CLUSTER_SPAN);
+        for (let k = 0; k < n; k++) {
+          const lix = px + Math.round((rng() - 0.5) * 2 * RADIUS);
+          const liy = py + Math.round((rng() - 0.5) * 2 * RADIUS);
+          if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+          const idx = liy * N + lix;
+          if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+          occupied.add(idx);
+          const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+          const id = `cmr_${depth}_${tx}_${ty}_${lix}_${liy}`;
+          if (rng() < plainP) {
+            objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
+              caveVariant: Math.floor(rng() * CAVE_VARIANTS), id });
+            continue;
+          }
+          const r = rng() * totalW;
+          let yieldTier = 7;
+          for (let i = 0; i < tierW.length; i++) {
+            if (r <= tierW[i]) { yieldTier = i + 1; break; }
+          }
+          objects.push({ kind: 'mineralrock', x: cx, y: cy, yieldTier,
+            requiredTier: Math.max(1, yieldTier - 1), id });
+        }
+      }
+    }
+  }
+
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     const above = await loadTile.atDepth(depth - 1, x, y, lat);
     if (above.status === 'loading') await above.promise;
@@ -2335,6 +2397,14 @@
       if (dn) objects.push({ kind: 'staircase', dir: 'down', x: dn.x, y: dn.y, depth,
         id: caveStairId('down', depth, dn.x, dn.y) });
     }
+    // Fill the level with rock clusters, keeping the staircase cells clear so a
+    // stair never spawns buried under a rock sprite.
+    const occupied = new Set();
+    for (const o of objects) {
+      const { lix, liy } = cellIndexOf(x, y, o.x, o.y, tileEdgeM, N);
+      if (lix >= 0 && lix < N && liy >= 0 && liy < N) occupied.add(liy * N + lix);
+    }
+    spawnCaveRocks(grid, N, x, y, tileEdgeM, depth, objects, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants: [], parkingTreasures: [],
