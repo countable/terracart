@@ -1387,7 +1387,6 @@ class MapScene extends Phaser.Scene {
     const FARM_GRASS  = new Set([0, 4]);                      // grass + farmland (chickens)
     const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
     const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
-    const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
     const PARKLAND       = new Set([1, 6]);                   // park + forest
     const splitPlace = (kind, n, primary, fallback, salt, primaryShare = 0.8) => {
       const primN = Math.round(n * primaryShare);
@@ -1409,14 +1408,11 @@ class MapScene extends Phaser.Scene {
     splitPlace('cat', catN, RESIDENTIAL, GLOBAL_NAT, 'cat');
     const dogN = 6 + Math.floor(rng() * 8);
     splitPlace('dog', dogN, RESIDENTIAL, GLOBAL_NAT, 'dog');
-    // Wilderness fauna:
-    //   rabbit    → grass / forest / park (skittish, wide)
+    // Wilderness fauna (rabbits live underground now — see spawnCaveCreatures):
     //   deer      → forest + park (rare, weapon-gated)
     //   crow      → global — smart birds; ~200/tile (heavy swarm, paired with
     //               the starter scarecrow + wide 15-cell notice radius)
     //   butterfly → park / forest (flower-rich biomes)
-    const rabbitN = 30 + Math.floor(rng() * 20);
-    for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
     const crowN = 200;
@@ -1803,6 +1799,23 @@ class MapScene extends Phaser.Scene {
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
         creatures.push({ x: wmx, y: wmy, kind, id });
+        break;
+      }
+    }
+    // Rabbits live underground now (moved off the surface): a skittish,
+    // catchable critter hopping the cave floor amid the hostile monsters.
+    // Seeded, stable ids so a caught rabbit stays caught across reloads.
+    const rabbitN = 10 + Math.floor(rng() * 8);
+    for (let i = 0; i < rabbitN; i++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
+        if (this.save.caught.includes(id)) break;   // already caught — stays gone
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
     }
