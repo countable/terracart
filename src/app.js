@@ -4904,7 +4904,13 @@ class MapScene extends Phaser.Scene {
         candidates.push({ kind, slot, tier: t.tier });
       }
     };
-    for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
+    for (const slot of Object.keys(RELIC_DEFS)) {
+      // The Ring is the wizard tower's exclusive gift — it embodies the Inner
+      // Light / reach level (see syncInnerLightRing) and is never sold or forged
+      // anywhere else, so it's excluded from every shop / smithy / castle offer.
+      if (slot === 'ring') continue;
+      consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
+    }
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
     if (!candidates.length) return null;
     const tierW = (t) => 1 / Math.pow(2, t - 1);
@@ -5242,7 +5248,25 @@ class MapScene extends Phaser.Scene {
   // reachUpgrades ladder the Magic Shrine feeds (capped at 5 cells / 6
   // upgrades). This is an alternate, exploration-gated path to wider reach —
   // each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery badges.
+  //
+  // The Inner Light and the RING relic are one and the same: kindling a light
+  // also forges a Ring whose tier tracks the inner-light level (reachUpgrades).
+  // The ring is the wizard tower's exclusive gift — it is no longer offered for
+  // sale or at the smithy (see buildRelicOffer), so the only way to a Ring is
+  // to widen your sight. syncInnerLightRing() is the single point that keeps the
+  // ring tier in step with the light; it's called from every place the reach
+  // ladder advances (here AND the shrine claim).
   WIZARD_INNER_LIGHT_COST = 5;
+  // Keep the Ring relic's tier locked to the inner-light level. Never downgrades
+  // a ring the player somehow holds higher (e.g. a legacy forged ring on an old
+  // save); the ring tops out at the reach ladder's 6 upgrades.
+  syncInnerLightRing() {
+    const level = Math.min(7, this.save.reachUpgrades ?? 0);
+    if (level <= 0) return;
+    this.save.relics = this.save.relics || {};
+    const cur = this.save.relics.ring?.tier ?? 0;
+    if (level > cur) this._equipGear('relic', 'ring', level);
+  }
   presentInnerLightOffer(sx, sy, recordDeal) {
     const cost = this.WIZARD_INNER_LIGHT_COST;
     const claimed = this.save.reachUpgrades ?? 0;
@@ -5265,15 +5289,19 @@ class MapScene extends Phaser.Scene {
         if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
         this.save.discovery -= cost;
         this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
+        // The light's gift is a Ring whose tier matches the new inner-light
+        // level — the relic that embodies your widened sight.
+        this.syncInnerLightRing();
         recordDeal();
         // The reach silhouette redraws every frame from reachRadiusM, so the
         // wider reach shows on the next frame with no explicit invalidation.
         persistSave(this.save);
+        if (this.buildInventoryDOM) this.buildInventoryDOM();
         this.showChestRewardModal({
           header: '✨ Inner Light kindled ✨',
           iconHTML: '',
-          name: `Reach ${reachAfter} cells`,
-          sub: `The wizard channels your discoveries into wider sight.`,
+          name: `Reach ${reachAfter} cells · Ring T${Math.min(7, this.save.reachUpgrades)}`,
+          sub: `The wizard channels your discoveries into wider sight — and a Ring to bear it.`,
           color: '#ffd23a',
         });
       },
@@ -5367,14 +5395,19 @@ class MapScene extends Phaser.Scene {
       const r = this.nextReachUpgrade();
       if (!r || !r.canClaim) { this.flash('Reach not ready.', sx, sy); return; }
       this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
+      // The reach ladder and the inner-light Ring are one — keep the ring tier
+      // in step here too, so the ring always mirrors the current reach level
+      // regardless of which path (shrine or wizard tower) widened it.
+      this.syncInnerLightRing();
       persistSave(this.save);
+      if (this.buildInventoryDOM) this.buildInventoryDOM();
       // The reach silhouette is redrawn every frame from reachRadiusM, so the
       // wider reach shows on the next frame with no explicit invalidation.
       this.showChestRewardModal({
         header: '✨ Reach extended ✨',
         iconHTML: '',
         name: `Reach ${r.reachAfter} cells`,
-        sub: `The shrine's blessing widens your grasp.`,
+        sub: `The shrine's blessing widens your grasp — your Ring brightens with it.`,
         color: '#a7e9ff',
       });
     };
@@ -5850,7 +5883,7 @@ class MapScene extends Phaser.Scene {
             blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
             market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
             trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a reach upgrade.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;

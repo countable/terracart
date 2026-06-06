@@ -61,12 +61,15 @@ function playerReachCell(scene) {
 // the object/creature/treasure far-gate (interact.js tooFar) — so the lit area
 // and every tap-accept test stay byte-identical and can't drift.
 //
-// Reach now STARTS at 2 cells and grows to 5 via the Magic Shrine: each of the
-// six delivery-gated shrine reach upgrades (save.reachUpgrades, 0..6) adds half
-// a cell (2 + 0.5×6 = 5). Below 30% energy you lose a full cell (floored at 1);
-// at 0 energy you can't reach at all. The +1 m epsilon matches the historical
-// 3-cell = 16 m radius, so the cardinal-N cell is always included with a hair
-// of margin and the silhouette reads as a rounded diamond at every level.
+// Reach now STARTS at 2 cells and grows to 5 via the Inner Light: each of the
+// six +0.5-cell upgrades (save.reachUpgrades, 0..6) — fed by the Magic Shrine
+// AND the wizard tower's Inner Light (see app.js) — adds half a cell
+// (2 + 0.5×6 = 5). On the surface the light reaches half a cell further; each
+// level underground dims it by half a cell (see reachRadiusM). Below 30% energy
+// you lose a full cell (floored at 1); at 0 energy you can't reach at all. The
+// +1 m epsilon matches the historical 3-cell = 16 m radius, so the cardinal-N
+// cell is always included with a hair of margin and the silhouette reads as a
+// rounded diamond at every level.
 function reachCells(scene) {
   const upgrades = scene.save?.reachUpgrades ?? 0;
   return Math.min(5, 2 + 0.5 * upgrades);
@@ -84,9 +87,17 @@ function reachRadiusM(scene) {
   if (energy <= 0) return 0;
   const maxEnergy = scene.save?.maxEnergy ?? 100;
   let cells = reachCells(scene);
-  // Below 30% energy reach shrinks by one whole cell (never below 1).
-  if ((energy / maxEnergy) < 0.30) cells = Math.max(1, cells - 1);
-  return cells * scene.cellM + 1;
+  // The light radius shifts with DEPTH: the Inner Light burns half a cell
+  // brighter in open daylight, and dims underground — half a cell on the
+  // surface (+0.5), then half a cell darker for every level below the ground
+  // (−0.5 × depth). The lit bubble (light) and the reachable area are one and
+  // the same, so going deeper tightens what you can both see and tap.
+  const depth = scene.depth ?? 0;
+  cells += depth <= 0 ? 0.5 : -0.5 * depth;
+  // Below 30% energy reach shrinks by one whole cell.
+  if ((energy / maxEnergy) < 0.30) cells -= 1;
+  // Never below a single cell so you can always act on your own tile.
+  return Math.max(1, cells) * scene.cellM + 1;
 }
 
 // "Is this absolute cell within the player's reach?" Both drawCells (visual

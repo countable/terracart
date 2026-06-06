@@ -637,8 +637,11 @@ Render.drawCells = function drawCells(scene) {
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
   // top of the dim band, not under it. Underground the dim is much stronger —
-  // the lit reach area reads as a torch bubble in the surrounding dark rock.
-  g.fillStyle(0x000000, scene.depth > 0 ? 0.62 : 0.22);
+  // the lit reach area reads as a torch bubble in the surrounding dark rock —
+  // and it deepens by half a step per level so each descent feels darker.
+  const depth = scene.depth ?? 0;
+  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.22;
+  g.fillStyle(0x000000, dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -646,6 +649,25 @@ Render.drawCells = function drawCells(scene) {
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
       g.fillRect(sx, sy, CELL_PX, CELL_PX);
+    }
+  }
+  // Low energy tints the lit range pink — the Inner Light guttering as the
+  // player tires. The radius has already shrunk a cell (coords.js reachRadiusM);
+  // this pink wash over the still-reachable cells is the visual cue for WHY.
+  // Skipped while a Potion of Reach pins the whole view lit (energy ignored).
+  const energy = scene.save?.energy ?? 0;
+  const maxEnergy = scene.save?.maxEnergy ?? 100;
+  const potionLit = (scene.save?.reachPotionUntil ?? 0) > Date.now();
+  if (!potionLit && energy > 0 && (energy / maxEnergy) < 0.30) {
+    g.fillStyle(0xff5fa2, 0.16);
+    for (let row = -1; row <= VIEW_CELLS; row++) {
+      for (let col = -1; col <= VIEW_CELLS; col++) {
+        if (!isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
+        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
     }
   }
   g.lineStyle(3, 0xffffff, 0.3);
