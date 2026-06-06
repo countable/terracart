@@ -582,8 +582,17 @@
     // synchronously from within a user-gesture handler — so we do it
     // here, inline in the click. The promise resolution can be async; the
     // call itself just has to originate inside the click stack.
+    let __safetyDismissed = false;
     document.getElementById('safety-dismiss').addEventListener('click', async (e) => {
       e.stopPropagation();
+      // Guard against the handler running twice. On iOS the permission prompt
+      // below is awaited BEFORE the splash is removed, so a second tap (or a
+      // synthesized re-fire) could re-enter and play the opening story twice.
+      if (__safetyDismissed) return;
+      __safetyDismissed = true;
+      // Remove the splash up front so a queued second tap can't land on it again
+      // while we're awaiting the permission prompt.
+      document.getElementById('safety')?.remove();
       const DOE = window.DeviceOrientationEvent;
       if (DOE && typeof DOE.requestPermission === 'function') {
         try {
@@ -594,7 +603,6 @@
       } else {
         window.__compassPerm = 'granted';  // Android / desktop: no prompt needed
       }
-      document.getElementById('safety')?.remove();
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
@@ -624,12 +632,18 @@
         btn: "Let's go",
       },
     ];
+    let __storyStarted = false;
     function startStory() {
+      // Idempotent: never show the opening story more than once per page load,
+      // even if something calls this twice (the overlay is removed on finish,
+      // so a later call would no-op anyway — this just makes it explicit).
+      if (__storyStarted) return;
       const overlay = document.getElementById('story');
       const artEl = document.getElementById('story-art');
       const textEl = document.getElementById('story-text');
       const btn = document.getElementById('story-next');
       if (!overlay || !artEl || !textEl || !btn) return;
+      __storyStarted = true;
       let i = 0;
       const render = () => {
         const s = STORY_SLIDES[i];
