@@ -19,8 +19,9 @@ The game is made of a grid of cells generated from vector tile data.
 
 # viewport
  - the player sees an 11x11 viewport, centred around them. Interaction range
-   STARTS at 2 cells and grows to 5 via the Magic Shrine (six +0.5-cell reach
-   upgrades gated by deliveries — see CRAFTING).
+   STARTS at 2 cells and grows to 5 via six shared +0.5-cell reach upgrades —
+   earned EITHER at the Magic Shrine (gated by deliveries — see CRAFTING) OR at
+   the Wizard Tower (bought with Discovery — see ECONOMY/SHINY VARIANTS).
  - if the player is below 30% energy, their range drops by one whole cell
    (floored at 1); at 0 energy, they have no range.
  - generally, only update or consider timers of cells in the viewport, for efficiency. Don't update cells offscreen, but for timers just keep track of the timestamp of the last event. ie, for crops keep track of the time they were planted so later when onscreen you can check if they need to have sprouted when seen.
@@ -113,8 +114,17 @@ ENERGY & FOOD
    FOOD_ENERGY[id] (longgrass 2 … sunflower 150, cow 120, meat 45, etc.).
  - special food side effects: eating a rainberry waters every crop within 20m;
    eating a pairy points you to the nearest undiscovered chest for 5 minutes.
- - energy regenerates over real time: it pro-rates while the tab is closed
-   (offline rest), and refills faster while you're "indoors"/at home.
+ - REST: energy regenerates over real time. Rates are "seconds to refill the
+   whole bar" while you stand in a rest context (the pure formula lives in
+   energy.js; app.js owns the per-frame accrual + splash):
+     * INDOOR — on any building cell (house / fort / civic): full bar in 300s.
+     * HOME — on your starter trailer / adopted home shop: full bar in 90s
+       (~3.3× indoor; isRestingAtHome locks onto save.starterShopId).
+     * CAMPFIRE — within 3 cells of a lit fire: full bar in 360s (slowest, but
+       works out in the wild — see CAMPFIRE under CONSUMABLES).
+     * OFFLINE — while the tab is closed, energy pro-rates linearly to a full
+       bar over 1 hour away (energy.js Energy.OFFLINE_FULL_REST_MS), applied
+       once on the next load.
 
 ================================================================================
 WORLD GENERATION
@@ -254,6 +264,26 @@ CHOPPING
    Chopped state persists (save.chopped); stumps
    don't block tilling.
  - SHRUBS are wildplants (see FORAGING) — an Axe speeds the chop; they drop wood.
+ - TREE SIZE & SPECIES (util.js) — a tree's render size, its wood yield, and the
+   axe tier needed to fell it all derive deterministically from the tree's own
+   fields (no extra save state), so the visual size and the gameplay size never
+   diverge:
+     * SIZE CLASS: bush / small / medium / full (large). Detected DeepForest
+       trees carry a discrete crown class; size-less OSM/procedural trees fall
+       back to their canopy scale. Required axe tier climbs one step per size:
+       bush = bare hands (0), small = Wood (1), medium = Copper (2), full =
+       Iron (3). Wood yield scales by SIZE: bush/small ×1, medium ×2, full ×4
+       (the 2-3 base × the multiplier).
+     * SPECIES SHIFT: pine reads as SOFTWOOD (−1 required axe tier, easier),
+       maple as HARDWOOD (+1, tougher); every other species fells at its plain
+       size tier. The shift moves the axe gate only — wood yield tracks size.
+       (Maples also render ~10-20% smaller than their size class, a visual-only
+       tweak that never changes the gameplay class.)
+     * SHINY trees (see SHINY VARIANTS) always need a Gold (4) axe regardless of
+       size and pay the shiny bonus on top of their wood.
+     * HOME GROVE: every tree within ~100m of spawn is forced to SOFTWOOD
+       (home.js HomeArea.softwoodSpeciesNear) so the opening wood economy — the
+       starter blacksmith's first tools — is reliably harvestable bare-handed.
 
 ================================================================================
 ORCHARD FRUIT TREES
@@ -399,21 +429,37 @@ ECONOMY (buying & selling)
 ================================================================================
  - currency = coins (save.money). Start with $25. Earn by selling, picking up
    coins, treasure/chests, and coin bursts.
- - tap a house/tower to trade. SMALL HOUSES specialise by their address digit
-   (shops.js): ending 9 = BLACKSMITH (forges gear from bars/gems), 2/6 = MARKET
-   (cash-only produce stock), 1/8 = TRADER (barter-only). Other houses are
-   PLAIN: they run "delivery" deals, buying 2-3 specific produce they want.
+ - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with no
+   shop function (the starter trailer is exempt — Home works from day one). Tap a
+   wreck to restore it for a one-time payment of 3 rockfruit (stone). Restoring
+   reveals the house's ROLE, which is frozen into save.restoredHouses[id] so it
+   never shifts on later loads.
+ - SHOP ROLES are assigned by RESTORE ORDER, not address, for the opening run:
+   PRESEED_RESTORE_ROLES makes the first restores a fixed tutorial sequence —
+   0 = BLACKSMITH, 1 = TRADER, 2 = plain, 3 = MARKET, 4-5 = plain, and the 15th
+   (order 14) = WIZARD TOWER. Restores BEYOND those slots fall back to the
+   address-derived role (shops.js Shops.shopType): ending 9 = BLACKSMITH (forges
+   gear from bars/gems), 2/6 = MARKET (cash-only produce stock), 1/8 = TRADER
+   (barter-only), else PLAIN. The first restored blacksmith is stamped the
+   starter forge (save.starterBlacksmithId); the first market vends only T1/T2
+   seeds for cash. PLAIN houses run "delivery" deals (see DELIVERIES below).
    (These are BUY/trade specialties — selling is home-only, see SELL below.)
- - FORTS (BUILDING_MED): up to 5 deals/hour. CASTLES/TOWERS (BUILDING_LARGE):
-   never run out, always sell RELICS (at 4× base, minus bow/staff discount), and
-   are never "busy". Plain houses do 1 deal/hour. Hour buckets are per-house.
- - CASTLE TRIBUTE (locked start): every castle begins occupied by corrupt
-   post-apocalyptic residents who demand a one-time TRIBUTE before they'll open
-   the vault — 10 of a stable-random Tier-2 good (just 5 if it's a live animal),
-   keyed per castle so it never reshuffles. Holding 10 needs a Bag relic
-   (base stack cap is 9), so non-animal castles are effectively gated behind
-   bags. Mirrors the wreck-house restore gate one tier up; once paid it's tracked
-   in save.tributedCastles and the castle trades normally forever after.
+ - FORTS (BUILDING_MED) start SEALED; pay a one-time 30 wood (FORT_UNLOCK_WOOD,
+   tracked in save.unlockedForts) to open the quartermaster — then up to 5
+   deals/hour. CASTLES/TOWERS (BUILDING_LARGE): never run out, always sell RELICS
+   (at 4× base, minus bow discount), and are never "busy". Plain houses do 1
+   deal/hour. Hour buckets are per-house.
+ - CASTLE DELIVERY GATE: every castle begins sealed by corrupt post-apocalyptic
+   residents and stays shut until you've proven yourself on the delivery routes —
+   CASTLE_DELIVERY_GATE (5) completed LIFETIME deliveries (save.deliveryCount).
+   The price of entry is footwork, not goods. (This REPLACED the old one-time
+   tier-2 goods tribute; once the lifetime tally clears the gate, every castle
+   trades normally forever.)
+ - WIZARD TOWER (the 15th restored wreck): spends DISCOVERY points (see SHINY
+   VARIANTS) on "Inner Light" reach upgrades — WIZARD_INNER_LIGHT_COST (5)
+   Discovery each. It shares the same save.reachUpgrades ladder as the shrine
+   (capped at 6 steps / 5-cell reach), so Discovery is a parallel path to the
+   shrine's delivery-gated reach upgrades — mix them freely.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
@@ -427,6 +473,17 @@ ECONOMY (buying & selling)
    Frost). Other houses are buy/trade-only.
  - the Bow relic shrinks the buy markup (T7 = buy at par). The Staff is a pure
    combat weapon — it no longer affects prices.
+ - DELIVERIES: a PLAIN house wants a SET of 2-3 specific produce. Turn in a
+   complete set (a quantity stepper batches multiple sets) and it pays the set's
+   summed full price × DELIVERY_BONUS_MULT (1.5) — a 50% premium over selling the
+   items one by one. A delivered house is satisfied for the rest of the UTC day,
+   then refreshes. The wanted tier RAMPS with your lifetime tally: it biases from
+   PRODUCE_TIER_MIN (1) toward PRODUCE_TIER_MAX (7), reaching the cap at
+   DELIVERY_TIER_CAP (100) deliveries — early neighbours ask for potatoes and
+   berries, a veteran courier for coconuts and goldenfish. The first 3 delivery
+   houses are pinned to tier 1 and the 4th wants foraged flowers, to ease the
+   start. Each completed set bumps save.deliveryCount — the same lifetime tally
+   that unseals castles (5) and gates the shrine's reach upgrades (5×N).
 
 ================================================================================
 GEAR: RELICS & ARMOR
@@ -500,6 +557,11 @@ CONSUMABLES
    how many respond). Consumed on use.
  - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
    hint to the nearest unopened chest ("about N paces northwest"). Consumed. TODO: get rid of foot-tapping. should have a custom button like Eat CTA when selected.
+ - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
+   (consumes the coal). A fire is a safe, slow outdoor recovery spot: it refills
+   energy within 3 cells (full bar in 360s, see REST) and repels slimes within
+   4 cells, so it doubles as a perimeter ward in the wild. One fire per cell;
+   it persists in save.fires until you tap it to extinguish (no coal refund).
 
 ================================================================================
 INVENTORY
@@ -534,11 +596,99 @@ ITEMS & RARITY
      consumables:   flute, book, scarecrow
 
 ================================================================================
+SHINY VARIANTS & DISCOVERY
+================================================================================
+ - a small fraction of biome FLORA (1%), TREES (1%) and wild ANIMALS (5%) spawn
+   as a rare yellow-tinted "shiny" variant (util.js SHINY_RATE). Shiny status is
+   a deterministic hash of the entity's stable id (shinyHash01) — it survives
+   reloads + tile re-rasterise WITHOUT storing anything on the object or save,
+   and render.js sparkles the sprite so it reads as special.
+ - harvesting / catching a shiny pays a headline bonus: 10× the base item's
+   value in cash PLUS one DISCOVERY point (save.discovery), with a fanfare popup
+   (awardShinyBonus). A per-type ledger (save.discovered) tracks which kinds
+   you've found. Shiny trees additionally require a Gold axe to fell.
+ - DISCOVERY is a soft currency spent at the WIZARD TOWER (see ECONOMY) on
+   "Inner Light" reach upgrades — an alternative to the shrine's delivery-gated
+   reach ladder (both feed the same save.reachUpgrades, capped at 5 cells).
+
+================================================================================
+UNDERGROUND CAVES (Phase 1)
+================================================================================
+ - cave-rock clusters on the surface seed a "descend" STAIRCASE beside them (a
+   mine mouth). Tapping a staircase within reach changes the player's DEPTH:
+   0 = surface, 1, 2, … = cave levels below. Depth is persisted (a reload
+   underground stays underground) and the world re-points WorldGen at it.
+ - each cave level is generated as the "NEGATIVE" of the level directly above:
+   every walkable surface cell becomes CAVE_FLOOR (walkable); every non-walkable
+   cell (water, any road, any building) becomes CAVE_WALL — solid rock you can't
+   pass. So surface buildings/roads/water "cast" obstructions underground. This
+   recurses up to the surface, so depth N derives deterministically from N-1.
+ - staircases mirror across levels at the SAME world point: a level's DOWN-stair
+   becomes the next level's UP-stair (you arrive standing on the way back up),
+   with a fresh DOWN-stair a few cells off so up/down aren't co-located.
+ - tiles are cached PER DEPTH. Phase 1 keeps caves quiet — no fauna spawn
+   underground; mineral rocks are the draw.
+
+================================================================================
+SAVED GAMES (slots)
+================================================================================
+ - the game supports multiple named save SLOTS (save.js). A small registry
+   (SAVES_KEY) tracks the slots and which one is active; each slot owns its own
+   localStorage data key. The legacy single-save key is adopted as the default
+   slot ("Game 1") so existing players keep their progress untouched.
+ - switching slots re-points SAVE_KEY and re-inits the whole scene + in-memory
+   caches so the new slot loads cleanly. Slots can be created, renamed, and
+   reset per-slot. Listed newest-played first in the menu.
+
+================================================================================
 HUD (debug)
 ================================================================================
  - top-left: lat, lon, GPS state (wasd|waiting|live); line 2: current MVT tile
    coords, loaded tile count, caught count, planted plot count. Not styled for
    production; useful for testing.
+
+================================================================================
+ARCHITECTURE: STANDARDIZED MODULES
+================================================================================
+The source has been progressively factored out of the monolithic app.js so the
+common, repeated logic lives in one declarative or pure place. This is design
+intent, not just cleanup — adding new content should mean editing data/cores,
+not threading another branch through the dispatcher.
+
+ - INTERACTABLE REGISTRY (interactables.js): every tap-driven WORLD OBJECT
+   (tree, mineral rock, fruit tree, ground stack, chest, well, house, tower,
+   shrine) is one declarative entry in a single INTERACTABLES table instead of a
+   long if/else chain on o.kind. Each entry separates the three concerns that
+   used to be tangled together:
+     * tool          — relic slot that drives the work-wheel duration/speed
+     * spent + spentAction — is it already consumed? ('skip' falls through so a
+                       chopped stump doesn't block tilling; 'consume' eats the tap)
+     * gate(o,save)  — pure check returning a flash string to BLOCK the tap
+                       (e.g. "Need a Wood pick…"), or null to allow
+     * energy(save,o)— up-front energy cost (also the cancel refund)
+     * complete / custom — the payout / side effects when work finishes (custom
+                       is the escape hatch for non-tool flows: instant fruit
+                       harvest, chest ceremony, well refill, shop/shrine UIs)
+   A single runInteractable(ctx, o) driver walks gate → spend → work-wheel, or
+   defers to custom. Adding a new interactable = adding a row.
+ - GATHER LUCK is a declarative `luck` field on each registry entry (which relic
+   slots — ring/amulet — modify its rolls). Gather drops (wood, ore, gems, fruit)
+   can therefore become luck-aware like chest loot. It is gated behind a flag
+   (GATHER_LUCK_DEFAULT, OFF) so the RNG stream + outcomes stay byte-for-byte
+   identical to the pre-luck behaviour until deliberately enabled.
+ - PURE CORES extracted from app.js for headless testing (no scene, no DOM); the
+   scene keeps thin wrappers that own only the side effects (persistSave, DOM
+   rebuilds, flashes):
+     * inventory.js — stack/cap/dedupe rules over save.inv (one stack per id;
+       cap = stackCapForBags, 9 → 249 at T7; excess rejected — no ground drops)
+     * energy.js    — max/spend/offline-rest/tired-threshold math; single home
+       of OFFLINE_FULL_REST_MS
+     * crops.js     — growth / watering / pest rules; the single source of truth
+       for STAGE_HOLD_MS (15 min/stage), which used to be copy-pasted across
+       app.js / render.js / interact.js
+     * home.js      — HomeArea hub: the canonical "am I near spawn?" test and the
+       home-area tuning that isn't bound to one specific shop (e.g. the softwood
+       home grove). Loaded before worldgen so generation can ask it mid-build.
 
 ================================================================================
 NOT IN SCOPE / REJECTED
