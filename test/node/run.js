@@ -49,7 +49,7 @@ vm.createContext(ctx);
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
   'mvt.js', 'util.js', 'coords.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
+  'items.js', 'inventory.js', 'energy.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE

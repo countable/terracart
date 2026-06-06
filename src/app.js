@@ -199,10 +199,9 @@ const HOME_FULL_REST_S = 90;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
-// Time-since-tab-close that grants the FULL energy bar back. Closing the tab
-// or backgrounding the app for an hour returns at 100% energy; shorter rests
-// are pro-rated linearly.
-const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
+// Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
+// linearly) now lives with the offline-rest formula in energy.js as
+// Energy.OFFLINE_FULL_REST_MS.
 
 
 // === Crop-affinity plaque (per-crop wooden sign baked once) ===
@@ -3534,10 +3533,7 @@ class MapScene extends Phaser.Scene {
   // a stale save.maxEnergy that may pre-date the latest armor change). All
   // energy reads/writes funnel through this so the UI and the writer agree.
   getMaxEnergy() {
-    const fromArmor = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(this.save.armor) : null;
-    if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
-    return this.save.maxEnergy ?? STARTING_ENERGY;
+    return Energy.maxEnergy(this.save);
   }
 
   // Equip a bought/forged relic or armor piece into its slot. Armor also
@@ -3560,13 +3556,7 @@ class MapScene extends Phaser.Scene {
   // restore it. Called from create() and the visibilitychange handler so the
   // same formula serves both "tab was closed" and "tab was backgrounded".
   applyOfflineRest(gapMs) {
-    if (!(gapMs > 0)) return;
-    const maxE = this.getMaxEnergy();
-    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
-    if (restored <= 0) return;
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.min(maxE, before + restored);
-    const gained = this.save.energy - before;
+    const gained = Energy.applyOfflineRest(this.save, gapMs);
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
     if (gained > 0) this._splashEnergyGain(gained);
   }
@@ -3587,13 +3577,12 @@ class MapScene extends Phaser.Scene {
   // Callers (interact.js handlers) refuse the action when this returns false.
   spendEnergy(cost, sx, sy) {
     if (cost <= 0) return true;
-    if ((this.save.energy ?? 0) < cost) {
+    const r = Energy.spend(this.save, cost);
+    if (!r.ok) {
       if (sx != null && sy != null) this.flash('too tired', sx, sy);
       return false;
     }
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(0, before - cost);
-    this._warnIfTiring(before, sx, sy);
+    this._warnIfTiring(r.before, sx, sy);
     this.updateEnergyDOM();
     return true;
   }
@@ -3604,11 +3593,9 @@ class MapScene extends Phaser.Scene {
   // `before` is the energy reading just before the drain; sx/sy are optional
   // and default to the view centre.
   _warnIfTiring(before, sx, sy) {
-    // A Potion of Reach pins reach to the full view regardless of energy, so
-    // crossing the threshold doesn't actually shrink anything — stay quiet.
-    if ((this.save.reachPotionUntil ?? 0) > Date.now()) return;
-    const TIRED = 0.30 * (this.save.maxEnergy ?? 100);
-    if (before >= TIRED && (this.save.energy ?? 0) < TIRED) {
+    // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
+    // wrapper only fires the flash (defaulting to the view centre).
+    if (Energy.crossedTired(this.save, before)) {
       this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
                                     sy != null ? sy : this.viewCenterY);
     }
