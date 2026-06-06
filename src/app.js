@@ -830,6 +830,25 @@ class MapScene extends Phaser.Scene {
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
+    // Underground "ghost" target marker. On cave levels GPS / debug controls
+    // steer a free-flying ghost (this._caveTargetM) that passes through rock;
+    // the opaque body (this.player) auto-follows and mines walls in its path.
+    // This faint sprite marks where the ghost is whenever it diverges from the
+    // body; it stays hidden on the surface and while body+ghost coincide.
+    this.caveGhost = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
+      .setScale(1.35)
+      .setAlpha(0.4)
+      .setDepth(10)
+      .play('idle-down')
+      .setVisible(false)
+      .setMask(mask);
+    // Cave-follow state (depth > 0 only). _caveTargetM is the ghost target in
+    // body-relative world metres; _caveAutoMineKey marks the wall cell a wheel
+    // is currently chewing through; _caveAutoPaused halts pursuit after the
+    // player taps to interrupt auto-mining (cleared on the next steer input).
+    this._caveTargetM = null;
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
@@ -1041,6 +1060,12 @@ class MapScene extends Phaser.Scene {
           // keep working.
           if (this.save.debugControls || this._gpsManualOverride) {
             // intentionally no playerM / _bodyM write
+          } else if (this.depth > 0) {
+            // Underground: GPS steers the free-flying ghost target, not the
+            // body. The body auto-follows (and mines walls) in _caveFollowStep.
+            // A fresh fix counts as a steer, so it resumes any paused pursuit.
+            this._caveTargetM = { x: this.gpsM.x, y: this.gpsM.y };
+            this._caveAutoPaused = false;
           } else if (this._bodyM) {
             // While ghost mode is active, playerM IS the ghost; GPS updates
             // the body silently behind it (the body sprite re-positions
@@ -1837,7 +1862,9 @@ class MapScene extends Phaser.Scene {
     // they're actively touching the pad. On the down-edge, snapshot the body
     // into _bodyM and let `this.playerM` become the ghost. On the up-edge,
     // collapse — restore playerM to the body and tidy ghost render state.
-    const ghostEligible = !!this.save.relics?.amulet;
+    // Amulet ghost mode is a surface-only scouting tool. Underground the cave
+    // ghost-follow model owns the ghost concept, so don't let the two fight.
+    const ghostEligible = !!this.save.relics?.amulet && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -1851,9 +1878,6 @@ class MapScene extends Phaser.Scene {
     } else if (!ghostHeld && this._bodyM) {
       this.collapseGhost();
     }
-    // Snapshot position before this frame's movement so cave-wall collision can
-    // revert a blocked axis (axis-separated sliding). Surface has no collision.
-    const _preMoveX = this.playerM.x, _preMoveY = this.playerM.y;
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -1894,7 +1918,14 @@ class MapScene extends Phaser.Scene {
       speedMul = DEBUG_SPEED_MUL;
     }
     const moving = vx || vy;
-    if (moving) {
+    if (this.depth > 0) {
+      // Underground: inputs steer a free-flying ghost target (through walls);
+      // the opaque body — still this.playerM, so the camera and the reach/tap
+      // origin stay on it — auto-follows through floor cells and mines any wall
+      // that blocks its path. Surface movement is unchanged below.
+      this._caveSteer(vx, vy, speedMul, dt);
+      this._caveFollowStep(dt);
+    } else if (moving) {
       const n = Math.hypot(vx, vy);
       const dx = (vx / n) * WALK_M_S * speedMul * dt;
       const dy = (vy / n) * WALK_M_S * speedMul * dt;
@@ -1946,13 +1977,11 @@ class MapScene extends Phaser.Scene {
       this._playDirected(this.player, 'idle');
     }
 
-    // Underground: rock walls actually stop the player (the surface has no
-    // player collision — GPS drives you wherever you physically walk). Applies
-    // to keyboard, ghost-pad AND GPS-eased motion since all three wrote
-    // playerM above.
-    if (this.depth > 0) this._clampCaveMovement(_preMoveX, _preMoveY);
+    // (Underground rock-wall collision is handled per-frame inside
+    // _caveFollowStep, which steps the body toward the ghost target and mines
+    // any wall in the way — see the depth>0 branch above.)
 
-    // Position the body sprite at its true world offset from the ghost.
+    // Position the amulet-ghost body sprite at its true world offset.
     // worldMetersToScreen does the camera-relative projection in one place;
     // inlining the math here would let it drift away from every other
     // render site if cellM / CELL_PX semantics ever change.
@@ -1961,6 +1990,25 @@ class MapScene extends Phaser.Scene {
         this.startWorldM.x + this._bodyM.x,
         this.startWorldM.y + this._bodyM.y);
       this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y));
+    }
+
+    // Underground ghost marker: show the steered target whenever it has pulled
+    // away from the body (i.e. the body is trailing / mining). When they're
+    // basically coincident — open ground — keep it hidden so nothing diverges.
+    if (this.depth > 0 && this._caveTargetM) {
+      const gdx = this._caveTargetM.x - this.playerM.x;
+      const gdy = this._caveTargetM.y - this.playerM.y;
+      const diverged = (gdx * gdx + gdy * gdy) > (this.cellM * 0.5) ** 2;
+      if (diverged) {
+        const p = worldMetersToScreen(this,
+          this.startWorldM.x + this._caveTargetM.x,
+          this.startWorldM.y + this._caveTargetM.y);
+        this.caveGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
+      } else {
+        this.caveGhost.setVisible(false);
+      }
+    } else if (this.caveGhost.visible) {
+      this.caveGhost.setVisible(false);
     }
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -2279,6 +2327,13 @@ class MapScene extends Phaser.Scene {
     if (wp && wp.energyRefund > 0) {
       this.save.energy = Math.min(this.getMaxEnergy(), (this.save.energy ?? 0) + wp.energyRefund);
       this.updateEnergyDOM();
+    }
+    // Tapping to bail on an underground auto-mine pauses the body's pursuit of
+    // the ghost so the player can do something else; the next steer (GPS fix,
+    // keyboard, debug pad) clears the pause and resumes following.
+    if (this._caveAutoMineKey) {
+      this._caveAutoPaused = true;
+      this._caveAutoMineKey = null;
     }
     this.cancelWorkProgress();
   }
@@ -3195,6 +3250,102 @@ class MapScene extends Phaser.Scene {
       this.playerM.y = prevY;
     }
   }
+
+  // === Underground ghost-follow (depth > 0) ===
+  // The ghost target floats free of walls; the body chases it and mines through.
+  //
+  // Steer the ghost target by an input velocity (keyboard / debug / amulet pad).
+  // The ghost ignores walls entirely — it's just a point the body heads toward.
+  // Any steer clears the auto-mine pause so pursuit resumes.
+  _caveSteer(vx, vy, speedMul, dt) {
+    if (!this._caveTargetM) this._caveTargetM = { x: this.playerM.x, y: this.playerM.y };
+    if (!vx && !vy) return;
+    const n = Math.hypot(vx, vy);
+    this._caveTargetM.x += (vx / n) * WALK_M_S * speedMul * dt;
+    this._caveTargetM.y += (vy / n) * WALK_M_S * speedMul * dt;
+    this._caveAutoPaused = false;
+    if (this.compassDeg == null) this.facing = { x: vx, y: vy };
+  }
+  // Move the body one frame toward the ghost target through floor cells, mining
+  // a blocking wall when wedged. "Choice of 2 cells": try the X-step and the
+  // Y-step of the heading independently — if either is open the body slides that
+  // way (no dig); only when BOTH are walls do we mine the one toward the target.
+  _caveFollowStep(dt) {
+    if (!this._caveTargetM) return;
+    // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
+    // hold position until it resolves so the body doesn't wander off its work.
+    if (this._workProgress) { this._playDirected(this.player, 'idle'); return; }
+    // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
+    if (this._caveAutoPaused) { this._playDirected(this.player, 'idle'); return; }
+    const body = this.playerM;
+    const dx = this._caveTargetM.x - body.x, dy = this._caveTargetM.y - body.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
+      this._playDirected(this.player, 'idle');
+      return;
+    }
+    // Catch-up speed: walk pace, scaled up with distance so the body keeps up
+    // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
+    // big jump still reads as travel rather than a warp.
+    const mul = Math.min(DEBUG_SPEED_MUL, 1 + dist / this.cellM);
+    const move = Math.min(WALK_M_S * mul * dt, dist);
+    const ux = dx / dist, uy = dy / dist;
+    const foot = this.feetOffsetM;
+    const open = (nx, ny) =>
+      !this._caveCellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
+    const nx = body.x + ux * move, ny = body.y + uy * move;
+    const okX = (ux !== 0) && open(nx, body.y);
+    const okY = (uy !== 0) && open(body.x, ny);
+    if (okX) body.x = nx;
+    if (okY) body.y = ny;
+    this.facing = { x: ux, y: uy };
+    this._playDirected(this.player, 'walk', ux, uy);
+    // Wedged: neither axis-step is open toward the target → dig the wall ahead.
+    if (!okX && !okY) this._caveStartAutoMine(ux, uy);
+  }
+  // Pick the wall cell blocking progress toward the target (dominant axis first)
+  // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
+  _caveStartAutoMine(ux, uy) {
+    const bx = this.startWorldM.x + this.playerM.x;
+    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    // Two candidates: the X-neighbour and Y-neighbour toward the target, in
+    // dominant-axis order so we cut the most useful wall first.
+    const cand = Math.abs(ux) >= Math.abs(uy)
+      ? [[Math.sign(ux), 0], [0, Math.sign(uy)]]
+      : [[0, Math.sign(uy)], [Math.sign(ux), 0]];
+    for (const [cdx, cdy] of cand) {
+      if (!cdx && !cdy) continue;
+      const c = this.cellAt(bx + cdx * this.cellM, by + cdy * this.cellM);
+      if (c.loaded && c.type === 25 /* CAVE_WALL */) { this._caveBeginMine(c); return; }
+    }
+  }
+  // Start a work-wheel that digs cave-wall cell `c` (from cellAt) into floor and
+  // drops stone — the same payout/cost as tapping a wall by hand. Auto-pauses on
+  // empty energy so the player isn't silently stuck against a wall.
+  _caveBeginMine(c) {
+    const N = this.cellsPerTile;
+    const cellIX = c.tx * N + c.ix, cellIY = c.ty * N + c.iy;
+    const { x: wx, y: wy } = absCellCenterMeters(this, cellIX, cellIY);
+    const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(this.save.relics) : 0;
+    if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY)) {
+      this._caveAutoPaused = true;   // out of energy — stop chewing the wall
+      return;
+    }
+    const durMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(this.save.relics, 'pick')
+      : (this.save.relics?.pick ? 3000 : 9000);
+    this._caveAutoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
+    this.startWorkProgress(wx, wy, () => {
+      this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
+      const qty = randInt(1, 3);
+      this.addToInv('rockfruit', qty);
+      if (Math.random() < 0.20) this.addToInv('coal', 1);
+      this._caveAutoMineKey = null;
+      persistSave(this.save);
+      const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
+      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
+    }, durMs, cost, 'pick');
+  }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
   // active tile cache, repaints the background, and loads the new level.
@@ -3208,6 +3359,15 @@ class MapScene extends Phaser.Scene {
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
     this._ease = null;   // cancel any in-flight GPS ease toward the old spot
+    // Reset cave ghost-follow: any in-flight auto-mine is dropped, and the
+    // ghost target starts coincident with the body so the two don't diverge
+    // until the player actually steers. Surface clears it entirely.
+    if (this._workProgress && this._caveAutoMineKey) this.cancelWorkProgress();
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
+    if (this._bodyM) this.collapseGhost();   // never carry amulet ghost underground
+    this._caveTargetM = target > 0 ? { x: this.playerM.x, y: this.playerM.y } : null;
+    if (this.caveGhost) this.caveGhost.setVisible(false);
     this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
     this.ensureTilesAround().catch(() => {});
     this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
