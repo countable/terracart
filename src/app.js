@@ -6910,57 +6910,21 @@ class MapScene extends Phaser.Scene {
   // Mirrors addToInv's single-stack-per-id cap so a caller can detect overflow
   // BEFORE committing — the chest open uses it to offer "leave it for later"
   // instead of silently dropping loot that won't fit.
+  // How many more of `id` would fit right now (0 = full for that item).
+  // Thin wrapper over Inventory.roomFor — the stack/cap math lives in
+  // inventory.js (headlessly tested). Used by the chest open to detect overflow
+  // BEFORE committing ("leave it for later" instead of silently dropping loot).
   invRoomFor(id) {
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    let have = 0;
-    for (const s of (this.save.inv || [])) if (s && s.id === id) have += (s.count || 0);
-    return Math.max(0, cap - have);
+    return Inventory.roomFor(this.save, id);
   }
 
-  // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE
-  // stack and that stack is capped at stackCapForBags(bags relic) — 9 with
-  // no bag, 249 at tier 7. Excess is rejected (no ground drops in this game)
-  // and the player sees a 'bag full' flash. Returns the count actually
-  // accepted so callers can adjust their narration if they care.
+  // Add up to `n` of `id` to inventory. The stack/cap/dedupe/autoselect rules
+  // live in Inventory.add (inventory.js); this wrapper owns only the scene side
+  // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
+  // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
-    const item = ITEM_BY_ID[id];
-    if (!item || n <= 0) return 0;
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    // Find the single canonical stack for this id. If duplicate stacks slipped
-    // in via a legacy save (the old addToInv path could create them), fold
-    // them into one here so the no-duplicate invariant self-heals.
-    let stack = null;
-    for (let i = this.save.inv.length - 1; i >= 0; i--) {
-      const s = this.save.inv[i];
-      if (!s || s.id !== id) continue;
-      if (!stack) { stack = s; continue; }
-      stack.count = (stack.count || 0) + (s.count || 0);
-      this.save.inv.splice(i, 1);
-    }
-    const isNewStack = !stack;
-    if (!stack) {
-      stack = { id, count: 0 };
-      this.save.inv.push(stack);
-    }
-    const room = Math.max(0, cap - (stack.count || 0));
-    const accepted = Math.min(room, n);
-    stack.count = (stack.count || 0) + accepted;
-    const rejected = n - accepted;
-    // Autoselect a freshly-obtained NEW item type so the player can immediately
-    // see / use what they just got. Only for genuine (non-silent) pickups, and
-    // only when this add created a brand-new stack — topping up an existing
-    // stack keeps the current selection so loops like harvest→replant aren't
-    // disrupted after the first of a crop. (5 = inventory page size, see
-    // buildInventoryDOM PAGE.)
-    if (isNewStack && accepted > 0 && !silent) {
-      const idx = this.save.inv.indexOf(stack);
-      if (idx >= 0) {
-        this.save.selSlot = idx;
-        this.save.invPage = Math.floor(idx / 5);
-      }
-    }
+    const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
+    if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
@@ -6970,7 +6934,7 @@ class MapScene extends Phaser.Scene {
     // caller fires right after addToInv (back-to-back add.text in the same
     // synchronous chain exhausts Phaser's text-canvas pool under the harness).
     // Coalesced so a bulk drop fires once.
-    if (rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
+    if (r.rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
       if (!this._bagFullPending) {
         this._bagFullPending = true;
         setTimeout(() => {
@@ -6981,7 +6945,7 @@ class MapScene extends Phaser.Scene {
         }, 0);
       }
     }
-    return accepted;
+    return r.accepted;
   }
   buildInventoryDOM() {
     const PAGE = 5;
