@@ -1324,8 +1324,13 @@ class MapScene extends Phaser.Scene {
         // Surface fauna on depth 0; hostile wandering monsters underground.
         if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
         else if (this.depth > 0 && !entry.creatures) this.spawnCaveCreatures(entry, tx, ty, this.depth);
-        // Re-open any walls the player has already mined on this level.
-        if (this.depth > 0) this._applyDugWalls(entry, tx, ty);
+        // Re-open any walls the player has already mined on this level, and
+        // guarantee an up-staircase by the starting house so you can always
+        // climb back to the surface from home.
+        if (this.depth > 0) {
+          this._applyDugWalls(entry, tx, ty);
+          this._ensureHomeUpStair(entry, tx, ty);
+        }
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
@@ -1988,6 +1993,14 @@ class MapScene extends Phaser.Scene {
       }
     } else {
       this._playDirected(this.player, 'idle');
+    }
+
+    // Exhaustion underground: hit 0 energy below the surface and you black out
+    // and wake up top-side. Guarded so the modal fires once, and skipped in
+    // tests (which drive energy directly and don't want a DOM modal).
+    if (this.depth > 0 && (this.save.energy ?? 0) <= 0
+        && !this._passingOut && !window.__TEST_MODE) {
+      this._passOutToSurface();
     }
 
     // (Underground rock-wall collision is handled per-frame inside
@@ -3365,6 +3378,12 @@ class MapScene extends Phaser.Scene {
   changeDepth(delta, stair) {
     const target = Math.max(0, (this.depth || 0) + delta);
     if (target === this.depth) return;
+    // Can't descend on an empty tank — you'd just pass out down there. Climbing
+    // up is always allowed (it's how you escape exhaustion).
+    if (delta > 0 && (this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to go down — rest first.', this.viewCenterX, this.viewCenterY);
+      return;
+    }
     this.depth = target;
     this.save.depth = target;
     WorldGen.setDepth(target);
@@ -3386,6 +3405,58 @@ class MapScene extends Phaser.Scene {
     this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
                this.viewCenterX, this.viewCenterY);
     persistSave(this.save);
+  }
+  // Black out at 0 energy underground and wake on the surface. Keeps the same
+  // world coordinates (GPS re-asserts position up top); the player wakes still
+  // drained, so they must rest before heading back down (changeDepth gate).
+  _passOutToSurface() {
+    this._passingOut = true;
+    if (this._workProgress) this.cancelWorkProgress();
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
+    this._caveTargetM = null;
+    if (this.caveGhost) this.caveGhost.setVisible(false);
+    if (this._bodyM) this.collapseGhost();
+    this.depth = 0;
+    this.save.depth = 0;
+    WorldGen.setDepth(0);
+    this._ease = null;
+    this.cameras.main.setBackgroundColor('#222');
+    this.ensureTilesAround().catch(() => {});
+    persistSave(this.save);
+    this.showChestRewardModal({
+      header: 'Exhausted',
+      iconHTML: '<span style="font-size:42px">😵</span>',
+      name: 'You pass out from exhaustion and wake up on the surface.',
+      color: '#ff8c3b',
+      onDismiss: () => { this._passingOut = false; },
+    });
+  }
+  // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
+  // cave level, so the player can always climb back toward the surface from the
+  // starting house. Idempotent — runs on each (re)load of the home tile.
+  _ensureHomeUpStair(entry, tx, ty) {
+    if (!entry || !entry.grid || typeof HomeArea === 'undefined' || !HomeArea.worldM) return;
+    const N = entry.cellsPerEdge;
+    const tileEdgeM = entry.tileEdgeM;
+    const hx = HomeArea.worldM.x, hy = HomeArea.worldM.y;
+    if (Math.floor(hx / tileEdgeM) !== tx || Math.floor(hy / tileEdgeM) !== ty) return;
+    const mPerCell = tileEdgeM / N;
+    const lix = Math.floor((hx - tx * tileEdgeM) / mPerCell);
+    const liy = Math.floor((hy - ty * tileEdgeM) / mPerCell);
+    if (lix < 0 || liy < 0 || lix >= N || liy >= N) return;
+    entry.grid[liy * N + lix] = 24;   // CAVE_FLOOR — the stair must sit on floor
+    const cx = tx * tileEdgeM + (lix + 0.5) * mPerCell;
+    const cy = ty * tileEdgeM + (liy + 0.5) * mPerCell;
+    const half = mPerCell * 0.5;
+    const atHome = (o) => Math.abs(o.x - cx) < half && Math.abs(o.y - cy) < half;
+    entry.objects = entry.objects || [];
+    // No descending from the house — drop any down-stair that landed here.
+    entry.objects = entry.objects.filter(o => !(o.kind === 'staircase' && o.dir === 'down' && atHome(o)));
+    if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atHome(o))) {
+      entry.objects.push({ kind: 'staircase', dir: 'up', x: cx, y: cy, depth: entry.depth,
+        id: `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}` });
+    }
   }
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
