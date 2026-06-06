@@ -260,6 +260,7 @@
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
+      <button id="debug-dump-tile">Dump tile (debug)</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
@@ -455,6 +456,13 @@
       for (const slot of Object.keys(scene.save.relics)) scene.save.relics[slot] = null;
       scene.updateRelicRow?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    document.getElementById('debug-dump-tile').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (scene && scene.dumpTileDebug) scene.dumpTileDebug();
+      else if (window.showError) window.showError('tile debug unavailable', 'scene not ready');
     });
     document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -768,6 +776,6 @@
   <script src="src/assets.js?v=171"></script>
   <script src="src/sandbox.js?v=29"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=299"></script>
+  <script src="src/app.js?v=300"></script>
 </body>
 </html>
