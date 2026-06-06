@@ -4037,6 +4037,31 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // Sapphire portal: spend one gem to open a one-shot shaft straight down a
+  // level, in place. Down-only — there's no return portal; climb back up a
+  // staircase as usual. The gem is consumed only when the descent actually
+  // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  useSapphirePortal() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
+    if ((this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to open a portal — rest first.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
+    // coords onto the stair, so handing it our current position drops us down
+    // one level without moving — the cave cell under a walkable surface cell is
+    // floor, so we land on solid ground.
+    const stair = {
+      x: this.startWorldM.x + this.playerM.x,
+      y: this.startWorldM.y + this.playerM.y + this.feetOffsetM,
+    };
+    consumeSelected(this.save);
+    this.buildInventoryDOM();
+    this.changeDepth(+1, stair);
+    return true;
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -7211,6 +7236,7 @@ class MapScene extends Phaser.Scene {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
       reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+      sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }

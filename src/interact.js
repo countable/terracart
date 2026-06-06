@@ -293,6 +293,17 @@ const TAP_HANDLERS = [
       });
       return true;
     }
+    if (sel.id === 'sapphire') {
+      scene.showOfferModal({
+        title: 'Open a portal down?',
+        get: '💎 descend one level',
+        cost: `1× 💎 Sapphire`,
+        canAfford: true,
+        acceptLabel: 'Open',
+        onAccept: () => scene.useSapphirePortal(),
+      });
+      return true;
+    }
     return false;
   }},
 

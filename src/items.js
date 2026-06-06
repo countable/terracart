@@ -375,6 +375,9 @@ const ITEMS = [
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
+  // Sapphire doubles as a one-shot descent charge: tap your own feet with it
+  // selected (or use the Portal button) to spend one gem and sink straight
+  // down a level in place. See useSapphirePortal in app.js.
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
