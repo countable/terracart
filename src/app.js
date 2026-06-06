@@ -3293,13 +3293,15 @@ class MapScene extends Phaser.Scene {
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
   }
   // Move the body one frame toward the ghost target through floor cells, mining
-  // a wall whenever it actually blocks the path. "Choice of 2 cells": try the
-  // X-step and the Y-step of the heading independently so the body slides past
-  // a wall that's off to the side. Then DETECT BEING BLOCKED BY PROGRESS, not
-  // geometry: if heading toward the target barely closed the gap this frame, a
-  // wall is in the way (a flat wall the old wedge-only check would slide against
-  // forever) — dig it. _caveStartAutoMine no-ops unless a wall is really ahead,
-  // so a body merely outrun by a fast ghost on open floor won't dig.
+  // a wall only when it actually blocks the path AND can't be walked around.
+  // "Choice of 2 cells": try the X-step and the Y-step of the heading
+  // independently so the body slides past a wall that's off to the side. Then
+  // DETECT BEING BLOCKED BY PROGRESS, not geometry: if heading toward the target
+  // barely closed the gap this frame, a wall is in the way (a flat wall the old
+  // wedge-only check would slide against forever). When blocked, first try a
+  // single-cell jog around it (_caveDetourDir) and only dig if no such trivial
+  // detour exists. _caveStartAutoMine no-ops unless a wall is really ahead, so a
+  // body merely outrun by a fast ghost on open floor won't dig.
   _caveFollowStep(dt) {
     if (!this._caveTargetM) return;
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
@@ -3330,9 +3332,47 @@ class MapScene extends Phaser.Scene {
     this._playDirected(this.player, 'walk', ux, uy);
     // How much closer did we actually get? Against a wall in the heading
     // direction this collapses toward zero even while sliding sideways, so
-    // dig when progress is under half the step we tried to take.
+    // we're blocked when progress is under half the step we tried to take.
     const moved = dist - Math.hypot(this._caveTargetM.x - body.x, this._caveTargetM.y - body.y);
-    if (moved < move * 0.5) this._caveStartAutoMine(ux, uy);
+    if (moved < move * 0.5) {
+      // Blocked. Don't dig if a single-cell jog gets us around the obstacle —
+      // mining is reserved for walls the player can't trivially walk past.
+      const detour = this._caveDetourDir(ux, uy);
+      if (detour) {
+        const sx = body.x + detour.x * move, sy = body.y + detour.y * move;
+        if (detour.x !== 0 && open(sx, body.y)) body.x = sx;
+        if (detour.y !== 0 && open(body.x, sy)) body.y = sy;
+        this.facing = { x: detour.x, y: detour.y };
+        this._playDirected(this.player, 'walk', detour.x, detour.y);
+      } else {
+        this._caveStartAutoMine(ux, uy);
+      }
+    }
+  }
+  // Is the wall blocking forward progress one the body can trivially walk
+  // around — one cell out of its way? Returns a unit perpendicular vector to
+  // jog toward (the open side), or null if rounding the obstacle would take
+  // more than a single-cell detour (in which case mining is the only way
+  // through). "Trivial" means: the cell one step to the side is open AND the
+  // cell forward of that sidestep is open, so a single jog clears a 1-cell-wide
+  // wall. A thicker wall fails the forward check and falls through to mining.
+  _caveDetourDir(ux, uy) {
+    const m = this.cellM;
+    const bx = this.startWorldM.x + this.playerM.x;
+    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    const open = (cdx, cdy) => !this._caveCellBlocked(bx + cdx * m, by + cdy * m);
+    // Forward = dominant heading axis; perpendicular = the other axis.
+    const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
+    if (!fwd[0] && !fwd[1]) return null;
+    const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
+    // Prefer the side the target leans toward, so we round the corner the short
+    // way; with no lean (pure-axis heading) try one side then the other.
+    const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
+    for (const s of (lean < 0 ? [-1, 1] : [1, -1])) {
+      const px = perp[0] * s, py = perp[1] * s;
+      if (open(px, py) && open(px + fwd[0], py + fwd[1])) return { x: px, y: py };
+    }
+    return null;
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
