@@ -2360,7 +2360,7 @@
     const PIVOT = 6;             // a cluster candidate every 6 cells
     const FIRE = 0.85;           // most candidates fire
     const CLUSTER_MIN = 3, CLUSTER_SPAN = 3;   // 3..5 rocks — ~2× sparser than before
-    const RADIUS = 2;            // rocks jitter within ±2 cells of the pivot
+    const RADIUS = 1;            // rocks jitter within ±1 cell — tight clumps, not scatter
     const VEIN_CHANCE = 0.30;    // ~30 % of clusters are a single-tier vein zone
     const VEIN_MUL = 10;
     for (let py = 1; py < N; py += PIVOT) {
