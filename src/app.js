@@ -1387,7 +1387,6 @@ class MapScene extends Phaser.Scene {
     const FARM_GRASS  = new Set([0, 4]);                      // grass + farmland (chickens)
     const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
     const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
-    const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
     const PARKLAND       = new Set([1, 6]);                   // park + forest
     const splitPlace = (kind, n, primary, fallback, salt, primaryShare = 0.8) => {
       const primN = Math.round(n * primaryShare);
@@ -1409,14 +1408,11 @@ class MapScene extends Phaser.Scene {
     splitPlace('cat', catN, RESIDENTIAL, GLOBAL_NAT, 'cat');
     const dogN = 6 + Math.floor(rng() * 8);
     splitPlace('dog', dogN, RESIDENTIAL, GLOBAL_NAT, 'dog');
-    // Wilderness fauna:
-    //   rabbit    → grass / forest / park (skittish, wide)
+    // Wilderness fauna (rabbits live underground now — see spawnCaveCreatures):
     //   deer      → forest + park (rare, weapon-gated)
     //   crow      → global — smart birds; ~200/tile (heavy swarm, paired with
     //               the starter scarecrow + wide 15-cell notice radius)
     //   butterfly → park / forest (flower-rich biomes)
-    const rabbitN = 30 + Math.floor(rng() * 20);
-    for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
     const deerN = 8 + Math.floor(rng() * 6);
     for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
     const crowN = 200;
@@ -1803,6 +1799,23 @@ class MapScene extends Phaser.Scene {
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
         creatures.push({ x: wmx, y: wmy, kind, id });
+        break;
+      }
+    }
+    // Rabbits live underground now (moved off the surface): a skittish,
+    // catchable critter hopping the cave floor amid the hostile monsters.
+    // Seeded, stable ids so a caught rabbit stays caught across reloads.
+    const rabbitN = 10 + Math.floor(rng() * 8);
+    for (let i = 0; i < rabbitN; i++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
+        if (this.save.caught.includes(id)) break;   // already caught — stays gone
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
     }
@@ -4027,6 +4040,31 @@ class MapScene extends Phaser.Scene {
       '✨ You drink the Potion of Reach',
       'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
     );
+  }
+
+  // Sapphire portal: spend one gem to open a one-shot shaft straight down a
+  // level, in place. Down-only — there's no return portal; climb back up a
+  // staircase as usual. The gem is consumed only when the descent actually
+  // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  useSapphirePortal() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
+    if ((this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to open a portal — rest first.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
+    // coords onto the stair, so handing it our current position drops us down
+    // one level without moving — the cave cell under a walkable surface cell is
+    // floor, so we land on solid ground.
+    const stair = {
+      x: this.startWorldM.x + this.playerM.x,
+      y: this.startWorldM.y + this.playerM.y + this.feetOffsetM,
+    };
+    consumeSelected(this.save);
+    this.buildInventoryDOM();
+    this.changeDepth(+1, stair);
+    return true;
   }
 
   eatSelected() {
@@ -7133,7 +7171,24 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) {
       const sel = this.save.inv[this.save.selSlot];
       const it = sel && ITEM_BY_ID[sel.id];
-      nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
+      if (!it) {
+        nameLbl.textContent = '';
+      } else {
+        const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+        // Disclose any special effect on a dim second line so a non-obvious
+        // power (water crops, tame, lure, reveal chest…) is visible at a glance.
+        const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
+        nameLbl.textContent = '';
+        const nameSpan = document.createElement('div');
+        nameSpan.textContent = nameTxt;
+        nameLbl.appendChild(nameSpan);
+        if (effect) {
+          const fx = document.createElement('div');
+          fx.textContent = `✦ ${effect}`;
+          fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+          nameLbl.appendChild(fx);
+        }
+      }
     }
     this.syncEatButton();
     this.syncConsumableButton();
@@ -7186,6 +7241,7 @@ class MapScene extends Phaser.Scene {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
       reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+      sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
