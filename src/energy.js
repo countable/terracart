@@ -1,0 +1,70 @@
+// Energy core — pure energy math extracted from app.js so the cap / spend /
+// offline-rest / tired-threshold rules are testable headlessly (no scene, no DOM).
+//
+// The scene keeps thin wrappers (app.js getMaxEnergy / spendEnergy /
+// applyOfflineRest / _warnIfTiring) that own the side effects a core must not:
+// updateEnergyDOM, the 'too tired' / 'getting tired…' flashes, and the
+// energy-gain splash.
+//
+// Depends on globals from items.js: maxEnergyFromArmor, STARTING_ENERGY.
+
+(function (root) {
+  'use strict';
+
+  // Wall-time gap that fully refills energy while away (1 hour). Lived in app.js
+  // as a top-level const; only applyOfflineRest reads it, so it moves here with
+  // the formula it belongs to.
+  const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
+
+  // Always derive the cap from currently-equipped armor (rather than a stale
+  // save.maxEnergy that may pre-date the latest armor change), writing it back
+  // so the UI and writers agree. Falls back to save.maxEnergy / STARTING_ENERGY.
+  function maxEnergy(save) {
+    const fromArmor = (typeof maxEnergyFromArmor === 'function')
+      ? maxEnergyFromArmor(save.armor) : null;
+    if (fromArmor != null) { save.maxEnergy = fromArmor; return fromArmor; }
+    return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+  }
+
+  // Reach shrinks by a cell below 30% energy (coords.js reachRadiusM). Uses
+  // save.maxEnergy (the same reading the original _warnIfTiring used), not the
+  // armor-derived max.
+  function tiredThreshold(save) {
+    return 0.30 * (save.maxEnergy ?? 100);
+  }
+
+  // Did a drain from `before` to the current save.energy cross into "tired"?
+  // False while a Potion of Reach pins reach to the full view (nothing shrinks).
+  function crossedTired(save, before, now = Date.now()) {
+    if ((save.reachPotionUntil ?? 0) > now) return false;
+    const tired = tiredThreshold(save);
+    return before >= tired && (save.energy ?? 0) < tired;
+  }
+
+  // Spend `cost`. Mutates save.energy only on success. Returns:
+  //   ok    — false iff the player can't afford it (no mutation)
+  //   before— energy reading before the drain (for a tired-threshold check)
+  //   spent — energy actually deducted (0 when cost<=0)
+  function spend(save, cost) {
+    const before = save.energy ?? 0;
+    if (cost <= 0) return { ok: true, before, spent: 0 };
+    if (before < cost) return { ok: false, before, spent: 0 };
+    save.energy = Math.max(0, before - cost);
+    return { ok: true, before, spent: before - save.energy };
+  }
+
+  // Convert an offline/background gap (ms) into restored energy. Mutates
+  // save.energy, returns the amount gained (0 if none) so the wrapper can decide
+  // whether to redraw / splash.
+  function applyOfflineRest(save, gapMs) {
+    if (!(gapMs > 0)) return 0;
+    const maxE = maxEnergy(save);
+    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
+    if (restored <= 0) return 0;
+    const before = save.energy ?? 0;
+    save.energy = Math.min(maxE, before + restored);
+    return save.energy - before;
+  }
+
+  root.Energy = { OFFLINE_FULL_REST_MS, maxEnergy, tiredThreshold, crossedTired, spend, applyOfflineRest };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

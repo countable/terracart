@@ -56,10 +56,9 @@ const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
-// Used everywhere the crow pest logic scans `save.planted` so the rule lives
-// in one place.
-const CROW_IGNORED_CROPS = new Set(['potato']);
-function crowEatsCrop(p) { return !CROW_IGNORED_CROPS.has(p.crop); }
+// The rule (and its crop set) now lives in crops.js; this stays as a free-
+// function alias because the crow pest logic calls it bare in several spots.
+function crowEatsCrop(p) { return Crops.crowEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -199,10 +198,9 @@ const HOME_FULL_REST_S = 90;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
-// Time-since-tab-close that grants the FULL energy bar back. Closing the tab
-// or backgrounding the app for an hour returns at 100% energy; shorter rests
-// are pro-rated linearly.
-const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
+// Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
+// linearly) now lives with the offline-rest formula in energy.js as
+// Energy.OFFLINE_FULL_REST_MS.
 
 
 // === Crop-affinity plaque (per-crop wooden sign baked once) ===
@@ -2307,18 +2305,7 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + render.js
-    const now = Date.now();
-    let mutated = false;
-    for (const p of this.save.planted || []) {
-      if (!p.watered_t) continue;
-      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) continue;
-      if (now - p.watered_t < STAGE_HOLD_MS) continue;
-      p.stage = (p.stage ?? 0) + 1;
-      p.watered_t = 0;
-      mutated = true;
-    }
-    if (mutated) persistSave(this.save);
+    if (Crops.advanceGrowth(this.save)) persistSave(this.save);
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
@@ -3652,10 +3639,7 @@ class MapScene extends Phaser.Scene {
   // a stale save.maxEnergy that may pre-date the latest armor change). All
   // energy reads/writes funnel through this so the UI and the writer agree.
   getMaxEnergy() {
-    const fromArmor = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(this.save.armor) : null;
-    if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
-    return this.save.maxEnergy ?? STARTING_ENERGY;
+    return Energy.maxEnergy(this.save);
   }
 
   // Equip a bought/forged relic or armor piece into its slot. Armor also
@@ -3678,13 +3662,7 @@ class MapScene extends Phaser.Scene {
   // restore it. Called from create() and the visibilitychange handler so the
   // same formula serves both "tab was closed" and "tab was backgrounded".
   applyOfflineRest(gapMs) {
-    if (!(gapMs > 0)) return;
-    const maxE = this.getMaxEnergy();
-    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
-    if (restored <= 0) return;
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.min(maxE, before + restored);
-    const gained = this.save.energy - before;
+    const gained = Energy.applyOfflineRest(this.save, gapMs);
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
     if (gained > 0) this._splashEnergyGain(gained);
   }
@@ -3705,13 +3683,12 @@ class MapScene extends Phaser.Scene {
   // Callers (interact.js handlers) refuse the action when this returns false.
   spendEnergy(cost, sx, sy) {
     if (cost <= 0) return true;
-    if ((this.save.energy ?? 0) < cost) {
+    const r = Energy.spend(this.save, cost);
+    if (!r.ok) {
       if (sx != null && sy != null) this.flash('too tired', sx, sy);
       return false;
     }
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(0, before - cost);
-    this._warnIfTiring(before, sx, sy);
+    this._warnIfTiring(r.before, sx, sy);
     this.updateEnergyDOM();
     return true;
   }
@@ -3722,11 +3699,9 @@ class MapScene extends Phaser.Scene {
   // `before` is the energy reading just before the drain; sx/sy are optional
   // and default to the view centre.
   _warnIfTiring(before, sx, sy) {
-    // A Potion of Reach pins reach to the full view regardless of energy, so
-    // crossing the threshold doesn't actually shrink anything — stay quiet.
-    if ((this.save.reachPotionUntil ?? 0) > Date.now()) return;
-    const TIRED = 0.30 * (this.save.maxEnergy ?? 100);
-    if (before >= TIRED && (this.save.energy ?? 0) < TIRED) {
+    // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
+    // wrapper only fires the flash (defaulting to the view centre).
+    if (Energy.crossedTired(this.save, before)) {
       this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
                                     sy != null ? sy : this.viewCenterY);
     }
@@ -3891,17 +3866,7 @@ class MapScene extends Phaser.Scene {
   waterCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const r2 = radius * radius;
-    let n = 0;
-    for (const p of (this.save.planted || [])) {
-      const dx = p.x - pWX, dy = p.y - pWY;
-      if (dx * dx + dy * dy > r2) continue;
-      if ((p.stage ?? 0) >= (typeof MAX_GROWTH_STAGE !== 'undefined' ? MAX_GROWTH_STAGE : 4)) continue;
-      if (p.watered_t) continue;
-      p.watered_t = Date.now();
-      n++;
-    }
-    return n;
+    return Crops.waterWithin(this.save, pWX, pWY, radius);
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
@@ -7028,57 +6993,21 @@ class MapScene extends Phaser.Scene {
   // Mirrors addToInv's single-stack-per-id cap so a caller can detect overflow
   // BEFORE committing — the chest open uses it to offer "leave it for later"
   // instead of silently dropping loot that won't fit.
+  // How many more of `id` would fit right now (0 = full for that item).
+  // Thin wrapper over Inventory.roomFor — the stack/cap math lives in
+  // inventory.js (headlessly tested). Used by the chest open to detect overflow
+  // BEFORE committing ("leave it for later" instead of silently dropping loot).
   invRoomFor(id) {
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    let have = 0;
-    for (const s of (this.save.inv || [])) if (s && s.id === id) have += (s.count || 0);
-    return Math.max(0, cap - have);
+    return Inventory.roomFor(this.save, id);
   }
 
-  // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE
-  // stack and that stack is capped at stackCapForBags(bags relic) — 9 with
-  // no bag, 249 at tier 7. Excess is rejected (no ground drops in this game)
-  // and the player sees a 'bag full' flash. Returns the count actually
-  // accepted so callers can adjust their narration if they care.
+  // Add up to `n` of `id` to inventory. The stack/cap/dedupe/autoselect rules
+  // live in Inventory.add (inventory.js); this wrapper owns only the scene side
+  // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
+  // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
-    const item = ITEM_BY_ID[id];
-    if (!item || n <= 0) return 0;
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    // Find the single canonical stack for this id. If duplicate stacks slipped
-    // in via a legacy save (the old addToInv path could create them), fold
-    // them into one here so the no-duplicate invariant self-heals.
-    let stack = null;
-    for (let i = this.save.inv.length - 1; i >= 0; i--) {
-      const s = this.save.inv[i];
-      if (!s || s.id !== id) continue;
-      if (!stack) { stack = s; continue; }
-      stack.count = (stack.count || 0) + (s.count || 0);
-      this.save.inv.splice(i, 1);
-    }
-    const isNewStack = !stack;
-    if (!stack) {
-      stack = { id, count: 0 };
-      this.save.inv.push(stack);
-    }
-    const room = Math.max(0, cap - (stack.count || 0));
-    const accepted = Math.min(room, n);
-    stack.count = (stack.count || 0) + accepted;
-    const rejected = n - accepted;
-    // Autoselect a freshly-obtained NEW item type so the player can immediately
-    // see / use what they just got. Only for genuine (non-silent) pickups, and
-    // only when this add created a brand-new stack — topping up an existing
-    // stack keeps the current selection so loops like harvest→replant aren't
-    // disrupted after the first of a crop. (5 = inventory page size, see
-    // buildInventoryDOM PAGE.)
-    if (isNewStack && accepted > 0 && !silent) {
-      const idx = this.save.inv.indexOf(stack);
-      if (idx >= 0) {
-        this.save.selSlot = idx;
-        this.save.invPage = Math.floor(idx / 5);
-      }
-    }
+    const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
+    if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
       persistSave(this.save);
       this.buildInventoryDOM();
@@ -7088,7 +7017,7 @@ class MapScene extends Phaser.Scene {
     // caller fires right after addToInv (back-to-back add.text in the same
     // synchronous chain exhausts Phaser's text-canvas pool under the harness).
     // Coalesced so a bulk drop fires once.
-    if (rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
+    if (r.rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
       if (!this._bagFullPending) {
         this._bagFullPending = true;
         setTimeout(() => {
@@ -7099,7 +7028,7 @@ class MapScene extends Phaser.Scene {
         }, 0);
       }
     }
-    return accepted;
+    return r.accepted;
   }
   buildInventoryDOM() {
     const PAGE = 5;
