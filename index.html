@@ -145,6 +145,14 @@
     }
     #menu .items button:hover { background: #fff2; }
     #menu .items button.danger { color: #ff8a7a; }
+    /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
+       The active slot is marked with a leading ✓ and highlighted. */
+    #menu .save-row { display: flex; align-items: stretch; gap: 2px; }
+    #menu .save-row .save-pick { flex: 1; min-width: 0; }
+    #menu .save-row .save-pick.active { color: #a7ffb0; font-weight: 700; }
+    #menu .save-row .save-del {
+      flex: 0 0 auto; color: #ff8a7a; padding: 6px 8px;
+    }
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
        DeviceOrientationEvent.requestPermission() AND start GPS. */
@@ -219,11 +227,16 @@
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
+      <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
+        <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
+        <button id="new-save">+ New game</button>
+      </div>
       <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
         <!-- buttons injected from window.TELEPORT_PRESETS -->
       </div>
-      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset save</button>
+      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
   <div id="hud"></div>
@@ -369,13 +382,27 @@
     // 10× walk speed. Replaces the purple ghost pad while on. The button
     // label tracks state both before the scene loads (read save directly)
     // and after each click (scene returns the new value).
+    // Resolve the ACTIVE saved game's raw data straight from localStorage.
+    // This runs at parse time, before save.js loads, so it can't use the save.js
+    // helpers — it reads the slot registry inline, falling back to the legacy
+    // single-save key for brand-new or pre-multislot players.
+    function readActiveSaveRaw() {
+      try {
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        let key = 'terracart.save.v4';
+        if (reg && Array.isArray(reg.slots) && reg.slots.length) {
+          const slot = reg.slots.find(s => s.id === reg.active) || reg.slots[0];
+          if (slot && slot.key) key = slot.key;
+        }
+        return JSON.parse(localStorage.getItem(key) || 'null');
+      } catch { return null; }
+    }
     const debugBtn = document.getElementById('debug-controls');
     function setDebugBtnLabel(on) {
       debugBtn.textContent = 'Debug controls: ' + (on ? 'on' : 'off');
     }
     try {
-      const raw = localStorage.getItem('terracart.save.v4');
-      const s = raw ? JSON.parse(raw) : null;
+      const s = readActiveSaveRaw();
       setDebugBtnLabel(!!(s && s.debugControls));
     } catch { /* leave default 'off' */ }
     debugBtn.addEventListener('click', (e) => {
@@ -443,6 +470,71 @@
       document.addEventListener('DOMContentLoaded', buildTeleportMenu);
     } else {
       buildTeleportMenu();
+    }
+
+    // ── Saved games ─────────────────────────────────────────────────
+    // One row per save slot (from the save.js registry): a name button that
+    // switches to (loads) that game, plus a ✕ to delete it. A "+ New game"
+    // button creates a fresh slot. Switching / creating just repoints the
+    // active-slot pointer and reloads — the scene + all in-memory caches
+    // re-init from the chosen slot on the next load. Built (and rebuilt) from
+    // listSaves(); save.js has loaded by DOMContentLoaded.
+    function buildSavesMenu() {
+      const listEl = document.getElementById('saves-list');
+      if (!listEl || typeof listSaves !== 'function') return;  // save.js not ready → skip
+      listEl.innerHTML = '';
+      const saves = listSaves();
+      for (const s of saves) {
+        const row = document.createElement('div');
+        row.className = 'save-row';
+        const pick = document.createElement('button');
+        pick.className = 'save-pick' + (s.active ? ' active' : '');
+        pick.textContent = (s.active ? '✓ ' : '') + s.name;
+        pick.title = s.name;
+        pick.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (s.active) { const m = document.getElementById('menu'); if (m) m.open = false; return; }
+          // Persist any pending writes to the OUTGOING slot before we switch.
+          if (typeof flushSave === 'function') flushSave();
+          if (typeof switchSave === 'function') switchSave(s.id);
+          location.reload();
+        });
+        row.appendChild(pick);
+        // Don't offer to delete the only remaining game — there's always one.
+        if (saves.length > 1) {
+          const del = document.createElement('button');
+          del.className = 'save-del';
+          del.textContent = '✕';
+          del.title = 'Delete ' + s.name;
+          del.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!confirm('Delete saved game "' + s.name + '"? This cannot be undone.')) return;
+            const wasActive = s.active;
+            if (typeof deleteSave === 'function') deleteSave(s.id);
+            if (wasActive) location.reload();   // active slot changed → reboot scene
+            else buildSavesMenu();              // just refresh the list
+          });
+          row.appendChild(del);
+        }
+        listEl.appendChild(row);
+      }
+      const newBtn = document.getElementById('new-save');
+      if (newBtn && !newBtn._wired) {
+        newBtn._wired = true;
+        newBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const name = prompt('Name your new game:', 'Game ' + (listSaves().length + 1));
+          if (name === null) return;   // cancelled
+          if (typeof flushSave === 'function') flushSave();
+          if (typeof createSave === 'function') createSave(name);
+          location.reload();
+        });
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', buildSavesMenu);
+    } else {
+      buildSavesMenu();
     }
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
@@ -518,36 +610,36 @@
       render();
       overlay.style.display = 'flex';
     }
-    // Full nuke: save data + service worker + every offline cache. We do
-    // the SW / caches sweep too so a stale app shell can't survive a reset
-    // — the player (and devs chasing weird behaviour) gets a truly clean
-    // load. Errors are swallowed individually so a missing SW or caches
+    // Reset THIS game: wipe only the active save slot's progress, plus every
+    // cache of map tiles and global runtime state, so the current game reboots
+    // truly fresh. Other saved games are left untouched. The app shell / service
+    // worker are deliberately NOT nuked here (this is a game reset, not an app
+    // reinstall). Errors are swallowed individually so a missing caches / IDB
     // API never blocks the reload.
     document.getElementById('reset-save').addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Wipe ALL saved progress AND offline cache (forces a fresh app download)?')) return;
-      // 0) Kill the save pipeline first. Without this, the scene's update
-      //    loop (or the pagehide handler triggered by location.reload below)
-      //    flushes the in-memory _pendingSave back to localStorage AFTER
-      //    we wipe it — silently restoring the old save on next load.
-      if (typeof disableSave === 'function') disableSave();
-      // 1) Save data — every terracart.* key (current + any older versions).
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('terracart.')) localStorage.removeItem(k);
-      }
-      // 2) Service worker — unregister so the next load fetches a fresh sw.js.
-      try {
-        const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
-        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
-      } catch {}
-      // 3) Caches API — drop every cache bucket (app shell + MVT tiles).
+      if (!confirm('Reset THIS saved game and clear cached map tiles? Your other saved games are kept.')) return;
+      // 0) Wipe the active slot + kill the save pipeline. Without disabling
+      //    writes, the scene's update loop (or the pagehide handler triggered by
+      //    location.reload below) flushes the in-memory _pendingSave back to
+      //    localStorage AFTER we wipe it — silently restoring the old save.
+      if (typeof resetCurrentSave === 'function') resetCurrentSave();
+      else if (typeof disableSave === 'function') disableSave();
+      // 1) Global runtime state: replay the intro on the fresh game.
+      try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      // 2) Map-tile caches. Two layers persist tiles across loads:
+      //    a) Cache API tile bucket(s) populated by the service worker, and
+      //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
+      //    In-memory worldgen caches reset on reload, so the load below is clean.
       try {
         if (window.caches) {
           const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+          await Promise.all(keys
+            .filter(k => /tile/i.test(k))
+            .map(k => caches.delete(k).catch(() => {})));
         }
       } catch {}
+      try { indexedDB.deleteDatabase('mapgame-tiles'); } catch {}
       location.reload();
     });
 
@@ -590,7 +682,7 @@
   <script src="src/coords.js?v=116"></script>
   <script src="src/worldgen.js?v=173"></script>
   <script src="src/textures.js?v=141"></script>
-  <script src="src/save.js?v=113"></script>
+  <script src="src/save.js?v=114"></script>
   <script src="src/items.js?v=178"></script>
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=23"></script>
