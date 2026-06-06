@@ -48,6 +48,25 @@ function releasedId(kind, extra) {
   return `released_${kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}${tail}`;
 }
 
+// Befriend a wild creature IN PLACE: consume the treat, mark the wild one caught
+// so it stops respawning, then re-add it as a tame 'released_' pet at the same
+// spot (so the bond survives reloads / tile re-rasterise) and convert the
+// in-world object's id to the tame id. Shared by the mango (universal) and
+// favourite-food taming paths — they differ only in the flash icon/scale.
+function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
+  consumeSelected(save);
+  scene.buildInventoryDOM();
+  if (!save.caught.includes(target.id)) save.caught.push(target.id);
+  const tx = Math.floor(target.x / scene.tileEdgeM);
+  const ty = Math.floor(target.y / scene.tileEdgeM);
+  const tameId = releasedId(target.kind);
+  save.released = save.released || [];
+  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny });
+  target.id = tameId;   // convert the in-world creature in place → now tame
+  scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
+  persistSave(save);
+}
+
 // True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is 0.1 for
 // an exact snapped-center match, or cellHalfM to accept anything overlapping.
 const inPlantedCell = (p, cwmx, cwmy, eps) =>
@@ -421,19 +440,8 @@ const TAP_HANDLERS = [
     const _mangoSel = getSelectedSlot(save);
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
     if (!_isReleased && !isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
-      const doMangoTame = () => {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
-        if (!save.caught.includes(target.id)) save.caught.push(target.id);
-        const tx2 = Math.floor(target.x / scene.tileEdgeM);
-        const ty2 = Math.floor(target.y / scene.tileEdgeM);
-        const tameId = releasedId(target.kind);
-        save.released = save.released || [];
-        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx: tx2, ty: ty2, shiny: !!target.shiny });
-        target.id = tameId;   // convert the in-world creature in place → now tame
-        scene.flashLoot(`🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1.2, 'mango');
-        persistSave(save);
-      };
+      const doMangoTame = () => tameInPlace(scene, save, target,
+        `🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
       return true;
     }
@@ -517,12 +525,6 @@ const TAP_HANDLERS = [
     // place); an empty hand starts the CATCH work queue. Slimes/crows/deer were
     // defeated above and never reach here.
     const sel = getSelectedSlot(save);
-    // ANIMAL_FOOD is keyed by creature kind. The catalog now stores either a
-    // single string ('rainberry') or an array of accepted ids (e.g. cats take
-    // milk OR any fish). Normalise to a Set so the membership check below
-    // doesn't need to branch on type.
-    const wantRaw = (typeof ANIMAL_FOOD !== 'undefined') ? ANIMAL_FOOD[target.kind] : null;
-    const wantPrimary = wantRaw ? (Array.isArray(wantRaw) ? wantRaw[0] : wantRaw) : null;
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
     // "Plant produce" = anything tagged kind:'produce' that came from a plant
@@ -597,22 +599,8 @@ const TAP_HANDLERS = [
       && animalLikesFood(target.kind, sel.id);
     if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
       const favId = sel.id;
-      const doTame = () => {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
-        // Stop the wild one respawning, then re-add it as a tame pet at the same
-        // spot so the bond persists across reloads (mirrors the release handler).
-        const oldId = target.id;
-        if (!save.caught.includes(oldId)) save.caught.push(oldId);
-        const tx = Math.floor(target.x / scene.tileEdgeM);
-        const ty = Math.floor(target.y / scene.tileEdgeM);
-        const tameId = releasedId(target.kind);
-        save.released = save.released || [];
-        save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny });
-        target.id = tameId;   // convert the in-world object in place → now tame
-        scene.flashLoot(`🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, '#a7ffb0', 1, target.kind);
-        persistSave(save);
-      };
+      const doTame = () => tameInPlace(scene, save, target,
+        `🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, target.kind, 1);
       confirmFeed(scene, favId, target.kind, doTame);
       return true;
     }

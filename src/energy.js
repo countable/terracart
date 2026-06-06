@@ -26,9 +26,10 @@
     return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
   }
 
-  // Reach shrinks by a cell below 30% energy (coords.js reachRadiusM). Reads
-  // save.maxEnergy; callers that need the live cap should refresh it via
-  // maxEnergy(save) first (crossedTired does).
+  // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
+  // running down toward 0 energy (where you can't reach at all) isn't a silent
+  // surprise. Reads save.maxEnergy; callers that need the live cap should
+  // refresh it via maxEnergy(save) first (crossedTired does).
   function tiredThreshold(save) {
     return 0.30 * (save.maxEnergy ?? 100);
   }

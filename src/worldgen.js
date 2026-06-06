@@ -11,13 +11,10 @@
 
   // Spatial-hash multipliers. The (HASH_MUL_X, HASH_MUL_Y) pair is the classic
   // 2D integer hash used to derive stable per-coordinate seeds (poly keys, tile
-  // rng, addresses, satextract tree seeds). (BURST_MUL_X, BURST_MUL_Y) is a
-  // second independent pair used for the garden flower-burst seed. Renamed from
-  // bare literals — values are byte-identical to the originals.
+  // rng, addresses, satextract tree seeds). Renamed from bare literals — values
+  // are byte-identical to the originals.
   const HASH_MUL_X = 73856093;
   const HASH_MUL_Y = 19349663;
-  const BURST_MUL_X = 374761393;
-  const BURST_MUL_Y = 668265263;
 
   // Terrain class enum (uint8). 0 = unknown/grass default.
   const T = {

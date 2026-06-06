@@ -576,10 +576,10 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // cellInReach handles all reach tiers via coords.js reachRadiusM: 0 energy =
-  // no reach, <30% energy drops one whole cell (floored at 1), and the base
-  // radius is 2 cells growing to 5 via shrine upgrades. isReach delegates
-  // entirely so the visual outline and tap-accept are always byte-identical.
+  // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
+  // otherwise the radius is 2.5 cells growing to 5.5 via shrine upgrades (no
+  // depth or low-energy shrink). isReach delegates entirely so the visual
+  // outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
@@ -603,8 +603,9 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   // Low energy tints the lit range pink — the Inner Light guttering as the
-  // player tires. The radius has already shrunk a cell (coords.js reachRadiusM);
-  // this pink wash over the still-reachable cells is the visual cue for WHY.
+  // player tires. Reach no longer shrinks (coords.js reachRadiusM), but this
+  // pink wash is the cue that you're running low and should rest before energy
+  // hits 0 (where you can't reach at all).
   // Skipped while a Potion of Reach pins the whole view lit (energy ignored).
   const energy = scene.save?.energy ?? 0;
   const maxEnergy = scene.save?.maxEnergy ?? 100;
