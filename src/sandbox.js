@@ -112,7 +112,7 @@
       s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('peach', 6, 0);
       s.fruitTree('apple', 0, 3);   s.fruitTree('peach', 6, 3);
       s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('peach', 6, 6);
-      s.chest('park', 'Sandbox Orchard', 3, 3);   // square3 pad
+      s.chest('park', 'Sandbox Orchard', 3, 3);   // round pad
     },
   };
 
@@ -213,7 +213,7 @@
     populate(s) {
       s.creature('chicken', 0, 0, 1); s.creature('chicken', 9, 0, 2);
       s.creature('cow', 0, 7, 1);     s.creature('cow', 9, 7, 2);
-      s.chest('farm', 'Sandbox Farm', 5, 4);   // square3 pad, +1 bonus yield
+      s.chest('farm', 'Sandbox Farm', 5, 4);   // round pad, +1 bonus yield
     },
   };
 
@@ -252,7 +252,7 @@
   };
 
   // ── CIVIC BLOCK — SCHOOL, COMMERCIAL, INDUSTRIAL terrains, each with a chest
-  //    whose pad shape differs (school→triangle, shop→line3h, hospital→cross),
+  //    (school / shop / hospital — all now share the one rounded pad),
   //    linked by a named PATH (covers terrain 8 + the path-stone claim loop).
   //    Industrial mineral rocks for good measure.
   const CIVIC = {
@@ -264,9 +264,9 @@
       for (let dx = 0; dx < 12; dx++) { p.cell(dx, 5, T.PATH); p.pathName(dx, 5, 'Garden Path'); }
     },
     populate(s) {
-      s.chest('school', 'Sandbox School', 1, 1);       // triangle pad
-      s.chest('shop', 'Sandbox Commerce', 6, 1);       // line3h pad
-      s.chest('hospital', 'Sandbox Hospital', 10, 1);  // cross pad
+      s.chest('school', 'Sandbox School', 1, 1);       // round pad
+      s.chest('shop', 'Sandbox Commerce', 6, 1);       // round pad
+      s.chest('hospital', 'Sandbox Hospital', 10, 1);  // round pad
       s.mineralRock(2, 10, 6); s.mineralRock(3, 11, 7);
     },
   };
@@ -287,8 +287,8 @@
     },
   };
 
-  // ── RECREATION — PARK + PLAYGROUND + PITCH. Park chest (square3), playground
-  //    chest (line3v), pitch chest (square2). Shrubs, longgrass, a cat & dog,
+  // ── RECREATION — PARK + PLAYGROUND + PITCH. Park / playground / pitch chests
+  //    all share the one rounded pad. Shrubs, longgrass, a cat & dog,
   //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
   const RECREATION = {
     name: 'RECREATION', label: 'PARK · PLAYGROUND · PITCH', w: 15, h: 8, fill: T.PARK,
