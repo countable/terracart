@@ -194,6 +194,191 @@ const INTERACTABLES = {
       return true;
     },
   },
+
+  // ---- Ground stack: a loose pile of items, tap to pick up -----------------
+  // Already-picked stacks are filtered at render time, but the tap loop walks
+  // all objects regardless of save state, so guard again (returns 'skip' so the
+  // tap falls through to the next object in case a tap races a re-render).
+  groundstack: {
+    custom: (ctx, o) => {
+      const { scene, save } = ctx;
+      if (save.picked && save.picked.includes(o.id)) return 'skip';
+      save.picked = [...(save.picked || []), o.id];
+      const qty = Math.max(1, o.qty || 1);
+      scene.addToInv(o.itemId, qty);
+      ctx.dirty = true;
+      const item = ITEM_BY_ID[o.itemId];
+      scene.flashLoot(`+${qty} ${item?.name || o.itemId}`, undefined, 1, o.itemId);
+      return true;
+    },
+  },
+
+  // ---- Chest: the full open-and-loot ceremony ------------------------------
+  // Handles coin-burst POIs (ATM / bicycle parking), left-for-later held loot,
+  // fixed starter payloads, produce-stand items, and the rarity-rolled item /
+  // relic / armor / gold results, with a bag-full TAKE/LEAVE modal.
+  chest: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      // Coin-burst POIs (ATM + bicycle parking) hijack the chest tap before the
+      // standard open-and-loot path. They never go into save.opened — they're
+      // gated by save.coinBurstClaimed[id+YYYYMMDD] so they refresh daily, and
+      // produce world-scattered coin pickups instead of inventory loot.
+      if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') {
+        if (typeof scene._coinBurstInteract === 'function') {
+          scene._coinBurstInteract(sx, sy, o);
+          return true;
+        }
+        // Fall through to default chest behaviour if the method isn't wired
+        // (defensive — keeps these POIs usable if app.js is out of sync).
+      }
+      if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      // A chest previously left-for-later has its exact loot saved in chestHold;
+      // reopening replays that same roll. Fresh opens go through pickReward
+      // which handles items AND relics (biome-specific weights).
+      const held = save.chestHold && save.chestHold[o.id];
+      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+      const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+      // Produce/food stands sell ONE item themed off the POI name (loot.js). It
+      // overrides the random rarity roll so the stall always hands over a small
+      // stack of exactly what its awning advertises.
+      const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
+      const result = held
+        ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
+        // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9 potato
+        // seeds) so the first restoration loop is deterministic — skip the
+        // rarity picker and synthesize the same item shape it returns, then fall
+        // through to the normal item/modal path below.
+        : (o.fixedLoot
+            ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
+            : (stand
+                ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
+                : ((typeof pickReward === 'function')
+                    ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                    : null)));
+      if (!result) {
+        addMoney(save, 1);
+        save.opened.push(o.id);
+        ctx.dirty = true;
+        scene.flash('Chest had nothing useful.', sx, sy);
+        return true;
+      }
+      if (result.consolation > 0) addMoney(save, result.consolation);
+      if (result.kind === 'relic' || result.kind === 'armor') {
+        // A chest gear roll can yield a relic OR armor (armor is just another
+        // gear slot). equipGearReward handles both — armor also bumps max/cur
+        // energy by the delta.
+        equipGearReward(result, save, scene);
+        save.opened.push(o.id);
+        ctx.dirty = true;
+        const name = (typeof gearName === 'function')
+          ? gearName(result.kind, result.slot, result.tier)
+          : `${result.slot} T${result.tier}`;
+        const iconHTML = scene.gearIconHTML
+          ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
+        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: '#ffe066' });
+        return true;
+      }
+      if (result.kind === 'gold') {
+        // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
+        save.opened.push(o.id);
+        ctx.dirty = true;
+        addMoney(save, result.amount || 0);
+        const gearKind = result.gearKind || 'relic';
+        const name = (typeof gearName === 'function')
+          ? gearName(gearKind, result.slot, result.tier)
+          : `${result.slot} T${result.tier}`;
+        const iconHTML = scene.gearIconHTML
+          ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
+        scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa' });
+        return true;
+      }
+      // kind === 'item'
+      const lootId  = result.id;
+      const lootQty = result.qty;
+      const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
+      const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : '#ffe066';
+      // Chest loot gets the full ceremony modal — quick-feedback flashLoot is
+      // reserved for X-marks / harvest / mining (cheap repeating rewards).
+      const iconHTML = scene.iconSpanHTML ? scene.iconSpanHTML(lootId, 64) : '';
+      const qtyLabel = lootQty > 1 ? `× ${lootQty}` : null;
+      // If the loot won't fully fit, don't silently drop the overflow — let the
+      // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
+      // (chest kept, its exact contents remembered in save.chestHold). Modal
+      // buttons fire after this handler returns, so they persist themselves.
+      const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
+      if (lootQty > room) {
+        scene.showChestRewardModal({
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
+          sub: room > 0
+            ? `Bag full — room for only ${room} of ${lootQty}.`
+            : 'Your bag is full.',
+          actions: [
+            { label: 'Leave for later', primary: true, onClick: () => {
+              save.chestHold = save.chestHold || {};
+              save.chestHold[o.id] = { id: lootId, n: lootQty };
+              persistSave(save);
+              scene.flash?.('Left it in the chest.', sx, sy);
+            } },
+            { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
+              if (room > 0) scene.addToInv(lootId, lootQty);
+              save.opened.push(o.id);
+              if (save.chestHold) delete save.chestHold[o.id];
+              persistSave(save);
+            } },
+          ],
+        });
+        return true;
+      }
+      // Fits fully — take it and empty the chest.
+      scene.addToInv(lootId, lootQty);
+      save.opened.push(o.id);
+      if (save.chestHold) delete save.chestHold[o.id];
+      ctx.dirty = true;
+      scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
+      return true;
+    },
+  },
+
+  // ---- Well / fountain: refills the watering can ---------------------------
+  // OSM amenity=fountain — a water source on dry land. Tops the can to full,
+  // exactly like tapping a WATER tile via the 'can-refill' handler.
+  well: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if (!save.relics?.can) {
+        scene.flash('Cool, clear water. (need a watering can)', sx, sy);
+        return true;
+      }
+      save.canCharges = 50;
+      ctx.dirty = true;
+      scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
+      return true;
+    },
+  },
+
+  // ---- Buildings + shrine: open their UIs ----------------------------------
+  // House / tower (castle turret) route to the shop; the shrine opens the
+  // level-up + transform UI. Tall sprites — their wider reach is handled by the
+  // tap loop before dispatch.
+  house: {
+    custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
+  },
+  tower: {
+    custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
+  },
+  shrine: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if (typeof scene.shrineInteract === 'function') {
+        scene.shrineInteract(sx, sy, o);
+      } else {
+        const lvl = save.shrineLevel || 1;
+        scene.flash(`shrine L${lvl}`, sx, sy);
+      }
+      return true;
+    },
+  },
 };
 
 // Generic driver for a registered interactable. Returns:
