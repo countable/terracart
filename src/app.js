@@ -1276,6 +1276,36 @@ class MapScene extends Phaser.Scene {
   dumpTileDebug() {
     try {
       const Z = WorldGen.Z;
+      // Optional name search: scan EVERY loaded tile for features whose name
+      // contains a substring (case-insensitive) and report the exact layer +
+      // class/subclass each came in as. This is how we locate a specific
+      // real-world place (e.g. a rec centre) and see how the vector data tags
+      // it — even when it sits in a neighbouring tile or under a class we'd
+      // never guess. Blank input falls through to the current-tile dump.
+      let filter = null;
+      try { filter = window.prompt('Find feature by name (blank = dump current tile):', ''); } catch (_) {}
+      if (filter && filter.trim()) {
+        const q = filter.trim().toLowerCase();
+        const hits = [];
+        const cache = WorldGen.tileCache;
+        if (cache) for (const [k, entry] of cache) {
+          for (const l of (entry.layers || [])) for (const f of (l.features || [])) {
+            const nm = f.tags && f.tags.name;
+            if (nm && nm.toLowerCase().includes(q)) {
+              hits.push(`${k} [${l.name}] t${f.type} class=${f.tags.class || '-'} sub=${f.tags.subclass || '-'}: ${nm}`);
+            }
+          }
+          for (const o of (entry.objects || [])) {
+            if (o.kind === 'chest' && o.name && o.name.toLowerCase().includes(q)) {
+              hits.push(`${k} CHEST poiClass=${o.poiClass}: ${o.name}`);
+            }
+          }
+        }
+        const text = hits.length ? hits.join('\n') : `no loaded feature name contains "${q}"\n(walk the area first so its tiles load)`;
+        try { console.log('[tiledebug search]\n' + text); } catch (_) {}
+        if (window.showError) window.showError(`SEARCH "${q}" (${hits.length} hit${hits.length === 1 ? '' : 's'})`, text);
+        return;
+      }
       const { tx, ty, cx, cy } = this.playerToWorldCell();
       const key = `${Z}/${tx}/${ty}`;
       const entry = WorldGen.tileCache && WorldGen.tileCache.get(key);
@@ -1320,14 +1350,21 @@ class MapScene extends Phaser.Scene {
         }
         out.push(`[${l.name}] ` + [...classes.entries()].map(([c, n]) => `${c}:${n}`).join(' '));
       }
-      // Every NAMED feature — this is where "SASCU Recreation Centre" will show,
-      // along with the layer + class it came in as.
+      // Every NAMED feature, minus street names + bus stops (pure noise) — this
+      // is where a rec centre / civic building shows, with the layer + class it
+      // came in as. No cap, so nothing hides past a truncation.
       const named = [];
-      for (const l of layers) for (const f of (l.features || [])) {
-        const nm = f.tags && f.tags.name;
-        if (nm) named.push(`${l.name}/${(f.tags.class || f.tags.subclass || '?')}: ${nm}`);
+      for (const l of layers) {
+        if (l.name === 'transportation_name') continue;   // street names — noise
+        for (const f of (l.features || [])) {
+          const nm = f.tags && f.tags.name;
+          if (!nm) continue;
+          const cls = f.tags.class || f.tags.subclass || '?';
+          if (cls === 'bus') continue;                    // dozens of bus stops — noise
+          named.push(`${l.name}/${cls}: ${nm}`);
+        }
       }
-      if (named.length) out.push(`named (${named.length}):\n` + named.slice(0, 60).join('\n'));
+      if (named.length) out.push(`named (${named.length}, excl. streets/bus):\n` + named.join('\n'));
       const chests = (entry.objects || []).filter(o => o.kind === 'chest');
       if (chests.length) {
         out.push('chests: ' + chests.map(c => `${c.poiClass}${c.name ? ('=' + c.name) : ''}`).slice(0, 40).join(' | '));
