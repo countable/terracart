@@ -4720,86 +4720,26 @@ class MapScene extends Phaser.Scene {
   // ─── Hour-bucket helpers ────────────────────────────────────────
   // Per-shop sub-hour offset so two shops don't rotate at the same wall-clock
   // minute. Cached on the scene because every tap consults it.
+  // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
+  // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
+  // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
   _shopBucketOffset(houseId) {
-    // FNV-1a 32-bit on the id string, modulo 1h. Fast and uniform.
-    let h = 2166136261 >>> 0;
-    const s = String(houseId);
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) % (60 * 60 * 1000);
+    return ShopsMath.bucketOffset(houseId);
   }
   _shopBucket(houseId, now = Date.now()) {
-    return Math.floor((now + this._shopBucketOffset(houseId)) / (60 * 60 * 1000));
+    return ShopsMath.bucket(houseId, now);
   }
-  // Per-house deal-rate ladder. Mirrors the cap math used inside
-  // shopInteract — extracted so the renderer's ready/timer indicator and the
-  // tap handler can both pull it from one place without divergence.
-  //   castle / tower     → Infinity (relics only — never busy)
-  //   starter blacksmith → Infinity (first tools shouldn't gate on an hour)
-  //   fort (tier 11)     → 5 deals / hour
-  //   small house        → 1 deal  / hour
   shopDealCap(house) {
-    if (!house) return Infinity;
-    if (house.kind === 'tower' || house.tier === 12) return Infinity;
-    if (this.isStarterBlacksmith(house)) return Infinity;
-    if (house.tier === 11) return 5;
-    return 1;
+    return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
   }
-  // Snapshot a house's readiness. `ready` is true if a new deal would be
-  // accepted right now; `waitMin` is how many wall-clock minutes until the
-  // next bucket if not. Returns `{ dealCap, ready, waitMin }`.
   shopReadiness(house) {
-    const dealCap = this.shopDealCap(house);
-    if (dealCap === Infinity || !house || !house.id) {
-      return { dealCap, ready: true, waitMin: 0 };
-    }
-    const cur = this.shopBucketState(house);
-    if (cur.deals < dealCap) return { dealCap, ready: true, waitMin: 0 };
-    const now = Date.now();
-    const offset = this._shopBucketOffset(house.id);
-    const nextBucketStart = (cur.bucket + 1) * 60 * 60 * 1000 - offset;
-    const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
-    return { dealCap, ready: false, waitMin };
+    return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
   }
-  // Returns the live { bucket, deals, rerolls } record for a house, creating
-  // it and GC-ing any stale-bucket predecessor on the way. Self-cleaning, so
-  // we never need a separate sweep.
   shopBucketState(house) {
-    this.save.shopState = this.save.shopState || {};
-    const id = house.id;
-    const bucket = this._shopBucket(id);
-    let cur = this.save.shopState[id];
-    if (cur && cur.bucket !== bucket) cur = null;
-    if (!cur) {
-      cur = { bucket, deals: 0, rerolls: 0 };
-      this.save.shopState[id] = cur;
-    }
-    return cur;
+    return ShopsMath.bucketState(this.save, house);
   }
-  // Deterministic 0..1 RNG keyed by (house.id, bucket, rerolls, lane). `lane`
-  // namespaces independent rolls within the same bucket — pass 'relic-pick',
-  // 'shop-offer-id', etc. so the price RNG can't accidentally consume the
-  // pool-pick RNG.
   shopRng(house, lane = '') {
-    const cur = this.shopBucketState(house);
-    let h = ((this._shopBucketOffset(house.id) >>> 0)
-           ^ (cur.bucket >>> 0)
-           ^ ((this.save.offerSalt || 0) >>> 0)
-           ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
-    for (let i = 0; i < lane.length; i++) {
-      h ^= lane.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    let s = h;
-    return () => {
-      s = (Math.imul(s, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return ShopsMath.rng(this.save, house, lane);
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
@@ -5926,11 +5866,9 @@ class MapScene extends Phaser.Scene {
   // path in presentTraderOffer). opts is accepted for call-site compatibility
   // (the former forceMoney flag) but no longer changes anything.
   buildShopOffer(id, baseValue, opts = {}) {
-    // The Bow relic shrinks the markup. Without one, the range stays at
-    // 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
-    const { lo, hi } = (typeof buyMarkupRange === 'function')
-      ? buyMarkupRange(this.save.relics) : { lo: 1.2, hi: 3.0 };
-    const cashCost = Math.max(1, Math.ceil(baseValue * (lo + Math.random() * (hi - lo))));
+    // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
+    // offer object's afford/consume closures stay here (they bind this.save).
+    const cashCost = ShopsMath.buyPrice(this.save, baseValue);
     return {
       kind: 'money',
       label: `$${cashCost}`,
