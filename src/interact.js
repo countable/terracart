@@ -372,19 +372,32 @@ const TAP_HANDLERS = [
     // (chicken/rabbit/butterfly) tighten up. Mirrors the render scales in
     // render.js (cow 1.5 > deer/crow 1.3 > chicken 1.2 > rabbit footprint).
     const CREATURE_TAP_R = {
-      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7, slime: 1.7,
+      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      // Underground monsters — slime-sized footprints (bat tighter).
-      cave_slime: 1.7, goblin: 1.8, goblin_archer: 1.7, bat: 1.4,
+      // Slime & the monsters that share its tall 32×32 hopping sprite get a
+      // wider disk (2.4 m) so it spans from the foot point up through the body
+      // drawn ~9-15px north (paired with the CREATURE_FLOAT_PX lift below).
+      slime: 2.4,
+      cave_slime: 2.4, goblin: 2.4, goblin_archer: 2.4, bat: 1.4,
     };
     const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
-    // Flyers/hoverers are RENDERED floated north of their ground cell (crow
-    // sy-14, butterfly sy-8 in render.js — 14px == scene.feetOffsetM). A tap on
-    // the visible bird therefore lands ~2 m north of its logical (x,y); with a
-    // 1.7 m crow disk centred on the ground point the sprite was unreachable and
-    // the tap fell through to the cell underneath. Offset the tap-test by the
-    // same float so a flyer is tested where it's drawn (north = −y).
-    const CREATURE_FLOAT_PX = { crow: 14, butterfly: 8, bat: 8 };
+    // Some creatures are RENDERED north of their logical ground cell, so a tap
+    // on the visible sprite lands above its (x,y) and — with a tap disk centred
+    // on the ground point — falls through to the cell underneath. Offset the
+    // tap-test by that float so each is tested closer to where it's DRAWN
+    // (north = −y). Values are in px (14px == scene.feetOffsetM). Two sources:
+    //   • Flyers/hoverers floated explicitly (crow sy-14, butterfly/bat sy-8).
+    //   • Slimes (and the underground monsters that reuse the slime sheet) are a
+    //     tall 32×32 sprite drawn at scale ~1.2 with setOrigin(0.5, 0.9) plus a
+    //     continuous hop (render.js): the blob sits ~9-15px above its foot cell
+    //     (worse mid-hop) even though it never "flies", so the body drew outside
+    //     its old 1.7 m (≈11px) disk and taps hit the ground. A modest 7px lift
+    //     (kept well under the radius so a tap on the FOOT point still resolves)
+    //     plus the widened CREATURE_TAP_R below covers foot AND hopping body.
+    const CREATURE_FLOAT_PX = {
+      crow: 14, butterfly: 8, bat: 8,
+      slime: 7, cave_slime: 7, goblin: 7, goblin_archer: 7,
+    };
     const creatureTapOffset = (c) => {
       const px = CREATURE_FLOAT_PX[c.kind] || 0;
       return px ? { dx: 0, dy: -(px / 14) * scene.feetOffsetM } : null;
