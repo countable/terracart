@@ -791,13 +791,14 @@
             // rock on a blocked cell, plus any residential rock not
             // adjacent to a road. Just spawn here; the filter handles
             // correctness.
-            const _pushMineralrock = (rng, jx, jy, tierW, totalW, residential) => {
+            const _pushMineralrock = (rng, jx, jy, tierW, totalW, residential, clusterId) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const { cx, cy } = snapCell(jx, jy);
               if (rng() < _CAVE_ROCK_P) {
                 const caveVariant = Math.floor(rng() * _CAVE_VARIANTS);
                 objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
                   caveVariant, _residential: residential || undefined,
+                  _clusterId: clusterId,
                   id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
                 return;
               }
@@ -854,10 +855,15 @@
                     boosted[veinTier] *= veinMul;
                     ({ tierW, totalW } = cumWeights(boosted));
                   }
+                  // Stable id for this cluster (residential only) so the cave
+                  // entrance pass can roll a per-cluster chance over its rocks.
+                  const clusterId = o.residential
+                    ? `rc_${tx}_${ty}_${Math.round(xx)}_${Math.round(yy)}`
+                    : undefined;
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
-                    _pushMineralrock(rng, jx, jy, tierW, totalW, o.residential);
+                    _pushMineralrock(rng, jx, jy, tierW, totalW, o.residential, clusterId);
                   }
                 }
               }
@@ -2233,43 +2239,88 @@
              liy: Math.floor((wy - ty * tileEdgeM) / mPerCell) };
   }
 
-  // Nearest CAVE_FLOOR cell at Chebyshev distance >= minRad from (sx,sy),
-  // searching outward. Returns its world centre, or null if the tile is solid.
-  function findFloorAway(grid, N, tx, ty, tileEdgeM, sx, sy, minRad) {
-    const { lix: slix, liy: sliy } = cellIndexOf(tx, ty, sx, sy, tileEdgeM, N);
-    for (let rad = minRad; rad < N; rad++) {
-      for (let dy = -rad; dy <= rad; dy++) {
-        for (let dx = -rad; dx <= rad; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
-          const lix = slix + dx, liy = sliy + dy;
-          if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
-          if (grid[liy * N + lix] === T.CAVE_FLOOR) {
-            return cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-          }
-        }
-      }
+  // Uniformly random CAVE_FLOOR cell on the tile, excluding `skipIdx` (so a
+  // down-stair never lands on the up-stair it descends from). Deterministic via
+  // the supplied rng. Returns its world centre, or null if there's no floor.
+  function randomFloorCell(grid, N, tx, ty, tileEdgeM, rng, skipIdx) {
+    const floors = [];
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i] === T.CAVE_FLOOR && i !== skipIdx) floors.push(i);
     }
-    return null;
+    if (!floors.length) return null;
+    const idx = floors[Math.floor(rng() * floors.length)];
+    return cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
   }
 
-  // Surface entrance: place ONE down-staircase next to a cave-rock cluster.
+  // Surface entrances: ~30 % of residential rock clusters get a down-staircase
+  // beside them (so caves are common in town), and every tile is guaranteed at
+  // least one entrance — anchored to a cave rock where one exists, otherwise on
+  // a random walkable cell.
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM) {
-    const rocks = (entry.objects || []).filter(
+    const caveRocks = (entry.objects || []).filter(
       o => o.kind === 'mineralrock' && o.caveVariant != null);
-    if (!rocks.length) return;
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
-    const rock = rocks[Math.floor(rng() * rocks.length)];
     const N = entry.cellsPerEdge, grid = entry.grid;
-    const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
-    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
-    for (const [dx, dy] of dirs) {
-      const lix = rlix + dx, liy = rliy + dy;
-      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
-      if (!isWalkable(grid[liy * N + lix])) continue;
-      const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
+    const used = new Set();
+
+    // Drop a down-staircase on the first walkable cell touching `rock`. Returns
+    // true on success; de-dupes so two clusters can't stack stairs on one cell.
+    const placeBeside = (rock) => {
+      const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+      for (const [dx, dy] of dirs) {
+        const lix = rlix + dx, liy = rliy + dy;
+        if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+        const idx = liy * N + lix;
+        if (used.has(idx) || !isWalkable(grid[idx])) continue;
+        used.add(idx);
+        const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+        entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
+          id: caveStairId('down', 0, x, y) });
+        return true;
+      }
+      return false;
+    };
+
+    // Drop a down-staircase on a random walkable cell (used when the tile has
+    // no cave rock to anchor to). Returns true on success.
+    const placeRandomWalkable = () => {
+      const cells = [];
+      for (let i = 0; i < grid.length; i++) {
+        if (!used.has(i) && isWalkable(grid[i])) cells.push(i);
+      }
+      if (!cells.length) return false;
+      const idx = cells[Math.floor(rng() * cells.length)];
+      used.add(idx);
+      const { x, y } = cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
       entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
         id: caveStairId('down', 0, x, y) });
-      return;
+      return true;
+    };
+
+    // Group cave rocks by their residential cluster id. Non-residential rocks
+    // (industrial / ROCK terrain) carry no cluster id and fall through to the
+    // per-tile guarantee below.
+    const byCluster = new Map();
+    for (const r of caveRocks) {
+      if (!r._clusterId) continue;
+      let g = byCluster.get(r._clusterId);
+      if (!g) byCluster.set(r._clusterId, g = []);
+      g.push(r);
+    }
+
+    let placed = 0;
+    for (const rocks of byCluster.values()) {
+      if (rng() < 0.30 && placeBeside(rocks[Math.floor(rng() * rocks.length)])) {
+        placed++;
+      }
+    }
+
+    // Guarantee at least one cave per tile: beside a random cave rock if the
+    // tile has any, otherwise on a random walkable cell.
+    if (placed === 0) {
+      if (caveRocks.length) placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]);
+      else placeRandomWalkable();
     }
   }
 
@@ -2289,8 +2340,16 @@
       // Way back up: stand on it the moment you descend.
       objects.push({ kind: 'staircase', dir: 'up', x: s.x, y: s.y, depth,
         id: caveStairId('up', depth, s.x, s.y) });
-      // Way deeper: a floor cell a few steps off, so up/down aren't co-located.
-      const dn = findFloorAway(grid, N, x, y, tileEdgeM, s.x, s.y, 3);
+      // Way deeper: a random floor cell anywhere on this level, so the descent
+      // shaft wanders instead of stacking straight down. Seeded off the source
+      // stair + depth so the layout is stable across reloads.
+      const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
+      const skipIdx = (ulix >= 0 && ulix < N && uliy >= 0 && uliy < N)
+        ? uliy * N + ulix : -1;
+      const dnRng = makeRng(
+        ((Math.round(s.x) * HASH_MUL_X) ^ (Math.round(s.y) * HASH_MUL_Y)
+          ^ (depth * 0x9E3779B1)) >>> 0);
+      const dn = randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx);
       if (dn) objects.push({ kind: 'staircase', dir: 'down', x: dn.x, y: dn.y, depth,
         id: caveStairId('down', depth, dn.x, dn.y) });
     }
