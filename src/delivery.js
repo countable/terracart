@@ -2,10 +2,10 @@
 // so it's testable headlessly (no scene, no DOM).
 //
 // Plain (residential) houses each ask for a 2-3 item produce "wishlist" that is
-// re-rolled once per UTC day and biased toward a tier that ramps with the
-// player's lifetime delivery count. The roll is deterministic in (house.id, day)
-// so the render-loop sign and the interact handler agree without re-rolling, and
-// it's cached on the house object per day.
+// re-rolled once per UTC day, drawn from every produce up to a tier cap that
+// rises one step every 20 lifetime deliveries. The roll is deterministic in
+// (house.id, day) so the render-loop sign and the interact handler agree
+// without re-rolling, and it's cached on the house object per day.
 //
 // Everything here is a pure function of (save, house): the house._wantedProduce
 // cache it writes is plain data, not scene state. The scene keeps thin wrappers
@@ -18,11 +18,13 @@
 (function (root) {
   'use strict';
 
-  // Wishlist tier ramps linearly from MIN (at 0 lifetime deliveries) to MAX (at
-  // CAP deliveries and beyond). Moved here from app.js — only targetTier reads them.
+  // Wishlists ask for produce up to a tier cap that climbs one step every
+  // TIER_UNLOCK_EVERY deliveries: tier 1 to start, +1 per 20 deliveries, maxing
+  // at tier 7 (~120 lifetime deliveries). Easy to remember: "every 20
+  // deliveries, houses start wanting the next tier of crop."
   const PRODUCE_TIER_MIN = 1;
   const PRODUCE_TIER_MAX = 7;
-  const DELIVERY_TIER_CAP = 100;
+  const TIER_UNLOCK_EVERY = 20;
 
   // UTC day stamp "YYYYMMDD" — wishlists reset on the day boundary.
   function dayKey(now = new Date()) {
@@ -57,12 +59,11 @@
       ?? 1;
   }
 
-  // The (float) tier the day's wishlists are centred on, ramping with the
-  // lifetime delivery tally.
-  function targetTier(save) {
+  // Highest produce tier a wishlist will ask for, given the lifetime delivery
+  // tally: tier 1, then +1 every TIER_UNLOCK_EVERY deliveries, capped at MAX.
+  function tierCap(save) {
     const dc = save.deliveryCount ?? 0;
-    const t = Math.min(1, dc / DELIVERY_TIER_CAP);
-    return PRODUCE_TIER_MIN + t * (PRODUCE_TIER_MAX - PRODUCE_TIER_MIN);
+    return Math.min(PRODUCE_TIER_MAX, PRODUCE_TIER_MIN + Math.floor(dc / TIER_UNLOCK_EVERY));
   }
 
   // 0-based position of this house among restored 'plain' (delivery) houses in
@@ -93,9 +94,10 @@
     return (save.houseSatisfied?.[house.id]) === dayKey(now);
   }
 
-  // 2-3 produce ids this plain house wants today, biased toward targetTier and
-  // cached on the house per day. Special cases: the 4th delivery house wants the
-  // foraged-flower trio; the first 3 are pinned to TIER-1 produce.
+  // 2-3 produce ids this plain house wants today, drawn from produce up to the
+  // current tierCap and cached on the house per day. Special cases: the 4th
+  // delivery house wants the foraged-flower trio; the first 3 are pinned to
+  // TIER-1 produce.
   function wantedProduce(save, house, now = new Date()) {
     if (!house?.id) return [];
     const dk = dayKey(now);
@@ -123,19 +125,19 @@
       if (t1.length) universe = t1;
     }
 
+    // Only ask for produce the player can plausibly grow yet: everything up to
+    // the unlocked tier cap (falling back to the full set if nothing qualifies).
+    const cap = tierCap(save);
+    let pool = universe.filter((id) => produceTier(id) <= cap);
+    if (!pool.length) pool = universe.slice();
+
     const rng = wantedRng(house, dk);
     const count = 2 + Math.floor(rng() * 2);   // 2 or 3
-    const target = targetTier(save);
-    // Weighted draw without replacement: weight falls off with distance from the
-    // target tier, so picks cluster around it with the odd neighbour for variety.
-    const pool = universe.map((id) => ({ id, w: 1 / (1 + Math.abs(produceTier(id) - target)) }));
+    // Uniform draw without replacement from the unlocked pool.
     const picks = [];
     while (picks.length < count && pool.length) {
-      const total = pool.reduce((a, p) => a + p.w, 0);
-      let r = rng() * total;
-      let idx = 0;
-      while (idx < pool.length - 1 && (r -= pool[idx].w) > 0) idx++;
-      picks.push(pool.splice(idx, 1)[0].id);
+      const idx = Math.floor(rng() * pool.length);
+      picks.push(pool.splice(idx, 1)[0]);
     }
     house._wantedProduce = picks;
     house._wantedProduceDay = dk;
@@ -143,7 +145,7 @@
   }
 
   root.Delivery = {
-    PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, DELIVERY_TIER_CAP,
-    dayKey, wantedRng, produceTier, targetTier, houseOrder, isEarly, isSatisfied, wantedProduce,
+    PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY,
+    dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied, wantedProduce,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

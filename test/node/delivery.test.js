@@ -22,13 +22,15 @@ test('produceTier: reads catalog baseTier, defaults to 1', () => {
   assert.eq(Delivery.produceTier('definitely-not-an-item'), 1, 'unknown defaults to 1');
 });
 
-test('targetTier: ramps MIN→MAX with deliveryCount, clamped', () => {
-  assert.eq(Delivery.targetTier({ deliveryCount: 0 }), Delivery.PRODUCE_TIER_MIN, 'starts at MIN');
-  assert.eq(Delivery.targetTier({ deliveryCount: Delivery.DELIVERY_TIER_CAP }), Delivery.PRODUCE_TIER_MAX, 'caps at MAX');
-  assert.eq(Delivery.targetTier({ deliveryCount: Delivery.DELIVERY_TIER_CAP * 5 }), Delivery.PRODUCE_TIER_MAX, 'clamped past CAP');
-  const mid = Delivery.targetTier({ deliveryCount: Delivery.DELIVERY_TIER_CAP / 2 });
-  assert.gt(mid, Delivery.PRODUCE_TIER_MIN);
-  assert.lt(mid, Delivery.PRODUCE_TIER_MAX);
+test('tierCap: steps up one tier every TIER_UNLOCK_EVERY deliveries, clamped at MAX', () => {
+  const step = Delivery.TIER_UNLOCK_EVERY;
+  assert.eq(Delivery.tierCap({ deliveryCount: 0 }), Delivery.PRODUCE_TIER_MIN, 'starts at MIN');
+  assert.eq(Delivery.tierCap({ deliveryCount: step - 1 }), Delivery.PRODUCE_TIER_MIN, 'still MIN just before the first step');
+  assert.eq(Delivery.tierCap({ deliveryCount: step }), Delivery.PRODUCE_TIER_MIN + 1, '+1 tier at the first step');
+  assert.eq(Delivery.tierCap({ deliveryCount: step * 2 }), Delivery.PRODUCE_TIER_MIN + 2, '+2 tiers at the second step');
+  const toMax = (Delivery.PRODUCE_TIER_MAX - Delivery.PRODUCE_TIER_MIN) * step;
+  assert.eq(Delivery.tierCap({ deliveryCount: toMax }), Delivery.PRODUCE_TIER_MAX, 'reaches MAX');
+  assert.eq(Delivery.tierCap({ deliveryCount: toMax * 5 }), Delivery.PRODUCE_TIER_MAX, 'clamped past MAX');
 });
 
 test('houseOrder / isEarly: 0-based index among restored plain houses', () => {

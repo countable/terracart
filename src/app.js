@@ -162,9 +162,9 @@ const PRESEED_RESTORE_ROLES = {
   5:  'plain',
   14: 'wizard',   // the 15th restored wreck is a wizard tower
 };
-// Delivery wishlists climb in rarity as the player's lifetime tally grows; the
-// tier ramp (PRODUCE_TIER_MIN/MAX, DELIVERY_TIER_CAP) and the wishlist roll now
-// live with the rest of the delivery logic in delivery.js (Delivery.targetTier).
+// Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
+// the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
+// now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
 // Shop/trader trades hand the player this many of the offered item per deal for
 // the same demand (cash or barter), so every trade is twice as favourable.
 const TRADE_OFFER_QTY     = 2;
@@ -482,13 +482,13 @@ class MapScene extends Phaser.Scene {
     // reach centres on the player. ~2.2m.
     this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2 cells and grows to 5 via shrine upgrades, shrinking 1 cell
-    // below 30% energy. This field is retained as the legacy 3-cell constant for
-    // any external reference but is NO LONGER read by the reach gate.
+    // starts at 2.5 cells and grows to 5.5 via shrine upgrades. This field is
+    // retained as the legacy 3-cell constant for any external reference but is
+    // NO LONGER read by the reach gate.
     this.REACH_CELL_M = 16;   // legacy: √(5²+15²)+ε ≈ the old fixed 3-cell reach.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
-    // dynamic 2..5-cell, energy-scaled radius), NOT a fixed distance, so the lit
+    // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
     // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
     // somehow unavailable. The inner per-handler constants (REACH_OBJECT_M=3.5,
@@ -1979,26 +1979,7 @@ class MapScene extends Phaser.Scene {
       const maxE = this.getMaxEnergy();
       if ((indoors || atHome) && (this.save.energy ?? 0) < maxE) {
         const restS = atHome ? HOME_FULL_REST_S : INDOOR_FULL_REST_S;
-        this._restAccrueE += maxE * (dt / restS);
-        const pip = Math.floor(this._restAccrueE);
-        if (pip > 0) {
-          this._restAccrueE -= pip;
-          const beforeE = this.save.energy ?? 0;
-          this.save.energy = Math.min(maxE, beforeE + pip);
-          const gainedE = this.save.energy - beforeE;
-          // Accumulate rest gains and splash a throttled green "+N⚡" so a long
-          // rest shows periodic ticks rather than one pop per energy pip.
-          if (gainedE > 0) {
-            this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
-            const tnow = performance.now();
-            if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
-              this._splashEnergyGain(this._restSplashAccum);
-              this._restSplashAccum = 0;
-              this._restSplashNextT = tnow + 1200;
-            }
-          }
-          if (this.updateEnergyDOM) this.updateEnergyDOM();
-        }
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / restS), maxE);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
         // points of a short rest still register.
@@ -2013,33 +1994,9 @@ class MapScene extends Phaser.Scene {
       // works outdoors and is slower (FIRE_FULL_REST_S). Independent of the
       // indoor/home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
-      const fires = this.save.fires;
-      if (fires && fires.length && (this.save.energy ?? 0) < maxE) {
-        const FIRE_R2 = (FIRE_REST_R * this.cellM) * (FIRE_REST_R * this.cellM);
-        let nearFire = false;
-        for (const fr of fires) {
-          const dxf = fr.x - pWX, dyf = fr.y - pWY;
-          if (dxf * dxf + dyf * dyf < FIRE_R2) { nearFire = true; break; }
-        }
-        if (nearFire) {
-          this._fireAccrueE = (this._fireAccrueE || 0) + maxE * (dt / FIRE_FULL_REST_S);
-          const pip = Math.floor(this._fireAccrueE);
-          if (pip > 0) {
-            this._fireAccrueE -= pip;
-            const beforeE = this.save.energy ?? 0;
-            this.save.energy = Math.min(maxE, beforeE + pip);
-            const gainedE = this.save.energy - beforeE;
-            if (gainedE > 0) {
-              this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
-              const tnow = performance.now();
-              if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
-                this._splashEnergyGain(this._restSplashAccum);
-                this._restSplashAccum = 0;
-                this._restSplashNextT = tnow + 1200;
-              }
-            }
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
-          }
+      if ((this.save.energy ?? 0) < maxE) {
+        if (this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
+          this._accrueRestEnergy('_fireAccrueE', maxE * (dt / FIRE_FULL_REST_S), maxE);
         } else {
           this._fireAccrueE = 0;
         }
@@ -2777,32 +2734,14 @@ class MapScene extends Phaser.Scene {
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && faunaBlocksCell(dest.type)) continue;
           // Scarecrow aversion (crow + deer only) — refuse any target cell
-          // within 4 m of an active scarecrow. Crows/deer that wander into
+          // within 4 cells of an active scarecrow. Crows/deer that wander into
           // such cells get bounced by the attempt loop until they pick a
           // different direction.
-          if ((c.kind === 'crow' || c.kind === 'deer') && this.save.scarecrows && this.save.scarecrows.length) {
-            const SC_R = 4 * this.cellM;
-            const SC_R2 = SC_R * SC_R;
-            let blocked = false;
-            for (const sc of this.save.scarecrows) {
-              const dxs = sc.x - tx, dys = sc.y - ty;
-              if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
-            }
-            if (blocked) continue;
-          }
+          if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
           // Fire aversion (slime only) — a lit campfire repels slimes exactly
-          // like a scarecrow repels crows/deer: refuse any target within 4 m of
-          // an active fire, so slimes can't ooze into (or steal energy across)
-          // the warm ring around a campfire.
-          if (c.kind === 'slime' && this.save.fires && this.save.fires.length) {
-            const FR_R2 = (4 * this.cellM) * (4 * this.cellM);
-            let blocked = false;
-            for (const fr of this.save.fires) {
-              const dxf = fr.x - tx, dyf = fr.y - ty;
-              if (dxf * dxf + dyf * dyf < FR_R2) { blocked = true; break; }
-            }
-            if (blocked) continue;
-          }
+          // like a scarecrow repels crows/deer, so slimes can't ooze into (or
+          // steal energy across) the warm ring around a campfire.
+          if (c.kind === 'slime' && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
         }
@@ -3026,16 +2965,8 @@ class MapScene extends Phaser.Scene {
       if (dest.loaded && faunaBlocksCell(dest.type)) continue;
       const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
       if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
-      // Scarecrow aversion — refuse any target within 4 m of an active scarecrow.
-      if (this.save.scarecrows && this.save.scarecrows.length) {
-        const SC_R2 = (4 * this.cellM) * (4 * this.cellM);
-        let blocked = false;
-        for (const sc of this.save.scarecrows) {
-          const dxs = sc.x - tx, dys = sc.y - ty;
-          if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
-        }
-        if (blocked) continue;
-      }
+      // Scarecrow aversion — refuse any target within 4 cells of an active scarecrow.
+      if (this._nearAny('scarecrows', tx, ty, 4)) continue;
       chosen = true;
     }
     if (!chosen) {
@@ -3402,6 +3333,47 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
+  // accumulator field, spends whole points into save.energy (capped at maxE),
+  // and emits the throttled green "+N⚡" splash. Used by BOTH indoor/home rest
+  // and campfire warmth so the two share one mental model (and one bug surface).
+  _accrueRestEnergy(accrueKey, gain, maxE) {
+    this[accrueKey] = (this[accrueKey] || 0) + gain;
+    const pip = Math.floor(this[accrueKey]);
+    if (pip <= 0) return;
+    this[accrueKey] -= pip;
+    const beforeE = this.save.energy ?? 0;
+    this.save.energy = Math.min(maxE, beforeE + pip);
+    const gainedE = this.save.energy - beforeE;
+    // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
+    // periodic ticks rather than one pop per energy pip.
+    if (gainedE > 0) {
+      this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
+      const tnow = performance.now();
+      if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
+        this._splashEnergyGain(this._restSplashAccum);
+        this._restSplashAccum = 0;
+        this._restSplashNextT = tnow + 1200;
+      }
+    }
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+  }
+
+  // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
+  // in save[listKey]. Shared by fauna aversion: scarecrows repel crows/deer and
+  // campfires repel slimes, both at the same radius, so the wander/flight target
+  // pickers funnel through one check instead of three copies of the loop.
+  _nearAny(listKey, wx, wy, cells) {
+    const list = this.save[listKey];
+    if (!list || !list.length) return false;
+    const r2 = (cells * this.cellM) * (cells * this.cellM);
+    for (const e of list) {
+      const dx = e.x - wx, dy = e.y - wy;
+      if (dx * dx + dy * dy < r2) return true;
+    }
+    return false;
+  }
+
   // Bigger, longer-dwelling pop for loot pickups (chest opens, treasure X, harvest, debris).
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
@@ -3666,11 +3638,10 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // Reach shrinks by a cell once energy drops below 30% (see coords.js
-  // reachRadiusM). Flash a "getting tired" warning the first time a drain
-  // crosses that threshold so the smaller reach isn't a silent surprise.
-  // `before` is the energy reading just before the drain; sx/sy are optional
-  // and default to the view centre.
+  // Flash a "getting tired" warning the first time a drain crosses below 30%
+  // energy, so running down toward 0 (where you can't reach at all) isn't a
+  // silent surprise. `before` is the energy reading just before the drain;
+  // sx/sy are optional and default to the view centre.
   _warnIfTiring(before, sx, sy) {
     // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
     // wrapper only fires the flash (defaulting to the view centre).
@@ -4768,10 +4739,6 @@ class MapScene extends Phaser.Scene {
 
   _produceTier(id) {
     return Delivery.produceTier(id);
-  }
-
-  _wantedTargetTier() {
-    return Delivery.targetTier(this.save);
   }
 
   // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,

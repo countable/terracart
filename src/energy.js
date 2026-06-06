@@ -26,9 +26,10 @@
     return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
   }
 
-  // Reach shrinks by a cell below 30% energy (coords.js reachRadiusM). Uses
-  // save.maxEnergy (the same reading the original _warnIfTiring used), not the
-  // armor-derived max.
+  // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
+  // running down toward 0 energy (where you can't reach at all) isn't a silent
+  // surprise. Uses save.maxEnergy (same reading the original _warnIfTiring
+  // used), not the armor-derived max.
   function tiredThreshold(save) {
     return 0.30 * (save.maxEnergy ?? 100);
   }
