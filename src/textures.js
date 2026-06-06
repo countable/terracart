@@ -569,9 +569,17 @@ function makeRoundPadTexture(scene, key) {
   const tex = scene.textures.createCanvas(key, size, size);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, size, size);
-  const inset = 1;                          // room for the 1.5px perimeter stroke
+  const inset = 2;                          // room for the 2px cyan perimeter outline
   const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2;
   const radius = w * 0.32;                  // generously rounded corners
+  // Cyan outline first: a wider stroke centred on the slab path. The body fill
+  // below covers its inner half, leaving a clean ~1.5px cyan ring hugging the
+  // pad edge so POI pads read as cyan-outlined.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
   // Body fill.
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.fillStyle = '#b2b2b2';
@@ -586,12 +594,6 @@ function makeRoundPadTexture(scene, key) {
   ctx.fillStyle = 'rgba(0,0,0,0.10)';
   ctx.fillRect(x, y + h - 2, w, 2);
   ctx.restore();
-  // Outer perimeter outline — lighter than the body, rounded follows the path.
-  roundRectPath(ctx, x, y, w, h, radius);
-  ctx.strokeStyle = '#c2c2c2';
-  ctx.lineWidth = 1.5;
-  ctx.lineJoin = 'round';
-  ctx.stroke();
   tex.refresh();
 }
 
