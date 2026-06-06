@@ -51,7 +51,7 @@ const CROP_SPRITE = {
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale.
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.36 },
   // Shrub — round lush bush from bushes.png (144×288 = 3×9 of 48×32 frames).
   // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px-wide
   // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.

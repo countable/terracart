@@ -669,7 +669,7 @@ Render.drawCells = function drawCells(scene) {
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
     const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    const s = 6;
+    const s = 5.1;   // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
@@ -969,7 +969,7 @@ Render.drawObjects = function drawObjects(scene) {
     // castle wall it stands on) exposed as an empty-looking blocked space below
     // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
     // trees — so the tower stands inside its own single cell.
-    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 - 2 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
@@ -1069,9 +1069,13 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : 2.0),
+              // Crate (box sprite) renders 15% smaller than the chest: 2.0 → 1.7.
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 2.0)),
               dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
-              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : 0) },
+              // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
+              // the art's centroid down toward that anchor. Lift the crate back
+              // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
+              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
