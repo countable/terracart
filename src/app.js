@@ -7128,7 +7128,24 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) {
       const sel = this.save.inv[this.save.selSlot];
       const it = sel && ITEM_BY_ID[sel.id];
-      nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
+      if (!it) {
+        nameLbl.textContent = '';
+      } else {
+        const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+        // Disclose any special effect on a dim second line so a non-obvious
+        // power (water crops, tame, lure, reveal chest…) is visible at a glance.
+        const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
+        nameLbl.textContent = '';
+        const nameSpan = document.createElement('div');
+        nameSpan.textContent = nameTxt;
+        nameLbl.appendChild(nameSpan);
+        if (effect) {
+          const fx = document.createElement('div');
+          fx.textContent = `✦ ${effect}`;
+          fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+          nameLbl.appendChild(fx);
+        }
+      }
     }
     this.syncEatButton();
     this.syncConsumableButton();

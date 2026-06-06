@@ -508,38 +508,47 @@ const STARTING_MONEY = 50;
 // Non-obvious play tips revealed when the player uses a Book consumable.
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
+// Ordered roughly by relevance to a NEW player: the first-hour basics
+// (energy, trading, the farming loop, your starter tools) come first, then
+// exploration and shops, then relic effects, world lore, animals, and finally
+// the rare secret. A Book read still picks one at random, but curating the
+// order keeps the list readable and front-loads what a beginner most needs.
 const PLAY_TIPS = [
-  // Shop / trade
+  // ── First-hour basics ─────────────────────────────────────
+  'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
   'Select an empty inventory slot, then tap a house to trade or buy.',
   'Houses have different deals — some sell produce, others seeds.',
-  'Castles always sell relics (and never run out of stock).',
-  'Forts handle up to 5 deals per hour. Houses just 1.',
   'A trader who wants an item you don\'t own marks the deal with an ✗.',
-  // Relic effects
-  'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'A Bow drops the markup traders charge you — higher tier, lower prices.',
   'Equip a Pickaxe to break rocks, an Axe to chop trees.',
-  'A Ring nudges chest loot up a tier when it triggers.',
-  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  // ── The farming loop ──────────────────────────────────────
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
-  // Progression / gating
-  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
-  // Energy / food
-  'Rainberry waters every crop within 20m when you eat it.',
-  'Pairy points the way to the nearest undiscovered chest for 5 minutes.',
-  'Sunflower stew restores +150 energy — the biggest meal in the world.',
-  // Farming
   'Crops auto-advance after 60 min if watered, even while you\'re away.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Tap a tilled empty cell with no seed selected to un-till it.',
-  // World / map
+  // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks favour residential cells. Look there first.',
+  'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
+  'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
+  // ── Shops / progression ───────────────────────────────────
+  'Forts handle up to 5 deals per hour. Houses just 1.',
+  'Castles always sell relics (and never run out of stock).',
+  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
+  'A bigger Bag relic raises how many of each item one slot can hold.',
+  // ── Relic effects ─────────────────────────────────────────
+  'A Sword raises your sell prices — up to 100% at Frost tier.',
+  'A Bow drops the markup traders charge you — higher tier, lower prices.',
+  'A Ring nudges chest loot up a tier when it triggers.',
+  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  // ── Food side-effects ─────────────────────────────────────
+  'Rainberry waters every crop within 20m when you eat it.',
+  'Sunflower stew restores +150 energy — the biggest meal in the world.',
+  'A Mango is the universal treat: feed one to instantly tame any wild animal.',
+  // ── World / map ───────────────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks and woods.',
   'Long grass only grows on plain grassland — never under trees.',
-  // Combat / discovery
   'Hold rock and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
-  // Animal favourite foods — one tip per kind, so a Book read can reveal them.
+  // ── Animal favourite foods — one tip per kind ─────────────
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
@@ -547,9 +556,30 @@ const PLAY_TIPS = [
   'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
   'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
   'Cats and dogs only eat meat — feeding them plants just wastes the food.',
-  // Secret tip — slime taming. Rare to pull from the pool, but findable.
+  // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
+
+// === Item special effects ====================================
+// Short, one-line disclosure for items that DO something beyond their plain
+// sell value / energy restore. Shown under the inventory bar (the inv-name
+// strip) whenever such an item is selected, so a non-obvious power isn't a
+// secret the player only learns from a Book. Keyed by item id; absent = no
+// special effect (a plain crop / mineral that's just worth money or energy).
+const ITEM_EFFECTS = {
+  // Foods with a side-effect when eaten (on top of their energy restore).
+  rainberry: 'Eat to water every crop within 20m',
+  pairy:     'Eat to reveal the nearest unfound chest for 5 min',
+  // Universal tame treat — fed to any wild creature.
+  mango:     'Feed to instantly tame any wild animal',
+  // Offered to a slime to calm it (the secret gem).
+  sapphire:  'Offer to a slime to tame it',
+  // Consumables used on yourself / the world.
+  flute:        'Play to lure nearby chickens & cows toward you',
+  book:         'Read for a play tip or a hint toward a chest',
+  reach_potion: 'Drink for full-screen reach (1 min)',
+  scarecrow:    'Place on a tilled cell to ward off crows & deer',
+};
 
 const STARTING_ENERGY = 100;
 const FOOD_ENERGY = {
