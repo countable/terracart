@@ -53,6 +53,7 @@
   if the session was started on one. If you find yourself on a
   non-`main` branch, switch to `main`, merge anything you've done so
   far, and continue there. Push to `main` directly.
-- **After a major task, merge to `main` and push.** If work happened on a
-  non-`main` branch, merge it into `main` (`git merge`, never rebase) and
-  `git push` `main` once the task is complete.
+- **After every task, merge to `main` and push.** Once a task is complete,
+  merge any work into `main` (`git merge`, never rebase) and `git push`
+  `main`. This applies to every task, not just large ones — don't leave
+  finished work sitting only on a non-`main` branch.

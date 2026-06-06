@@ -70,6 +70,28 @@ const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the 
 const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
+// Underground wandering MONSTERS. Mechanically they're the surface slime: each
+// drifts toward the player and drains energy when within RANGE — but they
+// differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches past one
+// cell (range 3); everything else is melee (range 1). Tougher kinds are gated
+// to deeper levels via minDepth, so descending introduces new foes. Placeholder
+// art: every monster reuses the slime sprite with a per-kind TINT (see
+// render.js) until dedicated sheets land — swapping in real art is a one-line
+// assets.js + render.js change per kind.
+//   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
+//   range  → cells within which it drains energy
+//   dmg    → energy drained per hit (1 hit/sec per monster)
+//   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
+//   weight → relative spawn share among the kinds eligible at a given depth
+const MONSTERS = {
+  cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, tint: 0x66dd66, minDepth: 1, weight: 5 },
+  bat:           { name: 'Bat',           hp: 6,  range: 1, dmg: 1, speed: 1.8, tint: 0x9a7bd0, minDepth: 1, weight: 4, fly: true },
+  goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, tint: 0xcc6644, minDepth: 2, weight: 3 },
+  goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, tint: 0xaa66cc, minDepth: 3, weight: 2 },
+};
+const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
+function isMonster(kind) { return MONSTER_KINDS.has(kind); }
+
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
@@ -506,11 +528,15 @@ class MapScene extends Phaser.Scene {
     // so moving the origin of a save that already placed objects would drift
     // them. Such saves keep their origin; Reset adopts a new home. No
     // geolocation / a teleport override / sandbox → no capture (HOME fallback).
+    // Sandbox detection reads the URL directly here: this._sandboxMode isn't
+    // set until Sandbox.install() runs much later in create(), so we'd see
+    // undefined and fail to exclude sandbox sessions from home capture.
+    const _sandbox = (typeof Sandbox !== 'undefined' && Sandbox.detect());
     this._homeCapturePending =
       !_teleportOverride &&
       !_saveHome &&
       !this.save.starterShopId &&
-      !this._sandboxMode &&
+      !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
     // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
     // 20 s so the start flow falls back to the default origin rather than hang.
@@ -1265,8 +1291,9 @@ class MapScene extends Phaser.Scene {
       try {
         const entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
-        // Surface fauna only — caves (depth > 0) stay quiet in Phase 1.
+        // Surface fauna on depth 0; hostile wandering monsters underground.
         if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
+        else if (this.depth > 0 && !entry.creatures) this.spawnCaveCreatures(entry, tx, ty, this.depth);
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
@@ -1708,6 +1735,41 @@ class MapScene extends Phaser.Scene {
         });
       }
     }
+  }
+
+  // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
+  // Unlike surface animals these stalk the player and drain energy in range
+  // (see wanderCreatures + MONSTERS). Eligible kinds are gated by depth
+  // (MONSTERS.minDepth) and drawn from a weighted bag, so deeper levels mix in
+  // tougher foes; density rises gently with depth. Ids are stable + seeded so a
+  // defeated monster (recorded in save.caught) stays dead across reloads, just
+  // like surface fauna.
+  spawnCaveCreatures(entry, tx, ty, depth) {
+    const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
+    const N = entry.cellsPerEdge;
+    const creatures = [];
+    // Weighted bag of the kinds that may appear at this depth.
+    const bag = [];
+    for (const [kind, m] of Object.entries(MONSTERS)) {
+      if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
+    }
+    if (!bag.length) { entry.creatures = creatures; return; }
+    const count = 14 + depth * 4;
+    for (let i = 0; i < count; i++) {
+      const kind = bag[Math.floor(rng() * bag.length)];
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
+        if (this.save.caught.includes(id)) break;   // already defeated — stays dead
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        creatures.push({ x: wmx, y: wmy, kind, id });
+        break;
+      }
+    }
+    entry.creatures = creatures;
   }
 
   _trySpawnShrineOnTile(entry, tx, ty) {
@@ -2448,7 +2510,7 @@ class MapScene extends Phaser.Scene {
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
                     || c.kind === 'slime' || c.kind === 'rabbit'
-                    || c.kind === 'butterfly';
+                    || c.kind === 'butterfly' || isMonster(c.kind);
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
@@ -2470,6 +2532,25 @@ class MapScene extends Phaser.Scene {
           if (before > 0) {
             this.save.energy = Math.max(0, before - 3);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
+            this._warnIfTiring(before);
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
+          }
+        }
+      }
+      // Underground monster attack: the slime's energy leech, parametrised.
+      // A monster within its RANGE (cells) drains DMG energy on a 1 s per-
+      // monster cooldown. Melee kinds use range 1 (adjacent); the goblin archer
+      // reaches 3 cells, so it chips at you before you can close. Accumulated +
+      // flashed once per window after the loop, like the slime swarm.
+      if (isMonster(c.kind)) {
+        const m = MONSTERS[c.kind];
+        const R = m.range * this.cellM;
+        if (ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
+          c._nextStealT = now + 1000;
+          const before = this.save.energy ?? 0;
+          if (before > 0) {
+            this.save.energy = Math.max(0, before - m.dmg);
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
@@ -2506,19 +2587,27 @@ class MapScene extends Phaser.Scene {
       // bolting away from the player (set in _drawWorkProgress).
       const isButterfly = c.kind === 'butterfly';
       const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
+      // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
+      // moves more often); flyers (bats) dart a full cell, ground monsters
+      // lumber like the slime (0.6 cell).
+      const isMon = isMonster(c.kind);
+      const mon = isMon ? MONSTERS[c.kind] : null;
       // Rare shiny animals move at 2× speed — same hop distances, but the
       // whole step cadence (hop duration + any pause) is halved, so they cover
       // ground twice as fast. isShiny() is keyed off the creature id, so the
       // status is stable across reloads (matches the shiny-tint in render).
-      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? 0.5 : 1;
+      // Monsters never go shiny, so their cadence comes purely from SPEED.
+      const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
                    : deerFleeing ? 340
+                   : isMon ? STEP_MS / mon.speed
                    : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
       // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
+                  : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
                   : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
                   : deerFleeing ? STEP_M * 1.8
@@ -2670,6 +2759,16 @@ class MapScene extends Phaser.Scene {
             } else {
               angle = Math.random() * Math.PI * 2;
             }
+          } else if (isMon) {
+            // Monsters HUNT: a committed stalk toward the player (tighter jitter
+            // than the slime's meander), no home-bias. Flyers (bats) careen with
+            // wide jitter so they read as erratic. The archer closes in too —
+            // its range only lets it start draining sooner, not hang back.
+            if (distToPlayer > 0.5 * this.cellM) {
+              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * (mon.fly ? 1.6 : 0.8);
+            } else {
+              angle = Math.random() * Math.PI * 2;
+            }
           } else if (homeBias) {
             angle = Math.atan2(dyh, dxh) + (Math.random() - 0.5) * 0.8;
           } else {
@@ -2756,6 +2855,15 @@ class MapScene extends Phaser.Scene {
       const drained = this._slimeStealAccum;
       this._slimeStealAccum = 0;
       if (this.flash) this.flash(`🟢 slime drained ${drained}⚡`, this.viewCenterX, this.viewCenterY - 40);
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
+    // Same throttled roll-up for underground monster hits, so a pack reads as a
+    // single "-N⚡" pop rather than one flash per monster.
+    if (this._monsterDmgAccum > 0 && now - (this._lastMonsterFlashT || 0) > 1200) {
+      this._lastMonsterFlashT = now;
+      const hit = this._monsterDmgAccum;
+      this._monsterDmgAccum = 0;
+      if (this.flash) this.flash(`⚔️ monsters hit ${hit}⚡`, this.viewCenterX, this.viewCenterY - 40);
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }
