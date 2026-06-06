@@ -27,7 +27,9 @@ src/      Game source modules (vanilla JS, global scope, load-order dependent).
             worldgen.js   procedural world from map tiles
             render.js     Phaser draw layer
             interact.js   input + interactions
+            interactables.js  declarative tap-driven world-object registry
             items.js / crops.js / loot.js / rarity.js / shops.js  game data + economy
+            inventory.js / energy.js / home.js  pure cores extracted from app.js
             textures.js / assets.js   sprite-sheet setup + asset manifest
             mvt.js / coords.js / save.js / util.js / sandbox.js / testtools.js
 vendor/   Third-party libraries (phaser.js).
