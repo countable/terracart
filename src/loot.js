@@ -8,7 +8,7 @@
 // Exports as globals:
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
 //   POI_CATEGORY
-//   POI_PAD_BY_CLASS, POI_PAD_BY_CATEGORY, padShapeKeyForPoi
+//   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
 //   WILD_TREASURE
 //
@@ -192,39 +192,18 @@ const POI_CATEGORY = {
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
-// === POI pad SHAPE mapping ===
-// The pad SHAPE itself conveys POI type. The chest sits
-// in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
-//   square2  → sports pitches  (chest in corner, pad extends right + down)
-//   cross    → chapels + medical facilities  (+ shape, chest centered)
-//   triangle → schools / colleges  (stepped pyramid, chest middle-row centre)
-//   square3  → default for parks / food / farm / commerce / flora
-//   null     → lowtier (bus stops, intersections, fuel, etc) — bare chest
-const POI_PAD_BY_CLASS = {
-  place_of_worship: 'cross',
-  pharmacy:         'cross',
-  hospital:         'cross',
-  dentist:          'cross',
-  school:           'triangle',
-  college:          'triangle',
-  pitch:            'square2',
-  playground:       'line3v',   // vertical 1×3 strip
-};
-const POI_PAD_BY_CATEGORY = {
-  food:     'line3h',   // horizontal 1×3 strip (market counter / shop front)
-  commerce: 'line3h',
-  civic:    'square3',  // school/college overridden above
-  health:   'cross',
-  park:     'square3',  // pitch + playground overridden above
-  flora:    'square3',
-  farm:     'square3',
-};
+// === POI pad mapping ===
+// Every POI that gets a pad gets the SAME pad: a single rounded slab sitting in
+// the one cell directly under the chest (see PAD_SHAPES.round1 in textures.js).
+// The shape no longer conveys POI type — it's just a clean base under the chest.
+// Lowtier POIs (bus stops, intersections, fuel, etc.) still skip the pad and
+// render a bare chest, as do any classes outside the pad-bearing categories.
+const PAD_CATEGORIES = new Set([
+  'food', 'commerce', 'civic', 'health', 'park', 'flora', 'farm',
+]);
 function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
-  if (POI_PAD_BY_CLASS[poiClass]) return POI_PAD_BY_CLASS[poiClass];
-  const cat = POI_CATEGORY[poiClass];
-  if (cat === 'lowtier') return null;
-  return POI_PAD_BY_CATEGORY[cat] || null;
+  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
 }
 
 // Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.

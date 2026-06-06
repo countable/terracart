@@ -603,9 +603,8 @@ class MapScene extends Phaser.Scene {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
-    // Shape-based concrete pads under POI chests. One texture per unique shape
-    // (square3 / square2 / cross / triangle); the POI's class picks the shape
-    // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
+    // Concrete pads under POI chests — one rounded, slightly-oversized slab in
+    // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);
 
     // Layers
@@ -614,7 +613,7 @@ class MapScene extends Phaser.Scene {
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
     this.plantedContainer = this.add.container(0, 0);
-    // Pads (3x3 concrete slabs under POI chests) draw under objects.
+    // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
