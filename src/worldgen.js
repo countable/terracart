@@ -56,6 +56,15 @@
     // activation). Rendered by drawing a base water tile + plank sprite
     // overlay via the cobblePool — see render.js PIER_FRAME.
     PIER: 23,
+    // --- Underground cave biome (depth > 0) ---
+    // The cave map is the "negative" of the surface directly above it: every
+    // surface-walkable cell becomes CAVE_FLOOR (you can walk it); every
+    // non-walkable surface cell (water, any road, any building) becomes
+    // CAVE_WALL — solid rock you can't pass. This is how surface buildings and
+    // roads "indicate obstructions" underground: their footprints are rock.
+    // See loadCaveTile + isWalkable (CAVE_WALL is in NON_WALKABLE).
+    CAVE_FLOOR: 24,
+    CAVE_WALL: 25,
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -73,6 +82,9 @@
     T.WATER,
     T.ROAD, T.ROAD_MD, T.ROAD_LG,
     T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
+    // Underground rock — the solid walls of a cave level. Surface
+    // buildings/roads/water rasterize to this in loadCaveTile.
+    T.CAVE_WALL,
   ]);
   function isWalkable(t) { return !NON_WALKABLE.has(t); }
 
@@ -333,7 +345,27 @@
   }
 
   // --- Tile fetching & caching ---
-  const tileCache = new Map();   // "z/x/y" -> { promise, grid, cellsPerEdge, status }
+  // One tile cache PER DEPTH. depth 0 = surface (MVT-derived); depth 1,2,… =
+  // underground cave levels (each derived from the level above — see
+  // loadCaveTile). setDepth() repoints the module-level `tileCache` (and the
+  // exported WorldGen.tileCache) at the active depth's map so every existing
+  // `WorldGen.tileCache.get(...)` / forEachItem call site reads the current
+  // level with no per-site change.
+  const caches = new Map();      // depth -> Map("z/x/y" -> entry)
+  function cacheFor(depth) {
+    let c = caches.get(depth);
+    if (!c) { c = new Map(); caches.set(depth, c); }
+    return c;
+  }
+  let activeDepth = 0;
+  let tileCache = cacheFor(0);   // "z/x/y" -> { promise, grid, cellsPerEdge, status }
+  function setDepth(depth) {
+    activeDepth = depth;
+    tileCache = cacheFor(depth);
+    // Repoint the external reference so app.js / render.js see the active map.
+    if (global.WorldGen) global.WorldGen.tileCache = tileCache;
+    return tileCache;
+  }
   const idbName = 'mapgame-tiles';
   let idb;
   function openIDB() {
@@ -1611,8 +1643,15 @@
     // support session-scale long-distance teleports between very different latitudes,
     // include `cellsPerEdgeForLat(lat)` in this key AND in every `tileCache.get(...)`
     // call site in app.js.
+    //
+    // `tileCache` here shadows the module-level one with the ACTIVE depth's map
+    // so the surface-build body below (dedup scans, eviction, .set) all operate
+    // on the right level. Underground levels take a separate code path.
+    const depth = activeDepth;
+    const tileCache = cacheFor(depth);
     const key = `${Z}/${x}/${y}`;
     if (tileCache.has(key)) return tileCache.get(key);
+    if (depth > 0) return loadCaveTile(tileCache, depth, key, x, y, lat);
     const entry = { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat) };
     const tileEdgeM = tileEdgeMeters(lat);
     entry.tileEdgeM = tileEdgeM;
@@ -1679,6 +1718,11 @@
       }
       entry.grid = grid;
       entry.objects = filteredObjects;
+      entry.depth = 0;
+      // Cave entrance: drop one "descend" staircase per surface tile beside a
+      // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
+      // entrance — not every block has a way down, which reads naturally.
+      maybePlaceCaveEntrance(entry, x, y, tileEdgeM);
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLetters = roadLetters || {};
@@ -2122,6 +2166,126 @@
     return _satextractPromise;
   }
 
+  // --- Underground cave generation (depth > 0) ---------------------------
+  // A cave tile is the "negative" of the tile one level ABOVE it: walkable
+  // surface cells become CAVE_FLOOR, everything else becomes CAVE_WALL. This
+  // recurses up to the surface (depth 0), so depth N derives from depth N-1.
+  //
+  // Staircases connect the levels. The level above's DOWN-stairs become this
+  // level's UP-stairs at the same world point (so you arrive standing on the
+  // way back up), and each gets a matching DOWN-stair a few cells away on
+  // floor, letting you keep descending. Same-coordinate (GPS-mirror) model:
+  // a staircase's x/y never changes between levels.
+
+  function caveStairId(dir, depth, x, y) {
+    return `stair_${dir}_${depth}_${Math.round(x)}_${Math.round(y)}`;
+  }
+
+  // World-meter centre of local cell (lix,liy) on tile (tx,ty).
+  function cellCentreM(tx, ty, lix, liy, tileEdgeM, N) {
+    const mPerCell = tileEdgeM / N;
+    return { x: tx * tileEdgeM + (lix + 0.5) * mPerCell,
+             y: ty * tileEdgeM + (liy + 0.5) * mPerCell };
+  }
+  // Local cell index a world point falls in, on tile (tx,ty).
+  function cellIndexOf(tx, ty, wx, wy, tileEdgeM, N) {
+    const mPerCell = tileEdgeM / N;
+    return { lix: Math.floor((wx - tx * tileEdgeM) / mPerCell),
+             liy: Math.floor((wy - ty * tileEdgeM) / mPerCell) };
+  }
+
+  // Nearest CAVE_FLOOR cell at Chebyshev distance >= minRad from (sx,sy),
+  // searching outward. Returns its world centre, or null if the tile is solid.
+  function findFloorAway(grid, N, tx, ty, tileEdgeM, sx, sy, minRad) {
+    const { lix: slix, liy: sliy } = cellIndexOf(tx, ty, sx, sy, tileEdgeM, N);
+    for (let rad = minRad; rad < N; rad++) {
+      for (let dy = -rad; dy <= rad; dy++) {
+        for (let dx = -rad; dx <= rad; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
+          const lix = slix + dx, liy = sliy + dy;
+          if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+          if (grid[liy * N + lix] === T.CAVE_FLOOR) {
+            return cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // Surface entrance: place ONE down-staircase next to a cave-rock cluster.
+  function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM) {
+    const rocks = (entry.objects || []).filter(
+      o => o.kind === 'mineralrock' && o.caveVariant != null);
+    if (!rocks.length) return;
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
+    const rock = rocks[Math.floor(rng() * rocks.length)];
+    const N = entry.cellsPerEdge, grid = entry.grid;
+    const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    for (const [dx, dy] of dirs) {
+      const lix = rlix + dx, liy = rliy + dy;
+      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+      if (!isWalkable(grid[liy * N + lix])) continue;
+      const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+      entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
+        id: caveStairId('down', 0, x, y) });
+      return;
+    }
+  }
+
+  async function loadCaveTile(cache, depth, key, x, y, lat) {
+    const above = await loadTile.atDepth(depth - 1, x, y, lat);
+    if (above.status === 'loading') await above.promise;
+    const N = above.cellsPerEdge;
+    const tileEdgeM = above.tileEdgeM;
+    const grid = new Uint8Array(N * N);
+    for (let i = 0; i < grid.length; i++) {
+      grid[i] = isWalkable(above.grid[i]) ? T.CAVE_FLOOR : T.CAVE_WALL;
+    }
+    const objects = [];
+    const downAbove = (above.objects || []).filter(
+      o => o.kind === 'staircase' && o.dir === 'down');
+    for (const s of downAbove) {
+      // Way back up: stand on it the moment you descend.
+      objects.push({ kind: 'staircase', dir: 'up', x: s.x, y: s.y, depth,
+        id: caveStairId('up', depth, s.x, s.y) });
+      // Way deeper: a floor cell a few steps off, so up/down aren't co-located.
+      const dn = findFloorAway(grid, N, x, y, tileEdgeM, s.x, s.y, 3);
+      if (dn) objects.push({ kind: 'staircase', dir: 'down', x: dn.x, y: dn.y, depth,
+        id: caveStairId('down', depth, dn.x, dn.y) });
+    }
+    const entry = {
+      status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
+      objects, wildplants: [], parkingTreasures: [],
+      roadLetters: {}, pathNames: {}, pathUnder: {},
+    };
+    cache.set(key, entry);
+    const MAX_CACHED_TILES = 64;
+    while (cache.size > MAX_CACHED_TILES) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey === key) break;
+      cache.delete(oldestKey);
+    }
+    return entry;
+  }
+
+  // Load a tile at an EXPLICIT depth (used by cave generation to read the level
+  // above without disturbing the active depth). Surface/cave dispatch mirrors
+  // loadTile's own branch.
+  loadTile.atDepth = async function (depth, x, y, lat) {
+    const cache = cacheFor(depth);
+    const key = `${Z}/${x}/${y}`;
+    if (cache.has(key)) return cache.get(key);
+    if (depth > 0) return loadCaveTile(cache, depth, key, x, y, lat);
+    // Surface at a non-active depth: temporarily point activeDepth at 0 so the
+    // shared loadTile body writes into the surface cache, then restore.
+    const prev = activeDepth;
+    activeDepth = 0;
+    try { return await loadTile(x, y, lat); }
+    finally { activeDepth = prev; }
+  };
+
   // Iterate every item across every cached tile's `prop` array. Tiles missing
   // the property are skipped. fn(item, entry) — return any truthy value to
   // short-circuit (the return value is propagated back to the caller).
@@ -2146,6 +2310,6 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, isWalkable, isSpawnCell,
+    forEachItem, isWalkable, isSpawnCell, setDepth,
   };
 })(window);
