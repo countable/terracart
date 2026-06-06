@@ -1139,7 +1139,7 @@ const TAP_HANDLERS = [
       if (p.crop === 'potato') return POTATO_STAGE_NAMES[stage];
       return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
     };
-    const stageHoldMs = 15 * 60 * 1000;   // 15 min/stage — keep in sync with app.js + render.js STAGE_HOLD_MS
+    const stageHoldMs = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
       p.stage = (p.stage ?? 0) + 1;

@@ -56,10 +56,9 @@ const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
-// Used everywhere the crow pest logic scans `save.planted` so the rule lives
-// in one place.
-const CROW_IGNORED_CROPS = new Set(['potato']);
-function crowEatsCrop(p) { return !CROW_IGNORED_CROPS.has(p.crop); }
+// The rule (and its crop set) now lives in crops.js; this stays as a free-
+// function alias because the crow pest logic calls it bare in several spots.
+function crowEatsCrop(p) { return Crops.crowEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -2188,18 +2187,7 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + render.js
-    const now = Date.now();
-    let mutated = false;
-    for (const p of this.save.planted || []) {
-      if (!p.watered_t) continue;
-      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) continue;
-      if (now - p.watered_t < STAGE_HOLD_MS) continue;
-      p.stage = (p.stage ?? 0) + 1;
-      p.watered_t = 0;
-      mutated = true;
-    }
-    if (mutated) persistSave(this.save);
+    if (Crops.advanceGrowth(this.save)) persistSave(this.save);
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
@@ -3760,17 +3748,7 @@ class MapScene extends Phaser.Scene {
   waterCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const r2 = radius * radius;
-    let n = 0;
-    for (const p of (this.save.planted || [])) {
-      const dx = p.x - pWX, dy = p.y - pWY;
-      if (dx * dx + dy * dy > r2) continue;
-      if ((p.stage ?? 0) >= (typeof MAX_GROWTH_STAGE !== 'undefined' ? MAX_GROWTH_STAGE : 4)) continue;
-      if (p.watered_t) continue;
-      p.watered_t = Date.now();
-      n++;
-    }
-    return n;
+    return Crops.waterWithin(this.save, pWX, pWY, radius);
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
