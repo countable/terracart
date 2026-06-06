@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v17';
+const SHELL_VERSION = 'shell-v20';
 const TILE_CACHE    = 'tiles-v1';
 
 const SHELL_ASSETS = [
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   './manifest.webmanifest',
   './vendor/phaser.js',
   './src/mvt.js',
+  './src/home.js',
   './src/worldgen.js',
   './src/textures.js',
   './src/app.js',
