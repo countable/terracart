@@ -61,16 +61,23 @@ function playerReachCell(scene) {
 // the object/creature/treasure far-gate (interact.js tooFar) — so the lit area
 // and every tap-accept test stay byte-identical and can't drift.
 //
-// Reach depends on ONE thing the player controls: the Inner Light. It starts at
-// 2.5 cells and grows to 5.5 via the six +0.5-cell upgrades (save.reachUpgrades,
-// 0..6) fed by the Magic Shrine and the wizard tower's Inner Light (see app.js).
-// It does NOT shrink underground or when tired — the only special cases are the
-// Potion of Reach (lights the whole view) and 0 energy (you can't reach at all).
+// Reach depends on the Inner Light the player controls, dimmed by the dark as
+// they descend. On the surface it starts at 2.5 cells and grows to 5.5 via the
+// six +0.5-cell upgrades (save.reachUpgrades, 0..6) fed by the Magic Shrine and
+// the wizard tower's Inner Light (see app.js). Underground the bubble is
+// smothered: each level down trims it by half a cell, floored at 1.5 so the
+// immediate ring is always workable — so each descent both darkens the
+// surroundings (render.js) AND tightens the lit reach. It does NOT shrink when
+// merely tired; the special cases are the Potion of Reach (lights the whole
+// view) and 0 energy (you can't reach at all).
 // The +1 m epsilon keeps the cardinal cell included with a hair of margin so the
 // silhouette reads as a rounded diamond at every level.
 function reachCells(scene) {
   const upgrades = scene.save?.reachUpgrades ?? 0;
-  return Math.min(5.5, 2.5 + 0.5 * upgrades);
+  const base = Math.min(5.5, 2.5 + 0.5 * upgrades);
+  const depth = scene.depth ?? 0;
+  if (depth > 0) return Math.max(1.5, base - 0.5 * depth);
+  return base;
 }
 function reachRadiusM(scene) {
   // Potion of Reach (T2 consumable): for its duration the whole visible view
