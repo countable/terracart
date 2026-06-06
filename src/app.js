@@ -125,14 +125,9 @@ const PRESEED_RESTORE_ROLES = {
   5:  'plain',
   14: 'wizard',   // the 15th restored wreck is a wizard tower
 };
-// Delivery wishlists climb in rarity as the player's lifetime tally grows.
-// The "wanted" produce set is biased toward this target tier, which ramps
-// linearly from PRODUCE_TIER_MIN (at 0 deliveries) to PRODUCE_TIER_MAX (at
-// DELIVERY_TIER_CAP deliveries and beyond). Early neighbours ask for berries
-// and potatoes; a veteran courier gets asked for goldenfish and coconuts.
-const PRODUCE_TIER_MIN  = 1;
-const PRODUCE_TIER_MAX  = 7;
-const DELIVERY_TIER_CAP = 100;
+// Delivery wishlists climb in rarity as the player's lifetime tally grows; the
+// tier ramp (PRODUCE_TIER_MIN/MAX, DELIVERY_TIER_CAP) and the wishlist roll now
+// live with the rest of the delivery logic in delivery.js (Delivery.targetTier).
 // Shop/trader trades hand the player this many of the offered item per deal for
 // the same demand (cash or barter), so every trade is twice as favourable.
 const TRADE_OFFER_QTY     = 2;
@@ -4532,23 +4527,13 @@ class MapScene extends Phaser.Scene {
   // the Nth-restored delivery house. Drives the scripted early wishlists
   // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
   deliveryHouseOrder(house) {
-    if (!house?.id) return -1;
-    const rh = this.save.restoredHouses || {};
-    if (rh[house.id] !== 'plain') return -1;          // not a (restored) delivery house
-    let n = 0;
-    for (const id of Object.keys(rh)) {
-      if (rh[id] !== 'plain') continue;
-      if (id === house.id) return n;
-      n++;
-    }
-    return -1;
+    return Delivery.houseOrder(this.save, house);
   }
 
   // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
   // produce wishlists (see wantedProduce).
   isEarlyDeliveryHouse(house) {
-    const o = this.deliveryHouseOrder(house);
-    return o >= 0 && o < 3;
+    return Delivery.isEarly(this.save, house);
   }
 
   // Every restored delivery house currently asking for a bundle (not satisfied
@@ -4751,104 +4736,35 @@ class MapScene extends Phaser.Scene {
   // UTC day stamp ("YYYYMMDD") — the wishlist + happy state turn over on the
   // day boundary, so a house satisfied today wants a fresh bundle tomorrow.
   // Mirrors the coin-burst daily-cap key format.
+  // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
+  // as scene methods because render.js + the interact/present handlers call them
+  // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc.
   _deliveryDayKey() {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return Delivery.dayKey();
   }
 
-  // Per-house, per-day RNG. Keyed on house.id AND the day stamp so each house
-  // rolls a NEW wishlist every day (a "new bundle the next day"), but the
-  // list stays stable for the whole of any given day. Differs from shopRng
-  // (which rotates on the hour bucket).
   wantedProduceRng(house, dayKey) {
-    let h = 2166136261 >>> 0;
-    const s = String(house?.id || '') + '|' + String(dayKey || '');
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    let state = h;
-    return () => {
-      state = (Math.imul(state, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = state;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return Delivery.wantedRng(house, dayKey);
   }
 
-  // Rarity tier (1..7) a produce id sits at — drives the wishlist's tier bias.
-  // Most produce carry baseTier on the ITEM record; the few hand-written ones
-  // (egg/milk/longgrass/…) fall back to the shared BASE_TIER table, then 1.
   _produceTier(id) {
-    return (ITEM_BY_ID[id]?.baseTier)
-      ?? ((typeof BASE_TIER !== 'undefined') ? BASE_TIER[id] : undefined)
-      ?? 1;
+    return Delivery.produceTier(id);
   }
 
-  // The tier the day's wishlists are centred on, ramping from PRODUCE_TIER_MIN
-  // at 0 lifetime deliveries to PRODUCE_TIER_MAX at DELIVERY_TIER_CAP (and
-  // beyond). A float — the picker weights produce by closeness to it.
   _wantedTargetTier() {
-    const dc = this.save.deliveryCount ?? 0;
-    const t = Math.min(1, dc / DELIVERY_TIER_CAP);
-    return PRODUCE_TIER_MIN + t * (PRODUCE_TIER_MAX - PRODUCE_TIER_MIN);
+    return Delivery.targetTier(this.save);
   }
 
-  // 2-3 produce ids this plain house wants TODAY at full price. The set is
-  // re-rolled each day and biased toward _wantedTargetTier (higher as the
-  // lifetime delivery tally climbs). Cached on the house object per day so the
-  // render-loop sign and the interact handler agree without re-rolling.
+  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
+  // cached on the house per day so the render sign and interact handler agree).
   wantedProduce(house) {
-    if (!house?.id) return [];
-    const dayKey = this._deliveryDayKey();
-    if (house._wantedProduce && house._wantedProduceDay === dayKey) return house._wantedProduce;
-    // The 4th delivery house always wants the common foraged-flower trio — a
-    // scripted nudge toward flower-picking once the T1-produce starter run
-    // (houses 1-3) is done.
-    if (this.deliveryHouseOrder(house) === 3) {
-      const trio = ['forgetmenot', 'marigold', 'wildrose'].filter(id => ITEM_BY_ID[id]);
-      if (trio.length) {
-        house._wantedProduce = trio;
-        house._wantedProduceDay = dayKey;
-        return trio;
-      }
-    }
-    let universe = (typeof ITEMS !== 'undefined')
-      ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
-      : [];
-    if (!universe.length) return [];
-    // The first 3 delivery houses (by restore order) only ever ask for TIER-1
-    // produce, so the starter loop never demands a crop the player can't yet
-    // grow. Every later house follows the usual _wantedTargetTier ramp.
-    if (this.isEarlyDeliveryHouse(house)) {
-      const t1 = universe.filter(id => this._produceTier(id) <= 1);
-      if (t1.length) universe = t1;
-    }
-    const rng = this.wantedProduceRng(house, dayKey);
-    const count = 2 + Math.floor(rng() * 2);  // 2 or 3
-    const target = this._wantedTargetTier();
-    // Weighted draw without replacement: weight falls off with distance from
-    // the target tier, so picks cluster around it while still allowing the
-    // odd neighbour (one tier away) for variety.
-    const pool = universe.map(id => ({ id, w: 1 / (1 + Math.abs(this._produceTier(id) - target)) }));
-    const picks = [];
-    while (picks.length < count && pool.length) {
-      const total = pool.reduce((a, p) => a + p.w, 0);
-      let r = rng() * total;
-      let idx = 0;
-      while (idx < pool.length - 1 && (r -= pool[idx].w) > 0) idx++;
-      picks.push(pool.splice(idx, 1)[0].id);
-    }
-    house._wantedProduce = picks;
-    house._wantedProduceDay = dayKey;
-    return picks;
+    return Delivery.wantedProduce(this.save, house);
   }
 
-  // True if this house had a bundle delivered already TODAY — it's "happy" and
-  // stops asking until tomorrow. Keyed by UTC day so it resets on the boundary.
+  // True if this house had a bundle delivered already TODAY — happy until the
+  // next UTC day boundary.
   isHouseSatisfied(house) {
-    if (!house?.id) return false;
-    return (this.save.houseSatisfied?.[house.id]) === this._deliveryDayKey();
+    return Delivery.isSatisfied(this.save, house);
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
