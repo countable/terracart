@@ -59,9 +59,13 @@
     // gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
     save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(save.armor || {}) };
     // Always re-derive maxEnergy from equipped armor — never trust a stale value.
-    const maxE = (typeof maxEnergyFromArmor === 'function')
+    const _fallbackMaxE = (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+    let maxE = (typeof maxEnergyFromArmor === 'function')
       ? maxEnergyFromArmor(save.armor)
-      : (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+      : _fallbackMaxE;
+    // Guard against a non-finite armor lookup (NaN/undefined would otherwise
+    // poison save.energy via the Math.min below and disable energy entirely).
+    if (!Number.isFinite(maxE)) maxE = _fallbackMaxE;
     save.maxEnergy = maxE;
     if (!Number.isFinite(save.energy)) save.energy = maxE;
     save.energy = Math.min(maxE, Math.max(0, save.energy));
