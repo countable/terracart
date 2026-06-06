@@ -638,8 +638,21 @@ UNDERGROUND CAVES (Phase 1)
  - staircases mirror across levels at the SAME world point: a level's DOWN-stair
    becomes the next level's UP-stair (you arrive standing on the way back up),
    with a fresh DOWN-stair a few cells off so up/down aren't co-located.
- - tiles are cached PER DEPTH. Phase 1 keeps caves quiet — no fauna spawn
-   underground; mineral rocks are the draw.
+ - tiles are cached PER DEPTH. Mineral rocks are the draw — but caves are no
+   longer quiet: hostile WANDERING MONSTERS spawn on CAVE_FLOOR cells (no
+   surface fauna underground). They're the slime mechanic, parametrised — each
+   drifts toward the player and drains energy when within RANGE, differing by
+   HP / RANGE / DAMAGE / SPEED, and is DEFEATED via the work wheel (HP scales
+   the wheel; tougher kinds take longer; no drops). Kinds are gated by depth so
+   descending introduces new foes; density rises gently with depth:
+     * cave slime    (depth 1+) — 15 hp, range 1, 2⚡/hit, slow
+     * bat           (depth 1+) — 6 hp,  range 1, 1⚡/hit, fast + erratic, hovers
+     * goblin        (depth 2+) — 25 hp, range 1, 4⚡/hit, medium speed (a slog)
+     * goblin archer (depth 3+) — 18 hp, range 3, 3⚡/hit — the ONLY ranged foe
+   Placeholder art: every monster reuses the slime sprite with a per-kind tint
+   (real sheets are a per-kind assets.js + render.js swap). Monsters can't be
+   tamed (mango/sapphire don't apply); a defeated monster is recorded in
+   save.caught so it stays dead across reloads, like surface fauna.
 
 ================================================================================
 SAVED GAMES (slots)
