@@ -374,14 +374,18 @@
 
   // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock), scaled
   // by DEPTH so ore is rare in daylight and grows richer the deeper you mine.
-  // Copper is ~25 % of the ore subset (see the residential/cave tier weights),
-  // so 1 − caveRockP(depth) gives the ore fraction and ×0.25 the copper fraction:
-  //   surface (depth 0) → 0.80 plain → 0.20 ore → ~5 %  copper-bearing rock
-  //   one level down (1) → 0.20 plain → 0.80 ore → ~20 % copper-bearing rock
-  //   deeper            → less plain still (ore keeps climbing, floored at 0.10)
+  // The base curve below is then halved in ore terms on EVERY level so plain
+  // rock is always the clear majority — basic stone is the most frequent find
+  // everywhere. Copper is ~25 % of the ore subset (see the tier weights):
+  //   surface (depth 0) → 0.90 plain → 0.10 ore → ~2.5 % copper-bearing rock
+  //   one level down (1) → 0.60 plain → 0.40 ore → ~10 % copper-bearing rock
+  //   deeper            → ore keeps climbing but plain never drops below ~0.55
   function caveRockP(depth) {
-    if (!depth || depth <= 0) return 0.80;
-    return Math.max(0.10, 0.20 - 0.03 * (depth - 1));
+    const basePlain = (!depth || depth <= 0)
+      ? 0.80
+      : Math.max(0.10, 0.20 - 0.03 * (depth - 1));
+    // Halve the ore-embedded share: newPlain = 1 − ½·(1 − basePlain).
+    return 1 - 0.5 * (1 - basePlain);
   }
 
   const idbName = 'mapgame-tiles';
@@ -894,11 +898,11 @@
               const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
               // Tier weights for the ORE subset (the share that isn't plain
-              // cave rock — caveRockP(0) ⇒ ~80 % plain on the surface). Copper
+              // cave rock — caveRockP(0) ⇒ ~90 % plain on the surface). Copper
               // is T2 at weight 0.25 of the subset, so copper-bearing rock is
-              // ~0.20 × 0.25 ≈ 5 % of all surface rocks (the calibration target).
-              // Underground the same shape is reused with a far smaller plain
-              // fraction, lifting copper toward ~20 % and up (see spawnCaveRocks).
+              // ~0.10 × 0.25 ≈ 2.5 % of all surface rocks. Underground the same
+              // shape is reused with a smaller plain fraction (richer with
+              // depth) but plain rock always stays the majority (see caveRockP).
               const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
               const { tierW, totalW } = cumWeights(weights);
               // 25..40 rocks per cluster: residential rocks survive the
@@ -2338,28 +2342,41 @@
     }
   }
 
-  // Scatter mineralrock clusters across a cave level's floor. Caves used to be
-  // bare rock-and-staircase shells; this fills them with "lots of rock clusters"
-  // (the deeper, the richer — see caveRockP). Each rock rolls plain-vs-ore the
-  // same way the surface spawner does, but with the depth-scaled plain fraction
-  // so copper climbs from ~5 % on the surface to ~20 %+ underground. Rocks are
-  // placed only on CAVE_FLOOR cells and never on a staircase cell (`occupied`).
-  // Deterministic per tile+depth so a level looks identical across reloads.
+  // Scatter mineralrock clusters across a cave level's floor (caves would
+  // otherwise be bare rock-and-staircase shells). Each rock rolls plain-vs-ore
+  // via caveRockP, so plain stone is always the majority and ore grows with
+  // depth. Some clusters are VEIN ZONES — one ore/crystal tier is concentrated
+  // 10× for that cluster only — the same trick the surface residential clusters
+  // use (see _spawnRockClusters). Rocks land only on CAVE_FLOOR cells, never on
+  // a staircase cell (`occupied`). Deterministic per tile+depth.
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
     const plainP = caveRockP(depth);
     // Same copper-dominant ore shape as the residential surface clusters.
     const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
-    let totalW = 0; const tierW = weights.map(w => (totalW += w));
+    const cum = (ws) => { let t = 0; const c = ws.map(w => (t += w)); return { tierW: c, totalW: t }; };
+    const baseTbl = cum(weights);
     const CAVE_VARIANTS = 4;     // plain-rock art variants (render.js)
-    const PIVOT = 6;             // a cluster candidate every 6 cells — dense
-    const FIRE = 0.85;           // most candidates fire → "lots" of clusters
-    const CLUSTER_MIN = 5, CLUSTER_SPAN = 6;   // 5..10 rocks per cluster
+    const PIVOT = 6;             // a cluster candidate every 6 cells
+    const FIRE = 0.85;           // most candidates fire
+    const CLUSTER_MIN = 3, CLUSTER_SPAN = 3;   // 3..5 rocks — ~2× sparser than before
     const RADIUS = 2;            // rocks jitter within ±2 cells of the pivot
+    const VEIN_CHANCE = 0.30;    // ~30 % of clusters are a single-tier vein zone
+    const VEIN_MUL = 10;
     for (let py = 1; py < N; py += PIVOT) {
       for (let px = 1; px < N; px += PIVOT) {
         if (rng() > FIRE) continue;
         const n = CLUSTER_MIN + Math.floor(rng() * CLUSTER_SPAN);
+        // Vein zone: concentrate one randomly-chosen ore tier 10× for this
+        // cluster, so a pocket reads as "an iron vein" / "a gold seam" rather
+        // than evenly-mixed ore. Doesn't touch the plain-vs-ore split.
+        let tbl = baseTbl;
+        if (rng() < VEIN_CHANCE) {
+          const vt = Math.floor(rng() * weights.length);
+          const boosted = weights.slice();
+          boosted[vt] *= VEIN_MUL;
+          tbl = cum(boosted);
+        }
         for (let k = 0; k < n; k++) {
           const lix = px + Math.round((rng() - 0.5) * 2 * RADIUS);
           const liy = py + Math.round((rng() - 0.5) * 2 * RADIUS);
@@ -2374,10 +2391,10 @@
               caveVariant: Math.floor(rng() * CAVE_VARIANTS), id });
             continue;
           }
-          const r = rng() * totalW;
+          const r = rng() * tbl.totalW;
           let yieldTier = 7;
-          for (let i = 0; i < tierW.length; i++) {
-            if (r <= tierW[i]) { yieldTier = i + 1; break; }
+          for (let i = 0; i < tbl.tierW.length; i++) {
+            if (r <= tbl.tierW[i]) { yieldTier = i + 1; break; }
           }
           objects.push({ kind: 'mineralrock', x: cx, y: cy, yieldTier,
             requiredTier: Math.max(1, yieldTier - 1), id });
