@@ -1312,6 +1312,19 @@ class MapScene extends Phaser.Scene {
       for (const k in T) TNAME[T[k]] = k;
       const out = [];
       out.push(`tile ${key}  cell(${Math.floor(cx)},${Math.floor(cy)})  depth=${this.depth}`);
+      // Location / GPS status — explains why the world might be pinned to the
+      // Kelowna home origin instead of following the player's real GPS. Any of
+      // these will keep GPS fixes from moving the player:
+      //   teleport  — a preset override is active (GPS is force-disabled)
+      //   debugCtl  — the gold debug joystick owns movement (GPS write skipped)
+      //   manualOvr — WASD/arrows/teleport were used this session (same)
+      //   gpsAvail=false / gpsM=none — no GPS fix has been applied
+      let tp = null;
+      try { tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null'); } catch (_) {}
+      const gm = this.gpsM ? `(${Math.round(this.gpsM.x)},${Math.round(this.gpsM.y)})m` : 'none';
+      out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${_teleportOverride ? 'TELEPORT ' + (tp && tp.name || '?') : 'home/GPS'})`);
+      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} sandbox=${!!this._sandboxMode}`);
+      out.push(`playerM=(${Math.round(this.playerM.x)},${Math.round(this.playerM.y)})`);
       if (!entry || !entry.grid) {
         out.push('(tile not loaded — stand on the spot, then dump)');
         if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
