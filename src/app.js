@@ -3473,16 +3473,7 @@ class MapScene extends Phaser.Scene {
   // recomputes max energy and grants the freshly-unlocked headroom (captured
   // BEFORE mutating armor so the bump is the delta, not the whole new max).
   _equipGear(kind, slot, tier) {
-    if (kind === 'relic') {
-      this.save.relics[slot] = { tier };
-      return;
-    }
-    const oldMax = this.getMaxEnergy();
-    this.save.armor[slot] = { tier };
-    const newMax = maxEnergyFromArmor(this.save.armor);
-    const bump = Math.max(0, newMax - oldMax);
-    this.save.maxEnergy = newMax;
-    this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+    Gear.equip(this.save, kind, slot, tier);
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
@@ -4828,58 +4819,11 @@ class MapScene extends Phaser.Scene {
   // Tier is biased low so most offers are wood/copper; rare materials are rare.
   // `rng` defaults to Math.random — pass a seeded one for stable per-bucket offers.
   buildRelicOffer(rng = Math.random, opts = {}) {
-    // Armor pieces (helmet / chest / legs / boots) are conceptually part
-    // of the relic family — the player thinks of every wearable upgrade
-    // as "a relic." They're split across save.relics and save.armor only
-    // because armor has the separate max-energy bonus to compute.
-    //
-    // For offer balance we want the 4 armor SLOTS to get equal airtime
-    // with the 12 non-armor RELIC SLOTS — without this normalisation the
-    // candidate pool is 84 relic-candidates vs 28 armor-candidates and
-    // armor surfaces only ~22-25% of the time. Players reported castle
-    // visits "never" showing armor; this normalisation puts the two
-    // pools at ~50% each by total weight. Inside each pool we still
-    // bias toward low tiers (weight ∝ 1 / 2^(tier-1)) so early game
-    // sees mostly wood/copper offers.
-    const candidates = [];
-    const consider = (kind, slot, currentTier) => {
-      for (const t of MATERIAL_TIERS) {
-        if (t.tier <= currentTier) continue;
-        candidates.push({ kind, slot, tier: t.tier });
-      }
-    };
-    for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
-    for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
-    if (!candidates.length) return null;
-    const tierW = (t) => 1 / Math.pow(2, t - 1);
-    const relicSum = candidates.filter(c => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);
-    const armorSum = candidates.filter(c => c.kind === 'armor').reduce((a, c) => a + tierW(c.tier), 0);
-    const relicNorm = relicSum > 0 ? 1 / relicSum : 0;
-    const armorNorm = armorSum > 0 ? 1 / armorSum : 0;
-    const weighted = candidates.map(c => ({
-      c,
-      w: (c.kind === 'relic' ? relicNorm : armorNorm) * tierW(c.tier),
-    }));
-    const total = weighted.reduce((a, b) => a + b.w, 0);
-    let r = rng() * total;
-    let pick = weighted[weighted.length - 1].c;
-    for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
-    // Pricing:
-    //   Default — random markup in 1.2..3.0× base (regular shops, smithy).
-    //   Castle  — flat 4.0× base "exorbitant" markup, discounted by the
-    //             player's Bow tier (bestWeaponTier is bow-only now that the
-    //             Staff is a pure combat weapon). f = 1 - t/7 → at Bow T7 the
-    //             markup collapses to 1.0× (par); at T0 it's the full 4.0×.
-    const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
-    let mul;
-    if (opts.isCastle) {
-      const f = 1 - ((typeof bestWeaponTier === 'function') ? bestWeaponTier(this.save.relics) : 0) / 7;
-      mul = 1 + 3 * f;                // T0 → 4.0×, T7 → 1.0×
-    } else {
-      mul = 1.2 + rng() * 1.8;        // existing random range
-    }
-    const price = Math.max(1, Math.ceil(baseP * mul));
-    return { ...pick, price };
+    // Relic/armor offer roll lives in gear.js (Gear.buildRelicOffer) — armor +
+    // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
+    // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
+    // threads the seeded shopRng) calls it the same way.
+    return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
   // Build the "Re-roll" secondary button shared by the relic and blacksmith
@@ -4970,50 +4914,18 @@ class MapScene extends Phaser.Scene {
   //     plus 1 of the tier-matched bar.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
+  // Forge + smelt recipes live in gear.js (Gear.*). Kept as scene methods
+  // because the present* shop modals call them as this.blacksmithRecipe(…) etc.
   blacksmithRecipe(kind, slot, tier) {
-    if (!tier) return null;
-    const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
-    // T1 wooden tools use plain wood (no bar). T2+ use the matching metal
-    // bar. Jewelry starts at T2 — no wooden jewelry recipe at T1.
-    const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-    const bar = BAR_BY_TIER[tier];
-    if (!bar) return null;
-    if (JEWELRY_GEM[slot]) {
-      // No wooden jewelry — T1 jewelry isn't craftable at the smithy.
-      if (tier < 2) return null;
-      // Geometric gem ramp: 1, 2, 4, 8, 16, 32 from T2..T7.
-      const gemQty = Math.pow(2, tier - 2);
-      return [
-        { id: JEWELRY_GEM[slot], qty: gemQty },
-        { id: bar, qty: 1 },
-      ];
-    }
-    return [{ id: bar, qty: Math.max(5, tier) }];
+    return Gear.blacksmithRecipe(kind, slot, tier);
   }
 
-  // Bar smelting recipes — only T5+ bars can be smelted; T2-T4 are mined.
-  // Returns null for non-smeltable bars. UI flow for smelting is a separate
-  // pass (smith offer presents smelting if player has the ingredients).
   smeltingRecipe(barId) {
-    const RECIPES = {
-      platinum_bar: [{ id: 'sunflower',    qty: 1 }, { id: 'gold_bar',     qty: 1 }],
-      crimson_bar:  [{ id: 'fireflower',   qty: 1 }, { id: 'platinum_bar', qty: 1 }],
-      frost_bar:    [{ id: 'iceflower',    qty: 1 }, { id: 'crimson_bar',  qty: 1 }],
-    };
-    return RECIPES[barId] || null;
+    return Gear.smeltingRecipe(barId);
   }
 
-  // Which smeltable bars the blacksmith will smelt, gated by SHRINE LEVEL.
-  // Each top-tier bar unlocks at the same shrine level its produce→bar
-  // transform does (platinum L4, crimson L5, frost L6) — so leveling the
-  // shrine teaches the recipe AND lights it up at the forge's Smelt tab.
-  // Returns an ordered list of bar ids the player may currently smelt (empty
-  // until shrine L4, which is when the Smelt tab first appears).
-  SMELT_UNLOCK_LEVEL = { platinum_bar: 4, crimson_bar: 5, frost_bar: 6 };
   smeltUnlockedBars() {
-    const lvl = this.save.shrineLevel ?? 1;
-    return ['platinum_bar', 'crimson_bar', 'frost_bar']
-      .filter(id => lvl >= this.SMELT_UNLOCK_LEVEL[id]);
+    return Gear.smeltUnlockedBars(this.save);
   }
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a

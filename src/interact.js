@@ -162,22 +162,9 @@ const GRASSLAND_TILL = new Set([
 // and calls scene.markRelicsDirty. Caller is responsible for persistence
 // (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
 function equipGearReward(reward, save, scene) {
-  if (reward.kind === 'armor') {
-    save.armor = save.armor || {};
-    if (typeof maxEnergyFromArmor === 'function' && typeof scene.getMaxEnergy === 'function') {
-      const oldMax = scene.getMaxEnergy();           // capture BEFORE mutating armor
-      save.armor[reward.slot] = { tier: reward.tier };
-      const newMax = maxEnergyFromArmor(save.armor);
-      const bump = Math.max(0, newMax - oldMax);
-      save.maxEnergy = newMax;
-      save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
-    } else {
-      save.armor[reward.slot] = { tier: reward.tier };
-    }
-  } else {
-    save.relics = save.relics || {};
-    save.relics[reward.slot] = { tier: reward.tier };
-  }
+  // Equip math (incl. the armor max-energy bump) is shared with app.js'
+  // _equipGear via Gear.equip (gear.js); this only adds the dirty flag.
+  Gear.equip(save, reward.kind, reward.slot, reward.tier);
   scene.markRelicsDirty?.();
 }
 
