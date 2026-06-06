@@ -4748,7 +4748,8 @@ class MapScene extends Phaser.Scene {
         const gain = setPrice * sets;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
-        // Gates the shrine's reach upgrades (5/10/15/20/25/30 → +0.5 cell each).
+        // Gates the castle vault and ramps the delivery produce tier (see
+        // delivery.js / shopGateInfo).
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         // Mark this household satisfied for the rest of the UTC day — it stops
         // asking (shows "happy" instead of a wishlist) and wants a fresh bundle
@@ -5090,10 +5091,9 @@ class MapScene extends Phaser.Scene {
 
   // ─── Wizard tower: Inner Light (Discovery → reach) ───────────────
   // The wizard tower spends the player's Discovery badges on an "Inner
-  // Light": each one is a +0.5-cell reach (range) upgrade, sharing the same
-  // reachUpgrades ladder the Magic Shrine feeds (capped at 5 cells / 6
-  // upgrades). This is an alternate, exploration-gated path to wider reach —
-  // each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery badges.
+  // Light": each one is a +0.5-cell reach (range) upgrade on the reachUpgrades
+  // ladder (capped at 5 cells / 6 upgrades). The tower is the SOLE source of
+  // reach upgrades — each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery.
   //
   // The Inner Light and the RING relic are one and the same: kindling a light
   // also forges a Ring whose tier tracks the inner-light level (reachUpgrades).
@@ -5154,31 +5154,12 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // ─── Shrine reach upgrades ───────────────────────────────────────
-  // Six claimable +0.5-cell reach steps (2 cells → 5) interleaved with the
-  // main shrine levels. The Nth upgrade (1-indexed) requires:
-  //   • cumulative deliveries ≥ 5 × N  (5, 10, 15, 20, 25, 30), AND
-  //   • the shrine to have reached the level below it — every 2nd level, so
-  //     upgrade N gates on shrineLevel ≥ N (L1 opens the 1st, L2 the 2nd, …).
-  // Returns the status of the NEXT unclaimed reach upgrade, or null when all
-  // six are claimed.
+  // ─── Reach / Inner Light cap ─────────────────────────────────────
+  // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
+  // EXCLUSIVELY at the wizard tower's Inner Light (presentInnerLightOffer),
+  // which also forges the matching Ring tier — the shrine no longer grants
+  // reach.
   REACH_UPGRADE_MAX = 6;
-  nextReachUpgrade() {
-    const claimed = this.save.reachUpgrades ?? 0;
-    if (claimed >= this.REACH_UPGRADE_MAX) return null;
-    const n = claimed + 1;                       // 1-indexed upgrade we'd claim
-    const needDeliveries = 5 * n;
-    const haveDeliveries = this.save.deliveryCount ?? 0;
-    const needLevel = n;                          // shrineLevel gate
-    const haveLevel = this.save.shrineLevel ?? 1;
-    return {
-      n,
-      needDeliveries, haveDeliveries,
-      needLevel, haveLevel,
-      reachAfter: 2 + 0.5 * n,
-      canClaim: haveDeliveries >= needDeliveries && haveLevel >= needLevel,
-    };
-  }
 
   // Shrine tap handler. Presents a single-modal offer: either the next
   // level-up bundle (if the player has every ingredient) OR a transform
@@ -5231,43 +5212,9 @@ class MapScene extends Phaser.Scene {
       return;
     }
 
-    // No matching produce selected — present the next level-up bundle.
-    // The shrine also grants REACH upgrades (2 cells → 5, +0.5 each) claimed
-    // here as a secondary button: a reach upgrade unlocks once you've made
-    // enough deliveries AND the shrine has hit the matching level. The claim
-    // is offered as the `secondary` action so it sits alongside the level-up.
-    const reach = this.nextReachUpgrade();
-    const claimReach = () => {
-      const r = this.nextReachUpgrade();
-      if (!r || !r.canClaim) { this.flash('Reach not ready.', sx, sy); return; }
-      this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
-      // The reach ladder and the inner-light Ring are one — keep the ring tier
-      // in step here too, so the ring always mirrors the current reach level
-      // regardless of which path (shrine or wizard tower) widened it.
-      this.syncInnerLightRing();
-      persistSave(this.save);
-      if (this.buildInventoryDOM) this.buildInventoryDOM();
-      // The reach silhouette is redrawn every frame from reachRadiusM, so the
-      // wider reach shows on the next frame with no explicit invalidation.
-      this.showChestRewardModal({
-        header: '✨ Reach extended ✨',
-        iconHTML: '',
-        name: `Reach ${r.reachAfter} cells`,
-        sub: `The shrine's blessing widens your grasp — your Ring brightens with it.`,
-        color: '#a7e9ff',
-      });
-    };
-    // Human-readable status of the next reach upgrade, shown in every blurb.
-    const reachStatus = reach
-      ? (reach.canClaim
-          ? `🟢 Reach upgrade ready → ${reach.reachAfter} cells (tap “Extend reach”)`
-          : `Reach ${reach.reachAfter} cells: ${Math.min(reach.haveDeliveries, reach.needDeliveries)}/${reach.needDeliveries} deliveries`
-            + (reach.haveLevel < reach.needLevel ? ` · needs shrine L${reach.needLevel}` : ''))
-      : `Reach maxed at 5 cells.`;
-    const reachSecondary = (reach && reach.canClaim)
-      ? { label: 'Extend reach', onClick: claimReach }
-      : undefined;
-
+    // No matching produce selected — present the next level-up bundle. (Reach
+    // upgrades are no longer claimed here; the wizard tower's Inner Light is the
+    // sole source — see presentInnerLightOffer.)
     const bundle = this.shrineLevelUpCost(lvl);
     if (!bundle) {
       // Maxed out at top level — list the transforms (+ reach status / claim).
@@ -5279,11 +5226,10 @@ class MapScene extends Phaser.Scene {
         title: `Magic Crafting Shrine (Level ${lvl})`,
         cancelLabel: 'Later',
         get: `the shrine hums at full power`,
-        blurb: `${reachStatus}<br>Hold a matching produce + tap to transform:<br>${lines}`,
+        blurb: `Hold a matching produce + tap to transform:<br>${lines}`,
         cost: '',
         canAfford: false,
         acceptLabel: 'Close',
-        secondary: reachSecondary,
         onAccept: () => {},
       });
       return;
@@ -5310,11 +5256,10 @@ class MapScene extends Phaser.Scene {
       title: `Magic Crafting Shrine (Level ${lvl})`,
       cancelLabel: 'Later',
       get: `Advance to Level ${lvl + 1}`,
-      blurb: `${reachStatus}<br>${transformsBlurb}`,
+      blurb: transformsBlurb,
       cost: costHTML,
       canAfford,
       acceptLabel: 'Offer',
-      secondary: reachSecondary,
       onAccept: () => {
         if (!bundle.every(r => heldCount(r.id) >= r.qty)) {
           const missing = bundle.find(r => heldCount(r.id) < r.qty);

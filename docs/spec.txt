@@ -92,11 +92,10 @@ MOVEMENT & REACH
    0 energy there is no reach. DEPTH also shifts the light: +0.5 cell on the
    surface, −0.5 cell for each level below the ground (floored at 1 cell), so
    the bubble tightens the deeper you descend — and the out-of-range mask darkens
-   per level too. Reach grows to 5 via SIX shared +0.5-cell upgrades on one
-   ladder (save.reachUpgrades, capped at 6 / 5 cells), claimable at EITHER the
-   Magic Shrine (gated by deliveries — see CRAFTING) or the Wizard Tower (bought
-   with Discovery — see ECONOMY). Mix the two freely. Each upgrade also bumps the
-   RING relic, whose tier mirrors the inner-light level (see ECONOMY / GEAR).
+   per level too. Reach grows to 5 via SIX +0.5-cell upgrades on one ladder
+   (save.reachUpgrades, capped at 6 / 5 cells), claimed EXCLUSIVELY at the Wizard
+   Tower's Inner Light (bought with Discovery — see ECONOMY). Each upgrade also
+   forges the RING relic, whose tier mirrors the inner-light level (ECONOMY/GEAR).
  - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
    defeat a pest / catch an animal) shows a circular progress wheel at the spot.
    The matching tool relic's TIER sets the duration — it only SPEEDS the work,
@@ -492,7 +491,7 @@ ECONOMY (buying & selling)
    berries, a veteran courier for coconuts and goldenfish. The first 3 delivery
    houses are pinned to tier 1 and the 4th wants foraged flowers, to ease the
    start. Each completed set bumps save.deliveryCount — the same lifetime tally
-   that unseals castles (5) and gates the shrine's reach upgrades (5×N).
+   that unseals castles (5) and ramps the delivery produce tier.
 
 ================================================================================
 GEAR: RELICS & ARMOR
@@ -557,10 +556,8 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
      * each level unlocks one 1-produce→1-bar transform: L2 rainberry→iron,
        L3 coffee→gold, L4 sunflower→platinum, L5 fireflower→crimson,
        L6 iceflower→frost (endgame). The shrine sprite upgrades each level.
-     * REACH UPGRADES (shared ladder — see MOVEMENT & REACH): interleaved with
-       the levels. The Nth step needs cumulative DELIVERIES ≥ 5×N
-       (5/10/15/20/25/30) AND shrine level ≥ N, claimed via the modal's "Extend
-       reach" button. (Deliveries are tallied per completed plain-house set.)
+       (The shrine no longer grants reach upgrades — those are now claimed
+       exclusively at the Wizard Tower's Inner Light; see MOVEMENT & REACH.)
 
 ================================================================================
 CONSUMABLES
