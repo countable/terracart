@@ -26,9 +26,9 @@
     return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
   }
 
-  // Reach shrinks by a cell below 30% energy (coords.js reachRadiusM). Uses
-  // save.maxEnergy (the same reading the original _warnIfTiring used), not the
-  // armor-derived max.
+  // Reach shrinks by a cell below 30% energy (coords.js reachRadiusM). Reads
+  // save.maxEnergy; callers that need the live cap should refresh it via
+  // maxEnergy(save) first (crossedTired does).
   function tiredThreshold(save) {
     return 0.30 * (save.maxEnergy ?? 100);
   }
@@ -37,6 +37,10 @@
   // False while a Potion of Reach pins reach to the full view (nothing shrinks).
   function crossedTired(save, before, now = Date.now()) {
     if ((save.reachPotionUntil ?? 0) > now) return false;
+    // Refresh save.maxEnergy from equipped armor first so the tired line is
+    // computed against the current cap, not a value left stale by an armor
+    // change since the last maxEnergy() call.
+    maxEnergy(save);
     const tired = tiredThreshold(save);
     return before >= tired && (save.energy ?? 0) < tired;
   }

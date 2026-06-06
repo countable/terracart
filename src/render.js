@@ -450,49 +450,6 @@ Render.drawCells = function drawCells(scene) {
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
   const isB = (t) => t === 9 || t === 11 || t === 12;
-  // Per-house south-face tint: each themed house biases the brick base
-  // beneath it toward its own primary colour, subtly (the role tint is
-  // blended 30/70 with the default brown wall). Plain houses keep the
-  // default — that's the visual "neutral residential" baseline.
-  const _ROLE_PRIMARY = {
-    blacksmith: 0xc25a3a,  // red-brown forge wall
-    trader:     0x6a8aa6,  // steel-blue awning
-    market:     0xa84a3a,  // red brick roof
-    wizard:     0x7a5aa6,  // arcane purple stone
-    fort:       0xa84838,  // red brick stone
-    trailer:    0xa8b0c0,  // pale blue trailer
-  };
-  const _mixHex = (a, b, t) => {
-    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-    const mr = Math.round(ar + (br - ar) * t);
-    const mg = Math.round(ag + (bg - ag) * t);
-    const mb = Math.round(ab + (bb - ab) * t);
-    return (mr << 16) | (mg << 8) | mb;
-  };
-  const _houseRoleCells = new Map();   // cellKey → role string
-  const _restoredForCell = scene.save.restoredHouses || {};
-  const _houseRoleForCell = (o) => {
-    // Wrecks (tier-9 houses not yet restored, excluding the trailer) skip
-    // the role tint so their brick base reads as the neutral default —
-    // restoration is what colours the foundation.
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (o.tier === 11) return 'fort';
-    if (!_restoredForCell[o.id] && o.tier === 9) return null;
-    // Frozen restore-order role (blacksmith/trader/market/wizard) or null/plain.
-    return (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-  };
-  for (const [, entry] of (WorldGen.tileCache || new Map())) {
-    if (!entry || !entry.objects) continue;
-    for (const ho of entry.objects) {
-      if (ho.kind !== 'house') continue;
-      const role = _houseRoleForCell(ho);
-      if (!role || !_ROLE_PRIMARY[role]) continue;
-      const ix = Math.round((ho.x - scene.startWorldM.x) / scene.cellM - 0.5);
-      const iy = Math.round((ho.y - scene.startWorldM.y) / scene.cellM - 0.5);
-      _houseRoleCells.set(cellKeyFromAbsCell(ix, iy), role);
-    }
-  }
   // Pseudo-3D extrusion: building footprints are the "top surface", and the
   // south-facing edge of each building cell gets a 5px-tall darker wall projected
   // downward, painted on top of the row below. Other edges get a thin black tint
@@ -588,16 +545,10 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) capV(sx + CELL_PX - 4, sy, +1);
         continue;
       }
-      // South wall: tier-specific extrusion, darker shade of the building
-      // tier — biased toward the themed-house primary if this cell hosts
-      // one (look up by absolute cell key; falls back to the neutral
-      // tier colour for plain residential).
+      // South wall: tier-specific extrusion, a darker shade of the building
+      // tier colour projected one cell downward.
       if (!isB(T(col, row + 1))) {
-        const _absIX = baseCellIX + (col - half);
-        const _absIY = baseCellIY + (row - half);
-        const role = _houseRoleCells.get(cellKeyFromAbsCell(_absIX, _absIY));
-        const baseHex = SOUTH_FACE_COLOR[type] || 0x444444;
-        const hex = role ? _mixHex(baseHex, _ROLE_PRIMARY[role], 0.3) : baseHex;
+        const hex = SOUTH_FACE_COLOR[type] || 0x444444;
         g.fillStyle(hex, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
@@ -783,7 +734,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the random hangs the user reported). 9 tiles strictly cover the 11-cell
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
-  const caughtSet = new Set(scene.save.caught);
+  const caughtSet = new Set(scene.save.caught || []);
   const pc = scene.playerToWorldCell();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {

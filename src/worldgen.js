@@ -1304,10 +1304,6 @@
             || tc === T.PATH     || tc === T.WATER    || tc === T.PIER
             || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       };
-      const _mrIsRoad = (ix, iy) => {
-        const tc = grid[iy * w + ix];
-        return tc === T.ROAD || tc === T.ROAD_LG || tc === T.ROAD_MD || tc === T.PATH;
-      };
       // The grid is indexed in the TILE's cell basis — cell width =
       // tileEdgeM / cellsPerEdge, NOT the global CELL_M (5 m). Round-up
       // from cellsPerEdge × CELL_M to tileEdgeM produces ~0.03 m of
@@ -1316,17 +1312,6 @@
       // column off from where it actually sits on the painted grid.
       // Use the same basis the grid was painted with.
       const _mrCellW = tileEdgeM / w;
-      // Reusable Chebyshev "is a road within R cells?" probe.
-      const _mrNearRoadWithin = (ix, iy, R) => {
-        for (let dy = -R; dy <= R; dy++) {
-          for (let dx = -R; dx <= R; dx++) {
-            const nx = ix + dx, ny = iy + dy;
-            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-            if (_mrIsRoad(nx, ny)) return true;
-          }
-        }
-        return false;
-      };
       // Houses are placed inside building footprints — always road-adjacent
       // by virtue of OSM data and never something the player wades into a
       // back yard for. Keep them exempt from the residential proximity
@@ -1352,15 +1337,15 @@
         const here = grid[iy * w + ix];
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
-          // Any rock whose FINAL cell turned out to be residential must be
-          // kerb-tight (Chebyshev ≤ 1 from a road) — terrain-based, NOT
-          // tied to which polygon spawned the rock. A wilderness ROCK or
-          // INDUSTRIAL cluster can drop a rock that ends up on a
-          // residential cell after the grid is fully painted, and the
-          // player will see "rock in residential, far from road" all the
-          // same. The _residential flag is preserved for telemetry but
-          // no longer drives the check.
-          if (here === T.RESIDENTIAL && !_mrNearRoadWithin(ix, iy, 1)) {
+          // A rock whose FINAL cell turned out to be residential must pass the
+          // same shared spawn rule as every other object (isSpawnCell: near a
+          // road/path, a detectable public area, or a POI) — otherwise it'd
+          // bait the player into someone's back yard. Terrain-based, NOT tied
+          // to which polygon spawned the rock: a wilderness ROCK or INDUSTRIAL
+          // cluster can drop a rock that ends up on a residential cell after
+          // the grid is fully painted. The _residential flag is preserved for
+          // telemetry but no longer drives the check.
+          if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) {
             objects.splice(i, 1); continue;
           }
           delete o._residential;
@@ -1888,7 +1873,7 @@
           for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
           return null;
         };
-        const allTrees = [...bin.trees, ...(bin.fruittrees || [])]
+        const allTrees = [...(bin.trees || []), ...(bin.fruittrees || [])]
           .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
         for (const t of allTrees) {
           const r = placeTree(t.x, t.y);
@@ -1897,7 +1882,7 @@
           t.x = r.x; t.y = r.y;
           entry.objects.push(t);
         }
-        for (const s of bin.shrubs) {
+        for (const s of (bin.shrubs || [])) {
           if (onWater(s.x, s.y)) continue;
           if (!_sxYardOK(s.x, s.y)) continue;
           const k = cellKeyOf(s.x, s.y);
@@ -2129,7 +2114,7 @@
             // Peaches are 5× rarer than apples (apple:peach = 5:1). The satellite
             // colour classifier over-reported peaches, so assign species from a
             // stable per-cell hash (1 in 6 → peach) instead of trusting it.
-            const ftHash = ((Math.round(cx) * 73856093) ^ (Math.round(cy) * 19349663)) >>> 0;
+            const ftHash = ((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0;
             binFor(p.tx, p.ty).fruittrees.push({
               kind: 'fruittree', x: cx, y: cy,
               species: ftHash % 6 === 0 ? 'peach' : 'apple',

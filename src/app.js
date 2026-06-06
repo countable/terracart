@@ -506,11 +506,15 @@ class MapScene extends Phaser.Scene {
     // so moving the origin of a save that already placed objects would drift
     // them. Such saves keep their origin; Reset adopts a new home. No
     // geolocation / a teleport override / sandbox → no capture (HOME fallback).
+    // Sandbox detection reads the URL directly here: this._sandboxMode isn't
+    // set until Sandbox.install() runs much later in create(), so we'd see
+    // undefined and fail to exclude sandbox sessions from home capture.
+    const _sandbox = (typeof Sandbox !== 'undefined' && Sandbox.detect());
     this._homeCapturePending =
       !_teleportOverride &&
       !_saveHome &&
       !this.save.starterShopId &&
-      !this._sandboxMode &&
+      !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
     // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
     // 20 s so the start flow falls back to the default origin rather than hang.

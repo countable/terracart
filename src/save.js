@@ -112,7 +112,13 @@ function deleteSave(id) {
   try { localStorage.removeItem(removed.key); } catch {}
   if (reg.slots.length === 0) {
     const nid = _newSaveId();
-    reg.slots.push({ id: nid, name: 'Game 1', key: SAVE_VERSION_KEY, createdAt: Date.now(), lastPlayedAt: Date.now() });
+    // Start genuinely clean: use a fresh per-slot key (like createSave) and
+    // clear any stale data at it, rather than reusing the bare legacy
+    // SAVE_VERSION_KEY — which could silently resurrect leftover/legacy
+    // progress sitting at that key.
+    const nkey = SAVE_VERSION_KEY + '.' + nid;
+    try { localStorage.removeItem(nkey); } catch {}
+    reg.slots.push({ id: nid, name: 'Game 1', key: nkey, createdAt: Date.now(), lastPlayedAt: Date.now() });
     reg.active = nid;
   } else if (reg.active === id) {
     const next = reg.slots.slice().sort((a, b) => (b.lastPlayedAt || 0) - (a.lastPlayedAt || 0))[0];

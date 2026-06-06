@@ -25,12 +25,15 @@ const SHELL_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Activate this worker immediately rather than waiting for open tabs to
+  // close — unconditional so a failure opening the cache below can't strand
+  // the new worker in "waiting".
+  self.skipWaiting();
   // Pre-cache the app shell on install. Failures here don't block install —
   // any missing asset will be fetched normally and cached lazily on first use.
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_VERSION);
     await Promise.allSettled(SHELL_ASSETS.map(u => cache.add(u)));
-    self.skipWaiting();
   })());
 });
 
