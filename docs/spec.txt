@@ -85,12 +85,18 @@ MOVEMENT & REACH
    white silhouette outlines the reachable cells; out-of-reach cells are dimmed.
    The silhouette, the cell-tap gate, AND the object/creature/treasure far-gate
    all read the same radius (coords.js reachRadiusM / cellInReach) so "if it's
-   lit, you can tap it" — and growing your reach extends every kind of tap.
+   lit, you can tap it" — and growing your reach extends every kind of tap. The
+   lit reach bubble IS the player's light: one radius does both jobs.
  - REACH SIZE: starts at 2 cells. Below 30% energy it drops one whole cell
-   (floored at 1); at 0 energy there is no reach. It grows to 5 via SIX shared
-   +0.5-cell upgrades on one ladder (save.reachUpgrades, capped at 6 / 5 cells),
-   claimable at EITHER the Magic Shrine (gated by deliveries — see CRAFTING) or
-   the Wizard Tower (bought with Discovery — see ECONOMY). Mix the two freely.
+   (floored at 1) AND the lit range tints pink to signal the fading light; at
+   0 energy there is no reach. DEPTH also shifts the light: +0.5 cell on the
+   surface, −0.5 cell for each level below the ground (floored at 1 cell), so
+   the bubble tightens the deeper you descend — and the out-of-range mask darkens
+   per level too. Reach grows to 5 via SIX shared +0.5-cell upgrades on one
+   ladder (save.reachUpgrades, capped at 6 / 5 cells), claimable at EITHER the
+   Magic Shrine (gated by deliveries — see CRAFTING) or the Wizard Tower (bought
+   with Discovery — see ECONOMY). Mix the two freely. Each upgrade also bumps the
+   RING relic, whose tier mirrors the inner-light level (see ECONOMY / GEAR).
  - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
    defeat a pest / catch an animal) shows a circular progress wheel at the spot.
    The matching tool relic's TIER sets the duration — it only SPEEDS the work,
@@ -459,6 +465,10 @@ ECONOMY (buying & selling)
  - WIZARD TOWER (the 15th restored wreck): buys "Inner Light" reach upgrades on
    the shared ladder (see MOVEMENT & REACH) for DISCOVERY points (see SHINY
    VARIANTS) — WIZARD_INNER_LIGHT_COST (5) Discovery each, no delivery gate.
+   Each Inner Light also forges the player's RING relic, whose tier tracks the
+   inner-light level (= reachUpgrades). The ring is the wizard tower's exclusive
+   gift: it is NEVER sold or forged anywhere else (excluded from buildRelicOffer),
+   so widening your sight is the only way to a Ring.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
@@ -502,7 +512,8 @@ GEAR: RELICS & ARMOR
      bugnet — speeds the animal-catch wheel by tier (no longer required for any
               animal; butterflies catch bare-handed too)
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
-     ring   — +5%/tier chance to bump chest loot up a tier
+     ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
+              wizard tower's Inner Light, tier = inner-light/reach level
      amulet — projects a GHOST (see below); higher tier = faster + cheaper
      sword  — raises sell prices (0.5× → 1.0× at Frost)
      bow    — lowers buy prices (T7 = par)
@@ -528,8 +539,9 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
    three are owned it becomes a normal relic forge.
  - BLACKSMITH FORGE (any address-9 house, forts, castles): forge gear from
    materials. Tools / weapons / armor cost max(5, tier) of the tier-matched bar
-   (T1 = wood). JEWELRY (ring/staff/amulet) costs 2^(tier-2) gems + 1 bar
-   (ring→ruby, staff→emerald, amulet→sapphire); no T1 jewelry.
+   (T1 = wood). JEWELRY (staff/amulet) costs 2^(tier-2) gems + 1 bar
+   (staff→emerald, amulet→sapphire); no T1 jewelry. (The RING is NOT forged —
+   it comes only from the wizard tower's Inner Light; see ECONOMY.)
  - SMELTING (blacksmith, second tab): the top bars are smelted from flowers +
    the lower bar — platinum = sunflower + gold, crimson = fireflower + platinum,
    frost = iceflower + crimson. Copper/iron/gold bars come from mining. The
