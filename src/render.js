@@ -1061,7 +1061,7 @@ Render.drawObjects = function drawObjects(scene) {
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
               scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : 2.0),
               dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
-              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : 0) },
+              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 4 : 0)) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -1677,12 +1677,15 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    // Crate-style chests (the `box` sprite — starter supply crates and tier-1
+    // chests) carry no tier gem.
+    if (_chestIsBox(o)) continue;
     const tier = chestTier(o.poiClass);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx - 1);
     const cy = Math.round(sy - 18);
-    const r = 6;     // 20% smaller (was 8)
+    const r = 4.2;   // 30% smaller (was 6)
     // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
     g.fillStyle(0x000000, 0.55);
     g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
