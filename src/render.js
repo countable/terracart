@@ -166,7 +166,7 @@ Render.drawCells = function drawCells(scene) {
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-  const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14]);   // water, residential, all roads, path, all buildings, rock
+  const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
@@ -636,8 +636,9 @@ Render.drawCells = function drawCells(scene) {
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
-  // top of the dim band, not under it.
-  g.fillStyle(0x000000, 0.22);
+  // top of the dim band, not under it. Underground the dim is much stronger —
+  // the lit reach area reads as a torch bubble in the surrounding dark rock.
+  g.fillStyle(0x000000, scene.depth > 0 ? 0.62 : 0.22);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -991,6 +992,10 @@ Render.drawObjects = function drawObjects(scene) {
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
     // small at, while still fitting inside its single cell (QC rule).
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455 },
+    // Cave staircase — baked 32×32 (one cell), centred. 'down' on the surface &
+    // each cave level leads deeper; 'up' returns. Texture picked by direction.
+    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
     // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
