@@ -217,6 +217,14 @@
       if (c === 'farmland' || c === 'farmyard') return T.FARMLAND;
       if (c === 'pitch') return T.PITCH;
       if (c === 'playground') return T.PLAYGROUND;
+      // Recreation / sports grounds (leisure=sports_centre, stadium,
+      // recreation_ground, track, …). Without these they fell through to the
+      // RESIDENTIAL default below, so a rec centre's grounds read as a plain
+      // brown housing block. Paint them as a sports field; the indoor facility
+      // building itself is synthesized from the matching POI (see CIVIC_BUILDING).
+      if (c === 'stadium' || c === 'sports_centre' || c === 'sports' ||
+          c === 'recreation_ground' || c === 'track') return T.PITCH;
+      if (c === 'dog_park') return T.PARK;
       if (c === 'cemetery' || c === 'park' || c === 'garden') return T.PARK;
       return T.RESIDENTIAL;
     }
@@ -1010,6 +1018,14 @@
           // landcover here. We paint over residential/grass/etc but NEVER over roads,
           // water, or buildings — those keep their cells.
           const PARK_FAMILY = new Set(['park','garden','playground','pitch']);
+          // Big indoor civic facilities — rec centres, arenas, ice rinks. OSM
+          // often maps these as a leisure AREA with no building=* footprint, so
+          // the vector data carries only the POI point and nothing reads as a
+          // building. Synthesize a civic BUILDING_LARGE block at the POI so the
+          // facility actually shows as a structure (the same slate slab schools
+          // and malls render as). Excludes outdoor pools (swimming/swimming_pool
+          // become water elsewhere).
+          const CIVIC_BUILDING = new Set(['sports_centre','ice_rink','stadium']);
           for (const ring of f.geom) {
             const p = ring[0];
             const m = toMeters(p.x, p.y);
@@ -1144,6 +1160,24 @@
                 lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
               }
             } else {
+              // Civic facility with no building footprint in the data: stamp a
+              // BUILDING_LARGE block (~9×7 cells ≈ 45×35 m) centred on the POI so
+              // it reads as a real building. Painted BEFORE the road-edge offset
+              // so offsetForPlacement below pushes the chest off the new block to
+              // a reachable, road-facing cell — the facility's entrance. KEEP
+              // cells (roads / water / existing buildings) are never overwritten.
+              if (CIVIC_BUILDING.has(cls)) {
+                const halfW = 4, halfH = 3;
+                for (let ddy = -halfH; ddy <= halfH; ddy++) {
+                  for (let ddx = -halfW; ddx <= halfW; ddx++) {
+                    const bx = cellIX + ddx, by = cellIY + ddy;
+                    if (bx < 0 || by < 0 || bx >= w || by >= h) continue;
+                    const bidx = by * w + bx;
+                    if (KEEP.has(grid[bidx])) continue;
+                    grid[bidx] = T.BUILDING_LARGE;
+                  }
+                }
+              }
               // POI is on open ground — apply road-edge offset and synthesize a pad shape.
               const placement = offsetForPlacement(cellIX, cellIY);
               cellIX = placement.ix;
