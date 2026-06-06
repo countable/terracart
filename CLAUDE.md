@@ -42,18 +42,17 @@
 
 ## Commits
 
-- Commit and push freely as work completes; no need to ask first.
+- Commit freely as work completes; no need to ask before committing.
+- **Always ask before pushing.** When work is ready to go up, ask whether
+  to push rather than pushing automatically.
 - **Never rebase, always merge.** If integrating remote changes, use
   `git merge` (or `git pull --no-rebase`). Do not run `git rebase`,
   `git pull --rebase`, or `git pull` when `pull.rebase` is configured.
 
 ## Branching
 
-- **Always work directly on `main`.** Don't create feature branches, even
-  if the session was started on one. If you find yourself on a
-  non-`main` branch, switch to `main`, merge anything you've done so
-  far, and continue there. Push to `main` directly.
-- **After every task, merge to `main` and push.** Once a task is complete,
-  merge any work into `main` (`git merge`, never rebase) and `git push`
-  `main`. This applies to every task, not just large ones — don't leave
-  finished work sitting only on a non-`main` branch.
+- **Work on the feature branch designated for the session** (the branch
+  named in the session/task instructions). Create it locally if it
+  doesn't exist yet.
+- **Never push to a different branch without explicit permission.** In
+  particular, don't merge to or push `main` on your own — ask first.
