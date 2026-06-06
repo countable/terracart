@@ -387,6 +387,8 @@ const TAP_HANDLERS = [
     const CREATURE_TAP_R = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7, slime: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
+      // Underground monsters — slime-sized footprints (bat tighter).
+      cave_slime: 1.7, goblin: 1.8, goblin_archer: 1.7, bat: 1.4,
     };
     const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
     // Flyers/hoverers are RENDERED floated north of their ground cell (crow
@@ -395,7 +397,7 @@ const TAP_HANDLERS = [
     // 1.7 m crow disk centred on the ground point the sprite was unreachable and
     // the tap fell through to the cell underneath. Offset the tap-test by the
     // same float so a flyer is tested where it's drawn (north = −y).
-    const CREATURE_FLOAT_PX = { crow: 14, butterfly: 8 };
+    const CREATURE_FLOAT_PX = { crow: 14, butterfly: 8, bat: 8 };
     const creatureTapOffset = (c) => {
       const px = CREATURE_FLOAT_PX[c.kind] || 0;
       return px ? { dx: 0, dy: -(px / 14) * scene.feetOffsetM } : null;
@@ -417,7 +419,8 @@ const TAP_HANDLERS = [
     // (id starts with 'released_') skip this and fall through to petting.
     const _isReleased = typeof target.id === 'string' && target.id.startsWith('released_');
     const _mangoSel = getSelectedSlot(save);
-    if (!_isReleased && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+    // Underground monsters can't be befriended — they're DEFEAT-only foes.
+    if (!_isReleased && !isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => {
         consumeSelected(save);
         scene.buildInventoryDOM();
@@ -465,7 +468,8 @@ const TAP_HANDLERS = [
     }
 
     const DEFEAT_KINDS = new Set(['slime', 'crow', 'deer']);
-    if (DEFEAT_KINDS.has(target.kind)) {
+    const _isMon = isMonster(target.kind);
+    if (DEFEAT_KINDS.has(target.kind) || _isMon) {
       const r = save.relics || {};
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
@@ -478,7 +482,11 @@ const TAP_HANDLERS = [
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
       // kind (slimes never spawn shiny, so this only ever hits crow/deer here).
-      const hpMul = target.shiny ? 2 : 1;
+      // Underground monsters never go shiny; their HP (relative to the 15-HP
+      // slime baseline) scales the wheel instead, so a 25-HP goblin is a real
+      // slog and a 6-HP bat drops fast.
+      const hpMul = _isMon ? MONSTERS[target.kind].hp / 15
+                  : target.shiny ? 2 : 1;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -489,6 +497,8 @@ const TAP_HANDLERS = [
           scene.addToInv(dropId, 1);
           const item = ITEM_BY_ID[dropId];
           scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+        } else if (_isMon) {
+          scene.flash(`⚔️ ${MONSTERS[victim.kind].name} defeated`, scene.viewCenterX, scene.viewCenterY - 60);
         } else {
           scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
         }
