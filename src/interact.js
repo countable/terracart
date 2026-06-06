@@ -1029,39 +1029,16 @@ const TAP_HANDLERS = [
         scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
         return true;
       }
-      if (o.kind === 'tree') {
-        // Chopped flag is persisted into save.chopped so a tile re-rasterize
-        // (e.g. cache eviction after a long walk) doesn't regrow the stump.
-        // We skip chopped trees entirely so they don't block 'till' on their
-        // cell — let the next handler claim the tap instead of consuming it
-        // with a 'stump' flash that the player can't act on.
-        if (o.chopped || (save.chopped && save.chopped.includes(o.id))) continue;
-        // Bigger trees need a sturdier axe and pay out proportionally more
-        // wood: full-size → Iron axe (4× wood), medium → Copper (2×), small /
-        // bush → any axe (base). Softwood (pine) fells one tier easier,
-        // hardwood (maple) one tier harder (clamped to the axe range). Rare
-        // shiny trees demand a Gold axe whatever their size. An axe below the
-        // required tier just bounces with a hint.
-        const reqTier = treeAxeReqTier(o);
-        const axeTier = save.relics?.axe?.tier || 0;
-        if (axeTier < reqTier) {
-          const need = TIER_BY_NUM[reqTier]?.name || 'better';
-          scene.flash(`Need a ${need} axe to fell this ${treeSpeciesName(o)} tree.`, sx, sy);
-          return true;
-        }
-        const woodMul = treeWoodMul(o);
-        const chopCost = (typeof effectiveChopCost === 'function')
-          ? effectiveChopCost(save.relics, o) : 0;
-        return startToolWork(ctx, o.x, o.y, 'axe', chopCost, () => {
-          o.chopped = true;
-          save.chopped = save.chopped || [];
-          if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
-          scene.addToInv('wood', randInt(2, 3) * woodMul);
-          persistSave(save);
-          scene.flash(`🌲 Felled ${treeSpeciesName(o)} tree.`, sx, sy);
-          // Rare shiny tree — 10× wood value in cash + a discovery point.
-          if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
-        });
+      // Entity-driven interactables (tree / mineralrock / fruittree, …) — their
+      // gate / tool-timer / loot behaviour is declared in the INTERACTABLES
+      // registry (interactables.js) and dispatched through one shared driver
+      // instead of a per-kind if/else chain here. 'skip' = let the tap fall
+      // through to the next object (e.g. a chopped tree stump that mustn't
+      // block tilling its cell); otherwise the driver consumed the tap.
+      if (typeof INTERACTABLES !== 'undefined' && INTERACTABLES[o.kind]) {
+        const res = runInteractable(ctx, o);
+        if (res === 'skip') continue;
+        return res;
       }
       if (o.kind === 'house' || o.kind === 'tower') {
         scene.shopInteract(sx, sy, o);
@@ -1075,150 +1052,6 @@ const TAP_HANDLERS = [
           const lvl = save.shrineLevel || 1;
           scene.flash(`shrine L${lvl}`, sx, sy);
         }
-        return true;
-      }
-      if (o.kind === 'fruittree') {
-        const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
-        // A planted sapling can't be harvested until it has matured (reached
-        // its fruiting stage). ~12 min sprout→fruit (4 × 3-min stages).
-        if (o.planted) {
-          const FRUIT_STAGE_MS = 3 * 60 * 1000;
-          const elapsed = Date.now() - (o.planted_t || 0);
-          if (elapsed < 4 * FRUIT_STAGE_MS) {
-            const minsLeft = Math.max(1, Math.ceil((4 * FRUIT_STAGE_MS - elapsed) / 60000));
-            scene.flash(`Still growing — ${minsLeft}m`, sx, sy);
-            return true;
-          }
-        }
-        save.fruitPicked = save.fruitPicked || {};
-        const pickedAt = save.fruitPicked[o.id];
-        if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-          const msLeft = FRUIT_RESPAWN_MS - (Date.now() - pickedAt);
-          const hrsLeft = Math.ceil(msLeft / 3600000);
-          const left = hrsLeft > 1 ? `${hrsLeft}h` : `${Math.max(1, Math.ceil(msLeft / 60000))}m`;
-          scene.flash(`Picked — ripe again in ${left}`, sx, sy);
-          return true;
-        }
-        save.fruitPicked[o.id] = Date.now();
-        scene.addToInv(o.species, randInt(1, 2));
-        ctx.dirty = true;
-        const item = ITEM_BY_ID[o.species];
-        scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
-        // Rare shiny fruit tree — 10× fruit value in cash + a discovery point.
-        if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus(o.species, sx, sy);
-        return true;
-      }
-      if (o.kind === 'mineralrock') {
-        // brokenRockSet is normally keyed by cell-key (numeric "IX_IY") for
-        // natural rock cells. Mineral rock ids look like "mr_..." so collisions
-        // with cell-keys are essentially impossible — reuse the same set.
-        // (Spent rocks are filtered out of the render list, so we shouldn't
-        // hit this branch in practice; keep the guard for taps that race a
-        // render frame or hit a stale object reference.)
-        if (scene.brokenRockSet.has(o.id)) return true;
-        const isCave = o.caveVariant != null;
-        // "Plain rock" = a cave rock OR a T1 deposit. Both render as the vanilla
-        // rock sprite and drop rockfruit (stone), not a bar — ore proper starts
-        // at copper (T2). Plain rock is bare-hand-breakable and ungated.
-        const isPlain = isCave || (o.yieldTier || 1) <= 1;
-        const pickTier = save.relics?.pick?.tier || 0;
-        // Pick-tier gate on ORE rocks (T2+): copper-bearing rock needs a Wood
-        // pick, and every fancier ore needs a pick one tier below its own
-        // (requiredTier = max(1, yieldTier-1), set in worldgen). Pickaxe tier
-        // ALSO affects SPEED (toolDurationMs: 9s bare → 0.3s frost).
-        if (!isPlain) {
-          const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
-          if (pickTier < reqTier) {
-            const need = TIER_BY_NUM[reqTier]?.name || 'better';
-            scene.flash(`Need a ${need} pick to mine this ore.`, sx, sy);
-            return true;
-          }
-        }
-        // Energy is the shared tool-tier baseline (9 bare-handed → 3 Wood → 1
-        // Frost, probabilistic between via effectivePickCost) OR a +9-per-tier
-        // surcharge when the rock out-tiers your pick, whichever is greater.
-        // Plain rock counts as tier 1, so bare hands (tier 0) pay 9; a Frost
-        // pick on plain rock pays the 1 baseline.
-        const rockTier = o.yieldTier || 1;
-        const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
-        if (!scene.spendEnergy(cost, sx, sy)) return true;
-        const durMs = (typeof toolDurationMs === 'function')
-          ? toolDurationMs(save.relics, 'pick')
-          : (save.relics?.pick ? 3000 : 9000);
-        scene.startWorkProgress(o.x, o.y, () => {
-          scene.brokenRockSet.add(o.id);
-          save.brokenRocks = [...scene.brokenRockSet];
-          // Bar lookup is shared between the plain-rock lucky-strike and the
-          // ore-rock primary drop. Slot 0/1 are unused for the primary drop
-          // (ore starts at copper = T2); each tier T2+ yields its OWN namesake
-          // bar. Higher tiers still get bonus gems on top via the GEM table.
-          const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-          if (isPlain) {
-            // Plain rock (cave variant or T1) — primarily stone (1-3 rockfruit),
-            // coal on ~20 % of breaks, plus a small chance per tier of
-            // cracking open a sliver of ore. Ore rolls START at copper (t=2):
-            // BARS[1] and BARS[2] are both copper, so the old t=1 pass handed
-            // out copper 50 % of the time on top of t=2 — plain rock gave
-            // copper more than half the swings. Now per-tier P is 1/(2*t²) from
-            // copper: ~12.5 % copper, ~5.6 % iron, ~3.1 % gold … ~1 % frost.
-            // Independent rolls, so a lucky cave can still yield multiple bars.
-            const qty = randInt(1, 3);
-            scene.addToInv('rockfruit', qty);
-            if (Math.random() < 0.20) scene.addToInv('coal', 1);
-            let flashId = 'rockfruit';
-            for (let t = 2; t <= 7; t++) {
-              if (Math.random() < 1 / (2 * t * t)) {
-                const bar = BARS[t];
-                if (bar) { scene.addToInv(bar, 1); flashId = bar; }
-              }
-            }
-            persistSave(save);
-            const item = ITEM_BY_ID[flashId];
-            // Show the real loot icon (copper bar, rockfruit, gem) via flashLoot,
-            // exactly like every other pickup. The old text-only `flash` baked a
-            // literal 🪨 emoji into the string, so the splash rendered the rock
-            // glyph instead of the copper-bar icon the player actually mined.
-            scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
-            return;
-          }
-          // Ore-bearing rock — exactly ONE bar of the indicated type, plus
-          // a coal nugget and a tier-rolled gem on T4+. Bar count is no
-          // longer randomised (was 2-3) — every iron rock gives one iron,
-          // every gold rock gives one gold. Predictable yield per swing.
-          scene.addToInv('coal', randInt(1, 2));
-          const t = o.yieldTier || 1;
-          const primaryBar = BARS[t] || 'copper_bar';
-          scene.addToInv(primaryBar, 1);
-          // Side gems on T4+ rocks. Higher tier rocks have richer gem yields.
-          let flashId = primaryBar;
-          let gemsFound = 0;
-          const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['emerald', 'ruby'] };
-          const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
-          const gems = GEM_BY_TIER[t];
-          if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
-            const gemId = pickFromArray(gems);
-            scene.addToInv(gemId, 1);
-            flashId = gemId;
-            gemsFound++;
-          }
-          // T7 rocks have a bonus 25% chance for a second ruby on top.
-          if (t === 7 && Math.random() < 0.25) {
-            scene.addToInv('ruby', 1);
-            flashId = 'ruby';
-            gemsFound++;
-          }
-          persistSave(save);
-          // Finding a gem is a rare score — fire the jackpot fanfare (banner +
-          // radiating stars) on top of the usual loot flash, sized to the gem
-          // count so a T7 double-ruby reads even bigger.
-          if (gemsFound >= 1 && typeof scene.flashJackpot === 'function') {
-            scene.flashJackpot(gemsFound);
-          }
-          const item = ITEM_BY_ID[flashId];
-          // Real loot icon via flashLoot (was a text-only 💎 emoji flash that
-          // showed a gem glyph instead of the mined bar/gem icon).
-          scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
-        }, durMs, cost, 'pick');   // cost = refund if the player cancels mid-mine
         return true;
       }
     }
