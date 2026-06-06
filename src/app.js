@@ -32,8 +32,23 @@ try {
     if (o && Number.isFinite(o.lon) && Number.isFinite(o.lat)) _teleportOverride = o;
   }
 } catch { /* malformed override → ignore, fall back to home/GPS */ }
-const START_LON = _teleportOverride ? _teleportOverride.lon : HOME_LON;
-const START_LAT = _teleportOverride ? _teleportOverride.lat : HOME_LAT;
+// Per-save FROZEN home origin. Set once from the first GPS fix on a brand-new
+// save (see startGps), then used as the world projection origin forever — so
+// each save is anchored at the player's real location instead of a hardcoded
+// city. Read here at module load (before the scene builds the projection) so
+// the whole world initialises at the saved home. initSaves() points SAVE_KEY
+// at the active slot; loadSave() then reads that slot's data. A teleport
+// override still wins (it's an explicit relocation).
+let _saveHome = null;
+try {
+  if (typeof initSaves === 'function') initSaves();
+  const _sv = (typeof loadSave === 'function') ? loadSave() : null;
+  if (_sv && _sv.home && Number.isFinite(_sv.home.lat) && Number.isFinite(_sv.home.lon)) {
+    _saveHome = _sv.home;
+  }
+} catch { /* no saved home → fall back to teleport / HOME */ }
+const START_LON = _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
+const START_LAT = _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
 // Expose the preset table + active override so index.html can build the menu.
 if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
@@ -670,6 +685,24 @@ class MapScene extends Phaser.Scene {
     // the session. Session-scoped ONLY — never persisted — so a fresh load
     // resumes live GPS tracking.
     this._gpsManualOverride = false;
+    // Home anchoring — a brand-new save with no frozen home adopts the player's
+    // FIRST GPS fix as its permanent origin: startGps captures it, then reloads
+    // so the projection re-inits there. Gated to genuinely fresh saves (no
+    // starter home placed yet): world coords are global + latitude-dependent,
+    // so moving the origin of a save that already placed objects would drift
+    // them. Such saves keep their origin; Reset adopts a new home. No
+    // geolocation / a teleport override / sandbox → no capture (HOME fallback).
+    this._homeCapturePending =
+      !_teleportOverride &&
+      !_saveHome &&
+      !this.save.starterShopId &&
+      !this._sandboxMode &&
+      (typeof navigator !== 'undefined' && !!navigator.geolocation);
+    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
+    // 20 s so the start flow falls back to the default origin rather than hang.
+    if (this._homeCapturePending) {
+      setTimeout(() => { this._homeCapturePending = false; }, 20000);
+    }
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
     // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
@@ -1135,6 +1168,23 @@ class MapScene extends Phaser.Scene {
       this.gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude } = pos.coords;
+          // First GPS fix on a brand-new save: freeze THIS location as the
+          // save's home origin and reload so the whole projection re-anchors
+          // here. Only reload after VERIFYING the write landed (read it back) —
+          // otherwise a failed localStorage write would loop on every fix.
+          if (this._homeCapturePending) {
+            this._homeCapturePending = false;
+            this.save.home = { lat: latitude, lon: longitude };
+            let ok = false;
+            try {
+              persistSave(this.save);
+              if (typeof flushSave === 'function') flushSave();
+              const rb = loadSave();
+              ok = !!(rb && rb.home && rb.home.lat === latitude && rb.home.lon === longitude);
+            } catch (_) { ok = false; }
+            if (ok) { location.reload(); return; }
+            // write/readback failed — don't loop; carry on with current origin.
+          }
           const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);
           const dyM = -(latitude - START_LAT) * METERS_PER_DEG_LAT;
           const prev = this.gpsM;
@@ -1167,7 +1217,7 @@ class MapScene extends Phaser.Scene {
             if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
           }
         },
-        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; },
+        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; this._homeCapturePending = false; },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
     } catch { this.gpsAvailable = false; }
@@ -1322,8 +1372,10 @@ class MapScene extends Phaser.Scene {
       let tp = null;
       try { tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null'); } catch (_) {}
       const gm = this.gpsM ? `(${Math.round(this.gpsM.x)},${Math.round(this.gpsM.y)})m` : 'none';
-      out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${_teleportOverride ? 'TELEPORT ' + (tp && tp.name || '?') : 'home/GPS'})`);
+      const originSrc = _teleportOverride ? ('TELEPORT ' + (tp && tp.name || '?')) : (_saveHome ? 'saved-home' : 'default-home/GPS');
+      out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${originSrc})`);
       out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} sandbox=${!!this._sandboxMode}`);
+      out.push(`homePending=${!!this._homeCapturePending} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
       out.push(`playerM=(${Math.round(this.playerM.x)},${Math.round(this.playerM.y)})`);
       if (!entry || !entry.grid) {
         out.push('(tile not loaded — stand on the spot, then dump)');
@@ -4377,6 +4429,10 @@ class MapScene extends Phaser.Scene {
   // from Render.drawObjects.
   ensureStarterShopId() {
     if (this._starterShopOk) return;
+    // A fresh save is still waiting to anchor its home origin to the first GPS
+    // fix (startGps reloads once it arrives) — don't place the trailer yet, it
+    // would be positioned against the provisional origin we're about to drop.
+    if (this._homeCapturePending) return;
     // A synthetic trailer from a prior session — restore it and lock in.
     if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
       this.ensureStarterTrailerObject();
