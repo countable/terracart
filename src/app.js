@@ -398,82 +398,18 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
-    // Stats / equipment migration — adds energy + relic/armor slots to older saves.
-    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
-                                              sword: null, bow: null, staff: null };
-    // older saves: backfill any relic slots added since they were created.
-    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
-      if (this.save.relics[slot] === undefined) this.save.relics[slot] = null;
-    }
-    // Magic Crafting Shrine — one per game, spawned on the start tile at
-    // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
-    // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
-    // save.shrine = { id, x, y } once spawned; null until then.
-    if (this.save.shrine === undefined)           this.save.shrine = null;
-    if (this.save.shrineLevel === undefined)      this.save.shrineLevel = 1;
-    // Shrine reach upgrades (0..6) — each adds +0.5 cell to the player's reach
-    // (2 cells base → 5 at 6 upgrades; see coords.js reachCells). Claimed at
-    // the shrine, gated by cumulative deliveries (save.deliveryCount): the Nth
-    // upgrade needs 5×N deliveries (5,10,15,20,25,30). Lifetime delivery count
-    // is bumped in presentDeliveryOffer's accept path.
-    if (this.save.reachUpgrades === undefined)    this.save.reachUpgrades = 0;
-    if (this.save.deliveryCount === undefined)    this.save.deliveryCount = 0;
-    // Per-house "fed today" stamps ({ houseId: 'YYYYMMDD' }). A delivered
-    // household goes happy for the rest of the UTC day and wants a fresh
-    // bundle the next day. Pruned to the current day in the accept path.
-    if (this.save.houseSatisfied === undefined)   this.save.houseSatisfied = {};
-    // Discovery — count of UNIQUE rare "shiny" types (flora / trees / animals)
-    // found: at most one per type of interactable. Earned alongside the 10×
-    // money bonus the first time a given shiny type is harvested or caught (see
-    // awardShinyBonus; the per-type ledger is save.discovered). Surfaced in the
-    // Stats modal; reserved as the eventual unlock currency for the Magic Shrine.
-    if (this.save.discovery === undefined)        this.save.discovery = 0;
-    if (this.save.discovered === undefined)       this.save.discovered = {};
-    // Self-heal pre-fix save state: pre-fix, forest trees spawned without
-    // an `id` field, so chopping one pushed `undefined` into save.chopped.
-    // A `choppedSet.has(undefined)` lookup then matched every other tree
-    // (also id-less) and wiped the whole grove. Strip any falsy entries on
-    // load so old saves recover automatically.
-    if (Array.isArray(this.save.chopped)) {
-      const cleaned = this.save.chopped.filter(id => !!id);
-      if (cleaned.length !== this.save.chopped.length) this.save.chopped = cleaned;
-    }
-    // POIs span tile seams (worldgen replicates them across up to 4
-    // neighbouring tile entries). When the shrine REPLACES a POI we need
-    // to suppress that chest id everywhere it appears, not just on the
-    // tile the spawn picked. Single id is enough — only one shrine per
-    // game and a POI's id is unique.
-    if (this.save.shrineReplacedId === undefined) this.save.shrineReplacedId = null;
-    // Per-shop bucket state: { [houseId]: { bucket, deals, rerolls } }.
-    // Replaces the old shopDeals (rolling timestamp array) + shopOffers
-    // (cached offer object) — both are re-derivable from a seeded RNG keyed
-    // by (house.id, bucket, rerolls). offerSalt is a once-per-save random
-    // so identical worlds won't see identical shops across players.
-    if (!this.save.shopState) {
-      this.save.shopState = {};
-      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
-      delete this.save.shopDeals;
-      delete this.save.shopOffers;
-    }
-    if (this.save.offerSalt == null) {
-      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
-    }
-    // Backfill armor slots (spread, not || , so a save missing one slot key
-    // still gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
-    this.save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(this.save.armor || {}) };
-    // Always re-derive maxEnergy from the equipped armor — never trust a stale
-    // saved value (older saves may have had a lower maxEnergy than the current
-    // armor set warrants, which would silently cap energy below the real ceiling).
-    const maxE = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(this.save.armor) : (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
-    this.save.maxEnergy = maxE;
-    if (!Number.isFinite(this.save.energy)) this.save.energy = maxE;
-    // Clamp current to whatever the new max allows.
-    this.save.energy = Math.min(maxE, Math.max(0, this.save.energy));
+    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
+    // re-derive, the history cap, and the data migrations (inv string→object,
+    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
+    // review seed) — live in savemigrate.js so they're testable headlessly.
+    // Returns true iff a real data migration changed something and the save
+    // should be re-persisted now.
+    const needsMigrationPersist = SaveMigrate.migrate(this.save);
     // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
     // treated as "the player was resting" — pro-rated 100% per hour, capped at
-    // maxEnergy. Skipped in test mode so the harness's deterministic energy
-    // values aren't bumped on every harness reload.
+    // maxEnergy (re-derived in migrate above). Skipped in test mode so the
+    // harness's deterministic energy values aren't bumped on every reload. Runs
+    // before the migration persist so a bumped energy is saved with it.
     if (this.save.lastSeenAt && !window.__TEST_MODE) {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
@@ -483,125 +419,8 @@ class MapScene extends Phaser.Scene {
     this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
-    // Restored-houses set: empty by default. Every tier-9 small-house starts
-    // out as a "wreck" sprite with no shop function — the player has to
-    // bring 5 wood (plain residential) or 5 rockfruit (themed: blacksmith /
-    // market / trader) to restore it. The starter trailer is exempt — it's
-    // marked as restored on first load so Home is functional from day one.
-    if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
-      this.save.restoredHouses = {};
-    }
-    // Castles start sealed: their occupants won't trade until the player has
-    // logged enough lifetime deliveries (save.deliveryCount ≥
-    // CASTLE_DELIVERY_GATE). The gate is read straight off the delivery tally —
-    // no per-building save key — so a stale tributedCastles map from an older
-    // save is dead weight; drop it.
-    if (this.save.tributedCastles) delete this.save.tributedCastles;
-    // Forts start sealed too, but unseal with a one-time wood payment
-    // (FORT_UNLOCK_WOOD) rather than deliveries — recorded per-fort here, the
-    // wood analogue of restoredHouses for tier-9 wrecks.
-    if (!this.save.unlockedForts || typeof this.save.unlockedForts !== 'object') {
-      this.save.unlockedForts = {};
-    }
-    // No starter-tools gift: the player begins tool-less and forges their
-    // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
-    // Wood comes from ground stacks + bare-handed shrub chops (no tool
-    // needed), and the starter crate seeds the first 5 wood, so the very
-    // first pick is always reachable on day one.
-    //
-    // One-time migration for saves made under the old gift: strip the free
-    // tier-1 pick/axe so existing players also start the forge loop. Only
-    // nulls a *wooden* (tier 1) tool — an upgraded pick/axe was earned and
-    // is left alone. Gated behind a flag so a re-forged wooden tool isn't
-    // re-wiped on the next reload.
-    if (!this.save.starterToolsStripped) {
-      if (this.save.relics?.pick?.tier === 1) this.save.relics.pick = null;
-      if (this.save.relics?.axe?.tier  === 1) this.save.relics.axe  = null;
-      this.save.starterToolsStripped = true;
-    }
-    // Soft cap on unbounded "history" save fields. A heavy player who walks
-    // for hours can balloon these to MBs and silently break localStorage
-    // writes (quota exceeded). Keeping the MOST RECENT N entries means the
-    // oldest opened chests / picked plants / treasures may eventually
-    // respawn if the player walks back, but the alternative is a totally
-    // broken save once quota hits.
-    const HISTORY_CAP = 5000;
-    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'placedRocks', 'chopped']) {
-      const arr = this.save[k];
-      if (Array.isArray(arr) && arr.length > HISTORY_CAP) {
-        this.save[k] = arr.slice(arr.length - HISTORY_CAP);
-      }
-    }
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
-    // Migrate older save (inv as string array, or stash object).
-    let needsMigrationPersist = false;
-    if (this.save.inv && typeof this.save.inv[0] === 'string') {
-      // Items must have a numeric count — otherwise later sel.count -= 1 yields NaN
-      // and stacks become uncountable + un-spliceable.
-      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
-      needsMigrationPersist = true;
-    }
-    if (this.save.stash) {
-      for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
-      delete this.save.stash;
-      needsMigrationPersist = true;
-    }
-    // Rename: venison → meat. Folds any existing 'venison' inv stacks into
-    // the new 'meat' stack so older saves don't lose hunting loot when the
-    // dog favourite-food rework dropped the venison item id.
-    if (Array.isArray(this.save.inv)) {
-      const merged = [];
-      let meatCount = 0;
-      for (const s of this.save.inv) {
-        if (!s) continue;
-        if (s.id === 'venison') {
-          meatCount += (s.count ?? 0);
-          needsMigrationPersist = true;
-        } else if (s.id === 'meat') {
-          meatCount += (s.count ?? 0);
-        } else {
-          merged.push(s);
-        }
-      }
-      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
-      this.save.inv = merged;
-    }
-    // Rename: golden → shiny. The rare variant (flora / trees / animals) was
-    // formerly called "golden". Fold any saved golden_<kind> inventory stacks
-    // into their shiny_<kind> equivalent (merging counts) so a player's caught
-    // shiny animals carry over. ('goldenfish' is an unrelated fish species and
-    // has no underscore, so it's never matched.)
-    if (Array.isArray(this.save.inv)) {
-      const byId = new Map();
-      const out = [];
-      for (const s of this.save.inv) {
-        if (!s) continue;
-        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7) : s.id;
-        if (id !== s.id) needsMigrationPersist = true;
-        const prev = byId.get(id);
-        if (prev) { prev.count = (prev.count ?? 0) + (s.count ?? 0); }
-        else { const ns = { ...s, id }; byId.set(id, ns); out.push(ns); }
-      }
-      this.save.inv = out;
-    }
-    // Migrate the stored `golden` flag on tamed/released animals to `shiny`
-    // (the in-world code now reads r.shiny) so older saves keep their catches
-    // looking shiny.
-    if (Array.isArray(this.save.released)) {
-      for (const r of this.save.released) {
-        if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsMigrationPersist = true; }
-      }
-    }
-    // REVIEW SEED (temporary): grant a few fruit-tree saplings once so the new
-    // plantable apple (T3) / peach (T5) saplings can be tried out immediately.
-    // Gated by a save flag so it runs a single time. Safe to delete later.
-    if (!this.save._saplingsGranted) {
-      this.addToInv('apple_sapling', 3, true);
-      this.addToInv('peach_sapling', 2, true);
-      this.save._saplingsGranted = true;
-      needsMigrationPersist = true;
-    }
     if (needsMigrationPersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#222');
