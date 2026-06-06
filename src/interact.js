@@ -1028,6 +1028,9 @@ const TAP_HANDLERS = [
   // 2-placed-rock) Tap a player-placed rockfruit stone → pick it back up (with progress wheel).
   { name: 'pickup-rock', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    // Placed stones live on the surface only; underground the same abs-cell key
+    // would otherwise phantom-match a surface stone (GPS-mirrored coords).
+    if ((scene.depth ?? 0) !== 0) return false;
     if (!scene.placedRockSet.has(cellKey)) return false;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.placedRockSet.delete(cellKey);
@@ -1118,7 +1121,12 @@ const TAP_HANDLERS = [
     // always be handled here so a tap on an immature crop reports its growth
     // stage — it must never fall through to the till path's "occupied:" message.
     const cellHalfM = scene.cellM / 2;
+    // Match only crops sown on the current level — a surface crop and the cave
+    // cell directly below it share world coords (GPS mirror), so without the
+    // depth gate a tap underground would harvest the farm overhead.
+    const curDepth = scene.depth ?? 0;
     const plantedIdx = save.planted.findIndex(p =>
+      (p.depth ?? 0) === curDepth &&
       Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
@@ -1290,6 +1298,33 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // 2a-cave-wall) A solid cave wall blocking the player can be mined out like a
+  // plain ground rock: tap it within reach to dig it into walkable floor and
+  // collect stone. Underground only; no pick tier required (it's plain rock).
+  // The wall (a surface road/building/water footprint mirrored below ground) is
+  // converted in the live tile grid AND remembered in save.dugWalls so the dug
+  // passage survives a tile reload (see app.js digCaveWall / _applyDugWalls).
+  { name: 'cave-wall', try: (ctx) => {
+    const { scene, save, sx, sy, cell, cellIX, cellIY, cwmx, cwmy } = ctx;
+    if ((scene.depth ?? 0) <= 0) return false;
+    if (cell.type !== 25 /* CAVE_WALL */) return false;
+    const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(save.relics) : 0;
+    if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
+    const durMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(save.relics, 'pick')
+      : (save.relics?.pick ? 3000 : 9000);
+    scene.startWorkProgress(cwmx, cwmy, () => {
+      scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
+      const qty = randInt(1, 3);
+      scene.addToInv('rockfruit', qty);
+      if (Math.random() < 0.20) scene.addToInv('coal', 1);
+      persistSave(save);
+      const item = ITEM_BY_ID['rockfruit'];
+      scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
+    }, durMs, cost || 0, 'pick');
+    return true;
+  }},
+
   // 2b) Tap non-tillable terrain → flavor label.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
@@ -1360,7 +1395,8 @@ const TAP_HANDLERS = [
       scene.flash(`planted ${item.grows} sapling`, sx, sy);
       return true;
     }
-    save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0 });
+    save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
+      depth: scene.depth ?? 0 });
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
