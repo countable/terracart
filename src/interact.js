@@ -803,6 +803,19 @@ const TAP_HANDLERS = [
   }},
 
   // 1b) World objects: chest open, tree flavor, house shop.
+  // 4.5) Staircase — tap a cave entrance / stairs within reach to change level.
+  // Runs before the generic object handler so the stair consumes the tap rather
+  // than falling through to it.
+  { name: 'staircase', try: (ctx) => {
+    const { scene, wm } = ctx;
+    const stair = findClosestItem('objects', wm.x, wm.y, REACH_OBJECT_M,
+      (o) => o.kind === 'staircase');
+    if (!stair) return false;
+    if (tooFar(ctx, stair.x, stair.y)) return 'far';
+    scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
+    return true;
+  }},
+
   { name: 'object', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     const openedSetTap = new Set(save.opened);

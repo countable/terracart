@@ -52,7 +52,7 @@ const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the 
 // onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
 // + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14). PATHS (8) are pedestrian
 // / public and stay passable.
-const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14]);
+const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
@@ -172,12 +172,15 @@ const COLORS = {
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
   23: 0x3a78c2, // PIER         (WATER base) — plank sprite overlays on top
+  // --- Underground cave biome (depth > 0) ---
+  24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
+  25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
 };
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
 // road tiers, paths, every building tier, and rock are NOT tillable.
 // Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // Building interior cells — small house, fort, civic slab. Used for the
 // "rest inside to recover energy" loop (slow, opt-in regen while indoors).
@@ -239,6 +242,47 @@ function makePlaqueTextures(scene) {
     }
     tex.refresh();
   }
+}
+
+// === Cave staircases (down / up) — baked once, 32×32 = one cell ===
+// 'stair_down' reads as steps receding into a dark pit (a way down); 'stair_up'
+// as lit stone steps climbing toward an opening. Drawn as flat-shaded blocks so
+// they sit cleanly inside a single cell (QC: one-cell interactable).
+function makeStaircaseTextures(scene) {
+  const S = 32;
+  const bake = (key, down) => {
+    if (scene.textures.exists(key)) return;
+    const tex = scene.textures.createCanvas(key, S, S);
+    const ctx = tex.getContext();
+    // Dark rock frame around the opening.
+    ctx.fillStyle = '#15110e';
+    ctx.fillRect(2, 2, S - 4, S - 4);
+    // Four steps. Down: receding into shadow (top dark → bottom light). Up:
+    // climbing toward light (top light → bottom dark). Each step is a band.
+    const shades = down
+      ? ['#0a0807', '#241c16', '#3a2c22', '#52402f']
+      : ['#6b513a', '#52402f', '#3a2c22', '#241c16'];
+    const steps = shades.length;
+    const bandH = (S - 8) / steps;
+    for (let i = 0; i < steps; i++) {
+      ctx.fillStyle = shades[i];
+      const inset = down ? i : (steps - 1 - i);   // narrowing toward the dark end
+      const x = 4 + inset * 1.5;
+      const w = (S - 8) - inset * 3;
+      ctx.fillRect(x, 4 + i * bandH, w, bandH - 1);
+    }
+    // Chevron hint of direction, centred.
+    ctx.fillStyle = down ? 'rgba(255,255,255,0.55)' : 'rgba(255,240,200,0.7)';
+    const cx = S / 2, cy = S / 2;
+    ctx.beginPath();
+    if (down) { ctx.moveTo(cx - 5, cy - 4); ctx.lineTo(cx + 5, cy - 4); ctx.lineTo(cx, cy + 4); }
+    else      { ctx.moveTo(cx - 5, cy + 4); ctx.lineTo(cx + 5, cy + 4); ctx.lineTo(cx, cy - 4); }
+    ctx.closePath();
+    ctx.fill();
+    tex.refresh();
+  };
+  bake('stair_down', true);
+  bake('stair_up', false);
 }
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
@@ -605,8 +649,18 @@ class MapScene extends Phaser.Scene {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
     };
+    // Publish the spawn origin to the home-area hub (home.js) so worldgen can
+    // ask "is this near home?" while building tiles — set before the first
+    // ensureTilesAround() below.
+    if (typeof HomeArea !== 'undefined') HomeArea.setOrigin(this.startWorldM.x, this.startWorldM.y);
 
     this.playerM = { x: 0, y: 0 };
+    // Underground depth: 0 = surface, 1,2,… = cave levels below. Persisted in
+    // the save so a reload underground stays underground. Point WorldGen at the
+    // matching tile cache before any tiles load.
+    this.depth = this.save.depth || 0;
+    WorldGen.setDepth(this.depth);
+    if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');
     this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement
     this._spriteDir = { x: 0, y: 1 }; // last movement direction used for sprite facing
     this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
@@ -645,6 +699,8 @@ class MapScene extends Phaser.Scene {
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
+    // Cave staircases (down/up) — baked once, sit in a single cell.
+    makeStaircaseTextures(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
@@ -1223,7 +1279,8 @@ class MapScene extends Phaser.Scene {
       try {
         const entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
-        if (!entry.creatures) this.spawnInTile(entry, tx, ty);
+        // Surface fauna only — caves (depth > 0) stay quiet in Phase 1.
+        if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
@@ -1739,6 +1796,9 @@ class MapScene extends Phaser.Scene {
     } else if (!ghostHeld && this._bodyM) {
       this.collapseGhost();
     }
+    // Snapshot position before this frame's movement so cave-wall collision can
+    // revert a blocked axis (axis-separated sliding). Surface has no collision.
+    const _preMoveX = this.playerM.x, _preMoveY = this.playerM.y;
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -1830,6 +1890,12 @@ class MapScene extends Phaser.Scene {
     } else {
       this._playDirected(this.player, 'idle');
     }
+
+    // Underground: rock walls actually stop the player (the surface has no
+    // player collision — GPS drives you wherever you physically walk). Applies
+    // to keyboard, ghost-pad AND GPS-eased motion since all three wrote
+    // playerM above.
+    if (this.depth > 0) this._clampCaveMovement(_preMoveX, _preMoveY);
 
     // Position the body sprite at its true world offset from the ghost.
     // worldMetersToScreen does the camera-relative projection in one place;
@@ -3047,6 +3113,49 @@ class MapScene extends Phaser.Scene {
     this.flashLoot(`🪙 Scattered ${n} coins!`, '#ffd96b');
   }
 
+  // --- Underground movement & level transitions ---
+  // True if the cell at world point (wmx,wmy) is a solid cave wall. Unloaded
+  // cells return false so the player is never trapped at a tile seam mid-load.
+  _caveCellBlocked(wmx, wmy) {
+    const c = this.cellAt(wmx, wmy);
+    if (!c.loaded) return false;
+    return !WorldGen.isWalkable(c.type);
+  }
+  // Axis-separated collision: if the new X (with old Y) lands in rock, revert X;
+  // then test the new Y with the resolved X and revert Y if blocked. The result
+  // is the player sliding along walls instead of sticking. Tested at the FEET
+  // (same point the reach gate uses), not the sprite centre.
+  _clampCaveMovement(prevX, prevY) {
+    const foot = this.feetOffsetM;
+    const newX = this.playerM.x, newY = this.playerM.y;
+    if (this._caveCellBlocked(this.startWorldM.x + newX,
+                              this.startWorldM.y + prevY + foot)) {
+      this.playerM.x = prevX;
+    }
+    if (this._caveCellBlocked(this.startWorldM.x + this.playerM.x,
+                              this.startWorldM.y + newY + foot)) {
+      this.playerM.y = prevY;
+    }
+  }
+  // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
+  // staircase's cell at the new depth (where a matching stair sits), swaps the
+  // active tile cache, repaints the background, and loads the new level.
+  changeDepth(delta, stair) {
+    const target = Math.max(0, (this.depth || 0) + delta);
+    if (target === this.depth) return;
+    this.depth = target;
+    this.save.depth = target;
+    WorldGen.setDepth(target);
+    // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
+    this.playerM.x = stair.x - this.startWorldM.x;
+    this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
+    this._ease = null;   // cancel any in-flight GPS ease toward the old spot
+    this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
+    this.ensureTilesAround().catch(() => {});
+    this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
+               this.viewCenterX, this.viewCenterY);
+    persistSave(this.save);
+  }
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
     const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
