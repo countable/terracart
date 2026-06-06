@@ -3330,9 +3330,52 @@ class MapScene extends Phaser.Scene {
     this._playDirected(this.player, 'walk', ux, uy);
     // How much closer did we actually get? Against a wall in the heading
     // direction this collapses toward zero even while sliding sideways, so
-    // dig when progress is under half the step we tried to take.
+    // dig when progress is under half the step we tried to take. But before
+    // chewing rock, try to round the obstacle: if a single-cell sidestep gets
+    // us past it (a thin wall / pillar), crab around instead of mining.
     const moved = dist - Math.hypot(this._caveTargetM.x - body.x, this._caveTargetM.y - body.y);
-    if (moved < move * 0.5) this._caveStartAutoMine(ux, uy);
+    if (moved < move * 0.5 && !this._caveTryDetour(ux, uy, move)) {
+      this._caveStartAutoMine(ux, uy);
+    }
+  }
+  // Blocked heading toward the target: prefer walking one cell out of the way
+  // over mining through. A detour is "trivial" only when an adjacent open cell
+  // perpendicular to the heading has an open forward neighbour too — i.e. the
+  // obstacle is one cell thick and can be rounded by a single sidestep. When
+  // that holds, crab one step toward the open side (the target's pull resumes
+  // forward progress, and pulls us back, once we've cleared it) and return true
+  // so the caller skips auto-mining. Returns false (→ mine) for thick walls or
+  // dead ends where no one-cell detour exists.
+  _caveTryDetour(ux, uy, move) {
+    const cell = this.cellM, foot = this.feetOffsetM;
+    const bx = this.startWorldM.x + this.playerM.x;
+    const by = this.startWorldM.y + this.playerM.y + foot;
+    const open = (cdx, cdy) =>
+      !this._caveCellBlocked(bx + cdx * cell, by + cdy * cell);
+    // Forward = the dominant heading axis as one grid step; perp = the other.
+    const horiz = Math.abs(ux) >= Math.abs(uy);
+    const fdx = horiz ? Math.sign(ux) : 0;
+    const fdy = horiz ? 0 : Math.sign(uy);
+    if (!fdx && !fdy) return false;
+    // If the forward cell isn't actually a wall we weren't blocked by rock —
+    // no obstacle to round (and nothing to mine), so don't sidestep.
+    if (open(fdx, fdy)) return false;
+    // Try the side the target sits on first, then the other.
+    const toward = horiz ? Math.sign(uy) : Math.sign(ux);
+    const sides = toward ? [toward, -toward] : [1, -1];
+    for (const s of sides) {
+      const sdx = horiz ? 0 : s;
+      const sdy = horiz ? s : 0;
+      // Side cell open AND the cell just past the obstacle from there open too.
+      if (open(sdx, sdy) && open(sdx + fdx, sdy + fdy)) {
+        this.playerM.x += sdx * move;
+        this.playerM.y += sdy * move;
+        this.facing = { x: sdx, y: sdy };
+        this._playDirected(this.player, 'walk', sdx, sdy);
+        return true;
+      }
+    }
+    return false;
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
