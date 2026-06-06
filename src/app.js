@@ -3280,9 +3280,13 @@ class MapScene extends Phaser.Scene {
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
   }
   // Move the body one frame toward the ghost target through floor cells, mining
-  // a blocking wall when wedged. "Choice of 2 cells": try the X-step and the
-  // Y-step of the heading independently — if either is open the body slides that
-  // way (no dig); only when BOTH are walls do we mine the one toward the target.
+  // a wall whenever it actually blocks the path. "Choice of 2 cells": try the
+  // X-step and the Y-step of the heading independently so the body slides past
+  // a wall that's off to the side. Then DETECT BEING BLOCKED BY PROGRESS, not
+  // geometry: if heading toward the target barely closed the gap this frame, a
+  // wall is in the way (a flat wall the old wedge-only check would slide against
+  // forever) — dig it. _caveStartAutoMine no-ops unless a wall is really ahead,
+  // so a body merely outrun by a fast ghost on open floor won't dig.
   _caveFollowStep(dt) {
     if (!this._caveTargetM) return;
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
@@ -3307,14 +3311,15 @@ class MapScene extends Phaser.Scene {
     const open = (nx, ny) =>
       !this._caveCellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
     const nx = body.x + ux * move, ny = body.y + uy * move;
-    const okX = (ux !== 0) && open(nx, body.y);
-    const okY = (uy !== 0) && open(body.x, ny);
-    if (okX) body.x = nx;
-    if (okY) body.y = ny;
+    if ((ux !== 0) && open(nx, body.y)) body.x = nx;
+    if ((uy !== 0) && open(body.x, ny)) body.y = ny;
     this.facing = { x: ux, y: uy };
     this._playDirected(this.player, 'walk', ux, uy);
-    // Wedged: neither axis-step is open toward the target → dig the wall ahead.
-    if (!okX && !okY) this._caveStartAutoMine(ux, uy);
+    // How much closer did we actually get? Against a wall in the heading
+    // direction this collapses toward zero even while sliding sideways, so
+    // dig when progress is under half the step we tried to take.
+    const moved = dist - Math.hypot(this._caveTargetM.x - body.x, this._caveTargetM.y - body.y);
+    if (moved < move * 0.5) this._caveStartAutoMine(ux, uy);
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
