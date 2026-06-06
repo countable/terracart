@@ -1265,6 +1265,79 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, cx, cy };
   }
 
+  // Debug: dump what worldgen actually produced for the tile under the player,
+  // in a copyable form (routed through the #errbar overlay). DevTools isn't
+  // reachable on a phone, so this is how we see how a real-world feature (e.g.
+  // a rec centre) is tagged in the OpenFreeMap vector data — which layer it
+  // lands in, its class/subclass, whether it carries a name, and what terrain
+  // the rasteriser painted under the player.
+  dumpTileDebug() {
+    try {
+      const Z = WorldGen.Z;
+      const { tx, ty, cx, cy } = this.playerToWorldCell();
+      const key = `${Z}/${tx}/${ty}`;
+      const entry = WorldGen.tileCache && WorldGen.tileCache.get(key);
+      const T = WorldGen.T || {};
+      const TNAME = {};
+      for (const k in T) TNAME[T[k]] = k;
+      const out = [];
+      out.push(`tile ${key}  cell(${Math.floor(cx)},${Math.floor(cy)})  depth=${this.depth}`);
+      if (!entry || !entry.grid) {
+        out.push('(tile not loaded — stand on the spot, then dump)');
+        if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
+        return;
+      }
+      const cpe = entry.cellsPerEdge;
+      const icx = Math.max(0, Math.min(cpe - 1, Math.floor(cx)));
+      const icy = Math.max(0, Math.min(cpe - 1, Math.floor(cy)));
+      const under = entry.grid[icy * cpe + icx];
+      out.push(`under player: ${TNAME[under] ?? '?'} (${under})`);
+      // 7×7 terrain-code window centred on the player cell.
+      const rows = [];
+      for (let dy = -3; dy <= 3; dy++) {
+        let r = '';
+        for (let dx = -3; dx <= 3; dx++) {
+          const xx = icx + dx, yy = icy + dy;
+          r += (xx < 0 || yy < 0 || xx >= cpe || yy >= cpe)
+            ? '..' : String(entry.grid[yy * cpe + xx]).padStart(2, '0');
+          r += ' ';
+        }
+        rows.push(r.trimEnd());
+      }
+      out.push('grid 7x7 (codes):\n' + rows.join('\n'));
+      const layers = entry.layers || [];
+      out.push('layers: ' + layers.map(l => l.name).join(', '));
+      // Per-layer class/subclass histogram for the polygon-ish + poi layers.
+      const interesting = new Set(['landcover', 'landuse', 'park', 'building', 'poi', 'transportation']);
+      for (const l of layers) {
+        if (!interesting.has(l.name)) continue;
+        const classes = new Map();
+        for (const f of l.features) {
+          const c = (f.tags && (f.tags.class || f.tags.subclass)) || '(none)';
+          classes.set(c, (classes.get(c) || 0) + 1);
+        }
+        out.push(`[${l.name}] ` + [...classes.entries()].map(([c, n]) => `${c}:${n}`).join(' '));
+      }
+      // Every NAMED feature — this is where "SASCU Recreation Centre" will show,
+      // along with the layer + class it came in as.
+      const named = [];
+      for (const l of layers) for (const f of (l.features || [])) {
+        const nm = f.tags && f.tags.name;
+        if (nm) named.push(`${l.name}/${(f.tags.class || f.tags.subclass || '?')}: ${nm}`);
+      }
+      if (named.length) out.push(`named (${named.length}):\n` + named.slice(0, 60).join('\n'));
+      const chests = (entry.objects || []).filter(o => o.kind === 'chest');
+      if (chests.length) {
+        out.push('chests: ' + chests.map(c => `${c.poiClass}${c.name ? ('=' + c.name) : ''}`).slice(0, 40).join(' | '));
+      }
+      const text = out.join('\n');
+      try { console.log('[tiledebug]\n' + text); } catch (_) {}
+      if (window.showError) window.showError('TILE DEBUG (copy me)', text);
+    } catch (e) {
+      if (window.showError) window.showError('tile debug failed', (e && e.stack) || String(e));
+    }
+  }
+
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     const needed = new Set();
@@ -2171,13 +2244,21 @@ class MapScene extends Phaser.Scene {
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
     try {
-      const b = document.getElementById('banner');
-      if (b) {
-        const msg = (e && (e.message || e.toString())) || 'frame error';
-        b.textContent = `⚠ ${msg}`.slice(0, 80);
-        b.style.display = 'block';
-        clearTimeout(this._loopErrBannerT);
-        this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+      const msg = (e && (e.message || e.toString())) || 'frame error';
+      const stack = (e && e.stack) || '';
+      // Prefer the copyable error overlay (index.html) so the full message +
+      // stack can be read/copied on a phone. Fall back to the transient
+      // #banner flash only if the overlay isn't wired up.
+      if (typeof window !== 'undefined' && typeof window.showError === 'function') {
+        window.showError(`⚠ ${msg}`, stack);
+      } else {
+        const b = document.getElementById('banner');
+        if (b) {
+          b.textContent = `⚠ ${msg}`.slice(0, 80);
+          b.style.display = 'block';
+          clearTimeout(this._loopErrBannerT);
+          this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+        }
       }
     } catch (_) { /* never let error reporting itself throw */ }
   }
