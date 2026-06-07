@@ -28,6 +28,7 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
+  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -289,6 +290,27 @@ function drawBuildingTex(ctx, size, rng) {
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.beginPath(); ctx.arc(cx - 0.6, cy - 0.6, r - 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawCastleFloorTex(ctx, size, rng) {
+  // Subtle stone cobbles for the castle court — coarser and much fainter
+  // than the house cobble (drawBuildingTex) so the paving reads without
+  // competing with the bright rampart walls. Drawn as a transparent overlay
+  // baked over the slate base colour.
+  ctx.clearRect(0, 0, size, size);
+  const step = 8;
+  for (let row = 0; row * step < size + step; row++) {
+    const offset = (row % 2) * (step / 2);
+    for (let col = 0; col * step < size + step; col++) {
+      const cx = col * step + offset + (rng() - 0.5) * 2;
+      const cy = row * step + step / 2 + (rng() - 0.5) * 2;
+      const r = 2.6 + rng() * 0.8;
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath(); ctx.arc(cx - 0.7, cy - 0.7, r - 1.4, 0, Math.PI * 2); ctx.fill();
     }
   }
 }
