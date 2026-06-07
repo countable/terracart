@@ -454,7 +454,9 @@
       if (!scene) return;
       scene.save.relics = scene.save.relics || {};
       for (const slot of Object.keys(scene.save.relics)) scene.save.relics[slot] = null;
+      scene.markRelicsDirty?.();
       scene.updateRelicRow?.();
+      scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
     document.getElementById('debug-dump-tile').addEventListener('click', (e) => {
@@ -472,7 +474,9 @@
       scene.save.relics = scene.save.relics || {};
       const slots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS) : [];
       for (const slot of slots) scene.save.relics[slot] = { tier: 1 };
+      scene.markRelicsDirty?.();
       scene.updateRelicRow?.();
+      scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to

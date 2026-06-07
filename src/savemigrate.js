@@ -30,6 +30,10 @@
     for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
     }
+    // Two-bar inventory: older saves predate the type-tab selector. Default the
+    // active tab to Seeds and clear any gear selection.
+    if (save.invCat === undefined) save.invCat = 'seed';
+    if (save.selGear === undefined) save.selGear = null;
     if (save.shrine === undefined) save.shrine = null;
     if (save.shrineLevel === undefined) save.shrineLevel = 1;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;

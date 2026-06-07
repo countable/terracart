@@ -63,6 +63,25 @@ const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 
+// Inventory category tabs (the top bar of the two-bar bottom HUD). The order
+// here is the on-screen left→right order. Item categories filter save.inv by
+// `kind`; gear categories (relic / armor) synthesize their slot list from
+// save.relics / save.armor (one-per-slot) instead of save.inv. `sym` is the
+// tab glyph — plain emoji so no new pixel art is needed for the chrome.
+const INV_CATS = [
+  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
+  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
+  { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
+  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
+  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
+  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+];
+const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// Slot draw order within each gear tab (owned slots only are rendered).
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
+
 // Terrain cell types fauna may NEVER step onto (spec §fauna: "no fauna may move
 // onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
 // + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14). PATHS (8) are pedestrian
@@ -419,6 +438,12 @@ class MapScene extends Phaser.Scene {
         inv: [],
         selSlot: 0,
         invPage: 0,
+        // Two-bar inventory: invCat is the active type tab (see INV_CATS);
+        // selGear is the highlighted relic/armor slot when a gear tab is active
+        // (items keep using selSlot; the two are mutually exclusive — a gear
+        // selection sets selSlot to -1 so item actions read "nothing selected").
+        invCat: 'seed',
+        selGear: null,
       },
       loadSave()
     );
@@ -467,7 +492,7 @@ class MapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    this.viewCenterY = H / 2 - 110;           // raise map well clear of the inventory bar AND the Eat button beneath it
+    this.viewCenterY = H / 2 - 150;           // raise map clear of the TWO-bar inventory HUD (type tabs + item slots) and the Eat button beneath it
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
@@ -6540,12 +6565,12 @@ class MapScene extends Phaser.Scene {
     const R = HALF;                   // max nub offset from pad centre
     const pad = document.createElement('div');
     pad.id = 'ghost-pad';
-    // Sits above the inventory bar (bar bottom 48 + bar height ~54 + gap).
-    // Purple tint so the player reads it as "amulet/ghost" rather than
-    // generic d-pad.
+    // Sits above the two-bar inventory HUD (item bar bottom 48 + ~54 tall, plus
+    // the type-tab bar above it). Purple tint so the player reads it as
+    // "amulet/ghost" rather than a generic d-pad.
     pad.style.cssText =
       `position:fixed;` +
-      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
       // Purple tint reads as "amulet/ghost" rather than generic d-pad.
       // Right-anchored via --phone-right so the pad tucks inside the
       // simulated phone column on desktop.
@@ -6627,7 +6652,7 @@ class MapScene extends Phaser.Scene {
     // mutually exclusive (see syncGhostPad / syncDebugPad).
     pad.style.cssText =
       `position:fixed;` +
-      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
       `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
       `background:rgba(120,90,20,0.35);border:2px solid #ffd96b;z-index:6;` +
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
@@ -6698,6 +6723,12 @@ class MapScene extends Phaser.Scene {
   // per-frame row rebuild can early-out by comparing a counter instead of
   // recomputing a join-string of every slot every frame.
   markRelicsDirty() { this._relicsGen = (this._relicsGen || 0) + 1; }
+  // Relics/armor used to render as a read-only icon strip at the top-right.
+  // That strip is gone: equipped gear now lives in the Relics / Armor tabs of
+  // the two-bar inventory HUD (buildInventoryDOM). This method survives because
+  // it's the per-frame hook that keeps the amulet ghost pad / debug pad in sync
+  // with save.relics — guarded by a generation counter so it only does work
+  // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
     if (this._relicRowGen === gen) return;
@@ -6708,35 +6739,14 @@ class MapScene extends Phaser.Scene {
     // gets its pad on first frame (the menu toggle path handles later flips).
     this.syncGhostPad();
     this.syncDebugPad();
-    const relics = this.save.relics || {};
-    const armor = this.save.armor || {};
-    const order = ['pick','axe','sword','bow','staff','ring','amulet'];
-    const armorOrder = ['helmet','chest','legs','boots'];
+    // Drop the legacy top strip if an older build left one in the DOM.
     document.getElementById('relic-row')?.remove();
-    const ownedRelics = order.filter(s => relics[s]);
-    const ownedArmor = armorOrder.filter(s => armor[s]);
-    if (!ownedRelics.length && !ownedArmor.length) return;
-    const row = document.createElement('div');
-    row.id = 'relic-row';
-    // position:fixed + appended to <body> for the same reason as the inv bar
-    // (see buildInventoryDOM): a fixed element inside transformed #game would
-    // anchor to #game, not the viewport.
-    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:calc(var(--phone-right, 0px) + 8px);display:flex;gap:4px;padding:4px 6px;background:#000a;border-radius:8px;z-index:7;pointer-events:none;';
-    const addIcon = (kind, slot, tier) => {
-      const wrap = document.createElement('span');
-      wrap.style.cssText = 'display:inline-block;line-height:0;';
-      wrap.innerHTML = this.gearIconHTML(kind, slot, tier, 20);
-      row.appendChild(wrap);
-    };
-    for (const slot of ownedRelics) addIcon('relic', slot, relics[slot].tier);
-    // Thin divider between the relic group and the armor group when both exist.
-    if (ownedRelics.length && ownedArmor.length) {
-      const sep = document.createElement('span');
-      sep.style.cssText = 'align-self:stretch;width:1px;background:#666;margin:0 1px;';
-      row.appendChild(sep);
+    // If a gear tab is currently showing, rebuild the inventory bars so a newly
+    // bought/forged/looted relic or armor piece appears immediately.
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    if (cat && cat.gear && typeof this.buildInventoryDOM === 'function') {
+      this.buildInventoryDOM();
     }
-    for (const slot of ownedArmor) addIcon('armor', slot, armor[slot].tier);
-    document.body.appendChild(row);
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
@@ -7074,6 +7084,15 @@ class MapScene extends Phaser.Scene {
     const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
+      // A brand-new stack surfaces on its own type tab. Switch the active tab
+      // and page so the freshly-obtained item is visible (Inventory.add already
+      // pointed selSlot at the new stack). Topping up an existing stack leaves
+      // the tab/selection alone so harvest→replant loops aren't disrupted.
+      if (r.isNewStack && r.accepted > 0) {
+        this.save.invCat = this.invCatForItem(id);
+        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === this.save.selSlot);
+        this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
+      }
       persistSave(this.save);
       this.buildInventoryDOM();
     }
@@ -7095,29 +7114,134 @@ class MapScene extends Phaser.Scene {
     }
     return r.accepted;
   }
+  // --- Two-bar inventory helpers ------------------------------------------
+  // Which type tab an item id belongs to (by its `kind`). Falls back to the
+  // Produce tab for anything unmapped so a stray item is still reachable.
+  invCatForItem(id) {
+    const kind = ITEM_BY_ID[id]?.kind;
+    for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
+    return 'produce';
+  }
+  // Filtered, index-tagged stacks for an item category. Each element is
+  // { idx, entry } where idx is the real position in save.inv (so selection +
+  // every downstream save.inv[selSlot] reader keep working unchanged). Gear
+  // categories return [] — they synthesize their list in gearEntriesForCat.
+  invEntriesForCat(catKey) {
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (!cat || !cat.kinds) return [];
+    const out = [];
+    (this.save.inv || []).forEach((entry, idx) => {
+      if (!entry) return;
+      const kind = ITEM_BY_ID[entry.id]?.kind;
+      if (cat.kinds.includes(kind)) out.push({ idx, entry });
+    });
+    return out;
+  }
+  // Owned relic/armor slots for a gear category, in draw order. One per slot —
+  // these are equipped gear (save.relics / save.armor), not save.inv stacks.
+  gearEntriesForCat(catKey) {
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (!cat || !cat.gear) return [];
+    if (cat.gear === 'relic') {
+      const r = this.save.relics || {};
+      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier }));
+    }
+    const a = this.save.armor || {};
+    return INV_ARMOR_ORDER.filter(s => a[s]).map(s => ({ kind: 'armor', slot: s, tier: a[s].tier }));
+  }
+  // Switch the active type tab and re-anchor the selection to that tab's first
+  // entry (or empty). Used by the tab buttons.
+  selectInvCat(catKey) {
+    if (!INV_CAT_BY_KEY[catKey]) return;
+    this.save.invCat = catKey;
+    this.save.invPage = 0;
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (cat.gear) {
+      this.save.selSlot = -1;
+      const list = this.gearEntriesForCat(catKey);
+      this.save.selGear = list[0] ? { kind: list[0].kind, slot: list[0].slot } : null;
+    } else {
+      this.save.selGear = null;
+      const list = this.invEntriesForCat(catKey);
+      this.save.selSlot = list[0] ? list[0].idx : -1;
+    }
+    persistSave(this.save);
+    this.buildInventoryDOM();
+  }
+
   buildInventoryDOM() {
     const PAGE = 5;
-    const game = document.getElementById('game');
+    if (!INV_CAT_BY_KEY[this.save.invCat]) this.save.invCat = 'seed';
+    if (this.save.invPage == null) this.save.invPage = 0;
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    const isGear = !!cat.gear;
+    const gearList = isGear ? this.gearEntriesForCat(cat.key) : null;
+    const itemList = isGear ? null : this.invEntriesForCat(cat.key);
+
+    // Reconcile the selection so the highlight always points at something IN
+    // the active tab (or "empty"). This also self-heals after an item is
+    // consumed: the action handlers clamp selSlot to a raw save.inv index that
+    // may belong to another category, so we re-anchor it here. We deliberately
+    // do NOT move invPage to the selection — paging is driven by ◀ ▶ / tab
+    // switches / pickups, not by every rebuild.
+    if (isGear) {
+      this.save.selSlot = -1;
+      const owned = this.save.selGear &&
+        gearList.some(g => g.kind === this.save.selGear.kind && g.slot === this.save.selGear.slot);
+      if (!owned) this.save.selGear = gearList[0] ? { kind: gearList[0].kind, slot: gearList[0].slot } : null;
+    } else {
+      this.save.selGear = null;
+      const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
+      if (!inCat) this.save.selSlot = itemList[0] ? itemList[0].idx : -1;
+    }
+
+    // Cell count: gear tabs are exactly their owned entries; item tabs keep one
+    // trailing EMPTY slot so the player can select "nothing" → buy intent at a
+    // shop. One blank page is always reachable beyond a full one.
+    const cellCount = isGear ? gearList.length : itemList.length + 1;
+    const pageCount = Math.max(1, Math.ceil(Math.max(1, cellCount) / PAGE));
+    if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
+    if (this.save.invPage < 0) this.save.invPage = 0;
+
+    // ── Type-selector bar (TOP of the two-bar HUD) ────────────────────────
+    let tabs = document.getElementById('inv-tabs');
+    if (tabs) tabs.remove();
+    tabs = document.createElement('div');
+    tabs.id = 'inv-tabs';
+    // position:fixed + appended to <body> for the same containing-block reason
+    // as the item bar below. Sits just above the item bar.
+    tabs.style.cssText = 'position:fixed;bottom:calc(102px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    for (const c of INV_CATS) {
+      const active = c.key === this.save.invCat;
+      const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
+      const tab = document.createElement('button');
+      tab.dataset.cat = c.key;
+      tab.title = c.label;
+      tab.style.cssText =
+        'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;' +
+        (active
+          ? 'background:#553a;border:2px solid #ffd866;border-bottom-color:#553a;color:#fff;'
+          : 'background:#222a;border:2px solid #555;color:#ddd;');
+      tab.textContent = c.sym;
+      // Tiny count pip so the player can see at a glance which tabs hold gear.
+      if (count > 0) {
+        const pip = document.createElement('span');
+        pip.textContent = count;
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffd866;padding:0 3px;border-radius:7px;line-height:13px;';
+        tab.appendChild(pip);
+      }
+      tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
+      tabs.appendChild(tab);
+    }
+    document.body.appendChild(tabs);
+
+    // ── Item / gear slot bar (BOTTOM of the two-bar HUD) ──────────────────
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    // position:fixed anchors to the visual viewport, so the bar stays at the
-    // bottom of the screen regardless of #game's CSS scale or any iOS Safari /
-    // Firefox Mobile URL-bar chrome. Appended to <body> because a position:
-    // fixed element inside a transformed parent (#game uses transform:scale)
-    // takes the transformed parent as its containing block — defeats the point.
     bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
-    if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
-    if (this.save.invPage == null) this.save.invPage = 0;
-    // Always keep one extra blank page reachable — a multiple-of-5 inventory
-    // would otherwise have no empty slot for the player to select before
-    // tapping a shop to BUY (empty selection = buy intent).
-    const filledPages = Math.ceil(this.save.inv.length / PAGE);
-    const pageCount = Math.max(1, this.save.inv.length % PAGE === 0
-      ? filledPages + 1
-      : filledPages);
-    if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
 
     const makeBtn = (txt, onclick, w = 28) => {
       const b = document.createElement('button');
@@ -7126,70 +7250,108 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
-    // Sort: group by kind (produce → seed → animal → other), then alphabetical
-    // by name within each group. Selection is re-anchored to whatever item the
-    // user had selected so the highlight follows it across the resort.
+
+    // Sort (item tabs only) — group by kind then alphabetical by name. Selection
+    // is re-anchored to the same item id so the highlight follows the resort.
     const KIND_ORDER = { produce: 0, seed: 1, animal: 2 };
-    bar.appendChild(makeBtn('⇅', () => {
-      const selId = this.save.inv[this.save.selSlot]?.id;
-      this.save.inv = [...this.save.inv].sort((a, b) => {
-        const ia = ITEM_BY_ID[a.id], ib = ITEM_BY_ID[b.id];
-        const ka = KIND_ORDER[ia?.kind] ?? 9, kb = KIND_ORDER[ib?.kind] ?? 9;
-        if (ka !== kb) return ka - kb;
-        return (ia?.name || a.id).localeCompare(ib?.name || b.id);
-      });
-      if (selId) {
-        const newIdx = this.save.inv.findIndex(e => e.id === selId);
-        if (newIdx >= 0) {
-          this.save.selSlot = newIdx;
-          this.save.invPage = Math.floor(newIdx / PAGE);
+    if (!isGear) {
+      bar.appendChild(makeBtn('⇅', () => {
+        const selId = this.save.inv[this.save.selSlot]?.id;
+        this.save.inv = [...this.save.inv].sort((a, b) => {
+          const ia = ITEM_BY_ID[a.id], ib = ITEM_BY_ID[b.id];
+          const ka = KIND_ORDER[ia?.kind] ?? 9, kb = KIND_ORDER[ib?.kind] ?? 9;
+          if (ka !== kb) return ka - kb;
+          return (ia?.name || a.id).localeCompare(ib?.name || b.id);
+        });
+        if (selId != null) {
+          const newIdx = this.save.inv.findIndex(e => e.id === selId);
+          if (newIdx >= 0) {
+            this.save.selSlot = newIdx;
+            const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
+            if (pos >= 0) this.save.invPage = Math.floor(pos / PAGE);
+          }
         }
-      }
-      persistSave(this.save); this.buildInventoryDOM();
-    }));
+        persistSave(this.save); this.buildInventoryDOM();
+      }));
+    }
     bar.appendChild(makeBtn('◀', () => {
       this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
     }));
 
-    const startIdx = this.save.invPage * PAGE;
+    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    const startPos = this.save.invPage * PAGE;
     for (let s = 0; s < PAGE; s++) {
-      const i = startIdx + s;
-      const entry = this.save.inv[i];
-      const item = entry ? ITEM_BY_ID[entry.id] : null;
+      const p = startPos + s;
       const slot = document.createElement('button');
-      slot.dataset.slot = i;
-      slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-      slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon — routed through renderItemIcon so modals stay perfectly
-      // in sync. The generic seedbag fallback for seeds-without-Spring-Crops-art
-      // and the ITEM_DATA_URLS path (longgrass/chicken/cow/flowers) both live
-      // inside renderItemIcon now.
-      if (item) {
-        slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
-      } else {
+      slot.style.cssText = slotCss;
+      if (isGear) {
+        const g = gearList[p];
+        if (g) {
+          slot.dataset.gear = `${g.kind}:${g.slot}`;
+          slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
+          const wrap = document.createElement('span');
+          wrap.style.cssText = 'display:inline-block;line-height:0;';
+          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
+          slot.appendChild(wrap);
+          // Tier badge mirrors the item count badge so gear reads consistently.
+          const badge = document.createElement('span');
+          badge.textContent = 'T' + g.tier;
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          slot.appendChild(badge);
+          slot.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.save.selGear = { kind: g.kind, slot: g.slot };
+            this.save.selSlot = -1;
+            persistSave(this.save);
+            this.refreshInventoryHighlight();
+          });
+        } else {
+          slot.textContent = '·';
+          slot.style.cursor = 'default';
+        }
+      } else if (p < itemList.length) {
+        const { idx, entry } = itemList[p];
+        const item = ITEM_BY_ID[entry.id];
+        slot.dataset.slot = idx;
+        slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
+        if (item) slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
+        else slot.textContent = '·';
+        if (entry.count != null) {
+          const badge = document.createElement('span');
+          badge.textContent = entry.count;
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          slot.appendChild(badge);
+        }
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.save.selSlot = idx;
+          persistSave(this.save);
+          this.refreshInventoryHighlight();
+        });
+      } else if (p === itemList.length) {
+        // The single trailing EMPTY slot — selecting it means "nothing held",
+        // which a shop reads as buy intent. dataset.slot = -1.
+        slot.dataset.slot = -1;
+        slot.title = 'empty';
         slot.textContent = '·';
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.save.selSlot = -1;
+          persistSave(this.save);
+          this.refreshInventoryHighlight();
+        });
+      } else {
+        // Filler beyond the list — inert.
+        slot.textContent = '·';
+        slot.style.cursor = 'default';
       }
-      if (entry && entry.count != null) {
-        const badge = document.createElement('span');
-        badge.textContent = entry.count;
-        badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
-        slot.appendChild(badge);
-      }
-      slot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.save.selSlot = i;
-        persistSave(this.save);
-        this.refreshInventoryHighlight();
-      });
       bar.appendChild(slot);
     }
     bar.appendChild(makeBtn('▶', () => {
       this.save.invPage = (this.save.invPage + 1) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
     }));
-    // Page indicator — pill-shaped so it visibly belongs to the inv bar even at
-    // its smaller size, and reads at a glance against any terrain underneath.
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
     pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffd866;font:700 11px ui-monospace,monospace;margin-left:4px;';
@@ -7197,10 +7359,7 @@ class MapScene extends Phaser.Scene {
 
     document.body.appendChild(bar);
 
-    // Name strip just below the bar — always shows the currently selected
-    // item's name (across pages), so the player isn't guessing what's
-    // selected when scrolled to a different page. Also position:fixed for the
-    // same reason as the bar above.
+    // Name strip just below the bar — shows the selected item / gear name.
     let nameLbl = document.getElementById('inv-name');
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
@@ -7213,34 +7372,56 @@ class MapScene extends Phaser.Scene {
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    const PAGE = 5;
-    const startIdx = this.save.invPage * PAGE;
-    [...bar.querySelectorAll('button[data-slot]')].forEach(el => {
-      const i = +el.dataset.slot;
-      const isSel = i === this.save.selSlot;
+    const cat = INV_CAT_BY_KEY[this.save.invCat] || INV_CAT_BY_KEY.seed;
+    const isGear = !!cat.gear;
+    const gearKey = this.save.selGear ? `${this.save.selGear.kind}:${this.save.selGear.slot}` : null;
+    [...bar.querySelectorAll('button[data-slot],button[data-gear]')].forEach(el => {
+      let isSel;
+      if (el.dataset.gear != null) isSel = el.dataset.gear === gearKey;
+      else isSel = +el.dataset.slot === this.save.selSlot;
       el.style.borderColor = isSel ? '#ffd866' : '#555';
       el.style.background  = isSel ? '#553a' : '#222a';
     });
     const nameLbl = document.getElementById('inv-name');
     if (nameLbl) {
-      const sel = this.save.inv[this.save.selSlot];
-      const it = sel && ITEM_BY_ID[sel.id];
-      if (!it) {
-        nameLbl.textContent = '';
+      nameLbl.textContent = '';
+      if (isGear) {
+        const g = this.save.selGear;
+        if (!g) {
+          // Empty gear tab — tell the player where this gear comes from.
+          const hint = document.createElement('div');
+          hint.textContent = cat.key === 'armor'
+            ? 'No armor yet — forge or find it'
+            : 'No relics yet — forge or find them';
+          hint.style.cssText = 'opacity:0.7;';
+          nameLbl.appendChild(hint);
+        } else {
+          const nameSpan = document.createElement('div');
+          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
+          nameLbl.appendChild(nameSpan);
+          const def = (g.kind === 'relic' && typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS[g.slot] : null;
+          if (def && def.blurb) {
+            const fx = document.createElement('div');
+            fx.textContent = `✦ ${def.blurb}`;
+            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            nameLbl.appendChild(fx);
+          }
+        }
       } else {
-        const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
-        // Disclose any special effect on a dim second line so a non-obvious
-        // power (water crops, tame, lure, reveal chest…) is visible at a glance.
-        const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
-        nameLbl.textContent = '';
-        const nameSpan = document.createElement('div');
-        nameSpan.textContent = nameTxt;
-        nameLbl.appendChild(nameSpan);
-        if (effect) {
-          const fx = document.createElement('div');
-          fx.textContent = `✦ ${effect}`;
-          fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
-          nameLbl.appendChild(fx);
+        const sel = this.save.inv[this.save.selSlot];
+        const it = sel && ITEM_BY_ID[sel.id];
+        if (it) {
+          const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+          const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
+          const nameSpan = document.createElement('div');
+          nameSpan.textContent = nameTxt;
+          nameLbl.appendChild(nameSpan);
+          if (effect) {
+            const fx = document.createElement('div');
+            fx.textContent = `✦ ${effect}`;
+            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            nameLbl.appendChild(fx);
+          }
         }
       }
     }
