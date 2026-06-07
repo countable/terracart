@@ -505,11 +505,14 @@ function drawOrchardTex(ctx, size, rng) {
 // blade colours / shading next to the hand-painted wilderness art.)
 
 // Simple procedural castle turret — narrow stone column with crenellated top.
-// One 24×40 canvas, anchor at bottom-centre so it sits on its cell.
+// One 24×50 canvas, anchor at bottom-centre so it sits on its cell. The column
+// is deliberately taller than the rampart battlements so a tower standing on a
+// wall clearly rises ABOVE the back-wall crenellations (which reach ~10px above
+// their cell) instead of being level with them. Foot stays at the cell.
 function makeTowerTexture(scene) {
   const KEY = 'tower';
   if (scene.textures.exists(KEY)) return;
-  const W = 24, H = 40;
+  const W = 24, H = 50;
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);

@@ -204,7 +204,7 @@ const COLORS = {
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
   11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x82858e, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), still a touch darker than the LIGHT rampart walls)
+  12: 0x7c7f88, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
@@ -668,6 +668,11 @@ class MapScene extends Phaser.Scene {
     this.noiseContainer = this.add.container(0, 0);
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
+    // Road-name letters render WITH the road stones (just above the cobble),
+    // BELOW the rampart/back wall + objects — so a road passing north of a
+    // castle tucks behind the back wall instead of its letters poking over it.
+    // (Pool populated further down, after the cobble pool.)
+    this.letterContainer = this.add.container(0, 0);
     this.plantedContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
@@ -725,7 +730,8 @@ class MapScene extends Phaser.Scene {
     // Road-letter pool: small light letters with a soft drop shadow, laid out one
     // per cell along named streets. Lighter than the cobble background so they
     // read like worn paint markings rather than carved-in lettering.
-    this.letterContainer = this.add.container(0, 0);
+    // (letterContainer itself is created earlier, next to cobbleContainer, so it
+    // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
