@@ -142,18 +142,21 @@
   }
 
   // Per-tile distribution-floor enforcement. Per user balance pass: every
-  // tile should have AT LEAST 20% small houses, 8% forts, and 2% castles.
-  // If the default thresholds don't hit those minima on this tile's actual
-  // area distribution, promote/demote by area-rank until they do — biggest
-  // buildings get the biggest tier. n < 5 skips (too few to enforce
-  // meaningfully); 5 ≤ n < 25 only enforces fort + small (round(n*0.02) = 0).
+  // tile should have AT LEAST 20% small houses, 8% forts, and 2% castles —
+  // and the percent floors ALWAYS round UP to at least one of each type, so
+  // no tile with buildings is left without a castle/fort/house. (Previously
+  // the floors used Math.round, so e.g. 2% castles vanished on any tile with
+  // fewer than 25 buildings.) If the default thresholds don't hit those minima
+  // on this tile's actual area distribution, promote/demote by area-rank until
+  // they do — biggest buildings get the biggest tier. n < 3 skips (can't host
+  // one of each type with fewer than three buildings).
   // Mutates each entry's `.tier`.
   function enforceBuildingDistribution(polys) {
     const n = polys.length;
-    if (n < 5) return;
-    const needLarge = Math.max(0, Math.round(n * 0.02));
-    const needMed   = Math.max(0, Math.round(n * 0.08));
-    const needSmall = Math.max(0, Math.round(n * 0.20));
+    if (n < 3) return;
+    const needLarge = Math.max(1, Math.ceil(n * 0.02));
+    const needMed   = Math.max(1, Math.ceil(n * 0.08));
+    const needSmall = Math.max(1, Math.ceil(n * 0.20));
     // Count current
     let cLarge = 0, cMed = 0, cSmall = 0;
     for (const p of polys) {
