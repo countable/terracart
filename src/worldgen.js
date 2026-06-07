@@ -1794,8 +1794,7 @@
       // These bypass the in-tile occupancy/biome filters on purpose — they are
       // real-world features and should appear where OSM says they are — but we
       // still skip any that land on a water cell (a tree mid-lake reads wrong).
-      const sx = await ensureSatextract(lat);
-      const bin = sx && sx.get(`${x}_${y}`);
+      const bin = await getTileBin(x, y, lat);
       if (bin) {
         const cpe = entry.cellsPerEdge;
         const mPerCell = tileEdgeM / cpe;
@@ -2044,8 +2043,12 @@
   // (tx * tileEdgeM + localOffset) basis as rasterizeTile so positions line up.
   let _satextractPromise = null;
 
-  function ensureSatextract(lat) {
-    if (_satextractPromise) return _satextractPromise;
+  // Transform a satextract-style GeoJSON FeatureCollection (Point features
+  // tagged with properties.kind) into per-z14-tile bins. Shared by the static
+  // sidecar loader (ensureSatextract) and the live Overpass loader
+  // (fetchOverpassBin) — both feed the SAME feature shape through here, so
+  // there is exactly one binning / projection / species-fallback code path.
+  function buildBinsFromGeoJSON(gj, lat) {
     const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
     // DeepForest detections below this confidence are dropped on load. OSM
     // trees carry no `score` and are always kept. The z20 classified run is
@@ -2060,13 +2063,6 @@
         wmx: fx * tileEdgeM, wmy: fy * tileEdgeM,
       };
     };
-    // ?v bumps whenever data/satextract_osm.geojson is regenerated — the file
-    // name is otherwise stable, so without a cache-bust the browser serves a
-    // stale copy and freshly-extracted features (poles, relocated trees) never
-    // appear. Bump this when you re-run satextract.
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=7')
-      .then(r => (r.ok ? r.json() : null))
-      .then(gj => {
         const bins = new Map();
         const binFor = (tx, ty) => {
           const k = `${tx}_${ty}`;
@@ -2224,9 +2220,173 @@
           }
         }
         return bins;
-      })
+  }
+
+  // Static sidecar loader: fetch the pre-extracted (OSM + DeepForest +
+  // Grounding DINO) geojson once and bin it. Memoized for the session.
+  // ?v bumps whenever data/satextract_osm.geojson is regenerated — the file
+  // name is otherwise stable, so without a cache-bust the browser serves a
+  // stale copy and freshly-extracted features (poles, relocated trees) never
+  // appear. Bump this when you re-run satextract.
+  function ensureSatextract(lat) {
+    if (_satextractPromise) return _satextractPromise;
+    _satextractPromise = fetch('data/satextract_osm.geojson?v=7')
+      .then(r => (r.ok ? r.json() : null))
+      .then(gj => buildBinsFromGeoJSON(gj, lat))
       .catch(() => new Map());
     return _satextractPromise;
+  }
+
+  // --- Live Overpass loader (opt-in) -------------------------------------
+  // The static sidecar only covers the pre-extracted bbox. When live mode is
+  // on, tiles OUTSIDE that bbox are decorated by querying the Overpass API for
+  // the tile's bbox at request time, mapping the OSM elements into the SAME
+  // satextract-style GeoJSON `kind` vocabulary, and running them through
+  // buildBinsFromGeoJSON. This revives ONLY the OSM-tagged features (trees,
+  // poles, street furniture, fountains, streams) — the DeepForest crowns and
+  // Grounding DINO objects are CV-only and stay exclusive to the static file.
+  let _overpassLive = false;
+  function overpassLiveEnabled() {
+    if (_overpassLive) return true;
+    try { return /[?&]overpass=live(?:&|$)/.test((global.location && global.location.search) || ''); }
+    catch (_) { return false; }
+  }
+  // Public, CORS-enabled endpoints, tried in order (fail over on error / 429).
+  const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+  // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
+  function emptyBin() {
+    return { trees: [], fruittrees: [], shrubs: [], poles: [],
+             wells: [], chests: [], parking: [], streams: [] };
+  }
+  // Inverse slippy-map: z14 tile index → lon/lat of its NW corner.
+  function tileLon(xt) { return xt / (1 << Z) * 360 - 180; }
+  function tileLat(yt) {
+    const n = Math.PI - 2 * Math.PI * yt / (1 << Z);
+    return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  }
+  // OSM tag set → satextract `kind`. Mirrors the tags satextract's `osm`
+  // source pulls, so live and static features land in the same bins. Order
+  // matters only where a feature could carry two matching tags (rare).
+  function osmKindOf(tags) {
+    if (!tags) return null;
+    if (tags.natural === 'tree') return 'tree';
+    if (tags.natural === 'tree_row') return 'tree_row';
+    if (tags.power === 'pole' || tags.man_made === 'utility_pole') return 'pole';
+    if (tags.man_made === 'mast') return 'mast';
+    if (tags.barrier === 'bollard') return 'bollard';
+    if (tags.highway === 'street_lamp') return 'street_lamp';
+    if (tags.amenity === 'fountain') return 'fountain';
+    if (tags.amenity === 'parking') return 'parking';
+    if (tags.waterway === 'stream') return 'stream';
+    if (tags.highway === 'bus_stop') return 'bus_stop';
+    if (tags.highway === 'traffic_signals') return 'traffic_signals';
+    if (tags.highway === 'stop') return 'stop';
+    if (tags.highway === 'crossing') return 'crossing';
+    if (tags.leisure === 'picnic_table') return 'picnic_table';
+    if (tags.historic === 'memorial') return 'memorial';
+    if (tags.barrier === 'gate') return 'gate';
+    if (tags.amenity === 'bicycle_parking') return 'bicycle_parking';
+    if (tags.leisure === 'garden') return 'garden';
+    if (tags.leisure === 'playground') return 'playground';
+    if (tags.leisure === 'pitch') return 'pitch';
+    if (tags.leisure === 'swimming_pool' || tags.amenity === 'swimming_pool') return 'swimming_pool';
+    if (tags.man_made === 'tower') return 'tower';
+    if (tags.power === 'line') return 'line';
+    return null;
+  }
+  function buildOverpassQL(x, y) {
+    const north = tileLat(y), south = tileLat(y + 1);
+    const west = tileLon(x), east = tileLon(x + 1);
+    const bb = `(${south},${west},${north},${east})`;
+    // Nodes for point features; ways (via `out center`) for tree_row / stream
+    // / area POIs that satextract reduces to a centroid.
+    const sels = [
+      'node["natural"="tree"]', 'way["natural"="tree_row"]',
+      'node["power"="pole"]', 'node["man_made"="utility_pole"]',
+      'node["man_made"="mast"]', 'node["barrier"="bollard"]',
+      'node["highway"="street_lamp"]', 'node["amenity"="fountain"]',
+      'node["amenity"="parking"]', 'way["amenity"="parking"]',
+      'way["waterway"="stream"]',
+      'node["highway"="bus_stop"]', 'node["highway"="traffic_signals"]',
+      'node["highway"="stop"]', 'node["highway"="crossing"]',
+      'node["leisure"="picnic_table"]', 'node["historic"="memorial"]',
+      'node["barrier"="gate"]', 'node["amenity"="bicycle_parking"]',
+      'node["leisure"="garden"]', 'way["leisure"="garden"]',
+      'node["leisure"="playground"]', 'way["leisure"="playground"]',
+      'way["leisure"="pitch"]',
+      'node["leisure"="swimming_pool"]', 'way["leisure"="swimming_pool"]',
+      'node["man_made"="tower"]',
+    ];
+    // `out center;` prints node lat/lon and way centroids, both with tags.
+    return `[out:json][timeout:25];(` + sels.map(s => s + bb + ';').join('') + `);out center;`;
+  }
+  // Overpass JSON elements → satextract-style GeoJSON Point FeatureCollection.
+  // Nodes use their own lat/lon; ways use the `center` from `out center`.
+  function overpassToGeoJSON(elements) {
+    const features = [];
+    for (const el of (elements || [])) {
+      const kind = osmKindOf(el.tags);
+      if (!kind) continue;
+      let lon, lat0;
+      if (el.type === 'node') { lon = el.lon; lat0 = el.lat; }
+      else if (el.center) { lon = el.center.lon; lat0 = el.center.lat; }
+      else continue;
+      if (lon == null || lat0 == null) continue;
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat0] },
+        properties: { kind, osm_id: el.id, tags: el.tags || {} },
+      });
+    }
+    return { type: 'FeatureCollection', features };
+  }
+  // Per-tile cache + in-flight dedup so a tile is queried at most once.
+  const _overpassInflight = new Map();
+  async function fetchOverpassBin(x, y, lat) {
+    const key = `ovp/${Z}/${x}/${y}`;
+    const cached = await idbGet(key);
+    if (cached) return cached;                 // already-transformed bin
+    if (_overpassInflight.has(key)) return _overpassInflight.get(key);
+    const p = (async () => {
+      try {
+        const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
+        let json = null;
+        for (const ep of OVERPASS_ENDPOINTS) {
+          try {
+            const resp = await fetch(ep, {
+              method: 'POST', body,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            });
+            if (!resp.ok) continue;            // 429 / load-shed → next mirror
+            json = await resp.json();
+            break;
+          } catch (_) { /* network error → try next endpoint */ }
+        }
+        if (!json) return null;                // fail soft: no decoration, retry later
+        const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
+        // Features near the bbox edge can project into a neighbour tile; we
+        // keep only this tile's bin (neighbours fetch their own bbox).
+        const bin = bins.get(`${x}_${y}`) || emptyBin();
+        idbPut(key, bin);                      // trees/poles ~static → cache forever
+        return bin;
+      } catch (_) { return null; }
+      finally { _overpassInflight.delete(key); }
+    })();
+    _overpassInflight.set(key, p);
+    return p;
+  }
+  // Single entry point for loadTile: the static sidecar wins where it exists
+  // (it carries the richer CV detail); otherwise, if live mode is on, fill the
+  // tile from Overpass. Returns a bin or null (= no sidecar decoration).
+  async function getTileBin(x, y, lat) {
+    const sx = await ensureSatextract(lat);
+    const stat = sx && sx.get(`${x}_${y}`);
+    if (stat) return stat;
+    if (overpassLiveEnabled()) return fetchOverpassBin(x, y, lat);
+    return null;
   }
 
   // --- Underground cave generation (depth > 0) ---------------------------
@@ -2512,5 +2672,9 @@
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, isWalkable, isSpawnCell, setDepth,
+    // Live Overpass decoration (opt-in): WorldGen.setOverpassLive(true) or
+    // append ?overpass=live to the URL. Fills tiles outside the static
+    // satextract bbox with OSM features queried at request time.
+    setOverpassLive: (b) => { _overpassLive = !!b; },
   };
 })(window);
