@@ -1280,6 +1280,14 @@ Render.drawObjects = function drawObjects(scene) {
     if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
       tint = SHINY_TINT;
     }
+    // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
+    // industrial lot) — only when nothing more specific (shop/shiny) already
+    // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
+    // A spec.after hook (e.g. mineralrock tier shading) may still override.
+    if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+      const bt = BiomeProfiles.tint(o._biome, o.kind);
+      if (bt) tint = bt;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
@@ -1843,7 +1851,12 @@ Render.drawObjects = function drawObjects(scene) {
       const b = Math.round(lb + (hb - lb) * wave);
       s.setTint((r << 16) | (g << 8) | b);
     } else {
-      s.setTint(0xffffff);
+      // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
+      // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
+      // back to no tint (0xffffff) when the biome has no tint for this crop.
+      const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
+        ? BiomeProfiles.tint(p._biome, p.crop) : null;
+      s.setTint(bt || 0xffffff);
     }
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
