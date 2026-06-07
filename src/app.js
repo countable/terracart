@@ -5165,6 +5165,107 @@ class MapScene extends Phaser.Scene {
     return Delivery.isSatisfied(this.save, house);
   }
 
+  // True if `o` is a residential delivery host — a restored plain tier-9 home
+  // (not a wreck, the player's own home/smithy, an unused scarecrow shop, or
+  // any specialty shop) that asks for produce bundles. The scene-side twin of
+  // render.js's _houseIsHost (which uses render-local helpers); kept here so
+  // roofCalloutSpec — and any other game logic — can ask the same question
+  // without reaching into the renderer.
+  isDeliveryHost(o) {
+    if (!o || o.kind !== 'house' || o.tier !== 9) return false;
+    if (this._isHouseWreck(o)) return false;                                  // still a wreck
+    if (this.save.starterShopId && this.save.starterShopId === o.id) return false;          // Home
+    if (this.save.scarecrowShopId && this.save.scarecrowShopId === o.id
+        && !this.save.scarecrowShopUsed) return false;                        // active scarecrow shop
+    if (this.houseShopRole(o)) return false;                                  // specialty storefront
+    return this.wantedProduce(o).length > 0;
+  }
+
+  // The roof callout a building should float above its gable, or null for none.
+  // ONE source of truth for every speech-bubble over a building; render.js just
+  // paints the `parts` it returns (see the produce-sign block there). A spec is
+  // { key, parts }: `key` memoizes the DOM build (rebuilt only when it changes),
+  // `parts` is an ordered list of segment descriptors the renderer knows how to
+  // draw — { t:'icon', id } (a real item sprite), { t:'emoji'|'qty'|'text', s },
+  // { t:'arrow' } (a give→get marker), or { t:'badges', filled, total } (a row
+  // of progress pips). Covers four building kinds:
+  //   • delivery host  → its produce wishlist (or a happy face once fed today)
+  //   • sealed castle  → the delivery-gate progress needed to unlock the vault
+  //   • trader         → what it wants → what it offers (the barter, at a glance)
+  //   • wizard tower   → its standing demand (Discovery for the next Inner Light)
+  roofCalloutSpec(o) {
+    if (!o) return null;
+
+    // Residential delivery host — wishlist while hungry, happy face once fed.
+    if (this.isDeliveryHost(o)) {
+      if (this.isHouseSatisfied(o)) {
+        return { key: o.id + '|happy', parts: [{ t: 'emoji', s: '😊' }] };
+      }
+      const wanted = this.wantedProduce(o);
+      return {
+        key: o.id + '|w|' + wanted.join(','),
+        parts: wanted.map((id) => ({ t: 'icon', id })),
+      };
+    }
+
+    // Sealed castle — the vault opens after CASTLE_DELIVERY_GATE lifetime
+    // deliveries, so show a 🔒 and a row of progress badges (filled = logged,
+    // hollow = still owed) instead of an item wishlist. Once unlocked the
+    // castle trades normally and shows no callout here.
+    if (this._isBuildingSealed(o)) {
+      const need = this._deliveryGate(o);
+      const have = Math.min(need, this.save.deliveryCount ?? 0);
+      return {
+        key: (o.id || 'castle') + '|seal|' + have + '/' + need,
+        parts: [{ t: 'emoji', s: '🔒' }, { t: 'badges', filled: have, total: need }],
+      };
+    }
+
+    // Specialty storefronts only advertise once restored — an unrestored wreck
+    // has no shop yet (houseShopRole would fall through to its address-derived
+    // role, a mere preview), so it floats no barter/demand callout.
+    if (this._isHouseWreck(o)) return null;
+
+    // Specialty storefronts that advertise a standing deal over the roof.
+    const role = this.houseShopRole(o);
+
+    // Trader — a barter at a glance: [what they want ×qty] → [what they offer
+    // ×qty]. The give→get arrow makes the direction unambiguous (mirrors the
+    // labelled trader dialog). Skipped if the trader has no deal to show.
+    if (role === 'trader') {
+      const offer = this.peekOrBuildTraderOffer(o);
+      if (offer) {
+        const giveQty = TRADE_OFFER_QTY
+          + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
+        return {
+          key: o.id + '|trade|' + offer.askId + 'x' + offer.askQty
+            + '>' + offer.giveId + 'x' + giveQty,
+          parts: [
+            { t: 'icon', id: offer.askId }, { t: 'qty', s: '×' + offer.askQty },
+            { t: 'arrow' },
+            { t: 'icon', id: offer.giveId }, { t: 'qty', s: '×' + giveQty },
+          ],
+        };
+      }
+    }
+
+    // Wizard tower — its standing demand is Discovery for the next Inner Light
+    // (🔆 ×cost). Once reach is maxed there's nothing left to widen, so it
+    // drops the callout.
+    if (role === 'wizard') {
+      const claimed = this.save.reachUpgrades ?? 0;
+      if (claimed < this.REACH_UPGRADE_MAX) {
+        const cost = this.WIZARD_INNER_LIGHT_COST;
+        return {
+          key: o.id + '|wiz|' + cost,
+          parts: [{ t: 'emoji', s: '🔆' }, { t: 'qty', s: '×' + cost }],
+        };
+      }
+    }
+
+    return null;
+  }
+
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
   // their 2-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
@@ -5838,8 +5939,13 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
       cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
-      cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
+      // Label both sides so the barter reads unambiguously — "They offer" (what
+      // you receive) vs "They want" (what you hand over). Without the captions
+      // the two item lines look interchangeable in a swap.
+      get: `<div style="opacity:.6;font-size:10px;font-weight:600;letter-spacing:.6px">THEY OFFER</div>`
+        + `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
+      cost: `<div style="opacity:.6;font-size:10px;font-weight:600;letter-spacing:.6px">THEY WANT</div>`
+        + `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
       canAfford: heldCount() >= offer.askQty,
       onAccept: () => {
         if (heldCount() < offer.askQty) {

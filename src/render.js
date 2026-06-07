@@ -1501,16 +1501,6 @@ Render.drawObjects = function drawObjects(scene) {
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
-  // Has this host already been fed today (so it shows a happy face, not a
-  // wishlist)? The interact handler stamps it on delivery; both reset at the
-  // UTC day boundary.
-  const _houseSatisfied = (o) =>
-    (typeof scene.isHouseSatisfied === 'function') && scene.isHouseSatisfied(o);
-  // The residential wishlist a house should show as an ICON plaque, or null —
-  // a host that's still hungry today. A satisfied host returns null here and
-  // shows the happy bubble instead (see the produce-sign block below).
-  const _houseProduceWanted = (o) =>
-    (_houseIsHost(o) && !_houseSatisfied(o)) ? scene.wantedProduce(o) : null;
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
   // foundation read as the same "house identity" at a glance. Plain houses /
@@ -1623,21 +1613,68 @@ Render.drawObjects = function drawObjects(scene) {
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
+      // Paint one callout `parts` segment (see scene.roofCalloutSpec for the
+      // segment vocabulary). Items render as real sprites; everything else is
+      // small non-item chrome (emoji / qty / arrow / progress badges), all
+      // sized off the icon scale so the bubble stays proportional.
+      const buildCalloutPart = (part) => {
+        if (part.t === 'icon') {
+          return (scene.renderItemIcon && scene.renderItemIcon(part.id, sizePx, 'block'))
+            || document.createElement('span');
+        }
+        if (part.t === 'emoji') {
+          // Abstract, non-item glyphs (😊 / 🔒 / 🔆) — allowed as UI chrome (QC §1).
+          const d = document.createElement('div');
+          d.textContent = part.s;
+          d.style.cssText = `font-size:${sizePx}px;line-height:1;`;
+          return d;
+        }
+        if (part.t === 'qty' || part.t === 'text') {
+          const d = document.createElement('div');
+          d.textContent = part.s;
+          d.style.cssText = `font:700 ${Math.max(7, Math.round(sizePx * 0.7))}px ui-monospace,monospace;`
+            + 'color:#333;line-height:1;';
+          return d;
+        }
+        if (part.t === 'arrow') {
+          // Give→get marker for the trader barter (want → offer).
+          const d = document.createElement('div');
+          d.textContent = '→';
+          d.style.cssText = `font-size:${Math.round(sizePx * 0.85)}px;line-height:1;color:#777;`;
+          return d;
+        }
+        if (part.t === 'badges') {
+          // A row of progress pips — filled = earned, hollow = still owed.
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;gap:2px;align-items:center;';
+          const d = Math.max(4, Math.round(sizePx * 0.5));
+          for (let i = 0; i < (part.total || 0); i++) {
+            const pip = document.createElement('div');
+            pip.style.cssText = `width:${d}px;height:${d}px;border-radius:50%;`
+              + (i < (part.filled || 0)
+                  ? 'background:#e0c060;border:1px solid #b8943a;'      // earned — gold
+                  : 'background:#ddd;border:1px solid #bbb;');          // owed — grey
+            wrap.appendChild(pip);
+          }
+          return wrap;
+        }
+        return document.createElement('span');
+      };
       for (const it of filteredObj) {
-        // Every delivery host gets a roof callout. While hungry it's the
-        // wishlist of produce icons; once a bundle's been delivered today the
-        // house is happy and shows a smiling face instead (it'll want a fresh
-        // bundle tomorrow). Non-host buildings get nothing here.
-        if (!_houseIsHost(it.o)) continue;
-        const happy = _houseSatisfied(it.o);
-        const wanted = happy ? null : scene.wantedProduce(it.o);
+        // One source of truth for what floats over a building: roofCalloutSpec
+        // returns null (no bubble) or { key, parts } — a delivery host's
+        // wishlist / happy face, a sealed castle's unlock progress, a trader's
+        // barter, or the wizard tower's Discovery demand. The renderer stays
+        // dumb: it just paints the parts and memoizes on the key.
+        const spec = scene.roofCalloutSpec ? scene.roofCalloutSpec(it.o) : null;
+        if (!spec) continue;
         const { sx, sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
           // White rounded callout — a little speech bubble that floats above the
-          // house roof (where the old open/busy pip used to sit). The downward
-          // tail is a separate child triangle added during the icon rebuild.
+          // building roof (where the old open/busy pip used to sit). The downward
+          // tail is a separate child triangle added during the content rebuild.
           el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:3px;'
             + 'align-items:center;padding:3px 5px;background:#fff;border-radius:7px;'
             + 'border:1px solid rgba(0,0,0,0.18);box-shadow:0 1px 3px rgba(0,0,0,0.4);'
@@ -1646,25 +1683,15 @@ Render.drawObjects = function drawObjects(scene) {
           slot = { el, key: null };
           pool.push(slot);
         }
-        // Rebuild contents only when the wishlist / happy state / icon size
-        // changes — the produce set is memoized per house, so this is normally
-        // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
+        // Rebuild contents only when the spec key or the icon size changes — the
+        // spec is memoized per building, so this is normally a no-op per frame.
+        const key = spec.key + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          if (happy) {
-            // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
-            const face = document.createElement('div');
-            face.textContent = '😊';
-            face.style.cssText = `font-size:${sizePx}px;line-height:1;`;
-            slot.el.appendChild(face);
-          } else for (const id of wanted) {
-            const ic = scene.renderItemIcon ? scene.renderItemIcon(id, sizePx, 'block') : null;
-            if (ic) slot.el.appendChild(ic);
-          }
+          for (const part of spec.parts) slot.el.appendChild(buildCalloutPart(part));
           // Downward tail — a CSS triangle absolutely positioned at the bubble's
-          // bottom centre so it points at the house. position:absolute keeps it
-          // out of the flex flow, so it doesn't shift the icon row.
+          // bottom centre so it points at the building. position:absolute keeps
+          // it out of the flex flow, so it doesn't shift the content row.
           const tail = document.createElement('div');
           tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
             + 'border-left:5px solid transparent;border-right:5px solid transparent;'
@@ -1673,9 +1700,9 @@ Render.drawObjects = function drawObjects(scene) {
           slot.el.appendChild(tail);
           slot.key = key;
         }
-        // Float the bubble ABOVE the house roof: translate(-50%,-100%) anchors it
-        // by its bottom-centre at sy-18 — where the old open pip tucked — so the
-        // bubble and its tail rise above the building like a callout.
+        // Float the bubble ABOVE the building roof: translate(-50%,-100%) anchors
+        // it by its bottom-centre at sy-18 — where the old open pip tucked — so
+        // the bubble and its tail rise above the building like a callout.
         const px = rect.left + sx * scale;
         const py = rect.top  + (sy - 18) * scale;
         slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
@@ -1719,10 +1746,11 @@ Render.drawObjects = function drawObjects(scene) {
     // Locked forts (not yet unsealed with wood) aren't trading either — skip
     // the pip until the player pays the quartermaster.
     if (typeof scene._isFortLocked === 'function' && scene._isFortLocked(o)) continue;
-    // Hosts (residential delivery houses) show their roof callout — wishlist
-    // or happy face — where this pip would sit (see the produce-sign block
-    // above), so they skip the separate open/busy pip entirely.
-    if (_houseIsHost(o)) continue;
+    // Any building that floats a roof callout — a delivery host's wishlist, a
+    // trader's barter, or the wizard tower's demand — owns the roofline where
+    // this pip would sit (see the produce-sign block above), so it skips the
+    // separate open/busy pip entirely to avoid stacking two plaques.
+    if (typeof scene.roofCalloutSpec === 'function' && scene.roofCalloutSpec(o)) continue;
     const { sx, sy } = project(dx, dy);
     let tx = scene.shopReadyPool[hri];
     if (!tx) {
