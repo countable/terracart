@@ -373,6 +373,12 @@ function makeTowerTexture(scene) {
   for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
     ctx.fillRect(bodyX, y, bodyW, 1);
   }
+  // Shaded foot — a small shadow only at the very bottom so the tower reads as
+  // grounded without darkening the whole lower body.
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.fillRect(bodyX, bodyBot - 4, bodyW, 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.24)';
+  ctx.fillRect(bodyX, bodyBot - 2, bodyW, 2);
   // Arrow-slit window
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(W / 2 - 1, bodyTop + 8, 2, 6);

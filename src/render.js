@@ -503,49 +503,51 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
-      // Tier 12 (castle) — STONE RAMPART: crenellated battlements along every
-      // perimeter edge. The keep's answer to the tier-11 wooden palisade —
-      // square merlons separated by crenel gaps, in cool grey stone, so the
-      // castle reads as a walled fortress. Drawn INSTEAD of the tier-9/12
-      // extrusion + outline below (same continue trick the palisade uses).
+      // Tier 12 (castle) — STONE RAMPART. The front (south) and back (north)
+      // walls carry bold merlons that rise UP from the wall line with clear
+      // crenel gaps, aligned across cells. The side (east/west) walls aren't
+      // toothed — they read as a dashed shadow line hugging the wall edge, its
+      // dashes on the same merlon grid so they line up with the crests.
+      // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
         const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
               STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
-        const MERLONS = 4, SPAN = CELL_PX / MERLONS, MW = 5;  // 5px tooth, 3px gap ×4 = 32
-        const WALL = 6;          // south wall-face height (the lit 3-D face)
-        const TOOTH = 2;         // how far merlons poke past the footprint edge
-        // South edge — a stone wall face hangs BELOW the cell, capped with
-        // merlons that rise a couple px onto the cell's own bottom edge.
+        const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
+        const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
+        const TOOTH_H = 6;       // merlon height — tall enough to read clearly
+        const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
+        const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
+        // Horizontal battlement crest: a low parapet at `baseY` with merlons
+        // rising UP from it. Teeth share the SPAN grid on every wall so the
+        // front and back crenellations line up column-for-column.
+        const crestH = (x, baseY) => {
+          g.fillStyle(STONE_BODY, 1);   g.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, baseY - 1, CELL_PX, 1);
+          for (let i = 0; i < MERLONS; i++) {
+            const mx = x + i * SPAN + MOFF;
+            g.fillStyle(STONE_BODY, 1);   g.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            g.fillStyle(STONE_LITE, 1);   g.fillRect(mx, baseY - TOOTH_H, MW, 1);
+            g.fillStyle(STONE_SHADOW, 1); g.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+          }
+        };
+        // South / front wall — dark extruded face hangs BELOW the cell; the
+        // battlement crest rises up from the cell's bottom edge.
         if (!isB(T(col, row + 1))) {
           g.fillStyle(STONE_SHADOW, 1); g.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           g.fillStyle(STONE_DARK, 1);   g.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          for (let i = 0; i < MERLONS; i++) {
-            const mx = sx + i * SPAN;
-            g.fillStyle(STONE_BODY, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, WALL + TOOTH);
-            g.fillStyle(STONE_LITE, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, 1);
-          }
-          // vertical mortar joints between merlons
-          g.fillStyle(STONE_DARK, 0.5);
-          for (let i = 1; i < MERLONS; i++) g.fillRect(sx + i * SPAN - 1, sy + CELL_PX, 1, WALL);
+          crestH(sx, sy + CELL_PX);
         }
-        // North edge — crenellated strip on the cell's top, teeth poking UP.
-        const capH = (x, y) => {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, CELL_PX, 4);
-          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, CELL_PX, 1);
-          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
-            g.fillRect(x + i * SPAN, y - TOOTH, MW, TOOTH + 1);
+        // North / back wall — battlement crest rises up above the cell's top edge.
+        if (!isB(T(col, row - 1))) crestH(sx, sy);
+        // Side walls — no protruding teeth; a dashed shadow line hugs the wall
+        // edge, dashes on the same merlon span so they align with the crests.
+        const sideShade = (x) => {
+          g.fillStyle(STONE_DARK, 0.45); g.fillRect(x, sy, 2, CELL_PX);
+          g.fillStyle(STONE_DARK, 0.85);
+          for (let i = 0; i < MERLONS; i++) g.fillRect(x, sy + i * SPAN + MOFF, 2, MW);
         };
-        // Vertical edge — crenellated strip down the side, teeth poking OUT by
-        // `dir` (-1 left, +1 right).
-        const capV = (x, y, dir) => {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, 4, CELL_PX);
-          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, 1, CELL_PX);
-          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
-            g.fillRect(dir < 0 ? x - TOOTH : x + 4 - 1, y + i * SPAN, TOOTH + 1, MW);
-        };
-        if (!isB(T(col, row - 1))) capH(sx, sy);
-        if (!isB(T(col - 1, row))) capV(sx, sy, -1);
-        if (!isB(T(col + 1, row))) capV(sx + CELL_PX - 4, sy, +1);
+        if (!isB(T(col - 1, row))) sideShade(sx);
+        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - 2);
         continue;
       }
       // South wall: tier-specific extrusion, a darker shade of the building
