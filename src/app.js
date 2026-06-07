@@ -3420,7 +3420,16 @@ class MapScene extends Phaser.Scene {
     const cellIX = c.tx * N + c.ix, cellIY = c.ty * N + c.iy;
     const { x: wx, y: wy } = absCellCenterMeters(this, cellIX, cellIY);
     const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(this.save.relics) : 0;
-    if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY)) {
+    // Affordability GATE only — do NOT deduct here. Unlike a hand-tapped mine
+    // (which the player starts deliberately and waits out), the body kicks off
+    // these wheels on its own — up to 9s bare-handed — while the player is
+    // tapping to steer the ghost underground. An up-front charge with
+    // refund-on-bail (abortWorkProgress) meant every tap during the wheel handed
+    // the energy back, so a whole tunnel could be dug for almost nothing.
+    // Charge at COMPLETION instead (in the wheel callback below): a dug wall
+    // always costs, an interrupted one costs nothing — and isn't dug.
+    if (cost > (this.save.energy ?? 0)) {
+      this.flash('too tired', this.viewCenterX, this.viewCenterY);
       this._caveAutoPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -3428,7 +3437,10 @@ class MapScene extends Phaser.Scene {
       ? toolDurationMs(this.save.relics, 'pick')
       : (this.save.relics?.pick ? 3000 : 9000);
     this._caveAutoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
+    // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
+    // to refund (it just cancels the dig). The spend lands at the dig instant.
     this.startWorkProgress(wx, wy, () => {
+      this.spendEnergy(cost, this.viewCenterX, this.viewCenterY);
       this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
       const qty = randInt(1, 3);
       this.addToInv('rockfruit', qty);
@@ -3437,7 +3449,7 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
       const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
       this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
-    }, durMs, cost, 'pick');
+    }, durMs, 0, 'pick');
   }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
