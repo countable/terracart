@@ -2304,6 +2304,9 @@
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
+  // Per-attempt client abort. Slightly above the query's own [timeout:20] so a
+  // healthy-but-slow server response isn't cut off, but a true hang still dies.
+  const OVERPASS_TIMEOUT_MS = 22000;
   // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
   function emptyBin() {
     return { trees: [], fruittrees: [], shrubs: [], poles: [],
@@ -2349,27 +2352,25 @@
     const north = tileLat(y), south = tileLat(y + 1);
     const west = tileLon(x), east = tileLon(x + 1);
     const bb = `(${south},${west},${north},${east})`;
-    // Nodes for point features; ways (via `out center`) for tree_row / stream
-    // / area POIs that satextract reduces to a centroid.
+    // Query ONLY what OpenFreeMap's MVT layers don't already carry. The MVT
+    // `poi` layer already gives bus stops, parking, pitches, playgrounds,
+    // pools, bollards (we see them in the tile), so re-fetching them here just
+    // bloats a whole-town z14 query and produces dupes. Keep the genuinely
+    // additive set: trees (satextract's whole point), utility posts, fountains,
+    // streams, and a little street furniture MVT omits.
+    // Nodes for point features; ways (via `out center`) for tree_row / stream.
     const sels = [
       'node["natural"="tree"]', 'way["natural"="tree_row"]',
       'node["power"="pole"]', 'node["man_made"="utility_pole"]',
-      'node["man_made"="mast"]', 'node["barrier"="bollard"]',
-      'node["highway"="street_lamp"]', 'node["amenity"="fountain"]',
-      'node["amenity"="parking"]', 'way["amenity"="parking"]',
-      'way["waterway"="stream"]',
-      'node["highway"="bus_stop"]', 'node["highway"="traffic_signals"]',
-      'node["highway"="stop"]', 'node["highway"="crossing"]',
+      'node["man_made"="mast"]', 'node["highway"="street_lamp"]',
+      'node["amenity"="fountain"]', 'way["waterway"="stream"]',
       'node["leisure"="picnic_table"]', 'node["historic"="memorial"]',
       'node["barrier"="gate"]', 'node["amenity"="bicycle_parking"]',
       'node["leisure"="garden"]', 'way["leisure"="garden"]',
-      'node["leisure"="playground"]', 'way["leisure"="playground"]',
-      'way["leisure"="pitch"]',
-      'node["leisure"="swimming_pool"]', 'way["leisure"="swimming_pool"]',
       'node["man_made"="tower"]',
     ];
     // `out center;` prints node lat/lon and way centroids, both with tags.
-    return `[out:json][timeout:25];(` + sels.map(s => s + bb + ';').join('') + `);out center;`;
+    return `[out:json][timeout:20];(` + sels.map(s => s + bb + ';').join('') + `);out center;`;
   }
   // Overpass JSON elements → satextract-style GeoJSON Point FeatureCollection.
   // Nodes use their own lat/lon; ways use the `center` from `out center`.
@@ -2418,15 +2419,23 @@
         const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
         let json = null;
         for (const ep of OVERPASS_ENDPOINTS) {
+          // Per-attempt abort timeout: a slow/hung Overpass request must never
+          // wedge here, or the status sticks on FETCHING forever AND its
+          // concurrency slot (released in the outer finally) is held hostage,
+          // jamming every other tile's query behind it.
+          const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+          const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
           try {
             const resp = await fetch(ep, {
               method: 'POST', body,
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              signal: ctrl ? ctrl.signal : undefined,
             });
             if (!resp.ok) continue;            // 429 / load-shed → next mirror
             json = await resp.json();
             break;
-          } catch (_) { /* network error → try next endpoint */ }
+          } catch (_) { /* abort/network error → try next endpoint */ }
+          finally { if (timer) clearTimeout(timer); }
         }
         if (!json) { ovpNote(x, y, 'failed'); return null; }   // fail soft: no decoration, retry later
         const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
