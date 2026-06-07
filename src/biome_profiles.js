@@ -115,7 +115,7 @@
     },
     sand:  { flora: [fix('shell', D_MIN, D_MAX, S.SHELL)], tint: {} },
     rocky: { flora: [], tint: {} },
-    farm:  { flora: [dyn('longgrass', 0.08, S.FARM_LG)], tint: { longgrass: 0xd8c060 } },
+    farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)], tint: {} },
     urban: { flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)], tint: {} },
     water: { flora: [], tint: {} },
     paved: { flora: [], tint: {} },   // roads / buildings / cave — never grow flora
@@ -146,10 +146,11 @@
     },
     [T.SAND]: { flora: [fix('shell', D_MIN, D_MAX, S.SHELL)], tint: {} },
     [T.FARMLAND]: {
-      // Field-edge stubble + the odd wildflower along the margins.
-      flora: [dyn('longgrass', 0.08, S.FARM_LG),
+      // Muddy pasture — patches of grass + the odd wildflower (green, not the
+      // old golden wheat tint, to suit the churned-pasture look).
+      flora: [dyn('longgrass', 0.10, S.FARM_LG),
               fix('marigold', 0.006, 0.018, S.FARM_MAR)],
-      tint: { longgrass: 0xd8c060 },   // golden wheat stubble
+      tint: {},
     },
     [T.RESIDENTIAL]: {
       flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)],
