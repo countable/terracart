@@ -85,6 +85,21 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
   scene.showFeedConfirm({ foodId, faunaKind, onConfirm: doFeed });
 }
 
+// Floor a tap-PRECISION radius (the REACH_*_M "how close must the tap land"
+// constants) at the current cell's half-diagonal so "a tap anywhere inside the
+// target's own cell resolves to it" holds at ANY cell size. These constants
+// were hand-tuned to a 5 m cell, whose half-diagonal is 5·√½ ≈ 3.54 m — which
+// is why REACH_OBJECT_M was 3.5. When CELL_M is retuned larger (e.g. 7 m →
+// half-diag ≈ 4.95 m) a fixed-metre disk no longer spans the cell, so corner
+// taps on coins / wild plants / stairs fall through and tapping feels broken.
+// The +0.5 m epsilon keeps the exact corner inside the disk. A larger
+// hand-tuned base (wild plant 4 m, house 6 m, treasure 7.5 m) is preserved
+// whenever it already exceeds the floor.
+function tapReachM(scene, baseM) {
+  const halfDiag = (scene?.cellM ?? 5) * Math.SQRT1_2 + 0.5;
+  return Math.max(baseM, halfDiag);
+}
+
 // Nearest item in a WorldGen layer to (px, py) within reach that passes
 // `accept`, or null. Centralizes the bestD2 scan every "tap the closest X"
 // handler repeats. `accept` may be omitted to consider all items.
@@ -718,7 +733,7 @@ const TAP_HANDLERS = [
   { name: 'wildplant', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
-    const bestWp = findClosestItem('wildplants', wm.x, wm.y, REACH_WILDPLANT_M,
+    const bestWp = findClosestItem('wildplants', wm.x, wm.y, tapReachM(scene, REACH_WILDPLANT_M),
       (wp) => !pickedSet.has(wp.id));
     if (bestWp) {
       const wp = bestWp;
@@ -779,7 +794,7 @@ const TAP_HANDLERS = [
   // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
   { name: 'coindrop', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const REACH_COIN_M = 3;
+    const REACH_COIN_M = tapReachM(scene, 3);
     const REACH2 = REACH_COIN_M * REACH_COIN_M;
     let bestEntry = null, bestIdx = -1, bestD2 = REACH2;
     // Scan the 3×3 tile neighbourhood around the player (same set the
@@ -817,7 +832,7 @@ const TAP_HANDLERS = [
   // than falling through to it.
   { name: 'staircase', try: (ctx) => {
     const { scene, wm } = ctx;
-    const stair = findClosestItem('objects', wm.x, wm.y, REACH_OBJECT_M,
+    const stair = findClosestItem('objects', wm.x, wm.y, tapReachM(scene, REACH_OBJECT_M),
       (o) => o.kind === 'staircase');
     if (!stair) return false;
     if (tooFar(ctx, stair.x, stair.y)) return 'far';
@@ -877,7 +892,7 @@ const TAP_HANDLERS = [
       // phantom work wheel that made it feel like taps had stopped working.
       const isStand = o.kind === 'chest' && typeof produceStandFor === 'function' && !!produceStandFor(o);
       const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || isStand);
-      const r = tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M;
+      const r = tapReachM(scene, tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M);
       // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
       // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
       // north of the foot — rather than the foot itself. This lets a tap on the

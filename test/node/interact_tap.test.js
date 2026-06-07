@@ -609,3 +609,43 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
       `handler at index ${i}: expected "${EXPECTED[i]}", got "${HANDLER_NAMES[i]}"`);
   }
 });
+
+// ─── 5. Tap-precision radius scales with cell size ───────────────────────────
+// The REACH_*_M tap-precision constants were hand-tuned to a 5 m cell. tapReachM
+// floors them at the cell half-diagonal so a tap anywhere in a target's OWN cell
+// still resolves to it after CELL_M is retuned (the "tapping keeps breaking"
+// regression when the cell grew past 5 m). These tests pin that invariant so a
+// future cell-size change can't silently shrink the tappable area below the cell.
+
+test('tapReachM: covers the cell half-diagonal at any cell size', () => {
+  for (const cellM of [5, 6, 7, 9]) {
+    const scene = { cellM };
+    const halfDiag = cellM * Math.SQRT1_2;
+    // A tap at the far corner of an item's own cell is up to halfDiag from its
+    // centre; the precision radius must cover that (with the +0.5 m epsilon).
+    assert.gte(tapReachM(scene, 0), halfDiag,
+      `cellM=${cellM}: floor ${tapReachM(scene, 0)} must cover half-diagonal ${halfDiag}`);
+  }
+});
+
+test('tapReachM: never bleeds into a neighbouring cell centre', () => {
+  // The floor must stay under a full cell so it can't grab an item centred in
+  // the adjacent cell (which sits exactly cellM away from the tap's cell).
+  for (const cellM of [5, 6, 7, 9]) {
+    assert.lt(tapReachM({ cellM }, 0), cellM,
+      `cellM=${cellM}: floor must stay below one cell to avoid neighbour grabs`);
+  }
+});
+
+test('tapReachM: preserves a larger hand-tuned base radius', () => {
+  // House/treasure radii (6 m / 7.5 m) already exceed the 7 m half-diagonal and
+  // must pass through unchanged.
+  assert.eq(tapReachM({ cellM: 7 }, 7.5), 7.5, 'treasure radius preserved at 7 m cell');
+});
+
+test('tapReachM: REACH_OBJECT_M=3.5 was the 5 m cell half-diagonal', () => {
+  // Documents WHY the floor exists: at 5 m the constant already equalled the
+  // half-diagonal, so taps worked; at 7 m it no longer does without the floor.
+  assert.lt(3.5, tapReachM({ cellM: 7 }, 3.5),
+    'at a 7 m cell the bare 3.5 m radius is smaller than the floor');
+});
