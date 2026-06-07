@@ -22,7 +22,7 @@ const BIOME_TEX = {
   // shouldn't exist) and as the texture for PIER cells (23) since the pier
   // overlay needs a water-coloured base under the planks.
   3:  { variants: 2, draw: drawWaterTex },        // water: ripples
-  4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
+  4:  { variants: 2, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
@@ -172,18 +172,27 @@ function drawSandTex(ctx, size, rng) {
 }
 
 function drawFarmlandTex(ctx, size, rng) {
-  // Tidy parallel furrow rows — horizontal alternating shade bands.
+  // Muddy pasture — churned brown mud patches with tufts of grass poking
+  // through, plus a few hoof/churn marks. (Replaces the old tidy furrow rows,
+  // which read too much like freshly-tilled soil.)
   ctx.clearRect(0, 0, size, size);
-  const rowH = 4;
-  for (let y = 0; y < size; y += rowH) {
-    ctx.fillStyle = 'rgba(60,35,10,0.22)';
-    ctx.fillRect(0, y, size, 1);
-    ctx.fillStyle = 'rgba(255,230,180,0.10)';
-    ctx.fillRect(0, y + 1, size, 1);
+  // Soft mud patches — irregular brown blobs.
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 3 + rng() * 4, 0, Math.PI * 2); ctx.fill();
   }
-  for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  // Grass tufts poking through — green specks, some 2px tall.
+  for (let i = 0; i < 26; i++) {
+    const r = rng();
+    ctx.fillStyle = r < 0.5 ? 'rgba(70,120,55,0.30)'
+                  : r < 0.8 ? 'rgba(40,80,35,0.28)'
+                            : 'rgba(150,190,110,0.22)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, rng() < 0.4 ? 2 : 1);
+  }
+  // A few dark churned / hoof marks.
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = 'rgba(40,25,12,0.30)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
   }
 }
 

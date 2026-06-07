@@ -196,7 +196,7 @@ const COLORS = {
   1: 0x2e6a2e,  // forest
   2: 0xe6ae55,  // sand — matched to the Autotiles_Godot sand-fill (rgb 230,174,85) so the autotiled beach tiles blend with the flat fill
   3: 0x3a78c2,  // water
-  4: 0xc7a85b,  // farmland
+  4: 0xa39660,  // farmland — muddy pasture (muted olive-brown under the mud/grass texture)
   5: 0xada695,  // residential
   6: 0x7fbf63,  // park
   7: 0x444444,  // road
