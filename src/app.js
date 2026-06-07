@@ -5187,12 +5187,12 @@ class MapScene extends Phaser.Scene {
   // { key, parts }: `key` memoizes the DOM build (rebuilt only when it changes),
   // `parts` is an ordered list of segment descriptors the renderer knows how to
   // draw — { t:'icon', id } (a real item sprite), { t:'emoji'|'qty'|'text', s },
-  // { t:'arrow' } (a give→get marker), or { t:'badges', filled, total } (a row
-  // of progress pips). Covers four building kinds:
+  // or { t:'arrow' } (a give→get marker). Covers three building kinds:
   //   • delivery host  → its produce wishlist (or a happy face once fed today)
-  //   • sealed castle  → the delivery-gate progress needed to unlock the vault
   //   • trader         → what it wants → what it offers (the barter, at a glance)
   //   • wizard tower   → its standing demand (Discovery for the next Inner Light)
+  // Castles are deliberately excluded — their sealed/relic state reads from the
+  // tap modal, not a roof bubble.
   roofCalloutSpec(o) {
     if (!o) return null;
 
@@ -5205,19 +5205,6 @@ class MapScene extends Phaser.Scene {
       return {
         key: o.id + '|w|' + wanted.join(','),
         parts: wanted.map((id) => ({ t: 'icon', id })),
-      };
-    }
-
-    // Sealed castle — the vault opens after CASTLE_DELIVERY_GATE lifetime
-    // deliveries, so show a 🔒 and a row of progress badges (filled = logged,
-    // hollow = still owed) instead of an item wishlist. Once unlocked the
-    // castle trades normally and shows no callout here.
-    if (this._isBuildingSealed(o)) {
-      const need = this._deliveryGate(o);
-      const have = Math.min(need, this.save.deliveryCount ?? 0);
-      return {
-        key: (o.id || 'castle') + '|seal|' + have + '/' + need,
-        parts: [{ t: 'emoji', s: '🔒' }, { t: 'badges', filled: have, total: need }],
       };
     }
 

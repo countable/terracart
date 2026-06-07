@@ -1623,7 +1623,7 @@ Render.drawObjects = function drawObjects(scene) {
             || document.createElement('span');
         }
         if (part.t === 'emoji') {
-          // Abstract, non-item glyphs (😊 / 🔒 / 🔆) — allowed as UI chrome (QC §1).
+          // Abstract, non-item glyphs (😊 / 🔆) — allowed as UI chrome (QC §1).
           const d = document.createElement('div');
           d.textContent = part.s;
           d.style.cssText = `font-size:${sizePx}px;line-height:1;`;
@@ -1643,29 +1643,14 @@ Render.drawObjects = function drawObjects(scene) {
           d.style.cssText = `font-size:${Math.round(sizePx * 0.85)}px;line-height:1;color:#777;`;
           return d;
         }
-        if (part.t === 'badges') {
-          // A row of progress pips — filled = earned, hollow = still owed.
-          const wrap = document.createElement('div');
-          wrap.style.cssText = 'display:flex;gap:2px;align-items:center;';
-          const d = Math.max(4, Math.round(sizePx * 0.5));
-          for (let i = 0; i < (part.total || 0); i++) {
-            const pip = document.createElement('div');
-            pip.style.cssText = `width:${d}px;height:${d}px;border-radius:50%;`
-              + (i < (part.filled || 0)
-                  ? 'background:#e0c060;border:1px solid #b8943a;'      // earned — gold
-                  : 'background:#ddd;border:1px solid #bbb;');          // owed — grey
-            wrap.appendChild(pip);
-          }
-          return wrap;
-        }
         return document.createElement('span');
       };
       for (const it of filteredObj) {
         // One source of truth for what floats over a building: roofCalloutSpec
         // returns null (no bubble) or { key, parts } — a delivery host's
-        // wishlist / happy face, a sealed castle's unlock progress, a trader's
-        // barter, or the wizard tower's Discovery demand. The renderer stays
-        // dumb: it just paints the parts and memoizes on the key.
+        // wishlist / happy face, a trader's barter, or the wizard tower's
+        // Discovery demand. The renderer stays dumb: it just paints the parts
+        // and memoizes on the key.
         const spec = scene.roofCalloutSpec ? scene.roofCalloutSpec(it.o) : null;
         if (!spec) continue;
         const { sx, sy } = project(it.dx, it.dy);
