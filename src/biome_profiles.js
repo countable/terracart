@@ -84,7 +84,20 @@
     [T.FARMLAND]: 'farm',
     [T.RESIDENTIAL]: 'urban',
     [T.WATER]: 'water', [T.PIER]: 'water',
+    // Hard surfaces + underground rock — never grow flora. These MUST be mapped
+    // explicitly: roads/buildings are painted AFTER landuse/landcover, so a
+    // polygon spawns debris into a cell that later becomes a road or building
+    // footprint. allows() drops that debris only if the cell's family grows
+    // nothing — so the missing mappings (which would default to 'grassland')
+    // would leave grass/flowers/shrubs rendering on roads and inside buildings.
+    [T.ROAD]: 'paved', [T.PATH]: 'paved', [T.BUILDING]: 'paved',
+    [T.BUILDING_MED]: 'paved', [T.BUILDING_LARGE]: 'paved',
+    [T.ROAD_LG]: 'paved', [T.ROAD_MD]: 'paved',
+    [T.CAVE_FLOOR]: 'paved', [T.CAVE_WALL]: 'paved',
   };
+  // Unmapped terrain codes fall back to 'grassland' so a genuinely unknown
+  // *biome* still grows something (the "unknown poly type" fallback); every
+  // known non-growing code above is mapped explicitly so it can't leak flora.
   const familyOf = (type) => FAMILY_OF[type] || 'grassland';
 
   // Family default profiles — the FALLBACK any unwired biome inherits.
@@ -105,6 +118,7 @@
     farm:  { flora: [dyn('longgrass', 0.08, S.FARM_LG)], tint: { longgrass: 0xd8c060 } },
     urban: { flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)], tint: {} },
     water: { flora: [], tint: {} },
+    paved: { flora: [], tint: {} },   // roads / buildings / cave — never grow flora
   };
 
   // ── Per-biome profiles ──────────────────────────────────────────────────────
@@ -150,7 +164,10 @@
     },
     [T.ROCK]: { flora: [], tint: {} },   // minerals carry rock terrain (worldgen)
     [T.SCHOOL]: {
+      // Casual turf — keeps the grassland wildflowers (parity with the old
+      // meadow-flora pass that ran on every LONGGRASS_TYPES member).
       flora: [dyn('longgrass', 0.12, S.LONGGRASS),
+              fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
               fix('marigold', 0.006, 0.016, S.SCH_MAR)],
       tint: {},
     },
@@ -167,9 +184,12 @@
     },
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
+              fix('forgetmenot', 0.004, 0.014, S.FORGETMENOT),
               fix('marigold', 0.004, 0.012, S.MARIGOLD)],
       tint: {},
     },
+    // PITCH + GOLF are deliberately manicured: long grass only, no wildflowers
+    // (this is intentional per-biome differentiation, not the old meadow pass).
     [T.PITCH]: { flora: [dyn('longgrass', 0.06, S.LONGGRASS)], tint: {} },
     [T.WETLAND]: {
       // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
