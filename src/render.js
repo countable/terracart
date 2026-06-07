@@ -1761,9 +1761,9 @@ Render.drawObjects = function drawObjects(scene) {
     const tier = chestTier(o.poiClass);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
-    const cx = Math.round(sx - 1);
-    const cy = Math.round(sy - 18);
-    const r = 6;     // 20% smaller (was 8)
+    const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
+    const cy = Math.round(sy - 15);  // +3px down (was sy - 18)
+    const r = 4.8;   // 20% smaller (was 6)
     // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
     g.fillStyle(0x000000, 0.55);
     g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
