@@ -2403,13 +2403,22 @@
     return p;
   }
   // Single entry point for loadTile: the static sidecar wins where it exists
-  // (it carries the richer CV detail); otherwise, if live mode is on, fill the
-  // tile from Overpass. Returns a bin or null (= no sidecar decoration).
+  // (it carries the richer CV detail). For Overpass we are STRICTLY
+  // non-blocking — a remote query must never gate base tile geometry. We only
+  // return an Overpass bin that is ALREADY cached locally in IndexedDB; if it
+  // isn't cached yet, we kick the fetch (to fill IDB for next time) and return
+  // null now, so this load renders the MVT base immediately. Decoration shows
+  // up on the next load of the tile (revisit / reset), served from cache.
   async function getTileBin(x, y, lat) {
     const sx = await ensureSatextract(lat);
     const stat = sx && sx.get(`${x}_${y}`);
     if (stat) return stat;
-    if (overpassLiveEnabled()) return fetchOverpassBin(x, y, lat);
+    if (!overpassLiveEnabled()) return null;
+    const key = `ovp/${Z}/${x}/${y}`;
+    let cached = null;
+    try { cached = await idbGet(key); } catch (_) { cached = null; }   // local, fast, can't hang on the network
+    if (cached) return cached;
+    fetchOverpassBin(x, y, lat).catch(() => {});   // fire-and-forget; lands in IDB
     return null;
   }
 
