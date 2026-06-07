@@ -71,13 +71,14 @@ const CROP_SPRITE = {
   shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
-  // They spawn sparsely on a matching biome (see MEADOW_FLORA / FOREST_FLORA in
-  // worldgen.js) and pick like any wildplant. Default scale 2 renders the 16px
-  // frame at 32px = one game cell, so each bloom sits cleanly inside its tile.
-  forgetmenot: { sheet: 'props', custom: true, frame: 76 },  // blue forget-me-not cluster (row 3, col 10)
-  marigold:    { sheet: 'props', custom: true, frame: 34 },  // golden marigold (row 1, col 12)
-  wildrose:    { sheet: 'props', custom: true, frame: 30 },  // red wild rose (row 1, col 8)
-  starflower:  { sheet: 'props', custom: true, frame: 102 }, // glowing purple star-flower (row 4, col 14)
+  // They spawn sparsely on a matching biome (see the per-biome flora in
+  // src/biome_profiles.js) and pick like any wildplant. scale 1.33 renders the
+  // 16px frame at ~21px — blooms read as small foraged flowers tucked in the
+  // tile rather than filling it (the default scale 2 / full-cell was 50% too big).
+  forgetmenot: { sheet: 'props', custom: true, frame: 76,  scale: 1.33 },  // blue forget-me-not cluster (row 3, col 10)
+  marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.33 },  // golden marigold (row 1, col 12)
+  wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.33 },  // red wild rose (row 1, col 8)
+  starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.33 },  // glowing purple star-flower (row 4, col 14)
 };
 
 // Resolve the same icon source the inventory uses for an item id.
