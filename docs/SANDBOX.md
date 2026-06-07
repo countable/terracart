@@ -28,7 +28,7 @@ Band 4  TOWN             RESIDENTIAL ST(road+4 house types) · CIVIC(school/comm
 Band 5  RECREATION       PARK · PLAYGROUND · PITCH · CASTLE · FORT
 ```
 
-Total footprint ≈ 32 × 44 cells (≈ 160 m × 220 m at 5 m/cell), centred in the
+Total footprint ≈ 32 × 44 cells (≈ 192 m × 264 m at 6 m/cell), centred in the
 start tile. The player teleports to the PLAYER SPAWN scene.
 
 ## Coverage matrix

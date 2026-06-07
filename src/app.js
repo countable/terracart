@@ -509,7 +509,7 @@ class MapScene extends Phaser.Scene {
     // player stands in, so we offset the cell lookup down to the feet: 24px
     // (0.75 cell) overshot into the cell to the SOUTH (reach appeared a cell
     // low); 14px (~0.44 cell) keeps the lookup in the feet's own cell so the
-    // reach centres on the player. ~2.2m.
+    // reach centres on the player. ~2.6m.
     this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
     // starts at 2.5 cells and grows to 5.5 via shrine upgrades. This field is
