@@ -494,45 +494,11 @@
     return { minX, minY, maxX, maxY };
   }
 
-  // Map terrain type → wild "debris" crop spawned in polygons of that type.
-  // Each polygon gets its own stable density in [DEBRIS_MIN, DEBRIS_MAX].
-  const DEBRIS_CROP = {
-    // Residential no longer spawns rockfruit debris — the cave mineralrock
-    // clusters (worldgen mineralrock helper, T.RESIDENTIAL branch) are now
-    // the canonical urban stone source. Wild rockfruit on sidewalks read
-    // as litter; cave-rock piles read as a quarry corner.
-    6:  'shrub',     // PARK
-    1:  'shrub',     // FOREST
-    2:  'shell',     // SAND — beaches grow shells as common debris
-    // longgrass is spawned independently for the whole grassland family below — it isn't
-    // wired through DEBRIS_CROP because PARK already grows shrubs, and we want each
-    // grassland polygon to get its own seeded longgrass density in [0%, 15%].
-  };
+  // Per-biome wild flora (kinds, densities, RNG salts) now lives in the central
+  // BIOME_PROFILES registry (src/biome_profiles.js) — see BiomeProfiles.flora().
+  // DEBRIS_MIN/MAX remain here as spawnDebris' default density window.
   const DEBRIS_MIN = 0.05;
   const DEBRIS_MAX = 0.30;
-  // Polygon classes that may grow tufts of harvestable long grass.
-  const LONGGRASS_TYPES = new Set([T.GRASS, T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF]); // 0, 6, 15, 18, 19, 21
-  const LONGGRASS_MAX_DENSITY = 0.15;
-  const LONGGRASS_RNG_SALT = 0x5a17b105;
-  // Salt for the rare-nut RNG stream in forests — independent of the shrub stream
-  // that shares the same polygon key. (Was `0xdeadbeef`.)
-  const NUT_RNG_SALT = 0xdeadbeef;
-  // ── Rare wild flora ──────────────────────────────────────────────────────
-  // Prized foraged flowers, sprinkled at very low density (rarer than nuts) so
-  // stumbling on a bloom feels like a find. Meadow flora share the grassland
-  // family with longgrass; woodland flora grow among the forest trees. Each
-  // flower picks like any wildplant (instant, no tool) and can roll the
-  // shiny-flora sheen. Art = distinct single-cell Props.png frames (see
-  // CROP_SPRITE in items.js). Each gets its own RNG salt so its stream never
-  // co-locates with shrubs / longgrass / nuts / mushrooms / other flora.
-  const MEADOW_FLORA = [
-    { crop: 'forgetmenot', salt: 0xF10A0001, dMin: 0.006, dMax: 0.020 },
-    { crop: 'marigold',    salt: 0xF10A0002, dMin: 0.004, dMax: 0.012 },
-  ];
-  const FOREST_FLORA = [
-    { crop: 'wildrose',    salt: 0xF10A0003, dMin: 0.004, dMax: 0.012 },
-    { crop: 'starflower',  salt: 0xF10A0004, dMin: 0.002, dMax: 0.006 },
-  ];
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -691,27 +657,21 @@
               }
             }
 
-            // Per-polygon DEBRIS (e.g. rockfruit in residential, shrub in park/forest).
-            const debrisCrop = DEBRIS_CROP[t];
-            if (debrisCrop) {
-              spawnDebris(f.geom, debrisCrop, polyKey);
-              // Extra rare nut sprinkle on forest polygons. XOR with a fixed salt so the
-              // nut and shrub debris share the same polygon key but use independent RNG streams.
-              if (t === 1) spawnDebris(f.geom, 'nut', polyKey ^ NUT_RNG_SALT, 0.005, 0.03);
-            }
-
-            // Long grass — additive spawn across the whole grassland family. Each polygon's
-            // density is a stable random value in [0%, 15%] (seeded by polyKey), so most
-            // polygons grow at least a tuft or two, big meadows visibly cluster, and the
-            // unlucky ones with near-0% density grow nothing — natural per-area variation.
-            if (LONGGRASS_TYPES.has(t)) {
-              const seed = (polyKey ^ LONGGRASS_RNG_SALT) >>> 0;
-              const density = ((seed % 1000) / 1000) * LONGGRASS_MAX_DENSITY;
-              if (density > 0) spawnDebris(f.geom, 'longgrass', seed, density, density);
-              // Rare meadow flowers share the grassland family. Independent
-              // low-density streams so a field occasionally hides a bloom.
-              for (const fl of MEADOW_FLORA) {
-                spawnDebris(f.geom, fl.crop, (polyKey ^ fl.salt) >>> 0, fl.dMin, fl.dMax);
+            // Per-biome wild flora / debris — driven by the central
+            // BIOME_PROFILES registry (src/biome_profiles.js), the single
+            // source of truth for "what grows here". Each biome lists its flora
+            // kinds with a density window + an independent RNG salt; `dynamic`
+            // entries (longgrass-style) get a stable per-polygon density in
+            // [0, dMax] so most polygons grow a tuft, big areas cluster, and the
+            // unlucky few grow nothing. Unwired/unknown biomes fall back to
+            // their base-family profile, so no walkable zone is ever barren.
+            for (const fl of BiomeProfiles.flora(t)) {
+              const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
+              if (fl.dynamic) {
+                const density = ((seed % 1000) / 1000) * fl.dMax;
+                if (density > 0) spawnDebris(f.geom, fl.crop, seed, density, density);
+              } else {
+                spawnDebris(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
               }
             }
 
@@ -749,14 +709,9 @@
                     }
                   }
                 }
-                // Rare mushroom clusters in the same forest polygon. Independent RNG
-                // stream (different salt) so they don't co-locate with shrubs/nuts.
-                spawnDebris(f.geom, 'mushroom', (polyKey ^ 0xBADF00D) >>> 0, 0.04, 0.10);
-                // Rare woodland flowers among the trees — sparse, each on its
-                // own stream so finds scatter rather than cluster.
-                for (const fl of FOREST_FLORA) {
-                  spawnDebris(f.geom, fl.crop, (polyKey ^ fl.salt) >>> 0, fl.dMin, fl.dMax);
-                }
+                // (Forest mushrooms + woodland flowers now spawn via the
+                // BIOME_PROFILES flora loop above — see the FOREST profile in
+                // src/biome_profiles.js.)
               }
               // Fruit trees on ORCHARD landcover. One species per polygon so a single
               // orchard reads as one fruit type.
@@ -918,10 +873,8 @@
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true,
                 weights, veinChance: 0.30, veinMul: 10 });
-              // Sparse pickable wild mushrooms in residential yards — same crop
-              // as the forest clusters but rarer. Independent RNG stream so they
-              // don't co-locate with the rock clusters above.
-              spawnDebris(f.geom, 'mushroom', (polyKey ^ 0x5EEDCAFE) >>> 0, 0.008, 0.025);
+              // (Sparse residential-yard mushrooms now spawn via the
+              // BIOME_PROFILES flora loop above — see the RESIDENTIAL profile.)
             }
 
             // Industrial mineral piles — old quarries, scrap yards, slag heaps.
@@ -1421,33 +1374,12 @@
       }
     }
 
-    // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a residential
-    // polygon may have had rockfruit dropped into a cell that later became road, OR a park
-    // polygon's shrubs may have ended up under a residential overpaint. Per-crop ALLOWED
-    // terrain sets keep things on their natural biome:
-    //   shrubs: forest / park / grassland-subtype family
-    //   longgrass: grassland family
-    //   nut: forest only
-    //   rockfruit / generic: any soft ground (residential/grass/park/farmland/rock/etc)
-    // Anything else (road, building, water, path, cement) → drop.
-    // COMMERCIAL (16) / INDUSTRIAL (17) are the synthesized concrete pads — kept
-    // out of GROUND so debris doesn't end up sitting on a hospital/school slab.
-    const GROUND = new Set([T.RESIDENTIAL, T.PARK, T.FOREST, T.GRASS, T.SAND, T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF, T.ORCHARD]); // 5, 6, 1, 0, 2, 4, 10, 15, 18, 19, 20, 21, 22
-    const FOREST_PARK_GRASS = new Set([T.FOREST, T.PARK, T.GRASS, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF]); // 1, 6, 0, 15, 18, 19, 20, 21
-    const GRASSLAND_FAMILY  = new Set([T.GRASS, T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF]); // 0, 6, 15, 18, 19, 21
-    const CROP_ALLOWED = {
-      shrub:     FOREST_PARK_GRASS,
-      longgrass: GRASSLAND_FAMILY,
-      nut:       new Set([T.FOREST]),                  // forest only (1)
-      mushroom:  new Set([T.FOREST, T.RESIDENTIAL]),   // forest + residential yards (1, 5)
-      // Rare wild flora — keep each bloom on its native biome so a flower
-      // never survives onto a paved-over cell (matches its spawn pass above).
-      forgetmenot: GRASSLAND_FAMILY,
-      marigold:    GRASSLAND_FAMILY,
-      wildrose:    new Set([T.FOREST]),
-      starflower:  new Set([T.FOREST]),
-      // rockfruit + anything else → GROUND fallback
-    };
+    // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a
+    // residential polygon may have had debris dropped into a cell that later
+    // became road, OR a park polygon's shrubs may have ended up under a
+    // residential overpaint. The biome-appropriateness test lives in the central
+    // BIOME_PROFILES registry now (BiomeProfiles.allows — a crop survives on any
+    // cell whose family grows it); the wildplant filter below calls it directly.
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
     // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
     // cell coord so towers stay aligned across tile boundaries.
@@ -1503,17 +1435,27 @@
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
       occupiedCells.add(k);
+      // Stamp the cell's terrain so the renderer can apply a per-biome tint to
+      // primary interactables (e.g. rusty mineralrock on industrial lots).
+      const ix = Math.floor(((o.x - tileOriginMx) / mvtToM) * mvtToCell);
+      const iy = Math.floor(((o.y - tileOriginMy) / mvtToM) * mvtToCell);
+      if (ix >= 0 && iy >= 0 && ix < w && iy < h) o._biome = grid[iy * w + ix];
       keptStructs.push(o);
     }
 
     // 2) Wildplants — biome-appropriate cells only, never on a structure cell.
+    //    Allowed-biome test is derived from the central BIOME_PROFILES registry
+    //    (a crop survives on any cell whose family grows it), keeping the filter
+    //    in lockstep with the spawn pass. The cell's terrain is stamped onto the
+    //    kept wildplant as `_biome` so the renderer can apply the biome's flora
+    //    tint (e.g. golden field grass, swampy reeds).
     const filtered = [];
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
-      const allowed = CROP_ALLOWED[wp.crop] || GROUND;
       const cellKey = `${wp._ix}_${wp._iy}`;
-      if (allowed.has(t) && !occupiedCells.has(cellKey)) {
+      if (BiomeProfiles.allows(wp.crop, t) && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
+        wp._biome = t;
         delete wp._ix; delete wp._iy;
         filtered.push(wp);
       }

@@ -106,6 +106,10 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  // Castle ramparts draw into their own layer (above the tower sprites). It's
+  // cleared here in lockstep with cellGfx so the two never desync by a frame.
+  const gr = scene.rampartGfx || g;
+  if (gr !== g) gr.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -514,37 +518,49 @@ Render.drawCells = function drawCells(scene) {
               STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
-        const TOOTH_H = 6;       // merlon height — tall enough to read clearly
+        const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
         const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
+        // Ramparts paint into gr (a layer ABOVE the tower sprites) so the walls
+        // and crests occlude the base of towers standing on the castle. The wall
+        // stone is the LIGHT material (STONE_BODY) — swapped against the now-dark
+        // castle floor — so the rampart reads as bright masonry on a dark court.
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it. Teeth share the SPAN grid on every wall so the
         // front and back crenellations line up column-for-column.
         const crestH = (x, baseY) => {
-          g.fillStyle(STONE_BODY, 1);   g.fillRect(x, baseY - CREN, CELL_PX, CREN);
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, baseY - 1, CELL_PX, 1);
+          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
-            g.fillStyle(STONE_BODY, 1);   g.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
-            g.fillStyle(STONE_LITE, 1);   g.fillRect(mx, baseY - TOOTH_H, MW, 1);
-            g.fillStyle(STONE_SHADOW, 1); g.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+            gr.fillStyle(STONE_BODY, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gr.fillStyle(STONE_LITE, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, 1);
+            gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall — dark extruded face hangs BELOW the cell; the
-        // battlement crest rises up from the cell's bottom edge.
+        // South / front wall — light extruded face hangs BELOW the cell, grounded
+        // by a 1px dark shadow line at its far (bottom) edge; the battlement crest
+        // rises up from the cell's bottom edge.
         if (!isB(T(col, row + 1))) {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          g.fillStyle(STONE_DARK, 1);   g.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(sx, sy + CELL_PX);
         }
-        // North / back wall — battlement crest rises up above the cell's top edge.
-        if (!isB(T(col, row - 1))) crestH(sx, sy);
-        // Side walls — no protruding teeth; a dashed shadow line hugs the wall
-        // edge, dashes on the same merlon span so they align with the crests.
+        // North / back wall — same tall extruded face as the front, mirrored to
+        // rise ABOVE the cell's top edge (grounded by a dark line at its far/top
+        // edge), with the crest seated on top so the back reads as tall as the front.
+        if (!isB(T(col, row - 1))) {
+          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy - WALL, CELL_PX, 1);
+          crestH(sx, sy - WALL);
+        }
+        // Side walls — no protruding teeth; a thin light stone edge hugs the wall
+        // (visible against the dark floor) with shadow dashes on the merlon span
+        // so they align with the front/back crests.
         const sideShade = (x) => {
-          g.fillStyle(STONE_DARK, 0.45); g.fillRect(x, sy, 2, CELL_PX);
-          g.fillStyle(STONE_DARK, 0.85);
-          for (let i = 0; i < MERLONS; i++) g.fillRect(x, sy + i * SPAN + MOFF, 2, MW);
+          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, 2, CELL_PX);
+          gr.fillStyle(STONE_SHADOW, 1);
+          for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, 2, MW);
         };
         if (!isB(T(col - 1, row))) sideShade(sx);
         if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - 2);
@@ -1264,6 +1280,14 @@ Render.drawObjects = function drawObjects(scene) {
     if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
       tint = SHINY_TINT;
     }
+    // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
+    // industrial lot) — only when nothing more specific (shop/shiny) already
+    // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
+    // A spec.after hook (e.g. mineralrock tier shading) may still override.
+    if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+      const bt = BiomeProfiles.tint(o._biome, o.kind);
+      if (bt) tint = bt;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
@@ -1827,7 +1851,12 @@ Render.drawObjects = function drawObjects(scene) {
       const b = Math.round(lb + (hb - lb) * wave);
       s.setTint((r << 16) | (g << 8) | b);
     } else {
-      s.setTint(0xffffff);
+      // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
+      // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
+      // back to no tint (0xffffff) when the biome has no tint for this crop.
+      const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
+        ? BiomeProfiles.tint(p._biome, p.crop) : null;
+      s.setTint(bt || 0xffffff);
     }
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.

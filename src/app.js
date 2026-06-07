@@ -204,7 +204,7 @@ const COLORS = {
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
   11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x868a92, // building_large — civic / school / industrial (lifted slate)
+  12: 0x4f5258, // building_large — civic / castle floor (dark slate; the rampart walls are the LIGHT stone, so floor + wall are swapped dark-for-light for contrast)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
@@ -675,6 +675,13 @@ class MapScene extends Phaser.Scene {
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
+    // Castle ramparts (tier-12 stone walls + crenellations) draw into their
+    // OWN graphics layer, added just ABOVE objectsContainer so the wall faces
+    // and crests render ON TOP of tower sprites standing on the castle — the
+    // towers then read as sitting BEHIND the ramparts. Cleared + repainted
+    // each frame in Render.drawCells (the rest of the cell art stays in cellGfx,
+    // which is below the objects).
+    this.rampartGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -804,6 +811,7 @@ class MapScene extends Phaser.Scene {
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
+    this.rampartGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
@@ -1416,51 +1424,25 @@ class MapScene extends Phaser.Scene {
         }
       }
     };
-    // Biome biasing: each fauna gets a "primary" biome and a wider "fallback" set.
-    // We split the spawn count 80/20 between primary and fallback to keep them
-    // visible everywhere while still feeling correct (cows in fields, chickens
-    // on lawns, etc.). Cat/dog/crow are "global" — they roam every natural cell.
-    const RESIDENTIAL = new Set([5]);
-    const GRASSLAND   = new Set([0]);
-    const FARM_GRASS  = new Set([0, 4]);                      // grass + farmland (chickens)
-    const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
-    const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
-    const PARKLAND       = new Set([1, 6]);                   // park + forest
-    const splitPlace = (kind, n, primary, fallback, salt, primaryShare = 0.8) => {
-      const primN = Math.round(n * primaryShare);
-      for (let i = 0; i < primN; i++)     tryPlace(kind, primary,  i,           salt);
-      for (let i = primN; i < n; i++)     tryPlace(kind, fallback, i,           salt);
-    };
-    // Chickens: farm/grass primarily, soft ground elsewhere. ~40/tile. Pulled
-    // OUT of residential as the primary biome (per user: too many of them
-    // crowding the suburbs) — barn-yard fauna belongs on farmland.
-    const chickenN = 30 + Math.floor(rng() * 15);
-    splitPlace('chicken', chickenN, FARM_GRASS, SOFT_GROUND, 'chicken');
-    // Cows: grassland primarily, soft ground elsewhere. Tightened primary
-    // share to 0.90 (was 0.80) so fewer cows wander into residential.
-    const cowN = 12 + Math.floor(rng() * 12);
-    splitPlace('cow', cowN, GRASSLAND, SOFT_GROUND, 'cow', 0.90);
-    // Cat / dog: RARER than barn fauna, but heavily residential-biased —
-    // they're pets, not livestock. ~10/tile each, 80% in residential.
-    const catN = 6 + Math.floor(rng() * 8);
-    splitPlace('cat', catN, RESIDENTIAL, GLOBAL_NAT, 'cat');
-    const dogN = 6 + Math.floor(rng() * 8);
-    splitPlace('dog', dogN, RESIDENTIAL, GLOBAL_NAT, 'dog');
-    // Wilderness fauna (rabbits live underground now — see spawnCaveCreatures):
-    //   deer      → forest + park (rare, weapon-gated)
-    //   crow      → global — smart birds; ~200/tile (heavy swarm, paired with
-    //               the starter scarecrow + wide 15-cell notice radius)
-    //   butterfly → park / forest (flower-rich biomes)
-    const deerN = 8 + Math.floor(rng() * 6);
-    for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
-    const crowN = 200;
-    for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
-    const butterflyN = 40 + Math.floor(rng() * 20);
-    for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
-    // Slimes: energy-leeching pests that roam every natural biome and drift
-    // lazily toward the player (see wanderCreatures). Flat 50/tile.
-    const slimeN = 50;
-    for (let i = 0; i < slimeN; i++) tryPlace('slime', GLOBAL_NAT, i, 'slime');
+    // Biome-biased fauna spawn — each species' primary (dominant) biome set,
+    // wider fallback set, count and primary-share come from the central registry
+    // (BIOME_FAUNA in src/biome_profiles.js). ~`share` of a species' count goes
+    // to its primary biomes, the rest to the fallback set, so animals read
+    // correct (cows in fields, butterflies in parks, pets in the suburbs) while
+    // still scattering everywhere — and extending the sets to the newly-wired
+    // biomes is what finally puts fauna in wetland / commercial / industrial
+    // zones. Iteration order (FAUNA_ORDER) and per-species id scheme are
+    // unchanged so seeds reproduce. Slimes never go shiny (see tryPlace).
+    for (const sp of FAUNA_ORDER) {
+      const cfg = BIOME_FAUNA[sp];
+      if (!cfg) continue;
+      const n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      const primary  = new Set(cfg.primary);
+      const fallback = new Set(cfg.fallback || cfg.primary);
+      const primN = Math.round(n * (cfg.share ?? 0.8));
+      for (let i = 0; i < primN; i++) tryPlace(sp, primary,  i, sp);
+      for (let i = primN; i < n; i++) tryPlace(sp, fallback, i, sp);
+    }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
