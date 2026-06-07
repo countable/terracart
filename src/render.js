@@ -522,7 +522,9 @@ Render.drawCells = function drawCells(scene) {
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
         const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
         // Ramparts paint into gr (a layer ABOVE the tower sprites) so the walls
-        // and crests occlude the base of towers standing on the castle.
+        // and crests occlude the base of towers standing on the castle. The wall
+        // stone is the LIGHT material (STONE_BODY) — swapped against the now-dark
+        // castle floor — so the rampart reads as bright masonry on a dark court.
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it. Teeth share the SPAN grid on every wall so the
         // front and back crenellations line up column-for-column.
@@ -536,20 +538,28 @@ Render.drawCells = function drawCells(scene) {
             gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall — dark extruded face hangs BELOW the cell; the
-        // battlement crest rises up from the cell's bottom edge.
+        // South / front wall — light extruded face hangs BELOW the cell, grounded
+        // by a 1px dark shadow line at its far (bottom) edge; the battlement crest
+        // rises up from the cell's bottom edge.
         if (!isB(T(col, row + 1))) {
-          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gr.fillStyle(STONE_DARK, 1);   gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(sx, sy + CELL_PX);
         }
-        // North / back wall — battlement crest rises up above the cell's top edge.
-        if (!isB(T(col, row - 1))) crestH(sx, sy);
-        // Side walls — no protruding teeth; a dashed shadow line hugs the wall
-        // edge, dashes on the same merlon span so they align with the crests.
+        // North / back wall — same tall extruded face as the front, mirrored to
+        // rise ABOVE the cell's top edge (grounded by a dark line at its far/top
+        // edge), with the crest seated on top so the back reads as tall as the front.
+        if (!isB(T(col, row - 1))) {
+          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy - WALL, CELL_PX, 1);
+          crestH(sx, sy - WALL);
+        }
+        // Side walls — no protruding teeth; a thin light stone edge hugs the wall
+        // (visible against the dark floor) with shadow dashes on the merlon span
+        // so they align with the front/back crests.
         const sideShade = (x) => {
-          gr.fillStyle(STONE_DARK, 0.45); gr.fillRect(x, sy, 2, CELL_PX);
-          gr.fillStyle(STONE_DARK, 0.85);
+          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, 2, CELL_PX);
+          gr.fillStyle(STONE_SHADOW, 1);
           for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, 2, MW);
         };
         if (!isB(T(col - 1, row))) sideShade(sx);
