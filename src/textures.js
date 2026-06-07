@@ -29,11 +29,17 @@ const BIOME_TEX = {
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
-  // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
-  15: { variants: 2, draw: drawGrassTex },        // SCHOOL
-  18: { variants: 2, draw: drawGrassTex },        // PLAYGROUND
-  19: { variants: 2, draw: drawGrassTex },        // PITCH
-  21: { variants: 2, draw: drawGrassTex },        // GOLF
+  // Subtype splits — each biome gets its own low-res texture so it reads
+  // qualitatively different from the others (see src/biome_profiles.js for the
+  // matching flora/fauna/tint profile).
+  15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
+  16: { variants: 1, draw: drawCommercialTex },   // COMMERCIAL — paving grid
+  17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
+  18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
+  19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
+  20: { variants: 2, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
+  21: { variants: 2, draw: drawGolfTex },         // GOLF — fine fairway stripes
+  22: { variants: 2, draw: drawOrchardTex },      // ORCHARD — dappled grass
   // PIER (type 23) — reuse the water ripple as base texture; render.js
   // overlays the wooden plank sprite on top via the cobblePool. Without
   // this entry the cell would fall back to bare colour with no ripple,
@@ -339,6 +345,119 @@ function drawRockTex(ctx, size, rng) {
   ctx.fillStyle = 'rgba(255,255,255,0.12)';
   for (let i = 0; i < 4; i++) {
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
+  }
+}
+
+// ── Subtype-biome textures ─────────────────────────────────────────────────
+// Each builds on grass or concrete to give the biome its own read at a glance.
+
+function drawSchoolTex(ctx, size, rng) {
+  // Schoolyard turf — grass with faint horizontal mown bands.
+  drawGrassTex(ctx, size, rng);
+  for (let y = 0; y < size; y += 8) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, y, size, 4);
+  }
+}
+
+function drawPitchTex(ctx, size, rng) {
+  // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
+  drawGrassTex(ctx, size, rng);
+  for (let y = 0; y < size; y += 8) {
+    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.07)' : 'rgba(0,40,0,0.07)';
+    ctx.fillRect(0, y, size, 8);
+  }
+  if (rng() < 0.25) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(rng() < 0.5 ? 2 : size - 3, 0, 1, size);
+  }
+}
+
+function drawGolfTex(ctx, size, rng) {
+  // Fairway — fine vertical mowing stripes on bright turf.
+  drawGrassTex(ctx, size, rng);
+  for (let x = 0; x < size; x += 4) {
+    ctx.fillStyle = (Math.floor(x / 4) % 2) ? 'rgba(255,255,255,0.05)' : 'rgba(0,40,0,0.04)';
+    ctx.fillRect(x, 0, 4, size);
+  }
+}
+
+function drawPlaygroundTex(ctx, size, rng) {
+  // Bark / rubber mulch — warm brown chips, no green.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    const r = rng();
+    ctx.fillStyle = r < 0.5 ? 'rgba(110,70,30,0.30)'
+                  : r < 0.8 ? 'rgba(150,100,50,0.25)'
+                            : 'rgba(80,50,20,0.30)';
+    ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
+  }
+}
+
+function drawCommercialTex(ctx, size, rng) {
+  // Retail plaza paving — a faint tile grid over concrete with light flecks.
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1;
+  const step = 16;
+  for (let p = step; p < size; p += step) {
+    ctx.beginPath();
+    ctx.moveTo(p + 0.5, 0); ctx.lineTo(p + 0.5, size);
+    ctx.moveTo(0, p + 0.5); ctx.lineTo(size, p + 0.5);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawIndustrialTex(ctx, size, rng) {
+  // Industrial yard — rough concrete with scattered gravel + the odd oil stain.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.55 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.10)';
+    const w = rng() < 0.25 ? 2 : 1;
+    ctx.fillRect(x, y, w, w);
+  }
+  if (rng() < 0.5) {
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 2 + rng() * 2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawWetlandTex(ctx, size, rng) {
+  // Marsh — dark mossy mottle, faint water glints, a few vertical reed flecks.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = 'rgba(20,45,25,0.30)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.5 + rng() * 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(150,200,210,0.20)';
+  ctx.lineWidth = 1;
+  for (let r = 0; r < 2; r++) {
+    const baseY = rng() * size, phase = rng() * Math.PI * 2;
+    ctx.beginPath();
+    for (let x = 0; x <= size; x++) {
+      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * 1;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = 'rgba(90,130,70,0.30)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 2 + Math.floor(rng() * 2));
+  }
+}
+
+function drawOrchardTex(ctx, size, rng) {
+  // Orchard understory — grass dappled with soft tree-shade pools.
+  drawGrassTex(ctx, size, rng);
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(0,30,0,0.10)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 4 + rng() * 3, 0, Math.PI * 2); ctx.fill();
   }
 }
 
