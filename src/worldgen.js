@@ -2248,11 +2248,17 @@
   // buildBinsFromGeoJSON. This revives ONLY the OSM-tagged features (trees,
   // poles, street furniture, fountains, streams) — the DeepForest crowns and
   // Grounding DINO objects are CV-only and stay exclusive to the static file.
-  let _overpassLive = false;
+  // ON by default: each tile's result is cached in IndexedDB indefinitely, so
+  // we hit Overpass at most once per tile, ever. Opt out at runtime with
+  // WorldGen.setOverpassLive(false) or by appending ?overpass=off to the URL.
+  let _overpassLive = true;
   function overpassLiveEnabled() {
-    if (_overpassLive) return true;
-    try { return /[?&]overpass=live(?:&|$)/.test((global.location && global.location.search) || ''); }
-    catch (_) { return false; }
+    try {
+      const s = (global.location && global.location.search) || '';
+      if (/[?&]overpass=off(?:&|$)/.test(s)) return false;   // explicit opt-out
+      if (/[?&]overpass=live(?:&|$)/.test(s)) return true;    // explicit opt-in
+    } catch (_) { /* no location (tests/node) → fall through to the flag */ }
+    return _overpassLive;
   }
   // Public, CORS-enabled endpoints, tried in order (fail over on error / 429).
   const OVERPASS_ENDPOINTS = [
@@ -2346,6 +2352,20 @@
     }
     return { type: 'FeatureCollection', features };
   }
+  // Politeness gate: cap how many Overpass queries are in flight at once, so
+  // first entry to a fresh region (a few tiles loading together) trickles
+  // rather than bursts. Cached/in-flight tiles never reach here.
+  const OVERPASS_MAX_CONCURRENT = 2;
+  let _overpassActive = 0;
+  const _overpassWaiters = [];
+  function overpassAcquire() {
+    if (_overpassActive < OVERPASS_MAX_CONCURRENT) { _overpassActive++; return Promise.resolve(); }
+    return new Promise((res) => _overpassWaiters.push(res));
+  }
+  function overpassRelease() {
+    const next = _overpassWaiters.shift();
+    if (next) next(); else _overpassActive--;   // hand the slot straight to a waiter
+  }
   // Per-tile cache + in-flight dedup so a tile is queried at most once.
   const _overpassInflight = new Map();
   async function fetchOverpassBin(x, y, lat) {
@@ -2354,6 +2374,7 @@
     if (cached) return cached;                 // already-transformed bin
     if (_overpassInflight.has(key)) return _overpassInflight.get(key);
     const p = (async () => {
+      await overpassAcquire();
       try {
         const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
         let json = null;
@@ -2376,7 +2397,7 @@
         idbPut(key, bin);                      // trees/poles ~static → cache forever
         return bin;
       } catch (_) { return null; }
-      finally { _overpassInflight.delete(key); }
+      finally { overpassRelease(); _overpassInflight.delete(key); }
     })();
     _overpassInflight.set(key, p);
     return p;
@@ -2675,9 +2696,9 @@
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, isWalkable, isSpawnCell, setDepth,
-    // Live Overpass decoration (opt-in): WorldGen.setOverpassLive(true) or
-    // append ?overpass=live to the URL. Fills tiles outside the static
-    // satextract bbox with OSM features queried at request time.
+    // Live Overpass decoration (ON by default): fills tiles outside the static
+    // satextract bbox with OSM features queried at request time, cached per
+    // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
     setOverpassLive: (b) => { _overpassLive = !!b; },
   };
 })(window);
