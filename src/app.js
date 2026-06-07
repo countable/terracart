@@ -1304,6 +1304,9 @@ class MapScene extends Phaser.Scene {
         rows.push(r.trimEnd());
       }
       out.push('grid 7x7 (codes):\n' + rows.join('\n'));
+      if (WorldGen.overpassTileInfo) {
+        try { out.push('overpass: ' + WorldGen.overpassTileInfo(tx, ty)); } catch (_) {}
+      }
       const layers = entry.layers || [];
       out.push('layers: ' + layers.map(l => l.name).join(', '));
       // Per-layer class/subclass histogram for the polygon-ish + poi layers.
