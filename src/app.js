@@ -478,7 +478,7 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
-    // Player sprite renders at scale 1.35 (32px frame, origin 0.5/0.5). Its
+    // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
     // visual feet sit ~14px below the sprite centre (same anchor as the
     // footprint dot). The reach is cell-quantised and centres on the CELL the
     // player stands in, so we offset the cell lookup down to the feet: 24px
@@ -815,8 +815,18 @@ class MapScene extends Phaser.Scene {
     // handler (which then treats the tap as if it were the cell under the player).
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
-    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.35)
+    //
+    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). With the default 0.5/0.5
+    // origin the projected world position lands at the sprite CENTRE and the
+    // feet sat 14px below it at 1.35× (footprint anchor, see drawFootprints).
+    // That 14px is a texture offset of 14/1.35 ≈ 10.37px; at 1.215× the feet
+    // would ride up to 10.37 × 1.215 ≈ 12.6px below centre. Nudge every player
+    // sprite DOWN by the difference (~1.4px) so the feet — and the +14
+    // footprint anchor — stay exactly where they were.
+    this.playerScale = 1.215;
+    this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
+    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
@@ -825,8 +835,8 @@ class MapScene extends Phaser.Scene {
     // is the body. When ghost mode flips ON, `this.player` becomes the ghost
     // (at 50% alpha, centred at viewCenter) and this sprite shows up at the
     // body's offset, full opacity.
-    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.35)
+    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
@@ -835,8 +845,8 @@ class MapScene extends Phaser.Scene {
     // the opaque body (this.player) auto-follows and mines walls in its path.
     // This faint sprite marks where the ghost is whenever it diverges from the
     // body; it stays hidden on the surface and while body+ghost coincide.
-    this.caveGhost = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.35)
+    this.caveGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
       .setAlpha(0.4)
       .setDepth(10)
       .play('idle-down')
@@ -2015,7 +2025,7 @@ class MapScene extends Phaser.Scene {
       const p = worldMetersToScreen(this,
         this.startWorldM.x + this._bodyM.x,
         this.startWorldM.y + this._bodyM.y);
-      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y));
+      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY));
     }
 
     // Underground ghost marker: show the steered target whenever it has pulled
@@ -2029,7 +2039,7 @@ class MapScene extends Phaser.Scene {
         const p = worldMetersToScreen(this,
           this.startWorldM.x + this._caveTargetM.x,
           this.startWorldM.y + this._caveTargetM.y);
-        this.caveGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
+        this.caveGhost.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY)).setVisible(true);
       } else {
         this.caveGhost.setVisible(false);
       }
