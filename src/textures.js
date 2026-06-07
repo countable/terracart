@@ -373,6 +373,12 @@ function makeTowerTexture(scene) {
   for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
     ctx.fillRect(bodyX, y, bodyW, 1);
   }
+  // Shaded foot — a small shadow only at the very bottom so the tower reads as
+  // grounded without darkening the whole lower body.
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.fillRect(bodyX, bodyBot - 4, bodyW, 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.24)';
+  ctx.fillRect(bodyX, bodyBot - 2, bodyW, 2);
   // Arrow-slit window
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(W / 2 - 1, bodyTop + 8, 2, 6);
@@ -521,50 +527,25 @@ function makeBiomeTextures(scene, size) {
   }
 }
 
-// === Shape-based concrete pads ===
-// PAD_SHAPES define occupancy on a cell grid + the chest's cell. Each shape
-// becomes one texture keyed `pad_<shape>`. Cells are CELL_PX (32 px) and the
-// outline only strokes the OUTER boundary of the shape (edges not shared with
-// another cell), so an L / + / triangle reads as one continuous slab.
+// === Concrete pads ===
+// Every POI pad is the same: a single rounded slab sitting in the one cell
+// directly under the chest. PAD_SHAPES still maps a shape key → cell occupancy
+// + the chest's cell (the render layer anchors that cell's centre on the
+// chest's ground point), but there is only one shape now: `round1`.
 //
 // Coordinate convention: [col, row] with col=x, row=y. (0,0) = top-left.
 const PAD_CELL = 32;
+// The pad is drawn a touch larger than its cell so it spills ~10% past the
+// cell boundary into neighbouring cells, reading as a soft oversized base
+// rather than a tile-aligned square.
+const PAD_OVERSIZE = 1.10;
 const PAD_SHAPES = {
-  // 3x3 square, chest centered. Used as the default for park/food/farm/etc.
-  square3: {
-    cells: [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]],
-    chest: [1, 1],
-  },
-  // 2x2 square, chest in TOP-LEFT corner. Used for pitches/sports fields.
-  square2: {
-    cells: [[0,0],[1,0],[0,1],[1,1]],
+  // Single rounded cell, chest centred on it. The only pad shape — used for
+  // every pad-bearing POI regardless of type.
+  round1: {
+    cells: [[0, 0]],
     chest: [0, 0],
-  },
-  // Greek cross (+ shape), chest centered. Used for chapels and medical.
-  cross: {
-    cells:        [[1,0],[0,1],[1,1],[2,1],[1,2]],
-    chest: [1, 1],
-  },
-  // Stepped triangle, 5 wide × 3 tall, point on top. Chest in middle row centre.
-  //   .  .  O  .  .
-  //   .  O  O  O  .
-  //   O  O  O  O  O
-  triangle: {
-    cells: [           [2,0],
-                  [1,1],[2,1],[3,1],
-            [0,2],[1,2],[2,2],[3,2],[4,2]],
-    chest: [2, 1],
-  },
-  // 1×3 horizontal strip, chest centered. Used for food / commerce — reads
-  // as a market counter / shop frontage.
-  line3h: {
-    cells: [[0,0],[1,0],[2,0]],
-    chest: [1, 0],
-  },
-  // 1×3 vertical strip, chest centered. Used for playgrounds.
-  line3v: {
-    cells: [[0,0],[0,1],[0,2]],
-    chest: [0, 1],
+    round: true,
   },
 };
 // Pre-compute bounding box for each shape (cols × rows).
@@ -573,14 +554,64 @@ for (const s of Object.values(PAD_SHAPES)) {
   s.rows = Math.max(...s.cells.map(c => c[1])) + 1;
 }
 
-// Build a texture for one shape. Each cell is PAD_CELL × PAD_CELL pixels;
-// the texture's full bounds are cols×rows cells. Only the outer perimeter
-// is stroked.
+// Trace a rounded-rectangle path (clamped so the radius never exceeds half the
+// shorter side — at the max it degenerates to a circle/stadium).
+function roundRectPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+// The rounded single-cell pad. The canvas is PAD_OVERSIZE × PAD_CELL on a side
+// so that, anchored at its centre on the chest's ground point, the slab spills
+// evenly past the cell into its neighbours.
+function makeRoundPadTexture(scene, key) {
+  const size = Math.round(PAD_CELL * PAD_OVERSIZE);
+  const tex = scene.textures.createCanvas(key, size, size);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, size, size);
+  const inset = 2;                          // room for the 2px cyan perimeter outline
+  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2;
+  const radius = w * 0.32;                  // generously rounded corners
+  // Cyan outline first: a wider stroke centred on the slab path. The body fill
+  // below covers its inner half, leaving a clean ~1.5px cyan ring hugging the
+  // pad edge so POI pads read as cyan-outlined.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  // Body fill.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fillStyle = '#b2b2b2';
+  ctx.fill();
+  // Subtle top sheen + bottom shadow, clipped to the slab, for the same faint
+  // "beveled flagstone" feel the old shape pads had.
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.fillRect(x, y, w, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  ctx.fillRect(x, y + h - 2, w, 2);
+  ctx.restore();
+  tex.refresh();
+}
+
+// Build a texture for one shape. Round shapes get the dedicated rounded pad;
+// any (legacy) multi-cell shape is drawn cell-by-cell with only its outer
+// perimeter stroked.
 function makePadShapeTexture(scene, shapeKey) {
   const key = `pad_${shapeKey}`;
   if (scene.textures.exists(key)) return;
   const shape = PAD_SHAPES[shapeKey];
   if (!shape) return;
+  if (shape.round) { makeRoundPadTexture(scene, key); return; }
   const W = shape.cols * PAD_CELL, H = shape.rows * PAD_CELL;
   const tex = scene.textures.createCanvas(key, W, H);
   const ctx = tex.getContext();
