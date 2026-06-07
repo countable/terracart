@@ -396,12 +396,12 @@ function drawPlaygroundTex(ctx, size, rng) {
 }
 
 function drawCommercialTex(ctx, size, rng) {
-  // Grey anti-slip matte ceramic floor tile (one big tile per cell). Drawn over
-  // the flat grey COMMERCIAL fill: a fine matte speckle for the anti-slip
-  // finish, a faint ceramic mottle, and a recessed grout seam on the top + left
-  // edges so adjacent cells read as a continuous large-format tile grid.
+  // Grey anti-slip matte ceramic tiles laid into a lawn: each cell is one big
+  // tile with a 3px GRASS joint on its top + left edges, so adjacent cells tile
+  // into a uniform grass-jointed grid (the tile body is the matte grey fill).
+  // Drawn over the flat grey COMMERCIAL fill.
   ctx.clearRect(0, 0, size, size);
-  // Anti-slip matte speckle — many very-low-contrast dots, evenly spread.
+  // Anti-slip matte speckle on the tile body — many very-low-contrast dots.
   for (let i = 0; i < 70; i++) {
     const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
     ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
@@ -412,13 +412,25 @@ function drawCommercialTex(ctx, size, rng) {
     ctx.fillStyle = 'rgba(0,0,0,0.04)';
     ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 5 + rng() * 5, 0, Math.PI * 2); ctx.fill();
   }
-  // Grout seam (top + left) with a soft inner highlight = a subtle bevel.
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.fillRect(0, 0, size, 1);
-  ctx.fillRect(0, 0, 1, size);
-  ctx.fillStyle = 'rgba(255,255,255,0.10)';
-  ctx.fillRect(0, 1, size, 1);
-  ctx.fillRect(1, 0, 1, size);
+  // Grass joint (top + left), colour-matched to COLORS[0] grass (rgb 71,151,87)
+  // so it blends seamlessly where the plaza meets a real lawn.
+  const B = 3;
+  ctx.fillStyle = 'rgb(71,151,87)';
+  ctx.fillRect(0, 0, size, B);   // top joint
+  ctx.fillRect(0, 0, B, size);   // left joint
+  // A few grass specks in the joint so it reads as lawn, not a flat band.
+  for (let i = 0; i < 14; i++) {
+    const onTop = rng() < 0.5;
+    const x = onTop ? Math.floor(rng() * size) : Math.floor(rng() * B);
+    const y = onTop ? Math.floor(rng() * B) : Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(25,70,25,0.5)' : 'rgba(180,225,140,0.4)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // Soft shadow just inside the tile where it meets the grass joint, so the
+  // ceramic reads as sitting slightly proud of the lawn.
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(B, B, size - B, 1);
+  ctx.fillRect(B, B, 1, size - B);
 }
 
 function drawIndustrialTex(ctx, size, rng) {
