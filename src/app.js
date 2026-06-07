@@ -4785,6 +4785,10 @@ class MapScene extends Phaser.Scene {
   ensureStarterTrailerObject() {
     const st = this.save.starterTrailer;
     if (!st) return;
+    // Surface-only. Underground, WorldGen.tileCache is repointed at the active
+    // depth's cave map (setDepth), so injecting here would drop a phantom
+    // trailer into a cave tile. The trailer lives on the surface — depth 0.
+    if ((this.depth || 0) !== 0) return;
     // Only inject while the trailer is actually the active Home. If the player
     // has since adopted a real house (starterShopId points elsewhere), a stale
     // starterTrailer must not keep spawning a phantom trailer in the world.
