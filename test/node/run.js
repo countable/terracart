@@ -32,6 +32,8 @@ ctx.Object = Object; ctx.Array = Array; ctx.Number = Number; ctx.String = String
 ctx.Boolean = Boolean; ctx.RegExp = RegExp; ctx.Set = Set; ctx.Map = Map;
 ctx.Symbol = Symbol; ctx.Error = Error; ctx.Infinity = Infinity; ctx.NaN = NaN;
 ctx.isNaN = isNaN; ctx.parseInt = parseInt; ctx.parseFloat = parseFloat;
+// mvt.js's Reader.readString decodes tag-value strings with TextDecoder.
+ctx.TextDecoder = TextDecoder;
 // save.js debounces with setTimeout; tests don't need the flush to fire, so the
 // timer is a no-op (persistSave just parks _pendingSave in memory).
 ctx.setTimeout = () => 0; ctx.clearTimeout = () => {};
@@ -50,6 +52,7 @@ vm.createContext(ctx);
 const FILES = [
   'mvt.js', 'util.js', 'coords.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
+  'interact.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -60,6 +63,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   toolDurationMs, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName,
   itemValue, randInt, pickFromArray, isShiny,
+  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
+  CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
+  TAP_HANDLERS,
 });`;
 try {
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
