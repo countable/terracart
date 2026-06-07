@@ -172,9 +172,11 @@
       tint: {},
     },
     [T.COMMERCIAL]: {
-      // Manicured planters — sparse clipped shrubs + planter flowers.
-      flora: [fix('shrub', 0.02, 0.06, S.COM_SHRUB),
-              fix('marigold', 0.01, 0.03, S.COM_MAR)],
+      // Clipped hedge maze across the plaza paving — shrubs laid out in neat
+      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js) plus a few
+      // planter marigolds for colour.
+      flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
+              fix('marigold', 0.008, 0.02, S.COM_MAR)],
       tint: { shrub: 0x8fd06f },        // bright manicured green
     },
     [T.INDUSTRIAL]: {

@@ -209,7 +209,7 @@ const COLORS = {
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
   15: 0x7eb55a, // SCHOOL       (GRASSLAND) — schoolyard green, slightly mown
-  16: 0xc4a5b0, // COMMERCIAL   (ROCKY)     — warm pink-tan, brightness ≈ residential
+  16: 0xa6a6a3, // COMMERCIAL   (ROCKY)     — grey anti-slip ceramic floor tile
   17: 0xaa8d99, // INDUSTRIAL   (ROCKY)     — same hue, ~15% darker
   18: 0xa39065, // PLAYGROUND   (GRASSLAND) — mulchy tan
   19: 0x6fa850, // PITCH        (GRASSLAND) — vivid sports-field green

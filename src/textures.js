@@ -33,7 +33,7 @@ const BIOME_TEX = {
   // qualitatively different from the others (see src/biome_profiles.js for the
   // matching flora/fauna/tint profile).
   15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
-  16: { variants: 1, draw: drawCommercialTex },   // COMMERCIAL — paving grid
+  16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
   17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
   18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
   19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
@@ -396,21 +396,29 @@ function drawPlaygroundTex(ctx, size, rng) {
 }
 
 function drawCommercialTex(ctx, size, rng) {
-  // Retail plaza paving — a faint tile grid over concrete with light flecks.
+  // Grey anti-slip matte ceramic floor tile (one big tile per cell). Drawn over
+  // the flat grey COMMERCIAL fill: a fine matte speckle for the anti-slip
+  // finish, a faint ceramic mottle, and a recessed grout seam on the top + left
+  // edges so adjacent cells read as a continuous large-format tile grid.
   ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  ctx.lineWidth = 1;
-  const step = 16;
-  for (let p = step; p < size; p += step) {
-    ctx.beginPath();
-    ctx.moveTo(p + 0.5, 0); ctx.lineTo(p + 0.5, size);
-    ctx.moveTo(0, p + 0.5); ctx.lineTo(size, p + 0.5);
-    ctx.stroke();
+  // Anti-slip matte speckle — many very-low-contrast dots, evenly spread.
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x, y, 1, 1);
   }
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  // Faint ceramic mottle — a couple of soft tonal patches.
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 5 + rng() * 5, 0, Math.PI * 2); ctx.fill();
   }
+  // Grout seam (top + left) with a soft inner highlight = a subtle bevel.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(0, 0, size, 1);
+  ctx.fillRect(0, 0, 1, size);
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(0, 1, size, 1);
+  ctx.fillRect(1, 0, 1, size);
 }
 
 function drawIndustrialTex(ctx, size, rng) {
