@@ -1354,6 +1354,33 @@
           const address = (((ix * HASH_MUL_X) ^ (iy * HASH_MUL_Y)) >>> 0) % 1000;
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
+        // Thin merged house icons. When several tiny building polygons abut and
+        // rasterize into one continuous block of building tiles, each polygon
+        // still drops its own roof — so the merged footprint reads as a cluster
+        // of crammed-together houses. Cap it at roughly one icon per two
+        // continuous tiles: greedily keep the largest-area house and drop any
+        // whose anchor cell is adjacent (Chebyshev ≤ 1, i.e. its footprint
+        // touches) an already-kept roof. Separate buildings with a gap between
+        // their footprints sit ≥ 2 cells apart and both survive.
+        const _houseIdx = [];
+        for (let k = 0; k < objects.length; k++) if (objects[k].kind === 'house') _houseIdx.push(k);
+        _houseIdx.sort((a, b) => (objects[b].area || 0) - (objects[a].area || 0));
+        const _keptHouseCells = [];
+        const _dropHouse = new Set();
+        for (const k of _houseIdx) {
+          const o = objects[k];
+          const hix = Math.floor(o.x / CELL_M), hiy = Math.floor(o.y / CELL_M);
+          let tooClose = false;
+          for (const [kx, ky] of _keptHouseCells) {
+            if (Math.max(Math.abs(kx - hix), Math.abs(ky - hiy)) <= 1) { tooClose = true; break; }
+          }
+          if (tooClose) _dropHouse.add(k);
+          else _keptHouseCells.push([hix, hiy]);
+        }
+        if (_dropHouse.size) {
+          const _dropArr = [..._dropHouse].sort((a, b) => b - a);
+          for (const k of _dropArr) objects.splice(k, 1);
+        }
       }
     }
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
@@ -1375,6 +1402,12 @@
             || tc === T.PATH     || tc === T.WATER    || tc === T.PIER
             || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       };
+      // No interactable may sit on a road tier or a building footprint. This is
+      // the blanket rule for EVERY scatter object (rocks, trees, wells, poles,
+      // …); the sole exception is a POI chest, handled explicitly below.
+      const _onRoadOrBuilding = (tc) =>
+           tc === T.ROAD     || tc === T.ROAD_LG    || tc === T.ROAD_MD
+        || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       // A house/tower sprite is foot-anchored on its footprint and its base
       // overhangs the immediately adjacent cells, so a rock one cell off the
       // footprint still reads as sitting ON the building's foundation. Keep a
@@ -1422,6 +1455,12 @@
         const iy = Math.floor((o.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile objects belong to a neighbour pass
         const here = grid[iy * w + ix];
+        // Blanket cull: nothing but a POI chest may sit on a road tier or a
+        // building footprint. A chest is a real-world destination deliberately
+        // placed at its coordinates — and a POI inside a building is allowed
+        // (the player taps the building floor to activate it). House/tower
+        // sprites ARE the building and were already skipped via _mrSkipKind.
+        if (o.kind !== 'chest' && _onRoadOrBuilding(here)) { objects.splice(i, 1); continue; }
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
           // Never sit a rock on a building's foundation (footprint edge / base).
@@ -1457,7 +1496,9 @@
         const ix = Math.floor((wp.x - tileOriginMx) / _mrCellW);
         const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
-        if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
+        const wtc = grid[iy * w + ix];
+        if (_onRoadOrBuilding(wtc)) { wildplants.splice(i, 1); continue; }
+        if (wtc !== T.RESIDENTIAL) continue;
         if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
       }
       // Parking-treasure X marks live in a third array (parkingTreasures)
@@ -1931,6 +1972,22 @@
           T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
           T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
         ]);
+        // Cell at (wx,wy) is hard terrain a scatter object must never sit on
+        // (road/building/water/rock/etc — the same set trees avoid).
+        const _sxHard = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+          return TREE_BLOCK.has(grid[iy * cpe + ix]);
+        };
+        // Cell at (wx,wy) is a building footprint — wells get a softer rule than
+        // _sxHard (they may supersede a road tile, repainting it) but must still
+        // never land on a building.
+        const _sxBuilding = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+          const tc = grid[iy * cpe + ix];
+          return tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+        };
         const tryTreeCell = (ix, iy) => {
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
           if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
@@ -1961,6 +2018,7 @@
         }
         for (const s of (bin.shrubs || [])) {
           if (onWater(s.x, s.y)) continue;
+          if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
           if (!_sxYardOK(s.x, s.y)) continue;
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
@@ -1971,6 +2029,7 @@
         }
         for (const p of (bin.poles || [])) {
           if (onWater(p.x, p.y)) continue;
+          if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
           if (!_sxYardOK(p.x, p.y)) continue;
           const k = cellKeyOf(p.x, p.y);
           if (occupied.has(k)) continue;
@@ -1984,6 +2043,7 @@
         const _ROADISH = (tt) => tt === T.ROAD || tt === T.ROAD_MD || tt === T.ROAD_LG || tt === T.PATH;
         for (const wl of (bin.wells || [])) {
           if (onWater(wl.x, wl.y)) continue;
+          if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
           if (!_sxYardOK(wl.x, wl.y)) continue;
           const k = cellKeyOf(wl.x, wl.y);
           if (occupied.has(k)) continue;
