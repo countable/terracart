@@ -204,7 +204,7 @@ const COLORS = {
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
   11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x4f5258, // building_large — civic / castle floor (dark slate; the rampart walls are the LIGHT stone, so floor + wall are swapped dark-for-light for contrast)
+  12: 0x777b84, // building_large — civic / castle floor (mid slate, lightened 50% from 0x4f5258; still darker than the LIGHT rampart walls so floor/wall stay swapped dark-for-light)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
