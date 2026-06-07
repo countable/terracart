@@ -33,6 +33,27 @@
   boundary, or if the sprite and hitbox don't obviously belong to the same
   cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
 
+- **The "one cell" sprite-position rule.** For every world sprite EXCEPT
+  buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
+  actors (creatures):
+    1. The sprite's **visible art** (its opaque, trimmed bounds — NOT the frame
+       box, which often has transparent padding) must **never cross the cell's
+       bottom edge** (never overlap the cell below).
+    2. Art that **fits** in the cell (height ≤ one cell) is **centred** vertically.
+    3. Art that **doesn't fit** is seated with its **bottom 1px above** the edge.
+    4. Art is **always centred horizontally** on the cell.
+  This is enforced in code by the seat pass in `src/render.js` + the single
+  source of truth in **`src/sprite_layout.js`** (`seatInCell` + the `ART_BOUNDS`
+  trimmed-bounds table). To make a sprite obey it, give its `RENDER_SPEC` entry
+  `seat: true` (the renderer computes `dxPx`/`dyPx` from the rule; `origin` is
+  then just the no-SpriteLayout fallback anchor). For animated sheets, set
+  `seatFrame` to a stable frame so the art doesn't bob.
+  **Audit it:** `node tools/sprite_audit.js` (also run as part of
+  `node test/node/run.js`). It decodes the real PNGs, checks `ART_BOUNDS` hasn't
+  drifted, and verifies every seated sprite obeys the rule. When art changes,
+  regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
+  it into `src/sprite_layout.js`.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
@@ -42,17 +63,20 @@
 
 ## Commits
 
-- Commit and push freely as work completes; no need to ask first.
+- Commit freely as work completes; no need to ask before committing.
+- **Always offer to merge to `main` and push — never push the feature
+  branch.** When work is ready to go up, ask whether to merge to `main`
+  and push `main`; don't push the session/feature branch, and don't merge
+  or push anything until the user says yes.
 - **Never rebase, always merge.** If integrating remote changes, use
   `git merge` (or `git pull --no-rebase`). Do not run `git rebase`,
   `git pull --rebase`, or `git pull` when `pull.rebase` is configured.
 
 ## Branching
 
-- **Always work directly on `main`.** Don't create feature branches, even
-  if the session was started on one. If you find yourself on a
-  non-`main` branch, switch to `main`, merge anything you've done so
-  far, and continue there. Push to `main` directly.
-- **After a major task, merge to `main` and push.** If work happened on a
-  non-`main` branch, merge it into `main` (`git merge`, never rebase) and
-  `git push` `main` once the task is complete.
+- **Work on the feature branch designated for the session** (the branch
+  named in the session/task instructions). Create it locally if it
+  doesn't exist yet.
+- **When work is ready, offer to merge to `main` and push `main`** (via
+  `git merge`, never rebase) rather than pushing the feature branch.
+  Don't merge or push until the user approves.

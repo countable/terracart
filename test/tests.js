@@ -138,11 +138,13 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 // (not just the math), which is the regression surface for both bugs.
 test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', (scene) => {
   // Base reach is now 2 cells; this test pins down the 3-CELL rounded-square
-  // geometry, so grant 2 shrine reach upgrades (2 + 0.5×2 = 3 cells) and keep
-  // energy full so the <30%-energy −1-cell penalty doesn't shrink it.
+  // geometry. On the surface the light reaches half a cell further (coords.js
+  // reachRadiusM), so ONE reach upgrade (2 + 0.5×1 = 2.5) + the +0.5 surface
+  // bonus = 3.0 cells. Keep energy full so the <30%-energy −1-cell penalty
+  // doesn't shrink it. (Depth defaults to 0 here, i.e. the surface.)
   const _savedUpgrades = scene.save.reachUpgrades;
   const _savedEnergy = scene.save.energy;
-  scene.save.reachUpgrades = 2;
+  scene.save.reachUpgrades = 1;
   scene.save.energy = scene.save.maxEnergy ?? 100;
   // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
@@ -395,13 +397,15 @@ test('water cells are blocked from tilling', (scene) => {
 // 5. Pad shape mapping
 // ───────────────────────────────────────────────────────────────────────
 
-test('POI categories resolve to expected pad shapes', () => {
-  assert.eq(padShapeKeyForPoi('school'), 'triangle', 'school → triangle');
-  assert.eq(padShapeKeyForPoi('pitch'), 'square2', 'pitch → square2');
-  assert.eq(padShapeKeyForPoi('place_of_worship'), 'cross', 'chapel → cross');
-  assert.eq(padShapeKeyForPoi('pharmacy'), 'cross', 'pharmacy → cross');
-  assert.eq(padShapeKeyForPoi('restaurant'), 'line3h', 'restaurant → line3h (food)');
-  assert.eq(padShapeKeyForPoi('playground'), 'line3v', 'playground → line3v');
+test('pad-bearing POIs resolve to the single round pad', () => {
+  // Every pad-bearing POI now gets the same single rounded pad.
+  assert.eq(padShapeKeyForPoi('school'), 'round1', 'school → round1');
+  assert.eq(padShapeKeyForPoi('pitch'), 'round1', 'pitch → round1');
+  assert.eq(padShapeKeyForPoi('place_of_worship'), 'round1', 'chapel → round1');
+  assert.eq(padShapeKeyForPoi('pharmacy'), 'round1', 'pharmacy → round1');
+  assert.eq(padShapeKeyForPoi('restaurant'), 'round1', 'restaurant → round1 (food)');
+  assert.eq(padShapeKeyForPoi('playground'), 'round1', 'playground → round1');
+  // Lowtier classes still render a bare chest with no pad.
   assert.eq(padShapeKeyForPoi('bus'), null, 'bus → no pad');
   assert.eq(padShapeKeyForPoi('gate'), null, 'gate → no pad');
 });

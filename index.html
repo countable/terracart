@@ -96,6 +96,31 @@
       background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
     }
+    /* Copyable error overlay. Unlike #banner (a transient connection-status
+       flash), this stays on screen until dismissed and is fully selectable so
+       the whole message + stack can be read or copied on a phone where
+       DevTools isn't reachable. */
+    #errbar {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
+      background: #b71c1c; color: #fff; padding: 8px 10px; border-radius: 8px;
+      font: 12px/1.45 ui-monospace, monospace; display: none; z-index: 20;
+      box-shadow: 0 4px 16px #0008;
+      white-space: pre-wrap; word-break: break-word;
+      -webkit-user-select: text; user-select: text;
+    }
+    #errbar .errmsg { font-weight: 700; }
+    #errbar .errstack {
+      margin-top: 6px; font-size: 11px; opacity: .92; white-space: pre-wrap;
+    }
+    #errbar .errbtns {
+      display: flex; gap: 8px; margin-top: 8px;
+      position: sticky; bottom: 0;
+    }
+    #errbar button {
+      font: 700 12px ui-monospace, monospace; color: #b71c1c; background: #fff;
+      border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+    }
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
@@ -110,7 +135,7 @@
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
       background: #000a; color: #ffd96b; padding: 4px 10px;
-      border: 2px solid #c8a64a; border-radius: 8px;
+      border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
@@ -121,6 +146,18 @@
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
+      display: flex; flex-direction: column; gap: 3px; align-items: stretch;
+    }
+    /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
+       updateEnergyDOM(): green normally, yellow at/below 30%, red when critical. */
+    #energy-bar {
+      height: 4px; border-radius: 2px; overflow: hidden;
+      background: #ffffff22;
+    }
+    #energy-bar-fill {
+      height: 100%; width: 100%; border-radius: 2px;
+      background: #a7ffb0;
+      transition: width 0.15s linear, background-color 0.15s linear;
     }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
@@ -145,6 +182,14 @@
     }
     #menu .items button:hover { background: #fff2; }
     #menu .items button.danger { color: #ff8a7a; }
+    /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
+       The active slot is marked with a leading ✓ and highlighted. */
+    #menu .save-row { display: flex; align-items: stretch; gap: 2px; }
+    #menu .save-row .save-pick { flex: 1; min-width: 0; }
+    #menu .save-row .save-pick.active { color: #a7ffb0; font-weight: 700; }
+    #menu .save-row .save-del {
+      flex: 0 0 auto; color: #ff8a7a; padding: 6px 8px;
+    }
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
        DeviceOrientationEvent.requestPermission() AND start GPS. */
@@ -202,6 +247,14 @@
   <div id="frame">
     <div id="game">
       <div id="banner">reconnecting…</div>
+      <div id="errbar">
+        <div class="errmsg"></div>
+        <div class="errstack"></div>
+        <div class="errbtns">
+          <button type="button" data-act="copy">Copy</button>
+          <button type="button" data-act="dismiss">Dismiss</button>
+        </div>
+      </div>
     </div>
   </div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
@@ -210,19 +263,29 @@
        containing block, which would put it back inside #game's clipped zone.
        Same reason buildInventoryDOM appends to <body>. -->
   <div id="money">$0</div>
-  <div id="energy">⚡100/100</div>
+  <div id="energy">
+    <span id="energy-label">⚡100/100</span>
+    <div id="energy-bar"><div id="energy-bar-fill"></div></div>
+  </div>
   <details id="menu">
     <summary>☰</summary>
     <div class="items">
+      <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
+      <button id="debug-dump-tile">Dump tile (debug)</button>
+      <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
+        <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
+        <button id="new-save">+ New game</button>
+      </div>
       <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
         <!-- buttons injected from window.TELEPORT_PRESETS -->
       </div>
-      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset save</button>
+      <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
   <div id="hud"></div>
@@ -354,6 +417,11 @@
       const m = document.getElementById('menu');
       if (m && m.open && !m.contains(e.target)) m.open = false;
     }, true);
+    document.getElementById('delivery-list').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.openDeliveryMenu) window.__scene.openDeliveryMenu();
+    });
     document.getElementById('stats-relics').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -363,13 +431,27 @@
     // 10× walk speed. Replaces the purple ghost pad while on. The button
     // label tracks state both before the scene loads (read save directly)
     // and after each click (scene returns the new value).
+    // Resolve the ACTIVE saved game's raw data straight from localStorage.
+    // This runs at parse time, before save.js loads, so it can't use the save.js
+    // helpers — it reads the slot registry inline, falling back to the legacy
+    // single-save key for brand-new or pre-multislot players.
+    function readActiveSaveRaw() {
+      try {
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        let key = 'terracart.save.v4';
+        if (reg && Array.isArray(reg.slots) && reg.slots.length) {
+          const slot = reg.slots.find(s => s.id === reg.active) || reg.slots[0];
+          if (slot && slot.key) key = slot.key;
+        }
+        return JSON.parse(localStorage.getItem(key) || 'null');
+      } catch { return null; }
+    }
     const debugBtn = document.getElementById('debug-controls');
     function setDebugBtnLabel(on) {
       debugBtn.textContent = 'Debug controls: ' + (on ? 'on' : 'off');
     }
     try {
-      const raw = localStorage.getItem('terracart.save.v4');
-      const s = raw ? JSON.parse(raw) : null;
+      const s = readActiveSaveRaw();
       setDebugBtnLabel(!!(s && s.debugControls));
     } catch { /* leave default 'off' */ }
     debugBtn.addEventListener('click', (e) => {
@@ -389,6 +471,13 @@
       for (const slot of Object.keys(scene.save.relics)) scene.save.relics[slot] = null;
       scene.updateRelicRow?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    document.getElementById('debug-dump-tile').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (scene && scene.dumpTileDebug) scene.dumpTileDebug();
+      else if (window.showError) window.showError('tile debug unavailable', 'scene not ready');
     });
     document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -438,13 +527,87 @@
     } else {
       buildTeleportMenu();
     }
+
+    // ── Saved games ─────────────────────────────────────────────────
+    // One row per save slot (from the save.js registry): a name button that
+    // switches to (loads) that game, plus a ✕ to delete it. A "+ New game"
+    // button creates a fresh slot. Switching / creating just repoints the
+    // active-slot pointer and reloads — the scene + all in-memory caches
+    // re-init from the chosen slot on the next load. Built (and rebuilt) from
+    // listSaves(); save.js has loaded by DOMContentLoaded.
+    function buildSavesMenu() {
+      const listEl = document.getElementById('saves-list');
+      if (!listEl || typeof listSaves !== 'function') return;  // save.js not ready → skip
+      listEl.innerHTML = '';
+      const saves = listSaves();
+      for (const s of saves) {
+        const row = document.createElement('div');
+        row.className = 'save-row';
+        const pick = document.createElement('button');
+        pick.className = 'save-pick' + (s.active ? ' active' : '');
+        pick.textContent = (s.active ? '✓ ' : '') + s.name;
+        pick.title = s.name;
+        pick.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (s.active) { const m = document.getElementById('menu'); if (m) m.open = false; return; }
+          // Persist any pending writes to the OUTGOING slot before we switch.
+          if (typeof flushSave === 'function') flushSave();
+          if (typeof switchSave === 'function') switchSave(s.id);
+          location.reload();
+        });
+        row.appendChild(pick);
+        // Don't offer to delete the only remaining game — there's always one.
+        if (saves.length > 1) {
+          const del = document.createElement('button');
+          del.className = 'save-del';
+          del.textContent = '✕';
+          del.title = 'Delete ' + s.name;
+          del.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!confirm('Delete saved game "' + s.name + '"? This cannot be undone.')) return;
+            const wasActive = s.active;
+            if (typeof deleteSave === 'function') deleteSave(s.id);
+            if (wasActive) location.reload();   // active slot changed → reboot scene
+            else buildSavesMenu();              // just refresh the list
+          });
+          row.appendChild(del);
+        }
+        listEl.appendChild(row);
+      }
+      const newBtn = document.getElementById('new-save');
+      if (newBtn && !newBtn._wired) {
+        newBtn._wired = true;
+        newBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const name = prompt('Name your new game:', 'Game ' + (listSaves().length + 1));
+          if (name === null) return;   // cancelled
+          if (typeof flushSave === 'function') flushSave();
+          if (typeof createSave === 'function') createSave(name);
+          location.reload();
+        });
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', buildSavesMenu);
+    } else {
+      buildSavesMenu();
+    }
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
     // synchronously from within a user-gesture handler — so we do it
     // here, inline in the click. The promise resolution can be async; the
     // call itself just has to originate inside the click stack.
+    let __safetyDismissed = false;
     document.getElementById('safety-dismiss').addEventListener('click', async (e) => {
       e.stopPropagation();
+      // Guard against the handler running twice. On iOS the permission prompt
+      // below is awaited BEFORE the splash is removed, so a second tap (or a
+      // synthesized re-fire) could re-enter and play the opening story twice.
+      if (__safetyDismissed) return;
+      __safetyDismissed = true;
+      // Remove the splash up front so a queued second tap can't land on it again
+      // while we're awaiting the permission prompt.
+      document.getElementById('safety')?.remove();
       const DOE = window.DeviceOrientationEvent;
       if (DOE && typeof DOE.requestPermission === 'function') {
         try {
@@ -455,7 +618,6 @@
       } else {
         window.__compassPerm = 'granted';  // Android / desktop: no prompt needed
       }
-      document.getElementById('safety')?.remove();
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
@@ -485,12 +647,18 @@
         btn: "Let's go",
       },
     ];
+    let __storyStarted = false;
     function startStory() {
+      // Idempotent: never show the opening story more than once per page load,
+      // even if something calls this twice (the overlay is removed on finish,
+      // so a later call would no-op anyway — this just makes it explicit).
+      if (__storyStarted) return;
       const overlay = document.getElementById('story');
       const artEl = document.getElementById('story-art');
       const textEl = document.getElementById('story-text');
       const btn = document.getElementById('story-next');
       if (!overlay || !artEl || !textEl || !btn) return;
+      __storyStarted = true;
       let i = 0;
       const render = () => {
         const s = STORY_SLIDES[i];
@@ -512,56 +680,98 @@
       render();
       overlay.style.display = 'flex';
     }
-    // Full nuke: save data + service worker + every offline cache. We do
-    // the SW / caches sweep too so a stale app shell can't survive a reset
-    // — the player (and devs chasing weird behaviour) gets a truly clean
-    // load. Errors are swallowed individually so a missing SW or caches
+    // Reset THIS game: wipe only the active save slot's progress, plus every
+    // cache of map tiles and global runtime state, so the current game reboots
+    // truly fresh. Other saved games are left untouched. The app shell / service
+    // worker are deliberately NOT nuked here (this is a game reset, not an app
+    // reinstall). Errors are swallowed individually so a missing caches / IDB
     // API never blocks the reload.
     document.getElementById('reset-save').addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Wipe ALL saved progress AND offline cache (forces a fresh app download)?')) return;
-      // 0) Kill the save pipeline first. Without this, the scene's update
-      //    loop (or the pagehide handler triggered by location.reload below)
-      //    flushes the in-memory _pendingSave back to localStorage AFTER
-      //    we wipe it — silently restoring the old save on next load.
-      if (typeof disableSave === 'function') disableSave();
-      // 1) Save data — every terracart.* key (current + any older versions).
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('terracart.')) localStorage.removeItem(k);
-      }
-      // 2) Service worker — unregister so the next load fetches a fresh sw.js.
-      try {
-        const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
-        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
-      } catch {}
-      // 3) Caches API — drop every cache bucket (app shell + MVT tiles).
+      if (!confirm('Reset THIS saved game and clear cached map tiles? Your other saved games are kept.')) return;
+      // 0) Wipe the active slot + kill the save pipeline. Without disabling
+      //    writes, the scene's update loop (or the pagehide handler triggered by
+      //    location.reload below) flushes the in-memory _pendingSave back to
+      //    localStorage AFTER we wipe it — silently restoring the old save.
+      if (typeof resetCurrentSave === 'function') resetCurrentSave();
+      else if (typeof disableSave === 'function') disableSave();
+      // 1) Global runtime state: replay the intro on the fresh game.
+      try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      // 2) Map-tile caches. Two layers persist tiles across loads:
+      //    a) Cache API tile bucket(s) populated by the service worker, and
+      //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
+      //    In-memory worldgen caches reset on reload, so the load below is clean.
       try {
         if (window.caches) {
           const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+          await Promise.all(keys
+            .filter(k => /tile/i.test(k))
+            .map(k => caches.delete(k).catch(() => {})));
         }
       } catch {}
+      try { indexedDB.deleteDatabase('mapgame-tiles'); } catch {}
       location.reload();
     });
 
     // ───────────────────────────────────────────────────────────────
-    // Mobile error surfacing — DevTools isn't reachable on phones, so
-    // any uncaught JS error is flashed to #banner instead of dying silently.
-    function showError(msg) {
-      const b = document.getElementById('banner');
-      if (!b) return;
-      b.textContent = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
-      b.style.display = 'block';
-      clearTimeout(showError._t);
-      showError._t = setTimeout(() => { b.style.display = 'none'; }, 6000);
+    // Mobile error surfacing — DevTools isn't reachable on phones, so any
+    // uncaught JS error is shown in a copyable overlay (#errbar) instead of a
+    // truncated flash. The FULL message + stack stay on screen until dismissed
+    // so they can actually be read and copied (Copy button → clipboard).
+    const errbar     = document.getElementById('errbar');
+    const errMsgEl   = errbar && errbar.querySelector('.errmsg');
+    const errStackEl = errbar && errbar.querySelector('.errstack');
+    let errFullText  = '';
+    function showError(msg, detail) {
+      if (!errbar) return;
+      errMsgEl.textContent = msg || 'error';
+      errStackEl.textContent = detail || '';
+      errStackEl.style.display = detail ? 'block' : 'none';
+      errFullText = detail ? `${msg}\n\n${detail}` : (msg || '');
+      errbar.style.display = 'block';
+      errbar.scrollTop = 0;
+    }
+    // Expose so the in-game loop-error handler (app.js) can route through the
+    // same copyable overlay instead of writing a truncated #banner string.
+    window.showError = showError;
+    if (errbar) {
+      errbar.addEventListener('click', async (ev) => {
+        const act = ev.target && ev.target.dataset && ev.target.dataset.act;
+        if (act === 'dismiss') { errbar.style.display = 'none'; return; }
+        if (act !== 'copy') return;
+        const btn = ev.target, old = btn.textContent;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(errFullText);
+          } else {
+            // Fallback for non-secure contexts (clipboard API needs HTTPS):
+            // select the overlay contents and use execCommand.
+            const range = document.createRange();
+            range.selectNodeContents(errbar);
+            const sel = getSelection();
+            sel.removeAllRanges(); sel.addRange(range);
+            document.execCommand('copy');
+            sel.removeAllRanges();
+          }
+          btn.textContent = 'Copied!';
+        } catch (_) {
+          btn.textContent = 'Copy failed';
+        }
+        setTimeout(() => { btn.textContent = old; }, 1400);
+      });
     }
     window.addEventListener('error', (e) => {
-      showError(`⚠ ${e.message || 'script error'}`);
+      const err = e.error;
+      const msg = (err && err.message) || e.message || 'script error';
+      const stack = (err && err.stack)
+        || (e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : '');
+      showError(`⚠ ${msg}`, stack);
     });
     window.addEventListener('unhandledrejection', (e) => {
       const r = e.reason;
-      showError(`⚠ ${(r && (r.message || r.toString())) || 'promise rejection'}`);
+      const msg = (r && (r.message || r.toString())) || 'promise rejection';
+      const stack = (r && r.stack) || '';
+      showError(`⚠ ${msg}`, stack);
     });
 
     // ───────────────────────────────────────────────────────────────
@@ -578,21 +788,31 @@
     }
   </script>
   <script src="vendor/phaser.js"></script>
-  <script src="src/mvt.js?v=2"></script>
-  <script src="src/util.js?v=8"></script>
-  <script src="src/coords.js?v=116"></script>
-  <script src="src/worldgen.js?v=170"></script>
-  <script src="src/textures.js?v=141"></script>
-  <script src="src/save.js?v=113"></script>
-  <script src="src/items.js?v=174"></script>
+  <script src="src/mvt.js?v=3"></script>
+  <script src="src/util.js?v=9"></script>
+  <script src="src/sprite_layout.js?v=1"></script>
+  <script src="src/home.js?v=1"></script>
+  <script src="src/coords.js?v=119"></script>
+  <script src="src/worldgen.js?v=181"></script>
+  <script src="src/textures.js?v=143"></script>
+  <script src="src/save.js?v=115"></script>
+  <script src="src/items.js?v=181"></script>
+  <script src="src/inventory.js?v=1"></script>
+  <script src="src/energy.js?v=2"></script>
+  <script src="src/crops.js?v=1"></script>
+  <script src="src/delivery.js?v=2"></script>
+  <script src="src/savemigrate.js?v=2"></script>
+  <script src="src/gear.js?v=2"></script>
+  <script src="src/shops_math.js?v=1"></script>
   <script src="src/shops.js?v=4"></script>
-  <script src="src/rarity.js?v=23"></script>
-  <script src="src/loot.js?v=137"></script>
-  <script src="src/interact.js?v=196"></script>
-  <script src="src/render.js?v=229"></script>
-  <script src="src/assets.js?v=167"></script>
-  <script src="src/sandbox.js?v=29"></script>
+  <script src="src/rarity.js?v=24"></script>
+  <script src="src/loot.js?v=140"></script>
+  <script src="src/interactables.js?v=3"></script>
+  <script src="src/interact.js?v=213"></script>
+  <script src="src/render.js?v=244"></script>
+  <script src="src/assets.js?v=171"></script>
+  <script src="src/sandbox.js?v=30"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=288"></script>
+  <script src="src/app.js?v=322"></script>
 </body>
 </html>
