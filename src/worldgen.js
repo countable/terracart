@@ -2260,6 +2260,45 @@
     } catch (_) { /* no location (tests/node) → fall through to the flag */ }
     return _overpassLive;
   }
+  // In-memory status tracker so the on-screen TILE DEBUG dump can report
+  // whether Overpass loaded for a tile (handy on mobile, where there's no
+  // DevTools / Network tab). Keyed `${x}_${y}` → { status, counts, ts }.
+  const _overpassState = new Map();
+  function ovpNote(x, y, status, bin) {
+    const e = { status, ts: Date.now() };
+    if (bin) {
+      e.trees   = (bin.trees || []).length + (bin.fruittrees || []).length;
+      e.poles   = (bin.poles || []).length;
+      e.chests  = (bin.chests || []).length;
+      e.wells   = (bin.wells || []).length;
+      e.shrubs  = (bin.shrubs || []).length;
+      e.streams = (bin.streams || []).length;
+      e.parking = (bin.parking || []).length;
+    }
+    _overpassState.set(`${x}_${y}`, e);
+  }
+  // One-line human status for tile (x,y), for the debug dump.
+  function overpassTileInfo(x, y) {
+    if (!overpassLiveEnabled()) return 'live=off (?overpass=off or setOverpassLive(false))';
+    const e = _overpassState.get(`${x}_${y}`);
+    let loaded = 0;
+    for (const v of _overpassState.values()) {
+      if (v.status === 'loaded' || v.status === 'cache') loaded++;
+    }
+    const tail = `  [${loaded} tile(s) decorated this session]`;
+    if (!e) return 'live=on  src=? (tile not loaded yet)' + tail;
+    if (e.status === 'static')   return 'live=on  src=static sidecar (in prebaked bbox)' + tail;
+    if (e.status === 'fetching') return 'live=on  src=overpass — FETCHING… reload this tile to see results' + tail;
+    if (e.status === 'failed')   return 'live=on  src=overpass — fetch FAILED (offline/blocked); will retry' + tail;
+    if (e.status === 'loaded' || e.status === 'cache') {
+      const src = e.status === 'cache' ? 'overpass (cached)' : 'overpass (just fetched)';
+      const total = (e.trees || 0) + (e.poles || 0) + (e.chests || 0) + (e.wells || 0) + (e.shrubs || 0) + (e.streams || 0) + (e.parking || 0);
+      if (!total) return `live=on  src=${src} — area has 0 OSM features` + tail;
+      return `live=on  src=${src}: ${e.trees || 0} trees, ${e.poles || 0} poles, ${e.chests || 0} chests, `
+        + `${e.wells || 0} wells, ${e.shrubs || 0} bushes, ${e.streams || 0} streams, ${e.parking || 0} parking` + tail;
+    }
+    return 'live=on  src=none' + tail;
+  }
   // Public, CORS-enabled endpoints, tried in order (fail over on error / 429).
   const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
@@ -2389,14 +2428,15 @@
             break;
           } catch (_) { /* network error → try next endpoint */ }
         }
-        if (!json) return null;                // fail soft: no decoration, retry later
+        if (!json) { ovpNote(x, y, 'failed'); return null; }   // fail soft: no decoration, retry later
         const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
         // Features near the bbox edge can project into a neighbour tile; we
         // keep only this tile's bin (neighbours fetch their own bbox).
         const bin = bins.get(`${x}_${y}`) || emptyBin();
         idbPut(key, bin);                      // trees/poles ~static → cache forever
+        ovpNote(x, y, 'loaded', bin);
         return bin;
-      } catch (_) { return null; }
+      } catch (_) { ovpNote(x, y, 'failed'); return null; }
       finally { overpassRelease(); _overpassInflight.delete(key); }
     })();
     _overpassInflight.set(key, p);
@@ -2412,12 +2452,13 @@
   async function getTileBin(x, y, lat) {
     const sx = await ensureSatextract(lat);
     const stat = sx && sx.get(`${x}_${y}`);
-    if (stat) return stat;
+    if (stat) { ovpNote(x, y, 'static', stat); return stat; }
     if (!overpassLiveEnabled()) return null;
     const key = `ovp/${Z}/${x}/${y}`;
     let cached = null;
     try { cached = await idbGet(key); } catch (_) { cached = null; }   // local, fast, can't hang on the network
-    if (cached) return cached;
+    if (cached) { ovpNote(x, y, 'cache', cached); return cached; }
+    ovpNote(x, y, 'fetching');
     fetchOverpassBin(x, y, lat).catch(() => {});   // fire-and-forget; lands in IDB
     return null;
   }
@@ -2709,5 +2750,6 @@
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
     setOverpassLive: (b) => { _overpassLive = !!b; },
+    overpassTileInfo,   // one-line status for a tile, surfaced in TILE DEBUG
   };
 })(window);
