@@ -1747,7 +1747,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
   // labels, and pads — never gets occluded.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest');
+  // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
+  // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
+  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestIsBox(o));
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {
