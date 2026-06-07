@@ -540,6 +540,49 @@
       }
     }
 
+    // Structured "hedge maze" spawner — used for commercial-plaza shrubs so they
+    // read as a neat clipped hedge maze instead of random scatter. Placement is
+    // deterministic on ABSOLUTE cell coords (continuous across polygons + tiles),
+    // on a period-3 lattice:
+    //   • pillars   (ax%3==0 && ay%3==0)            → always a hedge cell
+    //   • wall cells (one coord %3==0, the other not) → a hedge IFF that wall
+    //                 segment "exists" (a stable per-segment coin flip); both
+    //                 cells of a 2-cell wall share the segment id so a wall is
+    //                 contiguous and the gaps read as passages.
+    //   • interior  (neither coord %3==0)            → never a hedge (open path)
+    // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+    function spawnHedgeMaze(rings, crop, salt) {
+      const P = 3;                 // lattice period (cells between pillars)
+      const WALL_PCT = 30;         // % of wall segments that exist → ~25% fill
+      const bb = bboxOf(rings);
+      const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell));
+      const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell));
+      const ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
+      const iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
+      const wallOn = (sx, sy, k) => {
+        const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
+        return (hsh % 100) < WALL_PCT;
+      };
+      for (let iy = iy0; iy <= iy1; iy++) {
+        for (let ix = ix0; ix <= ix1; ix++) {
+          // Cell centre in MVT units for the inside-polygon test.
+          if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
+          const ax = tx * w + ix, ay = ty * h + iy;     // absolute cell coords
+          const mx3 = ((ax % P) + P) % P;
+          const my3 = ((ay % P) + P) % P;
+          let hedge;
+          if (mx3 === 0 && my3 === 0) hedge = true;                                   // pillar
+          else if (my3 === 0 && mx3 !== 0) hedge = wallOn(Math.floor(ax / P), ay, 0); // horizontal wall
+          else if (mx3 === 0 && my3 !== 0) hedge = wallOn(ax, Math.floor(ay / P), 1); // vertical wall
+          else hedge = false;                                                          // open interior
+          if (!hedge) continue;
+          const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+          wildplants.push({ x: cx, y: cy, crop, _ix: ix, _iy: iy,
+            id: `hm_${tx}_${ty}_${ix}_${iy}` });
+        }
+      }
+    }
+
     // mvt(x,y) within this tile -> ABSOLUTE world meters (anchor: tile(0,0) NW corner at z14).
     const tileOriginMx = tx * tileEdgeM;
     const tileOriginMy = ty * tileEdgeM;
@@ -667,7 +710,12 @@
             // their base-family profile, so no walkable zone is ever barren.
             for (const fl of BiomeProfiles.flora(t)) {
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
-              if (fl.dynamic) {
+              if (fl.pattern === 'hedgemaze') {
+                // Deterministic clipped-hedge-maze layout (commercial plazas) —
+                // keyed on absolute cell coords so the maze is continuous across
+                // polygons/tiles, not a per-polygon scatter.
+                spawnHedgeMaze(f.geom, fl.crop, fl.salt >>> 0);
+              } else if (fl.dynamic) {
                 const density = ((seed % 1000) / 1000) * fl.dMax;
                 if (density > 0) spawnDebris(f.geom, fl.crop, seed, density, density);
               } else {
@@ -2246,6 +2294,9 @@
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
+  // Per-attempt client abort. Slightly above the query's own [timeout:20] so a
+  // healthy-but-slow server response isn't cut off, but a true hang still dies.
+  const OVERPASS_TIMEOUT_MS = 22000;
   // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
   function emptyBin() {
     return { trees: [], fruittrees: [], shrubs: [], poles: [],
@@ -2291,27 +2342,25 @@
     const north = tileLat(y), south = tileLat(y + 1);
     const west = tileLon(x), east = tileLon(x + 1);
     const bb = `(${south},${west},${north},${east})`;
-    // Nodes for point features; ways (via `out center`) for tree_row / stream
-    // / area POIs that satextract reduces to a centroid.
+    // Query ONLY what OpenFreeMap's MVT layers don't already carry. The MVT
+    // `poi` layer already gives bus stops, parking, pitches, playgrounds,
+    // pools, bollards (we see them in the tile), so re-fetching them here just
+    // bloats a whole-town z14 query and produces dupes. Keep the genuinely
+    // additive set: trees (satextract's whole point), utility posts, fountains,
+    // streams, and a little street furniture MVT omits.
+    // Nodes for point features; ways (via `out center`) for tree_row / stream.
     const sels = [
       'node["natural"="tree"]', 'way["natural"="tree_row"]',
       'node["power"="pole"]', 'node["man_made"="utility_pole"]',
-      'node["man_made"="mast"]', 'node["barrier"="bollard"]',
-      'node["highway"="street_lamp"]', 'node["amenity"="fountain"]',
-      'node["amenity"="parking"]', 'way["amenity"="parking"]',
-      'way["waterway"="stream"]',
-      'node["highway"="bus_stop"]', 'node["highway"="traffic_signals"]',
-      'node["highway"="stop"]', 'node["highway"="crossing"]',
+      'node["man_made"="mast"]', 'node["highway"="street_lamp"]',
+      'node["amenity"="fountain"]', 'way["waterway"="stream"]',
       'node["leisure"="picnic_table"]', 'node["historic"="memorial"]',
       'node["barrier"="gate"]', 'node["amenity"="bicycle_parking"]',
       'node["leisure"="garden"]', 'way["leisure"="garden"]',
-      'node["leisure"="playground"]', 'way["leisure"="playground"]',
-      'way["leisure"="pitch"]',
-      'node["leisure"="swimming_pool"]', 'way["leisure"="swimming_pool"]',
       'node["man_made"="tower"]',
     ];
     // `out center;` prints node lat/lon and way centroids, both with tags.
-    return `[out:json][timeout:25];(` + sels.map(s => s + bb + ';').join('') + `);out center;`;
+    return `[out:json][timeout:20];(` + sels.map(s => s + bb + ';').join('') + `);out center;`;
   }
   // Overpass JSON elements → satextract-style GeoJSON Point FeatureCollection.
   // Nodes use their own lat/lon; ways use the `center` from `out center`.
@@ -2360,15 +2409,23 @@
         const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
         let json = null;
         for (const ep of OVERPASS_ENDPOINTS) {
+          // Per-attempt abort timeout: a slow/hung Overpass request must never
+          // wedge here, or the status sticks on FETCHING forever AND its
+          // concurrency slot (released in the outer finally) is held hostage,
+          // jamming every other tile's query behind it.
+          const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+          const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
           try {
             const resp = await fetch(ep, {
               method: 'POST', body,
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              signal: ctrl ? ctrl.signal : undefined,
             });
             if (!resp.ok) continue;            // 429 / load-shed → next mirror
             json = await resp.json();
             break;
-          } catch (_) { /* network error → try next endpoint */ }
+          } catch (_) { /* abort/network error → try next endpoint */ }
+          finally { if (timer) clearTimeout(timer); }
         }
         if (!json) { ovpNote(x, y, 'failed'); return null; }   // fail soft: no decoration, retry later
         const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
