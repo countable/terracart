@@ -2117,6 +2117,11 @@ class MapScene extends Phaser.Scene {
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
     // pointing in the compass heading (or last movement, as fallback).
+    // Normally it rides the player's head at the viewport center. Underground,
+    // while the ghost is out leading the body through rock, the compass rides
+    // the GHOST instead — the player is steering the ghost, so the
+    // device-orientation arrow belongs over it (caveGhost was positioned and
+    // its visibility decided in the cave-ghost-marker block above).
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -2126,7 +2131,14 @@ class MapScene extends Phaser.Scene {
       const tip = 22; // distance from player center to arrow tip
       const base = 14; // distance from player center to arrow base midpoint
       const halfW = 6; // half-width of the base
-      const cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      let cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      if (this.depth > 0 && this.caveGhost.visible) {
+        // Anchor over the ghost's head. caveGhost sits at sprite-center
+        // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
+        // offset used at the viewport center so the arrow hovers identically.
+        cx = this.caveGhost.x;
+        cy = this.caveGhost.y - this.playerFeetNudgeY - 2;
+      }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
