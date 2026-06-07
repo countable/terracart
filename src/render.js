@@ -511,7 +511,7 @@ Render.drawCells = function drawCells(scene) {
       if (type === 12) {
         const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
               STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
-        const MERLONS = 4, SPAN = CELL_PX / MERLONS, MW = 5;  // 5px tooth, 3px gap ×4 = 32
+        const MERLONS = 8, SPAN = CELL_PX / MERLONS, MW = 3;  // 3px tooth, 1px gap ×8 = 32 — finer than the tower's 3-merlon crest
         const WALL = 6;          // south wall-face height (the lit 3-D face)
         const TOOTH = 2;         // how far merlons poke past the footprint edge
         // South edge — a stone wall face hangs BELOW the cell, capped with
