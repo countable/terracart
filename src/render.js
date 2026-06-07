@@ -2108,10 +2108,10 @@ Render.drawObjects = function drawObjects(scene) {
   // both of which render under WebGL and Canvas alike. The existing tint/twinkle
   // stays as an extra flourish where WebGL is available.
   const sparkList = [];
-  const pushSpark = (it, dyOff, id) => sparkList.push({ dx: it.dx, dy: it.dy, dyOff, id: id || '' });
-  for (const it of creatureList) if (it.c.shiny) pushSpark(it, 36, it.c.id);
+  const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
+  for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
   for (const it of plantedList) {
-    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, 22, it.p.wildId);
+    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, it.p.wildId);
   }
   // Iterate filteredObj, NOT objList: a chopped shiny tree is still in objList
   // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
@@ -2119,7 +2119,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
   for (const it of filteredObj) {
     if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
-      pushSpark(it, 44, it.o.id);
+      pushSpark(it, it.o.id);
     }
   }
   const _sparkNow = Date.now();
@@ -2133,11 +2133,17 @@ Render.drawObjects = function drawObjects(scene) {
     const phase = ((_sparkNow + (h % 1300)) % 1300) / 1300;        // 0..1
     const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
     const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
+    const scl = 0.5 + 0.30 * wave;                                 // ~16..~26px from 32px tex
+    // Pin the sparkle's TOP to the cell's top edge (origin is centred, so add
+    // half the scaled height) so it sits AT THE TOP of, but INSIDE, the cell —
+    // growing downward as it twinkles instead of floating above the cell.
+    const halfH = 16 * scl;                                        // half the scaled 32px texture
+    const yTop = sy - CELL_PX / 2 + 1;                             // cell top, 1px inset
     s.setOrigin(0.5, 0.5)
-     .setScale(0.5 + 0.30 * wave)                                  // ~16..~26px from 32px tex
+     .setScale(scl)
      .setAlpha(0.55 + 0.45 * wave)
      .setAngle(phase * 360)                                        // slow shimmer spin
      .setTint(0xffffff)
-     .setPosition(Math.round(sx), Math.round(sy) - item.dyOff + bob);
+     .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
 };
