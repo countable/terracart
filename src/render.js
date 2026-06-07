@@ -106,10 +106,15 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
-  // Castle ramparts draw into their own layer (above the tower sprites). It's
-  // cleared here in lockstep with cellGfx so the two never desync by a frame.
-  const gr = scene.rampartGfx || g;
-  if (gr !== g) gr.clear();
+  // Castle ramparts split across TWO layers so towers (objectsContainer) sort
+  // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
+  // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
+  // draw BELOW objects (towers stand in front of the top wall; side walls sit
+  // under everything). Both cleared in lockstep with cellGfx so nothing desyncs.
+  const gf = scene.rampartFrontGfx || g;   // front (south) wall — ABOVE objects
+  const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
+  if (gf !== g) gf.clear();
+  if (gb !== g && gb !== gf) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -529,52 +534,49 @@ Render.drawCells = function drawCells(scene) {
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
         const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
-        // Ramparts paint into gr (a layer ABOVE the tower sprites) so the walls
-        // and crests occlude the base of towers standing on the castle. The wall
-        // stone is the LIGHT material (STONE_BODY) — swapped against the now-dark
-        // castle floor — so the rampart reads as bright masonry on a dark court.
+        // Ramparts split front vs back/side across two layers (gf above objects,
+        // gb below) so towers sort per-edge. The wall stone is a light masonry
+        // material that reads against the lighter castle floor.
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
-        // rising UP from it. Teeth share the SPAN grid on every wall so the
-        // front and back crenellations line up column-for-column.
-        const crestH = (x, baseY) => {
-          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, baseY - CREN, CELL_PX, CREN);
-          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(x, baseY - 1, CELL_PX, 1);
+        // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
+        // share the SPAN grid on every wall so front/back crenellations line up.
+        const crestH = (gx, x, baseY) => {
+          gx.fillStyle(STONE_BODY, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
-            gr.fillStyle(STONE_BODY, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
-            gr.fillStyle(STONE_LITE, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, 1);
-            gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+            gx.fillStyle(STONE_BODY, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall — darker extruded face hangs BELOW the cell, grounded
-        // by a 1px dark shadow line at its far (bottom) edge; the lit battlement
-        // crest rises up from the cell's bottom edge.
+        // South / front wall → FRONT layer (above objects). Darker extruded face
+        // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
+        // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (!isB(T(col, row + 1))) {
-          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(sx, sy + CELL_PX);
+          gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          crestH(gf, sx, sy + CELL_PX);
         }
-        // North / back wall — same tall extruded face as the front, mirrored to
-        // rise ABOVE the cell's top edge, with the crest seated on top so the back
-        // reads as tall as the front. No dark grounding line here: at the TOP edge
-        // it read as an unwanted hard line rather than a ground-contact shadow.
+        // North / back wall → BACK layer (below objects). Same tall extruded face
+        // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
+        // so the back reads as tall as the front. No dark grounding line here: at
+        // the TOP edge it read as an unwanted hard line, not a contact shadow.
         if (!isB(T(col, row - 1))) {
-          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          crestH(sx, sy - WALL);
+          gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          crestH(gb, sx, sy - WALL);
         }
-        // Side walls — no protruding teeth; a light stone edge hugs the wall
-        // (visible against the dark floor) with shadow dashes on the merlon span
-        // so they align with the front/back crests. SIDE_W is the wall band's
-        // thickness (4px — double the original 2px so the E/W walls read as
-        // chunky as the N/S faces).
+        // Side walls → BACK layer (below objects). No protruding teeth; a light
+        // stone edge hugs the wall with shadow dashes on the merlon span so they
+        // align with the front/back crests. SIDE_W is the band thickness (4px).
         const SIDE_W = 4;
         const sideShade = (x, innerX) => {
-          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, SIDE_W, CELL_PX);
-          gr.fillStyle(STONE_SIDE, 1);
-          for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
+          gb.fillStyle(STONE_SIDE, 1);
+          for (let i = 0; i < MERLONS; i++) gb.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
-          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(innerX, sy, 1, CELL_PX);
+          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
         };
         if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
         if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
@@ -1772,9 +1774,9 @@ Render.drawObjects = function drawObjects(scene) {
     const tier = chestTier(o.poiClass);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
-    const cx = Math.round(sx - 1);
-    const cy = Math.round(sy - 18);
-    const r = 6;     // 20% smaller (was 8)
+    const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
+    const cy = Math.round(sy - 15);  // +3px down (was sy - 18)
+    const r = 4.8;   // 20% smaller (was 6)
     // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
     g.fillStyle(0x000000, 0.55);
     g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
@@ -2106,10 +2108,10 @@ Render.drawObjects = function drawObjects(scene) {
   // both of which render under WebGL and Canvas alike. The existing tint/twinkle
   // stays as an extra flourish where WebGL is available.
   const sparkList = [];
-  const pushSpark = (it, dyOff, id) => sparkList.push({ dx: it.dx, dy: it.dy, dyOff, id: id || '' });
-  for (const it of creatureList) if (it.c.shiny) pushSpark(it, 36, it.c.id);
+  const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
+  for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
   for (const it of plantedList) {
-    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, 22, it.p.wildId);
+    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, it.p.wildId);
   }
   // Iterate filteredObj, NOT objList: a chopped shiny tree is still in objList
   // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
@@ -2117,7 +2119,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
   for (const it of filteredObj) {
     if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
-      pushSpark(it, 44, it.o.id);
+      pushSpark(it, it.o.id);
     }
   }
   const _sparkNow = Date.now();
@@ -2131,11 +2133,17 @@ Render.drawObjects = function drawObjects(scene) {
     const phase = ((_sparkNow + (h % 1300)) % 1300) / 1300;        // 0..1
     const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
     const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
+    const scl = 0.5 + 0.30 * wave;                                 // ~16..~26px from 32px tex
+    // Pin the sparkle's TOP to the cell's top edge (origin is centred, so add
+    // half the scaled height) so it sits AT THE TOP of, but INSIDE, the cell —
+    // growing downward as it twinkles instead of floating above the cell.
+    const halfH = 16 * scl;                                        // half the scaled 32px texture
+    const yTop = sy - CELL_PX / 2 + 1;                             // cell top, 1px inset
     s.setOrigin(0.5, 0.5)
-     .setScale(0.5 + 0.30 * wave)                                  // ~16..~26px from 32px tex
+     .setScale(scl)
      .setAlpha(0.55 + 0.45 * wave)
      .setAngle(phase * 360)                                        // slow shimmer spin
      .setTint(0xffffff)
-     .setPosition(Math.round(sx), Math.round(sy) - item.dyOff + bob);
+     .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
 };

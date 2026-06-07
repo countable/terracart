@@ -674,14 +674,16 @@ class MapScene extends Phaser.Scene {
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
+    // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
+    // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
+    // object sprites so towers on those edges read as standing IN FRONT of them
+    // (and side walls tuck under everything). Added before objectsContainer.
+    this.rampartBackGfx = this.add.graphics();
     this.objectsContainer = this.add.container(0, 0);
-    // Castle ramparts (tier-12 stone walls + crenellations) draw into their
-    // OWN graphics layer, added just ABOVE objectsContainer so the wall faces
-    // and crests render ON TOP of tower sprites standing on the castle — the
-    // towers then read as sitting BEHIND the ramparts. Cleared + repainted
-    // each frame in Render.drawCells (the rest of the cell art stays in cellGfx,
-    // which is below the objects).
-    this.rampartGfx = this.add.graphics();
+    // FRONT layer — the south wall + its battlements — sits ABOVE the object
+    // sprites so towers on the front edge read as standing BEHIND it. Both
+    // rampart layers are cleared + repainted each frame in Render.drawCells.
+    this.rampartFrontGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -810,8 +812,9 @@ class MapScene extends Phaser.Scene {
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
+    this.rampartBackGfx.setMask(mask);
     this.objectsContainer.setMask(mask);
-    this.rampartGfx.setMask(mask);
+    this.rampartFrontGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
