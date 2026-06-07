@@ -602,7 +602,7 @@
       return { ix, iy, cx, cy };
     };
 
-    const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
+    const order = ['landcover', 'landuse', 'park', 'water', 'waterway', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
 
