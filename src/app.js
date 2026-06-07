@@ -62,6 +62,11 @@ const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
+// How far above dead-centre every dialog rides (game px, in #game's 844-tall
+// box). Reserved as bottom padding on the shared modal wrap so the flex-centred
+// box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
+// this is the one knob that moves all dialogs together.
+const MODAL_LIFT_PX = 140;
 
 // Inventory category tabs (the top bar of the two-bar bottom HUD). The order
 // here is the on-screen left→right order. Item categories filter save.inv by
@@ -4237,8 +4242,15 @@ class MapScene extends Phaser.Scene {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
+    // Single source of truth for where EVERY dialog sits vertically. The wrap
+    // fills #game's 844px box and flex-centres the box, but we reserve space at
+    // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
+    // clear of the bottom inventory/HUD cluster (tabs/slots/name/action btns).
+    // Because all modals go through here, they all position identically — tweak
+    // this one constant to move them all.
     wrap.style.cssText =
       `position:absolute;inset:0;z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
+      `padding-bottom:${MODAL_LIFT_PX}px;box-sizing:border-box;` +
       `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
     const box = document.createElement('div');
     box.style.cssText =
