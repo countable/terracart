@@ -64,7 +64,7 @@ CORE
  - vector map tiles from OpenFreeMap z14 (OpenMapTiles schema, no API key),
    decoded by hand (mvt.js) and cached in IndexedDB
  - Phaser 3.87 renders the world to a canvas
- - camera shows an 11x11 grid of cells, 5m each (~55m viewport). The player is
+ - camera shows an 11x11 grid of cells, 6m each (~66m viewport). The player is
    fixed at screen centre; the world pans under them.
  - graceful network loss: a 'reconnecting' banner shows; cached tiles still
    serve from IndexedDB, and a service worker (sw.js) precaches the app shell.
@@ -138,7 +138,7 @@ ENERGY & FOOD
 ================================================================================
 WORLD GENERATION
 ================================================================================
- - each MVT tile is rasterized ONCE into a grid of 5m cells (one terrain class
+ - each MVT tile is rasterized ONCE into a grid of 6m cells (one terrain class
    per cell), then decorated with objects, debris, creatures, and treasure.
    Rasterization is deterministic per tile (seeded) so the same place always
    generates the same world.

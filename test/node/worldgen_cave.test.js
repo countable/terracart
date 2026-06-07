@@ -379,9 +379,9 @@ test('cellsPerEdgeForLat: returns positive integer at equator', () => {
   assert.eq(cpe, Math.round(cpe), 'integer (Math.round applied)');
 });
 
-test('cellsPerEdgeForLat: pinned equator value (2445.98/5 ≈ 489)', () => {
+test('cellsPerEdgeForLat: pinned equator value (2445.98/6 ≈ 408)', () => {
   const cpe = WorldGen.cellsPerEdgeForLat(0);
-  assert.eq(cpe, 489, 'equator = 489 cells');
+  assert.eq(cpe, 408, 'equator = 408 cells');
 });
 
 test('cellsPerEdgeForLat: decreases toward poles', () => {
@@ -396,10 +396,10 @@ test('cellsPerEdgeForLat: decreases toward poles', () => {
   assert.gt(c60, c80, 'c(60) > c(80)');
 });
 
-test('cellsPerEdgeForLat: at 60 lat is ~245 cells', () => {
-  // tileEdgeMeters(60) = mpp(60,14)*256 = 4.777...*256 = 1222.99... / 5 = 244.6 -> round = 245
+test('cellsPerEdgeForLat: at 60 lat is ~204 cells', () => {
+  // tileEdgeMeters(60) = mpp(60,14)*256 = 4.777...*256 = 1222.99... / 6 = 203.8 -> round = 204
   const cpe = WorldGen.cellsPerEdgeForLat(60);
-  assert.eq(cpe, 245, '60° lat = 245 cells');
+  assert.eq(cpe, 204, '60° lat = 204 cells');
 });
 
 // ─── lonLatToWorldPx ─────────────────────────────────────────────────────────
