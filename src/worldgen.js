@@ -2281,8 +2281,20 @@
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
     const used = new Set();
 
+    // Keep surface entrances spread out: reject a candidate cell that sits
+    // within MIN_STAIR_SPACING_M of an already-placed entrance, so dense
+    // residential clusters don't bunch a row of mine mouths together. Measured
+    // in cells (Chebyshev distance) off the per-tile resolution.
+    const MIN_STAIR_SPACING_M = 60;
+    const minStairCells = Math.max(1, Math.round(MIN_STAIR_SPACING_M / CELL_M));
+    const placedCells = [];
+    const tooClose = (lix, liy) => placedCells.some(
+      ([plix, pliy]) => Math.max(Math.abs(plix - lix), Math.abs(pliy - liy)) < minStairCells);
+    const markPlaced = (lix, liy) => placedCells.push([lix, liy]);
+
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
-    // true on success; de-dupes so two clusters can't stack stairs on one cell.
+    // true on success; de-dupes so two clusters can't stack stairs on one cell,
+    // and skips cells too near an entrance already placed on this tile.
     const placeBeside = (rock) => {
       const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
@@ -2290,8 +2302,9 @@
         const lix = rlix + dx, liy = rliy + dy;
         if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
         const idx = liy * N + lix;
-        if (used.has(idx) || !isWalkable(grid[idx])) continue;
+        if (used.has(idx) || !isWalkable(grid[idx]) || tooClose(lix, liy)) continue;
         used.add(idx);
+        markPlaced(lix, liy);
         const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
         entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
           id: caveStairId('down', 0, x, y) });
@@ -2305,11 +2318,14 @@
     const placeRandomWalkable = () => {
       const cells = [];
       for (let i = 0; i < grid.length; i++) {
-        if (!used.has(i) && isWalkable(grid[i])) cells.push(i);
+        if (!used.has(i) && isWalkable(grid[i]) && !tooClose(i % N, Math.floor(i / N))) {
+          cells.push(i);
+        }
       }
       if (!cells.length) return false;
       const idx = cells[Math.floor(rng() * cells.length)];
       used.add(idx);
+      markPlaced(idx % N, Math.floor(idx / N));
       const { x, y } = cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
       entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
         id: caveStairId('down', 0, x, y) });
