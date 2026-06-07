@@ -156,7 +156,8 @@ WORLD GENERATION
    fort (350+m² or 10+m), castle (1500+m² or 15+m). Each tier still places one
    house/tower sprite at the polygon centroid.
  - every tile enforces a minimum mix so trade/landmarks always exist: roughly
-   ≥2% castles, ≥8% forts, ≥20% small houses (re-tiered by area rank if needed).
+   ≥2% castles, ≥8% forts, ≥20% small houses — each rounded UP to at least one
+   per tile (any tile with ≥3 buildings has ≥1 of each), re-tiered by area rank.
  - flat colour is drawn first, then a terrain sprite from the tileset is
    overlaid where mapped (grass, forest, sand, farmland, park), with auto-tile
    lookup so edges/corners pick the right frame.
