@@ -516,6 +516,14 @@ Render.drawCells = function drawCells(scene) {
       if (type === 12) {
         const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
               STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
+        // STONE_FACE — the tall extruded N/S wall faces use a darker stone than
+        // the lit battlement tops (STONE_BODY), so the wall mass reads with depth
+        // instead of looking washed-out/too-light against the light castle floor.
+        const STONE_FACE = 0x7e8188;
+        // STONE_SIDE — the E/W side-wall crenel dashes: a soft mid-grey (much
+        // lighter than the old STONE_SHADOW) so the gaps between the side merlons
+        // aren't harshly dark.
+        const STONE_SIDE = 0x7a7d84;
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
@@ -538,20 +546,20 @@ Render.drawCells = function drawCells(scene) {
             gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall — light extruded face hangs BELOW the cell, grounded
-        // by a 1px dark shadow line at its far (bottom) edge; the battlement crest
-        // rises up from the cell's bottom edge.
+        // South / front wall — darker extruded face hangs BELOW the cell, grounded
+        // by a 1px dark shadow line at its far (bottom) edge; the lit battlement
+        // crest rises up from the cell's bottom edge.
         if (!isB(T(col, row + 1))) {
-          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(sx, sy + CELL_PX);
         }
         // North / back wall — same tall extruded face as the front, mirrored to
-        // rise ABOVE the cell's top edge (grounded by a dark line at its far/top
-        // edge), with the crest seated on top so the back reads as tall as the front.
+        // rise ABOVE the cell's top edge, with the crest seated on top so the back
+        // reads as tall as the front. No dark grounding line here: at the TOP edge
+        // it read as an unwanted hard line rather than a ground-contact shadow.
         if (!isB(T(col, row - 1))) {
-          gr.fillStyle(STONE_BODY, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy - WALL, CELL_PX, 1);
+          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
           crestH(sx, sy - WALL);
         }
         // Side walls — no protruding teeth; a light stone edge hugs the wall
@@ -560,13 +568,16 @@ Render.drawCells = function drawCells(scene) {
         // thickness (4px — double the original 2px so the E/W walls read as
         // chunky as the N/S faces).
         const SIDE_W = 4;
-        const sideShade = (x) => {
+        const sideShade = (x, innerX) => {
           gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, SIDE_W, CELL_PX);
-          gr.fillStyle(STONE_SHADOW, 1);
+          gr.fillStyle(STONE_SIDE, 1);
           for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          // 1px darker line on the wall's INTERIOR edge so the side wall reads as
+          // a distinct band instead of blurring into the adjacent floor / wall.
+          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(innerX, sy, 1, CELL_PX);
         };
-        if (!isB(T(col - 1, row))) sideShade(sx);
-        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W);
+        if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
+        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
         continue;
       }
       // South wall: tier-specific extrusion, a darker shade of the building
