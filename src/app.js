@@ -204,7 +204,7 @@ const COLORS = {
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
   11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x868a92, // building_large — civic / school / industrial (lifted slate)
+  12: 0x4f5258, // building_large — civic / castle floor (dark slate; the rampart walls are the LIGHT stone, so floor + wall are swapped dark-for-light for contrast)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
@@ -675,6 +675,13 @@ class MapScene extends Phaser.Scene {
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
     this.objectsContainer = this.add.container(0, 0);
+    // Castle ramparts (tier-12 stone walls + crenellations) draw into their
+    // OWN graphics layer, added just ABOVE objectsContainer so the wall faces
+    // and crests render ON TOP of tower sprites standing on the castle — the
+    // towers then read as sitting BEHIND the ramparts. Cleared + repainted
+    // each frame in Render.drawCells (the rest of the cell art stays in cellGfx,
+    // which is below the objects).
+    this.rampartGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -804,6 +811,7 @@ class MapScene extends Phaser.Scene {
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.objectsContainer.setMask(mask);
+    this.rampartGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
