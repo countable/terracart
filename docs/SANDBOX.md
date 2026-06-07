@@ -70,7 +70,7 @@ start tile. The player teleports to the PLAYER SPAWN scene.
 | fruittree | apple, cherry, peach, banana, orange, mango, coconut, apricot | ORCHARD |
 | mineralrock (ore) | required tiers T1–T7 (+ curbside T1, industrial T2/T3) | ROCK / RESIDENTIAL / CIVIC |
 | mineralrock (cave) | the 4 vanilla variants — rockfruit + lucky bar | ROCK |
-| chest (pad) | farm+park+orchard (square3), shop (line3h), school (triangle), hospital (cross), bus (no pad), playground (line3v), pitch (square2) | CIVIC / RECREATION / etc. |
+| chest (pad) | farm/park/orchard/shop/school/hospital/playground/pitch all share one rounded oversized pad (round1); bus = no pad | CIVIC / RECREATION / etc. |
 | chest (coin burst) | atm + bicycle_parking → pot-of-gold art + coin spill | PLAZA |
 | house | blacksmith (addr 9), market (6), trader (8), plain/delivery (3); all on BUILDING-terrain footprints | RESIDENTIAL ST |
 | house (fort/cluster) | fort building (tier 11 shop); small-house cluster (4× plain, tier 9) | CASTLE / SMALL HOUSE |
