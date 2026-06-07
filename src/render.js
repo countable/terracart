@@ -2045,7 +2045,11 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of plantedList) {
     if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, 22, it.p.wildId);
   }
-  for (const it of objList) {
+  // Iterate filteredObj, NOT objList: a chopped shiny tree is still in objList
+  // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
+  // renders no sprite. Sparking off objList left a gold sparkle hovering over
+  // the now-empty cell — the "sparkle on the road with nothing under it" bug.
+  for (const it of filteredObj) {
     if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
       pushSpark(it, 44, it.o.id);
     }
