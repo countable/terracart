@@ -568,13 +568,16 @@ Render.drawCells = function drawCells(scene) {
         // thickness (4px — double the original 2px so the E/W walls read as
         // chunky as the N/S faces).
         const SIDE_W = 4;
-        const sideShade = (x) => {
+        const sideShade = (x, innerX) => {
           gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, SIDE_W, CELL_PX);
           gr.fillStyle(STONE_SIDE, 1);
           for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          // 1px darker line on the wall's INTERIOR edge so the side wall reads as
+          // a distinct band instead of blurring into the adjacent floor / wall.
+          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(innerX, sy, 1, CELL_PX);
         };
-        if (!isB(T(col - 1, row))) sideShade(sx);
-        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W);
+        if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
+        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
         continue;
       }
       // South wall: tier-specific extrusion, a darker shade of the building
