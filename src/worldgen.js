@@ -472,6 +472,37 @@
     }
     return { x: cx / (3 * a), y: cy / (3 * a) };
   }
+  // Local cells (ix, iy) a single ring rasterizes to — identical scanline rule
+  // to paintPolygon, so it returns exactly the tiles the building is painted on.
+  // Used to anchor a house on its real footprint (the tiles the player sees)
+  // rather than the geometric ring centroid, which for an L-shaped or
+  // tile-clipped footprint can land on a cell that isn't part of the building.
+  function ringFootprintCells(ring, mvtToCell, w, h) {
+    const poly = ring.map(p => ({ x: p.x * mvtToCell, y: p.y * mvtToCell }));
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of poly) { if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; }
+    const cells = [];
+    const y0 = Math.max(0, Math.floor(minY));
+    const y1 = Math.min(h - 1, Math.ceil(maxY));
+    for (let y = y0; y <= y1; y++) {
+      const ys = y + 0.5;
+      const xs = [];
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[j], b = poly[i];
+        if ((a.y > ys) !== (b.y > ys)) {
+          const t = (ys - a.y) / (b.y - a.y);
+          xs.push(a.x + t * (b.x - a.x));
+        }
+      }
+      xs.sort((p, q) => p - q);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const xa = Math.max(0, Math.floor(xs[k] + 0.5));
+        const xb = Math.min(w - 1, Math.floor(xs[k + 1] - 0.5));
+        for (let x = xa; x <= xb; x++) cells.push([x, y]);
+      }
+    }
+    return cells;
+  }
   function pointInRings(rings, x, y) {
     let inside = false;
     for (const ring of rings) {
@@ -1285,16 +1316,37 @@
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
           if (bp.tier === T.BUILDING_LARGE) continue;
-          const c = ringCentroid(bp.ring);
-          const m = toMeters(c.x, c.y);
-          // Position the house sprite on this tile's cell grid (shared with
-          // every other object) so the occupancy pass dedupes it against
-          // trees / rocks / etc and a row of houses still lines up cleanly.
-          const { cx, cy } = snapCell(c.x, c.y);
-          // The address (→ shop type) stays keyed to the GLOBAL 5 m cell so a
-          // house keeps the same shop role regardless of grid changes.
-          const ix = Math.floor(m.x / CELL_M);
-          const iy = Math.floor(m.y / CELL_M);
+          // Anchor the house on its RASTERIZED FOOTPRINT (the tiles it's painted
+          // on), not the geometric ring centroid: take the footprint cells'
+          // centroid, then pick the footprint cell nearest it. This guarantees
+          // the sprite's bottom-middle sits on an actual building tile even for
+          // L-shaped / tile-clipped footprints (where the ring centroid can land
+          // off the block). Snapping to a cell also keeps the occupancy pass and
+          // row alignment working.
+          const fpCells = ringFootprintCells(bp.ring, mvtToCell, w, h);
+          let cx, cy;
+          if (fpCells.length) {
+            let sxc = 0, syc = 0;
+            for (const [fx, fy] of fpCells) { sxc += fx + 0.5; syc += fy + 0.5; }
+            const ccx = sxc / fpCells.length, ccy = syc / fpCells.length;
+            let best = fpCells[0], bd = Infinity;
+            for (const [fx, fy] of fpCells) {
+              const ex = fx + 0.5 - ccx, ey = fy + 0.5 - ccy, d = ex * ex + ey * ey;
+              if (d < bd) { bd = d; best = [fx, fy]; }
+            }
+            const cc = cellCenterMeters(best[0], best[1]);
+            cx = cc.mx; cy = cc.my;
+          } else {
+            // Degenerate footprint (covers no cell centre) — fall back to the
+            // ring centroid snapped to the grid.
+            const c = ringCentroid(bp.ring);
+            const s = snapCell(c.x, c.y);
+            cx = s.cx; cy = s.cy;
+          }
+          // The address (→ shop type) stays keyed to the GLOBAL cell of the
+          // house's chosen position so its shop role is stable across reloads.
+          const ix = Math.floor(cx / CELL_M);
+          const iy = Math.floor(cy / CELL_M);
           // Stable id for per-house shop state (deal rate-limit, future ledger).
           const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
           // Synthetic 3-digit street address derived from cell coords. Houses
