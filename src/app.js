@@ -2117,6 +2117,11 @@ class MapScene extends Phaser.Scene {
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
     // pointing in the compass heading (or last movement, as fallback).
+    // Normally it rides the player's head at the viewport center. Underground,
+    // while the ghost is out leading the body through rock, the compass rides
+    // the GHOST instead — the player is steering the ghost, so the
+    // device-orientation arrow belongs over it (caveGhost was positioned and
+    // its visibility decided in the cave-ghost-marker block above).
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -2126,7 +2131,14 @@ class MapScene extends Phaser.Scene {
       const tip = 22; // distance from player center to arrow tip
       const base = 14; // distance from player center to arrow base midpoint
       const halfW = 6; // half-width of the base
-      const cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      let cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      if (this.depth > 0 && this.caveGhost.visible) {
+        // Anchor over the ghost's head. caveGhost sits at sprite-center
+        // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
+        // offset used at the viewport center so the arrow hovers identically.
+        cx = this.caveGhost.x;
+        cy = this.caveGhost.y - this.playerFeetNudgeY - 2;
+      }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -3408,7 +3420,16 @@ class MapScene extends Phaser.Scene {
     const cellIX = c.tx * N + c.ix, cellIY = c.ty * N + c.iy;
     const { x: wx, y: wy } = absCellCenterMeters(this, cellIX, cellIY);
     const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(this.save.relics) : 0;
-    if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY)) {
+    // Affordability GATE only — do NOT deduct here. Unlike a hand-tapped mine
+    // (which the player starts deliberately and waits out), the body kicks off
+    // these wheels on its own — up to 9s bare-handed — while the player is
+    // tapping to steer the ghost underground. An up-front charge with
+    // refund-on-bail (abortWorkProgress) meant every tap during the wheel handed
+    // the energy back, so a whole tunnel could be dug for almost nothing.
+    // Charge at COMPLETION instead (in the wheel callback below): a dug wall
+    // always costs, an interrupted one costs nothing — and isn't dug.
+    if (cost > (this.save.energy ?? 0)) {
+      this.flash('too tired', this.viewCenterX, this.viewCenterY);
       this._caveAutoPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -3416,7 +3437,10 @@ class MapScene extends Phaser.Scene {
       ? toolDurationMs(this.save.relics, 'pick')
       : (this.save.relics?.pick ? 3000 : 9000);
     this._caveAutoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
+    // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
+    // to refund (it just cancels the dig). The spend lands at the dig instant.
     this.startWorkProgress(wx, wy, () => {
+      this.spendEnergy(cost, this.viewCenterX, this.viewCenterY);
       this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
       const qty = randInt(1, 3);
       this.addToInv('rockfruit', qty);
@@ -3425,7 +3449,7 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
       const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
       this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
-    }, durMs, cost, 'pick');
+    }, durMs, 0, 'pick');
   }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
