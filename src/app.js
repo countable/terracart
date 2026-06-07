@@ -3981,10 +3981,17 @@ class MapScene extends Phaser.Scene {
     const cur = Math.max(0, this.save.energy ?? 0);
     const max = this.getMaxEnergy();
     const pct = max > 0 ? cur / max : 0;
-    const color = pct > 0.5 ? '#a7ffb0' : (pct > 0.25 ? '#ffe066' : '#ff8a7a');
-    el.style.color = color;
-    el.style.borderColor = pct > 0.25 ? '#4a8c4a' : '#a04040';
-    el.textContent = `⚡${cur}/${max}`;
+    // Green normally, yellow at/below 30%, red when critically low.
+    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
+    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
+    const label = document.getElementById('energy-label');
+    if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
+    else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }
+    const fill = document.getElementById('energy-bar-fill');
+    if (fill) {
+      fill.style.width = `${Math.round(pct * 100)}%`;
+      fill.style.background = color;
+    }
   }
 
   // Spend energy if the player has enough, returning true on success.

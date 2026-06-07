@@ -135,7 +135,7 @@
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
       background: #000a; color: #ffd96b; padding: 4px 10px;
-      border: 2px solid #c8a64a; border-radius: 8px;
+      border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
@@ -146,6 +146,18 @@
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
+      display: flex; flex-direction: column; gap: 3px; align-items: stretch;
+    }
+    /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
+       updateEnergyDOM(): green normally, yellow at/below 30%, red when critical. */
+    #energy-bar {
+      height: 4px; border-radius: 2px; overflow: hidden;
+      background: #ffffff22;
+    }
+    #energy-bar-fill {
+      height: 100%; width: 100%; border-radius: 2px;
+      background: #a7ffb0;
+      transition: width 0.15s linear, background-color 0.15s linear;
     }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
@@ -251,7 +263,10 @@
        containing block, which would put it back inside #game's clipped zone.
        Same reason buildInventoryDOM appends to <body>. -->
   <div id="money">$0</div>
-  <div id="energy">⚡100/100</div>
+  <div id="energy">
+    <span id="energy-label">⚡100/100</span>
+    <div id="energy-bar"><div id="energy-bar-fill"></div></div>
+  </div>
   <details id="menu">
     <summary>☰</summary>
     <div class="items">
@@ -798,6 +813,6 @@
   <script src="src/assets.js?v=171"></script>
   <script src="src/sandbox.js?v=30"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=321"></script>
+  <script src="src/app.js?v=322"></script>
 </body>
 </html>
