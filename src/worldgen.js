@@ -2285,7 +2285,7 @@
     // within MIN_STAIR_SPACING_M of an already-placed entrance, so dense
     // residential clusters don't bunch a row of mine mouths together. Measured
     // in cells (Chebyshev distance) off the per-tile resolution.
-    const MIN_STAIR_SPACING_M = 60;
+    const MIN_STAIR_SPACING_M = 100;
     const minStairCells = Math.max(1, Math.round(MIN_STAIR_SPACING_M / CELL_M));
     const placedCells = [];
     const tooClose = (lix, liy) => placedCells.some(
