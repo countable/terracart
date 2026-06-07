@@ -106,10 +106,15 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
-  // Castle ramparts draw into their own layer (above the tower sprites). It's
-  // cleared here in lockstep with cellGfx so the two never desync by a frame.
-  const gr = scene.rampartGfx || g;
-  if (gr !== g) gr.clear();
+  // Castle ramparts split across TWO layers so towers (objectsContainer) sort
+  // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
+  // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
+  // draw BELOW objects (towers stand in front of the top wall; side walls sit
+  // under everything). Both cleared in lockstep with cellGfx so nothing desyncs.
+  const gf = scene.rampartFrontGfx || g;   // front (south) wall — ABOVE objects
+  const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
+  if (gf !== g) gf.clear();
+  if (gb !== g && gb !== gf) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -529,52 +534,49 @@ Render.drawCells = function drawCells(scene) {
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
         const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
-        // Ramparts paint into gr (a layer ABOVE the tower sprites) so the walls
-        // and crests occlude the base of towers standing on the castle. The wall
-        // stone is the LIGHT material (STONE_BODY) — swapped against the now-dark
-        // castle floor — so the rampart reads as bright masonry on a dark court.
+        // Ramparts split front vs back/side across two layers (gf above objects,
+        // gb below) so towers sort per-edge. The wall stone is a light masonry
+        // material that reads against the lighter castle floor.
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
-        // rising UP from it. Teeth share the SPAN grid on every wall so the
-        // front and back crenellations line up column-for-column.
-        const crestH = (x, baseY) => {
-          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, baseY - CREN, CELL_PX, CREN);
-          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(x, baseY - 1, CELL_PX, 1);
+        // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
+        // share the SPAN grid on every wall so front/back crenellations line up.
+        const crestH = (gx, x, baseY) => {
+          gx.fillStyle(STONE_BODY, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
-            gr.fillStyle(STONE_BODY, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
-            gr.fillStyle(STONE_LITE, 1);   gr.fillRect(mx, baseY - TOOTH_H, MW, 1);
-            gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+            gx.fillStyle(STONE_BODY, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall — darker extruded face hangs BELOW the cell, grounded
-        // by a 1px dark shadow line at its far (bottom) edge; the lit battlement
-        // crest rises up from the cell's bottom edge.
+        // South / front wall → FRONT layer (above objects). Darker extruded face
+        // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
+        // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (!isB(T(col, row + 1))) {
-          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(sx, sy + CELL_PX);
+          gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          crestH(gf, sx, sy + CELL_PX);
         }
-        // North / back wall — same tall extruded face as the front, mirrored to
-        // rise ABOVE the cell's top edge, with the crest seated on top so the back
-        // reads as tall as the front. No dark grounding line here: at the TOP edge
-        // it read as an unwanted hard line rather than a ground-contact shadow.
+        // North / back wall → BACK layer (below objects). Same tall extruded face
+        // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
+        // so the back reads as tall as the front. No dark grounding line here: at
+        // the TOP edge it read as an unwanted hard line, not a contact shadow.
         if (!isB(T(col, row - 1))) {
-          gr.fillStyle(STONE_FACE, 1); gr.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          crestH(sx, sy - WALL);
+          gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          crestH(gb, sx, sy - WALL);
         }
-        // Side walls — no protruding teeth; a light stone edge hugs the wall
-        // (visible against the dark floor) with shadow dashes on the merlon span
-        // so they align with the front/back crests. SIDE_W is the wall band's
-        // thickness (4px — double the original 2px so the E/W walls read as
-        // chunky as the N/S faces).
+        // Side walls → BACK layer (below objects). No protruding teeth; a light
+        // stone edge hugs the wall with shadow dashes on the merlon span so they
+        // align with the front/back crests. SIDE_W is the band thickness (4px).
         const SIDE_W = 4;
         const sideShade = (x, innerX) => {
-          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, SIDE_W, CELL_PX);
-          gr.fillStyle(STONE_SIDE, 1);
-          for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
+          gb.fillStyle(STONE_SIDE, 1);
+          for (let i = 0; i < MERLONS; i++) gb.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
-          gr.fillStyle(STONE_SHADOW, 1); gr.fillRect(innerX, sy, 1, CELL_PX);
+          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
         };
         if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
         if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
