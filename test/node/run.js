@@ -126,6 +126,22 @@ for (const f of testFiles) {
   }
 }
 
+// ── Sprite-position rule (tools/sprite_audit.js) ──────────────────────────
+// Folded into the suite so a non-compliant sprite — or a stale ART_BOUNDS
+// table in src/sprite_layout.js — fails CI. The audit decodes the real PNGs,
+// so it runs in plain node scope (fs/zlib), not the vm sandbox; each scenario
+// becomes one test case via the node-scope closures pushed onto ctx.__tests.
+{
+  const audit = require('../../tools/sprite_audit.js');
+  for (const sc of audit.SCENARIOS) {
+    ctx.__tests.push({ name: `sprite seat (one-cell rule): ${sc.name}`, fn: () => {
+      const r = audit.evaluate(sc);
+      if (r.error) throw new Error(r.error);
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+}
+
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
   let pass = 0, fail = 0;

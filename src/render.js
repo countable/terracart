@@ -991,7 +991,7 @@ Render.drawObjects = function drawObjects(scene) {
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
     // small at, while still fitting inside its single cell (QC rule).
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455 },
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455, seat: true },
     // Cave staircase — baked 32×32 (one cell), centred. 'down' on the surface &
     // each cave level leads deeper; 'up' returns. Texture picked by direction.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
@@ -1000,9 +1000,11 @@ Render.drawObjects = function drawObjects(scene) {
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
     // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
+    // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
+    // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38 },
+             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -1044,24 +1046,14 @@ Render.drawObjects = function drawObjects(scene) {
               // scale (≈21px, comfortably inside one 32px cell) independent of
               // the species/canopy tree scale. Larger tiers use treeScale.
               scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),
-              // sy is the cell CENTRE; a foot-anchored tree there leaves its
-              // trunk base mid-cell so the canopy spills up into the tile
-              // above. Nudge the foot down to the cell's front (bottom) edge
-              // so each tree stands inside its own cell. The pine-class sheets
-              // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
-              // the frame bottom) sit ~10px high vs maple — nudge them lower.
-              // Small-class trees (scale ×0.8) read ~3px too low: the foot
-              // origin sits a hair below the art's true trunk base, and that
-              // gap scales with the sprite, so the smaller tier's foot lands
-              // below the larger tiers' standing line. Lift it back up 3px.
-              dyPx: (o) => {
-                // Bushes are short and centred on their cell — foot-anchor at
-                // the cell's front edge with no pine-class root padding.
-                if (treeSizeClass(o) === 'bush') return CELL_PX * 0.5;
-                const base = (o.species && o.species !== 'maple')
-                  ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
-                return treeSizeClass(o) === 'small' ? base - 3 : base;
-              },
+              // Placement obeys the "one cell" rule via the seat pass (see the
+              // render loop + src/sprite_layout.js): each tree is seated from
+              // its trimmed art bounds so the trunk base sits 1px above the
+              // cell's bottom edge (or centred when it fits) and the canopy
+              // rises into the tiles above without spilling into the cell
+              // below — automatically across species sheets (maple 32×48 vs
+              // the 32×64 pine/birch/mahogany root padding) and size classes.
+              seat: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
               // every bush renders as the same plain green sprite (an odd
@@ -1092,7 +1084,10 @@ Render.drawObjects = function drawObjects(scene) {
               // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
               // the art's centroid down toward that anchor. Lift the crate back
               // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
-              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)) },
+              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              // Plain chests + crates obey the "one cell" rule (centred); produce
+              // stands and the pot-of-gold are structure-like and stay foot-anchored.
+              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -1114,16 +1109,18 @@ Render.drawObjects = function drawObjects(scene) {
                 // o.size crown class no longer shrinks them.
                 return base;
               },
+              // Fruit trees stand 10% taller than their width — stretch Y only.
+              // The seat pass measures the stretched art so the trunk base
+              // still lands 1px above the cell edge.
+              scaleYMul: 1.10,
+              // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
+              seat: true,
               after: (s, o) => {
                 // Dim a wild tree only while its fruit is regrowing; a planted
                 // sapling that hasn't matured yet is full-alpha (it's growing,
                 // not picked).
                 const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
                 s.setAlpha(dim ? 0.7 : 1);
-                // Fruit trees stand 10% taller than their width. The near-foot
-                // origin (0.5, 0.95) pins the root, so the extra height grows
-                // up from the trunk base rather than shifting the tree down.
-                s.setScale(s.scaleX, s.scaleY * 1.10);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
@@ -1160,7 +1157,10 @@ Render.drawObjects = function drawObjects(scene) {
               // creatures; on a flat ground-resting rock it shoved the
               // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
               // read as off-centre by almost a whole cell.
-              origin: [0.5, 0.5], scale: 1.6 },
+              // Seat per the "one cell" rule — centres the small rock art in
+              // its cell (the art sits low in the 16px frame). origin/dyPx
+              // below are the no-SpriteLayout fallback.
+              origin: [0.5, 0.5], scale: 1.6, seat: true },
     // Stone pillar — decorative stand-in for OSM utility poles / posts. The
     // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
     // tall, so it sits inside a single square cell, foot-anchored near the
@@ -1171,7 +1171,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the pole shoved to one side ("right half only"). Anchor the origin at the
     // art's true horizontal centre (~0.25 of the frame) so the pole sits
     // centred on its cell.
-    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
+    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
@@ -1179,7 +1179,7 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2 },
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
     // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
     // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
     // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
@@ -1241,9 +1241,10 @@ Render.drawObjects = function drawObjects(scene) {
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
     setTextureIfDifferent(s, texKey);
+    let frameVal;
     if (spec.frame !== undefined) {
-      const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-      if (s.frame.name !== f) s.setFrame(f);
+      frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
+      if (s.frame.name !== frameVal) s.setFrame(frameVal);
     }
     // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
     // table lives in shops.js so adding a new shop type is one-file work.
@@ -1262,11 +1263,29 @@ Render.drawObjects = function drawObjects(scene) {
       tint = SHINY_TINT;
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
-    const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
+    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
+    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
+    // "One cell" placement rule (single source of truth: src/sprite_layout.js).
+    // Non-building world sprites are seated from their trimmed art bounds so
+    // they sit centred in their cell — or, when taller than a cell, with the
+    // bottom 1px above the cell's bottom edge — and never spill into the cell
+    // below; horizontally always centred. seatFrame pins the bounds lookup to
+    // a stable frame for animated sheets (e.g. the flickering bonfire) so the
+    // art doesn't bob frame-to-frame.
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    if (wantSeat && SL) {
+      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
+      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      if (bb) {
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        dxPx = seat.dxPx; dyPx = seat.dyPx;
+      }
+    }
     s.setOrigin(origin[0], origin[1])
-     .setScale(scl)
+     .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so

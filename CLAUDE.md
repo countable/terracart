@@ -33,6 +33,27 @@
   boundary, or if the sprite and hitbox don't obviously belong to the same
   cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
 
+- **The "one cell" sprite-position rule.** For every world sprite EXCEPT
+  buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
+  actors (creatures):
+    1. The sprite's **visible art** (its opaque, trimmed bounds — NOT the frame
+       box, which often has transparent padding) must **never cross the cell's
+       bottom edge** (never overlap the cell below).
+    2. Art that **fits** in the cell (height ≤ one cell) is **centred** vertically.
+    3. Art that **doesn't fit** is seated with its **bottom 1px above** the edge.
+    4. Art is **always centred horizontally** on the cell.
+  This is enforced in code by the seat pass in `src/render.js` + the single
+  source of truth in **`src/sprite_layout.js`** (`seatInCell` + the `ART_BOUNDS`
+  trimmed-bounds table). To make a sprite obey it, give its `RENDER_SPEC` entry
+  `seat: true` (the renderer computes `dxPx`/`dyPx` from the rule; `origin` is
+  then just the no-SpriteLayout fallback anchor). For animated sheets, set
+  `seatFrame` to a stable frame so the art doesn't bob.
+  **Audit it:** `node tools/sprite_audit.js` (also run as part of
+  `node test/node/run.js`). It decodes the real PNGs, checks `ART_BOUNDS` hasn't
+  drifted, and verifies every seated sprite obeys the rule. When art changes,
+  regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
+  it into `src/sprite_layout.js`.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
