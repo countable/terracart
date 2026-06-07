@@ -6,7 +6,7 @@
   const Z = 14;
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
-  const CELL_M = 6;             // game cell size in meters
+  const CELL_M = 7;             // game cell size in meters
   const TILE_URL = 'https://tiles.openfreemap.org/planet/20260520_001001_pt/{z}/{x}/{y}.pbf';
 
   // Spatial-hash multipliers. The (HASH_MUL_X, HASH_MUL_Y) pair is the classic
