@@ -28,12 +28,13 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
+  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
   // matching flora/fauna/tint profile).
   15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
-  16: { variants: 1, draw: drawCommercialTex },   // COMMERCIAL — paving grid
+  16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
   17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
   18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
   19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
@@ -293,6 +294,27 @@ function drawBuildingTex(ctx, size, rng) {
   }
 }
 
+function drawCastleFloorTex(ctx, size, rng) {
+  // Subtle stone cobbles for the castle court — coarser and much fainter
+  // than the house cobble (drawBuildingTex) so the paving reads without
+  // competing with the bright rampart walls. Drawn as a transparent overlay
+  // baked over the slate base colour.
+  ctx.clearRect(0, 0, size, size);
+  const step = 8;
+  for (let row = 0; row * step < size + step; row++) {
+    const offset = (row % 2) * (step / 2);
+    for (let col = 0; col * step < size + step; col++) {
+      const cx = col * step + offset + (rng() - 0.5) * 2;
+      const cy = row * step + step / 2 + (rng() - 0.5) * 2;
+      const r = 2.6 + rng() * 0.8;
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath(); ctx.arc(cx - 0.7, cy - 0.7, r - 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 function drawWoodFloorTex(ctx, size, rng) {
   // Horizontal planks with staggered seams + faint grain.
   ctx.clearRect(0, 0, size, size);
@@ -396,21 +418,41 @@ function drawPlaygroundTex(ctx, size, rng) {
 }
 
 function drawCommercialTex(ctx, size, rng) {
-  // Retail plaza paving — a faint tile grid over concrete with light flecks.
+  // Grey anti-slip matte ceramic tiles laid into a lawn: each cell is one big
+  // tile with a 3px GRASS joint on its top + left edges, so adjacent cells tile
+  // into a uniform grass-jointed grid (the tile body is the matte grey fill).
+  // Drawn over the flat grey COMMERCIAL fill.
   ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  ctx.lineWidth = 1;
-  const step = 16;
-  for (let p = step; p < size; p += step) {
-    ctx.beginPath();
-    ctx.moveTo(p + 0.5, 0); ctx.lineTo(p + 0.5, size);
-    ctx.moveTo(0, p + 0.5); ctx.lineTo(size, p + 0.5);
-    ctx.stroke();
+  // Anti-slip matte speckle on the tile body — many very-low-contrast dots.
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x, y, 1, 1);
   }
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  // Faint ceramic mottle — a couple of soft tonal patches.
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 5 + rng() * 5, 0, Math.PI * 2); ctx.fill();
   }
+  // Grass joint (top + left), colour-matched to COLORS[0] grass (rgb 71,151,87)
+  // so it blends seamlessly where the plaza meets a real lawn.
+  const B = 3;
+  ctx.fillStyle = 'rgb(71,151,87)';
+  ctx.fillRect(0, 0, size, B);   // top joint
+  ctx.fillRect(0, 0, B, size);   // left joint
+  // A few grass specks in the joint so it reads as lawn, not a flat band.
+  for (let i = 0; i < 14; i++) {
+    const onTop = rng() < 0.5;
+    const x = onTop ? Math.floor(rng() * size) : Math.floor(rng() * B);
+    const y = onTop ? Math.floor(rng() * B) : Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(25,70,25,0.5)' : 'rgba(180,225,140,0.4)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // Soft shadow just inside the tile where it meets the grass joint, so the
+  // ceramic reads as sitting slightly proud of the lawn.
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(B, B, size - B, 1);
+  ctx.fillRect(B, B, 1, size - B);
 }
 
 function drawIndustrialTex(ctx, size, rng) {

@@ -554,16 +554,19 @@ Render.drawCells = function drawCells(scene) {
           gr.fillStyle(STONE_DARK, 1); gr.fillRect(sx, sy - WALL, CELL_PX, 1);
           crestH(sx, sy - WALL);
         }
-        // Side walls — no protruding teeth; a thin light stone edge hugs the wall
+        // Side walls — no protruding teeth; a light stone edge hugs the wall
         // (visible against the dark floor) with shadow dashes on the merlon span
-        // so they align with the front/back crests.
+        // so they align with the front/back crests. SIDE_W is the wall band's
+        // thickness (4px — double the original 2px so the E/W walls read as
+        // chunky as the N/S faces).
+        const SIDE_W = 4;
         const sideShade = (x) => {
-          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, 2, CELL_PX);
+          gr.fillStyle(STONE_BODY, 1);   gr.fillRect(x, sy, SIDE_W, CELL_PX);
           gr.fillStyle(STONE_SHADOW, 1);
-          for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, 2, MW);
+          for (let i = 0; i < MERLONS; i++) gr.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
         };
         if (!isB(T(col - 1, row))) sideShade(sx);
-        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - 2);
+        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W);
         continue;
       }
       // South wall: tier-specific extrusion, a darker shade of the building
