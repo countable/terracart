@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v13';
+const SHELL_VERSION = 'shell-v33';
 const TILE_CACHE    = 'tiles-v1';
 
 const SHELL_ASSETS = [
@@ -18,18 +18,23 @@ const SHELL_ASSETS = [
   './manifest.webmanifest',
   './vendor/phaser.js',
   './src/mvt.js',
+  './src/home.js',
+  './src/biome_profiles.js',
   './src/worldgen.js',
   './src/textures.js',
   './src/app.js',
 ];
 
 self.addEventListener('install', (event) => {
+  // Activate this worker immediately rather than waiting for open tabs to
+  // close — unconditional so a failure opening the cache below can't strand
+  // the new worker in "waiting".
+  self.skipWaiting();
   // Pre-cache the app shell on install. Failures here don't block install —
   // any missing asset will be fetched normally and cached lazily on first use.
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_VERSION);
     await Promise.allSettled(SHELL_ASSETS.map(u => cache.add(u)));
-    self.skipWaiting();
   })());
 });
 

@@ -22,18 +22,25 @@ const BIOME_TEX = {
   // shouldn't exist) and as the texture for PIER cells (23) since the pier
   // overlay needs a water-coloured base under the planks.
   3:  { variants: 2, draw: drawWaterTex },        // water: ripples
-  4:  { variants: 1, draw: drawFarmlandTex },     // farmland: tidy furrows
+  4:  { variants: 2, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
+  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
   10: { variants: 2, draw: drawRockTex },         // rock: cracks
-  // Grassland subtype splits — reuse the grass blade texture so they all read as grassy.
-  15: { variants: 2, draw: drawGrassTex },        // SCHOOL
-  18: { variants: 2, draw: drawGrassTex },        // PLAYGROUND
-  19: { variants: 2, draw: drawGrassTex },        // PITCH
-  21: { variants: 2, draw: drawGrassTex },        // GOLF
+  // Subtype splits — each biome gets its own low-res texture so it reads
+  // qualitatively different from the others (see src/biome_profiles.js for the
+  // matching flora/fauna/tint profile).
+  15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
+  16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
+  17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
+  18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
+  19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
+  20: { variants: 2, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
+  21: { variants: 2, draw: drawGolfTex },         // GOLF — fine fairway stripes
+  22: { variants: 2, draw: drawOrchardTex },      // ORCHARD — dappled grass
   // PIER (type 23) — reuse the water ripple as base texture; render.js
   // overlays the wooden plank sprite on top via the cobblePool. Without
   // this entry the cell would fall back to bare colour with no ripple,
@@ -165,18 +172,27 @@ function drawSandTex(ctx, size, rng) {
 }
 
 function drawFarmlandTex(ctx, size, rng) {
-  // Tidy parallel furrow rows — horizontal alternating shade bands.
+  // Muddy pasture — churned brown mud patches with tufts of grass poking
+  // through, plus a few hoof/churn marks. (Replaces the old tidy furrow rows,
+  // which read too much like freshly-tilled soil.)
   ctx.clearRect(0, 0, size, size);
-  const rowH = 4;
-  for (let y = 0; y < size; y += rowH) {
-    ctx.fillStyle = 'rgba(60,35,10,0.22)';
-    ctx.fillRect(0, y, size, 1);
-    ctx.fillStyle = 'rgba(255,230,180,0.10)';
-    ctx.fillRect(0, y + 1, size, 1);
+  // Soft mud patches — irregular brown blobs.
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 3 + rng() * 4, 0, Math.PI * 2); ctx.fill();
   }
-  for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  // Grass tufts poking through — green specks, some 2px tall.
+  for (let i = 0; i < 26; i++) {
+    const r = rng();
+    ctx.fillStyle = r < 0.5 ? 'rgba(70,120,55,0.30)'
+                  : r < 0.8 ? 'rgba(40,80,35,0.28)'
+                            : 'rgba(150,190,110,0.22)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, rng() < 0.4 ? 2 : 1);
+  }
+  // A few dark churned / hoof marks.
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = 'rgba(40,25,12,0.30)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
   }
 }
 
@@ -287,6 +303,27 @@ function drawBuildingTex(ctx, size, rng) {
   }
 }
 
+function drawCastleFloorTex(ctx, size, rng) {
+  // Subtle stone cobbles for the castle court — coarser and much fainter
+  // than the house cobble (drawBuildingTex) so the paving reads without
+  // competing with the bright rampart walls. Drawn as a transparent overlay
+  // baked over the slate base colour.
+  ctx.clearRect(0, 0, size, size);
+  const step = 8;
+  for (let row = 0; row * step < size + step; row++) {
+    const offset = (row % 2) * (step / 2);
+    for (let col = 0; col * step < size + step; col++) {
+      const cx = col * step + offset + (rng() - 0.5) * 2;
+      const cy = row * step + step / 2 + (rng() - 0.5) * 2;
+      const r = 2.6 + rng() * 0.8;
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath(); ctx.arc(cx - 0.7, cy - 0.7, r - 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 function drawWoodFloorTex(ctx, size, rng) {
   // Horizontal planks with staggered seams + faint grain.
   ctx.clearRect(0, 0, size, size);
@@ -342,16 +379,140 @@ function drawRockTex(ctx, size, rng) {
   }
 }
 
+// ── Subtype-biome textures ─────────────────────────────────────────────────
+// Each builds on grass or concrete to give the biome its own read at a glance.
+
+function drawSchoolTex(ctx, size, rng) {
+  // Schoolyard turf — grass with faint horizontal mown bands.
+  drawGrassTex(ctx, size, rng);
+  for (let y = 0; y < size; y += 8) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, y, size, 4);
+  }
+}
+
+function drawPitchTex(ctx, size, rng) {
+  // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
+  drawGrassTex(ctx, size, rng);
+  for (let y = 0; y < size; y += 8) {
+    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.07)' : 'rgba(0,40,0,0.07)';
+    ctx.fillRect(0, y, size, 8);
+  }
+  if (rng() < 0.25) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(rng() < 0.5 ? 2 : size - 3, 0, 1, size);
+  }
+}
+
+function drawGolfTex(ctx, size, rng) {
+  // Fairway — fine vertical mowing stripes on bright turf.
+  drawGrassTex(ctx, size, rng);
+  for (let x = 0; x < size; x += 4) {
+    ctx.fillStyle = (Math.floor(x / 4) % 2) ? 'rgba(255,255,255,0.05)' : 'rgba(0,40,0,0.04)';
+    ctx.fillRect(x, 0, 4, size);
+  }
+}
+
+function drawPlaygroundTex(ctx, size, rng) {
+  // Bark / rubber mulch — warm brown chips, no green.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    const r = rng();
+    ctx.fillStyle = r < 0.5 ? 'rgba(110,70,30,0.30)'
+                  : r < 0.8 ? 'rgba(150,100,50,0.25)'
+                            : 'rgba(80,50,20,0.30)';
+    ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
+  }
+}
+
+function drawCommercialTex(ctx, size, rng) {
+  // Grey anti-slip matte ceramic floor tile (one big tile per cell). Drawn over
+  // the flat grey COMMERCIAL fill: a fine matte speckle for the anti-slip
+  // finish, a faint ceramic mottle, and a recessed grout seam on the top + left
+  // edges so adjacent cells read as a continuous large-format tile grid.
+  ctx.clearRect(0, 0, size, size);
+  // Anti-slip matte speckle — many very-low-contrast dots, evenly spread.
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // Faint ceramic mottle — a couple of soft tonal patches.
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 5 + rng() * 5, 0, Math.PI * 2); ctx.fill();
+  }
+  // Grout seam (top + left) with a soft inner highlight = a subtle bevel.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(0, 0, size, 1);
+  ctx.fillRect(0, 0, 1, size);
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(0, 1, size, 1);
+  ctx.fillRect(1, 0, 1, size);
+}
+
+function drawIndustrialTex(ctx, size, rng) {
+  // Industrial yard — rough concrete with scattered gravel + the odd oil stain.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.55 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.10)';
+    const w = rng() < 0.25 ? 2 : 1;
+    ctx.fillRect(x, y, w, w);
+  }
+  if (rng() < 0.5) {
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 2 + rng() * 2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawWetlandTex(ctx, size, rng) {
+  // Marsh — dark mossy mottle, faint water glints, a few vertical reed flecks.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = 'rgba(20,45,25,0.30)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.5 + rng() * 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(150,200,210,0.20)';
+  ctx.lineWidth = 1;
+  for (let r = 0; r < 2; r++) {
+    const baseY = rng() * size, phase = rng() * Math.PI * 2;
+    ctx.beginPath();
+    for (let x = 0; x <= size; x++) {
+      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * 1;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = 'rgba(90,130,70,0.30)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 2 + Math.floor(rng() * 2));
+  }
+}
+
+function drawOrchardTex(ctx, size, rng) {
+  // Orchard understory — grass dappled with soft tree-shade pools.
+  drawGrassTex(ctx, size, rng);
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(0,30,0,0.10)';
+    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 4 + rng() * 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 // (drawLongGrassTex removed — longgrass now uses frame 0 of the 'props'
 // sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
 // blade colours / shading next to the hand-painted wilderness art.)
 
 // Simple procedural castle turret — narrow stone column with crenellated top.
-// One 24×40 canvas, anchor at bottom-centre so it sits on its cell.
+// One 24×50 canvas, anchor at bottom-centre so it sits on its cell. The column
+// is deliberately taller than the rampart battlements so a tower standing on a
+// wall clearly rises ABOVE the back-wall crenellations (which reach ~10px above
+// their cell) instead of being level with them. Foot stays at the cell.
 function makeTowerTexture(scene) {
   const KEY = 'tower';
   if (scene.textures.exists(KEY)) return;
-  const W = 24, H = 40;
+  const W = 24, H = 50;
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);
@@ -373,6 +534,12 @@ function makeTowerTexture(scene) {
   for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
     ctx.fillRect(bodyX, y, bodyW, 1);
   }
+  // Shaded foot — a small shadow only at the very bottom so the tower reads as
+  // grounded without darkening the whole lower body.
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.fillRect(bodyX, bodyBot - 4, bodyW, 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.24)';
+  ctx.fillRect(bodyX, bodyBot - 2, bodyW, 2);
   // Arrow-slit window
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(W / 2 - 1, bodyTop + 8, 2, 6);
@@ -521,50 +688,25 @@ function makeBiomeTextures(scene, size) {
   }
 }
 
-// === Shape-based concrete pads ===
-// PAD_SHAPES define occupancy on a cell grid + the chest's cell. Each shape
-// becomes one texture keyed `pad_<shape>`. Cells are CELL_PX (32 px) and the
-// outline only strokes the OUTER boundary of the shape (edges not shared with
-// another cell), so an L / + / triangle reads as one continuous slab.
+// === Concrete pads ===
+// Every POI pad is the same: a single rounded slab sitting in the one cell
+// directly under the chest. PAD_SHAPES still maps a shape key → cell occupancy
+// + the chest's cell (the render layer anchors that cell's centre on the
+// chest's ground point), but there is only one shape now: `round1`.
 //
 // Coordinate convention: [col, row] with col=x, row=y. (0,0) = top-left.
 const PAD_CELL = 32;
+// The pad is drawn a touch larger than its cell so it spills ~10% past the
+// cell boundary into neighbouring cells, reading as a soft oversized base
+// rather than a tile-aligned square.
+const PAD_OVERSIZE = 1.10;
 const PAD_SHAPES = {
-  // 3x3 square, chest centered. Used as the default for park/food/farm/etc.
-  square3: {
-    cells: [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]],
-    chest: [1, 1],
-  },
-  // 2x2 square, chest in TOP-LEFT corner. Used for pitches/sports fields.
-  square2: {
-    cells: [[0,0],[1,0],[0,1],[1,1]],
+  // Single rounded cell, chest centred on it. The only pad shape — used for
+  // every pad-bearing POI regardless of type.
+  round1: {
+    cells: [[0, 0]],
     chest: [0, 0],
-  },
-  // Greek cross (+ shape), chest centered. Used for chapels and medical.
-  cross: {
-    cells:        [[1,0],[0,1],[1,1],[2,1],[1,2]],
-    chest: [1, 1],
-  },
-  // Stepped triangle, 5 wide × 3 tall, point on top. Chest in middle row centre.
-  //   .  .  O  .  .
-  //   .  O  O  O  .
-  //   O  O  O  O  O
-  triangle: {
-    cells: [           [2,0],
-                  [1,1],[2,1],[3,1],
-            [0,2],[1,2],[2,2],[3,2],[4,2]],
-    chest: [2, 1],
-  },
-  // 1×3 horizontal strip, chest centered. Used for food / commerce — reads
-  // as a market counter / shop frontage.
-  line3h: {
-    cells: [[0,0],[1,0],[2,0]],
-    chest: [1, 0],
-  },
-  // 1×3 vertical strip, chest centered. Used for playgrounds.
-  line3v: {
-    cells: [[0,0],[0,1],[0,2]],
-    chest: [0, 1],
+    round: true,
   },
 };
 // Pre-compute bounding box for each shape (cols × rows).
@@ -573,14 +715,64 @@ for (const s of Object.values(PAD_SHAPES)) {
   s.rows = Math.max(...s.cells.map(c => c[1])) + 1;
 }
 
-// Build a texture for one shape. Each cell is PAD_CELL × PAD_CELL pixels;
-// the texture's full bounds are cols×rows cells. Only the outer perimeter
-// is stroked.
+// Trace a rounded-rectangle path (clamped so the radius never exceeds half the
+// shorter side — at the max it degenerates to a circle/stadium).
+function roundRectPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+// The rounded single-cell pad. The canvas is PAD_OVERSIZE × PAD_CELL on a side
+// so that, anchored at its centre on the chest's ground point, the slab spills
+// evenly past the cell into its neighbours.
+function makeRoundPadTexture(scene, key) {
+  const size = Math.round(PAD_CELL * PAD_OVERSIZE);
+  const tex = scene.textures.createCanvas(key, size, size);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, size, size);
+  const inset = 2;                          // room for the 2px cyan perimeter outline
+  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2;
+  const radius = w * 0.32;                  // generously rounded corners
+  // Cyan outline first: a wider stroke centred on the slab path. The body fill
+  // below covers its inner half, leaving a clean ~1.5px cyan ring hugging the
+  // pad edge so POI pads read as cyan-outlined.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  // Body fill.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fillStyle = '#b2b2b2';
+  ctx.fill();
+  // Subtle top sheen + bottom shadow, clipped to the slab, for the same faint
+  // "beveled flagstone" feel the old shape pads had.
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.fillRect(x, y, w, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  ctx.fillRect(x, y + h - 2, w, 2);
+  ctx.restore();
+  tex.refresh();
+}
+
+// Build a texture for one shape. Round shapes get the dedicated rounded pad;
+// any (legacy) multi-cell shape is drawn cell-by-cell with only its outer
+// perimeter stroked.
 function makePadShapeTexture(scene, shapeKey) {
   const key = `pad_${shapeKey}`;
   if (scene.textures.exists(key)) return;
   const shape = PAD_SHAPES[shapeKey];
   if (!shape) return;
+  if (shape.round) { makeRoundPadTexture(scene, key); return; }
   const W = shape.cols * PAD_CELL, H = shape.rows * PAD_CELL;
   const tex = scene.textures.createCanvas(key, W, H);
   const ctx = tex.getContext();
