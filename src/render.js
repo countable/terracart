@@ -198,7 +198,7 @@ Render.drawCells = function drawCells(scene) {
   const BORDER_W   = 2;   // px — 1/16 of CELL_PX
   const WAVE_AMP   = 1;   // px amplitude of sine wave at boundary
   const WAVE_LEN   = 16;  // px wavelength (~2 cycles per 32px tile)
-  const BORDER_DIM = 0.48;
+  const BORDER_DIM = 0.72;
   const TRANS_SKIP = new Set([2, 3, 9, 11, 12]); // water, sand, buildings
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
@@ -294,11 +294,10 @@ Render.drawCells = function drawCells(scene) {
             gb2.fillRect(sx + CELL_PX - BORDER_W + wo, sy + i, BORDER_W, 1);
           }
         }
-        const CR = 5; // corner arc radius — larger than BORDER_W for visible rounding
-        if (drawN && drawW) gb2.fillCircle(sx + CR, sy + CR, CR);
-        if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - CR, sy + CR, CR);
-        if (drawS && drawW) gb2.fillCircle(sx + CR, sy + CELL_PX - CR, CR);
-        if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - CR, sy + CELL_PX - CR, CR);
+        if (drawN && drawW) gb2.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawS && drawW) gb2.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+        if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
       }
 
       // (Building outlines are drawn in a second pass after every cell is
