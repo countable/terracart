@@ -266,10 +266,17 @@ Render.drawCells = function drawCells(scene) {
         gb2.fillStyle(bc, 1);
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
-        const drawN = tN !== type && !TRANS_SKIP.has(tN);
-        const drawS = tS !== type && !TRANS_SKIP.has(tS);
-        const drawW = tW !== type && !TRANS_SKIP.has(tW);
-        const drawE = tE !== type && !TRANS_SKIP.has(tE);
+        // For road/path cells the fill color is inferred from the nearest non-road
+        // neighbour. Skip the border on any edge whose neighbour shares that same
+        // inferred colour — the cobblestones already sit on matching ground there.
+        const isRoadLike = isRoad(type) || type === PATH;
+        const edgeNeeds = (t) => t !== type
+          && !TRANS_SKIP.has(t)
+          && !(isRoadLike && (COLORS[t] ?? GRASS_FALLBACK_COLOR) === color);
+        const drawN = edgeNeeds(tN);
+        const drawS = edgeNeeds(tS);
+        const drawW = edgeNeeds(tW);
+        const drawE = edgeNeeds(tE);
         if (drawN) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
