@@ -266,18 +266,31 @@ Render.drawCells = function drawCells(scene) {
         gb2.fillStyle(bc, 1);
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
-        // For road/path cells the fill color is inferred from the nearest non-road
-        // neighbour. Skip the border on any edge whose neighbour shares that same
-        // inferred colour — the cobblestones already sit on matching ground there.
+        // Roads/paths render with an inferred biome BG. For transition purposes,
+        // treat them as transparent — resolve their effective colour and compare it
+        // to the current cell's colour. A border is drawn only when the effective
+        // colours on the two sides actually differ.
         const isRoadLike = isRoad(type) || type === PATH;
-        const edgeNeeds = (t) => t !== type
-          && !TRANS_SKIP.has(t)
-          && !(isRoad(t) || t === PATH)   // roads own their own borders; never draw toward them
-          && !(isRoadLike && (COLORS[t] ?? GRASS_FALLBACK_COLOR) === color);
-        const drawN = edgeNeeds(tN);
-        const drawS = edgeNeeds(tS);
-        const drawW = edgeNeeds(tW);
-        const drawE = edgeNeeds(tE);
+        const inferredColor = (dnx, dny) => {
+          const wx = pc.cx + (ox + dnx) + pc.tx * scene.cellsPerTile;
+          const wy = pc.cy + (oy + dny) + pc.ty * scene.cellsPerTile;
+          return scene.neighborNonRoadColor(wx, wy) ?? GRASS_FALLBACK_COLOR;
+        };
+        const edgeNeeds = (t, dnx, dny) => {
+          if (t === type) return false;
+          if (TRANS_SKIP.has(t)) return false;
+          const nbrIsRoad = isRoad(t) || t === PATH;
+          if (isRoadLike && nbrIsRoad) return false; // road↔road: no border
+          // Resolve effective colours for both sides (roads look through to their BG).
+          const myColor  = color;
+          const nbrColor = nbrIsRoad ? inferredColor(dnx, dny)
+                                     : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+          return nbrColor !== myColor;
+        };
+        const drawN = edgeNeeds(tN,  0, -1);
+        const drawS = edgeNeeds(tS,  0, +1);
+        const drawW = edgeNeeds(tW, -1,  0);
+        const drawE = edgeNeeds(tE, +1,  0);
         if (drawN) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
