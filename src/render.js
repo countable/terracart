@@ -1001,13 +1001,17 @@ Render.drawObjects = function drawObjects(scene) {
         if (role === 'wizard') return 3;
         return undefined;
       },
-      // Anchor the sprite by its BOTTOM-MIDDLE so the house's base sits on the
-      // building footprint's centroid (the house x/y is that centroid) — the
-      // body then rises north over the outline instead of floating off it.
-      // dyPx nudges the base just BELOW the centroid; the taller wizard tower
-      // is foot-seated at the cell's front edge like the standalone shrine.
-      origin: [0.5, 1.0],
-      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 2),
+      // Centre the sprite ON the building footprint's centroid (the house x/y
+      // IS that centroid). A bottom-middle anchor used to seat the base at the
+      // centroid and draw the whole body NORTH of it, which on any multi-cell
+      // footprint left the southern cells bare and pushed the roof off the top
+      // edge — the house read as shoved up, not centred on its tiles. A centred
+      // anchor (origin 0.5,0.5 + no nudge) keeps the art over its footprint.
+      // The wizard tower is the exception: it's a tall shrine sprite that must
+      // stand foot-seated at the cell's front edge, so it keeps the bottom
+      // anchor + a downward nudge like the standalone shrine.
+      origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
+      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
       scale: (o) => {
         const role = _houseRole(o);
         // Fort PNG is ~3× the others — scale down so it still reads as a
@@ -1261,19 +1265,33 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5). Placing its
-      // centre AT the sprite base (sy+2) therefore left the ellipse's whole
-      // lower half — ~10px — dangling below the foot, reading as a detached
-      // shadow on the ground with the house floating above it. Lift the centre
-      // ABOVE the base so the bulk tucks behind/under the building and only a
-      // thin contact crescent shows at the foot, grounding it. Taller/wider
-      // buildings (fort) lift less since their footprint is broader.
-      let w = CELL_PX * 1.5, dyFoot = -4;
-      if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = -2; }
+      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5) and is placed at
+      // the building's visual BASE so a thin contact crescent grounds it. The
+      // base depends on how the sprite is anchored (see RENDER_SPEC):
+      //   • tower / wizard house — foot-anchored, base ≈ the centroid cell.
+      //   • every other house     — CENTRED on the centroid, so its base sits
+      //     half the (scaled) sprite height SOUTH of the centroid. Read the
+      //     sprite's frame height so the shadow tracks the real art, not a guess.
+      // The small extra lift tucks the ellipse's bulk behind the building.
+      const role = o.kind === 'house' ? _houseRole(o) : null;
+      let w = CELL_PX * 1.5, footY = sy - 4;
+      if (o.kind === 'tower') { w = CELL_PX * 1.1; footY = sy + 2; }
+      else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
+      else if (o.kind === 'house') {
+        if (role === 'fort') w = CELL_PX * 2.4;
+        const hkey = role === 'plain' ? 'house' : `house_${role}`;
+        const hscale = role === 'fort' ? 0.35 : 0.6;
+        let fh = CELL_PX;
+        if (scene.textures.exists(hkey)) {
+          const fr = role === 'plain' ? scene.textures.get(hkey).get('front')
+                                      : scene.textures.get(hkey).get();
+          if (fr && fr.height) fh = fr.height;
+        }
+        footY = sy + 0.5 * fh * hscale - 6;   // centred-house base, tucked up 6px
+      }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
-       .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
+       .setPosition(Math.round(sx), Math.round(footY))
        .setAlpha(0.5).setTint(0xffffff);
     });
   }
