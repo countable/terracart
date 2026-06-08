@@ -78,6 +78,7 @@
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (save.tributedCastles) delete save.tributedCastles;
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
+    if (!save.openedCastles || typeof save.openedCastles !== 'object') save.openedCastles = {};
     // One-time: strip the old free WOODEN (tier-1) pick/axe so existing players
     // also start the forge loop. Upgraded tools were earned — left alone. Gated
     // so a re-forged wooden tool isn't re-wiped on the next reload.

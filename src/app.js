@@ -161,13 +161,29 @@ const REACH_TREASURE_M  = 7.5; // treasure mark
 const DELIVERY_BONUS_MULT = 1.5;
 // A castle stays sealed until the player has proven themselves on the delivery
 // routes. Gated by the lifetime tally (save.deliveryCount): the vault opens
-// after CASTLE_DELIVERY_GATE completed deliveries. Replaces the old one-time
-// goods tribute — the price of entry is footwork, not a stack of produce.
+// after a number of completed deliveries. Replaces the old one-time goods
+// tribute — the price of entry is footwork, not a stack of produce.
+//
+// The gate FOLLOWS A PROGRESSION across castles: the first castle you open
+// asks for CASTLE_DELIVERY_GATE_START (2) deliveries, and each subsequent
+// castle steps up by CASTLE_DELIVERY_GATE_STEP (1) — 2, 3, 4, 5 … — capped at
+// CASTLE_DELIVERY_GATE (5). "How many castles already opened" is tracked in
+// save.openedCastles (a per-castle id map, recorded the first time you reach
+// an unsealed vault).
 const CASTLE_DELIVERY_GATE = 5;
+const CASTLE_DELIVERY_GATE_START = 2;
+const CASTLE_DELIVERY_GATE_STEP = 1;
 // A fort, by contrast, is unsealed with materials — like restoring a wreck
-// house, the player pays a one-time stack of wood (FORT_UNLOCK_WOOD) to open
-// the quartermaster. Recorded per-fort in save.unlockedForts.
+// house, the player pays a one-time stack of wood to open the quartermaster.
+// Recorded per-fort in save.unlockedForts.
+//
+// The wood price ALSO FOLLOWS A PROGRESSION: the first fort you unseal costs
+// FORT_UNLOCK_WOOD_START (6) wood and each later fort steps up by
+// FORT_UNLOCK_WOOD_STEP (6) — 6, 12, 18, 24, 30 … — capped at FORT_UNLOCK_WOOD
+// (30). The step index is "how many forts already unsealed" (save.unlockedForts).
 const FORT_UNLOCK_WOOD = 30;
+const FORT_UNLOCK_WOOD_START = 6;
+const FORT_UNLOCK_WOOD_STEP = 6;
 // Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
 // two nearest houses as blacksmith/trader up front, a wreck reveals its role
 // from the order the player restores it: the opening stretch is a fixed
@@ -4599,6 +4615,15 @@ class MapScene extends Phaser.Scene {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (isCastle) {
+      // First time the player reaches this (now-unsealed) vault, record it so
+      // the NEXT un-opened castle ramps to a higher delivery gate (see
+      // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
+      // already returned for sealed castles, so reaching here means it's open.
+      if (house.id && !this.save.openedCastles?.[house.id]) {
+        this.save.openedCastles = this.save.openedCastles || {};
+        this.save.openedCastles[house.id] = true;
+        persistSave(this.save);
+      }
       const offer = this.peekOrBuildRelicOffer(house);
       // No re-roll at castles per balance pass — the castle's draw is the
       // exorbitant base price (4× minus bow/staff discount), not a re-roll
@@ -6203,10 +6228,35 @@ class MapScene extends Phaser.Scene {
   // Lifetime deliveries this building demands before it'll trade, or 0 if it
   // has no delivery gate. Only castles (BUILDING_LARGE / tower, tier 12) gate
   // on deliveries now — forts unseal with wood (see _isFortLocked).
+  //
+  // The gate ramps per castle (see CASTLE_DELIVERY_GATE_START): an already-opened
+  // castle has no gate (0); an un-opened one asks START + STEP×(castles already
+  // opened), capped at CASTLE_DELIVERY_GATE.
   _deliveryGate(house) {
     if (!house) return 0;
-    if (house.kind === 'tower' || house.tier === 12) return CASTLE_DELIVERY_GATE;
+    if (house.kind === 'tower' || house.tier === 12) {
+      // Already opened → no gate. (id-less castles can't be recorded, so they
+      // always read the ramped gate below.)
+      if (house.id && this.save.openedCastles?.[house.id]) return 0;
+      const opened = Object.keys(this.save.openedCastles || {}).length;
+      return Math.min(
+        CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP * opened,
+        CASTLE_DELIVERY_GATE,
+      );
+    }
     return 0;
+  }
+
+  // Wood this fort demands to unseal, following the per-fort progression
+  // (see FORT_UNLOCK_WOOD_START): START + STEP×(forts already unsealed), capped
+  // at FORT_UNLOCK_WOOD. A locked fort isn't yet in save.unlockedForts, so the
+  // map's size is the 0-based index of the fort about to be paid for.
+  _fortUnlockCost() {
+    const unlocked = Object.keys(this.save.unlockedForts || {}).length;
+    return Math.min(
+      FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP * unlocked,
+      FORT_UNLOCK_WOOD,
+    );
   }
 
   // True iff `house` is a castle still sealed because the player hasn't logged
@@ -6254,7 +6304,7 @@ class MapScene extends Phaser.Scene {
   // the price), re-checks stock on accept, then records the unlock and plays
   // the same restoration fanfare.
   presentFortUnlockModal(sx, sy, house) {
-    const need = FORT_UNLOCK_WOOD;
+    const need = this._fortUnlockCost();
     const heldCount = ((this.save.inv || []).find(s => s && s.id === 'wood')?.count) ?? 0;
     const canAfford = heldCount >= need;
     this.showOfferModal({
