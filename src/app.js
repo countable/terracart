@@ -960,6 +960,9 @@ class MapScene extends Phaser.Scene {
     // `individual:true`), cycling outward by distance so repeated presses
     // walk you through them. No game-state side effects beyond the teleport.
     this.input.keyboard.on('keydown-T', () => this.teleportNextIndividualTree());
+    // F — toggle fast-walk (5× speed, all inputs)
+    this._fastWalk = false;
+    this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
 
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
@@ -1992,6 +1995,7 @@ class MapScene extends Phaser.Scene {
       vy = this.debugJoystickVec.y;
       speedMul = DEBUG_SPEED_MUL;
     }
+    if (this._fastWalk) speedMul = 5;
     const moving = vx || vy;
     if (this.depth > 0) {
       // Underground: inputs steer a free-flying ghost target (through walls);
