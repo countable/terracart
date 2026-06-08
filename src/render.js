@@ -2169,14 +2169,14 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
-      // Placeholder art: underground monsters reuse the slime sheet, recoloured
-      // per kind via the unified setTint() below. Same idle squish loop + a
-      // continuous hop; flyers (bats) float higher and bob faster so they read
-      // as airborne. Swap in a dedicated sheet later by giving the kind its own
-      // texture key here + an assets.js entry.
       const m = MONSTERS[c.kind];
-      if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
-      s.setFrame(Math.floor(performance.now() / 160) % 4);
+      const texKey = c.kind === 'bat' ? 'bat'
+                   : c.kind === 'goblin' ? 'goblin'
+                   : c.kind === 'goblin_archer' ? 'goblin_archer'
+                   : 'slime';
+      const frameCount = (c.kind === 'goblin' || c.kind === 'goblin_archer') ? 6 : 4;
+      if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
+      s.setFrame(Math.floor(performance.now() / 160) % frameCount);
       if (c._hopSeed == null) {
         let h = 0; const id = c.id || '';
         for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
@@ -2215,8 +2215,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Rare shiny animals wear the warm sheen; underground monsters wear their
     // per-kind placeholder tint. Pooled sprites keep their last tint, so set an
     // explicit colour every frame (white for the common, plain case).
-    s.setTint(isMonster(c.kind) ? MONSTERS[c.kind].tint
-            : c.shiny ? SHINY_TINT : 0xffffff);
+    s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
   });
 
   // Renderer-AGNOSTIC shiny markers. The gold setTint() above (and on trees /

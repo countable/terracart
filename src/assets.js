@@ -78,7 +78,12 @@ const ASSETS = {
   // Slime — energy-leeching pest. 'Slime Green.png' is a 128×384 sheet of
   // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
   // cycle the renderer loops; lower rows are move/death poses we don't use.
-  slime:       { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',                  frameWidth: 32, frameHeight: 32 },
+  slime:         { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',   frameWidth: 32, frameHeight: 32 },
+  // Underground monster sheets. bat reuses the purple slime (no bat sprite in pack).
+  // Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
+  bat:           { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
+  goblin:        { kind: 'spritesheet', path: 'assets/Enemy/Goblin.png',        frameWidth: 32, frameHeight: 32 },
+  goblin_archer: { kind: 'spritesheet', path: 'assets/Enemy/Goblin Archer.png', frameWidth: 32, frameHeight: 32 },
   // Fruit trees — 32x48 frames (2 cells wide x 3 cells tall), same shape as
   // Maple (32 wide). Each tree spans a 32px column; slicing at 16 split every
   // tree in half (the odd 16px frame was just the right half of a tree).
