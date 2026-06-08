@@ -46,6 +46,9 @@ const BIOME_TEX = {
   // this entry the cell would fall back to bare colour with no ripple,
   // breaking visual continuity with adjacent WATER cells.
   23: { variants: 2, draw: drawWaterTex },
+  // Underground cave biome
+  24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
+  25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
 };
 
 // === Water autotile (cardinal Wang) =====================================
@@ -386,6 +389,88 @@ function drawRockTex(ctx, size, rng) {
   ctx.fillStyle = 'rgba(255,255,255,0.12)';
   for (let i = 0; i < 4; i++) {
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
+  }
+}
+
+// ── Cave biome textures ────────────────────────────────────────────────────
+
+function drawCaveWallTex(ctx, size, rng) {
+  // Packed boulder faces — irregular ellipses with shadow outlines and a
+  // highlight sliver on the top-left so the rocks read as three-dimensional
+  // against the near-black base colour (0x241f1b).
+  ctx.clearRect(0, 0, size, size);
+  const step = 7;
+  for (let row = 0; row * step < size + step; row++) {
+    const offset = (row % 2) * 3;
+    for (let col = 0; col * step < size + step; col++) {
+      const cx = col * step + offset + (rng() - 0.5) * 2.5;
+      const cy = row * step + step * 0.5 + (rng() - 0.5) * 2;
+      const rw = 2.5 + rng() * 1.2;
+      const rh = 1.8 + rng() * 1.0;
+      // Faint warm face — catches a tiny glimmer off the cave floor below
+      ctx.fillStyle = 'rgba(200,170,130,0.07)';
+      ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.fill();
+      // Crack / shadow outline around each boulder
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
+      // Highlight sliver — top-left edge
+      ctx.fillStyle = 'rgba(255,220,180,0.13)';
+      ctx.beginPath(); ctx.ellipse(cx - rw * 0.3, cy - rh * 0.35, rw * 0.45, rh * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // 1-2 longer crack lines cutting across the face
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 1;
+  const cracks = 1 + Math.floor(rng() * 2);
+  for (let c = 0; c < cracks; c++) {
+    let x = rng() * size, y = rng() * size;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let s = 0; s < 3; s++) {
+      x += (rng() - 0.5) * 6; y += (rng() - 0.5) * 6;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // Rare mineral glint — a single bright pixel
+  if (rng() < 0.45) {
+    ctx.fillStyle = 'rgba(200,240,255,0.45)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawCaveFloorTex(ctx, size, rng) {
+  // Packed grit and small pebbles over the earthy brown base (0x4a423b).
+  ctx.clearRect(0, 0, size, size);
+  // Fine grit — dark and light specks
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.6
+      ? 'rgba(0,0,0,0.28)'
+      : 'rgba(255,215,170,0.13)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // Small pebbles (2×1 or 1×2)
+  const pebbles = 2 + Math.floor(rng() * 3);
+  for (let i = 0; i < pebbles; i++) {
+    const x = 1 + Math.floor(rng() * (size - 3));
+    const y = 1 + Math.floor(rng() * (size - 3));
+    const horiz = rng() < 0.5;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(x, y, horiz ? 2 : 1, horiz ? 1 : 2);
+    ctx.fillStyle = 'rgba(255,210,160,0.18)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // Occasional shallow groove
+  if (rng() < 0.4) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.lineWidth = 1;
+    const gx = rng() * size, gy = rng() * size;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy);
+    ctx.lineTo(gx + (rng() - 0.5) * 8, gy + (rng() - 0.5) * 4);
+    ctx.stroke();
   }
 }
 
