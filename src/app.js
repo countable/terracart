@@ -7335,7 +7335,14 @@ class MapScene extends Phaser.Scene {
         (active
           ? 'background:#553a;border:2px solid #ffd866;border-bottom-color:#553a;color:#fff;'
           : 'background:#222a;border:2px solid #555;color:#ddd;');
-      tab.textContent = c.sym;
+      // Glyph in its own span so the desaturation targets ONLY the emoji — the
+      // count pip below keeps its full colour. The active tab shows its glyph in
+      // full colour; inactive tabs render greyscale + dimmed so the lit-up tab
+      // reads as the current category at a glance.
+      const glyph = document.createElement('span');
+      glyph.textContent = c.sym;
+      glyph.style.cssText = 'line-height:1;' + (active ? '' : 'filter:grayscale(1) opacity(0.55);');
+      tab.appendChild(glyph);
       // Tiny count pip so the player can see at a glance which tabs hold gear.
       if (count > 0) {
         const pip = document.createElement('span');
