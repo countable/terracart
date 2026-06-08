@@ -760,6 +760,12 @@ function gearAssetPath(kind, slot, tier) {
   if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet' || slot === 'bags')) {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
+  // The watering can only ships Wood-tier art — there is no per-tier file, so
+  // higher tiers (iron, gold, …) would 404 and render broken/blank. Pin it to
+  // the Wood folder so every tier shows the same (only) watering-can art.
+  if (kind === 'relic' && slot === 'can') {
+    return `assets/Icons/RPG icons/Weapons and Armor/1. Wood/${def.icon}`;
+  }
   return `assets/Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
 }
 function gearName(kind, slot, tier) {

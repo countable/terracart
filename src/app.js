@@ -62,6 +62,11 @@ const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
+// How far above dead-centre every dialog rides (game px, in #game's 844-tall
+// box). Reserved as bottom padding on the shared modal wrap so the flex-centred
+// box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
+// this is the one knob that moves all dialogs together.
+const MODAL_LIFT_PX = 140;
 
 // Inventory category tabs (the top bar of the two-bar bottom HUD). The order
 // here is the on-screen left→right order. Item categories filter save.inv by
@@ -701,6 +706,13 @@ class MapScene extends Phaser.Scene {
     // on those devices. The spark texture is baked gold and animates via
     // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
     this.sparkContainer = this.add.container(0, 0);
+    // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
+    // pips. Added AFTER every world-object layer (including the castle
+    // rampartFrontGfx) so a label always reads ABOVE map objects like castle
+    // walls / towers, and is only ever covered by popups (Phaser flash text at
+    // depth 100+ and the DOM modals). Without its own layer the labels lived in
+    // objectsContainer and the castle front wall painted over them.
+    this.labelContainer = this.add.container(0, 0);
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
 
@@ -4237,8 +4249,15 @@ class MapScene extends Phaser.Scene {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
+    // Single source of truth for where EVERY dialog sits vertically. The wrap
+    // fills #game's 844px box and flex-centres the box, but we reserve space at
+    // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
+    // clear of the bottom inventory/HUD cluster (tabs/slots/name/action btns).
+    // Because all modals go through here, they all position identically — tweak
+    // this one constant to move them all.
     wrap.style.cssText =
       `position:absolute;inset:0;z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
+      `padding-bottom:${MODAL_LIFT_PX}px;box-sizing:border-box;` +
       `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
     const box = document.createElement('div');
     box.style.cssText =
@@ -6776,11 +6795,25 @@ class MapScene extends Phaser.Scene {
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
     if (!path) return '';
-    const isMultiVariant = kind === 'relic' && (slot === 'ring' || slot === 'amulet');
-    const sheetCols = isMultiVariant ? 6 : 2;
-    const sheetRows = isMultiVariant ? 4 : 1;
-    const col = isMultiVariant ? ((tier - 1) % sheetCols) : 0;
-    const row = isMultiVariant ? Math.floor((tier - 1) / sheetCols) % sheetRows : 0;
+    // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
+    // frame to show so we never squish a multi-frame strip into one cell or
+    // crop a single-frame icon:
+    //   ring/amulet — 6×4 variant grid, frame = tier-1
+    //   bags        — 7×1 strip (one bag per tier), frame = tier-1
+    //   bug net     — single 16×16 icon
+    //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
+    let sheetCols, sheetRows, frame;
+    if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
+      sheetCols = 6; sheetRows = 4; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'bags') {
+      sheetCols = 7; sheetRows = 1; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'bugnet') {
+      sheetCols = 1; sheetRows = 1; frame = 0;
+    } else {
+      sheetCols = 2; sheetRows = 1; frame = 0;
+    }
+    const col = frame % sheetCols;
+    const row = Math.floor(frame / sheetCols) % sheetRows;
     const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
     return `<span style="display:inline-block;vertical-align:middle;`
       + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
