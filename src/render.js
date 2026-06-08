@@ -106,6 +106,15 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  // Castle ramparts split across TWO layers so towers (objectsContainer) sort
+  // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
+  // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
+  // draw BELOW objects (towers stand in front of the top wall; side walls sit
+  // under everything). Both cleared in lockstep with cellGfx so nothing desyncs.
+  const gf = scene.rampartFrontGfx || g;   // front (south) wall — ABOVE objects
+  const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
+  if (gf !== g) gf.clear();
+  if (gb !== g && gb !== gf) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -166,7 +175,7 @@ Render.drawCells = function drawCells(scene) {
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-  const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14]);   // water, residential, all roads, path, all buildings, rock
+  const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
@@ -235,7 +244,10 @@ Render.drawCells = function drawCells(scene) {
       const absCellIX = baseCellIX + ox;
       const absCellIY = baseCellIY + oy;
       const tilledKey = cellKeyFromAbsCell(absCellIX, absCellIY);
-      let isTilled = scene.tilledSet && scene.tilledSet.has(tilledKey);
+      // Tilling is a surface-only activity (cave floor isn't tillable). Gate the
+      // overlay on depth 0 so surface farm plots don't bleed through onto the
+      // underground levels directly below them (same GPS-mirrored cell coords).
+      let isTilled = (scene.depth ?? 0) === 0 && scene.tilledSet && scene.tilledSet.has(tilledKey);
       // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
@@ -450,49 +462,6 @@ Render.drawCells = function drawCells(scene) {
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
   const isB = (t) => t === 9 || t === 11 || t === 12;
-  // Per-house south-face tint: each themed house biases the brick base
-  // beneath it toward its own primary colour, subtly (the role tint is
-  // blended 30/70 with the default brown wall). Plain houses keep the
-  // default — that's the visual "neutral residential" baseline.
-  const _ROLE_PRIMARY = {
-    blacksmith: 0xc25a3a,  // red-brown forge wall
-    trader:     0x6a8aa6,  // steel-blue awning
-    market:     0xa84a3a,  // red brick roof
-    wizard:     0x7a5aa6,  // arcane purple stone
-    fort:       0xa84838,  // red brick stone
-    trailer:    0xa8b0c0,  // pale blue trailer
-  };
-  const _mixHex = (a, b, t) => {
-    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-    const mr = Math.round(ar + (br - ar) * t);
-    const mg = Math.round(ag + (bg - ag) * t);
-    const mb = Math.round(ab + (bb - ab) * t);
-    return (mr << 16) | (mg << 8) | mb;
-  };
-  const _houseRoleCells = new Map();   // cellKey → role string
-  const _restoredForCell = scene.save.restoredHouses || {};
-  const _houseRoleForCell = (o) => {
-    // Wrecks (tier-9 houses not yet restored, excluding the trailer) skip
-    // the role tint so their brick base reads as the neutral default —
-    // restoration is what colours the foundation.
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (o.tier === 11) return 'fort';
-    if (!_restoredForCell[o.id] && o.tier === 9) return null;
-    // Frozen restore-order role (blacksmith/trader/market/wizard) or null/plain.
-    return (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-  };
-  for (const [, entry] of (WorldGen.tileCache || new Map())) {
-    if (!entry || !entry.objects) continue;
-    for (const ho of entry.objects) {
-      if (ho.kind !== 'house') continue;
-      const role = _houseRoleForCell(ho);
-      if (!role || !_ROLE_PRIMARY[role]) continue;
-      const ix = Math.round((ho.x - scene.startWorldM.x) / scene.cellM - 0.5);
-      const iy = Math.round((ho.y - scene.startWorldM.y) / scene.cellM - 0.5);
-      _houseRoleCells.set(cellKeyFromAbsCell(ix, iy), role);
-    }
-  }
   // Pseudo-3D extrusion: building footprints are the "top surface", and the
   // south-facing edge of each building cell gets a 5px-tall darker wall projected
   // downward, painted on top of the row below. Other edges get a thin black tint
@@ -543,61 +512,80 @@ Render.drawCells = function drawCells(scene) {
         if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
-      // Tier 12 (castle) — STONE RAMPART: crenellated battlements along every
-      // perimeter edge. The keep's answer to the tier-11 wooden palisade —
-      // square merlons separated by crenel gaps, in cool grey stone, so the
-      // castle reads as a walled fortress. Drawn INSTEAD of the tier-9/12
-      // extrusion + outline below (same continue trick the palisade uses).
+      // Tier 12 (castle) — STONE RAMPART. The front (south) and back (north)
+      // walls carry bold merlons that rise UP from the wall line with clear
+      // crenel gaps, aligned across cells. The side (east/west) walls aren't
+      // toothed — they read as a dashed shadow line hugging the wall edge, its
+      // dashes on the same merlon grid so they line up with the crests.
+      // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
         const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
               STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
-        const MERLONS = 4, SPAN = CELL_PX / MERLONS, MW = 5;  // 5px tooth, 3px gap ×4 = 32
-        const WALL = 6;          // south wall-face height (the lit 3-D face)
-        const TOOTH = 2;         // how far merlons poke past the footprint edge
-        // South edge — a stone wall face hangs BELOW the cell, capped with
-        // merlons that rise a couple px onto the cell's own bottom edge.
-        if (!isB(T(col, row + 1))) {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          g.fillStyle(STONE_DARK, 1);   g.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+        // STONE_FACE — the tall extruded N/S wall faces use a darker stone than
+        // the lit battlement tops (STONE_BODY), so the wall mass reads with depth
+        // instead of looking washed-out/too-light against the light castle floor.
+        const STONE_FACE = 0x7e8188;
+        // STONE_SIDE — the E/W side-wall crenel dashes: a soft mid-grey (much
+        // lighter than the old STONE_SHADOW) so the gaps between the side merlons
+        // aren't harshly dark.
+        const STONE_SIDE = 0x7a7d84;
+        const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
+        const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
+        const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
+        const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
+        const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
+        // Ramparts split front vs back/side across two layers (gf above objects,
+        // gb below) so towers sort per-edge. The wall stone is a light masonry
+        // material that reads against the lighter castle floor.
+        // Horizontal battlement crest: a low parapet at `baseY` with merlons
+        // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
+        // share the SPAN grid on every wall so front/back crenellations line up.
+        const crestH = (gx, x, baseY) => {
+          gx.fillStyle(STONE_BODY, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
-            const mx = sx + i * SPAN;
-            g.fillStyle(STONE_BODY, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, WALL + TOOTH);
-            g.fillStyle(STONE_LITE, 1); g.fillRect(mx, sy + CELL_PX - TOOTH, MW, 1);
+            const mx = x + i * SPAN + MOFF;
+            gx.fillStyle(STONE_BODY, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
-          // vertical mortar joints between merlons
-          g.fillStyle(STONE_DARK, 0.5);
-          for (let i = 1; i < MERLONS; i++) g.fillRect(sx + i * SPAN - 1, sy + CELL_PX, 1, WALL);
+        };
+        // South / front wall → FRONT layer (above objects). Darker extruded face
+        // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
+        // (bottom) edge; the lit battlement crest rises up from the bottom edge.
+        if (!isB(T(col, row + 1))) {
+          gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          crestH(gf, sx, sy + CELL_PX);
         }
-        // North edge — crenellated strip on the cell's top, teeth poking UP.
-        const capH = (x, y) => {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, CELL_PX, 4);
-          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, CELL_PX, 1);
-          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
-            g.fillRect(x + i * SPAN, y - TOOTH, MW, TOOTH + 1);
+        // North / back wall → BACK layer (below objects). Same tall extruded face
+        // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
+        // so the back reads as tall as the front. No dark grounding line here: at
+        // the TOP edge it read as an unwanted hard line, not a contact shadow.
+        if (!isB(T(col, row - 1))) {
+          gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          crestH(gb, sx, sy - WALL);
+        }
+        // Side walls → BACK layer (below objects). No protruding teeth; a light
+        // stone edge hugs the wall with shadow dashes on the merlon span so they
+        // align with the front/back crests. SIDE_W is the band thickness (4px).
+        const SIDE_W = 4;
+        const sideShade = (x, innerX) => {
+          gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
+          gb.fillStyle(STONE_SIDE, 1);
+          for (let i = 0; i < MERLONS; i++) gb.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          // 1px darker line on the wall's INTERIOR edge so the side wall reads as
+          // a distinct band instead of blurring into the adjacent floor / wall.
+          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
         };
-        // Vertical edge — crenellated strip down the side, teeth poking OUT by
-        // `dir` (-1 left, +1 right).
-        const capV = (x, y, dir) => {
-          g.fillStyle(STONE_SHADOW, 1); g.fillRect(x, y, 4, CELL_PX);
-          g.fillStyle(STONE_LITE, 0.9); g.fillRect(x, y, 1, CELL_PX);
-          for (let i = 0; i < MERLONS; i++) g.fillStyle(STONE_BODY, 1),
-            g.fillRect(dir < 0 ? x - TOOTH : x + 4 - 1, y + i * SPAN, TOOTH + 1, MW);
-        };
-        if (!isB(T(col, row - 1))) capH(sx, sy);
-        if (!isB(T(col - 1, row))) capV(sx, sy, -1);
-        if (!isB(T(col + 1, row))) capV(sx + CELL_PX - 4, sy, +1);
+        if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
+        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
         continue;
       }
-      // South wall: tier-specific extrusion, darker shade of the building
-      // tier — biased toward the themed-house primary if this cell hosts
-      // one (look up by absolute cell key; falls back to the neutral
-      // tier colour for plain residential).
+      // South wall: tier-specific extrusion, a darker shade of the building
+      // tier colour projected one cell downward.
       if (!isB(T(col, row + 1))) {
-        const _absIX = baseCellIX + (col - half);
-        const _absIY = baseCellIY + (row - half);
-        const role = _houseRoleCells.get(cellKeyFromAbsCell(_absIX, _absIY));
-        const baseHex = SOUTH_FACE_COLOR[type] || 0x444444;
-        const hex = role ? _mixHex(baseHex, _ROLE_PRIMARY[role], 0.3) : baseHex;
+        const hex = SOUTH_FACE_COLOR[type] || 0x444444;
         g.fillStyle(hex, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
@@ -625,9 +613,9 @@ Render.drawCells = function drawCells(scene) {
   // and the user reported the leftmost lit cell occasionally flashing
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // cellInReach handles all reach tiers via coords.js reachRadiusM: 0 energy =
-  // no reach, <30% energy drops one whole cell (floored at 1), and the base
-  // radius is 2 cells growing to 5 via shrine upgrades. isReach delegates
+  // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
+  // otherwise the radius is 2.5 cells growing to 5.5 via shrine upgrades, then
+  // shrunk half a cell per level underground (floored at 1.5). isReach delegates
   // entirely so the visual outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
@@ -636,8 +624,12 @@ Render.drawCells = function drawCells(scene) {
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
-  // top of the dim band, not under it.
-  g.fillStyle(0x000000, 0.22);
+  // top of the dim band, not under it. Underground the dim is much stronger —
+  // the lit reach area reads as a torch bubble in the surrounding dark rock —
+  // and it deepens by half a step per level so each descent feels darker.
+  const depth = scene.depth ?? 0;
+  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.22;
+  g.fillStyle(0x000000, dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -645,6 +637,43 @@ Render.drawCells = function drawCells(scene) {
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
       g.fillRect(sx, sy, CELL_PX, CELL_PX);
+    }
+  }
+  // Underground the torch bubble itself is dimmer than full daylight — lay a
+  // faint black wash over the lit reach cells too (the surrounding rock is far
+  // darker still, so the bubble stays clearly readable). Deepens slightly per
+  // level, like the surrounding dim, so descents feel progressively gloomier.
+  if (depth > 0) {
+    const litDim = Math.min(0.40, 0.26 + 0.03 * (depth - 1));
+    g.fillStyle(0x000000, litDim);
+    for (let row = -1; row <= VIEW_CELLS; row++) {
+      for (let col = -1; col <= VIEW_CELLS; col++) {
+        if (!isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
+        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
+    }
+  }
+  // Low energy tints the lit range pink — the Inner Light guttering as the
+  // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
+  // depth does), but this pink wash is the cue that you're running low and
+  // should rest before energy hits 0 (where you can't reach at all).
+  // Skipped while a Potion of Reach pins the whole view lit (energy ignored).
+  const energy = scene.save?.energy ?? 0;
+  const maxEnergy = scene.save?.maxEnergy ?? 100;
+  const potionLit = (scene.save?.reachPotionUntil ?? 0) > Date.now();
+  if (!potionLit && energy > 0 && (energy / maxEnergy) < 0.30) {
+    g.fillStyle(0xff5fa2, 0.16);
+    for (let row = -1; row <= VIEW_CELLS; row++) {
+      for (let col = -1; col <= VIEW_CELLS; col++) {
+        if (!isReach(col, row)) continue;
+        const ox = col - half, oy = row - half;
+        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
     }
   }
   g.lineStyle(3, 0xffffff, 0.3);
@@ -691,7 +720,7 @@ Render.drawCells = function drawCells(scene) {
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
     const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
     const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
-    const s = 6;
+    const s = 5.1;   // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
   };
@@ -760,7 +789,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the random hangs the user reported). 9 tiles strictly cover the 11-cell
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
-  const caughtSet = new Set(scene.save.caught);
+  const caughtSet = new Set(scene.save.caught || []);
   const pc = scene.playerToWorldCell();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
@@ -793,7 +822,13 @@ Render.drawObjects = function drawObjects(scene) {
       }
     }
   }
+  // Planted crops are tagged with the depth they were sown at (surface = 0 for
+  // legacy saves). Only draw the ones that belong to the level you're standing
+  // on, so surface farms don't render underground (and future cave crops won't
+  // render on the surface).
+  const _curDepth = scene.depth ?? 0;
   for (const p of scene.save.planted) {
+    if ((p.depth ?? 0) !== _curDepth) continue;
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
@@ -801,7 +836,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.
-  if (scene.placedRockSet) {
+  if (scene.placedRockSet && _curDepth === 0) {
     for (const key of scene.placedRockSet) {
       const [ixStr, iyStr] = key.split('_');
       const absIX = parseInt(ixStr, 10), absIY = parseInt(iyStr, 10);
@@ -985,19 +1020,25 @@ Render.drawObjects = function drawObjects(scene) {
     // castle wall it stands on) exposed as an empty-looking blocked space below
     // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
     // trees — so the tower stands inside its own single cell.
-    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 - 2 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
     // small at, while still fitting inside its single cell (QC rule).
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455 },
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455, seat: true },
+    // Cave staircase — baked 32×32 (one cell), centred. 'down' on the surface &
+    // each cave level leads deeper; 'up' returns. Texture picked by direction.
+    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
     // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
+    // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
+    // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38 },
+             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -1035,28 +1076,18 @@ Render.drawObjects = function drawObjects(scene) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×48 bushes sheet — render at a fixed small
+              // Bushes use the 48×32 bushes sheet — render at a fixed small
               // scale (≈21px, comfortably inside one 32px cell) independent of
               // the species/canopy tree scale. Larger tiers use treeScale.
               scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),
-              // sy is the cell CENTRE; a foot-anchored tree there leaves its
-              // trunk base mid-cell so the canopy spills up into the tile
-              // above. Nudge the foot down to the cell's front (bottom) edge
-              // so each tree stands inside its own cell. The pine-class sheets
-              // (pine/birch/mahogany, 32×64 with ~5px of empty root padding at
-              // the frame bottom) sit ~10px high vs maple — nudge them lower.
-              // Small-class trees (scale ×0.8) read ~3px too low: the foot
-              // origin sits a hair below the art's true trunk base, and that
-              // gap scales with the sprite, so the smaller tier's foot lands
-              // below the larger tiers' standing line. Lift it back up 3px.
-              dyPx: (o) => {
-                // Bushes are short and centred on their cell — foot-anchor at
-                // the cell's front edge with no pine-class root padding.
-                if (treeSizeClass(o) === 'bush') return CELL_PX * 0.5;
-                const base = (o.species && o.species !== 'maple')
-                  ? CELL_PX * 0.5 + 10 : CELL_PX * 0.5;
-                return treeSizeClass(o) === 'small' ? base - 3 : base;
-              },
+              // Placement obeys the "one cell" rule via the seat pass (see the
+              // render loop + src/sprite_layout.js): each tree is seated from
+              // its trimmed art bounds so the trunk base sits 1px above the
+              // cell's bottom edge (or centred when it fits) and the canopy
+              // rises into the tiles above without spilling into the cell
+              // below — automatically across species sheets (maple 32×48 vs
+              // the 32×64 pine/birch/mahogany root padding) and size classes.
+              seat: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
               // every bush renders as the same plain green sprite (an odd
@@ -1064,19 +1095,33 @@ Render.drawObjects = function drawObjects(scene) {
               after: (s, o) => {
                 if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
               } },
-    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold' : (_chestIsBox(o) ? 'box' : 'chest'),
+    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
+                        : (produceStandFor(o) ? 'market_stand'
+                        : (_chestIsBox(o) ? 'box' : 'chest')),
               // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
               // exactly like the themed-house sprites. The pot art is already
-              // gold, so no tint is applied.
-              frame: (o) => _isCoinBurst(o) ? undefined : 0,
-              origin: (o) => _isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9],
-              scale: (o) => _isCoinBurst(o) ? 1.4 : 2.0,
+              // gold, so no tint is applied. Produce stands pick the market_stand
+              // awning frame for their product family (see produceStandFor).
+              frame: (o) => { const st = produceStandFor(o);
+                              return _isCoinBurst(o) ? undefined : (st ? st.frame : 0); },
+              // Stand: 80×80 stall art, foot-anchored like a small house so its
+              // body rises north over the POI cell.
+              origin: (o) => produceStandFor(o) ? [0.5, 1.0]
+                           : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
+              // Crate (box sprite) renders 15% smaller than the chest: 2.0 → 1.7.
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 2.0)),
               dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
-              dyPx: (o) => _isCoinBurst(o) ? 8 : 0 },
+              // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
+              // the art's centroid down toward that anchor. Lift the crate back
+              // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
+              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              // Plain chests + crates obey the "one cell" rule (centred); produce
+              // stands and the pot-of-gold are structure-like and stay foot-anchored.
+              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -1098,16 +1143,18 @@ Render.drawObjects = function drawObjects(scene) {
                 // o.size crown class no longer shrinks them.
                 return base;
               },
+              // Fruit trees stand 10% taller than their width — stretch Y only.
+              // The seat pass measures the stretched art so the trunk base
+              // still lands 1px above the cell edge.
+              scaleYMul: 1.10,
+              // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
+              seat: true,
               after: (s, o) => {
                 // Dim a wild tree only while its fruit is regrowing; a planted
                 // sapling that hasn't matured yet is full-alpha (it's growing,
                 // not picked).
                 const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
                 s.setAlpha(dim ? 0.7 : 1);
-                // Fruit trees stand 10% taller than their width. The near-foot
-                // origin (0.5, 0.95) pins the root, so the extra height grows
-                // up from the trunk base rather than shifting the tree down.
-                s.setScale(s.scaleX, s.scaleY * 1.10);
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
@@ -1144,7 +1191,10 @@ Render.drawObjects = function drawObjects(scene) {
               // creatures; on a flat ground-resting rock it shoved the
               // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
               // read as off-centre by almost a whole cell.
-              origin: [0.5, 0.5], scale: 1.6 },
+              // Seat per the "one cell" rule — centres the small rock art in
+              // its cell (the art sits low in the 16px frame). origin/dyPx
+              // below are the no-SpriteLayout fallback.
+              origin: [0.5, 0.5], scale: 1.6, seat: true },
     // Stone pillar — decorative stand-in for OSM utility poles / posts. The
     // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
     // tall, so it sits inside a single square cell, foot-anchored near the
@@ -1155,7 +1205,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the pole shoved to one side ("right half only"). Anchor the origin at the
     // art's true horizontal centre (~0.25 of the frame) so the pole sits
     // centred on its cell.
-    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4 },
+    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
@@ -1163,7 +1213,7 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2 },
+    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
     // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
     // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
     // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
@@ -1201,12 +1251,16 @@ Render.drawObjects = function drawObjects(scene) {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      // dyFoot must match the house sprite's base (origin 1.0 + dyPx 2 ⇒ base
-      // at sy+2), so the contact shadow tucks under the building instead of
-      // sitting a few px below it (which read as the house floating).
-      let w = CELL_PX * 1.5, dyFoot = 2;
+      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5). Placing its
+      // centre AT the sprite base (sy+2) therefore left the ellipse's whole
+      // lower half — ~10px — dangling below the foot, reading as a detached
+      // shadow on the ground with the house floating above it. Lift the centre
+      // ABOVE the base so the bulk tucks behind/under the building and only a
+      // thin contact crescent shows at the foot, grounding it. Taller/wider
+      // buildings (fort) lift less since their footprint is broader.
+      let w = CELL_PX * 1.5, dyFoot = -4;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; dyFoot = 2; }
-      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = 4; }
+      else if (_houseRole(o) === 'fort') { w = CELL_PX * 2.4; dyFoot = -2; }
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.42)
        .setPosition(Math.round(sx), Math.round(sy) + dyFoot)
@@ -1221,9 +1275,10 @@ Render.drawObjects = function drawObjects(scene) {
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
     setTextureIfDifferent(s, texKey);
+    let frameVal;
     if (spec.frame !== undefined) {
-      const f = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-      if (s.frame.name !== f) s.setFrame(f);
+      frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
+      if (s.frame.name !== frameVal) s.setFrame(frameVal);
     }
     // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
     // table lives in shops.js so adding a new shop type is one-file work.
@@ -1241,12 +1296,38 @@ Render.drawObjects = function drawObjects(scene) {
     if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
       tint = SHINY_TINT;
     }
+    // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
+    // industrial lot) — only when nothing more specific (shop/shiny) already
+    // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
+    // A spec.after hook (e.g. mineralrock tier shading) may still override.
+    if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+      const bt = BiomeProfiles.tint(o._biome, o.kind);
+      if (bt) tint = bt;
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
-    const dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
+    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
+    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
+    // "One cell" placement rule (single source of truth: src/sprite_layout.js).
+    // Non-building world sprites are seated from their trimmed art bounds so
+    // they sit centred in their cell — or, when taller than a cell, with the
+    // bottom 1px above the cell's bottom edge — and never spill into the cell
+    // below; horizontally always centred. seatFrame pins the bounds lookup to
+    // a stable frame for animated sheets (e.g. the flickering bonfire) so the
+    // art doesn't bob frame-to-frame.
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    if (wantSeat && SL) {
+      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
+      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      if (bb) {
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        dxPx = seat.dxPx; dyPx = seat.dyPx;
+      }
+    }
     s.setOrigin(origin[0], origin[1])
-     .setScale(scl)
+     .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
@@ -1254,9 +1335,9 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o);
   });
 
-  // POI shape-pads — each POI type gets a distinct concrete-pad SHAPE.
-  // The chest sits in the shape's designated cell; the pad image is anchored
-  // so that cell's centre lines up with the chest's ground point.
+  // POI pads — one rounded, slightly-oversized concrete slab under every
+  // pad-bearing chest. The pad image is anchored so its cell centre lines up
+  // with the chest's ground point (the slab spills ~10% past the cell).
   // lowtier POIs (bus stops/intersections/fuel/etc.) skip the pad entirely.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
@@ -1682,7 +1763,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
   // labels, and pads — never gets occluded.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest');
+  // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
+  // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
+  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestIsBox(o));
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {
@@ -1691,9 +1774,9 @@ Render.drawObjects = function drawObjects(scene) {
     const tier = chestTier(o.poiClass);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
-    const cx = Math.round(sx - 1);
-    const cy = Math.round(sy - 18);
-    const r = 6;     // 20% smaller (was 8)
+    const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
+    const cy = Math.round(sy - 15);  // +3px down (was sy - 18)
+    const r = 4.8;   // 20% smaller (was 6)
     // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
     g.fillStyle(0x000000, 0.55);
     g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
@@ -1786,7 +1869,12 @@ Render.drawObjects = function drawObjects(scene) {
       const b = Math.round(lb + (hb - lb) * wave);
       s.setTint((r << 16) | (g << 8) | b);
     } else {
-      s.setTint(0xffffff);
+      // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
+      // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
+      // back to no tint (0xffffff) when the biome has no tint for this crop.
+      const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
+        ? BiomeProfiles.tint(p._biome, p.crop) : null;
+      s.setTint(bt || 0xffffff);
     }
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
@@ -1855,7 +1943,7 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + app.js
+  const STAGE_HOLD_MS = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
@@ -1960,6 +2048,27 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(Math.floor(performance.now() / 100) % 7);
       s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
       s.setFlipX(!!c._faceFlip);
+    } else if (isMonster(c.kind)) {
+      // Placeholder art: underground monsters reuse the slime sheet, recoloured
+      // per kind via the unified setTint() below. Same idle squish loop + a
+      // continuous hop; flyers (bats) float higher and bob faster so they read
+      // as airborne. Swap in a dedicated sheet later by giving the kind its own
+      // texture key here + an assets.js entry.
+      const m = MONSTERS[c.kind];
+      if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
+      s.setFrame(Math.floor(performance.now() / 160) % 4);
+      if (c._hopSeed == null) {
+        let h = 0; const id = c.id || '';
+        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+        c._hopSeed = h % 600;
+      }
+      const period = m.fly ? 320 : 600;
+      const ph = ((performance.now() + c._hopSeed) % period) / period;
+      const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
+      const floatPx = m.fly ? 8 : 0;   // bats hover off the floor
+      s.setOrigin(0.5, 0.9).setScale(m.fly ? 0.95 : 1.25)
+       .setPosition(Math.round(sx), Math.round(sy) - Math.round(hopPx) - floatPx);
+      s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'slime') {
       // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
       // vertical hop — phase-offset per slime via a cached id hash — gives the
@@ -1983,8 +2092,58 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
       s.setFlipX(!!c._faceFlip);
     }
-    // Rare shiny animals wear the warm sheen. Pooled sprites keep their last
-    // tint, so set white explicitly for the common (non-shiny) case.
-    s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
+    // Rare shiny animals wear the warm sheen; underground monsters wear their
+    // per-kind placeholder tint. Pooled sprites keep their last tint, so set an
+    // explicit colour every frame (white for the common, plain case).
+    s.setTint(isMonster(c.kind) ? MONSTERS[c.kind].tint
+            : c.shiny ? SHINY_TINT : 0xffffff);
+  });
+
+  // Renderer-AGNOSTIC shiny markers. The gold setTint() above (and on trees /
+  // wild flora) is a WebGL multiply that silently does NOTHING under Phaser's
+  // Canvas fallback, so on those devices a shiny animal/plant looked identical
+  // to a plain one — players reported never seeing shinies. Float a baked-gold
+  // sparkle above every shiny entity instead: its colour is in the texture and
+  // it animates with pure transforms (scale / alpha / rotation + a small bob),
+  // both of which render under WebGL and Canvas alike. The existing tint/twinkle
+  // stays as an extra flourish where WebGL is available.
+  const sparkList = [];
+  const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
+  for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
+  for (const it of plantedList) {
+    if (it.p.wildId && isShiny(it.p.wildId, SHINY_RATE.flora)) pushSpark(it, it.p.wildId);
+  }
+  // Iterate filteredObj, NOT objList: a chopped shiny tree is still in objList
+  // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
+  // renders no sprite. Sparking off objList left a gold sparkle hovering over
+  // the now-empty cell — the "sparkle on the road with nothing under it" bug.
+  for (const it of filteredObj) {
+    if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
+      pushSpark(it, it.o.id);
+    }
+  }
+  const _sparkNow = Date.now();
+  Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkList, (s, item) => {
+    setTextureIfDifferent(s, 'shiny_spark');
+    const { sx, sy } = project(item.dx, item.dy);
+    // Desync each marker's twinkle off a stable per-id phase so a cluster of
+    // shinies shimmers out of step rather than blinking in unison.
+    let h = 0; const id = item.id;
+    for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+    const phase = ((_sparkNow + (h % 1300)) % 1300) / 1300;        // 0..1
+    const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
+    const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
+    const scl = 0.5 + 0.30 * wave;                                 // ~16..~26px from 32px tex
+    // Pin the sparkle's TOP to the cell's top edge (origin is centred, so add
+    // half the scaled height) so it sits AT THE TOP of, but INSIDE, the cell —
+    // growing downward as it twinkles instead of floating above the cell.
+    const halfH = 16 * scl;                                        // half the scaled 32px texture
+    const yTop = sy - CELL_PX / 2 + 1;                             // cell top, 1px inset
+    s.setOrigin(0.5, 0.5)
+     .setScale(scl)
+     .setAlpha(0.55 + 0.45 * wave)
+     .setAngle(phase * 360)                                        // slow shimmer spin
+     .setTint(0xffffff)
+     .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
 };
