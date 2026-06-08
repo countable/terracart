@@ -66,12 +66,14 @@ if (BASELINE) {
   }
 }
 
-// Dot SIZE encodes crown size in 3 tiers (not to scale); dot COLOR encodes
-// confidence. Tier cut-points are on crown_m (diameter, metres).
+// Dot SIZE encodes crown size in 4 tiers (not to scale); dot COLOR encodes
+// confidence. Tier cut-points are on crown_m (diameter, metres) and mirror
+// the in-game classifier (satextract/trees.py): smallest crowns are bushes.
 function crownTier(c) {
-  if (c < 2.0) return { px: 4, name: "small (<2 m)" };
-  if (c < 3.5) return { px: 6.5, name: "medium (2–3.5 m)" };
-  return { px: 9, name: "large (≥3.5 m)" };
+  if (c < 1.8) return { px: 3, name: "bush (<1.8 m)" };
+  if (c < 2.5) return { px: 5, name: "small (1.8–2.5 m)" };
+  if (c < 4.0) return { px: 7, name: "medium (2.5–4 m)" };
+  return { px: 9, name: "large (≥4 m)" };
 }
 let markers = [];
 for (const f of FEATURES.features) {
@@ -113,8 +115,9 @@ ctrl.onAdd = () => {
     `<span class="swatch" style="background:${scoreColor(0.4)}"></span>mid ` +
     `<span class="swatch" style="background:${scoreColor(0.7)}"></span>high</div>` +
     `<div style="margin-top:4px" class="muted">size = crown<br>` +
-    `<span class="swatch" style="width:8px;height:8px;background:#777"></span>small ` +
-    `<span class="swatch" style="width:13px;height:13px;background:#777"></span>med ` +
+    `<span class="swatch" style="width:6px;height:6px;background:#777"></span>bush ` +
+    `<span class="swatch" style="width:10px;height:10px;background:#777"></span>small ` +
+    `<span class="swatch" style="width:14px;height:14px;background:#777"></span>med ` +
     `<span class="swatch" style="width:18px;height:18px;background:#777"></span>large</div>`;
   L.DomEvent.disableClickPropagation(d);
   return d;

@@ -219,7 +219,10 @@
     //    the tree to be flagged chopped and 'tree' produce in the inventory.
     async chop_tree() {
       const s = S();
-      setRelic('axe', 1);
+      // Top-tier axe so the nearest tree fells regardless of its size class
+      // (bush→large), species shift (softwood/hardwood), or shiny status —
+      // the test verifies the chop flow, not the axe-tier gate.
+      setRelic('axe', 4);
       const tree = nearestObject(o => o.kind === 'tree' && !o.chopped);
       if (!tree) return { name: 'chop_tree', pass: false, details: 'no tree near player' };
       teleportAdjacent(tree, 'south', 1);

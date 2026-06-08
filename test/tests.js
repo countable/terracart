@@ -138,11 +138,13 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
 // (not just the math), which is the regression surface for both bugs.
 test('reach shape includes (±1, ±3) and (±3, ±1); origin is the FEET cell', (scene) => {
   // Base reach is now 2 cells; this test pins down the 3-CELL rounded-square
-  // geometry, so grant 2 shrine reach upgrades (2 + 0.5×2 = 3 cells) and keep
-  // energy full so the <30%-energy −1-cell penalty doesn't shrink it.
+  // geometry. On the surface the light reaches half a cell further (coords.js
+  // reachRadiusM), so ONE reach upgrade (2 + 0.5×1 = 2.5) + the +0.5 surface
+  // bonus = 3.0 cells. Keep energy full so the <30%-energy −1-cell penalty
+  // doesn't shrink it. (Depth defaults to 0 here, i.e. the surface.)
   const _savedUpgrades = scene.save.reachUpgrades;
   const _savedEnergy = scene.save.energy;
-  scene.save.reachUpgrades = 2;
+  scene.save.reachUpgrades = 1;
   scene.save.energy = scene.save.maxEnergy ?? 100;
   // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
@@ -395,13 +397,15 @@ test('water cells are blocked from tilling', (scene) => {
 // 5. Pad shape mapping
 // ───────────────────────────────────────────────────────────────────────
 
-test('POI categories resolve to expected pad shapes', () => {
-  assert.eq(padShapeKeyForPoi('school'), 'triangle', 'school → triangle');
-  assert.eq(padShapeKeyForPoi('pitch'), 'square2', 'pitch → square2');
-  assert.eq(padShapeKeyForPoi('place_of_worship'), 'cross', 'chapel → cross');
-  assert.eq(padShapeKeyForPoi('pharmacy'), 'cross', 'pharmacy → cross');
-  assert.eq(padShapeKeyForPoi('restaurant'), 'line3h', 'restaurant → line3h (food)');
-  assert.eq(padShapeKeyForPoi('playground'), 'line3v', 'playground → line3v');
+test('pad-bearing POIs resolve to the single round pad', () => {
+  // Every pad-bearing POI now gets the same single rounded pad.
+  assert.eq(padShapeKeyForPoi('school'), 'round1', 'school → round1');
+  assert.eq(padShapeKeyForPoi('pitch'), 'round1', 'pitch → round1');
+  assert.eq(padShapeKeyForPoi('place_of_worship'), 'round1', 'chapel → round1');
+  assert.eq(padShapeKeyForPoi('pharmacy'), 'round1', 'pharmacy → round1');
+  assert.eq(padShapeKeyForPoi('restaurant'), 'round1', 'restaurant → round1 (food)');
+  assert.eq(padShapeKeyForPoi('playground'), 'round1', 'playground → round1');
+  // Lowtier classes still render a bare chest with no pad.
   assert.eq(padShapeKeyForPoi('bus'), null, 'bus → no pad');
   assert.eq(padShapeKeyForPoi('gate'), null, 'gate → no pad');
 });
@@ -1118,13 +1122,32 @@ test('eating pairy arms chest compass for 5 minutes toward nearest unopened ches
 });
 
 test('pick relic reduces rock-break energy cost', () => {
-  const base = effectivePickCost(null);
-  assert.eq(base, ENERGY_COST.rockBreak, 'no relic = base cost');
-  const t1 = effectivePickCost({ pick: { tier: 1 } });
-  const t7 = effectivePickCost({ pick: { tier: 7 } });
-  assert.lt(t1, base, 'tier-1 pick cheaper than no pick');
-  assert.lt(t7, t1,   'tier-7 pick cheaper than tier-1');
-  assert.gt(t7, 1,    'cost floors at 2 (not 0)');
+  // Anchors are exact integers, so deterministic regardless of rng.
+  assert.eq(effectivePickCost(null), 9, 'bare-handed rock-break = 9');
+  assert.eq(effectivePickCost(null), ENERGY_COST.rockBreak, 'no relic = base cost');
+  assert.eq(effectivePickCost({ pick: { tier: 1 } }), 3, 'Wood pick = 3');
+  assert.eq(effectivePickCost({ pick: { tier: 4 } }), 2, 'Iron (tier-4) pick = 2');
+  assert.eq(effectivePickCost({ pick: { tier: 7 } }), 1, 'Frost pick = 1');
+});
+
+test('tool energy is probabilistically rounded at in-between tiers', () => {
+  // Tier-2 expects 2.667: spend 3 when the roll lands under the .667 fraction,
+  // 2 otherwise. Inject the rng so the branch is deterministic in the test.
+  const t2 = { pick: { tier: 2 } };
+  assert.eq(effectivePickCost(t2, () => 0.0),  3, 'low roll rounds 2.667 up to 3');
+  assert.eq(effectivePickCost(t2, () => 0.99), 2, 'high roll rounds 2.667 down to 2');
+});
+
+test('bug net reduces catch energy (9 bare → 3 Wood → 1 Frost)', () => {
+  assert.eq(effectiveCatchCost(null), 9, 'bare-handed catch = 9');
+  assert.eq(effectiveCatchCost({ bugnet: { tier: 1 } }), 3, 'Wood net = 3');
+  assert.eq(effectiveCatchCost({ bugnet: { tier: 7 } }), 1, 'Frost net = 1');
+});
+
+test('fishing rod reduces cast energy (9 bare → 3 Wood → 1 Frost)', () => {
+  assert.eq(effectiveFishCost(null), 9, 'bare-handed cast = 9');
+  assert.eq(effectiveFishCost({ rod: { tier: 1 } }), 3, 'Wood rod = 3');
+  assert.eq(effectiveFishCost({ rod: { tier: 7 } }), 1, 'Frost rod = 1');
 });
 
 test('ring relic boosts loot tier roll (forced RNG)', () => {
@@ -1254,19 +1277,24 @@ test('castle always offers relics with no rate-limit', (scene) => {
   assert.gt(opened, 5, 'castle keeps opening relic offers');
 });
 
-test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (scene) => {
+test('castle delivery gate ramps per castle, then opens the vault', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
   scene.save.money = 100000000;
   scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
   scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.openedCastles = {};
   const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, castle.x, castle.y - 2);
+  // The FIRST castle asks only CASTLE_DELIVERY_GATE_START deliveries (the
+  // bottom of the ramp), not the full CASTLE_DELIVERY_GATE.
+  assert.eq(scene._deliveryGate(castle), CASTLE_DELIVERY_GATE_START,
+    'first castle gates at the start of the ramp');
   // (1) Below the gate → first tap shows the locked info modal (no Buy button,
   // a disabled "Locked" action), not the relic vault.
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE - 1;
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START - 1;
   scene.shopInteract(0, 0, castle);
   let m = document.getElementById('offer-modal');
   assert.truthy(m, 'sealed castle opens an info modal');
@@ -1275,39 +1303,69 @@ test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (s
   const locked = [...m.querySelectorAll('button')].find(b => /locked/i.test(b.textContent));
   assert.truthy(locked && locked.disabled, 'Locked action is present and disabled');
   m?.remove();
-  // (2) Exactly at the gate → the relic vault opens (a "Buy" button).
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE;
+  // (2) Exactly at the gate → the relic vault opens (a "Buy" button) and the
+  // castle is recorded as opened.
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START;
   scene.shopInteract(0, 0, castle);
   m = document.getElementById('offer-modal');
   buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
   assert.truthy(buy, 'castle opens the relic vault at the delivery gate');
+  assert.truthy(scene.save.openedCastles['test_castle_gate'], 'castle recorded as opened');
   document.getElementById('offer-modal')?.remove();
+  // (3) A SECOND castle now steps one further up the ramp.
+  const castle2 = { kind: 'tower', id: 'test_castle_gate_2', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  assert.eq(scene._deliveryGate(castle2),
+    CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP,
+    'second castle gates one step higher');
 });
 
-test('fort stays barred until 2 lifetime deliveries, then trades', (scene) => {
+test('fort wood cost ramps per fort, then trades once unsealed', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
   scene.save.money = 100000000;
   scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
   scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.unlockedForts = {};
   const fort = { kind: 'house', id: 'test_fort_gate', tier: 11,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, fort.x, fort.y - 2);
-  // Below the gate → locked info modal, no Buy.
-  scene.save.deliveryCount = FORT_DELIVERY_GATE - 1;
+  // The FIRST fort costs only FORT_UNLOCK_WOOD_START wood (bottom of the ramp).
+  assert.eq(scene._fortUnlockCost(), FORT_UNLOCK_WOOD_START,
+    'first fort costs the start of the ramp');
+  // (1) Without the wood → the unseal modal shows, with the Unseal action
+  // disabled (can't afford) and no relic Buy yet.
   scene.shopInteract(0, 0, fort);
   let m = document.getElementById('offer-modal');
-  assert.truthy(m, 'barred fort opens an info modal');
+  assert.truthy(m, 'sealed fort opens the unseal modal');
   let buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.falsy(buy, 'no Buy button while barred');
+  assert.falsy(buy, 'no Buy button while sealed');
+  const unseal = [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
+  assert.truthy(unseal && unseal.disabled, 'Unseal action present and disabled without wood');
   m?.remove();
-  // At the gate → the fort quartermaster trades (a "Buy" button).
-  scene.save.deliveryCount = FORT_DELIVERY_GATE;
+  // (2) With the ramped wood → tapping Unseal pays the wood and records it.
+  scene.save.inv = [{ id: 'wood', count: FORT_UNLOCK_WOOD_START }];
+  scene.shopInteract(0, 0, fort);
+  m = document.getElementById('offer-modal');
+  const unseal2 = m && [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
+  assert.truthy(unseal2 && !unseal2.disabled, 'Unseal enabled once the wood is in bags');
+  unseal2.click();
+  assert.truthy(scene.save.unlockedForts['test_fort_gate'], 'fort recorded as unsealed');
+  const woodLeft = (scene.save.inv.find(s => s && s.id === 'wood')?.count) ?? 0;
+  assert.eq(woodLeft, 0, 'the start wood was consumed');
+  document.getElementById('offer-modal')?.remove();
+  document.getElementById('chest-reward-modal')?.remove();
+  // (3) After unsealing → the quartermaster trades (a "Buy" button).
   scene.shopInteract(0, 0, fort);
   m = document.getElementById('offer-modal');
   buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.truthy(buy, 'fort trades at the delivery gate');
+  assert.truthy(buy, 'fort trades once unsealed');
   document.getElementById('offer-modal')?.remove();
+  // (4) A SECOND fort now steps one increment up the ramp.
+  assert.eq(scene._fortUnlockCost(),
+    FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP,
+    'second fort costs one step higher');
 });
 
 test('re-roll button is hidden on non-castle relic offers', (scene) => {
@@ -1867,9 +1925,10 @@ test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'), 0, 'no gold bar when ore roll fails');
 });
 
-test('mineralrock cave drop: lucky T1 ore strike when roll succeeds', (scene) => {
+test('mineralrock cave drop: lucky ore strike when roll succeeds', (scene) => {
   // Same cave rock, but every Math.random returns 0 so ALL per-tier ore
-  // rolls succeed. Cave should yield 1 of every BARS[t] entry (T1-T7).
+  // rolls succeed. BARS[1]=BARS[2]=copper, so the T1 and T2 rolls both crack
+  // copper; T3-T7 each crack their own namesake bar.
   const mr = findObject(o => o.kind === 'mineralrock');
   if (!mr) return;
   delete mr.yieldTier;
@@ -1889,10 +1948,16 @@ test('mineralrock cave drop: lucky T1 ore strike when roll succeeds', (scene) =>
   scene.startWorkProgress = (wx, wy, cb, durMs) => cb();
   try { tapWorld(scene, mr.x, mr.y); }
   finally { scene.startWorkProgress = origStart; Math.random = origRandom; }
-  // Each tier roll succeeds → copper (T1+T2), iron (T3), gold (T4-T7).
-  assert.eq(invCount(scene, 'copper_bar'), 2, 'T1 + T2 rolls → 2 copper bars');
-  assert.eq(invCount(scene, 'iron_bar'),   1, 'T3 roll → 1 iron bar');
-  assert.eq(invCount(scene, 'gold_bar'),   4, 'T4-T7 rolls → 4 gold bars');
+  // BARS[1]=BARS[2]=copper, so T1 and T2 rolls each crack a copper sliver
+  // (→ 2 copper); T3-T7 each add their own namesake bar. A plain rock's
+  // lucky-strike can still surface low-tier copper even though its PRIMARY
+  // drop is just stone — that's the "lucky" part.
+  assert.eq(invCount(scene, 'copper_bar'),   2, 'T1 + T2 rolls → 2 copper bars');
+  assert.eq(invCount(scene, 'iron_bar'),     1, 'T3 roll → 1 iron bar');
+  assert.eq(invCount(scene, 'gold_bar'),     1, 'T4 roll → 1 gold bar');
+  assert.eq(invCount(scene, 'platinum_bar'), 1, 'T5 roll → 1 platinum bar');
+  assert.eq(invCount(scene, 'crimson_bar'),  1, 'T6 roll → 1 crimson bar');
+  assert.eq(invCount(scene, 'frost_bar'),    1, 'T7 roll → 1 frost bar');
 });
 
 test('mineralrock cave drop: no ore on T1 fail', (scene) => {
@@ -2217,14 +2282,29 @@ test('chicken release: needs ≥4 in stack, then places 4 spread out', (scene) =
   scene.save.released = [];
   scene.save.inv = [{ id: 'chicken', count: 3 }];
   scene.save.selSlot = 0;
-  // Find an empty tillable grass cell to release onto.
+  // Find a CLEAR tillable grass cell to release onto — one with no object,
+  // wildplant, or uncaught creature within tap reach. The object/creature tap
+  // handlers out-rank 'release' in dispatch, so a grass cell that happens to
+  // sit under a tree/chest/rock would eat the tap and release nothing. 3.6m
+  // clearance (> the 3.5m object reach, and > a cell's half-diagonal) keeps the
+  // tapped cell itself empty too.
+  const REACH = 3.6;
+  const caughtSet = new Set(scene.save.caught);
+  const cellClear = (wx, wy) => {
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) if (Math.hypot(o.x - wx, o.y - wy) < REACH) return false;
+      for (const wp of (e.wildplants || [])) if (Math.hypot(wp.x - wx, wp.y - wy) < REACH) return false;
+      for (const c of (e.creatures || [])) if (!caughtSet.has(c.id) && Math.hypot(c.x - wx, c.y - wy) < REACH) return false;
+    }
+    return true;
+  };
   let target = null;
-  for (let d = 1; d < 8 && !target; d++) {
-    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d]]) {
+  for (let d = 1; d < 12 && !target; d++) {
+    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d], [d, -d], [-d, d]]) {
       const wx = scene.startWorldM.x + dx * scene.cellM;
       const wy = scene.startWorldM.y + dy * scene.cellM;
       const c = scene.cellAt(wx, wy);
-      if (c.loaded && c.type === 0) { target = { wx, wy }; break; }
+      if (c.loaded && c.type === 0 && cellClear(wx, wy)) { target = { wx, wy }; break; }
     }
   }
   if (!target) return;
@@ -2639,14 +2719,17 @@ test('bars: all six tiers registered as mineral-kind with ascending price + matc
   }
 });
 
-test('bars: inventory icons route to the bars sheet at tier-ordered frames', () => {
+test('bars: inventory icons route to the bars sheet at the bar/ore-paired frames', () => {
   if (typeof inventoryIconSource !== 'function') return;
   const order = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  // The bars sheet interleaves bar/ore pairs, so the real ingots sit at
+  // frames 0,2,16,18,32,34 — NOT a flat 0..5 run (see items.js MINERAL_ICON_SHEET).
+  const frames = [0, 2, 16, 18, 32, 34];
   order.forEach((id, idx) => {
     const src = inventoryIconSource(id);
     assert.truthy(src, id + ' has icon source');
     assert.eq(src.sheet, 'bars', id + ' routed to bars sheet');
-    assert.eq(src.frame, idx, id + ' frame index = ' + idx);
+    assert.eq(src.frame, frames[idx], id + ' frame index = ' + frames[idx]);
   });
 });
 
@@ -2708,7 +2791,7 @@ test('smeltingRecipe: T2-T4 bars are non-smeltable; T5-T7 each consume 1 flower 
   assert.eq(scene.smeltingRecipe('not_a_bar'), null, 'unknown bar id → null');
 });
 
-test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iron, T4+ gold)', (scene) => {
+test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own namesake bar)', (scene) => {
   // ORE rocks (caveVariant == null) give a deterministic primary bar keyed on
   // their YIELD tier — that's the BARS[] mapping in interact.js. CAVE rocks
   // instead drop rockfruit plus only a *probabilistic* bar, so we skip them
@@ -2716,8 +2799,12 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (T1-2 copper, T3 iro
   // pick gate) is NOT the same as its yieldTier (what it pays out), so we key
   // on yieldTier. The primary bar drop is unconditional, so no Math.random pin
   // is needed; we only stub the incidental flash.
-  const expected = { 1: 'copper_bar', 2: 'copper_bar', 3: 'iron_bar',
-                     4: 'gold_bar',   5: 'gold_bar',   6: 'gold_bar', 7: 'gold_bar' };
+  // T1 "ore" is plain rock — its PRIMARY drop is stone (rockfruit), not a
+  // guaranteed bar (a lucky strike may still surface low-tier copper). Copper
+  // (T2) is the first tier whose primary drop is an ingot; each higher tier
+  // then yields its OWN namesake bar (no collapsing to gold). See BARS[]+isPlain.
+  const expected = { 1: 'rockfruit', 2: 'copper_bar', 3: 'iron_bar',
+                     4: 'gold_bar',   5: 'platinum_bar', 6: 'crimson_bar', 7: 'frost_bar' };
   // Group ore rocks by yield tier. A world tap resolves to the FIRST object
   // within 3.5 m of the tap point — and rocks sit in dense fields, so a tap
   // aimed at one rock can land on a neighbouring object instead. We therefore

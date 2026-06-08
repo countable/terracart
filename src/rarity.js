@@ -223,7 +223,7 @@
     // peers at the same tier without us re-tiering them.
     let total = 0;
     const weights = pool.map(id => {
-      const w = ITEM_BY_ID[id]?.dropWeight;
+      const w = _ITEM_BY_ID[id]?.dropWeight;
       const v = (typeof w === 'number' && w > 0) ? w : 1;
       total += v;
       return v;
@@ -250,6 +250,16 @@
     t = owned;
     const priceFor = (tier) => (typeof _gearPrice === 'function')
       ? _gearPrice('relic', slot, tier) : 0;
+    // Slot already maxed at T7: there's nothing to climb to, so cash out
+    // consolation gold rather than handing back a useless duplicate relic.
+    if (t >= 7) {
+      return {
+        kind: 'gold',
+        slot, tier: 7,
+        amount: Math.max(1, Math.floor(priceFor(7) / 2)),
+        jackpot: rolled.jackpot || 0,
+      };
+    }
     while (t < 7) {
       if (rng() < RARITY_TUNING.walkUpStepP) {
         return {

@@ -112,7 +112,7 @@
       s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('peach', 6, 0);
       s.fruitTree('apple', 0, 3);   s.fruitTree('peach', 6, 3);
       s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('peach', 6, 6);
-      s.chest('park', 'Sandbox Orchard', 3, 3);   // square3 pad
+      s.chest('park', 'Sandbox Orchard', 3, 3);   // round pad
     },
   };
 
@@ -181,10 +181,12 @@
   // ── MARSH — WETLAND (top) + GOLF (bottom), both grassland-family.
   //    Longgrass only on the golf half (wetland doesn't grow it).
   const MARSH = {
-    name: 'MARSH', label: 'WETLAND · GOLF', w: 6, h: 7, fill: T.WETLAND,
-    paint(p) { p.rect(0, 4, 6, 3, T.GOLF); },
+    name: 'MARSH', label: 'WETLAND · GOLF', w: 8, h: 12, fill: T.WETLAND,
+    subLabels: [{ label: 'WETLAND', dx: 4, dy: 3 }, { label: 'GOLF', dx: 4, dy: 9 }],
+    paint(p) { p.rect(0, 7, 8, 5, T.GOLF); },   // wetland rows 0-6, golf rows 7-11
     populate(s) {
-      s.wildplant('longgrass', 2, 4); s.wildplant('longgrass', 4, 5);
+      // Sample tufts; the real per-biome distribution is added by scatterSandboxFlora.
+      s.wildplant('longgrass', 2, 8); s.wildplant('longgrass', 5, 9);   // on golf
     },
   };
 
@@ -213,7 +215,7 @@
     populate(s) {
       s.creature('chicken', 0, 0, 1); s.creature('chicken', 9, 0, 2);
       s.creature('cow', 0, 7, 1);     s.creature('cow', 9, 7, 2);
-      s.chest('farm', 'Sandbox Farm', 5, 4);   // square3 pad, +1 bonus yield
+      s.chest('farm', 'Sandbox Farm', 5, 4);   // round pad, +1 bonus yield
     },
   };
 
@@ -252,22 +254,24 @@
   };
 
   // ── CIVIC BLOCK — SCHOOL, COMMERCIAL, INDUSTRIAL terrains, each with a chest
-  //    whose pad shape differs (school→triangle, shop→line3h, hospital→cross),
+  //    (school / shop / hospital — all now share the one rounded pad),
   //    linked by a named PATH (covers terrain 8 + the path-stone claim loop).
   //    Industrial mineral rocks for good measure.
   const CIVIC = {
-    name: 'CIVIC', label: 'CIVIC BLOCK', w: 12, h: 8, fill: T.GRASS,
+    name: 'CIVIC', label: 'CIVIC BLOCK', w: 16, h: 12, fill: T.GRASS,
+    subLabels: [{ label: 'SCHOOL', dx: 3, dy: 2 }, { label: 'COMMERCIAL', dx: 11, dy: 5 },
+                { label: 'INDUSTRIAL', dx: 3, dy: 8 }],
     paint(p) {
-      p.rect(0, 0, 4, 3, T.SCHOOL);
-      p.rect(5, 0, 4, 3, T.COMMERCIAL);
-      p.rect(9, 0, 3, 8, T.INDUSTRIAL);
-      for (let dx = 0; dx < 12; dx++) { p.cell(dx, 5, T.PATH); p.pathName(dx, 5, 'Garden Path'); }
+      p.rect(0, 0, 7, 5, T.SCHOOL);          // top-left
+      p.rect(0, 6, 7, 5, T.INDUSTRIAL);      // bottom-left
+      p.rect(8, 0, 8, 11, T.COMMERCIAL);     // right column — big enough to read the hedge maze
+      for (let dx = 0; dx < 16; dx++) { p.cell(dx, 11, T.PATH); p.pathName(dx, 11, 'Garden Path'); }
     },
     populate(s) {
-      s.chest('school', 'Sandbox School', 1, 1);       // triangle pad
-      s.chest('shop', 'Sandbox Commerce', 6, 1);       // line3h pad
-      s.chest('hospital', 'Sandbox Hospital', 10, 1);  // cross pad
-      s.mineralRock(2, 10, 6); s.mineralRock(3, 11, 7);
+      s.chest('school', 'Sandbox School', 3, 2);       // round pad
+      s.chest('shop', 'Sandbox Commerce', 11, 3);      // round pad
+      s.chest('hospital', 'Sandbox Hospital', 3, 8);   // round pad
+      s.mineralRock(2, 5, 8); s.mineralRock(3, 6, 9);  // industrial ore
     },
   };
 
@@ -287,24 +291,26 @@
     },
   };
 
-  // ── RECREATION — PARK + PLAYGROUND + PITCH. Park chest (square3), playground
-  //    chest (line3v), pitch chest (square2). Shrubs, longgrass, a cat & dog,
+  // ── RECREATION — PARK + PLAYGROUND + PITCH. Park / playground / pitch chests
+  //    all share the one rounded pad. Shrubs, longgrass, a cat & dog,
   //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
   const RECREATION = {
-    name: 'RECREATION', label: 'PARK · PLAYGROUND · PITCH', w: 15, h: 8, fill: T.PARK,
+    name: 'RECREATION', label: 'PARK · PLAYGROUND · PITCH', w: 24, h: 12, fill: T.PARK,
+    subLabels: [{ label: 'PARK', dx: 4, dy: 6 }, { label: 'PLAYGROUND', dx: 12, dy: 6 },
+                { label: 'PITCH', dx: 20, dy: 6 }],
     paint(p) {
-      p.rect(9, 0, 3, 8, T.PLAYGROUND);
-      p.rect(12, 0, 3, 8, T.PITCH);
+      p.rect(9, 0, 7, 12, T.PLAYGROUND);   // cols 9-15
+      p.rect(16, 0, 8, 12, T.PITCH);       // cols 16-23
     },
     populate(s) {
-      s.wildplant('shrub', 0, 0); s.wildplant('shrub', 8, 0);
+      s.wildplant('shrub', 0, 0); s.wildplant('shrub', 7, 0);
       s.wildplant('longgrass', 0, 4);
-      s.creature('cat', 1, 7, 1); s.creature('dog', 8, 7, 2);
+      s.creature('cat', 1, 10, 1); s.creature('dog', 6, 10, 2);
       s.creature('crow', 4, 0, 1);            // pest; scarecrow seeded at (4,1)
       s.creature('butterfly', 7, 2, 2);       // second wild butterfly
       s.chest('park', 'Sandbox Park', 4, 4);
-      s.chest('playground', 'Sandbox Playground', 10, 4);
-      s.chest('pitch', 'Sandbox Pitch', 13, 4);
+      s.chest('playground', 'Sandbox Playground', 12, 6);
+      s.chest('pitch', 'Sandbox Pitch', 20, 6);
     },
   };
 
@@ -399,7 +405,7 @@
     });
 
     populate({ grid, objects, wildplants, creatures, roadLetters, pathNames,
-               cellsPerEdge, wmAt, tx, ty });
+               cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM });
 
     return {
       status: 'ready',
@@ -511,6 +517,77 @@
   // Lay every scene + connective road into the centre tile's grid, and push
   // every scene's static interactables. Called once per sandbox install (via
   // makeTileEntry's populate hook for the centre tile only).
+  // Run the REAL per-biome flora distribution (BIOME_PROFILES) over every scene
+  // so the sandbox shows each biome's actual interactable spread — density,
+  // dominant flora, the commercial hedge maze — instead of only the few
+  // hand-placed sample sprites. This is what makes "empty" zones like the pitch
+  // or golf course actually populate, and lets a tester eyeball the tuning.
+  // Mirrors worldgen: one stable density per (scene, crop) then a per-cell roll;
+  // hedgemaze uses the same lattice rule. Skips cells already taken by a placed
+  // object or sample wildplant, and reads each cell's ACTUAL terrain so painted
+  // sub-zones (golf within marsh, the road through residential…) are respected.
+  function scatterSandboxFlora(originIX, originIY, c) {
+    if (typeof BiomeProfiles === 'undefined' || typeof WorldGen === 'undefined') return;
+    const { grid, objects, wildplants, cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM } = c;
+    const occupied = new Set();
+    const key = (ix, iy) => `${ix}_${iy}`;
+    for (const o of objects) {
+      const ix = Math.round((o.x - tx * tileEdgeM) / cellM - 0.5);
+      const iy = Math.round((o.y - ty * tileEdgeM) / cellM - 0.5);
+      occupied.add(key(ix, iy));
+    }
+    for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
+    const hashStr = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+    const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
+    const place = (ix, iy, crop, t) => {
+      const kk = key(ix, iy);
+      if (occupied.has(kk)) return false;
+      occupied.add(kk);
+      const { x, y } = wmAt(ix, iy);
+      wildplants.push({ x, y, crop, _biome: t, _ix: ix, _iy: iy, id: `sbflora_${crop}_${ix}_${iy}` });
+      return true;
+    };
+    for (const s of LAYOUT.scenes) {
+      const byT = new Map();
+      for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
+        const ix = originIX + s.lx + dx, iy = originIY + s.ly + dy;
+        if (ix < 0 || iy < 0 || ix >= cellsPerEdge || iy >= cellsPerEdge) continue;
+        const t = grid[iy * cellsPerEdge + ix];
+        let arr = byT.get(t); if (!arr) { arr = []; byT.set(t, arr); }
+        arr.push([ix, iy]);
+      }
+      for (const [t, cells] of byT) {
+        for (const fl of BiomeProfiles.flora(t)) {
+          const salt = fl.salt >>> 0;
+          if (fl.pattern === 'hedgemaze') {
+            const P = 3;
+            for (const [ix, iy] of cells) {
+              const mx = ((ix % P) + P) % P, my = ((iy % P) + P) % P;
+              let hedge;
+              if (mx === 0 && my === 0) hedge = true;
+              else if (my === 0 && mx !== 0) hedge = wallOn(Math.floor(ix / P), iy, 0, salt);
+              else if (mx === 0 && my !== 0) hedge = wallOn(ix, Math.floor(iy / P), 1, salt);
+              else hedge = false;
+              if (hedge) place(ix, iy, fl.crop, t);
+            }
+          } else {
+            const rng = WorldGen.makeRng(hashStr(`${s.name}|${fl.crop}|${salt}`));
+            // Bias dynamic densities to the upper half of their range so no test
+            // zone comes out empty by an unlucky roll (worldgen uses the full
+            // [0, dMax]; here we want every biome's flora visibly represented).
+            const density = fl.dynamic ? (0.5 + 0.5 * rng()) * fl.dMax
+                                       : (fl.dMin + rng() * (fl.dMax - fl.dMin));
+            let placed = 0;
+            for (const [ix, iy] of cells) if (rng() < density && place(ix, iy, fl.crop, t)) placed++;
+            // Guarantee at least one sample per (zone, crop) so a low-density
+            // biome never reads as empty in the test sandbox.
+            if (placed === 0) for (const [ix, iy] of cells) if (place(ix, iy, fl.crop, t)) break;
+          }
+        }
+      }
+    }
+  }
+
   function populateSandbox(originIX, originIY, c) {
     const { grid, objects, wildplants, creatures, roadLetters, pathNames,
             cellsPerEdge, wmAt, tx, ty } = c;
@@ -560,6 +637,11 @@
         }
       }
     }
+
+    // Finally, scatter the real per-biome flora distribution over every scene
+    // (after roads, so road cells are correctly excluded). Runs last so it can
+    // see all placed objects + sample wildplants and avoid their cells.
+    scatterSandboxFlora(originIX, originIY, c);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -832,12 +914,13 @@
     }
     scene._sandboxLabels.removeAll(true);
     scene._sandboxLabelData = [];
-    for (const s of LAYOUT.scenes) {
-      const cellIX = originIX + s.lx + Math.floor(s.w / 2);
-      const cellIY = originIY + s.ly + Math.floor(s.h / 2);
+    // One caption per labelled zone. Scenes that pack several biomes into
+    // sub-rects (MARSH, RECREATION, CIVIC) declare `subLabels` so each biome is
+    // individually labelled at its own centre; others use the single centre label.
+    const addLabel = (text, cellIX, cellIY) => {
       const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
-      const t = scene.add.text(0, 0, s.label, {
+      const t = scene.add.text(0, 0, text, {
         font: 'bold 8px ui-monospace, monospace',
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.6)',
@@ -845,6 +928,13 @@
       }).setOrigin(0.5, 0).setVisible(false);
       scene._sandboxLabels.add(t);
       scene._sandboxLabelData.push({ wx, wy, t });
+    };
+    for (const s of LAYOUT.scenes) {
+      if (s.subLabels) {
+        for (const sub of s.subLabels) addLabel(sub.label, originIX + s.lx + sub.dx, originIY + s.ly + sub.dy);
+      } else {
+        addLabel(s.label, originIX + s.lx + Math.floor(s.w / 2), originIY + s.ly + Math.floor(s.h / 2));
+      }
     }
     // Re-position labels from their world coord every frame so they follow the
     // camera. wanderCreatures runs each scene tick and we own the reference, so

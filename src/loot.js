@@ -6,16 +6,16 @@
 //   items.js (SEED_TIER, FLOWER_SEEDS).
 //
 // Exports as globals:
-//   CHEST_ICON, RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
-//   TIER_YIELD, POI_CATEGORY, CATEGORY_LOOT, DEFAULT_LOOT
-//   POI_PAD_BY_CLASS, POI_PAD_BY_CATEGORY, padShapeKeyForPoi
+//   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
+//   POI_CATEGORY
+//   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
 //   WILD_TREASURE
 //
-// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade) and
-// chestRelicAllowedTiers have been migrated to rarity.js.
-
-const CHEST_ICON = '📦';
+// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
+// chestRelicAllowedTiers, AND the old per-category loot tables (CATEGORY_LOOT /
+// DEFAULT_LOOT / getLootConfig / TIER_YIELD) have been migrated to / superseded
+// by rarity.js's pickReward + classBias engine.
 
 // === Rustic name transform ===
 // Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
@@ -114,12 +114,6 @@ function rusticifyName(name) {
   return out;
 }
 
-// === Loot tier yields (used by rarity.js / chest contexts) ===
-// Per-tier stack size for chest drops. Trimmed from 10/5/2 — old yields
-// flooded the inventory with seeds; with produce mixing (see CATEGORY_LOOT
-// below) and smaller stacks, chests feel more varied.
-const TIER_YIELD = { 1: 5, 2: 3, 3: 1 };
-
 // SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
 // loot flash (chest, treasure) so the player gets consistent visual feedback.
 const SEED_TIER_INFO = {
@@ -198,58 +192,19 @@ const POI_CATEGORY = {
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
-// `drops`:
-//   'seed'    → always a seed (planting material)
-//   'produce' → always produce (harvested crop, ready to eat/sell)
-//   'mixed'   → coin-flip per drop, with chance = produceP (default 0.5)
-// Most categories now mix so chests don't all read as "more seeds".
-const CATEGORY_LOOT = {
-  food:     { drops: 'produce', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] },
-  commerce: { drops: 'mixed', produceP: 0.5, weights: [[1, 0.70], [2, 0.25], [3, 0.05]] },
-  civic:    { drops: 'mixed', produceP: 0.3, weights: [[1, 0.30], [2, 0.40], [3, 0.30]] },
-  health:   { drops: 'mixed', produceP: 0.5, weights: [[1, 0.50], [2, 0.30], [3, 0.20]] },
-  park:     { drops: 'mixed', produceP: 0.4, weights: [[1, 0.40], [2, 0.40], [3, 0.20]] },
-  flora:    { drops: 'seed',    weights: [[1, 0.10], [2, 0.30], [3, 0.60]], onlyFlowers: true },
-  farm:     { drops: 'mixed', produceP: 0.5, weights: [[1, 0.40], [2, 0.40], [3, 0.20]], bonus: 1 },
-  lowtier:  { drops: 'mixed', produceP: 0.7, weights: [[1, 0.90], [2, 0.08], [3, 0.02]], yieldOverride: { 1: 3, 2: 2, 3: 1 } },
-};
-
-// === POI pad SHAPE mapping ===
-// The pad SHAPE itself conveys POI type. The chest sits
-// in the shape's designated cell (defined per shape in PAD_SHAPES, textures.js).
-//   square2  → sports pitches  (chest in corner, pad extends right + down)
-//   cross    → chapels + medical facilities  (+ shape, chest centered)
-//   triangle → schools / colleges  (stepped pyramid, chest middle-row centre)
-//   square3  → default for parks / food / farm / commerce / flora
-//   null     → lowtier (bus stops, intersections, fuel, etc) — bare chest
-const POI_PAD_BY_CLASS = {
-  place_of_worship: 'cross',
-  pharmacy:         'cross',
-  hospital:         'cross',
-  dentist:          'cross',
-  school:           'triangle',
-  college:          'triangle',
-  pitch:            'square2',
-  playground:       'line3v',   // vertical 1×3 strip
-};
-const POI_PAD_BY_CATEGORY = {
-  food:     'line3h',   // horizontal 1×3 strip (market counter / shop front)
-  commerce: 'line3h',
-  civic:    'square3',  // school/college overridden above
-  health:   'cross',
-  park:     'square3',  // pitch + playground overridden above
-  flora:    'square3',
-  farm:     'square3',
-};
+// === POI pad mapping ===
+// Every POI that gets a pad gets the SAME pad: a single rounded slab sitting in
+// the one cell directly under the chest (see PAD_SHAPES.round1 in textures.js).
+// The shape no longer conveys POI type — it's just a clean base under the chest.
+// Lowtier POIs (bus stops, intersections, fuel, etc.) still skip the pad and
+// render a bare chest, as do any classes outside the pad-bearing categories.
+const PAD_CATEGORIES = new Set([
+  'food', 'commerce', 'civic', 'health', 'park', 'flora', 'farm',
+]);
 function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
-  if (POI_PAD_BY_CLASS[poiClass]) return POI_PAD_BY_CLASS[poiClass];
-  const cat = POI_CATEGORY[poiClass];
-  if (cat === 'lowtier') return null;
-  return POI_PAD_BY_CATEGORY[cat] || null;
+  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
 }
-
-const DEFAULT_LOOT = { drops: 'seed', weights: [[1, 0.60], [2, 0.30], [3, 0.10]] };
 
 // Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
 const CHEST_TIER_BY_CATEGORY = {
@@ -270,8 +225,106 @@ const CHEST_TIER_COLOR = {
 function chestTier(poiClass) {
   return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
 }
-function getLootConfig(poiClass) {
-  return CATEGORY_LOOT[POI_CATEGORY[poiClass]] || DEFAULT_LOOT;
+
+// === Themed produce / food stands ==========================================
+// A subset of RETAIL POIs (food / commerce / flora) render as a little market
+// stall instead of a chest, and sell ONE produce/food item themed off the
+// POI's name (or, failing that, its class). The mapping is deterministic — NOT
+// random — keyed off ~100 common shop-name words, so a "Pizzeria" always sells
+// the same thing and every fish stall looks the same. produceStandFor() returns
+// { item, frame } (frame = the market_stand awning-colour for the item family)
+// or null. Used by render.js (sprite) and interact.js (loot).
+//
+// item → awning frame in the market_stand spritesheet (the product "family").
+const STAND_ITEM_FRAME = {
+  // fruit (orange, 0)
+  apple: 0, cherry: 0, peach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
+  // veg / grocer (green, 1)
+  potato: 1, onion: 1, cress: 1, nut: 1, mushroom: 1,
+  // meat (red, 2)
+  meat: 2,
+  // fish (teal, 3)
+  salmon: 3, bass: 3, trout: 3, minnow: 3, goldenfish: 3,
+  // coffee / bakery (brown, 4)
+  coffee: 4,
+  // dairy / egg (pale yellow, 5)
+  milk: 5, egg: 5,
+  // flowers / garden (pink, 6)
+  flowers: 6,
+};
+// Shop-name word → the item that stall sells. Lowercase, matched as whole
+// tokens of the POI name (split on non-letters). ~100 common words.
+const STAND_KEYWORD_ITEM = {
+  // fruit
+  fruit: 'apple', fruits: 'apple', orchard: 'apple', apple: 'apple', apples: 'apple',
+  cider: 'apple', orange: 'orange', oranges: 'orange', citrus: 'orange', juice: 'orange',
+  peach: 'peach', peaches: 'peach', cherry: 'cherry', cherries: 'cherry',
+  banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
+  coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
+  smoothie: 'berry', jam: 'berry',
+  // veg / grocer / pub-grub
+  grocer: 'potato', grocery: 'potato', greengrocer: 'potato', market: 'potato',
+  produce: 'potato', veg: 'potato', vegetable: 'potato', vegetables: 'potato',
+  veggie: 'potato', potato: 'potato', potatoes: 'potato', spud: 'potato',
+  chips: 'potato', fries: 'potato', organic: 'potato', harvest: 'potato',
+  fresh: 'potato', farmstand: 'potato', pub: 'potato', tavern: 'potato',
+  bar: 'potato', inn: 'potato', saloon: 'potato',
+  onion: 'onion', onions: 'onion', salad: 'cress', greens: 'cress',
+  mushroom: 'mushroom', mushrooms: 'mushroom', fungi: 'mushroom',
+  nut: 'nut', nuts: 'nut',
+  pizza: 'mushroom', pizzeria: 'mushroom', italian: 'mushroom', pasta: 'mushroom',
+  trattoria: 'mushroom',
+  // meat
+  steak: 'meat', steaks: 'meat', ribeye: 'meat', grill: 'meat', grille: 'meat',
+  bbq: 'meat', barbecue: 'meat', smokehouse: 'meat', butcher: 'meat', butchers: 'meat',
+  meat: 'meat', meats: 'meat', burger: 'meat', burgers: 'meat', kebab: 'meat',
+  deli: 'meat', sausage: 'meat', chop: 'meat', chophouse: 'meat', jerky: 'meat',
+  bacon: 'meat', ham: 'meat',
+  // fish
+  fish: 'salmon', fishery: 'salmon', seafood: 'salmon', sushi: 'salmon',
+  sashimi: 'salmon', fishmonger: 'salmon', oyster: 'bass', chippy: 'bass',
+  catch: 'bass', salmon: 'salmon', trout: 'trout', bass: 'bass', cod: 'bass',
+  tuna: 'salmon',
+  // coffee / bakery
+  cafe: 'coffee', coffee: 'coffee', espresso: 'coffee', latte: 'coffee',
+  mocha: 'coffee', cappuccino: 'coffee', roast: 'coffee', bean: 'coffee',
+  beans: 'coffee', brew: 'coffee', tea: 'coffee', teahouse: 'coffee',
+  bakery: 'coffee', baker: 'coffee', bread: 'coffee', patisserie: 'coffee',
+  pastry: 'coffee', cake: 'coffee', bun: 'coffee', donut: 'coffee',
+  // dairy / egg
+  dairy: 'milk', milk: 'milk', creamery: 'milk', cheese: 'milk',
+  cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', icecream: 'milk',
+  egg: 'egg', eggs: 'egg', poultry: 'egg', henhouse: 'egg',
+  // flowers / garden
+  florist: 'flowers', flower: 'flowers', flowers: 'flowers', bloom: 'flowers',
+  blossom: 'flowers', petal: 'flowers', nursery: 'flowers', garden: 'flowers',
+  botanic: 'flowers', bouquet: 'flowers', posy: 'flowers',
+};
+// Fallback when the NAME has no product word but the POI's CLASS implies one.
+const STAND_CLASS_ITEM = {
+  butcher: 'meat', bakery: 'coffee', grocery: 'potato', greengrocer: 'potato',
+  supermarket: 'potato', convenience: 'potato', florist: 'flowers',
+  garden_centre: 'flowers', garden: 'flowers', ice_cream: 'milk',
+  cafe: 'coffee', fast_food: 'meat', alcohol_shop: 'potato', beer: 'potato',
+};
+const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
+function produceStandFor(o) {
+  if (!o || o.kind !== 'chest') return null;
+  if (o._standCache !== undefined) return o._standCache;   // computed once per object
+  let res = null;
+  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass])) {
+    let item = null;
+    // The shop's own branding wins; fall back to the class word.
+    const toks = String(o.name || '').toLowerCase().split(/[^a-z]+/);
+    for (const t of toks) { if (STAND_KEYWORD_ITEM[t]) { item = STAND_KEYWORD_ITEM[t]; break; } }
+    if (!item) item = STAND_CLASS_ITEM[o.poiClass] || null;
+    if (item && STAND_ITEM_FRAME[item] !== undefined &&
+        (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
+      res = { item, frame: STAND_ITEM_FRAME[item] };
+    }
+  }
+  o._standCache = res;
+  return res;
 }
 
 

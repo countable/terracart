@@ -51,9 +51,9 @@ const CROP_SPRITE = {
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale.
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.6 },
-  // Shrub — round lush bush from bushes.png (144×288 = 3×6 of 48×48 frames).
-  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.36 },
+  // Shrub — round lush bush from bushes.png (144×288 = 3×9 of 48×32 frames).
+  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px-wide
   // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
   shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
   // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
@@ -69,6 +69,16 @@ const CROP_SPRITE = {
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
   shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
+  // ── Rare wild flora ── prized foraged flowers. Each is a distinct
+  // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
+  // They spawn sparsely on a matching biome (see the per-biome flora in
+  // src/biome_profiles.js) and pick like any wildplant. scale 1.33 renders the
+  // 16px frame at ~21px — blooms read as small foraged flowers tucked in the
+  // tile rather than filling it (the default scale 2 / full-cell was 50% too big).
+  forgetmenot: { sheet: 'props', custom: true, frame: 76,  scale: 1.33 },  // blue forget-me-not cluster (row 3, col 10)
+  marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.33 },  // golden marigold (row 1, col 12)
+  wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.33 },  // red wild rose (row 1, col 8)
+  starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.33 },  // glowing purple star-flower (row 4, col 14)
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -110,6 +120,10 @@ const MINERAL_ICON_SHEET = {
   cherry:   { sheet: 'icon_cherry',  frame: 0 },
   peach:    { sheet: 'icon_peach',   frame: 0 },
   mango:    { sheet: 'icon_mango',   frame: 0 },
+  apricot:  { sheet: 'icon_apricot', frame: 0 },
+  banana:   { sheet: 'icon_banana',  frame: 0 },
+  orange:   { sheet: 'icon_orange',  frame: 0 },
+  coconut:  { sheet: 'icon_coconut', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
   // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
@@ -135,6 +149,12 @@ const MINERAL_ICON_SHEET = {
   // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
   // sheet; frame 0 is the canonical cowrie used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
+  // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
+  // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
+  // crop/grows key, so without this entry inventoryIconSource returned null
+  // and the house delivery callout (and inventory) rendered a bare '·'
+  // placeholder instead of the flower art.
+  flowers:      { sheet: 'props',       frame: 12 },
   // Fruit-tree saplings — the young-tree frame off the species sheet (32px
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
@@ -206,6 +226,10 @@ const BASE_TIER = {
   platinum_bar: 5, crimson_bar: 6, frost_bar: 7,
   // Wild produce / animal output
   longgrass: 1, flowers: 1, mushroom: 1, boot: 1,
+  // Rare wild flora — foraged flowers, climbing from meadow-common
+  // (forget-me-not) to the glowing starflower (rarest). Tier drives the
+  // shiny-find bonus and loot-value scaling.
+  forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
   egg: 1, milk: 2,
   // Fish (rarity ramps fast — goldenfish is the late-game catch)
   minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
@@ -258,17 +282,17 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
-  // Golden (rare, 5%) animal variants — caught from yellow-tinted wild animals.
-  // Each golden kind keeps its OWN inventory stack: a golden chicken never
-  // folds into normal chickens, nor into other golden animals ("not other
-  // goldens"). `base` points at the plain kind so the icon + release path can
-  // reuse the normal sprite/behaviour; `golden` flags the golden sheen. Only
-  // the catch-into-inventory kinds get a golden item — hunted fauna (deer,
-  // crow) drop meat/feather, so there's no live golden animal to keep.
+  // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
+  // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
+  // folds into normal chickens, nor into other shiny animals ("not other
+  // shinys"). `base` points at the plain kind so the icon + release path can
+  // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
+  // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
+  // crow) drop meat/feather, so there's no live shiny animal to keep.
   ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly'].map(k => ({
-    id: `golden_${k}`,
-    name: `Golden ${k.charAt(0).toUpperCase() + k.slice(1)}`,
-    kind: 'animal', base: k, golden: true, baseTier: BASE_TIER[k] || 1,
+    id: `shiny_${k}`,
+    name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
   })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
@@ -282,6 +306,15 @@ const ITEMS = [
   { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
+  // Rare wild flora — prized foraged flowers picked from sparse blooms in
+  // grasslands (forget-me-not, marigold) and forests (wild rose, starflower).
+  // Wild-only: not plantable, no seed. `crop` points at the CROP_SPRITE frame
+  // so inventory / map / shop all draw the same Props.png flower, and the
+  // wildplant pick path can roll the shiny-flora sheen on them.
+  { id: 'forgetmenot', name: 'Forget-me-not', kind: 'produce', crop: 'forgetmenot' },
+  { id: 'marigold',    name: 'Marigold',      kind: 'produce', crop: 'marigold' },
+  { id: 'wildrose',    name: 'Wild Rose',     kind: 'produce', crop: 'wildrose' },
+  { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself (tap your own feet with one selected).
   // Flute: lures wandering chickens + cows within 30m toward you.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
@@ -343,6 +376,9 @@ const ITEMS = [
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
+  // Sapphire doubles as a one-shot descent charge: tap your own feet with it
+  // selected (or use the Portal button) to spend one gem and sink straight
+  // down a level in place. See useSapphirePortal in app.js.
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
@@ -405,6 +441,12 @@ const PRICES = {
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
+  // Rare wild flora — sell value climbs with rarity; the glowing starflower
+  // is a premium forage find (between gemfruit and the magical iceflower).
+  forgetmenot: 14,
+  marigold:    45,
+  wildrose:    35,
+  starflower: 130,
   shell: 6,        // beach pickup — small collectible
   boot: 2,         // fishing junk — old boot, the joke is finding it
 
@@ -443,7 +485,7 @@ const PRICES = {
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
-// Canonical "sell value" of an item. Used for the golden-find money bonus
+// Canonical "sell value" of an item. Used for the shiny-find money bonus
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
 // scales with how prized the thing is rather than flattening to $1.
@@ -453,10 +495,10 @@ function itemValue(id) {
   const t = ITEM_BY_ID[id]?.baseTier || 1;
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
 }
-// Golden animals sell at 10× their plain counterpart's value — a real prize in
+// Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + discovery bonus.
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
-  PRICES[`golden_${k}`] = itemValue(k) * 10;
+  PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
 const STARTING_MONEY = 50;
@@ -470,38 +512,47 @@ const STARTING_MONEY = 50;
 // Non-obvious play tips revealed when the player uses a Book consumable.
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
+// Ordered roughly by relevance to a NEW player: the first-hour basics
+// (energy, trading, the farming loop, your starter tools) come first, then
+// exploration and shops, then relic effects, world lore, animals, and finally
+// the rare secret. A Book read still picks one at random, but curating the
+// order keeps the list readable and front-loads what a beginner most needs.
 const PLAY_TIPS = [
-  // Shop / trade
+  // ── First-hour basics ─────────────────────────────────────
+  'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
   'Select an empty inventory slot, then tap a house to trade or buy.',
   'Houses have different deals — some sell produce, others seeds.',
-  'Castles always sell relics (and never run out of stock).',
-  'Forts handle up to 5 deals per hour. Houses just 1.',
   'A trader who wants an item you don\'t own marks the deal with an ✗.',
-  // Relic effects
-  'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'A Bow drops the markup traders charge you — higher tier, lower prices.',
   'Equip a Pickaxe to break rocks, an Axe to chop trees.',
-  'A Ring nudges chest loot up a tier when it triggers.',
-  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  // ── The farming loop ──────────────────────────────────────
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
-  // Progression / gating
-  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
-  // Energy / food
-  'Rainberry waters every crop within 20m when you eat it.',
-  'Pairy points the way to the nearest undiscovered chest for 5 minutes.',
-  'Sunflower stew restores +150 energy — the biggest meal in the world.',
-  // Farming
   'Crops auto-advance after 60 min if watered, even while you\'re away.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Tap a tilled empty cell with no seed selected to un-till it.',
-  // World / map
+  // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks favour residential cells. Look there first.',
+  'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
+  'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
+  // ── Shops / progression ───────────────────────────────────
+  'Forts handle up to 5 deals per hour. Houses just 1.',
+  'Castles always sell relics (and never run out of stock).',
+  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
+  'A bigger Bag relic raises how many of each item one slot can hold.',
+  // ── Relic effects ─────────────────────────────────────────
+  'A Sword raises your sell prices — up to 100% at Frost tier.',
+  'A Bow drops the markup traders charge you — higher tier, lower prices.',
+  'A Ring nudges chest loot up a tier when it triggers.',
+  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  // ── Food side-effects ─────────────────────────────────────
+  'Rainberry waters every crop within 20m when you eat it.',
+  'Sunflower stew restores +150 energy — the biggest meal in the world.',
+  'A Mango is the universal treat: feed one to instantly tame any wild animal.',
+  // ── World / map ───────────────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks and woods.',
   'Long grass only grows on plain grassland — never under trees.',
-  // Combat / discovery
   'Hold rock and tap an empty tile to drop a stone fence.',
   'Tap an animal you released to catch it again.',
-  // Animal favourite foods — one tip per kind, so a Book read can reveal them.
+  // ── Animal favourite foods — one tip per kind ─────────────
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
@@ -509,9 +560,30 @@ const PLAY_TIPS = [
   'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
   'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
   'Cats and dogs only eat meat — feeding them plants just wastes the food.',
-  // Secret tip — slime taming. Rare to pull from the pool, but findable.
+  // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
+
+// === Item special effects ====================================
+// Short, one-line disclosure for items that DO something beyond their plain
+// sell value / energy restore. Shown under the inventory bar (the inv-name
+// strip) whenever such an item is selected, so a non-obvious power isn't a
+// secret the player only learns from a Book. Keyed by item id; absent = no
+// special effect (a plain crop / mineral that's just worth money or energy).
+const ITEM_EFFECTS = {
+  // Foods with a side-effect when eaten (on top of their energy restore).
+  rainberry: 'Eat to water every crop within 20m',
+  pairy:     'Eat to reveal the nearest unfound chest for 5 min',
+  // Universal tame treat — fed to any wild creature.
+  mango:     'Feed to instantly tame any wild animal',
+  // Offered to a slime to calm it (the secret gem).
+  sapphire:  'Offer to a slime to tame it',
+  // Consumables used on yourself / the world.
+  flute:        'Play to lure nearby chickens & cows toward you',
+  book:         'Read for a play tip or a hint toward a chest',
+  reach_potion: 'Drink for full-screen reach (1 min)',
+  scarecrow:    'Place on a tilled cell to ward off crows & deer',
+};
 
 const STARTING_ENERGY = 100;
 const FOOD_ENERGY = {
@@ -543,11 +615,16 @@ const ENERGY_COST = {
   till: 2,
   plant: 1,
   harvest: 1,
-  rockBreak: 10,         // mitigated by pick relic tier (see effectivePickCost)
+  rockBreak: 9,          // bare-handed; Wood pick → 3, Frost pick → 1 (effectivePickCost).
+                         // The in-world rock cost also scales with how far the rock
+                         // out-tiers your pick — see the rock-break handler.
   rockPlace: 1,
-  catch: 5,
+  catch: 9,              // bare-handed; Wood bug net → 3, Frost → 1 (effectiveCatchCost)
+  fish: 9,               // bare-handed cast; Wood rod → 3, Frost → 1 (effectiveFishCost)
   unTill: 0,
   pickup: 0,             // wildplants — free
+  chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
+                         // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
 
 // Catching an animal requires holding its favourite food in the selected
@@ -683,6 +760,12 @@ function gearAssetPath(kind, slot, tier) {
   if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet' || slot === 'bags')) {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
+  // The watering can only ships Wood-tier art — there is no per-tier file, so
+  // higher tiers (iron, gold, …) would 404 and render broken/blank. Pin it to
+  // the Wood folder so every tier shows the same (only) watering-can art.
+  if (kind === 'relic' && slot === 'can') {
+    return `assets/Icons/RPG icons/Weapons and Armor/1. Wood/${def.icon}`;
+  }
   return `assets/Icons/RPG icons/Weapons and Armor/${t.folder}/${def.icon}`;
 }
 function gearName(kind, slot, tier) {
@@ -700,11 +783,47 @@ function maxEnergyFromArmor(armor) {
   }
   return m;
 }
-// Pick relic: per-tier 15% reduction in cost/time, floor at 2.
-function effectivePickCost(relics) {
-  const eq = relics?.pick;
-  if (!eq) return ENERGY_COST.rockBreak;
-  return Math.max(2, Math.round(ENERGY_COST.rockBreak - eq.tier * 1.2));
+// Shared tool-tier energy model for the gated "work" actions (chop / rock-break
+// / catch / fish). EXPECTED energy is anchored at 9 bare-handed (tier 0), 3 with
+// a Wood tool (tier 1) and 1 with a Frost tool (tier 7), ramping straight from
+// 3 → 1 across tiers 1..7 (so t1=3, t4=2, t7=1). The in-between tiers come out
+// fractional; callers run the result through probEnergy() to turn that
+// expectation into an actual integer spend.
+function toolEnergyExpected(tier) {
+  if (!tier) return 9;                 // bare hands
+  return 3 - (tier - 1) / 3;           // tiers 1..7 ramp 3 → 1
+}
+// Probabilistic rounding: spend floor(cost) most of the time and ceil(cost) the
+// rest, so the *expected* spend equals cost (e.g. 2.67 → 3 two-thirds of taps,
+// 2 the other third). rng is injected so tests can pin the roll.
+function probEnergy(cost, rng) {
+  const lo = Math.floor(cost);
+  const frac = cost - lo;
+  if (frac <= 0) return lo;
+  return ((rng || Math.random)() < frac) ? lo + 1 : lo;
+}
+// Pick relic: bare-handed rock-break expects 9, a Wood pick 3, a Frost pick 1.
+// (The in-world handler additionally surcharges rocks that out-tier your pick —
+// this is the at-or-above-tier baseline.)
+function effectivePickCost(relics, rng) {
+  return probEnergy(toolEnergyExpected(relics?.pick?.tier || 0), rng);
+}
+// Energy to fell a tree: the shared 9/3/1 tool curve × the tree's size
+// multiplier (small/medium/full → ×1/2/4). So bare-handed = 9/18/36, a Wood axe
+// = 3/6/12, a Frost axe = 1/2/4. `o` is the tree object (drives treeWoodMul).
+function effectiveChopCost(relics, o, rng) {
+  const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
+  return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0) * sizeMul, rng);
+}
+// Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
+// ALSO shortens the catch wheel (see toolDurationMs).
+function effectiveCatchCost(relics, rng) {
+  return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
+}
+// Fishing Rod: bare-handed cast expects 9, a Wood rod 3, a Frost rod 1. The rod
+// ALSO speeds the cast and improves the catch table.
+function effectiveFishCost(relics, rng) {
+  return probEnergy(toolEnergyExpected(relics?.rod?.tier || 0), rng);
 }
 // Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
 // floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
@@ -787,3 +906,14 @@ const SEED_TIER = Object.fromEntries(
 );
 // Flowers — used by the 'flora' chest category to restrict its T3 picks.
 const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
+
+// Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
+// so the places that hand out seeds — trader barter, treasure X, and cash
+// shops — bundle a few extra. `isLowTierSeed` is the single source of truth for
+// "should this seed get the bulk bonus"; LOW_TIER_SEED_QTY_BONUS is how many
+// extra ship on top of the normal quantity.
+const LOW_TIER_SEED_QTY_BONUS = 2;
+function isLowTierSeed(id) {
+  const it = ITEM_BY_ID[id];
+  return !!it && it.kind === 'seed' && (it.baseTier || 1) <= 2;
+}
