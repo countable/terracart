@@ -218,7 +218,7 @@ const INTERACTABLES = {
 
   // ---- Fruit tree: instant harvest, respawn-timer gated --------------------
   // Not a tool interaction (no axe/pick, no work wheel, no energy) — handled
-  // via `custom`. A planted sapling must mature (~12m) before its first pick,
+  // via `custom`. A planted sapling must mature (~4 days) before its first pick,
   // and each tree fruits once per 24h.
   fruittree: {
     luck: ['amulet'],   // amulet → chance at a bonus fruit
@@ -226,13 +226,15 @@ const INTERACTABLES = {
       const { scene, save, sx, sy, luck } = ctx;
       const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
       // A planted sapling can't be harvested until it has matured (reached its
-      // fruiting stage). ~12 min sprout→fruit (4 × 3-min stages).
+      // fruiting stage). 4 days sprout→fruit (4 × 1-day stages).
       if (o.planted) {
-        const FRUIT_STAGE_MS = 3 * 60 * 1000;
+        const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
         const elapsed = Date.now() - (o.planted_t || 0);
         if (elapsed < 4 * FRUIT_STAGE_MS) {
-          const minsLeft = Math.max(1, Math.ceil((4 * FRUIT_STAGE_MS - elapsed) / 60000));
-          scene.flash(`Still growing — ${minsLeft}m`, sx, sy);
+          const msLeft = 4 * FRUIT_STAGE_MS - elapsed;
+          const daysLeft = Math.ceil(msLeft / FRUIT_STAGE_MS);
+          const left = daysLeft > 1 ? `${daysLeft}d` : `${Math.max(1, Math.ceil(msLeft / 3600000))}h`;
+          scene.flash(`Still growing — ${left}`, sx, sy);
           return true;
         }
       }
