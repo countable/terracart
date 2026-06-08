@@ -3778,6 +3778,10 @@ class MapScene extends Phaser.Scene {
     if (!list || !list.length) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
     for (const e of list) {
+      // Wards (scarecrows / fires) only repel on their own level — the world is
+      // GPS-mirrored across depths, so a surface ward must not reach a cave
+      // creature at the same (x, y). See src/placed_floor.js.
+      if (!PlacedFloor.onDepth(e, this.depth)) continue;
       const dx = e.x - wx, dy = e.y - wy;
       if (dx * dx + dy * dy < r2) return true;
     }

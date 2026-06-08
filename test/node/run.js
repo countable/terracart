@@ -50,7 +50,7 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
-  'mvt.js', 'util.js', 'coords.js', 'biome_profiles.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
 ];

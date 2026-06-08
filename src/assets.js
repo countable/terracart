@@ -105,8 +105,8 @@ const ASSETS = {
   // rows 9-10: the SHORT fluted column with cap + stepped base). Used as a
   // purely decorative stand-in for OSM utility poles / posts (power=pole,
   // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
-  // At scale 1.0 it's exactly one cell (32px) tall, so it foot-anchors inside
-  // a single square cell.
+  // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
+  // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
   pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png' },
   // Stone well — 48×32 single image (Sprites Well_Usable_16x16: a roofed well
   // with bucket). The in-game stand-in for OSM amenity=fountain points. Tapping

@@ -411,50 +411,72 @@ const TAP_HANDLERS = [
   // practice missing a chicken tap is more frustrating than missing a tree.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    // Per-kind tap radius (m), scaled to each animal's on-ground footprint
-    // rather than a flat 4 m disk that made even a chicken tappable a whole
-    // cell away. Bigger animals (cow/deer) keep a larger grab; small ones
-    // (chicken/rabbit/butterfly) tighten up. Mirrors the render scales in
-    // render.js (cow 1.5 > deer/crow 1.3 > chicken 1.2 > rabbit footprint).
-    const CREATURE_TAP_R = {
+    // Every creature is drawn FEET-ANCHORED (setOrigin(0.5, 0.9) in render.js),
+    // so its visible BODY sits well ABOVE the logical ground point (c.x, c.y) —
+    // a cow's body tops out ~1.3 cells north of its feet, a chicken's ~0.5. A
+    // tap disk centred on the foot therefore misses the body the player is
+    // actually pointing at and the tap falls through to the cell handler, which
+    // tills the tile UNDER the animal — the reported "tapping an animal/slime
+    // hits the tile below it" bug.
+    //
+    // Fix: accept a tap anywhere inside the sprite's DRAWN box instead of a
+    // foot disk. Horizontally it's a per-kind half-width (the old well-tuned
+    // footprint radii); vertically it spans from just under the feet up to the
+    // top of the body, computed from the same frame size / scale / extra-lift
+    // the renderer uses. This keeps the tappable area byte-aligned with what's
+    // on screen for tall sprites (cow/deer) and floated/hopping ones
+    // (crow/butterfly/bat, slimes + the monsters that reuse the slime sheet).
+    const px2m = scene.feetOffsetM / 14;   // metres per screen pixel (14px == feetOffsetM)
+    const ORIGIN_Y = 0.9;                   // render.js setOrigin(0.5, 0.9)
+    // [frameH px, scale, extra-lift px] — keep in sync with render.js creaturePool.
+    // extra-lift folds in explicit floats (crow 14, butterfly/bat 8) and the
+    // peak of the idle hop (slimes/monsters ~6, bat ~10) so the box reaches the
+    // body at the top of its bounce.
+    const SPRITE = {
+      cow:           [32, 1.50, 0],
+      cat:           [32, 1.30, 0],
+      dog:           [32, 1.30, 0],
+      deer:          [32, 1.30, 0],
+      rabbit:        [16, 1.50, 0],
+      crow:          [32, 1.30, 14],
+      butterfly:     [16, 2.00, 8],
+      slime:         [32, 1.20, 6],
+      cave_slime:    [32, 1.25, 6],
+      goblin:        [32, 1.25, 6],
+      goblin_archer: [32, 1.25, 6],
+      bat:           [32, 0.95, 18],   // 8 hover + ~10 hop
+      chicken:       [16, 1.20, 0],
+    };
+    // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
+    const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      // Slime & the monsters that share its tall 32×32 hopping sprite get a
-      // wider disk (2.4 m) so it spans from the foot point up through the body
-      // drawn ~9-15px north (paired with the CREATURE_FLOAT_PX lift below).
-      slime: 2.4,
-      cave_slime: 2.4, goblin: 2.4, goblin_archer: 2.4, bat: 1.4,
+      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, bat: 1.4,
     };
-    const creatureTapR = (c) => CREATURE_TAP_R[c.kind] ?? 2.0;
-    // Some creatures are RENDERED north of their logical ground cell, so a tap
-    // on the visible sprite lands above its (x,y) and — with a tap disk centred
-    // on the ground point — falls through to the cell underneath. Offset the
-    // tap-test by that float so each is tested closer to where it's DRAWN
-    // (north = −y). Values are in px (14px == scene.feetOffsetM). Two sources:
-    //   • Flyers/hoverers floated explicitly (crow sy-14, butterfly/bat sy-8).
-    //   • Slimes (and the underground monsters that reuse the slime sheet) are a
-    //     tall 32×32 sprite drawn at scale ~1.2 with setOrigin(0.5, 0.9) plus a
-    //     continuous hop (render.js): the blob sits ~9-15px above its foot cell
-    //     (worse mid-hop) even though it never "flies", so the body drew outside
-    //     its old 1.7 m (≈11px) disk and taps hit the ground. A modest 7px lift
-    //     (kept well under the radius so a tap on the FOOT point still resolves)
-    //     plus the widened CREATURE_TAP_R below covers foot AND hopping body.
-    const CREATURE_FLOAT_PX = {
-      crow: 14, butterfly: 8, bat: 8,
-      slime: 7, cave_slime: 7, goblin: 7, goblin_archer: 7,
-    };
-    const creatureTapOffset = (c) => {
-      const px = CREATURE_FLOAT_PX[c.kind] || 0;
-      return px ? { dx: 0, dy: -(px / 14) * scene.feetOffsetM } : null;
-    };
-    const target = findClosestItem('creatures', wm.x, wm.y, creatureTapR,
-      (c) => !save.caught.includes(c.id), creatureTapOffset);
+    // Closest tappable creature whose DRAWN box contains the tap. Rank by
+    // distance to the body CENTRE so the most on-target animal wins overlaps.
+    let target = null, bestD2 = Infinity;
+    WorldGen.forEachItem('creatures', (c) => {
+      if (save.caught.includes(c.id)) return;
+      const [frame, scale, lift] = SPRITE[c.kind] || SPRITE.chicken;
+      const halfW = HALF_W[c.kind] ?? 2.0;
+      const spanPx = frame * scale;
+      const topM = (ORIGIN_Y * spanPx + lift) * px2m;        // feet → top of frame
+      const botM = (1 - ORIGIN_Y) * spanPx * px2m + 0.3;     // small under-feet pad
+      const bodyCY = c.y - ((ORIGIN_Y - 0.5) * spanPx + lift) * px2m;  // drawn centre
+      if (Math.abs(wm.x - c.x) > halfW) return;
+      if (wm.y < c.y - topM || wm.y > c.y + botM) return;
+      const ddx = wm.x - c.x, ddy = wm.y - bodyCY;
+      const d2 = ddx * ddx + ddy * ddy;
+      if (d2 < bestD2) { bestD2 = d2; target = c; }
+    });
     if (!target) return false;
     // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
-    // and the lit reach indicator). The per-kind CREATURE_TAP_R above is tap-
+    // and the lit reach indicator). The sprite-box test above is tap-
     // forgiveness measured from the TAP point, not the player — without this a
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
-    // the reach outline ⇔ tap-accept invariant (QC §7).
+    // the reach outline ⇔ tap-accept invariant (QC §7). Gated on the FOOT cell
+    // (target.x, target.y) so reach matches the lit highlight, not the body.
     if (tooFar(ctx, target.x, target.y)) return 'far';
 
     // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
@@ -1075,7 +1097,11 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cwmx, cwmy } = ctx;
     const arr = save.scarecrows = save.scarecrows || [];
     const half = scene.cellM / 2;
-    const idx = arr.findIndex(s => Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
+    // Only match a scarecrow placed on the level we're standing on — a surface
+    // scarecrow and the cave cell below it share world coords (GPS mirror), so
+    // without the depth gate a cave tap would reclaim the farm scarecrow above.
+    const idx = arr.findIndex(s => PlacedFloor.onDepth(s, scene.depth) &&
+      Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     scene.addToInv('scarecrow', 1);
@@ -1090,11 +1116,13 @@ const TAP_HANDLERS = [
     // Scarecrow placement is free (no energyKey). Extra guard: refuse if a
     // scarecrow already sits on this cell (rock has no such per-cell list to
     // check — placedRockSet membership is implied by the tilled/planted gates).
-    extraGuard: ({ save, cwmx, cwmy }) =>
-      !(save.scarecrows || []).some(s => Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
-    place: ({ save, cwmx, cwmy }) => {
+    extraGuard: ({ scene, save, cwmx, cwmy }) =>
+      !(save.scarecrows || []).some(s => PlacedFloor.onDepth(s, scene.depth) &&
+        Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
+    place: ({ scene, save, cwmx, cwmy }) => {
       save.scarecrows = save.scarecrows || [];
-      save.scarecrows.push({ x: cwmx, y: cwmy });
+      // Tag the level so it renders / wards only here (see src/placed_floor.js).
+      save.scarecrows.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
     },
     flashMsg: '🪦 The scarecrow watches.',
   })},
@@ -1106,7 +1134,10 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cwmx, cwmy } = ctx;
     const arr = save.fires = save.fires || [];
     const half = scene.cellM / 2;
-    const idx = arr.findIndex(f => Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    // Match only a fire lit on this level — fires are placeable underground
+    // (they ward slimes), so the GPS-mirror depth gate matters here too.
+    const idx = arr.findIndex(f => PlacedFloor.onDepth(f, scene.depth) &&
+      Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     ctx.dirty = true;
@@ -1120,11 +1151,13 @@ const TAP_HANDLERS = [
   // near it (see app.js). Coal is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'coal',
-    extraGuard: ({ save, cwmx, cwmy }) =>
-      !(save.fires || []).some(f => Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
-    place: ({ save, cwmx, cwmy }) => {
+    extraGuard: ({ scene, save, cwmx, cwmy }) =>
+      !(save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
+        Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
+    place: ({ scene, save, cwmx, cwmy }) => {
       save.fires = save.fires || [];
-      save.fires.push({ x: cwmx, y: cwmy });
+      // Tag the level so it renders / wards only here (see src/placed_floor.js).
+      save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
     },
     flashMsg: '🔥 The fire crackles.',
   })},

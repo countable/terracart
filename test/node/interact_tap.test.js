@@ -649,3 +649,67 @@ test('tapReachM: REACH_OBJECT_M=3.5 was the 5 m cell half-diagonal', () => {
   assert.lt(3.5, tapReachM({ cellM: 7 }, 3.5),
     'at a 7 m cell the bare 3.5 m radius is smaller than the floor');
 });
+
+// ─── 6. creature handler: tap the DRAWN body, not the foot cell ───────────────
+// REGRESSION (this task): creatures are drawn feet-anchored (setOrigin 0.5,0.9)
+// so the visible body sits well above the logical ground point. The old foot-
+// centred tap disk missed the body and the tap fell through to the cell handler,
+// tilling the tile UNDER the animal ("hard to tap, hits the tile below"). The
+// handler now tests the tap against the sprite's drawn box. These tests drive
+// the real 'creature' handler with a stubbed creatures layer + reach helpers.
+
+// Run the creature handler against a single creature at world (0,0). The reach
+// helpers are stubbed so tooFar() returns true (→ 'far') whenever the creature
+// is FOUND — that lets us assert "found" (='far') vs "fell through" (=false)
+// without exercising the full catch/feed flow. cellInReach=false forces 'far'.
+function runCreatureTap(kind, wm, cellInReach) {
+  const orig = {
+    WG: globalThis.WorldGen, CIR: globalThis.cellInReach, WMC: globalThis.worldMetersToAbsCell,
+  };
+  const scene = Object.assign(makeScene(), { feetOffsetM: (14 / 32) * 7, cellM: 7, flash: () => {} });
+  const save  = { caught: [], inv: [], selSlot: 0 };
+  const ctx   = Object.assign(makeCtx(scene, save), { wm });
+  const h = TAP_HANDLERS.find(x => x.name === 'creature');
+  try {
+    globalThis.WorldGen = Object.assign({}, orig.WG, {
+      forEachItem: (layer, cb) => { if (layer === 'creatures') cb({ x: 0, y: 0, kind, id: `${kind}1` }); },
+    });
+    globalThis.cellInReach = () => cellInReach;
+    globalThis.worldMetersToAbsCell = () => ({ cellIX: 0, cellIY: 0 });
+    return h.try(ctx);
+  } finally {
+    globalThis.WorldGen = orig.WG;
+    globalThis.cellInReach = orig.CIR;
+    globalThis.worldMetersToAbsCell = orig.WMC;
+  }
+}
+
+test('creature: a tap on the body ABOVE the foot resolves to the creature (chicken)', () => {
+  // 1.6 m north of the foot ≈ 7 px up — the chicken body centre. This is OUTSIDE
+  // the old 1.5 m foot disk, so before the fix the tap fell through (false).
+  assert.eq(runCreatureTap('chicken', { x: 0, y: -1.6 }, false), 'far',
+    'tap on the chicken body finds the creature (returns far, not false)');
+});
+
+test('creature: tall sprite (cow) is tappable far up its body', () => {
+  // ~6 m north of the foot — high on the cow, well above any foot disk.
+  assert.eq(runCreatureTap('cow', { x: 0, y: -6 }, false), 'far',
+    'tap high on the cow body still finds the cow');
+});
+
+test('creature: a slime tap on the hopping blob resolves (not the tile below)', () => {
+  assert.eq(runCreatureTap('slime', { x: 0, y: -2.5 }, false), 'far',
+    'tap on the floated/hopping slime body finds the slime');
+});
+
+test('creature: a tap on the tile BELOW the foot does NOT grab the creature', () => {
+  // 3 m south of the foot is below the sprite — must fall through (false) so the
+  // cell handler can till it. (Only a small under-feet pad is forgiven.)
+  assert.eq(runCreatureTap('chicken', { x: 0, y: 3 }, false), false,
+    'tap well below the animal falls through to the cell handler');
+});
+
+test('creature: a tap two cells to the side finds nothing (false)', () => {
+  assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
+    'far-side tap does not grab the creature');
+});

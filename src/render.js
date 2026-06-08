@@ -828,7 +828,7 @@ Render.drawObjects = function drawObjects(scene) {
   // render on the surface).
   const _curDepth = scene.depth ?? 0;
   for (const p of scene.save.planted) {
-    if ((p.depth ?? 0) !== _curDepth) continue;
+    if (!PlacedFloor.onDepth(p, _curDepth)) continue;   // same-level crops only
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
@@ -836,7 +836,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.
-  if (scene.placedRockSet && _curDepth === 0) {
+  if (scene.placedRockSet && PlacedFloor.isSurface(_curDepth)) {
     for (const key of scene.placedRockSet) {
       const [ixStr, iyStr] = key.split('_');
       const absIX = parseInt(ixStr, 10), absIY = parseInt(iyStr, 10);
@@ -849,13 +849,13 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed scarecrows render as world objects — 3-cell-tall single image,
   // anchored at the base so it appears to stand on the cell. Pool reuses
   // objectPool slots so it integrates with depth-sort and viewport clip.
-  const scarecrowList = (scene.save.scarecrows || []).map(sc => ({
+  const scarecrowList = PlacedFloor.forDepth(scene.save.scarecrows, _curDepth).map(sc => ({
     o: { kind: '_scarecrow', x: sc.x, y: sc.y, id: `scarecrow_${sc.x.toFixed(2)}_${sc.y.toFixed(2)}` },
     dx: sc.x - pWorldX, dy: sc.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
   // Placed campfires (burned from a coal) render like scarecrows — through the
   // shared object pool so they depth-sort and clip with everything else.
-  const fireList = (scene.save.fires || []).map(fr => ({
+  const fireList = PlacedFloor.forDepth(scene.save.fires, _curDepth).map(fr => ({
     o: { kind: '_fire', x: fr.x, y: fr.y, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` },
     dx: fr.x - pWorldX, dy: fr.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
@@ -1199,17 +1199,23 @@ Render.drawObjects = function drawObjects(scene) {
               // its cell (the art sits low in the 16px frame). origin/dyPx
               // below are the no-SpriteLayout fallback.
               origin: [0.5, 0.5], scale: 1.6, seat: true },
-    // Stone pillar — decorative stand-in for OSM utility poles / posts. The
-    // SHORT 16×32 sprite at scale 1.0 is exactly one cell (CELL_PX = 32px)
-    // tall, so it sits inside a single square cell, foot-anchored near the
-    // cell's front edge. Purely decorative: no interact.js branch matches
-    // 'pole', so taps fall through.
+    // Stone pillar — decorative stand-in for OSM utility poles / posts.
+    // Purely decorative: no interact.js branch matches 'pole', so taps fall
+    // through.
+    // pillar.png is authored at 16px-per-cell (a 16×32 frame = 1 cell wide × 2
+    // tall in its native grid), but the game renders at 32px-per-cell (CELL_PX),
+    // like every other object sheet (trees are 32×48, etc.). At scale 1.0 the
+    // pole therefore drew at HALF size — a thin half-cell-wide stub — which read
+    // as "only half the sprite rendered". scale 2.0 maps the 16px art onto the
+    // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
+    // the seat pass then seats the now-taller-than-a-cell sprite with its base
+    // 1px above the cell's bottom edge (same as a tree).
     // pillar.png's column art fills only the LEFT half of its 16px frame
     // (cols 0–8; 9–15 are transparent), so a frame-centred origin (0.5) drew
-    // the pole shoved to one side ("right half only"). Anchor the origin at the
-    // art's true horizontal centre (~0.25 of the frame) so the pole sits
-    // centred on its cell.
-    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 1.0, dyPx: CELL_PX * 0.4, seat: true },
+    // the pole shoved to one side. Anchor the origin at the art's true
+    // horizontal centre (~0.25 of the frame) so the pole sits centred on its
+    // cell (the seat pass refines this from the trimmed bounds).
+    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
