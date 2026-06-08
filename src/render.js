@@ -2174,7 +2174,7 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
       const m = MONSTERS[c.kind];
-      const texKey = c.kind === 'bat' ? 'bat'
+      const texKey = c.kind === 'purple_slime' ? 'purple_slime'
                    : c.kind === 'goblin' ? 'goblin'
                    : c.kind === 'goblin_archer' ? 'goblin_archer'
                    : 'slime';

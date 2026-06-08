@@ -429,8 +429,8 @@ const TAP_HANDLERS = [
     const px2m = scene.feetOffsetM / 14;   // metres per screen pixel (14px == feetOffsetM)
     const ORIGIN_Y = 0.9;                   // render.js setOrigin(0.5, 0.9)
     // [frameH px, scale, extra-lift px] — keep in sync with render.js creaturePool.
-    // extra-lift folds in explicit floats (crow 14, butterfly/bat 8) and the
-    // peak of the idle hop (slimes/monsters ~6, bat ~10) so the box reaches the
+    // extra-lift folds in explicit floats (crow 14, butterfly 8) and the
+    // peak of the idle hop (slimes/monsters ~6, purple_slime ~10) so the box reaches the
     // body at the top of its bounce.
     const SPRITE = {
       cow:           [32, 1.50, 0],
@@ -444,14 +444,14 @@ const TAP_HANDLERS = [
       cave_slime:    [32, 1.25, 6],
       goblin:        [32, 1.25, 6],
       goblin_archer: [32, 1.25, 6],
-      bat:           [32, 0.95, 18],   // 8 hover + ~10 hop
+      purple_slime:  [32, 0.95, 18],   // 8 hover + ~10 hop
       chicken:       [16, 1.20, 0],
     };
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, bat: 1.4,
+      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
@@ -540,7 +540,7 @@ const TAP_HANDLERS = [
       // kind (slimes never spawn shiny, so this only ever hits crow/deer here).
       // Underground monsters never go shiny; their HP (relative to the 15-HP
       // slime baseline) scales the wheel instead, so a 25-HP goblin is a real
-      // slog and a 6-HP bat drops fast.
+      // slog and a 6-HP purple slime drops fast.
       const hpMul = _isMon ? MONSTERS[target.kind].hp / 15
                   : target.shiny ? 2 : 1;
       const victim = target;
