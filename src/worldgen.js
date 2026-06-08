@@ -534,6 +534,11 @@
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
+    // Per-cell building ownership: a 1-based, per-tile id stamped only on
+    // building footprint cells (0 = not a building). Lets the renderer draw a
+    // seam between distinct buildings whose footprints rasterized into one
+    // contiguous block of building tiles (otherwise they read as one blob).
+    const owners = new Uint16Array(w * h);
     const mvtToCell = cellsPerEdge / TILE_EXTENT;
     const mvtToM = tileEdgeM / TILE_EXTENT;
     const objects = [];
@@ -1305,8 +1310,18 @@
       // sprite; everything else gets a 'house' object).
       if (name === 'building' && buildingPolys.length) {
         enforceBuildingDistribution(buildingPolys);
+        let _bOwnerId = 0;
         for (const bp of buildingPolys) {
           paintPolygon(grid, w, h, [bp.ring], bp.tier, mvtToCell);
+          // Stamp building ownership over this building's footprint cells with a
+          // unique per-tile id. Later buildings overwrite earlier ones where
+          // footprints overlap — matching paintCell's last-wins for grid type —
+          // so owner stays consistent with the visible building. The renderer
+          // strokes a seam wherever two adjacent building cells carry different
+          // owners, separating merged footprints.
+          const fpCells = ringFootprintCells(bp.ring, mvtToCell, w, h);
+          const ownerId = (++_bOwnerId) & 0xffff;
+          for (const [fx, fy] of fpCells) owners[fy * w + fx] = ownerId;
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
@@ -1318,7 +1333,6 @@
           // L-shaped / tile-clipped footprints (where the ring centroid can land
           // off the block). Snapping to a cell also keeps the occupancy pass and
           // row alignment working.
-          const fpCells = ringFootprintCells(bp.ring, mvtToCell, w, h);
           let cx, cy;
           if (fpCells.length) {
             let sxc = 0, syc = 0;
@@ -1767,7 +1781,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
+    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
   }
 
   function tileEdgeMeters(lat) {
@@ -1799,7 +1813,7 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, objects, wildplants, parkingTreasures, roadLetters, pathNames, pathUnder } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, owners, objects, wildplants, parkingTreasures, roadLetters, pathNames, pathUnder } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner).
@@ -1858,6 +1872,7 @@
         filteredObjects.push(o);
       }
       entry.grid = grid;
+      entry.owners = owners;
       entry.objects = filteredObjects;
       entry.depth = 0;
       // Cave entrance: drop one "descend" staircase per surface tile beside a

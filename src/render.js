@@ -158,6 +158,11 @@ Render.drawCells = function drawCells(scene) {
   // rounding to read its diagonal neighbor.
   const RING = VIEW_CELLS + 4;
   const types = new Int8Array(RING * RING);
+  // Parallel ring of building ownership. 0 = no building; otherwise
+  // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
+  // and tileSalt distinguishes tiles so two buildings that happen to share a
+  // local id in different tiles never read as "the same building".
+  const owners = new Int32Array(RING * RING);
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -171,9 +176,13 @@ Render.drawCells = function drawCells(scene) {
       const iy2 = ((Math.floor(wcy) % N) + N) % N;
       const e2 = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
+      const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
+      const salt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
+      owners[r * RING + c] = ol ? ((salt << 16) | ol) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
+  const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
   const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
@@ -462,6 +471,19 @@ Render.drawCells = function drawCells(scene) {
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
   const isB = (t) => t === 9 || t === 11 || t === 12;
+  // Two building cells belong to DIFFERENT buildings when both are owned, sit in
+  // the same tile (matching salt in the high bits), and carry different local
+  // ids. Across a tile seam we can't compare local ids reliably, so we treat the
+  // edge as merged (no seam) — avoids slicing a single building that was clipped
+  // across two tiles.
+  const seamBetween = (a, b) =>
+    a !== 0 && b !== 0 && (a >>> 16) === (b >>> 16) && a !== b;
+  // A building cell's edge is a "wall" — gets the tier's outline / extrusion —
+  // when the 4-neighbour isn't a building at all, OR is a different building.
+  // This makes abutting footprints that merged into one block each draw their
+  // own silhouette, so they read as separate structures.
+  const wallEdge = (col, row, dc, dr) =>
+    !isB(T(col + dc, row + dr)) || seamBetween(OWN(col, row), OWN(col + dc, row + dr));
   // Pseudo-3D extrusion: building footprints are the "top surface", and the
   // south-facing edge of each building cell gets a 5px-tall darker wall projected
   // downward, painted on top of the row below. Other edges get a thin black tint
@@ -486,7 +508,7 @@ Render.drawCells = function drawCells(scene) {
         const WOOD_BODY = 0xa67434, WOOD_SHADOW = 0x6b4520, WOOD_TIP = 0x3a240e;
         const PICKETS = 8, PW = 4;   // 8 pickets × 4px = 32px = CELL_PX
         // South: pickets stand below the cell, tips touching the cell edge.
-        if (!isB(T(col, row + 1))) {
+        if (wallEdge(col, row, 0, 1)) {
           for (let i = 0; i < PICKETS; i++) {
             const px = sx + i * PW;
             g.fillStyle(WOOD_BODY, 1);   g.fillRect(px, sy + CELL_PX, 3, 5);
@@ -507,9 +529,9 @@ Render.drawCells = function drawCells(scene) {
           g.fillStyle(WOOD_TIP, 1);
           for (let i = 1; i < PICKETS; i++) g.fillRect(x, y + i * PW - 1, 3, 1);
         };
-        if (!isB(T(col, row - 1))) stripeH(sx, sy);
-        if (!isB(T(col - 1, row))) stripeV(sx, sy);
-        if (!isB(T(col + 1, row))) stripeV(sx + CELL_PX - 3, sy);
+        if (wallEdge(col, row, 0, -1)) stripeH(sx, sy);
+        if (wallEdge(col, row, -1, 0)) stripeV(sx, sy);
+        if (wallEdge(col, row, 1, 0)) stripeV(sx + CELL_PX - 3, sy);
         continue;
       }
       // Tier 12 (castle) — STONE RAMPART. The front (south) and back (north)
@@ -553,7 +575,7 @@ Render.drawCells = function drawCells(scene) {
         // South / front wall → FRONT layer (above objects). Darker extruded face
         // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
         // (bottom) edge; the lit battlement crest rises up from the bottom edge.
-        if (!isB(T(col, row + 1))) {
+        if (wallEdge(col, row, 0, 1)) {
           gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gf, sx, sy + CELL_PX);
@@ -562,7 +584,7 @@ Render.drawCells = function drawCells(scene) {
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
         // so the back reads as tall as the front. No dark grounding line here: at
         // the TOP edge it read as an unwanted hard line, not a contact shadow.
-        if (!isB(T(col, row - 1))) {
+        if (wallEdge(col, row, 0, -1)) {
           gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
           crestH(gb, sx, sy - WALL);
         }
@@ -578,13 +600,13 @@ Render.drawCells = function drawCells(scene) {
           // a distinct band instead of blurring into the adjacent floor / wall.
           gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
         };
-        if (!isB(T(col - 1, row))) sideShade(sx, sx + SIDE_W - 1);
-        if (!isB(T(col + 1, row))) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
+        if (wallEdge(col, row, -1, 0)) sideShade(sx, sx + SIDE_W - 1);
+        if (wallEdge(col, row, 1, 0)) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
         continue;
       }
       // South wall: tier-specific extrusion, a darker shade of the building
       // tier colour projected one cell downward.
-      if (!isB(T(col, row + 1))) {
+      if (wallEdge(col, row, 0, 1)) {
         const hex = SOUTH_FACE_COLOR[type] || 0x444444;
         g.fillStyle(hex, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
@@ -595,9 +617,9 @@ Render.drawCells = function drawCells(scene) {
       const B = 1;               // left / right border: 1 px
       const BT = type === 12 ? 2 : 1;  // top border: 2 px for LARGE (castle), 1 px otherwise
       g.fillStyle(0x000000, 0.5);
-      if (!isB(T(col, row - 1))) g.fillRect(sx,               sy, CELL_PX, BT);
-      if (!isB(T(col - 1, row))) g.fillRect(sx,               sy, B, CELL_PX);
-      if (!isB(T(col + 1, row))) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
+      if (wallEdge(col, row, 0, -1)) g.fillRect(sx,               sy, CELL_PX, BT);
+      if (wallEdge(col, row, -1, 0)) g.fillRect(sx,               sy, B, CELL_PX);
+      if (wallEdge(col, row, 1, 0)) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
     }
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
