@@ -1401,7 +1401,7 @@ Render.drawObjects = function drawObjects(scene) {
         stroke: LABEL_STROKE, strokeThickness: LABEL_STROKE_W,
         padding: { x: 4, y: 3 },
       }).setOrigin(0.5, 0).setDepth(50);
-      scene.objectsContainer.add(tx);
+      scene.labelContainer.add(tx);
       scene.chestLabelPool.push(tx);
     }
     // Named POIs get their rusticified name; unnamed POIs fall back to a
@@ -1572,7 +1572,7 @@ Render.drawObjects = function drawObjects(scene) {
       // shadow onto the glyph fill (and the wider stroke extends the
       // silhouette so the shadow visually sits behind the whole letter).
       tx.setShadow(1, 2, SHOP_DROP, 0, true, true);
-      scene.objectsContainer.add(tx);
+      scene.labelContainer.add(tx);
       scene.shopLabelPool.push(tx);
     }
     // House sprite origin is [0.5, 0.9] — sy is roughly the building's foot.
@@ -1739,7 +1739,7 @@ Render.drawObjects = function drawObjects(scene) {
         font: 'italic 8px ui-serif, "Times New Roman", serif',
         padding: { x: 3, y: 1 },
       }).setOrigin(0.5, 1).setDepth(51);
-      scene.objectsContainer.add(tx);
+      scene.labelContainer.add(tx);
       scene.shopReadyPool.push(tx);
     }
     const label = info.ready ? 'open' : `${info.waitMin}m`;
