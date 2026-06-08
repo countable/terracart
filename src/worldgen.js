@@ -377,18 +377,14 @@
 
   // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock), scaled
   // by DEPTH so ore is rare in daylight and grows richer the deeper you mine.
-  // The base curve below is then halved in ore terms on EVERY level so plain
-  // rock is always the clear majority — basic stone is the most frequent find
-  // everywhere. Copper is ~25 % of the ore subset (see the tier weights):
+  // Tier weights in spawnCaveRocks make depth-1 copper-heavy (~80 % of ores):
   //   surface (depth 0) → 0.90 plain → 0.10 ore → ~2.5 % copper-bearing rock
-  //   one level down (1) → 0.60 plain → 0.40 ore → ~10 % copper-bearing rock
-  //   deeper            → ore keeps climbing but plain never drops below ~0.55
+  //   depth 1           → 0.50 plain → 0.50 ore → ~40 % copper, ~10 % rarer
+  //   depth 2           → 0.45 plain → 0.55 ore  (balanced ore table kicks in)
+  //   depth 3+          → floors at 0.30 plain
   function caveRockP(depth) {
-    const basePlain = (!depth || depth <= 0)
-      ? 0.80
-      : Math.max(0.10, 0.20 - 0.03 * (depth - 1));
-    // Halve the ore-embedded share: newPlain = 1 − ½·(1 − basePlain).
-    return 1 - 0.5 * (1 - basePlain);
+    if (!depth || depth <= 0) return 0.90;
+    return Math.max(0.30, 0.50 - 0.05 * (depth - 1));
   }
 
   const idbName = 'mapgame-tiles';
@@ -2692,8 +2688,12 @@
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
     const plainP = caveRockP(depth);
-    // Same copper-dominant ore shape as the residential surface clusters.
-    const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
+    // Depth-1 is the intro cave: ~80 % of ore rolls land on T2 (copper) so
+    // the player reliably finds copper without grinding. Deeper levels use a
+    // balanced spread that grows richer in rarer ores.
+    const weights = depth === 1
+      ? [0.05, 0.80, 0.09, 0.03, 0.02, 0.01, 0.00]
+      : [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
     const cum = (ws) => { let t = 0; const c = ws.map(w => (t += w)); return { tierW: c, totalW: t }; };
     const baseTbl = cum(weights);
     const CAVE_VARIANTS = 4;     // plain-rock art variants (render.js)
