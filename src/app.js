@@ -1855,12 +1855,28 @@ class MapScene extends Phaser.Scene {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry.creatures = creatures; return; }
-    const count = 28 + depth * 8;
+    // Anchor spawns near the up-staircase (where the player enters) so monsters
+    // are immediately visible rather than scattered across the ~229×229 cell tile.
+    // Falls back to tile centre when no staircase exists on this tile.
+    const upStair = (entry.objects || []).find(o => o.kind === 'staircase' && o.dir === 'up');
+    const cellSizeM = entry.tileEdgeM / N;
+    const anchorLix = upStair
+      ? Math.floor((upStair.x - tx * entry.tileEdgeM) / cellSizeM)
+      : Math.floor(N / 2);
+    const anchorLiy = upStair
+      ? Math.floor((upStair.y - ty * entry.tileEdgeM) / cellSizeM)
+      : Math.floor(N / 2);
+    const SPAWN_R = 25; // cells — fills 2–3 screens worth around the entry point
+    const randCell = () => ({
+      cx: anchorLix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+      cy: anchorLiy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+    });
+    const count = 50 + depth * 10;
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const { cx, cy } = randCell();
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already defeated — stays dead
@@ -1870,14 +1886,12 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
-    // Rabbits live underground now (moved off the surface): a skittish,
-    // catchable critter hopping the cave floor amid the hostile monsters.
-    // Seeded, stable ids so a caught rabbit stays caught across reloads.
+    // Rabbits: also anchored near the staircase.
     const rabbitN = 10 + Math.floor(rng() * 8);
     for (let i = 0; i < rabbitN; i++) {
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const { cx, cy } = randCell();
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already caught — stays gone
