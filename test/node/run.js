@@ -50,7 +50,7 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
-  'mvt.js', 'util.js', 'coords.js', 'biome_profiles.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
 ];
@@ -62,6 +62,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName,
+  HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,

@@ -50,7 +50,15 @@ const HomeArea = {
   // fells one axe-tier easier than the default (util.js treeSpeciesTierShift),
   // so the home grove is reliably harvestable bare-handed / with a Wood axe.
   // Returns the species string to store on the tree (the fallback elsewhere).
-  softwoodSpeciesNear(x, y, fallbackSpecies) {
+  //
+  // EXCEPT bush-tier trees: the smallest size class renders as a uniform
+  // `bushes` sprite regardless of species (render.js), AND it's already
+  // bare-hands tier-0 with no species shift / 1× wood (util.js), so stamping
+  // 'pine' gains nothing gameplay-wise — it only mislabels a tiny bush as a
+  // "softwood" tree (treeSpeciesName). Leave bushes their own species so the
+  // sprite and the label agree.
+  softwoodSpeciesNear(x, y, fallbackSpecies, size) {
+    if (size === 'bush') return fallbackSpecies;
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
   },
 };

@@ -47,6 +47,24 @@ test('treeAxeReqTier / treeWoodMul: consistent, in-range', () => {
   }
 });
 
+test('HomeArea.softwoodSpeciesNear: forces pine near spawn, exempts bushes', () => {
+  HomeArea.setOrigin(0, 0);
+  // A normal-sized tree near the origin is forced to softwood (pine)…
+  assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'maple', 'medium'), 'pine',
+    'medium tree near spawn becomes softwood');
+  assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'birch'), 'pine',
+    'size-less tree near spawn becomes softwood');
+  // …but a bush-tier crown keeps its own species (it renders as a uniform bush
+  // and is already bare-hands tier-0, so the pine stamp would only mislabel it).
+  assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'maple', 'bush'), 'maple',
+    'bush near spawn keeps its own species');
+  // Far from spawn nothing is overridden, regardless of size.
+  assert.eq(HomeArea.softwoodSpeciesNear(9999, 9999, 'maple', 'medium'), 'maple',
+    'tree far from spawn keeps its species');
+  assert.eq(HomeArea.softwoodSpeciesNear(9999, 9999, 'maple', 'bush'), 'maple',
+    'bush far from spawn keeps its species');
+});
+
 test('WorldGen namespace is present and usable headlessly', () => {
   assert.eq(typeof WorldGen, 'object', 'WorldGen exported');
   assert.eq(typeof WorldGen.lonLatToWorldPx, 'function', 'projection fn present');

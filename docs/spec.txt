@@ -294,6 +294,9 @@ CHOPPING
      * HOME GROVE: every tree within ~100m of spawn is forced to SOFTWOOD
        (home.js HomeArea.softwoodSpeciesNear) so the opening wood economy — the
        starter blacksmith's first tools — is reliably harvestable bare-handed.
+       Bush-tier crowns are exempt: they render as a uniform bush and are already
+       bare-hands tier-0, so the pine stamp would only mislabel them — they keep
+       their own species instead.
 
 ================================================================================
 ORCHARD FRUIT TREES
