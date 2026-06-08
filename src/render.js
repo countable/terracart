@@ -194,8 +194,8 @@ Render.drawCells = function drawCells(scene) {
   const CORNER_R = 6;
   // Wavy dark-border transition constants (arbitrary biome boundaries only).
   const BORDER_W   = 2;   // px — 1/16 of CELL_PX
-  const WAVE_AMP   = 1;   // px amplitude of sine wave at boundary
-  const WAVE_LEN   = 8;   // px wavelength (~4 cycles per 32px tile)
+  const WAVE_AMP   = 0.5; // px amplitude of sine wave at boundary
+  const WAVE_LEN   = 16;  // px wavelength (~2 cycles per 32px tile)
   const BORDER_DIM = 0.65;
   const TRANS_SKIP = new Set([2, 3, 7, 8, 9, 11, 12, 13, 14]); // water, sand, roads, path, buildings
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
