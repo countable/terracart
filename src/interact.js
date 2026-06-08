@@ -1075,7 +1075,11 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cwmx, cwmy } = ctx;
     const arr = save.scarecrows = save.scarecrows || [];
     const half = scene.cellM / 2;
-    const idx = arr.findIndex(s => Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
+    // Only match a scarecrow placed on the level we're standing on — a surface
+    // scarecrow and the cave cell below it share world coords (GPS mirror), so
+    // without the depth gate a cave tap would reclaim the farm scarecrow above.
+    const idx = arr.findIndex(s => PlacedFloor.onDepth(s, scene.depth) &&
+      Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     scene.addToInv('scarecrow', 1);
@@ -1090,11 +1094,13 @@ const TAP_HANDLERS = [
     // Scarecrow placement is free (no energyKey). Extra guard: refuse if a
     // scarecrow already sits on this cell (rock has no such per-cell list to
     // check — placedRockSet membership is implied by the tilled/planted gates).
-    extraGuard: ({ save, cwmx, cwmy }) =>
-      !(save.scarecrows || []).some(s => Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
-    place: ({ save, cwmx, cwmy }) => {
+    extraGuard: ({ scene, save, cwmx, cwmy }) =>
+      !(save.scarecrows || []).some(s => PlacedFloor.onDepth(s, scene.depth) &&
+        Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
+    place: ({ scene, save, cwmx, cwmy }) => {
       save.scarecrows = save.scarecrows || [];
-      save.scarecrows.push({ x: cwmx, y: cwmy });
+      // Tag the level so it renders / wards only here (see src/placed_floor.js).
+      save.scarecrows.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
     },
     flashMsg: '🪦 The scarecrow watches.',
   })},
@@ -1106,7 +1112,10 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cwmx, cwmy } = ctx;
     const arr = save.fires = save.fires || [];
     const half = scene.cellM / 2;
-    const idx = arr.findIndex(f => Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    // Match only a fire lit on this level — fires are placeable underground
+    // (they ward slimes), so the GPS-mirror depth gate matters here too.
+    const idx = arr.findIndex(f => PlacedFloor.onDepth(f, scene.depth) &&
+      Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     ctx.dirty = true;
@@ -1120,11 +1129,13 @@ const TAP_HANDLERS = [
   // near it (see app.js). Coal is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'coal',
-    extraGuard: ({ save, cwmx, cwmy }) =>
-      !(save.fires || []).some(f => Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
-    place: ({ save, cwmx, cwmy }) => {
+    extraGuard: ({ scene, save, cwmx, cwmy }) =>
+      !(save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
+        Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
+    place: ({ scene, save, cwmx, cwmy }) => {
       save.fires = save.fires || [];
-      save.fires.push({ x: cwmx, y: cwmy });
+      // Tag the level so it renders / wards only here (see src/placed_floor.js).
+      save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
     },
     flashMsg: '🔥 The fire crackles.',
   })},
