@@ -1849,7 +1849,7 @@ class MapScene extends Phaser.Scene {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry.creatures = creatures; return; }
-    const count = 14 + depth * 4;
+    const count = 28 + depth * 8;
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 12; attempt++) {
