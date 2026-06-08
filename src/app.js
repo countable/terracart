@@ -686,6 +686,9 @@ class MapScene extends Phaser.Scene {
 
     // Layers
     this.cellGfx = this.add.graphics();
+    this.gridContainer = this.add.container(0, 0);  // dashed grid — only redrawn on cell crossing
+    this.gridGfx = this.add.graphics();
+    this.gridContainer.add(this.gridGfx);
     this.noiseContainer = this.add.container(0, 0);
     this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
@@ -842,6 +845,7 @@ class MapScene extends Phaser.Scene {
     maskG.fillRect(this.viewLeft, this.viewTop, this.viewSize, this.viewSize);
     const mask = maskG.createGeometryMask();
     this.cellGfx.setMask(mask);
+    this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);
     this.borderContainer.setMask(mask);
     this.terrainContainer.setMask(mask);

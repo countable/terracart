@@ -827,19 +827,29 @@ Render.drawCells = function drawCells(scene) {
   //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
   //   left edge = sx - CELL_PX/2 = viewLeft + CELL_PX/2 + (j - fracX) * CELL_PX
   // so grid lines need the same +CELL_PX/2 offset.
-  g.lineStyle(1, 0x000000, 0.08);
-  const xShift = -fracX * CELL_PX + CELL_PX / 2;
-  const yShift = -fracY * CELL_PX + CELL_PX / 2;
-  const DASH = 4, GAP = 4;
-  const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
-  for (let i = -1; i <= VIEW_CELLS + 1; i++) {
-    const x = Math.round(vLeft + i * CELL_PX + xShift);
-    const y = Math.round(vTop  + i * CELL_PX + yShift);
-    for (let d = vTop; d < vTop + vSize; d += DASH + GAP)
-      g.lineBetween(x, d, x, Math.min(d + DASH, vTop + vSize));
-    for (let d = vLeft; d < vLeft + vSize; d += DASH + GAP)
-      g.lineBetween(d, y, Math.min(d + DASH, vLeft + vSize), y);
+  // Dashed grid lines — cached in gridGfx, only rebuilt on cell crossing.
+  // 1,300 lineBetween calls/frame at 60fps fills the GC nursery quickly;
+  // the container scroll handles sub-cell movement between redraws.
+  const gg = scene.gridGfx;
+  const gridDirty = baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY;
+  if (gridDirty) {
+    gg.clear();
+    scene._lastGridIX = baseCellIX;
+    scene._lastGridIY = baseCellIY;
+    gg.lineStyle(1, 0x000000, 0.08);
+    const DASH = 4, GAP = 4;
+    const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
+    // Draw at integer-snapped positions (no fracX/fracY) — container handles scroll.
+    for (let i = -1; i <= VIEW_CELLS + 1; i++) {
+      const x = Math.round(vLeft + i * CELL_PX + CELL_PX / 2);
+      const y = Math.round(vTop  + i * CELL_PX + CELL_PX / 2);
+      for (let d = vTop; d < vTop + vSize; d += DASH + GAP)
+        gg.lineBetween(x, d, x, Math.min(d + DASH, vTop + vSize));
+      for (let d = vLeft; d < vLeft + vSize; d += DASH + GAP)
+        gg.lineBetween(d, y, Math.min(d + DASH, vLeft + vSize), y);
+    }
   }
+  scene.gridContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
 
   // Treasure marks — subtle X on the ground (unfound only).
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
