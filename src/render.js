@@ -789,11 +789,15 @@ Render.drawCells = function drawCells(scene) {
   g.lineStyle(1, 0x000000, 0.08);
   const xShift = -fracX * CELL_PX + CELL_PX / 2;
   const yShift = -fracY * CELL_PX + CELL_PX / 2;
+  const DASH = 4, GAP = 4;
+  const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
   for (let i = -1; i <= VIEW_CELLS + 1; i++) {
-    const x = Math.round(scene.viewLeft + i * CELL_PX + xShift);
-    const y = Math.round(scene.viewTop  + i * CELL_PX + yShift);
-    g.lineBetween(x, scene.viewTop, x, scene.viewTop + scene.viewSize);
-    g.lineBetween(scene.viewLeft, y, scene.viewLeft + scene.viewSize, y);
+    const x = Math.round(vLeft + i * CELL_PX + xShift);
+    const y = Math.round(vTop  + i * CELL_PX + yShift);
+    for (let d = vTop; d < vTop + vSize; d += DASH + GAP)
+      g.lineBetween(x, d, x, Math.min(d + DASH, vTop + vSize));
+    for (let d = vLeft; d < vLeft + vSize; d += DASH + GAP)
+      g.lineBetween(d, y, Math.min(d + DASH, vLeft + vSize), y);
   }
 
   // Treasure marks — subtle X on the ground (unfound only).
