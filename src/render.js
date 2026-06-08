@@ -127,7 +127,6 @@ Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
   const gb2 = scene.borderGfx;
-  gb2.clear();
   // Castle ramparts split across TWO layers so towers (objectsContainer) sort
   // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
   // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
@@ -148,6 +147,13 @@ Render.drawCells = function drawCells(scene) {
   // drift relative to the rendered cell positions.
   const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
   const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  // Border layer: only redraw geometry when the camera crosses a cell boundary.
+  // Between crossings scroll the container for sub-cell fractional movement.
+  // This keeps the Graphics object's draw-command list stable across frames,
+  // eliminating the GC churn from clear()+rebuild every frame.
+  const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY;
+  if (borderDirty) { gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY; }
+  scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
@@ -293,41 +299,43 @@ Render.drawCells = function drawCells(scene) {
         const drawS = edgeNeeds(tS,  0, +1);
         const drawW = edgeNeeds(tW, -1,  0);
         const drawE = edgeNeeds(tE, +1,  0);
-        if (drawN || drawS || drawW || drawE) {
+        if (borderDirty && (drawN || drawS || drawW || drawE)) {
+          // Draw at integer-snapped positions — the borderContainer scrolls by
+          // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
+          // so geometry only needs to be rebuilt when baseCellIX/IY changes.
+          const bx = scene.viewCenterX + ox * CELL_PX;
+          const by = scene.viewCenterY + oy * CELL_PX;
           gb2.fillStyle(getDark(color), 1);
-          // Draw wave-edged border strips using run-length encoding of the wave table
-          // — groups of consecutive same-offset pixels become a single wider rect,
-          // cutting per-edge draw calls from 32 down to ~6.
           if (drawN) {
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
               if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(sx + s, sy + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
+                { gb2.fillRect(bx + s, by + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
             }
           }
           if (drawS) {
-            const base = sy + CELL_PX - BORDER_W;
+            const base = by + CELL_PX - BORDER_W;
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
               if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(sx + s, base + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
+                { gb2.fillRect(bx + s, base + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
             }
           }
           if (drawW) {
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
               if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(sx + _WAVE_TABLE[s], sy + s, BORDER_W, i - s); s = i; }
+                { gb2.fillRect(bx + _WAVE_TABLE[s], by + s, BORDER_W, i - s); s = i; }
             }
           }
           if (drawE) {
-            const base = sx + CELL_PX - BORDER_W;
+            const base = bx + CELL_PX - BORDER_W;
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
               if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(base + _WAVE_TABLE[s], sy + s, BORDER_W, i - s); s = i; }
+                { gb2.fillRect(base + _WAVE_TABLE[s], by + s, BORDER_W, i - s); s = i; }
             }
           }
-          if (drawN && drawW) gb2.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
-          if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
-          if (drawS && drawW) gb2.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
-          if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+          if (drawN && drawW) gb2.fillCircle(bx + BORDER_W, by + BORDER_W, BORDER_W);
+          if (drawN && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + BORDER_W, BORDER_W);
+          if (drawS && drawW) gb2.fillCircle(bx + BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
+          if (drawS && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
         }
       }
 

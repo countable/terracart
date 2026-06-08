@@ -687,7 +687,9 @@ class MapScene extends Phaser.Scene {
     // Layers
     this.cellGfx = this.add.graphics();
     this.noiseContainer = this.add.container(0, 0);
-    this.borderGfx = this.add.graphics();  // biome-boundary borders, above texture sprites
+    this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
+    this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
+    this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
     // Road-name letters render WITH the road stones (just above the cobble),
@@ -841,7 +843,7 @@ class MapScene extends Phaser.Scene {
     const mask = maskG.createGeometryMask();
     this.cellGfx.setMask(mask);
     this.noiseContainer.setMask(mask);
-    this.borderGfx.setMask(mask);
+    this.borderContainer.setMask(mask);
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
