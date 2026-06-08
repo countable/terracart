@@ -173,7 +173,7 @@ const SCENARIOS = [
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, origin: [0.5, 0.5], scale: 1.6 },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   origin: [0.5, 0.5], scale: 1.6 },
   { name: 'well',            key: 'well',          frameIdx: 0, origin: [0.406, 0.62], scale: 0.9 },
-  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, origin: [0.25, 0.95], scale: 1.0 },
+  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, origin: [0.25, 0.95], scale: 2.0 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, origin: [0.5, 0.5],  scale: 0.455 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, origin: [0.5, 0.82], scale: 1.1 },
 ];
