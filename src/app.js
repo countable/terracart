@@ -1995,7 +1995,7 @@ class MapScene extends Phaser.Scene {
       vy = this.debugJoystickVec.y;
       speedMul = DEBUG_SPEED_MUL;
     }
-    if (this._fastWalk) speedMul = 5;
+    if (this._fastWalk) speedMul = 25;
     const moving = vx || vy;
     if (this.depth > 0) {
       // Underground: inputs steer a free-flying ghost target (through walls);
