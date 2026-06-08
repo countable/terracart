@@ -103,6 +103,12 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
   hidePoolFrom(pool, i);
 };
 
+function darkenHex(hex, f) {
+  return ((Math.round(((hex >> 16) & 0xff) * f)) << 16)
+       | ((Math.round(((hex >>  8) & 0xff) * f)) <<  8)
+       |  (Math.round( (hex        & 0xff) * f));
+}
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -186,6 +192,12 @@ Render.drawCells = function drawCells(scene) {
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
   const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
+  // Wavy dark-border transition constants (arbitrary biome boundaries only).
+  const BORDER_W   = 2;   // px — 1/16 of CELL_PX
+  const WAVE_AMP   = 2;   // px amplitude of sine wave at boundary
+  const WAVE_LEN   = 8;   // px wavelength (~4 cycles per 32px tile)
+  const BORDER_DIM = 0.65;
+  const TRANS_SKIP = new Set([2, 3, 7, 8, 13, 14]); // water, sand, roads, path
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -243,6 +255,47 @@ Render.drawCells = function drawCells(scene) {
         g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
       } else {
         g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      }
+
+      // Wavy dark-border at arbitrary biome boundaries (skips water/sand/roads
+      // which already have dedicated transition art).
+      if (!TRANS_SKIP.has(type)) {
+        const bc = darkenHex(COLORS[type] ?? GRASS_FALLBACK_COLOR, BORDER_DIM);
+        g.fillStyle(bc, 1);
+        const tN = T(col, row - 1), tS = T(col, row + 1);
+        const tW = T(col - 1, row), tE = T(col + 1, row);
+        const drawN = tN !== type && !TRANS_SKIP.has(tN);
+        const drawS = tS !== type && !TRANS_SKIP.has(tS);
+        const drawW = tW !== type && !TRANS_SKIP.has(tW);
+        const drawE = tE !== type && !TRANS_SKIP.has(tE);
+        if (drawN) {
+          for (let i = 0; i < CELL_PX; i++) {
+            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
+            g.fillRect(sx + i, sy + wo, 1, BORDER_W);
+          }
+        }
+        if (drawS) {
+          for (let i = 0; i < CELL_PX; i++) {
+            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
+            g.fillRect(sx + i, sy + CELL_PX - BORDER_W + wo, 1, BORDER_W);
+          }
+        }
+        if (drawW) {
+          for (let i = 0; i < CELL_PX; i++) {
+            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
+            g.fillRect(sx + wo, sy + i, BORDER_W, 1);
+          }
+        }
+        if (drawE) {
+          for (let i = 0; i < CELL_PX; i++) {
+            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
+            g.fillRect(sx + CELL_PX - BORDER_W + wo, sy + i, BORDER_W, 1);
+          }
+        }
+        if (drawN && drawW) g.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawN && drawE) g.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawS && drawW) g.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+        if (drawS && drawE) g.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
       }
 
       // (Building outlines are drawn in a second pass after every cell is
