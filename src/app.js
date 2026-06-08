@@ -32,8 +32,23 @@ try {
     if (o && Number.isFinite(o.lon) && Number.isFinite(o.lat)) _teleportOverride = o;
   }
 } catch { /* malformed override → ignore, fall back to home/GPS */ }
-const START_LON = _teleportOverride ? _teleportOverride.lon : HOME_LON;
-const START_LAT = _teleportOverride ? _teleportOverride.lat : HOME_LAT;
+// Per-save FROZEN home origin. Set once from the first GPS fix on a brand-new
+// save (see startGps), then used as the world projection origin forever — so
+// each save is anchored at the player's real location instead of a hardcoded
+// city. Read here at module load (before the scene builds the projection) so
+// the whole world initialises at the saved home. initSaves() points SAVE_KEY
+// at the active slot; loadSave() then reads that slot's data. A teleport
+// override still wins (it's an explicit relocation).
+let _saveHome = null;
+try {
+  if (typeof initSaves === 'function') initSaves();
+  const _sv = (typeof loadSave === 'function') ? loadSave() : null;
+  if (_sv && _sv.home && Number.isFinite(_sv.home.lat) && Number.isFinite(_sv.home.lon)) {
+    _saveHome = _sv.home;
+  }
+} catch { /* no saved home → fall back to teleport / HOME */ }
+const START_LON = _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
+const START_LAT = _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
 // Expose the preset table + active override so index.html can build the menu.
 if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
@@ -47,24 +62,76 @@ const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
+// How far above dead-centre every dialog rides (game px, in #game's 844-tall
+// box). Reserved as bottom padding on the shared modal wrap so the flex-centred
+// box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
+// this is the one knob that moves all dialogs together.
+const MODAL_LIFT_PX = 140;
+
+// Inventory category tabs (the top bar of the two-bar bottom HUD). The order
+// here is the on-screen left→right order. Item categories filter save.inv by
+// `kind`; gear categories (relic / armor) synthesize their slot list from
+// save.relics / save.armor (one-per-slot) instead of save.inv. `sym` is the
+// tab glyph — plain emoji so no new pixel art is needed for the chrome.
+const INV_CATS = [
+  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
+  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
+  { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
+  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
+  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
+  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+];
+const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// Slot draw order within each gear tab (owned slots only are rendered).
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 
 // Terrain cell types fauna may NEVER step onto (spec §fauna: "no fauna may move
 // onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
 // + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14). PATHS (8) are pedestrian
 // / public and stay passable.
-const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14]);
+const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
 function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
+// Underground wandering MONSTERS. Mechanically they're the surface slime: each
+// drifts toward the player and drains energy when within RANGE — but they
+// differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches past one
+// cell (range 3); everything else is melee (range 1). Tougher kinds are gated
+// to deeper levels via minDepth, so descending introduces new foes. Placeholder
+// art: every monster reuses the slime sprite with a per-kind TINT (see
+// render.js) until dedicated sheets land — swapping in real art is a one-line
+// assets.js + render.js change per kind.
+//   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
+//   range  → cells within which it drains energy
+//   dmg    → energy drained per hit (1 hit/sec per monster)
+//   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
+//   weight → relative spawn share among the kinds eligible at a given depth
+const MONSTERS = {
+  cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, tint: 0x66dd66, minDepth: 1, weight: 5 },
+  bat:           { name: 'Bat',           hp: 6,  range: 1, dmg: 1, speed: 1.8, tint: 0x9a7bd0, minDepth: 1, weight: 4, fly: true },
+  goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, tint: 0xcc6644, minDepth: 2, weight: 3 },
+  goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, tint: 0xaa66cc, minDepth: 3, weight: 2 },
+};
+const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
+function isMonster(kind) { return MONSTER_KINDS.has(kind); }
+
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
-// Used everywhere the crow pest logic scans `save.planted` so the rule lives
-// in one place.
-const CROW_IGNORED_CROPS = new Set(['potato']);
-function crowEatsCrop(p) { return !CROW_IGNORED_CROPS.has(p.crop); }
+// The rule (and its crop set) now lives in crops.js; this stays as a free-
+// function alias because the crow pest logic calls it bare in several spots.
+function crowEatsCrop(p) { return Crops.crowEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
+// Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
+// visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
+// debug "taps randomly stop working". On by default in DEBUG builds; force on
+// anywhere with ?debugtaps in the URL. Set window.DEBUG_TAPS = false to silence.
+if (typeof window !== 'undefined') {
+  window.DEBUG_TAPS = DEBUG || /[?&]debugtaps\b/.test(location.search || '');
+}
 
 // --- Tap reach radii (metres). Used by handleWorldTap distance checks. ---
 // (Creatures use a per-kind tap radius in interact.js, not a flat constant.)
@@ -119,14 +186,9 @@ const PRESEED_RESTORE_ROLES = {
   5:  'plain',
   14: 'wizard',   // the 15th restored wreck is a wizard tower
 };
-// Delivery wishlists climb in rarity as the player's lifetime tally grows.
-// The "wanted" produce set is biased toward this target tier, which ramps
-// linearly from PRODUCE_TIER_MIN (at 0 deliveries) to PRODUCE_TIER_MAX (at
-// DELIVERY_TIER_CAP deliveries and beyond). Early neighbours ask for berries
-// and potatoes; a veteran courier gets asked for goldenfish and coconuts.
-const PRODUCE_TIER_MIN  = 1;
-const PRODUCE_TIER_MAX  = 7;
-const DELIVERY_TIER_CAP = 100;
+// Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
+// the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
+// now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
 // Shop/trader trades hand the player this many of the offered item per deal for
 // the same demand (cash or barter), so every trade is twice as favourable.
 const TRADE_OFFER_QTY     = 2;
@@ -139,7 +201,7 @@ const COLORS = {
   1: 0x2e6a2e,  // forest
   2: 0xe6ae55,  // sand — matched to the Autotiles_Godot sand-fill (rgb 230,174,85) so the autotiled beach tiles blend with the flat fill
   3: 0x3a78c2,  // water
-  4: 0xc7a85b,  // farmland
+  4: 0xa39660,  // farmland — muddy pasture (muted olive-brown under the mud/grass texture)
   5: 0xada695,  // residential
   6: 0x7fbf63,  // park
   7: 0x444444,  // road
@@ -147,12 +209,12 @@ const COLORS = {
   9: 0xb2705a,  // building — small house (lifted warm brown)
   10: 0x7d736b, // rock
   11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x868a92, // building_large — civic / school / industrial (lifted slate)
+  12: 0x7c7f88, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
   13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
   14: 0x3f3f3f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
   15: 0x7eb55a, // SCHOOL       (GRASSLAND) — schoolyard green, slightly mown
-  16: 0xc4a5b0, // COMMERCIAL   (ROCKY)     — warm pink-tan, brightness ≈ residential
+  16: 0xa6a6a3, // COMMERCIAL   (ROCKY)     — grey anti-slip ceramic floor tile
   17: 0xaa8d99, // INDUSTRIAL   (ROCKY)     — same hue, ~15% darker
   18: 0xa39065, // PLAYGROUND   (GRASSLAND) — mulchy tan
   19: 0x6fa850, // PITCH        (GRASSLAND) — vivid sports-field green
@@ -165,12 +227,15 @@ const COLORS = {
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
   23: 0x3a78c2, // PIER         (WATER base) — plank sprite overlays on top
+  // --- Underground cave biome (depth > 0) ---
+  24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
+  25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
 };
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
 // road tiers, paths, every building tier, and rock are NOT tillable.
 // Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // Building interior cells — small house, fort, civic slab. Used for the
 // "rest inside to recover energy" loop (slow, opt-in regen while indoors).
@@ -189,10 +254,9 @@ const HOME_FULL_REST_S = 90;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
-// Time-since-tab-close that grants the FULL energy bar back. Closing the tab
-// or backgrounding the app for an hour returns at 100% energy; shorter rests
-// are pro-rated linearly.
-const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
+// Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
+// linearly) now lives with the offline-rest formula in energy.js as
+// Energy.OFFLINE_FULL_REST_MS.
 
 
 // === Crop-affinity plaque (per-crop wooden sign baked once) ===
@@ -232,6 +296,47 @@ function makePlaqueTextures(scene) {
     }
     tex.refresh();
   }
+}
+
+// === Cave staircases (down / up) — baked once, 32×32 = one cell ===
+// 'stair_down' reads as steps receding into a dark pit (a way down); 'stair_up'
+// as lit stone steps climbing toward an opening. Drawn as flat-shaded blocks so
+// they sit cleanly inside a single cell (QC: one-cell interactable).
+function makeStaircaseTextures(scene) {
+  const S = 32;
+  const bake = (key, down) => {
+    if (scene.textures.exists(key)) return;
+    const tex = scene.textures.createCanvas(key, S, S);
+    const ctx = tex.getContext();
+    // Dark rock frame around the opening.
+    ctx.fillStyle = '#15110e';
+    ctx.fillRect(2, 2, S - 4, S - 4);
+    // Four steps. Down: receding into shadow (top dark → bottom light). Up:
+    // climbing toward light (top light → bottom dark). Each step is a band.
+    const shades = down
+      ? ['#0a0807', '#241c16', '#3a2c22', '#52402f']
+      : ['#6b513a', '#52402f', '#3a2c22', '#241c16'];
+    const steps = shades.length;
+    const bandH = (S - 8) / steps;
+    for (let i = 0; i < steps; i++) {
+      ctx.fillStyle = shades[i];
+      const inset = down ? i : (steps - 1 - i);   // narrowing toward the dark end
+      const x = 4 + inset * 1.5;
+      const w = (S - 8) - inset * 3;
+      ctx.fillRect(x, 4 + i * bandH, w, bandH - 1);
+    }
+    // Chevron hint of direction, centred.
+    ctx.fillStyle = down ? 'rgba(255,255,255,0.55)' : 'rgba(255,240,200,0.7)';
+    const cx = S / 2, cy = S / 2;
+    ctx.beginPath();
+    if (down) { ctx.moveTo(cx - 5, cy - 4); ctx.lineTo(cx + 5, cy - 4); ctx.lineTo(cx, cy + 4); }
+    else      { ctx.moveTo(cx - 5, cy + 4); ctx.lineTo(cx + 5, cy + 4); ctx.lineTo(cx, cy - 4); }
+    ctx.closePath();
+    ctx.fill();
+    tex.refresh();
+  };
+  bake('stair_down', true);
+  bake('stair_up', false);
 }
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
@@ -338,6 +443,12 @@ class MapScene extends Phaser.Scene {
         inv: [],
         selSlot: 0,
         invPage: 0,
+        // Two-bar inventory: invCat is the active type tab (see INV_CATS);
+        // selGear is the highlighted relic/armor slot when a gear tab is active
+        // (items keep using selSlot; the two are mutually exclusive — a gear
+        // selection sets selSlot to -1 so item actions read "nothing selected").
+        invCat: 'seed',
+        selGear: null,
       },
       loadSave()
     );
@@ -354,80 +465,23 @@ class MapScene extends Phaser.Scene {
     this.brokenRockSet = new Set(this.save.brokenRocks);
     this.save.placedRocks = this.save.placedRocks || [];
     this.placedRockSet = new Set(this.save.placedRocks);
-    // Stats / equipment migration — adds energy + relic/armor slots to older saves.
-    this.save.relics = this.save.relics || { pick: null, axe: null, ring: null, amulet: null,
-                                              sword: null, bow: null, staff: null };
-    // older saves: backfill any relic slots added since they were created.
-    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
-      if (this.save.relics[slot] === undefined) this.save.relics[slot] = null;
-    }
-    // Magic Crafting Shrine — one per game, spawned on the start tile at
-    // worldgen. shrineLevel ramps 1..7 as the player feeds it harvest
-    // bundles, unlocking new produce→bar transforms (see SHRINE_TRANSFORMS).
-    // save.shrine = { id, x, y } once spawned; null until then.
-    if (this.save.shrine === undefined)           this.save.shrine = null;
-    if (this.save.shrineLevel === undefined)      this.save.shrineLevel = 1;
-    // Shrine reach upgrades (0..6) — each adds +0.5 cell to the player's reach
-    // (2 cells base → 5 at 6 upgrades; see coords.js reachCells). Claimed at
-    // the shrine, gated by cumulative deliveries (save.deliveryCount): the Nth
-    // upgrade needs 5×N deliveries (5,10,15,20,25,30). Lifetime delivery count
-    // is bumped in presentDeliveryOffer's accept path.
-    if (this.save.reachUpgrades === undefined)    this.save.reachUpgrades = 0;
-    if (this.save.deliveryCount === undefined)    this.save.deliveryCount = 0;
-    // Per-house "fed today" stamps ({ houseId: 'YYYYMMDD' }). A delivered
-    // household goes happy for the rest of the UTC day and wants a fresh
-    // bundle the next day. Pruned to the current day in the accept path.
-    if (this.save.houseSatisfied === undefined)   this.save.houseSatisfied = {};
-    // Discovery — lifetime count of rare "shiny" flora / trees / animals
-    // found. Earned alongside the 10× money bonus when a shiny variant is
-    // harvested or caught (see awardShinyBonus). Surfaced in the Stats modal;
-    // reserved as the eventual unlock currency for the Magic Shrine.
-    if (this.save.discovery === undefined)        this.save.discovery = 0;
-    // Self-heal pre-fix save state: pre-fix, forest trees spawned without
-    // an `id` field, so chopping one pushed `undefined` into save.chopped.
-    // A `choppedSet.has(undefined)` lookup then matched every other tree
-    // (also id-less) and wiped the whole grove. Strip any falsy entries on
-    // load so old saves recover automatically.
-    if (Array.isArray(this.save.chopped)) {
-      const cleaned = this.save.chopped.filter(id => !!id);
-      if (cleaned.length !== this.save.chopped.length) this.save.chopped = cleaned;
-    }
-    // POIs span tile seams (worldgen replicates them across up to 4
-    // neighbouring tile entries). When the shrine REPLACES a POI we need
-    // to suppress that chest id everywhere it appears, not just on the
-    // tile the spawn picked. Single id is enough — only one shrine per
-    // game and a POI's id is unique.
-    if (this.save.shrineReplacedId === undefined) this.save.shrineReplacedId = null;
-    // Per-shop bucket state: { [houseId]: { bucket, deals, rerolls } }.
-    // Replaces the old shopDeals (rolling timestamp array) + shopOffers
-    // (cached offer object) — both are re-derivable from a seeded RNG keyed
-    // by (house.id, bucket, rerolls). offerSalt is a once-per-save random
-    // so identical worlds won't see identical shops across players.
-    if (!this.save.shopState) {
-      this.save.shopState = {};
-      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
-      delete this.save.shopDeals;
-      delete this.save.shopOffers;
-    }
-    if (this.save.offerSalt == null) {
-      this.save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
-    }
-    // Backfill armor slots (spread, not || , so a save missing one slot key
-    // still gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
-    this.save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(this.save.armor || {}) };
-    // Always re-derive maxEnergy from the equipped armor — never trust a stale
-    // saved value (older saves may have had a lower maxEnergy than the current
-    // armor set warrants, which would silently cap energy below the real ceiling).
-    const maxE = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(this.save.armor) : (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
-    this.save.maxEnergy = maxE;
-    if (!Number.isFinite(this.save.energy)) this.save.energy = maxE;
-    // Clamp current to whatever the new max allows.
-    this.save.energy = Math.min(maxE, Math.max(0, this.save.energy));
+    // Cave walls the player has mined into walkable floor. Keys are
+    // "<depth>:<absCellIX>_<absCellIY>" so the same GPS-mirrored cell can be dug
+    // independently on each level. Re-applied to a cave tile's grid on load.
+    this.save.dugWalls = this.save.dugWalls || [];
+    this.dugWallSet = new Set(this.save.dugWalls);
+    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
+    // re-derive, the history cap, and the data migrations (inv string→object,
+    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
+    // review seed) — live in savemigrate.js so they're testable headlessly.
+    // Returns true iff a real data migration changed something and the save
+    // should be re-persisted now.
+    const needsMigrationPersist = SaveMigrate.migrate(this.save);
     // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
     // treated as "the player was resting" — pro-rated 100% per hour, capped at
-    // maxEnergy. Skipped in test mode so the harness's deterministic energy
-    // values aren't bumped on every harness reload.
+    // maxEnergy (re-derived in migrate above). Skipped in test mode so the
+    // harness's deterministic energy values aren't bumped on every reload. Runs
+    // before the migration persist so a bumped energy is saved with it.
     if (this.save.lastSeenAt && !window.__TEST_MODE) {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
@@ -437,130 +491,13 @@ class MapScene extends Phaser.Scene {
     this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
-    // Restored-houses set: empty by default. Every tier-9 small-house starts
-    // out as a "wreck" sprite with no shop function — the player has to
-    // bring 5 wood (plain residential) or 5 rockfruit (themed: blacksmith /
-    // market / trader) to restore it. The starter trailer is exempt — it's
-    // marked as restored on first load so Home is functional from day one.
-    if (!this.save.restoredHouses || typeof this.save.restoredHouses !== 'object') {
-      this.save.restoredHouses = {};
-    }
-    // Castles start sealed: their occupants won't trade until the player has
-    // logged enough lifetime deliveries (save.deliveryCount ≥
-    // CASTLE_DELIVERY_GATE). The gate is read straight off the delivery tally —
-    // no per-building save key — so a stale tributedCastles map from an older
-    // save is dead weight; drop it.
-    if (this.save.tributedCastles) delete this.save.tributedCastles;
-    // Forts start sealed too, but unseal with a one-time wood payment
-    // (FORT_UNLOCK_WOOD) rather than deliveries — recorded per-fort here, the
-    // wood analogue of restoredHouses for tier-9 wrecks.
-    if (!this.save.unlockedForts || typeof this.save.unlockedForts !== 'object') {
-      this.save.unlockedForts = {};
-    }
-    // No starter-tools gift: the player begins tool-less and forges their
-    // first wooden pick → axe → hoe at the starter blacksmith (5 wood each).
-    // Wood comes from ground stacks + bare-handed shrub chops (no tool
-    // needed), and the starter crate seeds the first 5 wood, so the very
-    // first pick is always reachable on day one.
-    //
-    // One-time migration for saves made under the old gift: strip the free
-    // tier-1 pick/axe so existing players also start the forge loop. Only
-    // nulls a *wooden* (tier 1) tool — an upgraded pick/axe was earned and
-    // is left alone. Gated behind a flag so a re-forged wooden tool isn't
-    // re-wiped on the next reload.
-    if (!this.save.starterToolsStripped) {
-      if (this.save.relics?.pick?.tier === 1) this.save.relics.pick = null;
-      if (this.save.relics?.axe?.tier  === 1) this.save.relics.axe  = null;
-      this.save.starterToolsStripped = true;
-    }
-    // Soft cap on unbounded "history" save fields. A heavy player who walks
-    // for hours can balloon these to MBs and silently break localStorage
-    // writes (quota exceeded). Keeping the MOST RECENT N entries means the
-    // oldest opened chests / picked plants / treasures may eventually
-    // respawn if the player walks back, but the alternative is a totally
-    // broken save once quota hits.
-    const HISTORY_CAP = 5000;
-    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'placedRocks', 'chopped']) {
-      const arr = this.save[k];
-      if (Array.isArray(arr) && arr.length > HISTORY_CAP) {
-        this.save[k] = arr.slice(arr.length - HISTORY_CAP);
-      }
-    }
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
-    // Migrate older save (inv as string array, or stash object).
-    let needsMigrationPersist = false;
-    if (this.save.inv && typeof this.save.inv[0] === 'string') {
-      // Items must have a numeric count — otherwise later sel.count -= 1 yields NaN
-      // and stacks become uncountable + un-spliceable.
-      this.save.inv = this.save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
-      needsMigrationPersist = true;
-    }
-    if (this.save.stash) {
-      for (const [id, n] of Object.entries(this.save.stash)) if (n > 0) this.addToInv(id, n, true);
-      delete this.save.stash;
-      needsMigrationPersist = true;
-    }
-    // Rename: venison → meat. Folds any existing 'venison' inv stacks into
-    // the new 'meat' stack so older saves don't lose hunting loot when the
-    // dog favourite-food rework dropped the venison item id.
-    if (Array.isArray(this.save.inv)) {
-      const merged = [];
-      let meatCount = 0;
-      for (const s of this.save.inv) {
-        if (!s) continue;
-        if (s.id === 'venison') {
-          meatCount += (s.count ?? 0);
-          needsMigrationPersist = true;
-        } else if (s.id === 'meat') {
-          meatCount += (s.count ?? 0);
-        } else {
-          merged.push(s);
-        }
-      }
-      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
-      this.save.inv = merged;
-    }
-    // Rename: golden → shiny. The rare variant (flora / trees / animals) was
-    // formerly called "golden". Fold any saved golden_<kind> inventory stacks
-    // into their shiny_<kind> equivalent (merging counts) so a player's caught
-    // shiny animals carry over. ('goldenfish' is an unrelated fish species and
-    // has no underscore, so it's never matched.)
-    if (Array.isArray(this.save.inv)) {
-      const byId = new Map();
-      const out = [];
-      for (const s of this.save.inv) {
-        if (!s) continue;
-        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7) : s.id;
-        if (id !== s.id) needsMigrationPersist = true;
-        const prev = byId.get(id);
-        if (prev) { prev.count = (prev.count ?? 0) + (s.count ?? 0); }
-        else { const ns = { ...s, id }; byId.set(id, ns); out.push(ns); }
-      }
-      this.save.inv = out;
-    }
-    // Migrate the stored `golden` flag on tamed/released animals to `shiny`
-    // (the in-world code now reads r.shiny) so older saves keep their catches
-    // looking shiny.
-    if (Array.isArray(this.save.released)) {
-      for (const r of this.save.released) {
-        if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsMigrationPersist = true; }
-      }
-    }
-    // REVIEW SEED (temporary): grant a few fruit-tree saplings once so the new
-    // plantable apple (T3) / peach (T5) saplings can be tried out immediately.
-    // Gated by a save flag so it runs a single time. Safe to delete later.
-    if (!this.save._saplingsGranted) {
-      this.addToInv('apple_sapling', 3, true);
-      this.addToInv('peach_sapling', 2, true);
-      this.save._saplingsGranted = true;
-      needsMigrationPersist = true;
-    }
     if (needsMigrationPersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
-    this.viewCenterY = H / 2 - 110;           // raise map well clear of the inventory bar AND the Eat button beneath it
+    this.viewCenterY = H / 2 - 150;           // raise map clear of the TWO-bar inventory HUD (type tabs + item slots) and the Eat button beneath it
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
@@ -571,22 +508,22 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
-    // Player sprite renders at scale 1.35 (32px frame, origin 0.5/0.5). Its
+    // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
     // visual feet sit ~14px below the sprite centre (same anchor as the
     // footprint dot). The reach is cell-quantised and centres on the CELL the
     // player stands in, so we offset the cell lookup down to the feet: 24px
     // (0.75 cell) overshot into the cell to the SOUTH (reach appeared a cell
     // low); 14px (~0.44 cell) keeps the lookup in the feet's own cell so the
-    // reach centres on the player. ~2.2m.
+    // reach centres on the player. ~2.6m.
     this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2 cells and grows to 5 via shrine upgrades, shrinking 1 cell
-    // below 30% energy. This field is retained as the legacy 3-cell constant for
-    // any external reference but is NO LONGER read by the reach gate.
+    // starts at 2.5 cells and grows to 5.5 via shrine upgrades. This field is
+    // retained as the legacy 3-cell constant for any external reference but is
+    // NO LONGER read by the reach gate.
     this.REACH_CELL_M = 16;   // legacy: √(5²+15²)+ε ≈ the old fixed 3-cell reach.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
-    // dynamic 2..5-cell, energy-scaled radius), NOT a fixed distance, so the lit
+    // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
     // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
     // somehow unavailable. The inner per-handler constants (REACH_OBJECT_M=3.5,
@@ -596,8 +533,18 @@ class MapScene extends Phaser.Scene {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
     };
+    // Publish the spawn origin to the home-area hub (home.js) so worldgen can
+    // ask "is this near home?" while building tiles — set before the first
+    // ensureTilesAround() below.
+    if (typeof HomeArea !== 'undefined') HomeArea.setOrigin(this.startWorldM.x, this.startWorldM.y);
 
     this.playerM = { x: 0, y: 0 };
+    // Underground depth: 0 = surface, 1,2,… = cave levels below. Persisted in
+    // the save so a reload underground stays underground. Point WorldGen at the
+    // matching tile cache before any tiles load.
+    this.depth = this.save.depth || 0;
+    WorldGen.setDepth(this.depth);
+    if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');
     this.facing = { x: 0, y: 1 }; // unit-ish vector; updated by movement
     this._spriteDir = { x: 0, y: 1 }; // last movement direction used for sprite facing
     this._ease = null;            // {fromX, fromY, toX, toY, t0, dur} for GPS easing
@@ -609,6 +556,28 @@ class MapScene extends Phaser.Scene {
     // the session. Session-scoped ONLY — never persisted — so a fresh load
     // resumes live GPS tracking.
     this._gpsManualOverride = false;
+    // Home anchoring — a brand-new save with no frozen home adopts the player's
+    // FIRST GPS fix as its permanent origin: startGps captures it, then reloads
+    // so the projection re-inits there. Gated to genuinely fresh saves (no
+    // starter home placed yet): world coords are global + latitude-dependent,
+    // so moving the origin of a save that already placed objects would drift
+    // them. Such saves keep their origin; Reset adopts a new home. No
+    // geolocation / a teleport override / sandbox → no capture (HOME fallback).
+    // Sandbox detection reads the URL directly here: this._sandboxMode isn't
+    // set until Sandbox.install() runs much later in create(), so we'd see
+    // undefined and fail to exclude sandbox sessions from home capture.
+    const _sandbox = (typeof Sandbox !== 'undefined' && Sandbox.detect());
+    this._homeCapturePending =
+      !_teleportOverride &&
+      !_saveHome &&
+      !this.save.starterShopId &&
+      !_sandbox &&
+      (typeof navigator !== 'undefined' && !!navigator.geolocation);
+    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
+    // 20 s so the start flow falls back to the default origin rather than hang.
+    if (this._homeCapturePending) {
+      setTimeout(() => { this._homeCapturePending = false; }, 20000);
+    }
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
     // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
@@ -636,6 +605,8 @@ class MapScene extends Phaser.Scene {
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
+    // Cave staircases (down/up) — baked once, sit in a single cell.
+    makeStaircaseTextures(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
@@ -693,9 +664,8 @@ class MapScene extends Phaser.Scene {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
-    // Shape-based concrete pads under POI chests. One texture per unique shape
-    // (square3 / square2 / cross / triangle); the POI's class picks the shape
-    // (see padShapeForPoi below). The pad SHAPE alone conveys POI type.
+    // Concrete pads under POI chests — one rounded, slightly-oversized slab in
+    // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);
 
     // Layers
@@ -703,17 +673,46 @@ class MapScene extends Phaser.Scene {
     this.noiseContainer = this.add.container(0, 0);
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
+    // Road-name letters render WITH the road stones (just above the cobble),
+    // BELOW the rampart/back wall + objects — so a road passing north of a
+    // castle tucks behind the back wall instead of its letters poking over it.
+    // (Pool populated further down, after the cobble pool.)
+    this.letterContainer = this.add.container(0, 0);
     this.plantedContainer = this.add.container(0, 0);
-    // Pads (3x3 concrete slabs under POI chests) draw under objects.
+    // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
+    // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
+    // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
+    // object sprites so towers on those edges read as standing IN FRONT of them
+    // (and side walls tuck under everything). Added before objectsContainer.
+    this.rampartBackGfx = this.add.graphics();
     this.objectsContainer = this.add.container(0, 0);
+    // FRONT layer — the south wall + its battlements — sits ABOVE the object
+    // sprites so towers on the front edge read as standing BEHIND it. Both
+    // rampart layers are cleared + repainted each frame in Render.drawCells.
+    this.rampartFrontGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
     this.creaturesContainer = this.add.container(0, 0);
+    // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
+    // animal / wild plant / tree. Added AFTER creaturesContainer so the spark
+    // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
+    // cue: the multiply setTint() used elsewhere silently no-ops under the
+    // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
+    // on those devices. The spark texture is baked gold and animates via
+    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
+    this.sparkContainer = this.add.container(0, 0);
+    // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
+    // pips. Added AFTER every world-object layer (including the castle
+    // rampartFrontGfx) so a label always reads ABOVE map objects like castle
+    // walls / towers, and is only ever covered by popups (Phaser flash text at
+    // depth 100+ and the DOM modals). Without its own layer the labels lived in
+    // objectsContainer and the castle front wall painted over them.
+    this.labelContainer = this.add.container(0, 0);
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
 
@@ -743,7 +742,8 @@ class MapScene extends Phaser.Scene {
     // Road-letter pool: small light letters with a soft drop shadow, laid out one
     // per cell along named streets. Lighter than the cobble background so they
     // read like worn paint markings rather than carved-in lettering.
-    this.letterContainer = this.add.container(0, 0);
+    // (letterContainer itself is created earlier, next to cobbleContainer, so it
+    // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
@@ -757,6 +757,7 @@ class MapScene extends Phaser.Scene {
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
+    this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
@@ -795,6 +796,23 @@ class MapScene extends Phaser.Scene {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
+    // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
+    // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
+    // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
+    if (!this.textures.exists('shiny_spark')) {
+      const pg = this.make.graphics({ x: 0, y: 0, add: false });
+      const C = 16;
+      // Soft outer glow.
+      pg.fillStyle(0xfff3b0, 0.85); pg.fillCircle(C, C, 4);
+      // Two crossed slim diamonds form the 4-point sparkle.
+      pg.fillStyle(0xffd23a, 1);
+      pg.fillPoints([{ x: C, y: C - 14 }, { x: C + 2.8, y: C }, { x: C, y: C + 14 }, { x: C - 2.8, y: C }], true);
+      pg.fillPoints([{ x: C - 14, y: C }, { x: C, y: C - 2.8 }, { x: C + 14, y: C }, { x: C, y: C + 2.8 }], true);
+      // White-hot core sells the glint.
+      pg.fillStyle(0xffffff, 1); pg.fillCircle(C, C, 2);
+      pg.generateTexture('shiny_spark', 32, 32);
+      pg.destroy();
+    }
     // Shadow pool — one sprite per visible building. Sized to the worst case
     // (every object cell could be a building); reuses the object pool budget.
     this.shadowPool = [];
@@ -812,9 +830,12 @@ class MapScene extends Phaser.Scene {
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
+    this.rampartBackGfx.setMask(mask);
     this.objectsContainer.setMask(mask);
+    this.rampartFrontGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
+    this.sparkContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.
@@ -848,8 +869,18 @@ class MapScene extends Phaser.Scene {
     // handler (which then treats the tap as if it were the cell under the player).
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
-    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.35)
+    //
+    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). With the default 0.5/0.5
+    // origin the projected world position lands at the sprite CENTRE and the
+    // feet sat 14px below it at 1.35× (footprint anchor, see drawFootprints).
+    // That 14px is a texture offset of 14/1.35 ≈ 10.37px; at 1.215× the feet
+    // would ride up to 10.37 × 1.215 ≈ 12.6px below centre. Nudge every player
+    // sprite DOWN by the difference (~1.4px) so the feet — and the +14
+    // footprint anchor — stay exactly where they were.
+    this.playerScale = 1.215;
+    this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
+    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
@@ -858,11 +889,30 @@ class MapScene extends Phaser.Scene {
     // is the body. When ghost mode flips ON, `this.player` becomes the ghost
     // (at 50% alpha, centred at viewCenter) and this sprite shows up at the
     // body's offset, full opacity.
-    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY, 'idle', 0)
-      .setScale(1.35)
+    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
+    // Underground "ghost" target marker. On cave levels GPS / debug controls
+    // steer a free-flying ghost (this._caveTargetM) that passes through rock;
+    // the opaque body (this.player) auto-follows and mines walls in its path.
+    // This faint sprite marks where the ghost is whenever it diverges from the
+    // body; it stays hidden on the surface and while body+ghost coincide.
+    this.caveGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
+      .setAlpha(0.4)
+      .setDepth(10)
+      .play('idle-down')
+      .setVisible(false)
+      .setMask(mask);
+    // Cave-follow state (depth > 0 only). _caveTargetM is the ghost target in
+    // body-relative world metres; _caveAutoMineKey marks the wall cell a wheel
+    // is currently chewing through; _caveAutoPaused halts pursuit after the
+    // player taps to interrupt auto-mining (cleared on the next steer input).
+    this._caveTargetM = null;
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
@@ -1045,6 +1095,23 @@ class MapScene extends Phaser.Scene {
       this.gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude } = pos.coords;
+          // First GPS fix on a brand-new save: freeze THIS location as the
+          // save's home origin and reload so the whole projection re-anchors
+          // here. Only reload after VERIFYING the write landed (read it back) —
+          // otherwise a failed localStorage write would loop on every fix.
+          if (this._homeCapturePending) {
+            this._homeCapturePending = false;
+            this.save.home = { lat: latitude, lon: longitude };
+            let ok = false;
+            try {
+              persistSave(this.save);
+              if (typeof flushSave === 'function') flushSave();
+              const rb = loadSave();
+              ok = !!(rb && rb.home && rb.home.lat === latitude && rb.home.lon === longitude);
+            } catch (_) { ok = false; }
+            if (ok) { location.reload(); return; }
+            // write/readback failed — don't loop; carry on with current origin.
+          }
           const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);
           const dyM = -(latitude - START_LAT) * METERS_PER_DEG_LAT;
           const prev = this.gpsM;
@@ -1057,6 +1124,12 @@ class MapScene extends Phaser.Scene {
           // keep working.
           if (this.save.debugControls || this._gpsManualOverride) {
             // intentionally no playerM / _bodyM write
+          } else if (this.depth > 0) {
+            // Underground: GPS steers the free-flying ghost target, not the
+            // body. The body auto-follows (and mines walls) in _caveFollowStep.
+            // A fresh fix counts as a steer, so it resumes any paused pursuit.
+            this._caveTargetM = { x: this.gpsM.x, y: this.gpsM.y };
+            this._caveAutoPaused = false;
           } else if (this._bodyM) {
             // While ghost mode is active, playerM IS the ghost; GPS updates
             // the body silently behind it (the body sprite re-positions
@@ -1077,7 +1150,7 @@ class MapScene extends Phaser.Scene {
             if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
           }
         },
-        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; },
+        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; this._homeCapturePending = false; },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
     } catch { this.gpsAvailable = false; }
@@ -1175,6 +1248,134 @@ class MapScene extends Phaser.Scene {
     return { tx, ty, cx, cy };
   }
 
+  // Debug: dump what worldgen actually produced for the tile under the player,
+  // in a copyable form (routed through the #errbar overlay). DevTools isn't
+  // reachable on a phone, so this is how we see how a real-world feature (e.g.
+  // a rec centre) is tagged in the OpenFreeMap vector data — which layer it
+  // lands in, its class/subclass, whether it carries a name, and what terrain
+  // the rasteriser painted under the player.
+  dumpTileDebug() {
+    try {
+      const Z = WorldGen.Z;
+      // Optional name search: scan EVERY loaded tile for features whose name
+      // contains a substring (case-insensitive) and report the exact layer +
+      // class/subclass each came in as. This is how we locate a specific
+      // real-world place (e.g. a rec centre) and see how the vector data tags
+      // it — even when it sits in a neighbouring tile or under a class we'd
+      // never guess. Blank input falls through to the current-tile dump.
+      let filter = null;
+      try { filter = window.prompt('Find feature by name (blank = dump current tile):', ''); } catch (_) {}
+      if (filter && filter.trim()) {
+        const q = filter.trim().toLowerCase();
+        const hits = [];
+        const cache = WorldGen.tileCache;
+        if (cache) for (const [k, entry] of cache) {
+          for (const l of (entry.layers || [])) for (const f of (l.features || [])) {
+            const nm = f.tags && f.tags.name;
+            if (nm && nm.toLowerCase().includes(q)) {
+              hits.push(`${k} [${l.name}] t${f.type} class=${f.tags.class || '-'} sub=${f.tags.subclass || '-'}: ${nm}`);
+            }
+          }
+          for (const o of (entry.objects || [])) {
+            if (o.kind === 'chest' && o.name && o.name.toLowerCase().includes(q)) {
+              hits.push(`${k} CHEST poiClass=${o.poiClass}: ${o.name}`);
+            }
+          }
+        }
+        const text = hits.length ? hits.join('\n') : `no loaded feature name contains "${q}"\n(walk the area first so its tiles load)`;
+        try { console.log('[tiledebug search]\n' + text); } catch (_) {}
+        if (window.showError) window.showError(`SEARCH "${q}" (${hits.length} hit${hits.length === 1 ? '' : 's'})`, text);
+        return;
+      }
+      const { tx, ty, cx, cy } = this.playerToWorldCell();
+      const key = `${Z}/${tx}/${ty}`;
+      const entry = WorldGen.tileCache && WorldGen.tileCache.get(key);
+      const T = WorldGen.T || {};
+      const TNAME = {};
+      for (const k in T) TNAME[T[k]] = k;
+      const out = [];
+      out.push(`tile ${key}  cell(${Math.floor(cx)},${Math.floor(cy)})  depth=${this.depth}`);
+      // Location / GPS status — explains why the world might be pinned to the
+      // Kelowna home origin instead of following the player's real GPS. Any of
+      // these will keep GPS fixes from moving the player:
+      //   teleport  — a preset override is active (GPS is force-disabled)
+      //   debugCtl  — the gold debug joystick owns movement (GPS write skipped)
+      //   manualOvr — WASD/arrows/teleport were used this session (same)
+      //   gpsAvail=false / gpsM=none — no GPS fix has been applied
+      let tp = null;
+      try { tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null'); } catch (_) {}
+      const gm = this.gpsM ? `(${Math.round(this.gpsM.x)},${Math.round(this.gpsM.y)})m` : 'none';
+      const originSrc = _teleportOverride ? ('TELEPORT ' + (tp && tp.name || '?')) : (_saveHome ? 'saved-home' : 'default-home/GPS');
+      out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${originSrc})`);
+      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} sandbox=${!!this._sandboxMode}`);
+      out.push(`homePending=${!!this._homeCapturePending} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
+      out.push(`playerM=(${Math.round(this.playerM.x)},${Math.round(this.playerM.y)})`);
+      if (!entry || !entry.grid) {
+        out.push('(tile not loaded — stand on the spot, then dump)');
+        if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
+        return;
+      }
+      const cpe = entry.cellsPerEdge;
+      const icx = Math.max(0, Math.min(cpe - 1, Math.floor(cx)));
+      const icy = Math.max(0, Math.min(cpe - 1, Math.floor(cy)));
+      const under = entry.grid[icy * cpe + icx];
+      out.push(`under player: ${TNAME[under] ?? '?'} (${under})`);
+      // 7×7 terrain-code window centred on the player cell.
+      const rows = [];
+      for (let dy = -3; dy <= 3; dy++) {
+        let r = '';
+        for (let dx = -3; dx <= 3; dx++) {
+          const xx = icx + dx, yy = icy + dy;
+          r += (xx < 0 || yy < 0 || xx >= cpe || yy >= cpe)
+            ? '..' : String(entry.grid[yy * cpe + xx]).padStart(2, '0');
+          r += ' ';
+        }
+        rows.push(r.trimEnd());
+      }
+      out.push('grid 7x7 (codes):\n' + rows.join('\n'));
+      if (WorldGen.overpassTileInfo) {
+        try { out.push('overpass: ' + WorldGen.overpassTileInfo(tx, ty)); } catch (_) {}
+      }
+      const layers = entry.layers || [];
+      out.push('layers: ' + layers.map(l => l.name).join(', '));
+      // Per-layer class/subclass histogram for the polygon-ish + poi layers.
+      const interesting = new Set(['landcover', 'landuse', 'park', 'building', 'poi', 'transportation']);
+      for (const l of layers) {
+        if (!interesting.has(l.name)) continue;
+        const classes = new Map();
+        for (const f of l.features) {
+          const c = (f.tags && (f.tags.class || f.tags.subclass)) || '(none)';
+          classes.set(c, (classes.get(c) || 0) + 1);
+        }
+        out.push(`[${l.name}] ` + [...classes.entries()].map(([c, n]) => `${c}:${n}`).join(' '));
+      }
+      // Every NAMED feature, minus street names + bus stops (pure noise) — this
+      // is where a rec centre / civic building shows, with the layer + class it
+      // came in as. No cap, so nothing hides past a truncation.
+      const named = [];
+      for (const l of layers) {
+        if (l.name === 'transportation_name') continue;   // street names — noise
+        for (const f of (l.features || [])) {
+          const nm = f.tags && f.tags.name;
+          if (!nm) continue;
+          const cls = f.tags.class || f.tags.subclass || '?';
+          if (cls === 'bus') continue;                    // dozens of bus stops — noise
+          named.push(`${l.name}/${cls}: ${nm}`);
+        }
+      }
+      if (named.length) out.push(`named (${named.length}, excl. streets/bus):\n` + named.join('\n'));
+      const chests = (entry.objects || []).filter(o => o.kind === 'chest');
+      if (chests.length) {
+        out.push('chests: ' + chests.map(c => `${c.poiClass}${c.name ? ('=' + c.name) : ''}`).slice(0, 40).join(' | '));
+      }
+      const text = out.join('\n');
+      try { console.log('[tiledebug]\n' + text); } catch (_) {}
+      if (window.showError) window.showError('TILE DEBUG (copy me)', text);
+    } catch (e) {
+      if (window.showError) window.showError('tile debug failed', (e && e.stack) || String(e));
+    }
+  }
+
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     const needed = new Set();
@@ -1187,7 +1388,16 @@ class MapScene extends Phaser.Scene {
       try {
         const entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
-        if (!entry.creatures) this.spawnInTile(entry, tx, ty);
+        // Surface fauna on depth 0; hostile wandering monsters underground.
+        if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
+        else if (this.depth > 0 && !entry.creatures) this.spawnCaveCreatures(entry, tx, ty, this.depth);
+        // Re-open any walls the player has already mined on this level, and
+        // guarantee an up-staircase by the starting house so you can always
+        // climb back to the surface from home.
+        if (this.depth > 0) {
+          this._applyDugWalls(entry, tx, ty);
+          this._ensureHomeUpStair(entry, tx, ty);
+        }
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
@@ -1235,55 +1445,25 @@ class MapScene extends Phaser.Scene {
         }
       }
     };
-    // Biome biasing: each fauna gets a "primary" biome and a wider "fallback" set.
-    // We split the spawn count 80/20 between primary and fallback to keep them
-    // visible everywhere while still feeling correct (cows in fields, chickens
-    // on lawns, etc.). Cat/dog/crow are "global" — they roam every natural cell.
-    const RESIDENTIAL = new Set([5]);
-    const GRASSLAND   = new Set([0]);
-    const FARM_GRASS  = new Set([0, 4]);                      // grass + farmland (chickens)
-    const SOFT_GROUND = new Set([0, 4, 5, 6]);                // grass / farmland / residential / park
-    const GLOBAL_NAT  = new Set([0, 1, 2, 4, 5, 6]);          // every natural biome (incl. sand + forest)
-    const FOREST_NATURAL = new Set([0, 1, 6]);                // grass, forest, park
-    const PARKLAND       = new Set([1, 6]);                   // park + forest
-    const splitPlace = (kind, n, primary, fallback, salt, primaryShare = 0.8) => {
-      const primN = Math.round(n * primaryShare);
-      for (let i = 0; i < primN; i++)     tryPlace(kind, primary,  i,           salt);
-      for (let i = primN; i < n; i++)     tryPlace(kind, fallback, i,           salt);
-    };
-    // Chickens: farm/grass primarily, soft ground elsewhere. ~40/tile. Pulled
-    // OUT of residential as the primary biome (per user: too many of them
-    // crowding the suburbs) — barn-yard fauna belongs on farmland.
-    const chickenN = 30 + Math.floor(rng() * 15);
-    splitPlace('chicken', chickenN, FARM_GRASS, SOFT_GROUND, 'chicken');
-    // Cows: grassland primarily, soft ground elsewhere. Tightened primary
-    // share to 0.90 (was 0.80) so fewer cows wander into residential.
-    const cowN = 12 + Math.floor(rng() * 12);
-    splitPlace('cow', cowN, GRASSLAND, SOFT_GROUND, 'cow', 0.90);
-    // Cat / dog: RARER than barn fauna, but heavily residential-biased —
-    // they're pets, not livestock. ~10/tile each, 80% in residential.
-    const catN = 6 + Math.floor(rng() * 8);
-    splitPlace('cat', catN, RESIDENTIAL, GLOBAL_NAT, 'cat');
-    const dogN = 6 + Math.floor(rng() * 8);
-    splitPlace('dog', dogN, RESIDENTIAL, GLOBAL_NAT, 'dog');
-    // Wilderness fauna:
-    //   rabbit    → grass / forest / park (skittish, wide)
-    //   deer      → forest + park (rare, weapon-gated)
-    //   crow      → global — smart birds; ~200/tile (heavy swarm, paired with
-    //               the starter scarecrow + wide 15-cell notice radius)
-    //   butterfly → park / forest (flower-rich biomes)
-    const rabbitN = 30 + Math.floor(rng() * 20);
-    for (let i = 0; i < rabbitN; i++) tryPlace('rabbit', FOREST_NATURAL, i, 'rabbit');
-    const deerN = 8 + Math.floor(rng() * 6);
-    for (let i = 0; i < deerN; i++) tryPlace('deer', PARKLAND, i, 'deer');
-    const crowN = 200;
-    for (let i = 0; i < crowN; i++) tryPlace('crow', GLOBAL_NAT, i, 'crow');
-    const butterflyN = 40 + Math.floor(rng() * 20);
-    for (let i = 0; i < butterflyN; i++) tryPlace('butterfly', PARKLAND, i, 'butterfly');
-    // Slimes: energy-leeching pests that roam every natural biome and drift
-    // lazily toward the player (see wanderCreatures). Flat 50/tile.
-    const slimeN = 50;
-    for (let i = 0; i < slimeN; i++) tryPlace('slime', GLOBAL_NAT, i, 'slime');
+    // Biome-biased fauna spawn — each species' primary (dominant) biome set,
+    // wider fallback set, count and primary-share come from the central registry
+    // (BIOME_FAUNA in src/biome_profiles.js). ~`share` of a species' count goes
+    // to its primary biomes, the rest to the fallback set, so animals read
+    // correct (cows in fields, butterflies in parks, pets in the suburbs) while
+    // still scattering everywhere — and extending the sets to the newly-wired
+    // biomes is what finally puts fauna in wetland / commercial / industrial
+    // zones. Iteration order (FAUNA_ORDER) and per-species id scheme are
+    // unchanged so seeds reproduce. Slimes never go shiny (see tryPlace).
+    for (const sp of FAUNA_ORDER) {
+      const cfg = BIOME_FAUNA[sp];
+      if (!cfg) continue;
+      const n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      const primary  = new Set(cfg.primary);
+      const fallback = new Set(cfg.fallback || cfg.primary);
+      const primN = Math.round(n * (cfg.share ?? 0.8));
+      for (let i = 0; i < primN; i++) tryPlace(sp, primary,  i, sp);
+      for (let i = primN; i < n; i++) tryPlace(sp, fallback, i, sp);
+    }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -1631,6 +1811,58 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
+  // Unlike surface animals these stalk the player and drain energy in range
+  // (see wanderCreatures + MONSTERS). Eligible kinds are gated by depth
+  // (MONSTERS.minDepth) and drawn from a weighted bag, so deeper levels mix in
+  // tougher foes; density rises gently with depth. Ids are stable + seeded so a
+  // defeated monster (recorded in save.caught) stays dead across reloads, just
+  // like surface fauna.
+  spawnCaveCreatures(entry, tx, ty, depth) {
+    const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
+    const N = entry.cellsPerEdge;
+    const creatures = [];
+    // Weighted bag of the kinds that may appear at this depth.
+    const bag = [];
+    for (const [kind, m] of Object.entries(MONSTERS)) {
+      if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
+    }
+    if (!bag.length) { entry.creatures = creatures; return; }
+    const count = 14 + depth * 4;
+    for (let i = 0; i < count; i++) {
+      const kind = bag[Math.floor(rng() * bag.length)];
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
+        if (this.save.caught.includes(id)) break;   // already defeated — stays dead
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        creatures.push({ x: wmx, y: wmy, kind, id });
+        break;
+      }
+    }
+    // Rabbits live underground now (moved off the surface): a skittish,
+    // catchable critter hopping the cave floor amid the hostile monsters.
+    // Seeded, stable ids so a caught rabbit stays caught across reloads.
+    const rabbitN = 10 + Math.floor(rng() * 8);
+    for (let i = 0; i < rabbitN; i++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const cx = Math.floor(rng() * N);
+        const cy = Math.floor(rng() * N);
+        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
+        if (this.save.caught.includes(id)) break;   // already caught — stays gone
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
+        break;
+      }
+    }
+    entry.creatures = creatures;
+  }
+
   _trySpawnShrineOnTile(entry, tx, ty) {
     if (this.save.shrine) return;
     const sx = this.startWorldM.x, sy = this.startWorldM.y;
@@ -1689,7 +1921,9 @@ class MapScene extends Phaser.Scene {
     // they're actively touching the pad. On the down-edge, snapshot the body
     // into _bodyM and let `this.playerM` become the ghost. On the up-edge,
     // collapse — restore playerM to the body and tidy ghost render state.
-    const ghostEligible = !!this.save.relics?.amulet;
+    // Amulet ghost mode is a surface-only scouting tool. Underground the cave
+    // ghost-follow model owns the ghost concept, so don't let the two fight.
+    const ghostEligible = !!this.save.relics?.amulet && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -1743,7 +1977,14 @@ class MapScene extends Phaser.Scene {
       speedMul = DEBUG_SPEED_MUL;
     }
     const moving = vx || vy;
-    if (moving) {
+    if (this.depth > 0) {
+      // Underground: inputs steer a free-flying ghost target (through walls);
+      // the opaque body — still this.playerM, so the camera and the reach/tap
+      // origin stay on it — auto-follows through floor cells and mines any wall
+      // that blocks its path. Surface movement is unchanged below.
+      this._caveSteer(vx, vy, speedMul, dt);
+      this._caveFollowStep(dt);
+    } else if (moving) {
       const n = Math.hypot(vx, vy);
       const dx = (vx / n) * WALK_M_S * speedMul * dt;
       const dy = (vy / n) * WALK_M_S * speedMul * dt;
@@ -1795,7 +2036,19 @@ class MapScene extends Phaser.Scene {
       this._playDirected(this.player, 'idle');
     }
 
-    // Position the body sprite at its true world offset from the ghost.
+    // Exhaustion underground: hit 0 energy below the surface and you black out
+    // and wake up top-side. Guarded so the modal fires once, and skipped in
+    // tests (which drive energy directly and don't want a DOM modal).
+    if (this.depth > 0 && (this.save.energy ?? 0) <= 0
+        && !this._passingOut && !window.__TEST_MODE) {
+      this._passOutToSurface();
+    }
+
+    // (Underground rock-wall collision is handled per-frame inside
+    // _caveFollowStep, which steps the body toward the ghost target and mines
+    // any wall in the way — see the depth>0 branch above.)
+
+    // Position the amulet-ghost body sprite at its true world offset.
     // worldMetersToScreen does the camera-relative projection in one place;
     // inlining the math here would let it drift away from every other
     // render site if cellM / CELL_PX semantics ever change.
@@ -1803,7 +2056,26 @@ class MapScene extends Phaser.Scene {
       const p = worldMetersToScreen(this,
         this.startWorldM.x + this._bodyM.x,
         this.startWorldM.y + this._bodyM.y);
-      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y));
+      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY));
+    }
+
+    // Underground ghost marker: show the steered target whenever it has pulled
+    // away from the body (i.e. the body is trailing / mining). When they're
+    // basically coincident — open ground — keep it hidden so nothing diverges.
+    if (this.depth > 0 && this._caveTargetM) {
+      const gdx = this._caveTargetM.x - this.playerM.x;
+      const gdy = this._caveTargetM.y - this.playerM.y;
+      const diverged = (gdx * gdx + gdy * gdy) > (this.cellM * 0.5) ** 2;
+      if (diverged) {
+        const p = worldMetersToScreen(this,
+          this.startWorldM.x + this._caveTargetM.x,
+          this.startWorldM.y + this._caveTargetM.y);
+        this.caveGhost.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY)).setVisible(true);
+      } else {
+        this.caveGhost.setVisible(false);
+      }
+    } else if (this.caveGhost.visible) {
+      this.caveGhost.setVisible(false);
     }
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -1833,26 +2105,7 @@ class MapScene extends Phaser.Scene {
       const maxE = this.getMaxEnergy();
       if ((indoors || atHome) && (this.save.energy ?? 0) < maxE) {
         const restS = atHome ? HOME_FULL_REST_S : INDOOR_FULL_REST_S;
-        this._restAccrueE += maxE * (dt / restS);
-        const pip = Math.floor(this._restAccrueE);
-        if (pip > 0) {
-          this._restAccrueE -= pip;
-          const beforeE = this.save.energy ?? 0;
-          this.save.energy = Math.min(maxE, beforeE + pip);
-          const gainedE = this.save.energy - beforeE;
-          // Accumulate rest gains and splash a throttled green "+N⚡" so a long
-          // rest shows periodic ticks rather than one pop per energy pip.
-          if (gainedE > 0) {
-            this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
-            const tnow = performance.now();
-            if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
-              this._splashEnergyGain(this._restSplashAccum);
-              this._restSplashAccum = 0;
-              this._restSplashNextT = tnow + 1200;
-            }
-          }
-          if (this.updateEnergyDOM) this.updateEnergyDOM();
-        }
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / restS), maxE);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
         // points of a short rest still register.
@@ -1867,33 +2120,9 @@ class MapScene extends Phaser.Scene {
       // works outdoors and is slower (FIRE_FULL_REST_S). Independent of the
       // indoor/home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
-      const fires = this.save.fires;
-      if (fires && fires.length && (this.save.energy ?? 0) < maxE) {
-        const FIRE_R2 = (FIRE_REST_R * this.cellM) * (FIRE_REST_R * this.cellM);
-        let nearFire = false;
-        for (const fr of fires) {
-          const dxf = fr.x - pWX, dyf = fr.y - pWY;
-          if (dxf * dxf + dyf * dyf < FIRE_R2) { nearFire = true; break; }
-        }
-        if (nearFire) {
-          this._fireAccrueE = (this._fireAccrueE || 0) + maxE * (dt / FIRE_FULL_REST_S);
-          const pip = Math.floor(this._fireAccrueE);
-          if (pip > 0) {
-            this._fireAccrueE -= pip;
-            const beforeE = this.save.energy ?? 0;
-            this.save.energy = Math.min(maxE, beforeE + pip);
-            const gainedE = this.save.energy - beforeE;
-            if (gainedE > 0) {
-              this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
-              const tnow = performance.now();
-              if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
-                this._splashEnergyGain(this._restSplashAccum);
-                this._restSplashAccum = 0;
-                this._restSplashNextT = tnow + 1200;
-              }
-            }
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
-          }
+      if ((this.save.energy ?? 0) < maxE) {
+        if (this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
+          this._accrueRestEnergy('_fireAccrueE', maxE * (dt / FIRE_FULL_REST_S), maxE);
         } else {
           this._fireAccrueE = 0;
         }
@@ -1919,6 +2148,11 @@ class MapScene extends Phaser.Scene {
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
     // pointing in the compass heading (or last movement, as fallback).
+    // Normally it rides the player's head at the viewport center. Underground,
+    // while the ghost is out leading the body through rock, the compass rides
+    // the GHOST instead — the player is steering the ghost, so the
+    // device-orientation arrow belongs over it (caveGhost was positioned and
+    // its visibility decided in the cave-ghost-marker block above).
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -1928,7 +2162,14 @@ class MapScene extends Phaser.Scene {
       const tip = 22; // distance from player center to arrow tip
       const base = 14; // distance from player center to arrow base midpoint
       const halfW = 6; // half-width of the base
-      const cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      let cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      if (this.depth > 0 && this.caveGhost.visible) {
+        // Anchor over the ghost's head. caveGhost sits at sprite-center
+        // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
+        // offset used at the viewport center so the arrow hovers identically.
+        cx = this.caveGhost.x;
+        cy = this.caveGhost.y - this.playerFeetNudgeY - 2;
+      }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -2009,6 +2250,32 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
+    // the house the player picked from the delivery menu (openDeliveryMenu).
+    // Same edge-compass geometry as the pairy arrow but persistent (no blink),
+    // cleared once the player arrives or the house is satisfied for the day.
+    if (this.deliveryCompass) {
+      const dayKey = this._deliveryDayKey();
+      const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
+      const dxM = this.deliveryCompass.x - pWX, dyM = this.deliveryCompass.y - pWY;
+      const mag = Math.hypot(dxM, dyM);
+      if (satisfied || mag < this.cellM * 1.2) {
+        this.deliveryCompass = null;
+      } else {
+        const ux = dxM / mag, uy = dyM / mag;
+        const dist = Math.min(this.viewSize / 2 - 18, 140);
+        const cx = this.viewCenterX, cy = this.viewCenterY;
+        const tipX = cx + ux * dist, tipY = cy + uy * dist;
+        const pxN = -uy, pyN = ux;
+        const back = 14, halfW = 7;
+        const blx3 = tipX - ux * back + pxN * halfW, bly3 = tipY - uy * back + pyN * halfW;
+        const brx3 = tipX - ux * back - pxN * halfW, bry3 = tipY - uy * back - pyN * halfW;
+        this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx3, bly3, brx3, bry3, 0.9, 0xffffff);
+      }
+    }
+
     if (!this._lastCheckM ||
         Math.hypot(this.playerM.x - this._lastCheckM.x, this.playerM.y - this._lastCheckM.y) > 20) {
       this._lastCheckM = { ...this.playerM };
@@ -2045,13 +2312,21 @@ class MapScene extends Phaser.Scene {
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
     try {
-      const b = document.getElementById('banner');
-      if (b) {
-        const msg = (e && (e.message || e.toString())) || 'frame error';
-        b.textContent = `⚠ ${msg}`.slice(0, 80);
-        b.style.display = 'block';
-        clearTimeout(this._loopErrBannerT);
-        this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+      const msg = (e && (e.message || e.toString())) || 'frame error';
+      const stack = (e && e.stack) || '';
+      // Prefer the copyable error overlay (index.html) so the full message +
+      // stack can be read/copied on a phone. Fall back to the transient
+      // #banner flash only if the overlay isn't wired up.
+      if (typeof window !== 'undefined' && typeof window.showError === 'function') {
+        window.showError(`⚠ ${msg}`, stack);
+      } else {
+        const b = document.getElementById('banner');
+        if (b) {
+          b.textContent = `⚠ ${msg}`.slice(0, 80);
+          b.style.display = 'block';
+          clearTimeout(this._loopErrBannerT);
+          this._loopErrBannerT = setTimeout(() => { b.style.display = 'none'; }, 4000);
+        }
       }
     } catch (_) { /* never let error reporting itself throw */ }
   }
@@ -2061,22 +2336,16 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    const STAGE_HOLD_MS = 15 * 60 * 1000;   // 15 min/stage — keep in sync with interact.js + render.js
-    const now = Date.now();
-    let mutated = false;
-    for (const p of this.save.planted || []) {
-      if (!p.watered_t) continue;
-      if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) continue;
-      if (now - p.watered_t < STAGE_HOLD_MS) continue;
-      p.stage = (p.stage ?? 0) + 1;
-      p.watered_t = 0;
-      mutated = true;
-    }
-    if (mutated) persistSave(this.save);
+    if (Crops.advanceGrowth(this.save)) persistSave(this.save);
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
-  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null) {
+  // `trackCreature` (optional): a moving target (e.g. a deer/crow being hunted)
+  // whose position the wheel follows and whose escape ABORTS the action. Unlike
+  // startCatchProgress' `flee`, the wheel does NOT drive the creature — its own
+  // wander/flee AI does — track just re-anchors the wheel over it and cancels if
+  // it slips out of reach. Omit it for static targets (rock / tree / fish).
+  startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._workProgressIcon?.remove();
     this._workProgressIcon = null;
     if (toolSlot) {
@@ -2090,7 +2359,7 @@ class MapScene extends Phaser.Scene {
         this._workProgressIcon = el;
       }
     }
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now() };
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
@@ -2138,12 +2407,36 @@ class MapScene extends Phaser.Scene {
       this.save.energy = Math.min(this.getMaxEnergy(), (this.save.energy ?? 0) + wp.energyRefund);
       this.updateEnergyDOM();
     }
+    // Tapping to bail on an underground auto-mine pauses the body's pursuit of
+    // the ghost so the player can do something else; the next steer (GPS fix,
+    // keyboard, debug pad) clears the pause and resumes following.
+    if (this._caveAutoMineKey) {
+      this._caveAutoPaused = true;
+      this._caveAutoMineKey = null;
+    }
     this.cancelWorkProgress();
   }
   _drawWorkProgress() {
     const wp = this._workProgress;
     if (!wp) return;
     const now = performance.now();
+    // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
+    // fail, or cancel), so one that has outlived that by a wide margin is
+    // orphaned — e.g. its completion / flee / track code threw (the update loop
+    // is kept alive by _reportLoopError, so a per-frame throw won't surface),
+    // leaving _workProgress set forever. That makes the interact.js work-progress
+    // tap guard swallow EVERY tap, which reads as "taps randomly stopped
+    // working". Force-clear it here, at the very top — above the flee/track
+    // blocks that might be the thing throwing — so the loop self-heals within a
+    // few seconds. Generous +8s margin so a legitimately long bare-hands wheel
+    // (9s) is never cut short.
+    if (now - (wp.startT || now) > (wp.durationMs || 3000) + 8000) {
+      try { console.warn('[wheel] watchdog cleared an orphaned work wheel after',
+        Math.round(now - (wp.startT || now)), 'ms (dur', wp.durationMs, ')'); } catch (_) {}
+      this.cancelWorkProgress();
+      try { this.flash?.('(cleared a stuck action)', this.viewCenterX, this.viewCenterY - 60); } catch (_) {}
+      return;
+    }
     // Fleeing catch target: it backs away from the player at FLEE_MPS while the
     // wheel runs. If it stays outside the player's reach long enough the catch
     // fails. The wheel anchor (worldX/Y) follows the creature so it stays drawn
@@ -2189,6 +2482,31 @@ class MapScene extends Phaser.Scene {
         }
       } else {
         wp._outSinceT = null;                // back in reach — reset grace
+      }
+    }
+    // Tracked defeat target (deer / crow / slime hunt): the creature moves under
+    // its OWN wander/flee AI, not the wheel. Keep the wheel drawn over it, and
+    // abort the hunt if it escapes the player's reach for a short grace window —
+    // previously the defeat wheel was anchored to a FIXED point and happily ran
+    // to completion even after a fleeing deer had bounded clear out of range.
+    if (wp.track) {
+      const c = wp.track;
+      wp.worldX = c.x; wp.worldY = c.y;        // follow the target
+      const px = this.startWorldM.x + this.playerM.x;
+      const py = this.startWorldM.y + this.playerM.y;
+      const reachM = (typeof reachRadiusM === 'function')
+        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
+      const ndx = c.x - px, ndy = c.y - py;
+      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      if (outOfRange) {
+        wp._outSinceT = wp._outSinceT ?? now;
+        if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
+          this.cancelWorkProgress();
+          if (this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
+          return;
+        }
+      } else {
+        wp._outSinceT = null;
       }
     }
     const dur = wp.durationMs || 3000;
@@ -2290,7 +2608,7 @@ class MapScene extends Phaser.Scene {
                     || c.kind === 'cat' || c.kind === 'dog'
                     || c.kind === 'crow' || c.kind === 'deer'
                     || c.kind === 'slime' || c.kind === 'rabbit'
-                    || c.kind === 'butterfly';
+                    || c.kind === 'butterfly' || isMonster(c.kind);
       if (!wanders) return;
       if (this.save.caught.includes(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
@@ -2317,6 +2635,25 @@ class MapScene extends Phaser.Scene {
           }
         }
       }
+      // Underground monster attack: the slime's energy leech, parametrised.
+      // A monster within its RANGE (cells) drains DMG energy on a 1 s per-
+      // monster cooldown. Melee kinds use range 1 (adjacent); the goblin archer
+      // reaches 3 cells, so it chips at you before you can close. Accumulated +
+      // flashed once per window after the loop, like the slime swarm.
+      if (isMonster(c.kind)) {
+        const m = MONSTERS[c.kind];
+        const R = m.range * this.cellM;
+        if (ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
+          c._nextStealT = now + 1000;
+          const before = this.save.energy ?? 0;
+          if (before > 0) {
+            this.save.energy = Math.max(0, before - m.dmg);
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
+            this._warnIfTiring(before);
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
+          }
+        }
+      }
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
       // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
@@ -2336,24 +2673,42 @@ class MapScene extends Phaser.Scene {
       const isRabbit = c.kind === 'rabbit' && !isTame;
       const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
       const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
+      // Deer: skittish wild grazers. They used to just amble at the base wander
+      // speed, so a player could stroll right up and the deer never reacted
+      // ("very slow at escaping"). Give them a proper flight response — once the
+      // player closes within 5 cells a wild deer bolts directly away in long,
+      // fast strides (even quicker than a rabbit, befitting their size/speed).
+      const isDeer = c.kind === 'deer' && !isTame;
+      const DEER_FLEE_R2 = (5 * this.cellM) ** 2;
+      const deerFleeing = isDeer && (ddx * ddx + ddy * ddy <= DEER_FLEE_R2);
       // Butterflies flit constantly; after a failed net-catch they spend 2 min
       // bolting away from the player (set in _drawWorkProgress).
       const isButterfly = c.kind === 'butterfly';
       const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
+      // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
+      // moves more often); flyers (bats) dart a full cell, ground monsters
+      // lumber like the slime (0.6 cell).
+      const isMon = isMonster(c.kind);
+      const mon = isMon ? MONSTERS[c.kind] : null;
       // Rare shiny animals move at 2× speed — same hop distances, but the
       // whole step cadence (hop duration + any pause) is halved, so they cover
       // ground twice as fast. isShiny() is keyed off the creature id, so the
       // status is stable across reloads (matches the shiny-tint in render).
-      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? 0.5 : 1;
+      // Monsters never go shiny, so their cadence comes purely from SPEED.
+      const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
+                   : deerFleeing ? 340
+                   : isMon ? STEP_MS / mon.speed
                    : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
       // butterflies dart further (1.5 cells) while escaping.
       const stepM = c.kind === 'slime' ? STEP_M * 0.6
+                  : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
                   : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
+                  : deerFleeing ? STEP_M * 1.8
                   : STEP_M;
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2485,6 +2840,10 @@ class MapScene extends Phaser.Scene {
           } else if (rabbitFleeing) {
             // Flee directly away from player with wide jitter so it zig-zags.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
+          } else if (deerFleeing) {
+            // Bound straight away from the player with only mild jitter — a deer
+            // runs in a committed line rather than a rabbit's panicked zig-zag.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
           } else if (butterflyEscaping) {
             // Bolt away from the player, careening with wide jitter.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;
@@ -2495,6 +2854,16 @@ class MapScene extends Phaser.Scene {
             // and home in on whoever's nearby.
             if (Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
+            } else {
+              angle = Math.random() * Math.PI * 2;
+            }
+          } else if (isMon) {
+            // Monsters HUNT: a committed stalk toward the player (tighter jitter
+            // than the slime's meander), no home-bias. Flyers (bats) careen with
+            // wide jitter so they read as erratic. The archer closes in too —
+            // its range only lets it start draining sooner, not hang back.
+            if (distToPlayer > 0.5 * this.cellM) {
+              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * (mon.fly ? 1.6 : 0.8);
             } else {
               angle = Math.random() * Math.PI * 2;
             }
@@ -2510,32 +2879,14 @@ class MapScene extends Phaser.Scene {
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && faunaBlocksCell(dest.type)) continue;
           // Scarecrow aversion (crow + deer only) — refuse any target cell
-          // within 4 m of an active scarecrow. Crows/deer that wander into
+          // within 4 cells of an active scarecrow. Crows/deer that wander into
           // such cells get bounced by the attempt loop until they pick a
           // different direction.
-          if ((c.kind === 'crow' || c.kind === 'deer') && this.save.scarecrows && this.save.scarecrows.length) {
-            const SC_R = 4 * this.cellM;
-            const SC_R2 = SC_R * SC_R;
-            let blocked = false;
-            for (const sc of this.save.scarecrows) {
-              const dxs = sc.x - tx, dys = sc.y - ty;
-              if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
-            }
-            if (blocked) continue;
-          }
+          if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
           // Fire aversion (slime only) — a lit campfire repels slimes exactly
-          // like a scarecrow repels crows/deer: refuse any target within 4 m of
-          // an active fire, so slimes can't ooze into (or steal energy across)
-          // the warm ring around a campfire.
-          if (c.kind === 'slime' && this.save.fires && this.save.fires.length) {
-            const FR_R2 = (4 * this.cellM) * (4 * this.cellM);
-            let blocked = false;
-            for (const fr of this.save.fires) {
-              const dxf = fr.x - tx, dyf = fr.y - ty;
-              if (dxf * dxf + dyf * dyf < FR_R2) { blocked = true; break; }
-            }
-            if (blocked) continue;
-          }
+          // like a scarecrow repels crows/deer, so slimes can't ooze into (or
+          // steal energy across) the warm ring around a campfire.
+          if (c.kind === 'slime' && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
         }
@@ -2584,6 +2935,15 @@ class MapScene extends Phaser.Scene {
       const drained = this._slimeStealAccum;
       this._slimeStealAccum = 0;
       if (this.flash) this.flash(`🟢 slime drained ${drained}⚡`, this.viewCenterX, this.viewCenterY - 40);
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
+    // Same throttled roll-up for underground monster hits, so a pack reads as a
+    // single "-N⚡" pop rather than one flash per monster.
+    if (this._monsterDmgAccum > 0 && now - (this._lastMonsterFlashT || 0) > 1200) {
+      this._lastMonsterFlashT = now;
+      const hit = this._monsterDmgAccum;
+      this._monsterDmgAccum = 0;
+      if (this.flash) this.flash(`⚔️ monsters hit ${hit}⚡`, this.viewCenterX, this.viewCenterY - 40);
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }
@@ -2750,16 +3110,8 @@ class MapScene extends Phaser.Scene {
       if (dest.loaded && faunaBlocksCell(dest.type)) continue;
       const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
       if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
-      // Scarecrow aversion — refuse any target within 4 m of an active scarecrow.
-      if (this.save.scarecrows && this.save.scarecrows.length) {
-        const SC_R2 = (4 * this.cellM) * (4 * this.cellM);
-        let blocked = false;
-        for (const sc of this.save.scarecrows) {
-          const dxs = sc.x - tx, dys = sc.y - ty;
-          if (dxs * dxs + dys * dys < SC_R2) { blocked = true; break; }
-        }
-        if (blocked) continue;
-      }
+      // Scarecrow aversion — refuse any target within 4 cells of an active scarecrow.
+      if (this._nearAny('scarecrows', tx, ty, 4)) continue;
       chosen = true;
     }
     if (!chosen) {
@@ -2924,6 +3276,298 @@ class MapScene extends Phaser.Scene {
     this.flashLoot(`🪙 Scattered ${n} coins!`, '#ffd96b');
   }
 
+  // --- Underground movement & level transitions ---
+  // True if the cell at world point (wmx,wmy) is a solid cave wall. Unloaded
+  // cells return false so the player is never trapped at a tile seam mid-load.
+  _caveCellBlocked(wmx, wmy) {
+    const c = this.cellAt(wmx, wmy);
+    if (!c.loaded) return false;
+    return !WorldGen.isWalkable(c.type);
+  }
+  // Mine a blocking cave wall into walkable floor. Mutates the live tile grid
+  // (so collision + rendering update at once) and records the dug cell so the
+  // passage is re-opened whenever this tile is regenerated (_applyDugWalls).
+  digCaveWall(tx, ty, ix, iy, cellIX, cellIY) {
+    const N = this.cellsPerTile;
+    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    if (entry && entry.grid) entry.grid[iy * N + ix] = 24;   // CAVE_FLOOR
+    this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
+    this.save.dugWalls = [...this.dugWallSet];
+  }
+  // Re-apply previously-dug walls to a freshly (re)generated cave tile's grid.
+  // Cave tiles are derived from the surface on demand, so a dug-out cell would
+  // otherwise come back as solid rock after the tile is evicted and reloaded.
+  _applyDugWalls(entry, tx, ty) {
+    if (!entry || !entry.grid || !this.dugWallSet.size) return;
+    const N = entry.cellsPerEdge;
+    const prefix = `${entry.depth}:`;
+    for (const k of this.dugWallSet) {
+      if (!k.startsWith(prefix)) continue;
+      const coord = k.slice(prefix.length);          // "absIX_absIY"
+      const us = coord.indexOf('_');
+      const aix = parseInt(coord.slice(0, us), 10);
+      const aiy = parseInt(coord.slice(us + 1), 10);
+      const ix = aix - tx * N, iy = aiy - ty * N;
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+      const idx = iy * N + ix;
+      if (entry.grid[idx] === 25) entry.grid[idx] = 24;   // CAVE_WALL → CAVE_FLOOR
+    }
+  }
+  // Axis-separated collision: if the new X (with old Y) lands in rock, revert X;
+  // then test the new Y with the resolved X and revert Y if blocked. The result
+  // is the player sliding along walls instead of sticking. Tested at the FEET
+  // (same point the reach gate uses), not the sprite centre.
+  _clampCaveMovement(prevX, prevY) {
+    const foot = this.feetOffsetM;
+    const newX = this.playerM.x, newY = this.playerM.y;
+    if (this._caveCellBlocked(this.startWorldM.x + newX,
+                              this.startWorldM.y + prevY + foot)) {
+      this.playerM.x = prevX;
+    }
+    if (this._caveCellBlocked(this.startWorldM.x + this.playerM.x,
+                              this.startWorldM.y + newY + foot)) {
+      this.playerM.y = prevY;
+    }
+  }
+
+  // === Underground ghost-follow (depth > 0) ===
+  // The ghost target floats free of walls; the body chases it and mines through.
+  //
+  // Steer the ghost target by an input velocity (keyboard / debug / amulet pad).
+  // The ghost ignores walls entirely — it's just a point the body heads toward.
+  // Any steer clears the auto-mine pause so pursuit resumes.
+  _caveSteer(vx, vy, speedMul, dt) {
+    if (!this._caveTargetM) this._caveTargetM = { x: this.playerM.x, y: this.playerM.y };
+    if (!vx && !vy) return;
+    const n = Math.hypot(vx, vy);
+    this._caveTargetM.x += (vx / n) * WALK_M_S * speedMul * dt;
+    this._caveTargetM.y += (vy / n) * WALK_M_S * speedMul * dt;
+    this._caveAutoPaused = false;
+    if (this.compassDeg == null) this.facing = { x: vx, y: vy };
+  }
+  // Move the body one frame toward the ghost target through floor cells, mining
+  // a wall only when it actually blocks the path AND can't be walked around.
+  // "Choice of 2 cells": try the X-step and the Y-step of the heading
+  // independently so the body slides past a wall that's off to the side. Then
+  // DETECT BEING BLOCKED BY PROGRESS, not geometry: if heading toward the target
+  // barely closed the gap this frame, a wall is in the way (a flat wall the old
+  // wedge-only check would slide against forever). When blocked, first try a
+  // single-cell jog around it (_caveDetourDir) and only dig if no such trivial
+  // detour exists. _caveStartAutoMine no-ops unless a wall is really ahead, so a
+  // body merely outrun by a fast ghost on open floor won't dig.
+  _caveFollowStep(dt) {
+    if (!this._caveTargetM) return;
+    // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
+    // hold position until it resolves so the body doesn't wander off its work.
+    if (this._workProgress) { this._playDirected(this.player, 'idle'); return; }
+    // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
+    if (this._caveAutoPaused) { this._playDirected(this.player, 'idle'); return; }
+    const body = this.playerM;
+    const dx = this._caveTargetM.x - body.x, dy = this._caveTargetM.y - body.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
+      this._playDirected(this.player, 'idle');
+      return;
+    }
+    // Catch-up speed: walk pace, scaled up with distance so the body keeps up
+    // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
+    // big jump still reads as travel rather than a warp.
+    const mul = Math.min(DEBUG_SPEED_MUL, 1 + dist / this.cellM);
+    const move = Math.min(WALK_M_S * mul * dt, dist);
+    const ux = dx / dist, uy = dy / dist;
+    const foot = this.feetOffsetM;
+    const open = (nx, ny) =>
+      !this._caveCellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
+    const nx = body.x + ux * move, ny = body.y + uy * move;
+    if ((ux !== 0) && open(nx, body.y)) body.x = nx;
+    if ((uy !== 0) && open(body.x, ny)) body.y = ny;
+    this.facing = { x: ux, y: uy };
+    this._playDirected(this.player, 'walk', ux, uy);
+    // How much closer did we actually get? Against a wall in the heading
+    // direction this collapses toward zero even while sliding sideways, so
+    // we're blocked when progress is under half the step we tried to take.
+    const moved = dist - Math.hypot(this._caveTargetM.x - body.x, this._caveTargetM.y - body.y);
+    if (moved < move * 0.5) {
+      // Blocked. Don't dig if a single-cell jog gets us around the obstacle —
+      // mining is reserved for walls the player can't trivially walk past.
+      const detour = this._caveDetourDir(ux, uy);
+      if (detour) {
+        const sx = body.x + detour.x * move, sy = body.y + detour.y * move;
+        if (detour.x !== 0 && open(sx, body.y)) body.x = sx;
+        if (detour.y !== 0 && open(body.x, sy)) body.y = sy;
+        this.facing = { x: detour.x, y: detour.y };
+        this._playDirected(this.player, 'walk', detour.x, detour.y);
+      } else {
+        this._caveStartAutoMine(ux, uy);
+      }
+    }
+  }
+  // Is the wall blocking forward progress one the body can trivially walk
+  // around — one cell out of its way? Returns a unit perpendicular vector to
+  // jog toward (the open side), or null if rounding the obstacle would take
+  // more than a single-cell detour (in which case mining is the only way
+  // through). "Trivial" means: the cell one step to the side is open AND the
+  // cell forward of that sidestep is open, so a single jog clears a 1-cell-wide
+  // wall. A thicker wall fails the forward check and falls through to mining.
+  _caveDetourDir(ux, uy) {
+    const m = this.cellM;
+    const bx = this.startWorldM.x + this.playerM.x;
+    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    const open = (cdx, cdy) => !this._caveCellBlocked(bx + cdx * m, by + cdy * m);
+    // Forward = dominant heading axis; perpendicular = the other axis.
+    const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
+    if (!fwd[0] && !fwd[1]) return null;
+    const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
+    // Prefer the side the target leans toward, so we round the corner the short
+    // way; with no lean (pure-axis heading) try one side then the other.
+    const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
+    for (const s of (lean < 0 ? [-1, 1] : [1, -1])) {
+      const px = perp[0] * s, py = perp[1] * s;
+      if (open(px, py) && open(px + fwd[0], py + fwd[1])) return { x: px, y: py };
+    }
+    return null;
+  }
+  // Pick the wall cell blocking progress toward the target (dominant axis first)
+  // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
+  _caveStartAutoMine(ux, uy) {
+    const bx = this.startWorldM.x + this.playerM.x;
+    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    // Two candidates: the X-neighbour and Y-neighbour toward the target, in
+    // dominant-axis order so we cut the most useful wall first.
+    const cand = Math.abs(ux) >= Math.abs(uy)
+      ? [[Math.sign(ux), 0], [0, Math.sign(uy)]]
+      : [[0, Math.sign(uy)], [Math.sign(ux), 0]];
+    for (const [cdx, cdy] of cand) {
+      if (!cdx && !cdy) continue;
+      const c = this.cellAt(bx + cdx * this.cellM, by + cdy * this.cellM);
+      if (c.loaded && c.type === 25 /* CAVE_WALL */) { this._caveBeginMine(c); return; }
+    }
+  }
+  // Start a work-wheel that digs cave-wall cell `c` (from cellAt) into floor and
+  // drops stone — the same payout/cost as tapping a wall by hand. Auto-pauses on
+  // empty energy so the player isn't silently stuck against a wall.
+  _caveBeginMine(c) {
+    const N = this.cellsPerTile;
+    const cellIX = c.tx * N + c.ix, cellIY = c.ty * N + c.iy;
+    const { x: wx, y: wy } = absCellCenterMeters(this, cellIX, cellIY);
+    const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(this.save.relics) : 0;
+    // Affordability GATE only — do NOT deduct here. Unlike a hand-tapped mine
+    // (which the player starts deliberately and waits out), the body kicks off
+    // these wheels on its own — up to 9s bare-handed — while the player is
+    // tapping to steer the ghost underground. An up-front charge with
+    // refund-on-bail (abortWorkProgress) meant every tap during the wheel handed
+    // the energy back, so a whole tunnel could be dug for almost nothing.
+    // Charge at COMPLETION instead (in the wheel callback below): a dug wall
+    // always costs, an interrupted one costs nothing — and isn't dug.
+    if (cost > (this.save.energy ?? 0)) {
+      this.flash('too tired', this.viewCenterX, this.viewCenterY);
+      this._caveAutoPaused = true;   // out of energy — stop chewing the wall
+      return;
+    }
+    const durMs = (typeof toolDurationMs === 'function')
+      ? toolDurationMs(this.save.relics, 'pick')
+      : (this.save.relics?.pick ? 3000 : 9000);
+    this._caveAutoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
+    // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
+    // to refund (it just cancels the dig). The spend lands at the dig instant.
+    this.startWorkProgress(wx, wy, () => {
+      this.spendEnergy(cost, this.viewCenterX, this.viewCenterY);
+      this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
+      const qty = randInt(1, 3);
+      this.addToInv('rockfruit', qty);
+      if (Math.random() < 0.20) this.addToInv('coal', 1);
+      this._caveAutoMineKey = null;
+      persistSave(this.save);
+      const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
+      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
+    }, durMs, 0, 'pick');
+  }
+  // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
+  // staircase's cell at the new depth (where a matching stair sits), swaps the
+  // active tile cache, repaints the background, and loads the new level.
+  changeDepth(delta, stair) {
+    const target = Math.max(0, (this.depth || 0) + delta);
+    if (target === this.depth) return;
+    // Can't descend on an empty tank — you'd just pass out down there. Climbing
+    // up is always allowed (it's how you escape exhaustion).
+    if (delta > 0 && (this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to go down — rest first.', this.viewCenterX, this.viewCenterY);
+      return;
+    }
+    this.depth = target;
+    this.save.depth = target;
+    WorldGen.setDepth(target);
+    // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
+    this.playerM.x = stair.x - this.startWorldM.x;
+    this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
+    this._ease = null;   // cancel any in-flight GPS ease toward the old spot
+    // Reset cave ghost-follow: any in-flight auto-mine is dropped, and the
+    // ghost target starts coincident with the body so the two don't diverge
+    // until the player actually steers. Surface clears it entirely.
+    if (this._workProgress && this._caveAutoMineKey) this.cancelWorkProgress();
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
+    if (this._bodyM) this.collapseGhost();   // never carry amulet ghost underground
+    this._caveTargetM = target > 0 ? { x: this.playerM.x, y: this.playerM.y } : null;
+    if (this.caveGhost) this.caveGhost.setVisible(false);
+    this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
+    this.ensureTilesAround().catch(() => {});
+    this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
+               this.viewCenterX, this.viewCenterY);
+    persistSave(this.save);
+  }
+  // Black out at 0 energy underground and wake on the surface. Keeps the same
+  // world coordinates (GPS re-asserts position up top); the player wakes still
+  // drained, so they must rest before heading back down (changeDepth gate).
+  _passOutToSurface() {
+    this._passingOut = true;
+    if (this._workProgress) this.cancelWorkProgress();
+    this._caveAutoMineKey = null;
+    this._caveAutoPaused = false;
+    this._caveTargetM = null;
+    if (this.caveGhost) this.caveGhost.setVisible(false);
+    if (this._bodyM) this.collapseGhost();
+    this.depth = 0;
+    this.save.depth = 0;
+    WorldGen.setDepth(0);
+    this._ease = null;
+    this.cameras.main.setBackgroundColor('#222');
+    this.ensureTilesAround().catch(() => {});
+    persistSave(this.save);
+    this.showChestRewardModal({
+      header: 'Exhausted',
+      iconHTML: '<span style="font-size:42px">😵</span>',
+      name: 'You pass out from exhaustion and wake up on the surface.',
+      color: '#ff8c3b',
+      onDismiss: () => { this._passingOut = false; },
+    });
+  }
+  // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
+  // cave level, so the player can always climb back toward the surface from the
+  // starting house. Idempotent — runs on each (re)load of the home tile.
+  _ensureHomeUpStair(entry, tx, ty) {
+    if (!entry || !entry.grid || typeof HomeArea === 'undefined' || !HomeArea.worldM) return;
+    const N = entry.cellsPerEdge;
+    const tileEdgeM = entry.tileEdgeM;
+    const hx = HomeArea.worldM.x, hy = HomeArea.worldM.y;
+    if (Math.floor(hx / tileEdgeM) !== tx || Math.floor(hy / tileEdgeM) !== ty) return;
+    const mPerCell = tileEdgeM / N;
+    const lix = Math.floor((hx - tx * tileEdgeM) / mPerCell);
+    const liy = Math.floor((hy - ty * tileEdgeM) / mPerCell);
+    if (lix < 0 || liy < 0 || lix >= N || liy >= N) return;
+    entry.grid[liy * N + lix] = 24;   // CAVE_FLOOR — the stair must sit on floor
+    const cx = tx * tileEdgeM + (lix + 0.5) * mPerCell;
+    const cy = ty * tileEdgeM + (liy + 0.5) * mPerCell;
+    const half = mPerCell * 0.5;
+    const atHome = (o) => Math.abs(o.x - cx) < half && Math.abs(o.y - cy) < half;
+    entry.objects = entry.objects || [];
+    // No descending from the house — drop any down-stair that landed here.
+    entry.objects = entry.objects.filter(o => !(o.kind === 'staircase' && o.dir === 'down' && atHome(o)));
+    if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atHome(o))) {
+      entry.objects.push({ kind: 'staircase', dir: 'up', x: cx, y: cy, depth: entry.depth,
+        id: `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}` });
+    }
+  }
   cellAt(wmx, wmy) {
     const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
     const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
@@ -3083,6 +3727,47 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
+  // accumulator field, spends whole points into save.energy (capped at maxE),
+  // and emits the throttled green "+N⚡" splash. Used by BOTH indoor/home rest
+  // and campfire warmth so the two share one mental model (and one bug surface).
+  _accrueRestEnergy(accrueKey, gain, maxE) {
+    this[accrueKey] = (this[accrueKey] || 0) + gain;
+    const pip = Math.floor(this[accrueKey]);
+    if (pip <= 0) return;
+    this[accrueKey] -= pip;
+    const beforeE = this.save.energy ?? 0;
+    this.save.energy = Math.min(maxE, beforeE + pip);
+    const gainedE = this.save.energy - beforeE;
+    // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
+    // periodic ticks rather than one pop per energy pip.
+    if (gainedE > 0) {
+      this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
+      const tnow = performance.now();
+      if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
+        this._splashEnergyGain(this._restSplashAccum);
+        this._restSplashAccum = 0;
+        this._restSplashNextT = tnow + 1200;
+      }
+    }
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+  }
+
+  // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
+  // in save[listKey]. Shared by fauna aversion: scarecrows repel crows/deer and
+  // campfires repel slimes, both at the same radius, so the wander/flight target
+  // pickers funnel through one check instead of three copies of the loop.
+  _nearAny(listKey, wx, wy, cells) {
+    const list = this.save[listKey];
+    if (!list || !list.length) return false;
+    const r2 = (cells * this.cellM) * (cells * this.cellM);
+    for (const e of list) {
+      const dx = e.x - wx, dy = e.y - wy;
+      if (dx * dx + dy * dy < r2) return true;
+    }
+    return false;
+  }
+
   // Bigger, longer-dwelling pop for loot pickups (chest opens, treasure X, harvest, debris).
   // Brief scale-up then a slow drift + fade. Always rendered at the player's viewport center
   // so the eye doesn't have to chase it back to where the X used to be.
@@ -3216,16 +3901,25 @@ class MapScene extends Phaser.Scene {
       : (PRICES[baseId] ?? 1);
     const money = Math.max(10, Math.round(value * 10));
     addMoney(this.save, money);
-    this.save.discovery = (this.save.discovery || 0) + 1;
+    // Discovery badge: at most ONE per type of interactable (keyed by baseId —
+    // the species/kind/produce id). The first shiny of a given type banks a
+    // Discovery point; later shinies of the same type still pay the cash
+    // windfall but don't re-award the badge.
+    const found = this.save.discovered = this.save.discovered || {};
+    const isNew = !found[baseId];
+    if (isNew) {
+      found[baseId] = 1;
+      this.save.discovery = (this.save.discovery || 0) + 1;
+    }
     persistSave(this.save);
-    this.flashShiny(money);
+    this.flashShiny(money, isNew);
     return money;
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a starburst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110).
-  flashShiny(money) {
+  flashShiny(money, isNew = true) {
     if (!this.add) return;
     const x = this.viewCenterX, y = this.viewCenterY - 150;
     try {
@@ -3239,7 +3933,8 @@ class MapScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       this.tweens.add({ targets: banner, y: y - 60, alpha: 0,
         duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
-      const sub = this.add.text(x, y + 8, `+$${money}   🔆 +1 Discovery`, {
+      const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
+      const sub = this.add.text(x, y + 8, subText, {
         font: 'bold 16px monospace', color: '#ffd23a',
         backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
         padding: { left: 8, right: 8, top: 3, bottom: 3 },
@@ -3292,39 +3987,21 @@ class MapScene extends Phaser.Scene {
   // a stale save.maxEnergy that may pre-date the latest armor change). All
   // energy reads/writes funnel through this so the UI and the writer agree.
   getMaxEnergy() {
-    const fromArmor = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(this.save.armor) : null;
-    if (fromArmor != null) { this.save.maxEnergy = fromArmor; return fromArmor; }
-    return this.save.maxEnergy ?? STARTING_ENERGY;
+    return Energy.maxEnergy(this.save);
   }
 
   // Equip a bought/forged relic or armor piece into its slot. Armor also
   // recomputes max energy and grants the freshly-unlocked headroom (captured
   // BEFORE mutating armor so the bump is the delta, not the whole new max).
   _equipGear(kind, slot, tier) {
-    if (kind === 'relic') {
-      this.save.relics[slot] = { tier };
-      return;
-    }
-    const oldMax = this.getMaxEnergy();
-    this.save.armor[slot] = { tier };
-    const newMax = maxEnergyFromArmor(this.save.armor);
-    const bump = Math.max(0, newMax - oldMax);
-    this.save.maxEnergy = newMax;
-    this.save.energy = Math.min(newMax, (this.save.energy ?? 0) + bump);
+    Gear.equip(this.save, kind, slot, tier);
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
   // restore it. Called from create() and the visibilitychange handler so the
   // same formula serves both "tab was closed" and "tab was backgrounded".
   applyOfflineRest(gapMs) {
-    if (!(gapMs > 0)) return;
-    const maxE = this.getMaxEnergy();
-    const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
-    if (restored <= 0) return;
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.min(maxE, before + restored);
-    const gained = this.save.energy - before;
+    const gained = Energy.applyOfflineRest(this.save, gapMs);
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
     if (gained > 0) this._splashEnergyGain(gained);
   }
@@ -3335,38 +4012,41 @@ class MapScene extends Phaser.Scene {
     const cur = Math.max(0, this.save.energy ?? 0);
     const max = this.getMaxEnergy();
     const pct = max > 0 ? cur / max : 0;
-    const color = pct > 0.5 ? '#a7ffb0' : (pct > 0.25 ? '#ffe066' : '#ff8a7a');
-    el.style.color = color;
-    el.style.borderColor = pct > 0.25 ? '#4a8c4a' : '#a04040';
-    el.textContent = `⚡${cur}/${max}`;
+    // Green normally, yellow at/below 30%, red when critically low.
+    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
+    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
+    const label = document.getElementById('energy-label');
+    if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
+    else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }
+    const fill = document.getElementById('energy-bar-fill');
+    if (fill) {
+      fill.style.width = `${Math.round(pct * 100)}%`;
+      fill.style.background = color;
+    }
   }
 
   // Spend energy if the player has enough, returning true on success.
   // Callers (interact.js handlers) refuse the action when this returns false.
   spendEnergy(cost, sx, sy) {
     if (cost <= 0) return true;
-    if ((this.save.energy ?? 0) < cost) {
+    const r = Energy.spend(this.save, cost);
+    if (!r.ok) {
       if (sx != null && sy != null) this.flash('too tired', sx, sy);
       return false;
     }
-    const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(0, before - cost);
-    this._warnIfTiring(before, sx, sy);
+    this._warnIfTiring(r.before, sx, sy);
     this.updateEnergyDOM();
     return true;
   }
 
-  // Reach shrinks by a cell once energy drops below 30% (see coords.js
-  // reachRadiusM). Flash a "getting tired" warning the first time a drain
-  // crosses that threshold so the smaller reach isn't a silent surprise.
-  // `before` is the energy reading just before the drain; sx/sy are optional
-  // and default to the view centre.
+  // Flash a "getting tired" warning the first time a drain crosses below 30%
+  // energy, so running down toward 0 (where you can't reach at all) isn't a
+  // silent surprise. `before` is the energy reading just before the drain;
+  // sx/sy are optional and default to the view centre.
   _warnIfTiring(before, sx, sy) {
-    // A Potion of Reach pins reach to the full view regardless of energy, so
-    // crossing the threshold doesn't actually shrink anything — stay quiet.
-    if ((this.save.reachPotionUntil ?? 0) > Date.now()) return;
-    const TIRED = 0.30 * (this.save.maxEnergy ?? 100);
-    if (before >= TIRED && (this.save.energy ?? 0) < TIRED) {
+    // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
+    // wrapper only fires the flash (defaulting to the view centre).
+    if (Energy.crossedTired(this.save, before)) {
       this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
                                     sy != null ? sy : this.viewCenterY);
     }
@@ -3474,6 +4154,31 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // Sapphire portal: spend one gem to open a one-shot shaft straight down a
+  // level, in place. Down-only — there's no return portal; climb back up a
+  // staircase as usual. The gem is consumed only when the descent actually
+  // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  useSapphirePortal() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
+    if ((this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to open a portal — rest first.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
+    // coords onto the stair, so handing it our current position drops us down
+    // one level without moving — the cave cell under a walkable surface cell is
+    // floor, so we land on solid ground.
+    const stair = {
+      x: this.startWorldM.x + this.playerM.x,
+      y: this.startWorldM.y + this.playerM.y + this.feetOffsetM,
+    };
+    consumeSelected(this.save);
+    this.buildInventoryDOM();
+    this.changeDepth(+1, stair);
+    return true;
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -3531,17 +4236,7 @@ class MapScene extends Phaser.Scene {
   waterCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const r2 = radius * radius;
-    let n = 0;
-    for (const p of (this.save.planted || [])) {
-      const dx = p.x - pWX, dy = p.y - pWY;
-      if (dx * dx + dy * dy > r2) continue;
-      if ((p.stage ?? 0) >= (typeof MAX_GROWTH_STAGE !== 'undefined' ? MAX_GROWTH_STAGE : 4)) continue;
-      if (p.watered_t) continue;
-      p.watered_t = Date.now();
-      n++;
-    }
-    return n;
+    return Crops.waterWithin(this.save, pWX, pWY, radius);
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
@@ -3554,8 +4249,15 @@ class MapScene extends Phaser.Scene {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
+    // Single source of truth for where EVERY dialog sits vertically. The wrap
+    // fills #game's 844px box and flex-centres the box, but we reserve space at
+    // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
+    // clear of the bottom inventory/HUD cluster (tabs/slots/name/action btns).
+    // Because all modals go through here, they all position identically — tweak
+    // this one constant to move them all.
     wrap.style.cssText =
       `position:absolute;inset:0;z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
+      `padding-bottom:${MODAL_LIFT_PX}px;box-sizing:border-box;` +
       `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
     const box = document.createElement('div');
     box.style.cssText =
@@ -3932,14 +4634,12 @@ class MapScene extends Phaser.Scene {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
-    // Wizard tower (the 15th restored wreck) — a dedicated relic vendor. The
-    // mage always has an enchanted relic on hand (with a re-roll), so it reads
-    // as a guaranteed upgrade stop rather than the 10% lottery a plain house
-    // runs. Falls back to a flavour flash when every slot is maxed.
+    // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
+    // mage now trades the player's hard-won Discovery badges for an "Inner
+    // Light": one +0.5-cell reach (range) upgrade per 5 badges. See
+    // presentInnerLightOffer.
     if (shopType === 'wizard') {
-      const offer = this.peekOrBuildRelicOffer(house);
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, true); return; }
-      this.flash('The wizard is deep in study — come back later.', sx, sy);
+      this.presentInnerLightOffer(sx, sy, recordDeal);
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
@@ -3955,10 +4655,17 @@ class MapScene extends Phaser.Scene {
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
-    const sellsProduce = (shopType === 'market')
-      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3);
+    // The tutorial's first market is the guaranteed beginner SEED shop: it
+    // rotates through T1/T2 (low-tier) seeds only, never produce or higher-tier
+    // crops the player can't use yet.
+    const isFirstMarket = this.isFirstMarket(house);
+    const sellsProduce = !isFirstMarket && ((shopType === 'market')
+      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3));
     let id;
-    if (sellsProduce) {
+    if (isFirstMarket) {
+      const lowSeeds = BUY_LIST.filter(isLowTierSeed);
+      id = lowSeeds[(this.save.buyIndex ?? 0) % lowSeeds.length] || BUY_LIST[0];
+    } else if (sellsProduce) {
       // Cycle through produce, weighted toward the buyIndex so it still rotates.
       const produceIds = Object.keys(CROP_ROW);
       id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
@@ -4034,6 +4741,10 @@ class MapScene extends Phaser.Scene {
   // from Render.drawObjects.
   ensureStarterShopId() {
     if (this._starterShopOk) return;
+    // A fresh save is still waiting to anchor its home origin to the first GPS
+    // fix (startGps reloads once it arrives) — don't place the trailer yet, it
+    // would be positioned against the provisional origin we're about to drop.
+    if (this._homeCapturePending) return;
     // A synthetic trailer from a prior session — restore it and lock in.
     if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
       this.ensureStarterTrailerObject();
@@ -4153,6 +4864,10 @@ class MapScene extends Phaser.Scene {
   ensureStarterTrailerObject() {
     const st = this.save.starterTrailer;
     if (!st) return;
+    // Surface-only. Underground, WorldGen.tileCache is repointed at the active
+    // depth's cave map (setDepth), so injecting here would drop a phantom
+    // trailer into a cave tile. The trailer lives on the surface — depth 0.
+    if ((this.depth || 0) !== 0) return;
     // Only inject while the trailer is actually the active Home. If the player
     // has since adopted a real house (starterShopId points elsewhere), a stale
     // starterTrailer must not keep spawning a phantom trailer in the world.
@@ -4211,6 +4926,113 @@ class MapScene extends Phaser.Scene {
       return PRESEED_RESTORE_ROLES[order];
     }
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+  }
+
+  // The tutorial's first restored market (PRESEED_RESTORE_ROLES order 3) is the
+  // player's guaranteed early SEED shop: it vends only T1/T2 seeds for cash
+  // instead of the produce a normal market sells, so a beginner always has a
+  // reliable source of plantable starter crops. Memoize its id; self-heal for
+  // saves that restored it before this stamp existed by scanning restoredHouses
+  // in insertion order (object keys preserve insert order, so the first 'market'
+  // entry is the earliest-restored market).
+  ensureFirstMarketId() {
+    if (this.save.firstMarketId) return this.save.firstMarketId;
+    const rh = this.save.restoredHouses || {};
+    for (const id of Object.keys(rh)) {
+      if (rh[id] === 'market') { this.save.firstMarketId = id; persistSave(this.save); return id; }
+    }
+    return null;
+  }
+
+  isFirstMarket(house) {
+    return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
+  }
+
+  // 0-based position of this house among restored residential (delivery)
+  // houses, in restore order; -1 if it isn't a (restored) delivery house.
+  // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
+  // the Nth-restored delivery house. Drives the scripted early wishlists
+  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
+  deliveryHouseOrder(house) {
+    return Delivery.houseOrder(this.save, house);
+  }
+
+  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
+  // produce wishlists (see wantedProduce).
+  isEarlyDeliveryHouse(house) {
+    return Delivery.isEarly(this.save, house);
+  }
+
+  // Every restored delivery house currently asking for a bundle (not satisfied
+  // today), nearest first, with its wanted produce + distance in metres. Drives
+  // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
+  // excluded — only plain residential delivery houses appear.
+  knownDeliveryHouses() {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const out = [];
+    const seen = new Set();
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'house' || !o.id || seen.has(o.id)) continue;
+        if (o.tier === 11 || o.tier === 12) continue;             // forts / civic slabs
+        if (this.houseShopRole(o) !== null) continue;             // only plain (no shop role)
+        if (this._isHouseWreck && this._isHouseWreck(o)) continue; // still a wreck
+        if (this.isStarterShop(o)) continue;                      // home sells, doesn't ask
+        if (this.isHouseSatisfied(o)) continue;                   // happy until tomorrow
+        const wanted = this.wantedProduce(o);
+        if (!wanted.length) continue;
+        seen.add(o.id);
+        const dx = o.x - pWX, dy = o.y - pWY;
+        out.push({ id: o.id, x: o.x, y: o.y, wanted, dist: Math.hypot(dx, dy) });
+      }
+    }
+    out.sort((a, b) => a.dist - b.dist);
+    return out;
+  }
+
+  // Point the white waypoint arrow at a delivery house (cleared automatically
+  // once the player reaches it or it's satisfied — see the update loop).
+  setDeliveryCompass(id, x, y) {
+    this.deliveryCompass = { id, x, y };
+  }
+
+  // Delivery list overlay: tap a row to aim the white waypoint arrow at that
+  // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
+  openDeliveryMenu() {
+    const { wrap, box, mount } = this.makeModalShell('delivery-menu',
+      { maxWidth: 320, textAlign: 'left', onClose: () => {} });
+    const title = document.createElement('div');
+    title.style.cssText = 'font:700 14px ui-monospace,monospace;color:#ffe066;margin-bottom:8px;text-align:center;';
+    title.textContent = 'Deliveries';
+    box.appendChild(title);
+    const houses = this.knownDeliveryHouses();
+    if (!houses.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px ui-monospace,monospace;';
+      empty.textContent = 'No delivery requests nearby. Restore a house to start.';
+      box.appendChild(empty);
+    } else {
+      for (const h of houses) {
+        const row = document.createElement('button');
+        row.style.cssText =
+          'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
+          + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
+          + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
+        const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
+        row.innerHTML =
+          `<span style="flex:1;display:flex;align-items:center;gap:4px;">${icons}</span>`
+          + `<span style="opacity:.7;white-space:nowrap;">${Math.round(h.dist)}m ›</span>`;
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.setDeliveryCompass(h.id, h.x, h.y);
+          wrap.remove();
+          this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
+        });
+        box.appendChild(row);
+      }
+    }
+    mount();
   }
 
   findStarterBlacksmithId() {
@@ -4341,93 +5163,31 @@ class MapScene extends Phaser.Scene {
   // UTC day stamp ("YYYYMMDD") — the wishlist + happy state turn over on the
   // day boundary, so a house satisfied today wants a fresh bundle tomorrow.
   // Mirrors the coin-burst daily-cap key format.
+  // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
+  // as scene methods because render.js + the interact/present handlers call them
+  // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc.
   _deliveryDayKey() {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return Delivery.dayKey();
   }
 
-  // Per-house, per-day RNG. Keyed on house.id AND the day stamp so each house
-  // rolls a NEW wishlist every day (a "new bundle the next day"), but the
-  // list stays stable for the whole of any given day. Differs from shopRng
-  // (which rotates on the hour bucket).
   wantedProduceRng(house, dayKey) {
-    let h = 2166136261 >>> 0;
-    const s = String(house?.id || '') + '|' + String(dayKey || '');
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    let state = h;
-    return () => {
-      state = (Math.imul(state, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = state;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return Delivery.wantedRng(house, dayKey);
   }
 
-  // Rarity tier (1..7) a produce id sits at — drives the wishlist's tier bias.
-  // Most produce carry baseTier on the ITEM record; the few hand-written ones
-  // (egg/milk/longgrass/…) fall back to the shared BASE_TIER table, then 1.
   _produceTier(id) {
-    return (ITEM_BY_ID[id]?.baseTier)
-      ?? ((typeof BASE_TIER !== 'undefined') ? BASE_TIER[id] : undefined)
-      ?? 1;
+    return Delivery.produceTier(id);
   }
 
-  // The tier the day's wishlists are centred on, ramping from PRODUCE_TIER_MIN
-  // at 0 lifetime deliveries to PRODUCE_TIER_MAX at DELIVERY_TIER_CAP (and
-  // beyond). A float — the picker weights produce by closeness to it.
-  _wantedTargetTier() {
-    const dc = this.save.deliveryCount ?? 0;
-    const t = Math.min(1, dc / DELIVERY_TIER_CAP);
-    return PRODUCE_TIER_MIN + t * (PRODUCE_TIER_MAX - PRODUCE_TIER_MIN);
-  }
-
-  // 2-3 produce ids this plain house wants TODAY at full price. The set is
-  // re-rolled each day and biased toward _wantedTargetTier (higher as the
-  // lifetime delivery tally climbs). Cached on the house object per day so the
-  // render-loop sign and the interact handler agree without re-rolling.
+  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
+  // cached on the house per day so the render sign and interact handler agree).
   wantedProduce(house) {
-    if (!house?.id) return [];
-    const dayKey = this._deliveryDayKey();
-    if (house._wantedProduce && house._wantedProduceDay === dayKey) return house._wantedProduce;
-    let universe = (typeof ITEMS !== 'undefined')
-      ? ITEMS.filter(i => i.kind === 'produce').map(i => i.id)
-      : [];
-    if (!universe.length) return [];
-    // The player's first 3 lifetime deliveries ask for TIER-1 produce only, so
-    // the starter loop never demands a crop they can't yet grow. After that the
-    // usual _wantedTargetTier ramp takes over.
-    if ((this.save.deliveryCount ?? 0) < 3) {
-      const t1 = universe.filter(id => this._produceTier(id) <= 1);
-      if (t1.length) universe = t1;
-    }
-    const rng = this.wantedProduceRng(house, dayKey);
-    const count = 2 + Math.floor(rng() * 2);  // 2 or 3
-    const target = this._wantedTargetTier();
-    // Weighted draw without replacement: weight falls off with distance from
-    // the target tier, so picks cluster around it while still allowing the
-    // odd neighbour (one tier away) for variety.
-    const pool = universe.map(id => ({ id, w: 1 / (1 + Math.abs(this._produceTier(id) - target)) }));
-    const picks = [];
-    while (picks.length < count && pool.length) {
-      const total = pool.reduce((a, p) => a + p.w, 0);
-      let r = rng() * total;
-      let idx = 0;
-      while (idx < pool.length - 1 && (r -= pool[idx].w) > 0) idx++;
-      picks.push(pool.splice(idx, 1)[0].id);
-    }
-    house._wantedProduce = picks;
-    house._wantedProduceDay = dayKey;
-    return picks;
+    return Delivery.wantedProduce(this.save, house);
   }
 
-  // True if this house had a bundle delivered already TODAY — it's "happy" and
-  // stops asking until tomorrow. Keyed by UTC day so it resets on the boundary.
+  // True if this house had a bundle delivered already TODAY — happy until the
+  // next UTC day boundary.
   isHouseSatisfied(house) {
-    if (!house?.id) return false;
-    return (this.save.houseSatisfied?.[house.id]) === this._deliveryDayKey();
+    return Delivery.isSatisfied(this.save, house);
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
@@ -4496,7 +5256,8 @@ class MapScene extends Phaser.Scene {
         const gain = setPrice * sets;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
-        // Gates the shrine's reach upgrades (5/10/15/20/25/30 → +0.5 cell each).
+        // Gates the castle vault and ramps the delivery produce tier (see
+        // delivery.js / shopGateInfo).
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         // Mark this household satisfied for the rest of the UTC day — it stops
         // asking (shows "happy" instead of a wishlist) and wants a fresh bundle
@@ -4523,86 +5284,26 @@ class MapScene extends Phaser.Scene {
   // ─── Hour-bucket helpers ────────────────────────────────────────
   // Per-shop sub-hour offset so two shops don't rotate at the same wall-clock
   // minute. Cached on the scene because every tap consults it.
+  // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
+  // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
+  // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
   _shopBucketOffset(houseId) {
-    // FNV-1a 32-bit on the id string, modulo 1h. Fast and uniform.
-    let h = 2166136261 >>> 0;
-    const s = String(houseId);
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) % (60 * 60 * 1000);
+    return ShopsMath.bucketOffset(houseId);
   }
   _shopBucket(houseId, now = Date.now()) {
-    return Math.floor((now + this._shopBucketOffset(houseId)) / (60 * 60 * 1000));
+    return ShopsMath.bucket(houseId, now);
   }
-  // Per-house deal-rate ladder. Mirrors the cap math used inside
-  // shopInteract — extracted so the renderer's ready/timer indicator and the
-  // tap handler can both pull it from one place without divergence.
-  //   castle / tower     → Infinity (relics only — never busy)
-  //   starter blacksmith → Infinity (first tools shouldn't gate on an hour)
-  //   fort (tier 11)     → 5 deals / hour
-  //   small house        → 1 deal  / hour
   shopDealCap(house) {
-    if (!house) return Infinity;
-    if (house.kind === 'tower' || house.tier === 12) return Infinity;
-    if (this.isStarterBlacksmith(house)) return Infinity;
-    if (house.tier === 11) return 5;
-    return 1;
+    return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
   }
-  // Snapshot a house's readiness. `ready` is true if a new deal would be
-  // accepted right now; `waitMin` is how many wall-clock minutes until the
-  // next bucket if not. Returns `{ dealCap, ready, waitMin }`.
   shopReadiness(house) {
-    const dealCap = this.shopDealCap(house);
-    if (dealCap === Infinity || !house || !house.id) {
-      return { dealCap, ready: true, waitMin: 0 };
-    }
-    const cur = this.shopBucketState(house);
-    if (cur.deals < dealCap) return { dealCap, ready: true, waitMin: 0 };
-    const now = Date.now();
-    const offset = this._shopBucketOffset(house.id);
-    const nextBucketStart = (cur.bucket + 1) * 60 * 60 * 1000 - offset;
-    const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
-    return { dealCap, ready: false, waitMin };
+    return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
   }
-  // Returns the live { bucket, deals, rerolls } record for a house, creating
-  // it and GC-ing any stale-bucket predecessor on the way. Self-cleaning, so
-  // we never need a separate sweep.
   shopBucketState(house) {
-    this.save.shopState = this.save.shopState || {};
-    const id = house.id;
-    const bucket = this._shopBucket(id);
-    let cur = this.save.shopState[id];
-    if (cur && cur.bucket !== bucket) cur = null;
-    if (!cur) {
-      cur = { bucket, deals: 0, rerolls: 0 };
-      this.save.shopState[id] = cur;
-    }
-    return cur;
+    return ShopsMath.bucketState(this.save, house);
   }
-  // Deterministic 0..1 RNG keyed by (house.id, bucket, rerolls, lane). `lane`
-  // namespaces independent rolls within the same bucket — pass 'relic-pick',
-  // 'shop-offer-id', etc. so the price RNG can't accidentally consume the
-  // pool-pick RNG.
   shopRng(house, lane = '') {
-    const cur = this.shopBucketState(house);
-    let h = ((this._shopBucketOffset(house.id) >>> 0)
-           ^ (cur.bucket >>> 0)
-           ^ ((this.save.offerSalt || 0) >>> 0)
-           ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
-    for (let i = 0; i < lane.length; i++) {
-      h ^= lane.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    let s = h;
-    return () => {
-      s = (Math.imul(s, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return ShopsMath.rng(this.save, house, lane);
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
@@ -4622,58 +5323,12 @@ class MapScene extends Phaser.Scene {
   // Tier is biased low so most offers are wood/copper; rare materials are rare.
   // `rng` defaults to Math.random — pass a seeded one for stable per-bucket offers.
   buildRelicOffer(rng = Math.random, opts = {}) {
-    // Armor pieces (helmet / chest / legs / boots) are conceptually part
-    // of the relic family — the player thinks of every wearable upgrade
-    // as "a relic." They're split across save.relics and save.armor only
-    // because armor has the separate max-energy bonus to compute.
-    //
-    // For offer balance we want the 4 armor SLOTS to get equal airtime
-    // with the 12 non-armor RELIC SLOTS — without this normalisation the
-    // candidate pool is 84 relic-candidates vs 28 armor-candidates and
-    // armor surfaces only ~22-25% of the time. Players reported castle
-    // visits "never" showing armor; this normalisation puts the two
-    // pools at ~50% each by total weight. Inside each pool we still
-    // bias toward low tiers (weight ∝ 1 / 2^(tier-1)) so early game
-    // sees mostly wood/copper offers.
-    const candidates = [];
-    const consider = (kind, slot, currentTier) => {
-      for (const t of MATERIAL_TIERS) {
-        if (t.tier <= currentTier) continue;
-        candidates.push({ kind, slot, tier: t.tier });
-      }
-    };
-    for (const slot of Object.keys(RELIC_DEFS))  consider('relic', slot, this.save.relics?.[slot]?.tier ?? 0);
-    for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, this.save.armor?.[slot]?.tier  ?? 0);
-    if (!candidates.length) return null;
-    const tierW = (t) => 1 / Math.pow(2, t - 1);
-    const relicSum = candidates.filter(c => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);
-    const armorSum = candidates.filter(c => c.kind === 'armor').reduce((a, c) => a + tierW(c.tier), 0);
-    const relicNorm = relicSum > 0 ? 1 / relicSum : 0;
-    const armorNorm = armorSum > 0 ? 1 / armorSum : 0;
-    const weighted = candidates.map(c => ({
-      c,
-      w: (c.kind === 'relic' ? relicNorm : armorNorm) * tierW(c.tier),
-    }));
-    const total = weighted.reduce((a, b) => a + b.w, 0);
-    let r = rng() * total;
-    let pick = weighted[weighted.length - 1].c;
-    for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
-    // Pricing:
-    //   Default — random markup in 1.2..3.0× base (regular shops, smithy).
-    //   Castle  — flat 4.0× base "exorbitant" markup, discounted by the
-    //             player's Bow tier (bestWeaponTier is bow-only now that the
-    //             Staff is a pure combat weapon). f = 1 - t/7 → at Bow T7 the
-    //             markup collapses to 1.0× (par); at T0 it's the full 4.0×.
-    const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
-    let mul;
-    if (opts.isCastle) {
-      const f = 1 - ((typeof bestWeaponTier === 'function') ? bestWeaponTier(this.save.relics) : 0) / 7;
-      mul = 1 + 3 * f;                // T0 → 4.0×, T7 → 1.0×
-    } else {
-      mul = 1.2 + rng() * 1.8;        // existing random range
-    }
-    const price = Math.max(1, Math.ceil(baseP * mul));
-    return { ...pick, price };
+    // Relic/armor offer roll lives in gear.js (Gear.buildRelicOffer) — armor +
+    // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
+    // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
+    // threads the seeded shopRng) calls it the same way. The Ring is excluded
+    // there (it's the wizard tower's exclusive gift — see syncInnerLightRing).
+    return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
   // Build the "Re-roll" secondary button shared by the relic and blacksmith
@@ -4764,50 +5419,18 @@ class MapScene extends Phaser.Scene {
   //     plus 1 of the tier-matched bar.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
+  // Forge + smelt recipes live in gear.js (Gear.*). Kept as scene methods
+  // because the present* shop modals call them as this.blacksmithRecipe(…) etc.
   blacksmithRecipe(kind, slot, tier) {
-    if (!tier) return null;
-    const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
-    // T1 wooden tools use plain wood (no bar). T2+ use the matching metal
-    // bar. Jewelry starts at T2 — no wooden jewelry recipe at T1.
-    const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-    const bar = BAR_BY_TIER[tier];
-    if (!bar) return null;
-    if (JEWELRY_GEM[slot]) {
-      // No wooden jewelry — T1 jewelry isn't craftable at the smithy.
-      if (tier < 2) return null;
-      // Geometric gem ramp: 1, 2, 4, 8, 16, 32 from T2..T7.
-      const gemQty = Math.pow(2, tier - 2);
-      return [
-        { id: JEWELRY_GEM[slot], qty: gemQty },
-        { id: bar, qty: 1 },
-      ];
-    }
-    return [{ id: bar, qty: Math.max(5, tier) }];
+    return Gear.blacksmithRecipe(kind, slot, tier);
   }
 
-  // Bar smelting recipes — only T5+ bars can be smelted; T2-T4 are mined.
-  // Returns null for non-smeltable bars. UI flow for smelting is a separate
-  // pass (smith offer presents smelting if player has the ingredients).
   smeltingRecipe(barId) {
-    const RECIPES = {
-      platinum_bar: [{ id: 'sunflower',    qty: 1 }, { id: 'gold_bar',     qty: 1 }],
-      crimson_bar:  [{ id: 'fireflower',   qty: 1 }, { id: 'platinum_bar', qty: 1 }],
-      frost_bar:    [{ id: 'iceflower',    qty: 1 }, { id: 'crimson_bar',  qty: 1 }],
-    };
-    return RECIPES[barId] || null;
+    return Gear.smeltingRecipe(barId);
   }
 
-  // Which smeltable bars the blacksmith will smelt, gated by SHRINE LEVEL.
-  // Each top-tier bar unlocks at the same shrine level its produce→bar
-  // transform does (platinum L4, crimson L5, frost L6) — so leveling the
-  // shrine teaches the recipe AND lights it up at the forge's Smelt tab.
-  // Returns an ordered list of bar ids the player may currently smelt (empty
-  // until shrine L4, which is when the Smelt tab first appears).
-  SMELT_UNLOCK_LEVEL = { platinum_bar: 4, crimson_bar: 5, frost_bar: 6 };
   smeltUnlockedBars() {
-    const lvl = this.save.shrineLevel ?? 1;
-    return ['platinum_bar', 'crimson_bar', 'frost_bar']
-      .filter(id => lvl >= this.SMELT_UNLOCK_LEVEL[id]);
+    return Gear.smeltUnlockedBars(this.save);
   }
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
@@ -4974,31 +5597,77 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
-  // ─── Shrine reach upgrades ───────────────────────────────────────
-  // Six claimable +0.5-cell reach steps (2 cells → 5) interleaved with the
-  // main shrine levels. The Nth upgrade (1-indexed) requires:
-  //   • cumulative deliveries ≥ 5 × N  (5, 10, 15, 20, 25, 30), AND
-  //   • the shrine to have reached the level below it — every 2nd level, so
-  //     upgrade N gates on shrineLevel ≥ N (L1 opens the 1st, L2 the 2nd, …).
-  // Returns the status of the NEXT unclaimed reach upgrade, or null when all
-  // six are claimed.
-  REACH_UPGRADE_MAX = 6;
-  nextReachUpgrade() {
-    const claimed = this.save.reachUpgrades ?? 0;
-    if (claimed >= this.REACH_UPGRADE_MAX) return null;
-    const n = claimed + 1;                       // 1-indexed upgrade we'd claim
-    const needDeliveries = 5 * n;
-    const haveDeliveries = this.save.deliveryCount ?? 0;
-    const needLevel = n;                          // shrineLevel gate
-    const haveLevel = this.save.shrineLevel ?? 1;
-    return {
-      n,
-      needDeliveries, haveDeliveries,
-      needLevel, haveLevel,
-      reachAfter: 2 + 0.5 * n,
-      canClaim: haveDeliveries >= needDeliveries && haveLevel >= needLevel,
-    };
+  // ─── Wizard tower: Inner Light (Discovery → reach) ───────────────
+  // The wizard tower spends the player's Discovery badges on an "Inner
+  // Light": each one is a +0.5-cell reach (range) upgrade on the reachUpgrades
+  // ladder (capped at 5 cells / 6 upgrades). The tower is the SOLE source of
+  // reach upgrades — each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery.
+  //
+  // The Inner Light and the RING relic are one and the same: kindling a light
+  // also forges a Ring whose tier tracks the inner-light level (reachUpgrades).
+  // The ring is the wizard tower's exclusive gift — it is no longer offered for
+  // sale or at the smithy (see buildRelicOffer), so the only way to a Ring is
+  // to widen your sight. syncInnerLightRing() is the single point that keeps the
+  // ring tier in step with the light; it's called from every place the reach
+  // ladder advances (here AND the shrine claim).
+  WIZARD_INNER_LIGHT_COST = 5;
+  // Keep the Ring relic's tier locked to the inner-light level. Never downgrades
+  // a ring the player somehow holds higher (e.g. a legacy forged ring on an old
+  // save); the ring tops out at the reach ladder's 6 upgrades.
+  syncInnerLightRing() {
+    const level = Math.min(7, this.save.reachUpgrades ?? 0);
+    if (level <= 0) return;
+    this.save.relics = this.save.relics || {};
+    const cur = this.save.relics.ring?.tier ?? 0;
+    if (level > cur) this._equipGear('relic', 'ring', level);
   }
+  presentInnerLightOffer(sx, sy, recordDeal) {
+    const cost = this.WIZARD_INNER_LIGHT_COST;
+    const claimed = this.save.reachUpgrades ?? 0;
+    // Reach already maxed — the Inner Light has nothing left to widen.
+    if (claimed >= this.REACH_UPGRADE_MAX) {
+      this.flash('The wizard nods — your sight already spans the world.', sx, sy);
+      return;
+    }
+    const have = this.save.discovery ?? 0;
+    const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
+    this.showOfferModal({
+      title: 'The wizard offers an Inner Light:',
+      cancelLabel: 'Later',
+      acceptLabel: 'Kindle',
+      get: `🔆 Inner Light — reach ${reachAfter} cells`,
+      cost: `🔆 ${cost} Discovery (you have ${have})`,
+      canAfford: have >= cost,
+      onAccept: () => {
+        if ((this.save.discovery ?? 0) < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
+        if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
+        this.save.discovery -= cost;
+        this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
+        // The light's gift is a Ring whose tier matches the new inner-light
+        // level — the relic that embodies your widened sight.
+        this.syncInnerLightRing();
+        recordDeal();
+        // The reach silhouette redraws every frame from reachRadiusM, so the
+        // wider reach shows on the next frame with no explicit invalidation.
+        persistSave(this.save);
+        if (this.buildInventoryDOM) this.buildInventoryDOM();
+        this.showChestRewardModal({
+          header: '✨ Inner Light kindled ✨',
+          iconHTML: '',
+          name: `Reach ${reachAfter} cells · Ring T${Math.min(7, this.save.reachUpgrades)}`,
+          sub: `The wizard channels your discoveries into wider sight — and a Ring to bear it.`,
+          color: '#ffd23a',
+        });
+      },
+    });
+  }
+
+  // ─── Reach / Inner Light cap ─────────────────────────────────────
+  // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
+  // EXCLUSIVELY at the wizard tower's Inner Light (presentInnerLightOffer),
+  // which also forges the matching Ring tier — the shrine no longer grants
+  // reach.
+  REACH_UPGRADE_MAX = 6;
 
   // Shrine tap handler. Presents a single-modal offer: either the next
   // level-up bundle (if the player has every ingredient) OR a transform
@@ -5051,38 +5720,9 @@ class MapScene extends Phaser.Scene {
       return;
     }
 
-    // No matching produce selected — present the next level-up bundle.
-    // The shrine also grants REACH upgrades (2 cells → 5, +0.5 each) claimed
-    // here as a secondary button: a reach upgrade unlocks once you've made
-    // enough deliveries AND the shrine has hit the matching level. The claim
-    // is offered as the `secondary` action so it sits alongside the level-up.
-    const reach = this.nextReachUpgrade();
-    const claimReach = () => {
-      const r = this.nextReachUpgrade();
-      if (!r || !r.canClaim) { this.flash('Reach not ready.', sx, sy); return; }
-      this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
-      persistSave(this.save);
-      // The reach silhouette is redrawn every frame from reachRadiusM, so the
-      // wider reach shows on the next frame with no explicit invalidation.
-      this.showChestRewardModal({
-        header: '✨ Reach extended ✨',
-        iconHTML: '',
-        name: `Reach ${r.reachAfter} cells`,
-        sub: `The shrine's blessing widens your grasp.`,
-        color: '#a7e9ff',
-      });
-    };
-    // Human-readable status of the next reach upgrade, shown in every blurb.
-    const reachStatus = reach
-      ? (reach.canClaim
-          ? `🟢 Reach upgrade ready → ${reach.reachAfter} cells (tap “Extend reach”)`
-          : `Reach ${reach.reachAfter} cells: ${Math.min(reach.haveDeliveries, reach.needDeliveries)}/${reach.needDeliveries} deliveries`
-            + (reach.haveLevel < reach.needLevel ? ` · needs shrine L${reach.needLevel}` : ''))
-      : `Reach maxed at 5 cells.`;
-    const reachSecondary = (reach && reach.canClaim)
-      ? { label: 'Extend reach', onClick: claimReach }
-      : undefined;
-
+    // No matching produce selected — present the next level-up bundle. (Reach
+    // upgrades are no longer claimed here; the wizard tower's Inner Light is the
+    // sole source — see presentInnerLightOffer.)
     const bundle = this.shrineLevelUpCost(lvl);
     if (!bundle) {
       // Maxed out at top level — list the transforms (+ reach status / claim).
@@ -5094,11 +5734,10 @@ class MapScene extends Phaser.Scene {
         title: `Magic Crafting Shrine (Level ${lvl})`,
         cancelLabel: 'Later',
         get: `the shrine hums at full power`,
-        blurb: `${reachStatus}<br>Hold a matching produce + tap to transform:<br>${lines}`,
+        blurb: `Hold a matching produce + tap to transform:<br>${lines}`,
         cost: '',
         canAfford: false,
         acceptLabel: 'Close',
-        secondary: reachSecondary,
         onAccept: () => {},
       });
       return;
@@ -5125,11 +5764,10 @@ class MapScene extends Phaser.Scene {
       title: `Magic Crafting Shrine (Level ${lvl})`,
       cancelLabel: 'Later',
       get: `Advance to Level ${lvl + 1}`,
-      blurb: `${reachStatus}<br>${transformsBlurb}`,
+      blurb: transformsBlurb,
       cost: costHTML,
       canAfford,
       acceptLabel: 'Offer',
-      secondary: reachSecondary,
       onAccept: () => {
         if (!bundle.every(r => heldCount(r.id) >= r.qty)) {
           const missing = bundle.find(r => heldCount(r.id) < r.qty);
@@ -5529,6 +6167,11 @@ class MapScene extends Phaser.Scene {
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
         }
+        // The first restored market becomes the guaranteed T1/T2 seed shop
+        // (see isFirstMarket / the buy branch in shopInteract).
+        if (restoredRole === 'market' && this.save.firstMarketId == null) {
+          this.save.firstMarketId = house.id;
+        }
         persistSave(this.save);
         this.buildInventoryDOM();
         if (this.showChestRewardModal) {
@@ -5539,7 +6182,7 @@ class MapScene extends Phaser.Scene {
             blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
             market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
             trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage conjures enchanted relics for coin.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
@@ -5759,11 +6402,9 @@ class MapScene extends Phaser.Scene {
   // path in presentTraderOffer). opts is accepted for call-site compatibility
   // (the former forceMoney flag) but no longer changes anything.
   buildShopOffer(id, baseValue, opts = {}) {
-    // The Bow relic shrinks the markup. Without one, the range stays at
-    // 1.2..3.0× base; at tier 7 it collapses to a flat 1.0× (par).
-    const { lo, hi } = (typeof buyMarkupRange === 'function')
-      ? buyMarkupRange(this.save.relics) : { lo: 1.2, hi: 3.0 };
-    const cashCost = Math.max(1, Math.ceil(baseValue * (lo + Math.random() * (hi - lo))));
+    // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
+    // offer object's afford/consume closures stay here (they bind this.save).
+    const cashCost = ShopsMath.buyPrice(this.save, baseValue);
     return {
       kind: 'money',
       label: `$${cashCost}`,
@@ -5825,6 +6466,10 @@ class MapScene extends Phaser.Scene {
         icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
         icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
         icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
+        icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
+        icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
+        icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
         // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
         // smallmouth bass icon (same family, just smaller fiction).
         icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
@@ -5964,12 +6609,12 @@ class MapScene extends Phaser.Scene {
     const R = HALF;                   // max nub offset from pad centre
     const pad = document.createElement('div');
     pad.id = 'ghost-pad';
-    // Sits above the inventory bar (bar bottom 48 + bar height ~54 + gap).
-    // Purple tint so the player reads it as "amulet/ghost" rather than
-    // generic d-pad.
+    // Sits above the two-bar inventory HUD (item bar bottom 48 + ~54 tall, plus
+    // the type-tab bar above it). Purple tint so the player reads it as
+    // "amulet/ghost" rather than a generic d-pad.
     pad.style.cssText =
       `position:fixed;` +
-      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
       // Purple tint reads as "amulet/ghost" rather than generic d-pad.
       // Right-anchored via --phone-right so the pad tucks inside the
       // simulated phone column on desktop.
@@ -6051,7 +6696,7 @@ class MapScene extends Phaser.Scene {
     // mutually exclusive (see syncGhostPad / syncDebugPad).
     pad.style.cssText =
       `position:fixed;` +
-      `bottom:calc(118px + env(safe-area-inset-bottom, 0px));` +
+      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
       `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
       `background:rgba(120,90,20,0.35);border:2px solid #ffd96b;z-index:6;` +
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
@@ -6122,6 +6767,12 @@ class MapScene extends Phaser.Scene {
   // per-frame row rebuild can early-out by comparing a counter instead of
   // recomputing a join-string of every slot every frame.
   markRelicsDirty() { this._relicsGen = (this._relicsGen || 0) + 1; }
+  // Relics/armor used to render as a read-only icon strip at the top-right.
+  // That strip is gone: equipped gear now lives in the Relics / Armor tabs of
+  // the two-bar inventory HUD (buildInventoryDOM). This method survives because
+  // it's the per-frame hook that keeps the amulet ghost pad / debug pad in sync
+  // with save.relics — guarded by a generation counter so it only does work
+  // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
     if (this._relicRowGen === gen) return;
@@ -6132,44 +6783,37 @@ class MapScene extends Phaser.Scene {
     // gets its pad on first frame (the menu toggle path handles later flips).
     this.syncGhostPad();
     this.syncDebugPad();
-    const relics = this.save.relics || {};
-    const armor = this.save.armor || {};
-    const order = ['pick','axe','sword','bow','staff','ring','amulet'];
-    const armorOrder = ['helmet','chest','legs','boots'];
+    // Drop the legacy top strip if an older build left one in the DOM.
     document.getElementById('relic-row')?.remove();
-    const ownedRelics = order.filter(s => relics[s]);
-    const ownedArmor = armorOrder.filter(s => armor[s]);
-    if (!ownedRelics.length && !ownedArmor.length) return;
-    const row = document.createElement('div');
-    row.id = 'relic-row';
-    // position:fixed + appended to <body> for the same reason as the inv bar
-    // (see buildInventoryDOM): a fixed element inside transformed #game would
-    // anchor to #game, not the viewport.
-    row.style.cssText = 'position:fixed;top:calc(42px + env(safe-area-inset-top, 0px));right:calc(var(--phone-right, 0px) + 8px);display:flex;gap:4px;padding:4px 6px;background:#000a;border-radius:8px;z-index:7;pointer-events:none;';
-    const addIcon = (kind, slot, tier) => {
-      const wrap = document.createElement('span');
-      wrap.style.cssText = 'display:inline-block;line-height:0;';
-      wrap.innerHTML = this.gearIconHTML(kind, slot, tier, 20);
-      row.appendChild(wrap);
-    };
-    for (const slot of ownedRelics) addIcon('relic', slot, relics[slot].tier);
-    // Thin divider between the relic group and the armor group when both exist.
-    if (ownedRelics.length && ownedArmor.length) {
-      const sep = document.createElement('span');
-      sep.style.cssText = 'align-self:stretch;width:1px;background:#666;margin:0 1px;';
-      row.appendChild(sep);
+    // If a gear tab is currently showing, rebuild the inventory bars so a newly
+    // bought/forged/looted relic or armor piece appears immediately.
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    if (cat && cat.gear && typeof this.buildInventoryDOM === 'function') {
+      this.buildInventoryDOM();
     }
-    for (const slot of ownedArmor) addIcon('armor', slot, armor[slot].tier);
-    document.body.appendChild(row);
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
     const path = gearAssetPath(kind, slot, tier);
     if (!path) return '';
-    const isMultiVariant = kind === 'relic' && (slot === 'ring' || slot === 'amulet');
-    const sheetCols = isMultiVariant ? 6 : 2;
-    const sheetRows = isMultiVariant ? 4 : 1;
-    const col = isMultiVariant ? ((tier - 1) % sheetCols) : 0;
-    const row = isMultiVariant ? Math.floor((tier - 1) / sheetCols) % sheetRows : 0;
+    // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
+    // frame to show so we never squish a multi-frame strip into one cell or
+    // crop a single-frame icon:
+    //   ring/amulet — 6×4 variant grid, frame = tier-1
+    //   bags        — 7×1 strip (one bag per tier), frame = tier-1
+    //   bug net     — single 16×16 icon
+    //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
+    let sheetCols, sheetRows, frame;
+    if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
+      sheetCols = 6; sheetRows = 4; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'bags') {
+      sheetCols = 7; sheetRows = 1; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'bugnet') {
+      sheetCols = 1; sheetRows = 1; frame = 0;
+    } else {
+      sheetCols = 2; sheetRows = 1; frame = 0;
+    }
+    const col = frame % sheetCols;
+    const row = Math.floor(frame / sheetCols) % sheetRows;
     const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
     return `<span style="display:inline-block;vertical-align:middle;`
       + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
@@ -6482,58 +7126,31 @@ class MapScene extends Phaser.Scene {
   // Mirrors addToInv's single-stack-per-id cap so a caller can detect overflow
   // BEFORE committing — the chest open uses it to offer "leave it for later"
   // instead of silently dropping loot that won't fit.
+  // How many more of `id` would fit right now (0 = full for that item).
+  // Thin wrapper over Inventory.roomFor — the stack/cap math lives in
+  // inventory.js (headlessly tested). Used by the chest open to detect overflow
+  // BEFORE committing ("leave it for later" instead of silently dropping loot).
   invRoomFor(id) {
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    let have = 0;
-    for (const s of (this.save.inv || [])) if (s && s.id === id) have += (s.count || 0);
-    return Math.max(0, cap - have);
+    return Inventory.roomFor(this.save, id);
   }
 
-  // Add up to `n` of `id` to inventory. Each item id is allowed AT MOST ONE
-  // stack and that stack is capped at stackCapForBags(bags relic) — 9 with
-  // no bag, 249 at tier 7. Excess is rejected (no ground drops in this game)
-  // and the player sees a 'bag full' flash. Returns the count actually
-  // accepted so callers can adjust their narration if they care.
+  // Add up to `n` of `id` to inventory. The stack/cap/dedupe/autoselect rules
+  // live in Inventory.add (inventory.js); this wrapper owns only the scene side
+  // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
+  // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
-    const item = ITEM_BY_ID[id];
-    if (!item || n <= 0) return 0;
-    const cap = (typeof stackCapForBags === 'function')
-      ? stackCapForBags(this.save.relics?.bags) : 9;
-    // Find the single canonical stack for this id. If duplicate stacks slipped
-    // in via a legacy save (the old addToInv path could create them), fold
-    // them into one here so the no-duplicate invariant self-heals.
-    let stack = null;
-    for (let i = this.save.inv.length - 1; i >= 0; i--) {
-      const s = this.save.inv[i];
-      if (!s || s.id !== id) continue;
-      if (!stack) { stack = s; continue; }
-      stack.count = (stack.count || 0) + (s.count || 0);
-      this.save.inv.splice(i, 1);
-    }
-    const isNewStack = !stack;
-    if (!stack) {
-      stack = { id, count: 0 };
-      this.save.inv.push(stack);
-    }
-    const room = Math.max(0, cap - (stack.count || 0));
-    const accepted = Math.min(room, n);
-    stack.count = (stack.count || 0) + accepted;
-    const rejected = n - accepted;
-    // Autoselect a freshly-obtained NEW item type so the player can immediately
-    // see / use what they just got. Only for genuine (non-silent) pickups, and
-    // only when this add created a brand-new stack — topping up an existing
-    // stack keeps the current selection so loops like harvest→replant aren't
-    // disrupted after the first of a crop. (5 = inventory page size, see
-    // buildInventoryDOM PAGE.)
-    if (isNewStack && accepted > 0 && !silent) {
-      const idx = this.save.inv.indexOf(stack);
-      if (idx >= 0) {
-        this.save.selSlot = idx;
-        this.save.invPage = Math.floor(idx / 5);
-      }
-    }
+    const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
+    if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
+      // A brand-new stack surfaces on its own type tab. Switch the active tab
+      // and page so the freshly-obtained item is visible (Inventory.add already
+      // pointed selSlot at the new stack). Topping up an existing stack leaves
+      // the tab/selection alone so harvest→replant loops aren't disrupted.
+      if (r.isNewStack && r.accepted > 0) {
+        this.save.invCat = this.invCatForItem(id);
+        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === this.save.selSlot);
+        this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
+      }
       persistSave(this.save);
       this.buildInventoryDOM();
     }
@@ -6542,7 +7159,7 @@ class MapScene extends Phaser.Scene {
     // caller fires right after addToInv (back-to-back add.text in the same
     // synchronous chain exhausts Phaser's text-canvas pool under the harness).
     // Coalesced so a bulk drop fires once.
-    if (rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
+    if (r.rejected > 0 && !silent && typeof this.flash === 'function' && this.add) {
       if (!this._bagFullPending) {
         this._bagFullPending = true;
         setTimeout(() => {
@@ -6553,31 +7170,136 @@ class MapScene extends Phaser.Scene {
         }, 0);
       }
     }
-    return accepted;
+    return r.accepted;
   }
+  // --- Two-bar inventory helpers ------------------------------------------
+  // Which type tab an item id belongs to (by its `kind`). Falls back to the
+  // Produce tab for anything unmapped so a stray item is still reachable.
+  invCatForItem(id) {
+    const kind = ITEM_BY_ID[id]?.kind;
+    for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
+    return 'produce';
+  }
+  // Filtered, index-tagged stacks for an item category. Each element is
+  // { idx, entry } where idx is the real position in save.inv (so selection +
+  // every downstream save.inv[selSlot] reader keep working unchanged). Gear
+  // categories return [] — they synthesize their list in gearEntriesForCat.
+  invEntriesForCat(catKey) {
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (!cat || !cat.kinds) return [];
+    const out = [];
+    (this.save.inv || []).forEach((entry, idx) => {
+      if (!entry) return;
+      const kind = ITEM_BY_ID[entry.id]?.kind;
+      if (cat.kinds.includes(kind)) out.push({ idx, entry });
+    });
+    return out;
+  }
+  // Owned relic/armor slots for a gear category, in draw order. One per slot —
+  // these are equipped gear (save.relics / save.armor), not save.inv stacks.
+  gearEntriesForCat(catKey) {
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (!cat || !cat.gear) return [];
+    if (cat.gear === 'relic') {
+      const r = this.save.relics || {};
+      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier }));
+    }
+    const a = this.save.armor || {};
+    return INV_ARMOR_ORDER.filter(s => a[s]).map(s => ({ kind: 'armor', slot: s, tier: a[s].tier }));
+  }
+  // Switch the active type tab and re-anchor the selection to that tab's first
+  // entry (or empty). Used by the tab buttons.
+  selectInvCat(catKey) {
+    if (!INV_CAT_BY_KEY[catKey]) return;
+    this.save.invCat = catKey;
+    this.save.invPage = 0;
+    const cat = INV_CAT_BY_KEY[catKey];
+    if (cat.gear) {
+      this.save.selSlot = -1;
+      const list = this.gearEntriesForCat(catKey);
+      this.save.selGear = list[0] ? { kind: list[0].kind, slot: list[0].slot } : null;
+    } else {
+      this.save.selGear = null;
+      const list = this.invEntriesForCat(catKey);
+      this.save.selSlot = list[0] ? list[0].idx : -1;
+    }
+    persistSave(this.save);
+    this.buildInventoryDOM();
+  }
+
   buildInventoryDOM() {
     const PAGE = 5;
-    const game = document.getElementById('game');
+    if (!INV_CAT_BY_KEY[this.save.invCat]) this.save.invCat = 'seed';
+    if (this.save.invPage == null) this.save.invPage = 0;
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    const isGear = !!cat.gear;
+    const gearList = isGear ? this.gearEntriesForCat(cat.key) : null;
+    const itemList = isGear ? null : this.invEntriesForCat(cat.key);
+
+    // Reconcile the selection so the highlight always points at something IN
+    // the active tab (or "empty"). This also self-heals after an item is
+    // consumed: the action handlers clamp selSlot to a raw save.inv index that
+    // may belong to another category, so we re-anchor it here. We deliberately
+    // do NOT move invPage to the selection — paging is driven by ◀ ▶ / tab
+    // switches / pickups, not by every rebuild.
+    if (isGear) {
+      this.save.selSlot = -1;
+      const owned = this.save.selGear &&
+        gearList.some(g => g.kind === this.save.selGear.kind && g.slot === this.save.selGear.slot);
+      if (!owned) this.save.selGear = gearList[0] ? { kind: gearList[0].kind, slot: gearList[0].slot } : null;
+    } else {
+      this.save.selGear = null;
+      const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
+      if (!inCat) this.save.selSlot = itemList[0] ? itemList[0].idx : -1;
+    }
+
+    // Cell count: gear tabs are exactly their owned entries; item tabs keep one
+    // trailing EMPTY slot so the player can select "nothing" → buy intent at a
+    // shop. One blank page is always reachable beyond a full one.
+    const cellCount = isGear ? gearList.length : itemList.length + 1;
+    const pageCount = Math.max(1, Math.ceil(Math.max(1, cellCount) / PAGE));
+    if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
+    if (this.save.invPage < 0) this.save.invPage = 0;
+
+    // ── Type-selector bar (TOP of the two-bar HUD) ────────────────────────
+    let tabs = document.getElementById('inv-tabs');
+    if (tabs) tabs.remove();
+    tabs = document.createElement('div');
+    tabs.id = 'inv-tabs';
+    // position:fixed + appended to <body> for the same containing-block reason
+    // as the item bar below. Sits just above the item bar.
+    tabs.style.cssText = 'position:fixed;bottom:calc(102px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    for (const c of INV_CATS) {
+      const active = c.key === this.save.invCat;
+      const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
+      const tab = document.createElement('button');
+      tab.dataset.cat = c.key;
+      tab.title = c.label;
+      tab.style.cssText =
+        'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;' +
+        (active
+          ? 'background:#553a;border:2px solid #ffd866;border-bottom-color:#553a;color:#fff;'
+          : 'background:#222a;border:2px solid #555;color:#ddd;');
+      tab.textContent = c.sym;
+      // Tiny count pip so the player can see at a glance which tabs hold gear.
+      if (count > 0) {
+        const pip = document.createElement('span');
+        pip.textContent = count;
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffd866;padding:0 3px;border-radius:7px;line-height:13px;';
+        tab.appendChild(pip);
+      }
+      tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
+      tabs.appendChild(tab);
+    }
+    document.body.appendChild(tabs);
+
+    // ── Item / gear slot bar (BOTTOM of the two-bar HUD) ──────────────────
     let bar = document.getElementById('inv');
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    // position:fixed anchors to the visual viewport, so the bar stays at the
-    // bottom of the screen regardless of #game's CSS scale or any iOS Safari /
-    // Firefox Mobile URL-bar chrome. Appended to <body> because a position:
-    // fixed element inside a transformed parent (#game uses transform:scale)
-    // takes the transformed parent as its containing block — defeats the point.
     bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
-    if (this.save.selSlot == null || this.save.selSlot < 0) this.save.selSlot = 0;
-    if (this.save.invPage == null) this.save.invPage = 0;
-    // Always keep one extra blank page reachable — a multiple-of-5 inventory
-    // would otherwise have no empty slot for the player to select before
-    // tapping a shop to BUY (empty selection = buy intent).
-    const filledPages = Math.ceil(this.save.inv.length / PAGE);
-    const pageCount = Math.max(1, this.save.inv.length % PAGE === 0
-      ? filledPages + 1
-      : filledPages);
-    if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
 
     const makeBtn = (txt, onclick, w = 28) => {
       const b = document.createElement('button');
@@ -6586,70 +7308,108 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
-    // Sort: group by kind (produce → seed → animal → other), then alphabetical
-    // by name within each group. Selection is re-anchored to whatever item the
-    // user had selected so the highlight follows it across the resort.
+
+    // Sort (item tabs only) — group by kind then alphabetical by name. Selection
+    // is re-anchored to the same item id so the highlight follows the resort.
     const KIND_ORDER = { produce: 0, seed: 1, animal: 2 };
-    bar.appendChild(makeBtn('⇅', () => {
-      const selId = this.save.inv[this.save.selSlot]?.id;
-      this.save.inv = [...this.save.inv].sort((a, b) => {
-        const ia = ITEM_BY_ID[a.id], ib = ITEM_BY_ID[b.id];
-        const ka = KIND_ORDER[ia?.kind] ?? 9, kb = KIND_ORDER[ib?.kind] ?? 9;
-        if (ka !== kb) return ka - kb;
-        return (ia?.name || a.id).localeCompare(ib?.name || b.id);
-      });
-      if (selId) {
-        const newIdx = this.save.inv.findIndex(e => e.id === selId);
-        if (newIdx >= 0) {
-          this.save.selSlot = newIdx;
-          this.save.invPage = Math.floor(newIdx / PAGE);
+    if (!isGear) {
+      bar.appendChild(makeBtn('⇅', () => {
+        const selId = this.save.inv[this.save.selSlot]?.id;
+        this.save.inv = [...this.save.inv].sort((a, b) => {
+          const ia = ITEM_BY_ID[a.id], ib = ITEM_BY_ID[b.id];
+          const ka = KIND_ORDER[ia?.kind] ?? 9, kb = KIND_ORDER[ib?.kind] ?? 9;
+          if (ka !== kb) return ka - kb;
+          return (ia?.name || a.id).localeCompare(ib?.name || b.id);
+        });
+        if (selId != null) {
+          const newIdx = this.save.inv.findIndex(e => e.id === selId);
+          if (newIdx >= 0) {
+            this.save.selSlot = newIdx;
+            const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
+            if (pos >= 0) this.save.invPage = Math.floor(pos / PAGE);
+          }
         }
-      }
-      persistSave(this.save); this.buildInventoryDOM();
-    }));
+        persistSave(this.save); this.buildInventoryDOM();
+      }));
+    }
     bar.appendChild(makeBtn('◀', () => {
       this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
     }));
 
-    const startIdx = this.save.invPage * PAGE;
+    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    const startPos = this.save.invPage * PAGE;
     for (let s = 0; s < PAGE; s++) {
-      const i = startIdx + s;
-      const entry = this.save.inv[i];
-      const item = entry ? ITEM_BY_ID[entry.id] : null;
+      const p = startPos + s;
       const slot = document.createElement('button');
-      slot.dataset.slot = i;
-      slot.style.cssText = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-      slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-      // Inventory icon — routed through renderItemIcon so modals stay perfectly
-      // in sync. The generic seedbag fallback for seeds-without-Spring-Crops-art
-      // and the ITEM_DATA_URLS path (longgrass/chicken/cow/flowers) both live
-      // inside renderItemIcon now.
-      if (item) {
-        slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
-      } else {
+      slot.style.cssText = slotCss;
+      if (isGear) {
+        const g = gearList[p];
+        if (g) {
+          slot.dataset.gear = `${g.kind}:${g.slot}`;
+          slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
+          const wrap = document.createElement('span');
+          wrap.style.cssText = 'display:inline-block;line-height:0;';
+          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
+          slot.appendChild(wrap);
+          // Tier badge mirrors the item count badge so gear reads consistently.
+          const badge = document.createElement('span');
+          badge.textContent = 'T' + g.tier;
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          slot.appendChild(badge);
+          slot.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.save.selGear = { kind: g.kind, slot: g.slot };
+            this.save.selSlot = -1;
+            persistSave(this.save);
+            this.refreshInventoryHighlight();
+          });
+        } else {
+          slot.textContent = '·';
+          slot.style.cursor = 'default';
+        }
+      } else if (p < itemList.length) {
+        const { idx, entry } = itemList[p];
+        const item = ITEM_BY_ID[entry.id];
+        slot.dataset.slot = idx;
+        slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
+        if (item) slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
+        else slot.textContent = '·';
+        if (entry.count != null) {
+          const badge = document.createElement('span');
+          badge.textContent = entry.count;
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          slot.appendChild(badge);
+        }
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.save.selSlot = idx;
+          persistSave(this.save);
+          this.refreshInventoryHighlight();
+        });
+      } else if (p === itemList.length) {
+        // The single trailing EMPTY slot — selecting it means "nothing held",
+        // which a shop reads as buy intent. dataset.slot = -1.
+        slot.dataset.slot = -1;
+        slot.title = 'empty';
         slot.textContent = '·';
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.save.selSlot = -1;
+          persistSave(this.save);
+          this.refreshInventoryHighlight();
+        });
+      } else {
+        // Filler beyond the list — inert.
+        slot.textContent = '·';
+        slot.style.cursor = 'default';
       }
-      if (entry && entry.count != null) {
-        const badge = document.createElement('span');
-        badge.textContent = entry.count;
-        badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
-        slot.appendChild(badge);
-      }
-      slot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.save.selSlot = i;
-        persistSave(this.save);
-        this.refreshInventoryHighlight();
-      });
       bar.appendChild(slot);
     }
     bar.appendChild(makeBtn('▶', () => {
       this.save.invPage = (this.save.invPage + 1) % pageCount;
       persistSave(this.save); this.buildInventoryDOM();
     }));
-    // Page indicator — pill-shaped so it visibly belongs to the inv bar even at
-    // its smaller size, and reads at a glance against any terrain underneath.
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
     pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffd866;font:700 11px ui-monospace,monospace;margin-left:4px;';
@@ -6657,10 +7417,7 @@ class MapScene extends Phaser.Scene {
 
     document.body.appendChild(bar);
 
-    // Name strip just below the bar — always shows the currently selected
-    // item's name (across pages), so the player isn't guessing what's
-    // selected when scrolled to a different page. Also position:fixed for the
-    // same reason as the bar above.
+    // Name strip just below the bar — shows the selected item / gear name.
     let nameLbl = document.getElementById('inv-name');
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
@@ -6673,19 +7430,58 @@ class MapScene extends Phaser.Scene {
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    const PAGE = 5;
-    const startIdx = this.save.invPage * PAGE;
-    [...bar.querySelectorAll('button[data-slot]')].forEach(el => {
-      const i = +el.dataset.slot;
-      const isSel = i === this.save.selSlot;
+    const cat = INV_CAT_BY_KEY[this.save.invCat] || INV_CAT_BY_KEY.seed;
+    const isGear = !!cat.gear;
+    const gearKey = this.save.selGear ? `${this.save.selGear.kind}:${this.save.selGear.slot}` : null;
+    [...bar.querySelectorAll('button[data-slot],button[data-gear]')].forEach(el => {
+      let isSel;
+      if (el.dataset.gear != null) isSel = el.dataset.gear === gearKey;
+      else isSel = +el.dataset.slot === this.save.selSlot;
       el.style.borderColor = isSel ? '#ffd866' : '#555';
       el.style.background  = isSel ? '#553a' : '#222a';
     });
     const nameLbl = document.getElementById('inv-name');
     if (nameLbl) {
-      const sel = this.save.inv[this.save.selSlot];
-      const it = sel && ITEM_BY_ID[sel.id];
-      nameLbl.textContent = it ? (sel.count != null ? `${it.name} ×${sel.count}` : it.name) : '';
+      nameLbl.textContent = '';
+      if (isGear) {
+        const g = this.save.selGear;
+        if (!g) {
+          // Empty gear tab — tell the player where this gear comes from.
+          const hint = document.createElement('div');
+          hint.textContent = cat.key === 'armor'
+            ? 'No armor yet — forge or find it'
+            : 'No relics yet — forge or find them';
+          hint.style.cssText = 'opacity:0.7;';
+          nameLbl.appendChild(hint);
+        } else {
+          const nameSpan = document.createElement('div');
+          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
+          nameLbl.appendChild(nameSpan);
+          const def = (g.kind === 'relic' && typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS[g.slot] : null;
+          if (def && def.blurb) {
+            const fx = document.createElement('div');
+            fx.textContent = `✦ ${def.blurb}`;
+            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            nameLbl.appendChild(fx);
+          }
+        }
+      } else {
+        const sel = this.save.inv[this.save.selSlot];
+        const it = sel && ITEM_BY_ID[sel.id];
+        if (it) {
+          const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+          const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
+          const nameSpan = document.createElement('div');
+          nameSpan.textContent = nameTxt;
+          nameLbl.appendChild(nameSpan);
+          if (effect) {
+            const fx = document.createElement('div');
+            fx.textContent = `✦ ${effect}`;
+            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            nameLbl.appendChild(fx);
+          }
+        }
+      }
     }
     this.syncEatButton();
     this.syncConsumableButton();
@@ -6738,6 +7534,7 @@ class MapScene extends Phaser.Scene {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
       reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+      sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }

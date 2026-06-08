@@ -22,6 +22,10 @@ const ASSETS = {
   // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
   // Frames: 0 = closed, 1 = open.
   chest:   { kind: 'spritesheet', path: 'assets/Objects/chest.png',            frameWidth: 32, frameHeight: 16 },
+  // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
+  // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
+  // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
+  market_stand: { kind: 'spritesheet', path: 'assets/Objects/market_stand.png?v=1', frameWidth: 80, frameHeight: 80 },
   // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
   // In-world growth: col 0 (sprout) -> col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
   crops:   {
@@ -101,8 +105,8 @@ const ASSETS = {
   // rows 9-10: the SHORT fluted column with cap + stepped base). Used as a
   // purely decorative stand-in for OSM utility poles / posts (power=pole,
   // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
-  // At scale 1.0 it's exactly one cell (32px) tall, so it foot-anchors inside
-  // a single square cell.
+  // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
+  // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
   pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png' },
   // Stone well — 48×32 single image (Sprites Well_Usable_16x16: a roofed well
   // with bucket). The in-game stand-in for OSM amenity=fountain points. Tapping
@@ -128,9 +132,11 @@ const ASSETS = {
   // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
   // the procedural longgrass texture.
   props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
-  // Lush round bushes — 144×288 = 3 cols × 6 rows of 48×48 frames. Replaces
+  // Lush round bushes — 144×288 = 3 cols × 9 rows of 48×32 frames. Replaces
   // the old bare-twig Props.png frame as the in-world shrub wildplant art.
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 48 },
+  // (The rows are 32px tall, not 48 — slicing at 48 made frame 0 grab one
+  // bush PLUS the top half of the bush below it: "1.5 copies" of the sprite.)
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 32 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
