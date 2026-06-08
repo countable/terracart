@@ -5916,7 +5916,10 @@ class MapScene extends Phaser.Scene {
     const giveQty = TRADE_OFFER_QTY
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
-      title: this.buildingFlavorTitle(house, 'buy'),
+      // Spell out who gives what so the barter can't be read backwards:
+      // "Trader offers <giveItem> for your <askItem>".
+      title: 'The trader offers:',
+      forLabel: 'for your',
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
       cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
@@ -6917,7 +6920,7 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
@@ -6962,7 +6965,7 @@ class MapScene extends Phaser.Scene {
     }
     const forDiv = document.createElement('div');
     forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
-    forDiv.textContent = 'for';
+    forDiv.textContent = forLabel;
     box.appendChild(forDiv);
     const costDiv = document.createElement('div');
     costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
