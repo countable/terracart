@@ -953,7 +953,7 @@ Render.drawObjects = function drawObjects(scene) {
     peach: { grow: [0, 2, 3, 4, 5], fruit: 5, bare: 3 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
-  const FRUIT_STAGE_MS = 3 * 60 * 1000;   // 3 min/stage → ~12 min sprout→fruit
+  const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;   // 1 day/stage → 4 days sprout→fruit
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // fruit yields once per 24h
   // Growth stage 0..4 of a planted sapling from elapsed real time.
   const _ftStage = (o) => Math.min(4,
@@ -1138,7 +1138,11 @@ Render.drawObjects = function drawObjects(scene) {
               origin: [0.5, 0.95],
               scale: (o) => {
                 const base = 0.85;
-                if (o.planted) return base * (0.5 + 0.125 * _ftStage(o));  // 0.5→1.0
+                // Planted saplings start clearly visible (0.7) and grow to the
+                // mature wild-tree size (1.0×base) over their 4 stages — a small
+                // sprout was easy to lose against the ground, now that growth
+                // spans days rather than minutes.
+                if (o.planted) return base * (0.7 + 0.075 * _ftStage(o));  // 0.7→1.0
                 // Wild fruit trees always render at full (mature) size — their
                 // o.size crown class no longer shrinks them.
                 return base;
