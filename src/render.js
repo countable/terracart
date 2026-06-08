@@ -109,6 +109,20 @@ function darkenHex(hex, f) {
        |  (Math.round( (hex        & 0xff) * f));
 }
 
+// Biome border wave — precomputed once. Values are integer pixel offsets
+// (±WAVE_AMP) for each column/row index 0..CELL_PX-1.
+const BORDER_W   = 2;
+const WAVE_AMP   = 1;
+const WAVE_LEN   = 16;
+const BORDER_DIM = 0.72;
+const BORDER_TRANS_SKIP = new Set([2, 3, 9, 11, 12]); // water, sand, buildings
+const _WAVE_TABLE = (() => {
+  const t = new Int8Array(32); // CELL_PX = 32
+  for (let i = 0; i < 32; i++)
+    t[i] = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
+  return t;
+})();
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -125,6 +139,8 @@ Render.drawCells = function drawCells(scene) {
   if (gb !== g && gb !== gf) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
+  const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
+  const _wBaseY = pc.cy + pc.ty * scene.cellsPerTile;
   const fracX = pc.cx - Math.floor(pc.cx);
   const fracY = pc.cy - Math.floor(pc.cy);
   // Player's absolute cell index in the unified tile-pixel basis. All per-cell
@@ -194,12 +210,12 @@ Render.drawCells = function drawCells(scene) {
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
   const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
-  // Wavy dark-border transition constants (arbitrary biome boundaries only).
-  const BORDER_W   = 2;   // px — 1/16 of CELL_PX
-  const WAVE_AMP   = 1;   // px amplitude of sine wave at boundary
-  const WAVE_LEN   = 16;  // px wavelength (~2 cycles per 32px tile)
-  const BORDER_DIM = 0.72;
-  const TRANS_SKIP = new Set([2, 3, 9, 11, 12]); // water, sand, buildings
+  // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
+  //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
+  const TRANS_SKIP = BORDER_TRANS_SKIP;
+  // Cache darkenHex results — only ~25 distinct colors in play per frame.
+  const _darkCache = new Map();
+  const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -259,66 +275,60 @@ Render.drawCells = function drawCells(scene) {
         g.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
 
-      // Wavy dark-border at arbitrary biome boundaries (skips water/sand/roads
-      // which already have dedicated transition art).
+      // Wavy dark-border at arbitrary biome boundaries.
       if (!TRANS_SKIP.has(type)) {
-        const bc = darkenHex(color, BORDER_DIM);
-        gb2.fillStyle(bc, 1);
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
-        // Roads/paths render with an inferred biome BG. For transition purposes,
-        // treat them as transparent — resolve their effective colour and compare it
-        // to the current cell's colour. A border is drawn only when the effective
-        // colours on the two sides actually differ.
         const isRoadLike = isRoad(type) || type === PATH;
-        const inferredColor = (dnx, dny) => {
-          const wx = pc.cx + (ox + dnx) + pc.tx * scene.cellsPerTile;
-          const wy = pc.cy + (oy + dny) + pc.ty * scene.cellsPerTile;
-          return scene.neighborNonRoadColor(wx, wy) ?? GRASS_FALLBACK_COLOR;
-        };
+        // Resolve the inferred colour of a road/path neighbour by looking through it.
+        const nbrInferred = (dnx, dny) =>
+          scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR;
         const edgeNeeds = (t, dnx, dny) => {
-          if (t === type) return false;
-          if (TRANS_SKIP.has(t)) return false;
+          if (t === type || TRANS_SKIP.has(t)) return false;
           const nbrIsRoad = isRoad(t) || t === PATH;
-          if (isRoadLike && nbrIsRoad) return false; // road↔road: no border
-          // Resolve effective colours for both sides (roads look through to their BG).
-          const myColor  = color;
-          const nbrColor = nbrIsRoad ? inferredColor(dnx, dny)
-                                     : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
-          return nbrColor !== myColor;
+          if (isRoadLike && nbrIsRoad) return false;
+          return (nbrIsRoad ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR)) !== color;
         };
         const drawN = edgeNeeds(tN,  0, -1);
         const drawS = edgeNeeds(tS,  0, +1);
         const drawW = edgeNeeds(tW, -1,  0);
         const drawE = edgeNeeds(tE, +1,  0);
-        if (drawN) {
-          for (let i = 0; i < CELL_PX; i++) {
-            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            gb2.fillRect(sx + i, sy + wo, 1, BORDER_W);
+        if (drawN || drawS || drawW || drawE) {
+          gb2.fillStyle(getDark(color), 1);
+          // Draw wave-edged border strips using run-length encoding of the wave table
+          // — groups of consecutive same-offset pixels become a single wider rect,
+          // cutting per-edge draw calls from 32 down to ~6.
+          if (drawN) {
+            for (let i = 0, s = 0; i <= CELL_PX; i++) {
+              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
+                { gb2.fillRect(sx + s, sy + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
+            }
           }
-        }
-        if (drawS) {
-          for (let i = 0; i < CELL_PX; i++) {
-            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            gb2.fillRect(sx + i, sy + CELL_PX - BORDER_W + wo, 1, BORDER_W);
+          if (drawS) {
+            const base = sy + CELL_PX - BORDER_W;
+            for (let i = 0, s = 0; i <= CELL_PX; i++) {
+              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
+                { gb2.fillRect(sx + s, base + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
+            }
           }
-        }
-        if (drawW) {
-          for (let i = 0; i < CELL_PX; i++) {
-            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            gb2.fillRect(sx + wo, sy + i, BORDER_W, 1);
+          if (drawW) {
+            for (let i = 0, s = 0; i <= CELL_PX; i++) {
+              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
+                { gb2.fillRect(sx + _WAVE_TABLE[s], sy + s, BORDER_W, i - s); s = i; }
+            }
           }
-        }
-        if (drawE) {
-          for (let i = 0; i < CELL_PX; i++) {
-            const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            gb2.fillRect(sx + CELL_PX - BORDER_W + wo, sy + i, BORDER_W, 1);
+          if (drawE) {
+            const base = sx + CELL_PX - BORDER_W;
+            for (let i = 0, s = 0; i <= CELL_PX; i++) {
+              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
+                { gb2.fillRect(base + _WAVE_TABLE[s], sy + s, BORDER_W, i - s); s = i; }
+            }
           }
+          if (drawN && drawW) gb2.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
+          if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
+          if (drawS && drawW) gb2.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+          if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
         }
-        if (drawN && drawW) gb2.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
-        if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
-        if (drawS && drawW) gb2.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
-        if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
       }
 
       // (Building outlines are drawn in a second pass after every cell is
