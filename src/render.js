@@ -112,6 +112,8 @@ function darkenHex(hex, f) {
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  const gb2 = scene.borderGfx;
+  gb2.clear();
   // Castle ramparts split across TWO layers so towers (objectsContainer) sort
   // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
   // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
@@ -261,7 +263,7 @@ Render.drawCells = function drawCells(scene) {
       // which already have dedicated transition art).
       if (!TRANS_SKIP.has(type)) {
         const bc = darkenHex(COLORS[type] ?? GRASS_FALLBACK_COLOR, BORDER_DIM);
-        g.fillStyle(bc, 1);
+        gb2.fillStyle(bc, 1);
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
         const drawN = tN !== type && !TRANS_SKIP.has(tN);
@@ -271,31 +273,31 @@ Render.drawCells = function drawCells(scene) {
         if (drawN) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            g.fillRect(sx + i, sy + wo, 1, BORDER_W);
+            gb2.fillRect(sx + i, sy + wo, 1, BORDER_W);
           }
         }
         if (drawS) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            g.fillRect(sx + i, sy + CELL_PX - BORDER_W + wo, 1, BORDER_W);
+            gb2.fillRect(sx + i, sy + CELL_PX - BORDER_W + wo, 1, BORDER_W);
           }
         }
         if (drawW) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            g.fillRect(sx + wo, sy + i, BORDER_W, 1);
+            gb2.fillRect(sx + wo, sy + i, BORDER_W, 1);
           }
         }
         if (drawE) {
           for (let i = 0; i < CELL_PX; i++) {
             const wo = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-            g.fillRect(sx + CELL_PX - BORDER_W + wo, sy + i, BORDER_W, 1);
+            gb2.fillRect(sx + CELL_PX - BORDER_W + wo, sy + i, BORDER_W, 1);
           }
         }
-        if (drawN && drawW) g.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
-        if (drawN && drawE) g.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
-        if (drawS && drawW) g.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
-        if (drawS && drawE) g.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+        if (drawN && drawW) gb2.fillCircle(sx + BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawN && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + BORDER_W, BORDER_W);
+        if (drawS && drawW) gb2.fillCircle(sx + BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
+        if (drawS && drawE) gb2.fillCircle(sx + CELL_PX - BORDER_W, sy + CELL_PX - BORDER_W, BORDER_W);
       }
 
       // (Building outlines are drawn in a second pass after every cell is
