@@ -645,7 +645,11 @@
       return { ix, iy, cx, cy };
     };
 
-    const order = ['landcover', 'landuse', 'park', 'water', 'waterway', 'transportation', 'building', 'poi'];
+    // NOTE: the OSM 'waterway' layer (streams / rivers / drains / canals) is
+    // deliberately NOT painted — these are culverted / underground and not
+    // visible on the ground IRL, so they shouldn't carve WATER tiles. Open
+    // water bodies (lakes, ponds, ocean, pools) still come in via 'water'.
+    const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
 
@@ -1001,16 +1005,6 @@
           // cell so the base never shows, and skipping them keeps pathUnder small.
           const under = t === T.PATH ? pathUnder : undefined;
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell, under);
-        } else if (f.type === 2 && name === 'waterway') {
-          // Streams / rivers / drains carve a 1–2 cell line of WATER. Rivers
-          // get 2 cells wide, streams + drains stay at 1 — this lets the
-          // bigger named waterways read as something you'd swim across vs a
-          // narrow ditch you can almost step over.
-          const cls = f.tags.class || '';
-          if (cls === 'stream' || cls === 'river' || cls === 'drain' || cls === 'canal') {
-            const wCells = cls === 'river' || cls === 'canal' ? 2 : 1;
-            for (const line of f.geom) paintLine(grid, w, h, line, T.WATER, wCells, mvtToCell);
-          }
         } else if (f.type === 1 && name === 'poi') {
           // POI points → a generic chest (single sprite, no themed subkinds).
           // Only spawn for "useful" POI classes.  Parking POIs are diverted to treasure marks instead.
@@ -1911,9 +1905,8 @@
           y: y * tileEdgeM + (Math.floor((wy - y * tileEdgeM) / mPerCell) + 0.5) * mPerCell,
         });
         // Occupancy set — seed from everything rasterizeTile already placed so
-        // injected features (and the stream water below) never land on an
-        // existing interactable. Built BEFORE stream painting so we don't flood
-        // a cell that already hosts a rasterized tree / rock / house / chest.
+        // injected features never land on an existing interactable (a rasterized
+        // tree / rock / house / chest).
         const occupied = new Set();
         for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
         for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
@@ -1937,31 +1930,6 @@
           if (grid[iy * cpe + ix] !== T.RESIDENTIAL) return true;
           return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
         };
-        // Streams (OSM waterway=stream) reach the sidecar as single centroid
-        // points (the LineString was reduced upstream). Stamp a small 3×3 water
-        // patch over each centroid so the stream reads as water on the map —
-        // but only over SOFT ground, never roads / buildings / pads / rock /
-        // existing water, and never a cell already holding a placed object.
-        // Painted BEFORE the object injections below so the onWater() guards
-        // skip trees/poles that would land in the new water.
-        const STREAM_BLOCK = new Set([
-          T.WATER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH, T.PIER,
-          T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
-          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
-        ]);
-        for (const st of (bin.streams || [])) {
-          const lix = Math.floor((st.x - x * tileEdgeM) / mPerCell);
-          const liy = Math.floor((st.y - y * tileEdgeM) / mPerCell);
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = lix + dx, ny = liy + dy;
-              if (nx < 0 || ny < 0 || nx >= cpe || ny >= cpe) continue;
-              if (occupied.has(`${nx}_${ny}`)) continue;   // don't flood a placed object's cell
-              const idx = ny * cpe + nx;
-              if (!STREAM_BLOCK.has(grid[idx])) grid[idx] = T.WATER;
-            }
-          }
-        }
         // Trees + fruit trees can NEVER sit on a building footprint, road, path,
         // water or other hard/interactable cell. When a detection lands on one,
         // relocate it to a favourable empty neighbour cell; drop it only if no
@@ -2174,7 +2142,7 @@
           let b = bins.get(k);
           if (!b) {
             b = { trees: [], fruittrees: [], shrubs: [], poles: [],
-                  wells: [], chests: [], parking: [], streams: [] };
+                  wells: [], chests: [], parking: [] };
             bins.set(k, b);
           }
           return b;
@@ -2302,12 +2270,6 @@
             binFor(p.tx, p.ty).parking.push({
               x: cx, y: cy, id: `t_park_${Math.round(cx)}_${Math.round(cy)}`,
             });
-          } else if (kind === 'stream') {
-            // waterway=stream centroid → a small water patch (painted in loadTile).
-            const p = project(lon, lat0);
-            const cx = (Math.floor(p.wmx / CELL_M) + 0.5) * CELL_M;
-            const cy = (Math.floor(p.wmy / CELL_M) + 0.5) * CELL_M;
-            binFor(p.tx, p.ty).streams.push({ x: cx, y: cy });
           } else if (SX_CHEST_POI[kind]) {
             // Everything else we care about becomes a POI chest.
             const p = project(lon, lat0);
@@ -2348,7 +2310,7 @@
   // the tile's bbox at request time, mapping the OSM elements into the SAME
   // satextract-style GeoJSON `kind` vocabulary, and running them through
   // buildBinsFromGeoJSON. This revives ONLY the OSM-tagged features (trees,
-  // poles, street furniture, fountains, streams) — the DeepForest crowns and
+  // poles, street furniture, fountains) — the DeepForest crowns and
   // Grounding DINO objects are CV-only and stay exclusive to the static file.
   // ON by default: each tile's result is cached in IndexedDB indefinitely, so
   // we hit Overpass at most once per tile, ever. Opt out at runtime with
@@ -2374,7 +2336,6 @@
       e.chests  = (bin.chests || []).length;
       e.wells   = (bin.wells || []).length;
       e.shrubs  = (bin.shrubs || []).length;
-      e.streams = (bin.streams || []).length;
       e.parking = (bin.parking || []).length;
     }
     _overpassState.set(`${x}_${y}`, e);
@@ -2394,10 +2355,10 @@
     if (e.status === 'failed')   return 'live=on  src=overpass — fetch FAILED (offline/blocked); will retry' + tail;
     if (e.status === 'loaded' || e.status === 'cache') {
       const src = e.status === 'cache' ? 'overpass (cached)' : 'overpass (just fetched)';
-      const total = (e.trees || 0) + (e.poles || 0) + (e.chests || 0) + (e.wells || 0) + (e.shrubs || 0) + (e.streams || 0) + (e.parking || 0);
+      const total = (e.trees || 0) + (e.poles || 0) + (e.chests || 0) + (e.wells || 0) + (e.shrubs || 0) + (e.parking || 0);
       if (!total) return `live=on  src=${src} — area has 0 OSM features` + tail;
       return `live=on  src=${src}: ${e.trees || 0} trees, ${e.poles || 0} poles, ${e.chests || 0} chests, `
-        + `${e.wells || 0} wells, ${e.shrubs || 0} bushes, ${e.streams || 0} streams, ${e.parking || 0} parking` + tail;
+        + `${e.wells || 0} wells, ${e.shrubs || 0} bushes, ${e.parking || 0} parking` + tail;
     }
     return 'live=on  src=none' + tail;
   }
@@ -2412,7 +2373,7 @@
   // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
   function emptyBin() {
     return { trees: [], fruittrees: [], shrubs: [], poles: [],
-             wells: [], chests: [], parking: [], streams: [] };
+             wells: [], chests: [], parking: [] };
   }
   // Inverse slippy-map: z14 tile index → lon/lat of its NW corner.
   function tileLon(xt) { return xt / (1 << Z) * 360 - 180; }
@@ -2433,7 +2394,6 @@
     if (tags.highway === 'street_lamp') return 'street_lamp';
     if (tags.amenity === 'fountain') return 'fountain';
     if (tags.amenity === 'parking') return 'parking';
-    if (tags.waterway === 'stream') return 'stream';
     if (tags.highway === 'bus_stop') return 'bus_stop';
     if (tags.highway === 'traffic_signals') return 'traffic_signals';
     if (tags.highway === 'stop') return 'stop';
@@ -2459,13 +2419,14 @@
     // pools, bollards (we see them in the tile), so re-fetching them here just
     // bloats a whole-town z14 query and produces dupes. Keep the genuinely
     // additive set: trees (satextract's whole point), utility posts, fountains,
-    // streams, and a little street furniture MVT omits.
-    // Nodes for point features; ways (via `out center`) for tree_row / stream.
+    // and a little street furniture MVT omits. (Waterways are intentionally
+    // excluded — they're underground / culverted and shouldn't paint water.)
+    // Nodes for point features; ways (via `out center`) for tree_row.
     const sels = [
       'node["natural"="tree"]', 'way["natural"="tree_row"]',
       'node["power"="pole"]', 'node["man_made"="utility_pole"]',
       'node["man_made"="mast"]', 'node["highway"="street_lamp"]',
-      'node["amenity"="fountain"]', 'way["waterway"="stream"]',
+      'node["amenity"="fountain"]',
       'node["leisure"="picnic_table"]', 'node["historic"="memorial"]',
       'node["barrier"="gate"]', 'node["amenity"="bicycle_parking"]',
       'node["leisure"="garden"]', 'way["leisure"="garden"]',
