@@ -272,6 +272,7 @@ Render.drawCells = function drawCells(scene) {
         const isRoadLike = isRoad(type) || type === PATH;
         const edgeNeeds = (t) => t !== type
           && !TRANS_SKIP.has(t)
+          && !(isRoad(t) || t === PATH)   // roads own their own borders; never draw toward them
           && !(isRoadLike && (COLORS[t] ?? GRASS_FALLBACK_COLOR) === color);
         const drawN = edgeNeeds(tN);
         const drawS = edgeNeeds(tS);
