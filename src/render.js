@@ -116,6 +116,8 @@ const WAVE_AMP   = 1;
 const WAVE_LEN   = 16;
 const BORDER_DIM = 0.72;
 const BORDER_TRANS_SKIP = new Set([2, 3, 9, 11, 12]); // water, sand, buildings
+const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
+const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
 const _WAVE_TABLE = (() => {
   const t = new Int8Array(32); // CELL_PX = 32
   for (let i = 0; i < 32; i++)
@@ -219,9 +221,6 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
-  // Cache darkenHex results — only ~25 distinct colors in play per frame.
-  const _darkCache = new Map();
-  const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -282,7 +281,8 @@ Render.drawCells = function drawCells(scene) {
       }
 
       // Wavy dark-border at arbitrary biome boundaries.
-      if (!TRANS_SKIP.has(type)) {
+      // Skip entirely on non-dirty frames — no closures, no neighborNonRoadColor calls.
+      if (borderDirty && !TRANS_SKIP.has(type)) {
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
         const isRoadLike = isRoad(type) || type === PATH;
@@ -299,7 +299,7 @@ Render.drawCells = function drawCells(scene) {
         const drawS = edgeNeeds(tS,  0, +1);
         const drawW = edgeNeeds(tW, -1,  0);
         const drawE = edgeNeeds(tE, +1,  0);
-        if (borderDirty && (drawN || drawS || drawW || drawE)) {
+        if (drawN || drawS || drawW || drawE) {
           // Draw at integer-snapped positions — the borderContainer scrolls by
           // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
           // so geometry only needs to be rebuilt when baseCellIX/IY changes.
