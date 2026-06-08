@@ -3185,7 +3185,7 @@ class MapScene extends Phaser.Scene {
     // a viewport had ≥20 road cells. Cache is unbounded by design but each
     // entry is small and only ever-rendered road cells are populated.
     if (!this._neighborColorCache) this._neighborColorCache = new Map();
-    const key = wcx * 100000 + wcy;
+    const key = Math.floor(wcx) * 100000 + Math.floor(wcy);
     const hit = this._neighborColorCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
