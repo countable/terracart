@@ -975,6 +975,16 @@ class MapScene extends Phaser.Scene {
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
 
+    // The movement pads (debug / ghost) are position:fixed on <body> at
+    // z-index 6, but every modal lives INSIDE #game, whose CSS transform makes
+    // its own stacking context — so a modal's z-index can't climb above the
+    // body-level pads. With a pad present (debug controls on, or an amulet),
+    // the bottom-right pad sits ON TOP of an open dialog and eats the taps that
+    // would dismiss it (and even walks the player), so the chest reward modal
+    // gets stuck: "I can still walk around but can't interact." Gate the pads
+    // behind a body.modal-open class toggled whenever a .game-modal is shown.
+    this._installModalPadGate();
+
     // HUD + banner + inventory
     this.hud = document.getElementById('hud');
     this.moneyEl = document.getElementById('money');
@@ -4295,6 +4305,10 @@ class MapScene extends Phaser.Scene {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
+    // Shared marker so _installModalPadGate can tell when ANY dialog is open and
+    // hide the movement pads (which otherwise sit on top of the modal — see the
+    // gate). Every modal goes through here, so one class covers them all.
+    wrap.classList.add('game-modal');
     // Single source of truth for where EVERY dialog sits vertically. The wrap
     // fills #game's 844px box and flex-centres the box, but we reserve space at
     // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
@@ -6660,6 +6674,23 @@ class MapScene extends Phaser.Scene {
     this._ghostCostAccrue = 0;
     this.bodyPlayer.setVisible(false);
     this.player.setAlpha(1);
+  }
+  // Watch #game for modal dialogs and mirror their presence onto a
+  // body.modal-open class. CSS uses it to hide the movement pads while any
+  // dialog is up — the pads are fixed on <body> above #game's transform
+  // stacking context, so without this they'd cover an open modal and steal the
+  // taps meant to close it (the "taps stop working after opening a crate" bug).
+  // Observing #game's direct children is enough: makeModalShell appends every
+  // wrap there, and pads created mid-dialog are caught by the CSS rule itself.
+  _installModalPadGate() {
+    const gameEl = document.getElementById('game');
+    if (!gameEl || typeof MutationObserver === 'undefined') return;
+    const sync = () => {
+      document.body.classList.toggle('modal-open', !!document.querySelector('.game-modal'));
+    };
+    this._modalPadObserver = new MutationObserver(sync);
+    this._modalPadObserver.observe(gameEl, { childList: true });
+    sync();
   }
   // Show or tear down the ghost pad based on amulet ownership. Called from
   // updateRelicRow so the pad appears the moment the player first equips an
