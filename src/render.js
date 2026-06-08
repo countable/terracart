@@ -828,7 +828,7 @@ Render.drawObjects = function drawObjects(scene) {
   // render on the surface).
   const _curDepth = scene.depth ?? 0;
   for (const p of scene.save.planted) {
-    if ((p.depth ?? 0) !== _curDepth) continue;
+    if (!PlacedFloor.onDepth(p, _curDepth)) continue;   // same-level crops only
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
@@ -836,7 +836,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.
-  if (scene.placedRockSet && _curDepth === 0) {
+  if (scene.placedRockSet && PlacedFloor.isSurface(_curDepth)) {
     for (const key of scene.placedRockSet) {
       const [ixStr, iyStr] = key.split('_');
       const absIX = parseInt(ixStr, 10), absIY = parseInt(iyStr, 10);
@@ -849,13 +849,13 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed scarecrows render as world objects — 3-cell-tall single image,
   // anchored at the base so it appears to stand on the cell. Pool reuses
   // objectPool slots so it integrates with depth-sort and viewport clip.
-  const scarecrowList = (scene.save.scarecrows || []).map(sc => ({
+  const scarecrowList = PlacedFloor.forDepth(scene.save.scarecrows, _curDepth).map(sc => ({
     o: { kind: '_scarecrow', x: sc.x, y: sc.y, id: `scarecrow_${sc.x.toFixed(2)}_${sc.y.toFixed(2)}` },
     dx: sc.x - pWorldX, dy: sc.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
   // Placed campfires (burned from a coal) render like scarecrows — through the
   // shared object pool so they depth-sort and clip with everything else.
-  const fireList = (scene.save.fires || []).map(fr => ({
+  const fireList = PlacedFloor.forDepth(scene.save.fires, _curDepth).map(fr => ({
     o: { kind: '_fire', x: fr.x, y: fr.y, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` },
     dx: fr.x - pWorldX, dy: fr.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);

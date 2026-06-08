@@ -786,6 +786,7 @@
                       objects.push({ kind: 'tree', x: cx, y: cy,
                         variant: 1 + Math.floor(rng() * 4),
                         // Trees near the start are softwood (home.js) for easy early wood.
+                        // (Procedural forest trees carry no size → never bush-tier.)
                         species: (typeof HomeArea !== 'undefined')
                           ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
                         id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
@@ -2191,9 +2192,11 @@
               variant: 1 + (seed % 4),
               // DeepForest trees carry a colour-classified species (pine/maple);
               // OSM trees have none → fall back to the seeded random species.
-              // Trees near the start are forced softwood (home.js) for easy early wood.
+              // Trees near the start are forced softwood (home.js) for easy early
+              // wood — except bush-tier crowns, which render as a uniform bush and
+              // gain nothing from the pine stamp (so they keep their own species).
               species: (typeof HomeArea !== 'undefined')
-                ? HomeArea.softwoodSpeciesNear(cx, cy, props.species || TREE_SPECIES[seed % TREE_SPECIES.length])
+                ? HomeArea.softwoodSpeciesNear(cx, cy, props.species || TREE_SPECIES[seed % TREE_SPECIES.length], props.size)
                 : (props.species || TREE_SPECIES[seed % TREE_SPECIES.length]),
               id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
               // DeepForest crown diameter (metres) + discrete size class + sampled

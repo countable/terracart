@@ -1277,19 +1277,24 @@ test('castle always offers relics with no rate-limit', (scene) => {
   assert.gt(opened, 5, 'castle keeps opening relic offers');
 });
 
-test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (scene) => {
+test('castle delivery gate ramps per castle, then opens the vault', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
   scene.save.money = 100000000;
   scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
   scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.openedCastles = {};
   const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, castle.x, castle.y - 2);
+  // The FIRST castle asks only CASTLE_DELIVERY_GATE_START deliveries (the
+  // bottom of the ramp), not the full CASTLE_DELIVERY_GATE.
+  assert.eq(scene._deliveryGate(castle), CASTLE_DELIVERY_GATE_START,
+    'first castle gates at the start of the ramp');
   // (1) Below the gate → first tap shows the locked info modal (no Buy button,
   // a disabled "Locked" action), not the relic vault.
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE - 1;
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START - 1;
   scene.shopInteract(0, 0, castle);
   let m = document.getElementById('offer-modal');
   assert.truthy(m, 'sealed castle opens an info modal');
@@ -1298,16 +1303,24 @@ test('castle stays sealed until 5 lifetime deliveries, then opens the vault', (s
   const locked = [...m.querySelectorAll('button')].find(b => /locked/i.test(b.textContent));
   assert.truthy(locked && locked.disabled, 'Locked action is present and disabled');
   m?.remove();
-  // (2) Exactly at the gate → the relic vault opens (a "Buy" button).
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE;
+  // (2) Exactly at the gate → the relic vault opens (a "Buy" button) and the
+  // castle is recorded as opened.
+  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START;
   scene.shopInteract(0, 0, castle);
   m = document.getElementById('offer-modal');
   buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
   assert.truthy(buy, 'castle opens the relic vault at the delivery gate');
+  assert.truthy(scene.save.openedCastles['test_castle_gate'], 'castle recorded as opened');
   document.getElementById('offer-modal')?.remove();
+  // (3) A SECOND castle now steps one further up the ramp.
+  const castle2 = { kind: 'tower', id: 'test_castle_gate_2', tier: 12,
+    x: scene.startWorldM.x, y: scene.startWorldM.y };
+  assert.eq(scene._deliveryGate(castle2),
+    CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP,
+    'second castle gates one step higher');
 });
 
-test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
+test('fort wood cost ramps per fort, then trades once unsealed', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
@@ -1318,6 +1331,9 @@ test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
   const fort = { kind: 'house', id: 'test_fort_gate', tier: 11,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, fort.x, fort.y - 2);
+  // The FIRST fort costs only FORT_UNLOCK_WOOD_START wood (bottom of the ramp).
+  assert.eq(scene._fortUnlockCost(), FORT_UNLOCK_WOOD_START,
+    'first fort costs the start of the ramp');
   // (1) Without the wood → the unseal modal shows, with the Unseal action
   // disabled (can't afford) and no relic Buy yet.
   scene.shopInteract(0, 0, fort);
@@ -1328,8 +1344,8 @@ test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
   const unseal = [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
   assert.truthy(unseal && unseal.disabled, 'Unseal action present and disabled without wood');
   m?.remove();
-  // (2) With 30 wood → tapping Unseal pays the wood and records the unlock.
-  scene.save.inv = [{ id: 'wood', count: FORT_UNLOCK_WOOD }];
+  // (2) With the ramped wood → tapping Unseal pays the wood and records it.
+  scene.save.inv = [{ id: 'wood', count: FORT_UNLOCK_WOOD_START }];
   scene.shopInteract(0, 0, fort);
   m = document.getElementById('offer-modal');
   const unseal2 = m && [...m.querySelectorAll('button')].find(b => /unseal/i.test(b.textContent));
@@ -1337,7 +1353,7 @@ test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
   unseal2.click();
   assert.truthy(scene.save.unlockedForts['test_fort_gate'], 'fort recorded as unsealed');
   const woodLeft = (scene.save.inv.find(s => s && s.id === 'wood')?.count) ?? 0;
-  assert.eq(woodLeft, 0, 'the 30 wood was consumed');
+  assert.eq(woodLeft, 0, 'the start wood was consumed');
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
   // (3) After unsealing → the quartermaster trades (a "Buy" button).
@@ -1346,6 +1362,10 @@ test('fort stays sealed until unsealed with 30 wood, then trades', (scene) => {
   buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
   assert.truthy(buy, 'fort trades once unsealed');
   document.getElementById('offer-modal')?.remove();
+  // (4) A SECOND fort now steps one increment up the ramp.
+  assert.eq(scene._fortUnlockCost(),
+    FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP,
+    'second fort costs one step higher');
 });
 
 test('re-roll button is hidden on non-castle relic offers', (scene) => {
