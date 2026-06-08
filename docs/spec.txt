@@ -454,17 +454,23 @@ ECONOMY (buying & selling)
    starter forge (save.starterBlacksmithId); the first market vends only T1/T2
    seeds for cash. PLAIN houses run "delivery" deals (see DELIVERIES below).
    (These are BUY/trade specialties — selling is home-only, see SELL below.)
- - FORTS (BUILDING_MED) start SEALED; pay a one-time 30 wood (FORT_UNLOCK_WOOD,
-   tracked in save.unlockedForts) to open the quartermaster — then up to 5
-   deals/hour. CASTLES/TOWERS (BUILDING_LARGE): never run out, always sell RELICS
-   (at 4× base, minus bow discount), and are never "busy". Plain houses do 1
-   deal/hour. Hour buckets are per-house.
+ - FORTS (BUILDING_MED) start SEALED; pay a one-time stack of wood (tracked in
+   save.unlockedForts) to open the quartermaster — then up to 5 deals/hour. The
+   wood price FOLLOWS A PROGRESSION across forts: FORT_UNLOCK_WOOD_START (6) for
+   the first fort, +FORT_UNLOCK_WOOD_STEP (6) per fort already unsealed — 6, 12,
+   18, 24, 30 … — capped at FORT_UNLOCK_WOOD (30). CASTLES/TOWERS
+   (BUILDING_LARGE): never run out, always sell RELICS (at 4× base, minus bow
+   discount), and are never "busy". Plain houses do 1 deal/hour. Hour buckets
+   are per-house.
  - CASTLE DELIVERY GATE: every castle begins sealed by corrupt post-apocalyptic
    residents and stays shut until you've proven yourself on the delivery routes —
-   CASTLE_DELIVERY_GATE (5) completed LIFETIME deliveries (save.deliveryCount).
-   The price of entry is footwork, not goods. (This REPLACED the old one-time
-   tier-2 goods tribute; once the lifetime tally clears the gate, every castle
-   trades normally forever.)
+   completed LIFETIME deliveries (save.deliveryCount). The gate also FOLLOWS A
+   PROGRESSION across castles: CASTLE_DELIVERY_GATE_START (2) deliveries for the
+   first castle you open, +CASTLE_DELIVERY_GATE_STEP (1) per castle already
+   opened — 2, 3, 4, 5 … — capped at CASTLE_DELIVERY_GATE (5). Opened castles
+   are tracked in save.openedCastles. The price of entry is footwork, not goods.
+   (This REPLACED the old one-time tier-2 goods tribute; once the tally clears a
+   castle's gate, that castle trades normally forever.)
  - WIZARD TOWER (the 15th restored wreck): buys "Inner Light" reach upgrades on
    the shared ladder (see MOVEMENT & REACH) for DISCOVERY points (see SHINY
    VARIANTS) — WIZARD_INNER_LIGHT_COST (5) Discovery each, no delivery gate.
