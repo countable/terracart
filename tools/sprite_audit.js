@@ -164,7 +164,7 @@ const SCENARIOS = [
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'large') },
   { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, origin: [0.5, 0.92], scale: t('birch', 'medium') },
   { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, origin: [0.5, 0.92], scale: t('mahogany', 'medium') },
-  { name: 'bush',            key: 'bushes',        frameIdx: 0, origin: [0.5, 0.9],  scale: 0.45 },
+  { name: 'bush',            key: 'bushes',        frameIdx: 0, origin: [0.5, 0.9],  scale: 0.667 /* = CROP_SPRITE.shrub.scale (render.js); a bush is one size */ },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, origin: [0.5, 0.95], scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 7, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 5, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },

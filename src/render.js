@@ -1102,10 +1102,14 @@ Render.drawObjects = function drawObjects(scene) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×32 bushes sheet — render at a fixed small
-              // scale (≈21px, comfortably inside one 32px cell) independent of
-              // the species/canopy tree scale. Larger tiers use treeScale.
-              scale:  (o) => treeSizeClass(o) === 'bush' ? 0.45 : treeScale(o),
+              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
+              // of the species/canopy tree scale. A bush is one species at one
+              // size — so a bush-tier tree must render the SAME size as a `shrub`
+              // wildplant (the bushes a park scatters), not a smaller half-size
+              // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
+              // drift apart. Larger tiers use treeScale.
+              scale:  (o) => treeSizeClass(o) === 'bush'
+                ? (CROP_SPRITE.shrub?.scale ?? 0.667) : treeScale(o),
               // Placement obeys the "one cell" rule via the seat pass (see the
               // render loop + src/sprite_layout.js): each tree is seated from
               // its trimmed art bounds so the trunk base sits 1px above the
