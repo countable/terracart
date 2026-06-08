@@ -108,7 +108,7 @@ const INTERACTABLES = {
       if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
       scene.addToInv('wood', wood);
       persistSave(save);
-      scene.flash(`🌲 Felled ${treeSpeciesName(o)} tree.`, sx, sy);
+      scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.` : `🌲 Felled ${treeSpeciesName(o)} tree.`, sx, sy);
       // Rare shiny tree — 10× wood value in cash + a discovery point.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
     },

@@ -117,8 +117,9 @@ function treeSpeciesTierShift(o) {
   return 0;
 }
 // Player-facing name for a tree species. Pine reads as "softwood", maple as
-// "hardwood"; other species keep their own name.
+// "hardwood", bush-size is always "bush"; other species keep their own name.
 function treeSpeciesName(o) {
+  if (o.size === 'bush')     return 'bush';
   if (o.species === 'pine')  return 'softwood';
   if (o.species === 'maple') return 'hardwood';
   return o.species || 'tree';
