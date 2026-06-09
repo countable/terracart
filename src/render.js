@@ -1115,8 +1115,8 @@ Render.drawObjects = function drawObjects(scene) {
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
     // small at, while still fitting inside its single cell (QC rule).
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455, seat: true },
-    // Cave staircase — baked 32×32 (one cell), centred. 'down' on the surface &
-    // each cave level leads deeper; 'up' returns. Texture picked by direction.
+    // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
+    // dark pit; 'up': bare standalone ladder. Texture picked by direction.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame

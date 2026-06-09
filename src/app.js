@@ -276,46 +276,6 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 
 
 
-// === Cave staircases (down / up) — baked once, 32×32 = one cell ===
-// 'stair_down' reads as steps receding into a dark pit (a way down); 'stair_up'
-// as lit stone steps climbing toward an opening. Drawn as flat-shaded blocks so
-// they sit cleanly inside a single cell (QC: one-cell interactable).
-function makeStaircaseTextures(scene) {
-  const S = 32;
-  const bake = (key, down) => {
-    if (scene.textures.exists(key)) return;
-    const tex = scene.textures.createCanvas(key, S, S);
-    const ctx = tex.getContext();
-    // Dark rock frame around the opening.
-    ctx.fillStyle = '#15110e';
-    ctx.fillRect(2, 2, S - 4, S - 4);
-    // Four steps. Down: receding into shadow (top dark → bottom light). Up:
-    // climbing toward light (top light → bottom dark). Each step is a band.
-    const shades = down
-      ? ['#0a0807', '#241c16', '#3a2c22', '#52402f']
-      : ['#6b513a', '#52402f', '#3a2c22', '#241c16'];
-    const steps = shades.length;
-    const bandH = (S - 8) / steps;
-    for (let i = 0; i < steps; i++) {
-      ctx.fillStyle = shades[i];
-      const inset = down ? i : (steps - 1 - i);   // narrowing toward the dark end
-      const x = 4 + inset * 1.5;
-      const w = (S - 8) - inset * 3;
-      ctx.fillRect(x, 4 + i * bandH, w, bandH - 1);
-    }
-    // Chevron hint of direction, centred.
-    ctx.fillStyle = down ? 'rgba(255,255,255,0.55)' : 'rgba(255,240,200,0.7)';
-    const cx = S / 2, cy = S / 2;
-    ctx.beginPath();
-    if (down) { ctx.moveTo(cx - 5, cy - 4); ctx.lineTo(cx + 5, cy - 4); ctx.lineTo(cx, cy + 4); }
-    else      { ctx.moveTo(cx - 5, cy + 4); ctx.lineTo(cx + 5, cy + 4); ctx.lineTo(cx, cy - 4); }
-    ctx.closePath();
-    ctx.fill();
-    tex.refresh();
-  };
-  bake('stair_down', true);
-  bake('stair_up', false);
-}
 
 // Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
 
@@ -331,7 +291,9 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
-    this.load.image('house', 'assets/Objects/House.png');
+    this.load.image('house',       'assets/Objects/House.png');
+    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=1');
+    this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
     this.load.once('filecomplete-image-house', () => {
@@ -580,8 +542,6 @@ class MapScene extends Phaser.Scene {
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
-    // Cave staircases (down/up) — baked once, sit in a single cell.
-    makeStaircaseTextures(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
