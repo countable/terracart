@@ -1265,7 +1265,14 @@ Render.drawObjects = function drawObjects(scene) {
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
               // Crate (box sprite) renders 15% smaller than the chest: 2.0 → 1.7.
               scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 2.0)),
-              dxPx: (o) => _isCoinBurst(o) ? 4 : 0,
+              // Produce stands are foot-anchored (not seated), so origin 0.5
+              // centres the FRAME box — but market_stand.png's art is shifted
+              // right (every frame's opaque pixels are x:[12,80] in the 80px
+              // frame, i.e. 12px transparent padding on the left, 0 on the
+              // right). At origin 0.5 that left the stall ~3.6px (= 6px frame
+              // offset × 0.6 scale) right of its cell. Nudge it back left so the
+              // visible stall art is centred horizontally on the tile.
+              dxPx: (o) => produceStandFor(o) ? -3.6 : (_isCoinBurst(o) ? 4 : 0),
               // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
               // the art's centroid down toward that anchor. Lift the crate back
               // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
