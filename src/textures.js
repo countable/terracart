@@ -6,8 +6,6 @@
 //   nothing external. Pure draws-to-canvas — no Phaser scene work other than
 //   makeBiomeTextures which takes the scene as a parameter.
 //
-// Does NOT include makePlaqueTextures: it depends on per-crop globals
-// (CROP_ROW, PRODUCE_COL) that still live in app.js.
 
 // --- Biome texture registry ---
 // Terrain class id → { variants, draw(ctx, size, rng) }. Each variant becomes

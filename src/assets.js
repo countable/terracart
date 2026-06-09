@@ -19,9 +19,8 @@ const ASSETS = {
   // the top row form the idle animation pair.
   chicken: { kind: 'spritesheet', path: 'assets/Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
   cow:     { kind: 'spritesheet', path: 'assets/Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
-  // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
-  // Frames: 0 = closed, 1 = open.
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/chest.png',            frameWidth: 32, frameHeight: 16 },
+  // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
+  chest:   { kind: 'spritesheet', path: 'assets/Objects/trunk.png',            frameWidth: 32, frameHeight: 32 },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
@@ -47,8 +46,6 @@ const ASSETS = {
       ctx.putImageData(data, 0, 0);
       scene.textures.remove('crops');
       scene.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
-      // Now that the alpha-keyed 'crops' image is available, bake per-crop plaque textures.
-      makePlaqueTextures(scene);
     },
   },
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose

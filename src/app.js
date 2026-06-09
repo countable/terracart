@@ -275,44 +275,6 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Energy.OFFLINE_FULL_REST_MS.
 
 
-// === Crop-affinity plaque (per-crop wooden sign baked once) ===
-// Kept in app.js (not textures.js) because it depends on CROP_ROW + PRODUCE_COL.
-function makePlaqueTextures(scene) {
-  for (const crop of Object.keys(CROP_ROW)) {
-    const key = `plaque_${crop}`;
-    if (scene.textures.exists(key)) continue;
-    const PW = 26, PH = 22;
-    const tex = scene.textures.createCanvas(key, PW, PH);
-    const ctx = tex.getContext();
-    const BW = 22, BH = 12;
-    const BX = (PW - BW) / 2, BY = 2;
-    const PX = PW / 2 - 1, PY_TOP = BY + BH, PY_H = 5;
-    // ground shadow at base of post
-    ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    ctx.fillRect(PX - 3, PY_TOP + PY_H - 1, 8, 2);
-    // short post
-    ctx.fillStyle = '#3a2410'; ctx.fillRect(PX, PY_TOP, 2, PY_H);
-    ctx.fillStyle = '#5a3a1c'; ctx.fillRect(PX, PY_TOP, 1, PY_H);
-    // board
-    ctx.fillStyle = '#3a2410'; ctx.fillRect(BX, BY, BW, BH);
-    ctx.fillStyle = '#a07043'; ctx.fillRect(BX + 1, BY + 1, BW - 2, BH - 2);
-    ctx.fillStyle = '#caa170'; ctx.fillRect(BX + 1, BY + 1, BW - 2, 1);
-    ctx.fillStyle = '#6b4824'; ctx.fillRect(BX + 1, BY + BH - 2, BW - 2, 1);
-    // bake crop icon — small, desaturated, label-style
-    const cropsImg = scene.textures.get('crops')?.getSourceImage();
-    if (cropsImg) {
-      const row = CROP_ROW[crop];
-      ctx.save();
-      ctx.filter = 'grayscale(70%) brightness(0.95)';
-      const ICON = 10;
-      const ix = BX + (BW - ICON) / 2;
-      const iy = BY + (BH - ICON) / 2;
-      ctx.drawImage(cropsImg, PRODUCE_COL * 16, row * 16, 16, 16, ix, iy, ICON, ICON);
-      ctx.restore();
-    }
-    tex.refresh();
-  }
-}
 
 // === Cave staircases (down / up) — baked once, 32×32 = one cell ===
 // 'stair_down' reads as steps receding into a dark pit (a way down); 'stair_up'
@@ -391,9 +353,8 @@ class MapScene extends Phaser.Scene {
     // sheets from those folders if we ever want colour variety.
     this.load.spritesheet('cat', 'assets/Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('dog', 'assets/Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
-    // chest.png is 32x32 with one chest per row (centered horizontally, ~16px wide with 8px padding).
-    // Frames: 0 = closed, 1 = open.
-    this.load.spritesheet('chest',   'assets/Objects/chest.png',            { frameWidth: 32, frameHeight: 16 });
+    // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
+    this.load.spritesheet('chest',   'assets/Objects/trunk.png',            { frameWidth: 32, frameHeight: 32 });
     // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
     // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
     this.load.spritesheet('crops',   'assets/Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
@@ -417,8 +378,6 @@ class MapScene extends Phaser.Scene {
       ctx.putImageData(data, 0, 0);
       this.textures.remove('crops');
       this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
-      // Now that the alpha-keyed 'crops' image is available, bake per-crop plaque textures.
-      makePlaqueTextures(this);
     });
     this.load.spritesheet('cobble',  'assets/Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
     // Walk the ASSETS catalog (assets.js) so wilderness textures, gem

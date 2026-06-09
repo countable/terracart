@@ -1191,7 +1191,7 @@ Render.drawObjects = function drawObjects(scene) {
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
                         : (_chestIsBox(o) ? 'box' : 'chest')),
-              // box.png is single-frame; chest.png is 2-frame (0 closed, 1 open).
+              // box.png is single-frame; trunk.png is 2-frame 32×32 (0 closed, 1 open).
               // We only see unopened chests here, so frame 0 in both cases.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
@@ -1205,8 +1205,8 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crate (box sprite) renders 15% smaller than the chest: 2.0 → 1.7.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 2.0)),
+              // Crate (box sprite) renders at 1.7; trunk is 32×32 so scale 1.0 = one cell.
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
