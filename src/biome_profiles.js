@@ -115,7 +115,7 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
       tint: {},
     },
-    sand:  { flora: [fix('shell', 0.15, 0.25, S.SHELL)], tint: {} },  // generous beach coverage
+    sand:  { flora: [fix('shell', 0.04, 0.07, S.SHELL)], tint: {} },
     rocky: { flora: [], tint: {} },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)], tint: {} },
     urban: { flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)], tint: {} },
@@ -146,7 +146,7 @@
               fix('starflower', 0.002, 0.006, S.STARFLOWER)],
       tint: {},
     },
-    [T.SAND]: { flora: [fix('shell', 0.15, 0.25, S.SHELL)], tint: {} },
+    [T.SAND]: { flora: [fix('shell', 0.04, 0.07, S.SHELL)], tint: {} },
     [T.FARMLAND]: {
       // Muddy pasture — patches of grass + the odd wildflower (green, not the
       // old golden wheat tint, to suit the churned-pasture look).
@@ -199,10 +199,10 @@
     [T.WETLAND]: {
       // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
       // forget-me-not at the water's edge.
-      flora: [dyn('longgrass', 0.15, S.WET_LG),
-              fix('shrub', 0.04, 0.12, S.WET_SHRUB),
-              fix('mushroom', 0.02, 0.05, S.WET_MUSH),
-              fix('forgetmenot', 0.004, 0.012, S.WET_FMN)],
+      flora: [dyn('longgrass', 0.10, S.WET_LG),
+              fix('shrub', 0.03, 0.08, S.WET_SHRUB),
+              fix('mushroom', 0.015, 0.04, S.WET_MUSH),
+              fix('forgetmenot', 0.004, 0.010, S.WET_FMN)],
       tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c },
     },
     [T.GOLF]: {
