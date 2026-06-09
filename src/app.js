@@ -4495,6 +4495,57 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // Produce stand = a roadside MARKET (not a one-shot chest). It sells the
+  // produce its awning advertises (loot.js produceStandFor → { item, frame })
+  // at PAR VALUE — exactly PRICES[item] per unit, with no shop markup (the
+  // 1.2–3.0× buyPrice ramp is for restocking village shops; a fresh produce
+  // stall is a flat, fair price). Repeatable: a quantity stepper lets the
+  // player buy as many as they can afford and carry, and the stall is never
+  // marked save.opened.
+  presentMarketStandOffer(sx, sy, o, stand) {
+    // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
+    if (document.getElementById('offer-modal')) return;
+    const id = stand.item;
+    const item = ITEM_BY_ID[id];
+    const unitPrice = Math.max(1, PRICES[id] ?? 1);    // par value, no markup
+    const iconHTML = this.iconSpanHTML(id);
+    const itemName = item?.name || id;
+    // Cap the stepper at what the player can both afford AND fit in their bag.
+    const money = () => this.save.money ?? 0;
+    const room  = () => { const r = this.invRoomFor(id); return r === Infinity ? 99 : r; };
+    const maxQty = Math.max(1, Math.min(room(), Math.max(1, Math.floor(money() / unitPrice))));
+    const fmt = (q) => {
+      const total = unitPrice * q;
+      return {
+        get: `${iconHTML} ${itemName} ×${q}`,
+        cost: `$${total}`,
+        canAfford: money() >= total && q <= room(),
+      };
+    };
+    const first = fmt(1);
+    this.showOfferModal({
+      title: 'The market stall sells fresh:',
+      get: first.get,
+      cost: first.cost,
+      canAfford: first.canAfford,
+      acceptLabel: 'Buy',
+      cancelLabel: 'Later',
+      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+      onAccept: (q) => {
+        const want = Math.max(1, q ?? 1);
+        const take = Math.min(want, room());
+        if (take <= 0) { this.flash('Bag full', sx, sy); return; }
+        const pay = unitPrice * take;
+        if (money() < pay) { this.flash(`need $${pay}`, sx, sy); return; }
+        addMoney(this.save, -pay);
+        this.addToInv(id, take);
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`🪙 ${take}× ${itemName}\n−$${pay}`, '#ffe066', 1, id);
+      },
+    });
+  }
+
   buildingFlavorTitle(house, action) {
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isFort   = !!house && house.tier === 11;
