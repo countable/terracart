@@ -6023,27 +6023,57 @@ class MapScene extends Phaser.Scene {
   _isBuildingSealed(house) {
     const need = this._deliveryGate(house);
     if (!need) return false;
-    return (this.save.deliveryCount ?? 0) < need;
+    // Players who passed the old delivery threshold keep access.
+    if ((this.save.deliveryCount ?? 0) >= need) return false;
+    // Quest chain replaces the delivery gate.
+    if (typeof Quests !== 'undefined') return !Quests.allDone(this.save);
+    return true;
   }
 
-  // The sealed castle gate (see _isBuildingSealed). There's nothing to pay here
-  // — the vault opens on its own once save.deliveryCount reaches the threshold
-  // — so this is a locked info modal that shows the player how many more
-  // deliveries they owe, not an accept/buy offer.
+  // The sealed castle gate — now delegates to the quest board.
   presentSealedBuildingModal(sx, sy, house) {
-    const need = this._deliveryGate(house);
-    const have = this.save.deliveryCount ?? 0;
-    const left = Math.max(0, need - have);
+    this.showQuestBoard(sx, sy, house);
+  }
+
+  // Quest board modal for castles. Shows the active quest's progress; when the
+  // quest is complete the player can claim the reward to advance the chain.
+  // Once all quests are done the castle vault opens (the seal check returns false).
+  showQuestBoard(sx, sy, house) {
+    if (typeof Quests === 'undefined') return;
+    const q = Quests.current(this.save);
+    if (!q) { this.flash('Castle vault is now open!', sx, sy); return; }
+    const prog = Quests.progress(this.save);
+    const done = Quests.isComplete(this.save);
+    let progressLine;
+    switch (q.type) {
+      case 'kill':  progressLine = `${prog} / ${q.count} defeated`; break;
+      case 'poi':   progressLine = done ? 'Discovered!' : 'Explore the map to find it.'; break;
+      case 'item':  progressLine = done ? 'Retrieved!' : `Need depth ≥ ${q.minDepth}`; break;
+      default:      progressLine = '';
+    }
     this.showOfferModal({
-      title: 'The castle stays sealed',
+      title: done ? `Quest complete!` : q.title,
+      get: done ? `$${q.reward?.money || 0}` : progressLine,
+      blurb: q.body,
+      cost: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
+      canAfford: done,
+      acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
-      get: `🏰 opens after ${need} deliveries`,
-      blurb: "Its corrupt residents won't open the vault to a nobody — prove yourself on the delivery routes first.",
-      cost: `${left} more ${left === 1 ? 'delivery' : 'deliveries'}`
-        + ` <span style="opacity:.7">(${have}/${need})</span>`,
-      canAfford: false,
-      acceptLabel: 'Locked',
-      onAccept: () => {},
+      onAccept: () => {
+        if (!done) return;
+        const reward = Quests.advance(this.save);
+        if (reward?.money) addMoney(this.save, reward.money);
+        if (Quests.allDone(this.save) && house?.id) {
+          this.save.openedCastles = this.save.openedCastles || {};
+          this.save.openedCastles[house.id] = true;
+        }
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`🪙 +$${reward?.money || 0}`, '#ffe066');
+        if (Quests.allDone(this.save)) {
+          this.flash('Castle vault unlocked!', this.viewCenterX, this.viewCenterY - 60);
+        }
+      },
     });
   }
 
@@ -6978,6 +7008,13 @@ class MapScene extends Phaser.Scene {
       }
       persistSave(this.save);
       this.buildInventoryDOM();
+      if (r.accepted > 0 && typeof Quests !== 'undefined') {
+        const qDone = Quests.onItemAcquired(this.save, id, this.depth);
+        if (qDone) {
+          persistSave(this.save);
+          this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
+        }
+      }
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the

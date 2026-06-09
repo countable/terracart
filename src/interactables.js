@@ -417,6 +417,15 @@ const INTERACTABLES = {
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
+      if (typeof Quests !== 'undefined') {
+        const done = Quests.onPoiVisit(save, 'well');
+        if (done) {
+          if (save.relics?.can) { save.canCharges = 50; }
+          ctx.dirty = true;
+          scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
+          return true;
+        }
+      }
       if (!save.relics?.can) {
         scene.flash('Cool, clear water. (need a watering can)', sx, sy);
         return true;

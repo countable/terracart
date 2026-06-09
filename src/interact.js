@@ -591,6 +591,10 @@ const TAP_HANDLERS = [
         } else {
           scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
         }
+        if (typeof Quests !== 'undefined') {
+          const qDone = Quests.onKill(save, victim.kind);
+          if (qDone) scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
+        }
         persistSave(save);
         // Rare shiny deer / crow — hunted fauna drop their product (meat /
         // feather), so there's no live shiny animal to keep, but the shiny
