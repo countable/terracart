@@ -145,23 +145,6 @@ const ASSETS = {
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
   bonfire:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bonfire.png', frameWidth: 16, frameHeight: 32 },
-  // Terrains autotile sheet — 512×368 = 32 cols × 23 rows of 16×16 frames.
-  // Copied out of the gitignored Sprites/1_Terrains_16x16.png dump into tracked
-  // Objects/Terrains_16x16.png (same convention as the Wilderness art above).
-  // Contains clean 3×3 Wang autotile
-  // blocks for several overlays (brown soil, sand, water, wood planks, dirt)
-  // sitting on a green-grass base, plus 4 "extras" per overlay (peninsula /
-  // strip / isolated) further to the right. The render.js noisePool branch
-  // reads WATER_AUTOTILE_FRAME (in textures.js) to pick a frame per cell
-  // based on the cardinal-neighbour mask. Only WATER (type 3) uses the sheet
-  // today; SAND, FARMLAND, BUILDING_MED are easy follow-ups since every
-  // overlay shares the same 3×3 Wang geometry — just different col/row.
-  terrains: { kind: 'spritesheet', path: 'assets/Objects/Terrains_16x16.png', frameWidth: 16, frameHeight: 16 },
-  // Godot 47-tile autotile blob (water↔grass shore lives in rows 8-15). 192×896
-  // = 12 cols × 56 rows of 16×16; frames indexed row*12+col. render.js' water
-  // branch reads WATER_BLOB (textures.js) → frame here. Replaces the cardinal
-  // 'terrains' Wang for WATER so inner corners render (no more shore gaps).
-  autotiles: { kind: 'spritesheet', path: 'assets/Objects/Autotiles_Godot_16x16.png', frameWidth: 16, frameHeight: 16 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.

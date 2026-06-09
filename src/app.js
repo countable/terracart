@@ -215,7 +215,7 @@ function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * 
 const COLORS = {
   0: 0x479757,  // grass — matched to the Autotiles_Godot shore grass (rgb 71,151,87) so water/biome edges blend seamlessly into the grass field
   1: 0x2e6a2e,  // forest
-  2: 0xe6ae55,  // sand — matched to the Autotiles_Godot sand-fill (rgb 230,174,85) so the autotiled beach tiles blend with the flat fill
+  2: 0xe6ae55,  // sand — warm golden tan; procedural ripple texture overlaid
   3: 0x3a78c2,  // water
   4: 0xa39660,  // farmland — muddy pasture (muted olive-brown under the mud/grass texture)
   5: 0xada695,  // residential
@@ -975,6 +975,16 @@ class MapScene extends Phaser.Scene {
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
 
+    // The movement pads (debug / ghost) are position:fixed on <body> at
+    // z-index 6, but every modal lives INSIDE #game, whose CSS transform makes
+    // its own stacking context — so a modal's z-index can't climb above the
+    // body-level pads. With a pad present (debug controls on, or an amulet),
+    // the bottom-right pad sits ON TOP of an open dialog and eats the taps that
+    // would dismiss it (and even walks the player), so the chest reward modal
+    // gets stuck: "I can still walk around but can't interact." Gate the pads
+    // behind a body.modal-open class toggled whenever a .game-modal is shown.
+    this._installModalPadGate();
+
     // HUD + banner + inventory
     this.hud = document.getElementById('hud');
     this.moneyEl = document.getElementById('money');
@@ -1005,6 +1015,7 @@ class MapScene extends Phaser.Scene {
     this.joystickVec = { x: 0, y: 0 };
     this._ghostPadHeld = false;
     this._bodyM = null;
+    this._speedPotionActive = false;
     this._ghostDistAccrue = 0;   // meters of ghost travel since last energy pip
 
     // Debug-controls pad (opt-in via the ☰ menu). When save.debugControls is
@@ -1409,6 +1420,10 @@ class MapScene extends Phaser.Scene {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       needed.add(`${cell.tx + dx}/${cell.ty + dy}`);
     }
+    // Overpass is fired only for the centre tile (the one the player is in).
+    // Neighbours get their Overpass fetch when the player walks into them and
+    // they become the centre tile on the next ensureTilesAround call.
+    WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
     let anyFailed = false;
     for (const k of needed) {
       const [tx, ty] = k.split('/').map(Number);
@@ -1958,13 +1973,17 @@ class MapScene extends Phaser.Scene {
     // error so the underlying cause stays diagnosable on a phone.
     try {
     const dt = dtMs / 1000;
-    // Ghost-mode lifecycle: the pad is held iff the player has an amulet AND
-    // they're actively touching the pad. On the down-edge, snapshot the body
-    // into _bodyM and let `this.playerM` become the ghost. On the up-edge,
-    // collapse — restore playerM to the body and tidy ghost render state.
-    // Amulet ghost mode is a surface-only scouting tool. Underground the cave
-    // ghost-follow model owns the ghost concept, so don't let the two fight.
-    const ghostEligible = !!this.save.relics?.amulet && this.depth === 0;
+    // Ghost-mode lifecycle: the pad is held iff the player has an amulet (or an
+    // active speed potion) AND they're actively touching the pad. On the
+    // down-edge, snapshot the body into _bodyM and let `this.playerM` become
+    // the ghost. On the up-edge, collapse. Underground the cave ghost-follow
+    // model owns the ghost concept, so don't let the two fight.
+    const speedPotionActive = (this.save.speedPotionUntil ?? 0) > Date.now();
+    if (this._speedPotionActive !== speedPotionActive) {
+      this._speedPotionActive = speedPotionActive;
+      if (!speedPotionActive) this.syncGhostPad();
+    }
+    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive) && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -2008,7 +2027,9 @@ class MapScene extends Phaser.Scene {
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = ghostSpeedMul(this.save.relics) || 8;
+      speedMul = speedPotionActive
+        ? ghostSpeedMul({ amulet: { tier: 9 } })
+        : ghostSpeedMul(this.save.relics) || 8;
     } else if (this._debugPadHeld && this.debugJoystickVec) {
       // Debug pad replaces the ghost pad while save.debugControls is on:
       // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
@@ -2670,7 +2691,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            this.save.energy = Math.max(0, before - 3);
+            const slimeDmg = (this.save.shieldPotionUntil ?? 0) > now ? 2 : 3;
+            this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
@@ -2689,7 +2711,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            this.save.energy = Math.max(0, before - m.dmg);
+            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(m.dmg / 2) : m.dmg;
+            this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
@@ -3185,7 +3208,7 @@ class MapScene extends Phaser.Scene {
     // a viewport had ≥20 road cells. Cache is unbounded by design but each
     // entry is small and only ever-rendered road cells are populated.
     if (!this._neighborColorCache) this._neighborColorCache = new Map();
-    const key = wcx * 100000 + wcy;
+    const key = Math.floor(wcx) * 100000 + Math.floor(wcy);
     const hit = this._neighborColorCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
@@ -4200,6 +4223,42 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  drinkVigorPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
+    const max = this.getMaxEnergy();
+    const restored = Math.min(40, max - (this.save.energy ?? 0));
+    this.save.energy = Math.min(max, (this.save.energy ?? 0) + 40);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return this._finishConsumable(
+      'You drink the Potion of Vigor',
+      restored > 0 ? `Energy restored by ${restored}.` : 'You were already at full energy.',
+    );
+  }
+
+  // Potion of Speed: unlocks the ghost pad at tier-9 speed for 1 minute, even
+  // without an amulet. ghostEligible + syncGhostPad both check speedPotionUntil.
+  drinkSpeedPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.speedPotionUntil = Date.now() + 60 * 1000;
+    this.syncGhostPad();
+    return this._finishConsumable(
+      'You drink the Potion of Speed',
+      'The ghost pad blazes with energy — tier-9 amulet speed for one minute.',
+    );
+  }
+
+  drinkShieldPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.shieldPotionUntil = Date.now() + 60 * 1000;
+    return this._finishConsumable(
+      'You drink the Potion of Shielding',
+      'A shimmering barrier wraps you — monster damage halved for one minute.',
+    );
+  }
+
   // Sapphire portal: spend one gem to open a one-shot shaft straight down a
   // level, in place. Down-only — there's no return portal; climb back up a
   // staircase as usual. The gem is consumed only when the descent actually
@@ -4295,6 +4354,10 @@ class MapScene extends Phaser.Scene {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
+    // Shared marker so _installModalPadGate can tell when ANY dialog is open and
+    // hide the movement pads (which otherwise sit on top of the modal — see the
+    // gate). Every modal goes through here, so one class covers them all.
+    wrap.classList.add('game-modal');
     // Single source of truth for where EVERY dialog sits vertically. The wrap
     // fills #game's 844px box and flex-centres the box, but we reserve space at
     // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
@@ -6565,6 +6628,9 @@ class MapScene extends Phaser.Scene {
         icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
         // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
         icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
+        // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
+        // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+        icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
         icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
         icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
         icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -6664,13 +6730,30 @@ class MapScene extends Phaser.Scene {
     this.bodyPlayer.setVisible(false);
     this.player.setAlpha(1);
   }
+  // Watch #game for modal dialogs and mirror their presence onto a
+  // body.modal-open class. CSS uses it to hide the movement pads while any
+  // dialog is up — the pads are fixed on <body> above #game's transform
+  // stacking context, so without this they'd cover an open modal and steal the
+  // taps meant to close it (the "taps stop working after opening a crate" bug).
+  // Observing #game's direct children is enough: makeModalShell appends every
+  // wrap there, and pads created mid-dialog are caught by the CSS rule itself.
+  _installModalPadGate() {
+    const gameEl = document.getElementById('game');
+    if (!gameEl || typeof MutationObserver === 'undefined') return;
+    const sync = () => {
+      document.body.classList.toggle('modal-open', !!document.querySelector('.game-modal'));
+    };
+    this._modalPadObserver = new MutationObserver(sync);
+    this._modalPadObserver.observe(gameEl, { childList: true });
+    sync();
+  }
   // Show or tear down the ghost pad based on amulet ownership. Called from
   // updateRelicRow so the pad appears the moment the player first equips an
   // amulet (and disappears if they ever ditch it). Debug controls win the
   // slot — when save.debugControls is on the ghost pad is suppressed even
   // if an amulet is equipped.
   syncGhostPad() {
-    const has = !!this.save.relics?.amulet && !this.save.debugControls;
+    const has = (!!this.save.relics?.amulet || (this.save.speedPotionUntil ?? 0) > Date.now()) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7623,7 +7706,10 @@ class MapScene extends Phaser.Scene {
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
-      reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min' },
+      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
+      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];

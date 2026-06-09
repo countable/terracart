@@ -308,6 +308,39 @@ const TAP_HANDLERS = [
       });
       return true;
     }
+    if (sel.id === 'vigor_potion') {
+      scene.showOfferModal({
+        title: 'Drink the Potion of Vigor?',
+        get: 'restore 40 energy',
+        cost: `1× Potion of Vigor`,
+        canAfford: true,
+        acceptLabel: 'Drink',
+        onAccept: () => scene.drinkVigorPotion(),
+      });
+      return true;
+    }
+    if (sel.id === 'speed_potion') {
+      scene.showOfferModal({
+        title: 'Drink the Potion of Speed?',
+        get: 'tier-9 ghost speed for 1 min',
+        cost: `1× Potion of Speed`,
+        canAfford: true,
+        acceptLabel: 'Drink',
+        onAccept: () => scene.drinkSpeedPotion(),
+      });
+      return true;
+    }
+    if (sel.id === 'shield_potion') {
+      scene.showOfferModal({
+        title: 'Drink the Potion of Shielding?',
+        get: 'half monster damage for 1 min',
+        cost: `1× Potion of Shielding`,
+        canAfford: true,
+        acceptLabel: 'Drink',
+        onAccept: () => scene.drinkShieldPotion(),
+      });
+      return true;
+    }
     if (sel.id === 'sapphire') {
       scene.showOfferModal({
         title: 'Open a portal down?',

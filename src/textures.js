@@ -15,13 +15,8 @@
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
   1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
-  2:  { variants: 2, draw: drawSandTex },         // sand: fine grain
-  // WATER (type 3) is rendered via the cardinal-Wang autotile in render.js,
-  // pulling frames out of the 'terrains' sheet (see WATER_AUTOTILE below).
-  // The procedural drawWaterTex stays as a fallback for tilled-water (which
-  // shouldn't exist) and as the texture for PIER cells (23) since the pier
-  // overlay needs a water-coloured base under the planks.
-  3:  { variants: 2, draw: drawWaterTex },        // water: ripples
+  2:  { variants: 2, draw: drawSandTex },         // sand: horizontal ripple marks
+  3:  { variants: 2, draw: drawWaterTex },        // water: horizontal band highlights
   4:  { variants: 2, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
@@ -50,78 +45,6 @@ const BIOME_TEX = {
   24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
   25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
 };
-
-// === Water autotile (cardinal Wang) =====================================
-// Cardinal-neighbor 4-bit mask → frame index in the 'terrains' spritesheet
-// (assets/Objects/Terrains_16x16.png, 32 cols × 23 rows of 16×16 frames).
-// Mask bit assignment: N=1, E=2, S=4, W=8. Bit is set when that neighbor
-// is the SAME terrain (water). The 3×3 Wang block at sheet cols 16-18,
-// rows 0-2 covers 9 of the 16 possible mask values; the remaining 7 (0, 1,
-// 2, 4, 5, 8, 10 — peninsulas, strips, isolated cells) fall back to the
-// fully-surrounded centre fill (mask 15). For most viewports those rare
-// configurations are <5 % of water cells, so the fallback is acceptable.
-//
-// render.js' noisePool branch reads WATER_AUTOTILE_FRAME[mask] and calls
-// noiseImage.setTexture('terrains', frame). Keep this table in sync with
-// the sheet layout if the asset is ever swapped.
-const TERRAINS_COLS = 32;
-const _wf = (col, row) => row * TERRAINS_COLS + col;
-const WATER_AUTOTILE_FRAME = {
-  3:  _wf(16, 2),  // 0b0011 NE present, SW absent → BL outer corner
-  6:  _wf(16, 0),  // 0b0110 SE present, NW absent → TL outer corner
-  7:  _wf(16, 1),  // 0b0111 W absent only → left edge
-  9:  _wf(18, 2),  // 0b1001 NW present, SE absent → BR outer corner
-  11: _wf(17, 2),  // 0b1011 S absent only → bottom edge
-  12: _wf(18, 0),  // 0b1100 SW present, NE absent → TR outer corner
-  13: _wf(18, 1),  // 0b1101 E absent only → right edge
-  14: _wf(17, 0),  // 0b1110 N absent only → top edge
-  15: _wf(17, 1),  // 0b1111 all neighbours water → centre fill
-};
-// Frame to use when mask isn't in the table — solid water centre fill.
-// Keeps peninsula / strip / isolated cells from going invisible; they read
-// as plain water without the proper edge art (acceptable for first pass).
-const WATER_AUTOTILE_FALLBACK = WATER_AUTOTILE_FRAME[15];
-
-// === Water 8-neighbour BLOB autotile (Godot 47-tile sheet) ==============
-// Upgrades the cardinal Wang above: the full 8-neighbour blob can draw INNER
-// corners (water wrapping a diagonal), which the old 9-tile cardinal set
-// structurally could not — that was the source of the shore "gaps".
-// Mask bits use the documented Godot/47-tile convention:
-//   TL=1, T=2, TR=4, L=8, R=16, BL=32, B=64, BR=128  (set = neighbour is WATER)
-// Diagonals only matter when both their adjacent sides are water (the 256→47
-// reduction). WATER_BLOB[mask] is a 256-entry table mapping every neighbour
-// mask to a frame in the 'autotiles' sheet (assets/Objects/Autotiles_Godot_16x16.png,
-// 12 cols × 56 rows of 16×16; the water↔grass blob lives in rows 8-15, frames
-// indexed row*12+col). The candidate pool is RESTRICTED to rows 8-11 — the
-// "water on OPAQUE green grass" copies. Rows 12-15 are the SAME tiles with the
-// grass left TRANSPARENT (Godot draws the grass on a separate layer); we draw
-// over a flat water-blue fill, so a transparent tile would show blue through
-// the grass half ("random blue grass"). Derived by tools (temp/autotile_fix.py)
-// by best-matching each of the 47 blob configs to an opaque rows-8-11 tile by
-// shape; center/fallback = frame 129. Edges + inner corners verified clean.
-const WATER_BLOB_CENTER = 129;
-const WATER_BLOB = [132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,109,109,109,109,109,109,124,124,98,98,110,100,98,98,103,142,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,109,109,109,109,109,109,124,124,102,102,136,119,102,102,117,126,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,132,132,120,120,132,132,120,120,134,134,123,143,134,134,123,143,134,134,121,121,134,134,140,140,134,134,122,138,134,134,137,141,108,108,108,108,108,108,108,108,99,99,111,127,99,99,111,127,112,112,112,112,112,112,116,116,101,101,139,130,101,101,128,125,108,108,108,108,108,108,108,108,107,107,115,131,107,107,115,131,112,112,112,112,112,112,116,116,106,106,105,114,106,106,113,129];
-
-// === Sand 8-neighbour BLOB autotile (Godot grass↔sand band, rows 16-19) =====
-// Same scheme/method as WATER_BLOB, one band down the same 'autotiles' sheet.
-// Frames index the grass↔sand blob (rows 16-19, frames 192-239) — all opaque,
-// so no rows-filter needed. Sand cells round off against any non-sand neighbour
-// with a grass edge whose green is 0x479757 (matches COLORS[0]/the shore grass —
-// seamless sand↔grass). Where sand meets WATER, the render layer picks
-// SAND_WATER_BLOB (below) instead so sand rounds into the sea — no grass strip.
-// Derived by tools (temp/sand_gen.py); center/fallback = frame 225 (all sand).
-const SAND_BLOB_CENTER = 225;
-const SAND_BLOB = [204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,205,205,205,205,205,205,220,220,206,206,206,196,206,206,199,238,204,204,204,204,204,204,204,204,211,211,211,227,211,211,211,227,205,205,205,205,205,205,220,220,232,232,232,215,232,232,213,222,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,230,230,205,205,230,230,220,220,218,218,218,234,218,218,233,237,204,204,204,204,204,204,204,204,207,207,207,223,207,207,207,223,208,208,208,208,208,208,212,212,235,235,235,226,235,235,224,221,204,204,204,204,204,204,204,204,211,211,211,227,211,211,211,227,208,208,208,208,208,208,212,212,201,201,201,210,201,201,209,225];
-
-// === Sand↔water blob (Godot sand↔water band, rows 28-31) ====================
-// Sand foreground with WATER edges — the beach-waterline counterpart to
-// SAND_BLOB. render.js' sand branch uses THIS table (not SAND_BLOB) when a sand
-// cell's dominant non-sand neighbour is water, so sand rounds into the sea.
-// Frames 336-383 (rows 28-31, all opaque). The water edge is a lighter cyan
-// (0x5bc9d2) than the bulk water-cell teal — reads as shallow foam at the shore.
-// Derived by tools (temp/sandwater_gen.py); center/fallback = frame 369.
-const SAND_WATER_BLOB_CENTER = 369;
-const SAND_WATER_BLOB = [372,372,360,360,372,372,360,360,375,375,363,383,375,375,363,383,373,373,361,361,373,373,380,380,374,374,363,383,374,374,377,381,372,372,360,360,372,372,360,360,375,375,363,383,375,375,363,383,373,373,361,361,373,373,380,380,374,374,363,383,374,374,377,381,336,336,336,336,336,336,336,336,339,339,339,367,339,339,339,367,337,337,337,337,337,337,380,380,338,338,350,340,338,338,343,382,336,336,336,336,336,336,336,336,347,347,347,371,347,347,347,371,337,337,337,337,337,337,380,380,342,342,376,359,342,342,357,366,372,372,360,360,372,372,360,360,375,375,363,383,375,375,363,383,373,373,361,361,373,373,380,380,374,374,363,383,374,374,377,381,372,372,360,360,372,372,360,360,375,375,363,383,375,375,363,383,373,373,361,361,373,373,380,380,374,374,363,383,374,374,377,381,336,336,336,336,336,336,336,336,339,339,339,367,339,339,339,367,344,344,344,344,344,344,368,368,341,341,379,370,341,341,368,365,336,336,336,336,336,336,336,336,347,347,347,371,347,347,347,371,344,344,344,344,344,344,368,368,346,346,345,354,346,346,353,369];
 
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
@@ -172,15 +95,26 @@ function drawForestTex(ctx, size, rng) {
 }
 
 function drawSandTex(ctx, size, rng) {
-  // Very fine grain — many low-alpha dots, mostly warm.
+  // Horizontal wind-ripple marks on beach sand (3-4 wavy lines per tile).
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 36; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.6
-      ? 'rgba(120,90,40,0.18)'
-      : 'rgba(255,240,200,0.18)';
-    ctx.fillRect(x, y, 1, 1);
+  const numLines = 3 + Math.floor(rng() * 2);
+  for (let r = 0; r < numLines; r++) {
+    const baseY = Math.floor((r + 0.3 + rng() * 0.4) * (size / numLines));
+    const amp = 0.7 + rng() * 0.9;
+    const phase = rng() * Math.PI * 2;
+    ctx.strokeStyle = rng() < 0.65 ? 'rgba(130,70,30,0.30)' : 'rgba(190,140,80,0.20)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= size; x++) {
+      const y = baseY + Math.sin(x * 2 * Math.PI / (size * 0.65) + phase) * amp;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // Scattered fine grain specks.
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(100,55,15,0.14)' : 'rgba(255,240,200,0.12)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
   }
 }
 
@@ -242,25 +176,21 @@ function drawTilledTex(ctx, size, rng) {
 }
 
 function drawWaterTex(ctx, size, rng) {
-  // Faint horizontal ripple highlights on transparent bg.
+  // Horizontal highlight bands — top-down water with distinct cyan stripe pattern.
   ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 1;
-  const rows = 4;
-  for (let r = 0; r < rows; r++) {
-    const baseY = (r + 0.5) * (size / rows) + (rng() - 0.5) * 2;
-    const amp = 0.8 + rng() * 0.6;
-    const phase = rng() * Math.PI * 2;
-    ctx.beginPath();
-    for (let x = 0; x <= size; x++) {
-      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * amp;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+  const bandH = 2;
+  const gap = 5 + Math.floor(rng() * 3);   // 5-7 px between bands
+  const startY = Math.floor(rng() * gap);
+  for (let y = startY; y < size; y += gap + bandH) {
+    ctx.fillStyle = 'rgba(160,235,245,0.30)';  // cyan highlight band
+    ctx.fillRect(0, y, size, Math.min(bandH, size - y));
+    ctx.fillStyle = 'rgba(220,250,255,0.14)';  // bright leading edge
+    ctx.fillRect(0, y, size, 1);
   }
-  ctx.fillStyle = 'rgba(0,0,40,0.18)';
-  for (let i = 0; i < 6; i++) {
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  // Subtle dark depth specks.
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = 'rgba(0,20,50,0.18)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
   }
 }
 

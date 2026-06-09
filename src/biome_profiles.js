@@ -62,8 +62,10 @@
     ORCH_MAR: 0xf10a0008,
   };
 
-  // Default debris density window (mirrors worldgen DEBRIS_MIN/MAX).
-  const D_MIN = 0.05, D_MAX = 0.30;
+  // Default debris density window. D_MAX = 0.15 so any single flora type
+  // claims at most 15 % of cells; with multiple types stacking via the
+  // occupancy filter the combined density stays under ~30 % per zone.
+  const D_MIN = 0.05, D_MAX = 0.15;
   // dyn(maxDensity): a per-polygon density in [0, max], the old "longgrass
   // family" behaviour generalised — most polygons grow at least a tuft, big
   // areas cluster, the unlucky few grow nothing.
@@ -113,7 +115,7 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
       tint: {},
     },
-    sand:  { flora: [fix('shell', D_MIN, D_MAX, S.SHELL)], tint: {} },
+    sand:  { flora: [fix('shell', 0.15, 0.25, S.SHELL)], tint: {} },  // generous beach coverage
     rocky: { flora: [], tint: {} },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)], tint: {} },
     urban: { flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)], tint: {} },
@@ -144,7 +146,7 @@
               fix('starflower', 0.002, 0.006, S.STARFLOWER)],
       tint: {},
     },
-    [T.SAND]: { flora: [fix('shell', D_MIN, D_MAX, S.SHELL)], tint: {} },
+    [T.SAND]: { flora: [fix('shell', 0.15, 0.25, S.SHELL)], tint: {} },
     [T.FARMLAND]: {
       // Muddy pasture — patches of grass + the odd wildflower (green, not the
       // old golden wheat tint, to suit the churned-pasture look).
@@ -197,9 +199,9 @@
     [T.WETLAND]: {
       // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
       // forget-me-not at the water's edge.
-      flora: [dyn('longgrass', 0.25, S.WET_LG),
-              fix('shrub', 0.05, 0.20, S.WET_SHRUB),
-              fix('mushroom', 0.02, 0.06, S.WET_MUSH),
+      flora: [dyn('longgrass', 0.15, S.WET_LG),
+              fix('shrub', 0.04, 0.12, S.WET_SHRUB),
+              fix('mushroom', 0.02, 0.05, S.WET_MUSH),
               fix('forgetmenot', 0.004, 0.012, S.WET_FMN)],
       tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c },
     },
