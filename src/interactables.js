@@ -303,6 +303,15 @@ const INTERACTABLES = {
         // Fall through to default chest behaviour if the method isn't wired
         // (defensive — keeps these POIs usable if app.js is out of sync).
       }
+      // Produce/food stands are MARKETS, not one-shot chests: tapping opens a
+      // repeatable buy modal that SELLS the themed produce (loot.js
+      // produceStandFor) at par value (PRICES[item], no shop markup). The stall
+      // never goes into save.opened — a market doesn't get "picked clean".
+      const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
+      if (stand && typeof scene.presentMarketStandOffer === 'function') {
+        scene.presentMarketStandOffer(sx, sy, o, stand);
+        return true;
+      }
       if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
@@ -310,10 +319,6 @@ const INTERACTABLES = {
       const held = save.chestHold && save.chestHold[o.id];
       const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
-      // Produce/food stands sell ONE item themed off the POI name (loot.js). It
-      // overrides the random rarity roll so the stall always hands over a small
-      // stack of exactly what its awning advertises.
-      const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
         // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9 potato

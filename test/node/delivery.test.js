@@ -74,6 +74,40 @@ test('wantedProduce: early houses (order < 3) ask only for TIER-1 produce', () =
   for (const id of got) assert.eq(Delivery.produceTier(id), 1, id + ' must be T1 for an early house');
 });
 
+test('bundleTheme: stable per house id, always a known theme key', () => {
+  const keys = Object.keys(Delivery.BUNDLE_THEMES);
+  assert.truthy(keys.length >= 2, 'there are multiple themes');
+  const t1 = Delivery.bundleTheme({ id: 'house-42' });
+  assert.truthy(keys.includes(t1), 'theme is one of the known keys');
+  assert.eq(Delivery.bundleTheme({ id: 'house-42' }), t1, 'same id → same theme');
+  // Different ids should spread across themes (not all collapse to one).
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) seen.add(Delivery.bundleTheme({ id: 'h' + i }));
+  assert.truthy(seen.size >= 2, 'distinct ids reach more than one theme');
+});
+
+test('wantedProduce: a standing house draws a coherent bundle from its theme', () => {
+  // 6 plain houses, fully unlocked tier cap → house "e" (order 4) is past the
+  // early/4th special cases, so it should draw from its theme pool.
+  const save = {
+    deliveryCount: 500,
+    restoredHouses: { a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain' },
+  };
+  const house = { id: 'e' };
+  assert.eq(Delivery.houseOrder(save, house), 4, 'house e is order 4 (not early, not the 4th)');
+  const theme = Delivery.bundleTheme(house);
+  const pool = Delivery.BUNDLE_THEMES[theme];
+  const got = Delivery.wantedProduce(save, house, JUNE6);
+  assert.inRange(got.length, 2, 3, 'asks for 2-3 items');
+  for (const id of got) {
+    assert.truthy(ITEM_BY_ID[id], id + ' is a real item');
+    assert.truthy(pool.includes(id), id + ' belongs to the "' + theme + '" theme');
+  }
+  // Deterministic per (id, day) on a fresh house object.
+  const again = Delivery.wantedProduce(save, { id: 'e' }, JUNE6);
+  assert.eq(JSON.stringify(again), JSON.stringify(got), 'deterministic for (id, day)');
+});
+
 test('wantedProduce: the 4th house (order 3) asks for the foraged-flower trio', () => {
   const trio = ['forgetmenot', 'marigold', 'wildrose'];
   if (!trio.every((id) => ITEM_BY_ID[id])) return;   // skip if the flower items aren't in this build
