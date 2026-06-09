@@ -141,6 +141,11 @@ const MINERAL_ICON_SHEET = {
   book:       { sheet: 'icon_book',   frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
+  // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
+  // Row 2 (y=32): frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  vigor_potion:  { sheet: 'icon_potions', frame: 11 },
+  speed_potion:  { sheet: 'icon_potions', frame: 12 },
+  shield_potion: { sheet: 'icon_potions', frame: 13 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -248,7 +253,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2, reach_potion: 2,
+  flute: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -322,7 +327,10 @@ const ITEMS = [
   { id: 'book',  name: 'Book',  kind: 'consumable' },
   // Potion of Reach: drink it (tap your own feet with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
-  { id: 'reach_potion', name: 'Potion of Reach', kind: 'consumable' },
+  { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
+  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
+  { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
+  { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -457,7 +465,10 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   flute: 12,
   book:  20,
-  reach_potion: 45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  vigor_potion:  35,   // T2 — instant 40-energy restore
+  speed_potion:  55,   // T2 — tier-9 ghost speed for 1 min
+  shield_potion: 40,   // T2 — half monster damage for 1 min
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -581,7 +592,10 @@ const ITEM_EFFECTS = {
   // Consumables used on yourself / the world.
   flute:        'Play to lure nearby chickens & cows toward you',
   book:         'Read for a play tip or a hint toward a chest',
-  reach_potion: 'Drink for full-screen reach (1 min)',
+  reach_potion:  'Drink for full-screen reach (1 min)',
+  vigor_potion:  'Drink to restore 40 energy',
+  speed_potion:  'Drink for tier-9 ghost speed (1 min)',
+  shield_potion: 'Drink for half monster damage (1 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };
 

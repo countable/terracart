@@ -215,7 +215,7 @@ function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * 
 const COLORS = {
   0: 0x479757,  // grass — matched to the Autotiles_Godot shore grass (rgb 71,151,87) so water/biome edges blend seamlessly into the grass field
   1: 0x2e6a2e,  // forest
-  2: 0xe6ae55,  // sand — matched to the Autotiles_Godot sand-fill (rgb 230,174,85) so the autotiled beach tiles blend with the flat fill
+  2: 0xe6ae55,  // sand — warm golden tan; procedural ripple texture overlaid
   3: 0x3a78c2,  // water
   4: 0xa39660,  // farmland — muddy pasture (muted olive-brown under the mud/grass texture)
   5: 0xada695,  // residential
@@ -1015,6 +1015,7 @@ class MapScene extends Phaser.Scene {
     this.joystickVec = { x: 0, y: 0 };
     this._ghostPadHeld = false;
     this._bodyM = null;
+    this._speedPotionActive = false;
     this._ghostDistAccrue = 0;   // meters of ghost travel since last energy pip
 
     // Debug-controls pad (opt-in via the ☰ menu). When save.debugControls is
@@ -1968,13 +1969,17 @@ class MapScene extends Phaser.Scene {
     // error so the underlying cause stays diagnosable on a phone.
     try {
     const dt = dtMs / 1000;
-    // Ghost-mode lifecycle: the pad is held iff the player has an amulet AND
-    // they're actively touching the pad. On the down-edge, snapshot the body
-    // into _bodyM and let `this.playerM` become the ghost. On the up-edge,
-    // collapse — restore playerM to the body and tidy ghost render state.
-    // Amulet ghost mode is a surface-only scouting tool. Underground the cave
-    // ghost-follow model owns the ghost concept, so don't let the two fight.
-    const ghostEligible = !!this.save.relics?.amulet && this.depth === 0;
+    // Ghost-mode lifecycle: the pad is held iff the player has an amulet (or an
+    // active speed potion) AND they're actively touching the pad. On the
+    // down-edge, snapshot the body into _bodyM and let `this.playerM` become
+    // the ghost. On the up-edge, collapse. Underground the cave ghost-follow
+    // model owns the ghost concept, so don't let the two fight.
+    const speedPotionActive = (this.save.speedPotionUntil ?? 0) > Date.now();
+    if (this._speedPotionActive !== speedPotionActive) {
+      this._speedPotionActive = speedPotionActive;
+      if (!speedPotionActive) this.syncGhostPad();
+    }
+    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive) && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -2018,7 +2023,9 @@ class MapScene extends Phaser.Scene {
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = ghostSpeedMul(this.save.relics) || 8;
+      speedMul = speedPotionActive
+        ? ghostSpeedMul({ amulet: { tier: 9 } })
+        : ghostSpeedMul(this.save.relics) || 8;
     } else if (this._debugPadHeld && this.debugJoystickVec) {
       // Debug pad replaces the ghost pad while save.debugControls is on:
       // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
@@ -2680,7 +2687,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            this.save.energy = Math.max(0, before - 3);
+            const slimeDmg = (this.save.shieldPotionUntil ?? 0) > now ? 2 : 3;
+            this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
@@ -2699,7 +2707,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            this.save.energy = Math.max(0, before - m.dmg);
+            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(m.dmg / 2) : m.dmg;
+            this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
@@ -4207,6 +4216,42 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(
       '✨ You drink the Potion of Reach',
       'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
+    );
+  }
+
+  drinkVigorPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
+    const max = this.getMaxEnergy();
+    const restored = Math.min(40, max - (this.save.energy ?? 0));
+    this.save.energy = Math.min(max, (this.save.energy ?? 0) + 40);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return this._finishConsumable(
+      'You drink the Potion of Vigor',
+      restored > 0 ? `Energy restored by ${restored}.` : 'You were already at full energy.',
+    );
+  }
+
+  // Potion of Speed: unlocks the ghost pad at tier-9 speed for 1 minute, even
+  // without an amulet. ghostEligible + syncGhostPad both check speedPotionUntil.
+  drinkSpeedPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.speedPotionUntil = Date.now() + 60 * 1000;
+    this.syncGhostPad();
+    return this._finishConsumable(
+      'You drink the Potion of Speed',
+      'The ghost pad blazes with energy — tier-9 amulet speed for one minute.',
+    );
+  }
+
+  drinkShieldPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.shieldPotionUntil = Date.now() + 60 * 1000;
+    return this._finishConsumable(
+      'You drink the Potion of Shielding',
+      'A shimmering barrier wraps you — monster damage halved for one minute.',
     );
   }
 
@@ -6579,6 +6624,9 @@ class MapScene extends Phaser.Scene {
         icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
         // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
         icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
+        // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
+        // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+        icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
         icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
         icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
         icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -6701,7 +6749,7 @@ class MapScene extends Phaser.Scene {
   // slot — when save.debugControls is on the ghost pad is suppressed even
   // if an amulet is equipped.
   syncGhostPad() {
-    const has = !!this.save.relics?.amulet && !this.save.debugControls;
+    const has = (!!this.save.relics?.amulet || (this.save.speedPotionUntil ?? 0) > Date.now()) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7654,7 +7702,10 @@ class MapScene extends Phaser.Scene {
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
-      reach_potion: { verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?', get: '✨ full-screen reach for 1 min' },
+      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min' },
+      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
+      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
