@@ -428,27 +428,14 @@ const INTERACTABLES = {
     },
   },
 
-  // ---- Buildings + shrine: open their UIs ----------------------------------
-  // House / tower (castle turret) route to the shop; the shrine opens the
-  // level-up + transform UI. Tall sprites — their wider reach is handled by the
-  // tap loop before dispatch.
+  // ---- Buildings: open their UIs ------------------------------------------
+  // House / tower (castle turret) route to the shop. Tall sprites — their
+  // wider reach is handled by the tap loop before dispatch.
   house: {
     custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
   },
   tower: {
     custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
-  },
-  shrine: {
-    custom: (ctx, o) => {
-      const { scene, save, sx, sy } = ctx;
-      if (typeof scene.shrineInteract === 'function') {
-        scene.shrineInteract(sx, sy, o);
-      } else {
-        const lvl = save.shrineLevel || 1;
-        scene.flash(`shrine L${lvl}`, sx, sy);
-      }
-      return true;
-    },
   },
 };
 

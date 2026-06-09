@@ -34,8 +34,6 @@
     // active tab to Seeds and clear any gear selection.
     if (save.invCat === undefined) save.invCat = 'seed';
     if (save.selGear === undefined) save.selGear = null;
-    if (save.shrine === undefined) save.shrine = null;
-    if (save.shrineLevel === undefined) save.shrineLevel = 1;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
@@ -47,7 +45,6 @@
       const cleaned = save.chopped.filter((id) => !!id);
       if (cleaned.length !== save.chopped.length) save.chopped = cleaned;
     }
-    if (save.shrineReplacedId === undefined) save.shrineReplacedId = null;
     // Per-shop bucket state replaces the old shopDeals/shopOffers; offerSalt is a
     // once-per-save random so identical worlds differ across players.
     if (!save.shopState) {

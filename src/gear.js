@@ -13,9 +13,6 @@
 (function (root) {
   'use strict';
 
-  // Which smeltable bars unlock at which shrine level (mirrors the produce→bar
-  // transform unlocks). Moved here from a MapScene class field.
-  const SMELT_UNLOCK_LEVEL = { platinum_bar: 4, crimson_bar: 5, frost_bar: 6 };
 
   // Equip a bought / forged / looted relic or armor piece. Armor also recomputes
   // max energy and grants the freshly-unlocked headroom (captured BEFORE
@@ -122,12 +119,9 @@
     return RECIPES[barId] || null;
   }
 
-  // Which smeltable bars the forge will smelt right now, gated by shrine level
-  // (platinum L4, crimson L5, frost L6). Empty until shrine L4.
-  function smeltUnlockedBars(save) {
-    const lvl = save.shrineLevel ?? 1;
-    return ['platinum_bar', 'crimson_bar', 'frost_bar'].filter((id) => lvl >= SMELT_UNLOCK_LEVEL[id]);
+  function smeltUnlockedBars() {
+    return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
-  root.Gear = { SMELT_UNLOCK_LEVEL, equip, buildRelicOffer, blacksmithRecipe, smeltingRecipe, smeltUnlockedBars };
+  root.Gear = { equip, buildRelicOffer, blacksmithRecipe, smeltingRecipe, smeltUnlockedBars };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -2,8 +2,8 @@
 // Sprite layout — the ONE place the "one cell" placement rule lives.
 //
 // THE RULE (audited by tools/sprite_audit.js, documented in CLAUDE.md):
-//   For every world sprite EXCEPT buildings (house / tower / shrine / produce
-//   stands / pot-of-gold) and moving/animated actors (creatures):
+//   For every world sprite EXCEPT buildings (house / tower / produce stands
+//   / pot-of-gold) and moving/animated actors (creatures):
 //     1. The sprite's visible art must NEVER cross the cell's bottom edge.
 //     2. If the art FITS in the cell (height <= one cell) it is centred
 //        vertically in the cell.

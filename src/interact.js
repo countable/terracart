@@ -946,7 +946,7 @@ const TAP_HANDLERS = [
       // foot-cell chest and fell through to the till handler, starting a
       // phantom work wheel that made it feel like taps had stopped working.
       const isStand = o.kind === 'chest' && typeof produceStandFor === 'function' && !!produceStandFor(o);
-      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || o.kind === 'shrine' || isStand);
+      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || isStand);
       const r = tapReachM(scene, tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M);
       // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
       // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
@@ -976,7 +976,7 @@ const TAP_HANDLERS = [
       if (!withinReach && !inTapCell) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       // Every tap-driven world object (groundstack / chest / well / tree /
-      // mineralrock / fruittree / house / tower / shrine) is declared in the
+      // mineralrock / fruittree / house / tower) is declared in the
       // INTERACTABLES registry (interactables.js) and dispatched through one
       // shared driver instead of a per-kind if/else chain here. 'skip' = let
       // the tap fall through to the next object (e.g. a chopped tree stump or

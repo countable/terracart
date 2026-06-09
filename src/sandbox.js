@@ -190,13 +190,13 @@
     },
   };
 
-  // ── PLAYER PLAZA — spawn point. Crafting SHRINE, a WELL (can refill), a
+  // ── PLAYER PLAZA — spawn point. WIZARD TOWER, a WELL (can refill), a
   //    starter chest, and a tame chicken to catch. Coin drops, the in-reach
   //    treasure-X, and a placed rockfruit rock are seeded in seedSandboxState().
   const PLAZA = {
     name: 'PLAZA', label: 'PLAYER SPAWN', w: 9, h: 8, fill: T.GRASS,
     populate(s) {
-      s.shrine(4, 1);
+      s.wizardHouse(4, 1);
       s.well(1, 1);
       s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
@@ -489,9 +489,10 @@
         const { x, y } = at(dx, dy);
         objects.push({ kind: 'well', x, y, id: `${baseId}_well_${tag}_${dx}_${dy}` });
       },
-      shrine(dx, dy) {
+      wizardHouse(dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'shrine', x, y, id: `${baseId}_shrine_${tag}_${dx}_${dy}` });
+        const id = `${baseId}_wizardhouse_${tag}_${dx}_${dy}`;
+        objects.push({ kind: 'house', x, y, tier: WorldGen.T.BUILDING, address: 0, id, _wizardRole: true });
       },
       // Ore rock at a given yield tier. yieldTier drives BOTH the dropped bar
       // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
@@ -783,9 +784,12 @@
     // ── Restore every house in the sandbox tile. Tier-9 houses render as a
     //    generic "wreck" until restored — so without this, the blacksmith /
     //    market / trader sprites + signs + the plain-house produce plaque would
-    //    never appear. Mark them all restored on load.
+    //    never appear. Mark them all restored on load. Wizard houses get their
+    //    role string ('wizard') so houseShopRole resolves correctly.
     for (const o of (centreEntry?.objects || [])) {
-      if (o.kind === 'house' && o.id) save.restoredHouses[o.id] = true;
+      if (o.kind === 'house' && o.id) {
+        save.restoredHouses[o.id] = o._wizardRole ? 'wizard' : true;
+      }
     }
 
     // ── FARMLAND: a row of crops at every growth stage 0..4. The cell must be

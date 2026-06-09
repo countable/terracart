@@ -533,9 +533,9 @@ class MapScene extends Phaser.Scene {
     // reach centres on the player. ~2.6m.
     this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2.5 cells and grows to 5.5 via shrine upgrades. This field is
-    // retained as the legacy 3-cell constant for any external reference but is
-    // NO LONGER read by the reach gate.
+    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades. This field
+    // is retained as the legacy 3-cell constant for any external reference but
+    // is NO LONGER read by the reach gate.
     this.REACH_CELL_M = 16;   // legacy: √(5²+15²)+ε ≈ the old fixed 3-cell reach.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
@@ -1798,40 +1798,6 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Magic Crafting Shrine — one per game. REPLACES the nearest POI ≥200m
-    // from the player's start. We try to spawn on the current tile; if no
-    // qualifying POI here, the next loaded tile gets a shot. save.shrine
-    // pins the world position once chosen so the placement is stable across
-    // reloads. The replaced POI's id is tracked in save.shrineReplacedId
-    // so we can suppress its ghost in neighbouring tiles where the same
-    // chest replicates (worldgen seam handling).
-    if (!this.save.shrine) {
-      this._trySpawnShrineOnTile(entry, tx, ty);
-    }
-    if (this.save.shrine) {
-      // Always: filter out the replaced chest from THIS tile's objects.
-      // Worldgen rebuilds entry.objects on every load so the chest would
-      // otherwise come back like a zombie.
-      if (this.save.shrineReplacedId) {
-        entry.objects = (entry.objects || []).filter(
-          o => !(o.kind === 'chest' && o.id === this.save.shrineReplacedId)
-        );
-      }
-      // Always: if this tile owns the shrine's world position, ensure the
-      // shrine object is present.
-      const s = this.save.shrine;
-      if (
-        s.x >= tx0 && s.x < tx0 + this.tileEdgeM &&
-        s.y >= ty0 && s.y < ty0 + this.tileEdgeM
-      ) {
-        const already = (entry.objects || []).some(o => o.kind === 'shrine' && o.id === s.id);
-        if (!already) {
-          entry.objects = entry.objects || [];
-          entry.objects.push({ kind: 'shrine', x: s.x, y: s.y, id: s.id });
-        }
-      }
-    }
-
     // Player-planted fruit-tree saplings (save.fruittrees) → growing
     // `fruittree` objects on the tile that owns each one. Injected AFTER the
     // spawn-area strip above so a sapling planted near home survives. The
@@ -1917,35 +1883,6 @@ class MapScene extends Phaser.Scene {
       }
     }
     entry.creatures = creatures;
-  }
-
-  _trySpawnShrineOnTile(entry, tx, ty) {
-    if (this.save.shrine) return;
-    const sx = this.startWorldM.x, sy = this.startWorldM.y;
-    // Find POIs (chests are pinned to POIs) on this tile that are at least
-    // 200m from spawn. Walk objects, score by distance, take nearest.
-    const MIN_DIST_M = 200;
-    let bestIdx = -1, bestD2 = Infinity;
-    const objs = entry.objects || [];
-    for (let i = 0; i < objs.length; i++) {
-      const o = objs[i];
-      if (o.kind !== 'chest') continue;
-      const dx = o.x - sx, dy = o.y - sy;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < MIN_DIST_M * MIN_DIST_M) continue;
-      if (d2 < bestD2) { bestIdx = i; bestD2 = d2; }
-    }
-    if (bestIdx < 0) return;
-    // REPLACE the chest with the shrine at the same world position. The
-    // chest id is recorded in save.shrineReplacedId so spawnInTile can
-    // suppress it on every tile load (including the other tiles where
-    // worldgen mirrors the same POI at the seam).
-    const replaced = objs[bestIdx];
-    const id = `shrine_${tx}_${ty}_${Math.round(replaced.x)}_${Math.round(replaced.y)}`;
-    this.save.shrine = { id, x: replaced.x, y: replaced.y };
-    this.save.shrineReplacedId = replaced.id;
-    objs.splice(bestIdx, 1, { kind: 'shrine', x: replaced.x, y: replaced.y, id });
-    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // Dark-outlined, solid-filled arrow triangle (facing indicator + pairy
@@ -5548,7 +5485,7 @@ class MapScene extends Phaser.Scene {
   }
 
   smeltUnlockedBars() {
-    return Gear.smeltUnlockedBars(this.save);
+    return Gear.smeltUnlockedBars();
   }
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
@@ -5582,10 +5519,10 @@ class MapScene extends Phaser.Scene {
     ];
     if (!bars.length) {
       this.showOfferModal({
-        title: 'The forge can smelt — once the shrine wills it',
+        title: 'Nothing to smelt',
         cancelLabel: 'Later',
-        get: 'Nothing to smelt yet',
-        blurb: 'Level the Magic Shrine to L4 (platinum), L5 (crimson), or L6 (frost) to smelt top bars here.',
+        get: 'No ingredients yet',
+        blurb: 'Gather the ingredients to smelt platinum, crimson, or frost bars here.',
         cost: '',
         canAfford: false,
         acceptLabel: 'Close',
@@ -5657,64 +5594,6 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // ─── Magic Crafting Shrine ───────────────────────────────────────
-  // The shrine is a per-game upgradable altar spawned near the player's
-  // start. Tap it to either (a) level it up by paying a harvest bundle of
-  // 5× three items at the next tier, or (b) trade a flower/produce for a
-  // matching bar using one of the transforms unlocked so far.
-  //
-  // Each level unlocks one new produce → bar transform. shrineLevel is the
-  // CURRENT level (capped at 7); shrineLevelUpCost(level) returns the cost
-  // to advance ABOVE that level.
-
-  // Cost to advance from `level` to `level + 1`. Always 5 × 3 distinct items
-  // at the same tier as the level you're currently sitting at.
-  shrineLevelUpCost(level) {
-    // Shrine caps at L6 since the transform table now ends there (the
-    // offset-by-1 fix made iceflower→frost the endgame; L7 had nothing
-    // left to unlock so it was dropped).
-    if (level >= 6) return null;
-    // Indexed by current level. Index 1 = the bundle to go from L1 → L2.
-    // T4-T5 substitute seeds for the missing animal-byproduct slot.
-    const BUNDLES = [, // 0: unused
-      [{ id: 'potato',     qty: 5 }, { id: 'egg',           qty: 5 }, { id: 'coal',         qty: 5 }],  // L1→L2 (T1)
-      [{ id: 'rainberry',  qty: 5 }, { id: 'milk',          qty: 5 }, { id: 'copper_bar',   qty: 5 }],  // L2→L3 (T2)
-      [{ id: 'coffee',     qty: 5 }, { id: 'meat',          qty: 5 }, { id: 'iron_bar',     qty: 5 }],  // L3→L4 (T3)
-      [{ id: 'sunflower',  qty: 5 }, { id: 'sunflower_seed',qty: 5 }, { id: 'gold_bar',     qty: 5 }],  // L4→L5 (T4)
-      [{ id: 'fireflower', qty: 5 }, { id: 'fireflower_seed',qty:5 }, { id: 'platinum_bar', qty: 5 }],  // L5→L6 (T5)
-    ];
-    return BUNDLES[level] || null;
-  }
-
-  // Transforms unlocked at each level. Index = level, value = { input, output }.
-  // Each transform is 1 produce → 1 bar. shrineLevel >= entry.level means
-  // the player has unlocked that transform.
-  // Per user: the trade table was offset by 1 — every output sat one tier
-  // lower than the player expected. Whole ladder bumped up one bar tier so
-  // rainberry→iron, coffee→gold, sunflower→platinum, fireflower→crimson,
-  // iceflower→frost. The previously-bottom copper_bar slot is no longer a
-  // shrine output (still available from mineralrocks + the blacksmith). L7
-  // unlocks no new transform — L6's iceflower→frost is the endgame.
-  static SHRINE_TRANSFORMS = [, // 0,1 unused
-    null,                                            // L1: nothing
-    { input: 'rainberry',  output: 'iron_bar' },     // L2
-    { input: 'coffee',     output: 'gold_bar' },     // L3
-    { input: 'sunflower',  output: 'platinum_bar' }, // L4
-    { input: 'fireflower', output: 'crimson_bar' },  // L5
-    { input: 'iceflower',  output: 'frost_bar' },    // L6 — endgame
-  ];
-
-  // All transforms the player currently has access to (level <= shrineLevel).
-  shrineTransforms() {
-    const lvl = this.save.shrineLevel || 1;
-    const out = [];
-    for (let i = 2; i <= Math.min(lvl, 7); i++) {
-      const t = MapScene.SHRINE_TRANSFORMS[i];
-      if (t) out.push({ level: i, ...t });
-    }
-    return out;
-  }
-
   // ─── Wizard tower: Inner Light (Discovery → reach) ───────────────
   // The wizard tower spends the player's Discovery badges on an "Inner
   // Light": each one is a +0.5-cell reach (range) upgrade on the reachUpgrades
@@ -5727,7 +5606,7 @@ class MapScene extends Phaser.Scene {
   // sale or at the smithy (see buildRelicOffer), so the only way to a Ring is
   // to widen your sight. syncInnerLightRing() is the single point that keeps the
   // ring tier in step with the light; it's called from every place the reach
-  // ladder advances (here AND the shrine claim).
+  // ladder advances.
   WIZARD_INNER_LIGHT_COST = 5;
   // Keep the Ring relic's tier locked to the inner-light level. Never downgrades
   // a ring the player somehow holds higher (e.g. a legacy forged ring on an old
@@ -5783,146 +5662,8 @@ class MapScene extends Phaser.Scene {
   // ─── Reach / Inner Light cap ─────────────────────────────────────
   // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
   // EXCLUSIVELY at the wizard tower's Inner Light (presentInnerLightOffer),
-  // which also forges the matching Ring tier — the shrine no longer grants
-  // reach.
+  // which also forges the matching Ring tier.
   REACH_UPGRADE_MAX = 6;
-
-  // Shrine tap handler. Presents a single-modal offer: either the next
-  // level-up bundle (if the player has every ingredient) OR a transform
-  // (if the player has matching produce selected). On the first tap with
-  // no selection we show the level-up bundle path.
-  shrineInteract(sx, sy, shrine) {
-    if (document.getElementById('offer-modal')) return;
-    const heldCount = (id) =>
-      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
-    const consume = (id, n) => {
-      let left = n;
-      for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-        const s = this.save.inv[i];
-        if (!s || s.id !== id) continue;
-        const take = Math.min(left, s.count ?? 0);
-        s.count -= take; left -= take;
-        if ((s.count ?? 0) <= 0) {
-          this.save.inv.splice(i, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-      }
-    };
-    const lvl = this.save.shrineLevel || 1;
-    const sel = this.save.inv[this.save.selSlot];
-    const transforms = this.shrineTransforms();
-
-    // If the player has a matching produce selected, offer the transform.
-    const matching = sel ? transforms.find(t => t.input === sel.id) : null;
-    if (matching && (sel.count ?? 0) > 0) {
-      const inItem = ITEM_BY_ID[matching.input];
-      const outItem = ITEM_BY_ID[matching.output];
-      this.showOfferModal({
-        title: 'The shrine glows. Transform?',
-        cancelLabel: 'Later',
-        get: `1× ${this.iconSpanHTML(matching.output)} ${outItem?.name || matching.output}`,
-        cost: `1× ${this.iconSpanHTML(matching.input)} ${inItem?.name || matching.input}`,
-        canAfford: true,
-        acceptLabel: 'Transform',
-        onAccept: () => {
-          if (heldCount(matching.input) < 1) { this.flash('Gone — already used.', sx, sy); return; }
-          consume(matching.input, 1);
-          this.addToInv(matching.output, 1);
-          persistSave(this.save);
-          this.buildInventoryDOM();
-          this.flashLoot(`✨ ${outItem?.name || matching.output}`, '#a7e9ff', 1.25, matching.output);
-        },
-      });
-      return;
-    }
-
-    // No matching produce selected — present the next level-up bundle. (Reach
-    // upgrades are no longer claimed here; the wizard tower's Inner Light is the
-    // sole source — see presentInnerLightOffer.)
-    const bundle = this.shrineLevelUpCost(lvl);
-    if (!bundle) {
-      // Maxed out at top level — list the transforms (+ reach status / claim).
-      const lines = transforms.map(t => {
-        const i = ITEM_BY_ID[t.input], o = ITEM_BY_ID[t.output];
-        return `${this.iconSpanHTML(t.input)} ${i?.name} → ${this.iconSpanHTML(t.output)} ${o?.name}`;
-      }).join('<br>');
-      this.showOfferModal({
-        title: `Magic Crafting Shrine (Level ${lvl})`,
-        cancelLabel: 'Later',
-        get: `the shrine hums at full power`,
-        blurb: `Hold a matching produce + tap to transform:<br>${lines}`,
-        cost: '',
-        canAfford: false,
-        acceptLabel: 'Close',
-        onAccept: () => {},
-      });
-      return;
-    }
-
-    const canAfford = bundle.every(r => heldCount(r.id) >= r.qty);
-    // Cost is rendered as one row per ingredient instead of "A + B + C" on
-    // one line — three "5× ICON Name" segments overflow the 340px modal width
-    // and wrap mid-ingredient, splitting an icon from its label.
-    const costHTML = bundle.map(r => {
-      const it = ITEM_BY_ID[r.id];
-      const have = heldCount(r.id);
-      const ok = have >= r.qty;
-      const color = ok ? '#a7ffb0' : '#ff8a7a';
-      return `<div style="color:${color};margin:2px 0">`
-        + `${r.qty}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}`
-        + `<span style="opacity:.5;font-size:11px;margin-left:6px">(have ${have})</span>`
-        + `</div>`;
-    }).join('');
-    const transformsBlurb = transforms.length
-      ? `Unlocked: ${transforms.map(t => `${ITEM_BY_ID[t.input]?.name}→${ITEM_BY_ID[t.output]?.name}`).join(' · ')}`
-      : 'No transforms unlocked yet.';
-    this.showOfferModal({
-      title: `Magic Crafting Shrine (Level ${lvl})`,
-      cancelLabel: 'Later',
-      get: `Advance to Level ${lvl + 1}`,
-      blurb: transformsBlurb,
-      cost: costHTML,
-      canAfford,
-      acceptLabel: 'Offer',
-      onAccept: () => {
-        if (!bundle.every(r => heldCount(r.id) >= r.qty)) {
-          const missing = bundle.find(r => heldCount(r.id) < r.qty);
-          const it = ITEM_BY_ID[missing.id];
-          this.flash(`need ${missing.qty} ${it?.name || missing.id}`, sx, sy);
-          return;
-        }
-        for (const r of bundle) consume(r.id, r.qty);
-        this.save.shrineLevel = (this.save.shrineLevel || 1) + 1;
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        const newLvl = this.save.shrineLevel;
-        const newTransform = MapScene.SHRINE_TRANSFORMS[newLvl];
-        const unlockMsg = newTransform
-          ? `Unlocked: ${this.iconSpanHTML(newTransform.input)} ${ITEM_BY_ID[newTransform.input]?.name} → ${this.iconSpanHTML(newTransform.output)} ${ITEM_BY_ID[newTransform.output]?.name}`
-          : 'the shrine hums at full power';
-        // Wizard's house frame for the new level — 320×208 sheet, 80×104 per
-        // frame, top row only. Same level→frame mapping as render.js.
-        const frame = Math.min(3, Math.floor((newLvl - 1) / 2));
-        const fcol = frame, frow = 0;
-        const ICON_SIZE = 96;            // big icon slot in the reward modal
-        const SCALE = ICON_SIZE / 80;    // scale the 80-wide frame up to ICON_SIZE
-        const iconHTML = `<span style="display:inline-block;width:${ICON_SIZE}px;height:${Math.round(104 * SCALE)}px;`
-          + `background-image:url('assets/Objects/Houses/wizard.png');`
-          + `background-size:${Math.round(320 * SCALE)}px ${Math.round(208 * SCALE)}px;`
-          + `background-position:-${fcol * ICON_SIZE}px -${frow * Math.round(104 * SCALE)}px;`
-          + `image-rendering:pixelated"></span>`;
-        this.showChestRewardModal({
-          header: '✨ Shrine ascended ✨',
-          iconHTML,
-          name: `Level ${newLvl}`,
-          sub: unlockMsg,
-          color: '#a7e9ff',
-        });
-      },
-    });
-  }
 
   // Trader offer: barter-only, qty scaled to a target trade value. The trader
   // picks an item to give the player, picks an asking item from inventory,
@@ -6220,8 +5961,8 @@ class MapScene extends Phaser.Scene {
           url = c.toDataURL();
         }
       } else if (role === 'wizard') {
-        // Wizard towers reuse the shrine spritesheet (wizard.png); crop the
-        // fully-restored top-row tower frame (frame 3 = cols×80px → x:240).
+        // Wizard towers use wizard.png; crop the fully-restored top-row frame
+        // (frame 3 = col×80px → x:240).
         const src = this.textures.get('shrine')?.getSourceImage();
         if (src) {
           const c = document.createElement('canvas');
@@ -6471,9 +6212,8 @@ class MapScene extends Phaser.Scene {
       : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
           next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house));
     // Forge / Smelt tab row — only on a normal smithy (not the starter
-    // wooden-tool queue) once the shrine has unlocked at least one smelt
-    // recipe. Switching to Smelt re-presents this same forge offer as the
-    // "back" target so the player can toggle freely.
+    // wooden-tool queue). Switching to Smelt re-presents this same forge
+    // offer as the "back" target so the player can toggle freely.
     const tabs = (!opts.noReroll && this.smeltUnlockedBars().length)
       ? [
           { label: 'Forge', active: true,  onSelect: () => {} },
@@ -6602,7 +6342,7 @@ class MapScene extends Phaser.Scene {
         // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
         // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
         // Without this entry, every bar fell through to crops.png frame 0 and
-        // rendered as a grass sprout in shrine / smith trade modals.
+        // rendered as a grass sprout in smith trade modals.
         bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
         // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
         icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
@@ -7239,7 +6979,7 @@ class MapScene extends Phaser.Scene {
     // box's real on-screen footprint (it's flex-centred, so the rect depends
     // on viewport size). Each sparkle is parented to wrap and animates from
     // a randomised point on the box perimeter outward along its --dx/--dy
-    // vector. Tier colour bleeds into the glow so chest/shrine/etc each
+    // vector. Tier colour bleeds into the glow so chests/etc each
     // sparkle in their own hue.
     requestAnimationFrame(() => {
       const wr = wrap.getBoundingClientRect();

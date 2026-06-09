@@ -685,9 +685,9 @@ Render.drawCells = function drawCells(scene) {
   // "too far" — eliminating the duplicated math closes any way for the
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
   // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
-  // otherwise the radius is 2.5 cells growing to 5.5 via shrine upgrades, then
-  // shrunk half a cell per level underground (floored at 1.5). isReach delegates
-  // entirely so the visual outline and tap-accept are always byte-identical.
+  // otherwise the radius is 2.5 cells growing to 5.5 via Inner Light upgrades,
+  // then shrunk half a cell per level underground (floored at 1.5). isReach
+  // delegates entirely so the visual outline and tap-accept are always byte-identical.
   const isReach = (col, row) => {
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
@@ -1079,7 +1079,7 @@ Render.drawObjects = function drawObjects(scene) {
       },
       // Plain houses pick the 'front' sub-rect of the house tileset; wizard
       // towers pick the fully-restored top-row tower frame (frame 3) of the
-      // shrine sheet; other themed PNGs are single-image (frame undefined).
+      // wizard sheet; other themed PNGs are single-image (frame undefined).
       frame: (o) => {
         const role = _houseRole(o);
         if (role === 'plain')  return 'front';
@@ -1092,9 +1092,9 @@ Render.drawObjects = function drawObjects(scene) {
       // footprint left the southern cells bare and pushed the roof off the top
       // edge — the house read as shoved up, not centred on its tiles. A centred
       // anchor (origin 0.5,0.5 + no nudge) keeps the art over its footprint.
-      // The wizard tower is the exception: it's a tall shrine sprite that must
+      // The wizard tower is the exception: it's a tall sprite that must
       // stand foot-seated at the cell's front edge, so it keeps the bottom
-      // anchor + a downward nudge like the standalone shrine.
+      // anchor + a downward nudge.
       origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
       dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
       scale: (o) => {
@@ -1324,16 +1324,6 @@ Render.drawObjects = function drawObjects(scene) {
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
     well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
-    // Magic Crafting Shrine — wizard's house 80×104 sprite, top-row frames
-    // 0-3 (blue-ivy, purple-ivy, blue-clean, purple-clean). Pairs of shrine
-    // levels share a frame so the tower visibly upgrades: L1-2→0, L3-4→1,
-    // L5-6→2, L7→3 (fully restored).
-    shrine: { key: 'shrine',
-              frame: (o) => {
-                const lvl = Math.min(7, Math.max(1, scene.save.shrineLevel || 1));
-                return Math.min(3, Math.floor((lvl - 1) / 2));
-              },
-              origin: [0.5, 1.0], scale: 0.6, dyPx: CELL_PX * 0.5 },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.

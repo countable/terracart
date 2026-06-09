@@ -117,10 +117,9 @@ const ASSETS = {
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch). Foot-anchored near the base so it stands on its cell.
   well:           { kind: 'image', path: 'assets/Objects/Wilderness/well.png' },
-  // Magic Crafting Shrine — 320×208 wizard's house sheet, 4 cols × 2 rows of
-  // 80×104 (top row = 4 tower variants: blue-ivy, purple-ivy, blue-clean,
-  // purple-clean). Shrine levels 1-7 step through frames 0-3 (pairs of levels
-  // share a frame) so the tower visibly upgrades: overgrown → restored.
+  // Wizard tower — 320×208 sheet, 4 cols × 2 rows of 80×104.
+  // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
+  // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
   // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
