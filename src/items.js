@@ -771,7 +771,13 @@ function gearAssetPath(kind, slot, tier) {
   if (!def || !t) return null;
   // Ring + amulet live under Extras (single icon, tier shown as a badge).
   // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
-  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bugnet' || slot === 'bags')) {
+  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bags')) {
+    return `assets/Icons/RPG icons/Extras/${def.icon}`;
+  }
+  // bugnet: tier 1 (Wood) has dedicated brown art; other tiers fall back to the
+  // generic Extras icon (which reads as metal — fine for iron/gold/frost tiers).
+  if (kind === 'relic' && slot === 'bugnet') {
+    if (tier === 1) return `assets/Icons/RPG icons/Weapons and Armor/1. Wood/${def.icon}`;
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
   // The watering can only ships Wood-tier art — there is no per-tier file, so

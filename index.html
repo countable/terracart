@@ -611,13 +611,24 @@
     // here, inline in the click. The promise resolution can be async; the
     // call itself just has to originate inside the click stack.
     let __safetyDismissed = false;
-    document.getElementById('safety-dismiss').addEventListener('click', async (e) => {
+    // On a GPS-triggered location.reload() (new save home capture), sessionStorage
+    // persists across the reload. Auto-dismiss the safety splash so it doesn't
+    // appear a second time — the user already acknowledged it this session.
+    try {
+      if (sessionStorage.getItem('terracart.safetySeen')) {
+        __safetyDismissed = true;
+        document.getElementById('safety')?.remove();
+        window.__compassPerm = window.__compassPerm || 'granted';
+      }
+    } catch {}
+    document.getElementById('safety-dismiss')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       // Guard against the handler running twice. On iOS the permission prompt
       // below is awaited BEFORE the splash is removed, so a second tap (or a
       // synthesized re-fire) could re-enter and play the opening story twice.
       if (__safetyDismissed) return;
       __safetyDismissed = true;
+      try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
       // Remove the splash up front so a queued second tap can't land on it again
       // while we're awaiting the permission prompt.
       document.getElementById('safety')?.remove();
@@ -811,7 +822,7 @@
   <script src="src/worldgen.js?v=196"></script>
   <script src="src/textures.js?v=154"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=184"></script>
+  <script src="src/items.js?v=185"></script>
   <script src="src/inventory.js?v=1"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
