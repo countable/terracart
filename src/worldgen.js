@@ -2486,18 +2486,32 @@
     const next = _overpassWaiters.shift();
     if (next) next(); else _overpassActive--;   // hand the slot straight to a waiter
   }
+  // Negative-cache TTLs: after a failed Overpass fetch we store a sentinel in
+  // IDB so the next page reload doesn't hammer the server again immediately.
+  // 429 (rate-limited) gets a longer backoff than a generic network error.
+  const OVERPASS_FAIL_TTL_MS = 5  * 60 * 1000;   // 5 min — transient / load-shed
+  const OVERPASS_429_TTL_MS  = 15 * 60 * 1000;   // 15 min — rate limited
+
   // Per-tile cache + in-flight dedup so a tile is queried at most once.
   const _overpassInflight = new Map();
   async function fetchOverpassBin(x, y, lat) {
     const key = `ovp/${Z}/${x}/${y}`;
     const cached = await idbGet(key);
-    if (cached) return cached;                 // already-transformed bin
+    if (cached) {
+      if (cached._failed) {
+        if (Date.now() < (cached.until ?? 0)) return null;   // backoff still active
+        // else: TTL expired — fall through and retry
+      } else {
+        return cached;                         // real bin
+      }
+    }
     if (_overpassInflight.has(key)) return _overpassInflight.get(key);
     const p = (async () => {
       await overpassAcquire();
       try {
         const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
         let json = null;
+        let got429 = false;
         for (const ep of OVERPASS_ENDPOINTS) {
           // Per-attempt abort timeout: a slow/hung Overpass request must never
           // wedge here, or the status sticks on FETCHING forever AND its
@@ -2511,13 +2525,19 @@
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
               signal: ctrl ? ctrl.signal : undefined,
             });
-            if (!resp.ok) continue;            // 429 / load-shed → next mirror
+            if (resp.status === 429) { got429 = true; continue; }
+            if (!resp.ok) continue;            // load-shed → next mirror
             json = await resp.json();
             break;
           } catch (_) { /* abort/network error → try next endpoint */ }
           finally { if (timer) clearTimeout(timer); }
         }
-        if (!json) { ovpNote(x, y, 'failed'); return null; }   // fail soft: no decoration, retry later
+        if (!json) {
+          // Negative-cache so reloads don't immediately retry the same tile.
+          const ttl = got429 ? OVERPASS_429_TTL_MS : OVERPASS_FAIL_TTL_MS;
+          idbPut(key, { _failed: true, until: Date.now() + ttl });
+          ovpNote(x, y, 'failed'); return null;
+        }
         const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
         // Features near the bbox edge can project into a neighbour tile; we
         // keep only this tile's bin (neighbours fetch their own bbox).
@@ -2546,7 +2566,14 @@
     const key = `ovp/${Z}/${x}/${y}`;
     let cached = null;
     try { cached = await idbGet(key); } catch (_) { cached = null; }   // local, fast, can't hang on the network
-    if (cached) { ovpNote(x, y, 'cache', cached); return cached; }
+    if (cached) {
+      if (cached._failed) {
+        if (Date.now() < (cached.until ?? 0)) return null;   // within backoff window — don't retry
+        // else: TTL expired — fall through and let fetchOverpassBin retry
+      } else {
+        ovpNote(x, y, 'cache', cached); return cached;
+      }
+    }
     ovpNote(x, y, 'fetching');
     fetchOverpassBin(x, y, lat).catch(() => {});   // fire-and-forget; lands in IDB
     return null;
