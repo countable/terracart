@@ -115,7 +115,7 @@ const BORDER_W   = 2;
 const WAVE_AMP   = 1;
 const WAVE_LEN   = 16;
 const BORDER_DIM = 0.72;
-const BORDER_TRANS_SKIP = new Set([2, 3, 9, 11, 12]); // water, sand, buildings
+const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
 const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
 const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
 const _WAVE_TABLE = (() => {
@@ -216,7 +216,7 @@ Render.drawCells = function drawCells(scene) {
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-  const FLAT_ROUNDABLE = new Set([3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);   // water, residential, all roads, path, all buildings, rock, cave wall
+  const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
   const CORNER_R = 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
@@ -387,17 +387,9 @@ Render.drawCells = function drawCells(scene) {
       }
 
       // Procedural texture overlay for every ground cell.
-      // WATER (type 3) gets a Wang-autotile lookup instead of a procedural
-      // variant: the cardinal-neighbour mask picks one of 9 frames from the
-      // 'terrains' spritesheet so water-grass borders show hand-drawn edges
-      // instead of a hard colour cut. Rare mask values (peninsula / strip /
-      // isolated — 7 of 16) fall back to the centre fill. See
-      // WATER_AUTOTILE_FRAME in textures.js for the mapping.
-      //
-      // Seam caveat: T() returns 0 (grass) for unloaded neighbour tiles, so
-      // a water cell at a not-yet-loaded tile edge will briefly render the
-      // wrong edge frame until the adjacent MVT tile arrives. Self-corrects
-      // on the next frame after load — not worth special-casing today.
+      // All terrain types — including water and sand — use a procedural biome
+      // texture (biome{type}_{variant}); transitions are handled by the wavy
+      // dark border drawn in gb2 above.
       {
         const ns = scene.noisePool[noiseIdx++];
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
@@ -405,52 +397,6 @@ Render.drawCells = function drawCells(scene) {
         let texFrame; // undefined = use whole-image; defined = sheet frame index
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
-        } else if (type === 3) {
-          // 8-neighbour BLOB autotile (see WATER_BLOB in textures.js). Bit set
-          // = that neighbour is also water. Convention: TL=1,T=2,TR=4,L=8,R=16,
-          // BL=32,B=64,BR=128. The blob draws inner corners the old cardinal
-          // Wang could not — closing the shore gaps.
-          // SAND counts as "same" here so water stays SOLID up to a beach
-          // waterline (no grass edge there) — the sand cell draws the sand↔water
-          // transition (see SAND_WATER_BLOB in the type===2 branch). Water still
-          // grass-edges against grass (lakes unchanged).
-          const W = (t) => (t === 3 || t === 2 ? 1 : 0);
-          const mask = W(T(col - 1, row - 1)) * 1
-                     + W(T(col,     row - 1)) * 2
-                     + W(T(col + 1, row - 1)) * 4
-                     + W(T(col - 1, row    )) * 8
-                     + W(T(col + 1, row    )) * 16
-                     + W(T(col - 1, row + 1)) * 32
-                     + W(T(col,     row + 1)) * 64
-                     + W(T(col + 1, row + 1)) * 128;
-          texKey = 'autotiles';
-          texFrame = WATER_BLOB[mask] ?? WATER_BLOB_CENTER;
-        } else if (type === 2) {
-          // SAND beaches — 8-neighbour blob (bit set = neighbour is also sand).
-          // The blob SHAPE is sand-vs-not-sand; which EDGE palette we draw is
-          // chosen by the dominant non-sand cardinal neighbour: water → the
-          // sand↔water tiles (SAND_WATER_BLOB, sand rounding into the sea), else
-          // grass → the grass↔sand tiles (SAND_BLOB). So sand→grass and
-          // sand→water both read cleanly; only a 1-cell sand strip touching both
-          // at once has to pick one (ties favour the waterline).
-          const S = (t) => (t === 2 ? 1 : 0);
-          const mask = S(T(col - 1, row - 1)) * 1
-                     + S(T(col,     row - 1)) * 2
-                     + S(T(col + 1, row - 1)) * 4
-                     + S(T(col - 1, row    )) * 8
-                     + S(T(col + 1, row    )) * 16
-                     + S(T(col - 1, row + 1)) * 32
-                     + S(T(col,     row + 1)) * 64
-                     + S(T(col + 1, row + 1)) * 128;
-          let wN = 0, gN = 0;
-          for (const t of [T(col, row - 1), T(col + 1, row), T(col, row + 1), T(col - 1, row)]) {
-            if (t === 2) continue;            // sand neighbour — not an edge
-            if (t === 3) wN++; else gN++;     // water vs everything else
-          }
-          const useWater = wN > 0 && wN >= gN; // water-dominant (ties favour water)
-          texKey = 'autotiles';
-          texFrame = useWater ? (SAND_WATER_BLOB[mask] ?? SAND_WATER_BLOB_CENTER)
-                              : (SAND_BLOB[mask] ?? SAND_BLOB_CENTER);
         } else {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
@@ -475,11 +421,7 @@ Render.drawCells = function drawCells(scene) {
         if (texKey) {
           if (texFrame !== undefined) ns.setTexture(texKey, texFrame);
           else ns.setTexture(texKey);
-          // setTexture changes the sprite's intrinsic width/height to match
-          // the new frame. Procedural biome textures are baked at CELL_PX so
-          // the original setDisplaySize(CELL_PX, CELL_PX) still produces the
-          // right size, but the 'terrains' sheet frames are 16×16 — without
-          // re-applying displaySize, water cells would render at half size.
+          // setTexture resets the sprite's intrinsic size; re-apply CELL_PX.
           ns.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
