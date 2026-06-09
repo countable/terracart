@@ -2574,9 +2574,15 @@
         ovpNote(x, y, 'cache', cached); return cached;
       }
     }
+    return null;   // not cached yet; caller must call warmOverpass() to schedule the fetch
+  }
+
+  // Schedule a background Overpass fetch for one tile. Call this only for the
+  // tile the player is currently in — not for every neighbour loaded on startup.
+  function warmOverpass(x, y, lat) {
+    if (!overpassLiveEnabled()) return;
     ovpNote(x, y, 'fetching');
-    fetchOverpassBin(x, y, lat).catch(() => {});   // fire-and-forget; lands in IDB
-    return null;
+    fetchOverpassBin(x, y, lat).catch(() => {});
   }
 
   // --- Underground cave generation (depth > 0) ---------------------------
@@ -2870,6 +2876,7 @@
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
     setOverpassLive: (b) => { _overpassLive = !!b; },
+    warmOverpass,        // schedule Overpass fetch for one tile (centre only)
     overpassTileInfo,   // one-line status for a tile, surfaced in TILE DEBUG
   };
 })(window);

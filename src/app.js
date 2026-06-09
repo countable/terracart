@@ -1420,6 +1420,10 @@ class MapScene extends Phaser.Scene {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       needed.add(`${cell.tx + dx}/${cell.ty + dy}`);
     }
+    // Overpass is fired only for the centre tile (the one the player is in).
+    // Neighbours get their Overpass fetch when the player walks into them and
+    // they become the centre tile on the next ensureTilesAround call.
+    WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
     let anyFailed = false;
     for (const k of needed) {
       const [tx, ty] = k.split('/').map(Number);
