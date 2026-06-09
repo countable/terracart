@@ -26,6 +26,33 @@
   const PRODUCE_TIER_MAX = 7;
   const TIER_UNLOCK_EVERY = 20;
 
+  // Themed wishlists — instead of a uniform grab-bag, every standing delivery
+  // house has a "taste" so the bundle it asks for reads as a coherent set
+  // ("the fisherman's cottage wants shells + a coconut", "the smithy row wants
+  // coal + copper"). Each theme is an ordered pool of item ids; the daily roll
+  // draws 2-3 from whichever items the tier cap has unlocked. The theme is
+  // stable per house (see bundleTheme), so a household keeps its character day
+  // to day while the specific items inside the theme rotate.
+  //
+  // Pools are intentionally generous and span tiers so a theme always has at
+  // least a couple of low-tier members for early players. Ids that aren't in a
+  // given build are filtered out at roll time, so missing items are harmless.
+  const BUNDLE_THEMES = {
+    // Beach — sand + shore + shallows: shells, washed-up coconut, the fish ladder.
+    beach:   ['shell', 'boot', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'coconut'],
+    // Forage — wild-picked debris and prized foraged flora.
+    forage:  ['flowers', 'longgrass', 'mushroom', 'berry', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
+    // Mining — rock-break spoils and forge bars, climbing the gem/metal ladder.
+    mining:  ['wood', 'coal', 'copper_bar', 'iron_bar', 'sapphire', 'gold_bar', 'ruby', 'platinum_bar', 'emerald', 'crimson_bar', 'frost_bar'],
+    // Harvest — farmed crops and orchard fruit, the core farming loop.
+    harvest: ['potato', 'rockfruit', 'berry', 'cress', 'onion', 'rainberry', 'pairy', 'nut',
+              'apple', 'cherry', 'peach', 'apricot', 'orange', 'coffee', 'gemfruit', 'banana',
+              'sunflower', 'fireflower', 'iceflower'],
+    // Animal products — barnyard + butcher output: eggs, milk, meat, pelts, feathers.
+    animal:  ['egg', 'milk', 'crow_feather', 'rabbit_pelt', 'meat'],
+  };
+  const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
+
   // UTC day stamp "YYYYMMDD" — wishlists reset on the day boundary.
   function dayKey(now = new Date()) {
     return now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -82,6 +109,20 @@
     return -1;
   }
 
+  // The standing "taste" of a delivery house — one of BUNDLE_THEME_KEYS,
+  // chosen by a stable FNV-1a hash of the house id alone (NOT the day), so a
+  // household keeps the same theme every day while the items inside it rotate.
+  function bundleTheme(house) {
+    if (!house?.id) return BUNDLE_THEME_KEYS[0];
+    let h = 2166136261 >>> 0;
+    const s = String(house.id) + '|theme';
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return BUNDLE_THEME_KEYS[h % BUNDLE_THEME_KEYS.length];
+  }
+
   // First 3 restored delivery houses get pinned to TIER-1 wishlists.
   function isEarly(save, house) {
     const o = houseOrder(save, house);
@@ -94,58 +135,76 @@
     return (save.houseSatisfied?.[house.id]) === dayKey(now);
   }
 
-  // 2-3 produce ids this plain house wants today, drawn from produce up to the
-  // current tierCap and cached on the house per day. Special cases: the 4th
-  // delivery house wants the foraged-flower trio; the first 3 are pinned to
-  // TIER-1 produce.
+  // Every sellable produce id in the build — the general fall-back pool when a
+  // theme has too few tier-unlocked members to fill a bundle.
+  function produceUniverse() {
+    return (typeof ITEMS !== 'undefined')
+      ? ITEMS.filter((i) => i.kind === 'produce').map((i) => i.id)
+      : [];
+  }
+
+  // 2-3 item ids this plain house wants today, cached on the house per day.
+  // Each standing house draws a COHERENT bundle from its theme (beach / forage
+  // / mining / harvest / animal) limited to what the tier cap has unlocked, so
+  // wishlists read as themed sets rather than a random grab-bag. Special cases:
+  // the first 3 houses are pinned to gentle TIER-1 produce, and the 4th house
+  // gets the scripted foraged-flower trio.
   function wantedProduce(save, house, now = new Date()) {
     if (!house?.id) return [];
     const dk = dayKey(now);
     if (house._wantedProduce && house._wantedProduceDay === dk) return house._wantedProduce;
+    const remember = (picks) => {
+      house._wantedProduce = picks;
+      house._wantedProduceDay = dk;
+      return picks;
+    };
 
     // 4th delivery house → scripted foraged-flower trio (nudge toward picking).
     if (houseOrder(save, house) === 3) {
       const trio = ['forgetmenot', 'marigold', 'wildrose'].filter((id) => ITEM_BY_ID[id]);
-      if (trio.length) {
-        house._wantedProduce = trio;
-        house._wantedProduceDay = dk;
-        return trio;
+      if (trio.length) return remember(trio);
+    }
+
+    const cap = tierCap(save);
+    // Pick the pool this house draws from.
+    let pool;
+    if (isEarly(save, house)) {
+      // First 3 houses only ask for TIER-1 produce (the starter loop never
+      // demands a crop the player can't yet grow).
+      const universe = produceUniverse();
+      pool = universe.filter((id) => produceTier(id) <= 1);
+      if (!pool.length) pool = universe.slice();
+    } else {
+      // Standing houses draw from their theme, limited to tier-unlocked items.
+      // .filter returns a fresh array, so it's safe for the draw to splice it
+      // without mutating the shared BUNDLE_THEMES pool.
+      const theme = bundleTheme(house);
+      pool = (BUNDLE_THEMES[theme] || [])
+        .filter((id) => ITEM_BY_ID[id] && produceTier(id) <= cap);
+      // Too few in-theme items unlocked yet → fall back to the general
+      // tier-capped produce pool so the house still has a full set to ask for.
+      if (pool.length < 2) {
+        const universe = produceUniverse();
+        pool = universe.filter((id) => produceTier(id) <= cap);
+        if (!pool.length) pool = universe.slice();
       }
     }
-
-    let universe = (typeof ITEMS !== 'undefined')
-      ? ITEMS.filter((i) => i.kind === 'produce').map((i) => i.id)
-      : [];
-    if (!universe.length) return [];
-
-    // First 3 houses only ask for TIER-1 produce (the starter loop never demands
-    // a crop the player can't yet grow).
-    if (isEarly(save, house)) {
-      const t1 = universe.filter((id) => produceTier(id) <= 1);
-      if (t1.length) universe = t1;
-    }
-
-    // Only ask for produce the player can plausibly grow yet: everything up to
-    // the unlocked tier cap (falling back to the full set if nothing qualifies).
-    const cap = tierCap(save);
-    let pool = universe.filter((id) => produceTier(id) <= cap);
-    if (!pool.length) pool = universe.slice();
+    if (!pool.length) return remember([]);
 
     const rng = wantedRng(house, dk);
     const count = 2 + Math.floor(rng() * 2);   // 2 or 3
-    // Uniform draw without replacement from the unlocked pool.
+    // Uniform draw without replacement from the chosen pool.
     const picks = [];
     while (picks.length < count && pool.length) {
       const idx = Math.floor(rng() * pool.length);
       picks.push(pool.splice(idx, 1)[0]);
     }
-    house._wantedProduce = picks;
-    house._wantedProduceDay = dk;
-    return picks;
+    return remember(picks);
   }
 
   root.Delivery = {
-    PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY,
-    dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied, wantedProduce,
+    PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY, BUNDLE_THEMES,
+    dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
+    bundleTheme, wantedProduce,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
