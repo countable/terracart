@@ -86,16 +86,16 @@
       const count = cmdInt >> 3;
       if (cmd === 1) { // MoveTo
         for (let k = 0; k < count; k++) {
-          const dx = (cmds[i] >> 1) ^ -(cmds[i] & 1); i++;
-          const dy = (cmds[i] >> 1) ^ -(cmds[i] & 1); i++;
+          const dx = (cmds[i] >>> 1) ^ -(cmds[i] & 1); i++;
+          const dy = (cmds[i] >>> 1) ^ -(cmds[i] & 1); i++;
           x += dx; y += dy;
           cur = [{ x, y }];
           out.push(cur);
         }
       } else if (cmd === 2) { // LineTo
         for (let k = 0; k < count; k++) {
-          const dx = (cmds[i] >> 1) ^ -(cmds[i] & 1); i++;
-          const dy = (cmds[i] >> 1) ^ -(cmds[i] & 1); i++;
+          const dx = (cmds[i] >>> 1) ^ -(cmds[i] & 1); i++;
+          const dy = (cmds[i] >>> 1) ^ -(cmds[i] & 1); i++;
           x += dx; y += dy;
           cur.push({ x, y });
         }
