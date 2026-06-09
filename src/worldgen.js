@@ -1,6 +1,6 @@
-// World generation: fetch MVT tiles and rasterize into a grid of 5m game cells.
+// World generation: fetch MVT tiles and rasterize into a grid of CELL_M-meter game cells.
 // Coords: web-mercator pixel space at z=14. 1 MVT tile = 256 px = 4096 MVT units.
-// Game cell = 5 m. Cell size in pixels depends on latitude.
+// Game cell = CELL_M m (currently 7 m). Cell size in pixels depends on latitude.
 
 (function (global) {
   const Z = 14;
@@ -553,7 +553,7 @@
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
       const bb = bboxOf(rings);
-      const stepMvt = 5 / mvtToM; // one candidate per game-cell-width
+      const stepMvt = CELL_M / mvtToM; // one candidate per game-cell-width
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
@@ -938,7 +938,7 @@
             // vein path in _spawnRockClusters) without flooding sidewalks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
-              const pivotStep = 24 / mvtToM;        // one cluster candidate per ~24 m
+              const pivotStep = 34 / mvtToM;        // one cluster candidate per ~34 m (~5 cells at 7 m/cell; was 24 m when cells were 5 m)
               const clusterR  = 7  / mvtToM;        // rocks placed within ~7 m of pivot
               // Tier weights for the ORE subset (the share that isn't plain
               // cave rock — caveRockP(0) ⇒ ~90 % plain on the surface). Copper
@@ -969,7 +969,7 @@
             // very rare via the geometric tail (~3 % per cluster pick).
             if (t === T.INDUSTRIAL) {
               const indRng = makeRng((polyKey ^ 0xC0A11D) >>> 0);
-              const pivotStep = 14 / mvtToM;        // ~one candidate per 14 m — much denser than residential's 30
+              const pivotStep = 20 / mvtToM;        // ~one candidate per 20 m — much denser than residential's 34 (was 14 m when cells were 5 m)
               const clusterR  = 5  / mvtToM;        // ~5 m cluster radius
               // Slower tier dropoff than residential — mid-tier ore (gold,
               // platinum) shows up regularly while T7 stays ~3 % per ore pick.
@@ -988,7 +988,7 @@
             // but rare wilderness finds (T5-T7) are still possible.
             if (t === T.ROCK) {
               const rockRng = makeRng((polyKey ^ 0xCAFE) >>> 0);
-              const pivotStep = 12 / mvtToM;
+              const pivotStep = 17 / mvtToM;        // was 12 m when cells were 5 m; scaled ×7/5
               const clusterR  =  6 / mvtToM;
               // 1/2^(t-1): T1 ~50%, T2 ~25%, T3 ~13% … T7 ~1% of ore subset.
               // _pushMineralrock still routes 70% of picks to cave rock.
