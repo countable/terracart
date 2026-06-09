@@ -1943,14 +1943,17 @@
           return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
         };
         // Trees + fruit trees can NEVER sit on a building footprint, road, path,
-        // water or other hard/interactable cell. When a detection lands on one,
-        // relocate it to a favourable empty neighbour cell; drop it only if no
-        // neighbour works. One tree per cell — process largest crown first so the
-        // biggest tree wins a contested cell and smaller ones spill to neighbours.
+        // water or other hard/interactable cell — nor on a manicured open field
+        // (school grounds, playground, sports pitch, golf course), which read
+        // wrong carpeted in OSM trees. When a detection lands on one, relocate
+        // it to a favourable empty neighbour cell; drop it only if no neighbour
+        // works. One tree per cell — process largest crown first so the biggest
+        // tree wins a contested cell and smaller ones spill to neighbours.
         const TREE_BLOCK = new Set([
           T.WATER, T.PIER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
           T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE,
           T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+          T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
         ]);
         // Cell at (wx,wy) is hard terrain a scatter object must never sit on
         // (road/building/water/rock/etc — the same set trees avoid).

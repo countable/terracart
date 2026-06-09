@@ -91,6 +91,15 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
+    /* The movement pads (#debug-pad / #ghost-pad) are position:fixed on <body>
+       at z-index 6 — but every modal dialog lives inside #game, whose transform
+       makes its own stacking context, so a modal can never climb above the
+       body-level pads. While a dialog is open the bottom-right pad would sit ON
+       TOP of it and swallow the taps meant to dismiss it (you could still walk
+       but not close the modal). MapScene._installModalPadGate toggles
+       body.modal-open whenever a .game-modal is shown; hide the pads then. */
+    body.modal-open #debug-pad,
+    body.modal-open #ghost-pad { display: none !important; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
@@ -819,6 +828,6 @@
   <script src="src/assets.js?v=173"></script>
   <script src="src/sandbox.js?v=31"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=341"></script>
+  <script src="src/app.js?v=342"></script>
 </body>
 </html>
