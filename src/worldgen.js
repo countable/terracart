@@ -483,13 +483,16 @@
   // Used to anchor a house on its real footprint (the tiles the player sees)
   // rather than the geometric ring centroid, which for an L-shaped or
   // tile-clipped footprint can land on a cell that isn't part of the building.
-  function ringFootprintCells(ring, mvtToCell, w, h) {
+  function ringFootprintCells(ring, mvtToCell, w, h, pad = 0) {
     const poly = ring.map(p => ({ x: p.x * mvtToCell, y: p.y * mvtToCell }));
     let minY = Infinity, maxY = -Infinity;
     for (const p of poly) { if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; }
     const cells = [];
-    const y0 = Math.max(0, Math.floor(minY));
-    const y1 = Math.min(h - 1, Math.ceil(maxY));
+    // `pad` lets callers rasterize a few cells PAST the tile bounds — the
+    // footprint-tidy pass below needs the out-of-tile part of an edge-clipped
+    // building so both tiles morph the same shape and agree at the seam.
+    const y0 = Math.max(-pad, Math.floor(minY));
+    const y1 = Math.min(h - 1 + pad, Math.ceil(maxY));
     for (let y = y0; y <= y1; y++) {
       const ys = y + 0.5;
       const xs = [];
@@ -502,12 +505,80 @@
       }
       xs.sort((p, q) => p - q);
       for (let k = 0; k + 1 < xs.length; k += 2) {
-        const xa = Math.max(0, Math.floor(xs[k] + 0.5));
-        const xb = Math.min(w - 1, Math.floor(xs[k + 1] - 0.5));
+        const xa = Math.max(-pad, Math.floor(xs[k] + 0.5));
+        const xb = Math.min(w - 1 + pad, Math.floor(xs[k + 1] - 0.5));
         for (let x = xa; x <= xb; x++) cells.push([x, y]);
       }
     }
     return cells;
+  }
+  // Building-footprint tidying. Small OSM buildings often rasterize to janky
+  // cell sets — two cells touching only at a corner, 1-cell notches, stray
+  // crumbs — because a rotated, roughly cell-sized polygon covers few cell
+  // centres. Coerce each footprint to a nicer tiling (slightly less accurate,
+  // much more readable):
+  //   • dropCrumbs (small/house tier): keep only the largest 8-connected
+  //     blob — stray 1-2 cell fragments from thin slivers are dropped;
+  //   • fill any empty cell with ≥3 occupied orthogonal neighbours (1-wide
+  //     notches and 1-cell courtyards read as raster noise at 7 m/cell);
+  //   • where a 2×2 block holds exactly a diagonal pair, fill one of its two
+  //     empty cells (the better-connected one; tie → top-then-left), so no
+  //     part of a building touches the rest only at a corner.
+  // The fills iterate to a fixpoint (they only add cells and can never grow
+  // past the footprint's bounding box, so it terminates). Deliberately much
+  // weaker than bounding-box coercion: genuine L / T / U buildings with
+  // recesses ≥2 cells wide are untouched.
+  function tidyFootprintCells(cells, dropCrumbs) {
+    const key = (x, y) => x + ',' + y;
+    let set = new Set(cells.map(([x, y]) => key(x, y)));
+    const has = (x, y) => set.has(key(x, y));
+    const orthN = (x, y) => (has(x + 1, y) ? 1 : 0) + (has(x - 1, y) ? 1 : 0)
+                          + (has(x, y + 1) ? 1 : 0) + (has(x, y - 1) ? 1 : 0);
+    if (dropCrumbs && set.size > 1) {
+      // Largest 8-connected component (first-found wins ties — input order is
+      // the deterministic scanline order, so this is stable across reloads).
+      const seen = new Set();
+      let best = null;
+      for (const start of set) {
+        if (seen.has(start)) continue;
+        const comp = [start];
+        seen.add(start);
+        for (let i = 0; i < comp.length; i++) {
+          const [x, y] = comp[i].split(',').map(Number);
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const k = key(x + dx, y + dy);
+            if (set.has(k) && !seen.has(k)) { seen.add(k); comp.push(k); }
+          }
+        }
+        if (!best || comp.length > best.length) best = comp;
+      }
+      set = new Set(best);
+    }
+    for (let changed = true; changed; ) {
+      changed = false;
+      // Notch / pinhole fill: empty cells bordered on ≥3 orthogonal sides.
+      for (const k of [...set]) {
+        const [x, y] = k.split(',').map(Number);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ex = x + dx, ey = y + dy;
+          if (!has(ex, ey) && orthN(ex, ey) >= 3) { set.add(key(ex, ey)); changed = true; }
+        }
+      }
+      // Diagonal-only contact: bridge with the empty corner cell that ends up
+      // better connected.
+      for (const k of [...set]) {
+        const [x, y] = k.split(',').map(Number);
+        for (const dy of [-1, 1]) {
+          if (!has(x + 1, y + dy) || has(x + 1, y) || has(x, y + dy)) continue;
+          const n1 = orthN(x + 1, y), n2 = orthN(x, y + dy);
+          const pick = n1 > n2 ? [x + 1, y] : n2 > n1 ? [x, y + dy]
+                     : dy < 0 ? [x, y + dy] : [x + 1, y];   // tie → the upper cell
+          set.add(key(pick[0], pick[1]));
+          changed = true;
+        }
+      }
+    }
+    return [...set].map(k => k.split(',').map(Number));
   }
   function pointInRings(rings, x, y) {
     let inside = false;
@@ -1318,16 +1389,29 @@
         enforceBuildingDistribution(buildingPolys);
         let _bOwnerId = 0;
         for (const bp of buildingPolys) {
-          paintPolygon(grid, w, h, [bp.ring], bp.tier, mvtToCell);
+          // Rasterize with a 3-cell pad past the tile bounds, tidy the cell
+          // set (bridge diagonal-only contacts, fill 1-wide notches, drop
+          // stray crumbs for the house tier), THEN paint the in-bounds cells.
+          // Tidying on the padded set keeps edge-clipped buildings consistent
+          // with the copy the neighbouring tile rasterizes, so the two halves
+          // agree at the seam. paintCell still arbitrates priority per cell,
+          // exactly as paintPolygon did.
+          const rawCells = ringFootprintCells(bp.ring, mvtToCell, w, h, 3);
+          const tidyCells = tidyFootprintCells(rawCells, bp.tier === T.BUILDING);
           // Stamp building ownership over this building's footprint cells with a
           // unique per-tile id. Later buildings overwrite earlier ones where
           // footprints overlap — matching paintCell's last-wins for grid type —
           // so owner stays consistent with the visible building. The renderer
           // strokes a seam wherever two adjacent building cells carry different
           // owners, separating merged footprints.
-          const fpCells = ringFootprintCells(bp.ring, mvtToCell, w, h);
           const ownerId = (++_bOwnerId) & 0xffff;
-          for (const [fx, fy] of fpCells) owners[fy * w + fx] = ownerId;
+          const fpCells = [];
+          for (const [fx, fy] of tidyCells) {
+            if (fx < 0 || fy < 0 || fx >= w || fy >= h) continue;
+            paintCell(grid, w, h, fx, fy, bp.tier);
+            owners[fy * w + fx] = ownerId;
+            fpCells.push([fx, fy]);
+          }
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
@@ -2881,7 +2965,7 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, isWalkable, isSpawnCell, setDepth,
+    forEachItem, isWalkable, isSpawnCell, setDepth, tidyFootprintCells,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
