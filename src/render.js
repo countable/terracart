@@ -138,6 +138,13 @@ Render.drawCells = function drawCells(scene) {
   const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
   if (gf !== g) gf.clear();
   if (gb !== g && gb !== gf) gb.clear();
+  // Road/path geometry layer — sits ABOVE the noise-texture sprites and the
+  // wavy biome-border layer (and the building wall-extrusion pass in g), so
+  // road surfaces aren't speckled by biome textures or cut by zone borders.
+  // This is where the old cobble SPRITES sat; drawing the geometry into g
+  // put it underneath all of those and made roads look broken up.
+  const gr = scene.roadGfx || g;
+  if (gr !== g) gr.clear();
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
@@ -458,20 +465,31 @@ Render.drawCells = function drawCells(scene) {
         const cs = scene.cobblePool[cobbleIdx++];
         if ((isRoad(type) || type === PATH) && !isTilled) {
           // Build 4-bit neighbor mask (N=1 E=2 S=4 W=8). Any road/path tier
-          // counts as connected so mismatched tiers taper naturally.
+          // counts as connected so mismatched tiers taper naturally. PIER
+          // counts too, so a road/path runs flush onto the dock planks
+          // instead of stopping one half-cell short of the pier.
           const tn  = T(col, row - 1), ts_ = T(col, row + 1);
           const tw  = T(col - 1, row), te  = T(col + 1, row);
-          const mask = (isAnyRoad(tn) ? 1 : 0) | (isAnyRoad(te) ? 2 : 0)
-                     | (isAnyRoad(ts_) ? 4 : 0) | (isAnyRoad(tw) ? 8 : 0);
-          RoadRender.drawRoadCell(g, sx, sy, type, mask);
+          const conn = (t) => isAnyRoad(t) || t === PIER;
+          const mask = (conn(tn) ? 1 : 0) | (conn(te) ? 2 : 0)
+                     | (conn(ts_) ? 4 : 0) | (conn(tw) ? 8 : 0);
+          RoadRender.drawRoadCell(gr, sx, sy, type, mask);
+          // Bridge diagonal Bresenham steps (corner-touching road cells with
+          // no orthogonal cell between them) — drawn once per pair by the
+          // northern cell, so only the SE/SW diagonals are checked here.
+          const tse = T(col + 1, row + 1), tsw = T(col - 1, row + 1);
+          if (isAnyRoad(tse) && !isAnyRoad(ts_) && !isAnyRoad(te))
+            RoadRender.drawDiagonal(gr, sx, sy, type, tse, 1);
+          if (isAnyRoad(tsw) && !isAnyRoad(ts_) && !isAnyRoad(tw))
+            RoadRender.drawDiagonal(gr, sx, sy, type, tsw, -1);
           // Named-path stone tint — semi-transparent blue rect over activated stones.
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             const N2  = scene.cellsPerTile;
             const tx2 = Math.floor(absCellIX / N2);
             const ty2 = Math.floor(absCellIY / N2);
             if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
-              g.fillStyle(0x88aaff, 0.30);
-              g.fillRect(sx, sy, CELL_PX, CELL_PX);
+              gr.fillStyle(0x88aaff, 0.30);
+              gr.fillRect(sx, sy, CELL_PX, CELL_PX);
             }
           }
           cs.setVisible(false);

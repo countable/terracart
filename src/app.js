@@ -614,6 +614,11 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
+    // Procedural road/path geometry — redrawn each frame by Render.drawCells.
+    // Must sit ABOVE the noise + border layers (so biome speckle and the wavy
+    // zone borders never paint over the road surface — that's what the cobble
+    // sprites used to guarantee) and BELOW the road-letter layer.
+    this.roadGfx = this.add.graphics();
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
@@ -769,6 +774,7 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.setMask(mask);
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
+    this.roadGfx.setMask(mask);
     this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);

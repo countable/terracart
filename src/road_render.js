@@ -53,6 +53,47 @@
     return t === 7 || t === 8 || t === 13 || t === 14;
   }
 
+  const INV_SQRT2 = Math.SQRT1_2;
+
+  // Fill a quad band from (ax,ay) to (bx,by) with half-width hw; (ux,uy) is
+  // the unit perpendicular to the band axis.
+  function band(g, ax, ay, bx, by, ux, uy, hw) {
+    const px = ux * hw, py = uy * hw;
+    g.fillPoints([
+      { x: ax + px, y: ay + py },
+      { x: bx + px, y: by + py },
+      { x: bx - px, y: by - py },
+      { x: ax - px, y: ay - py },
+    ], true);
+  }
+
+  // Diagonal connector — bridges two road cells that touch only at a corner.
+  //
+  // Worldgen rasterizes roads with Bresenham, which steps diagonally; a
+  // width-1 road/path therefore produces corner-touching cells with NO
+  // orthogonal neighbor between them. drawRoadCell's orthogonal arms can't
+  // span that, so without this the run renders as disconnected squares.
+  //
+  // Draws a full center-to-center band from THIS cell to its SE (dxSign=+1)
+  // or SW (dxSign=-1) diagonal neighbor, split at the shared corner so each
+  // half uses its own tier's width/colour (tapering like the orthogonal
+  // arms). Both halves are drawn by the northern cell of the pair in one
+  // call — curbs first, then surfaces — so there's no cross-cell paint-order
+  // seam at the corner.
+  function drawDiagonal(g, sx, sy, typeA, typeB, dxSign) {
+    const ax = sx + HALF, ay = sy + HALF;             // this cell's center
+    const kx = sx + (dxSign > 0 ? CELL_PX : 0);       // shared corner
+    const ky = sy + CELL_PX;
+    const bx = kx + dxSign * HALF, by = ky + HALF;    // neighbor's center
+    const ux = INV_SQRT2, uy = -dxSign * INV_SQRT2;   // unit perpendicular
+    const hwA = (ROAD_WIDTH[typeA] || 10) / 2;
+    const hwB = (ROAD_WIDTH[typeB] || 10) / 2;
+    g.fillStyle(CURB_COLOR[typeA], 1); band(g, ax, ay, kx, ky, ux, uy, hwA + 1);
+    g.fillStyle(CURB_COLOR[typeB], 1); band(g, kx, ky, bx, by, ux, uy, hwB + 1);
+    g.fillStyle(ROAD_COLOR[typeA], 1); band(g, ax, ay, kx, ky, ux, uy, hwA);
+    g.fillStyle(ROAD_COLOR[typeB], 1); band(g, kx, ky, bx, by, ux, uy, hwB);
+  }
+
   // Draw procedural road geometry for one cell.
   //
   //   g        — Phaser Graphics (cellGfx, already cleared this frame)
@@ -90,6 +131,6 @@
     if (W8) g.fillRect(sx,        cy - hw,   HALF, W);     // W arm
   }
 
-  root.RoadRender = { drawRoadCell, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
+  root.RoadRender = { drawRoadCell, drawDiagonal, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.RoadRender;
 })(typeof window !== 'undefined' ? window : globalThis);
