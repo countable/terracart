@@ -1,12 +1,18 @@
 // Procedural road and path geometry — draws center squares + directional arms
-// onto the terrain Graphics object, replacing the cobble-sprite overlay.
+// onto the road Graphics layer, replacing the cobble-sprite overlay.
 //
 // Each road/path cell draws:
 //   • A center square (always, even for isolated cells)
 //   • One arm per connected orthogonal neighbor, each reaching the cell edge
+//   • A corner-quadrant fill per "solid" diagonal (both flanking orthogonals
+//     AND the diagonal between them are road) — this merges multi-cell-wide
+//     roads into one continuous surface instead of parallel strips joined by
+//     ladder rungs
 //
-// Arms stay within the cell — the neighbor cell draws a matching arm back, so
-// connections are seamless at the shared boundary with no bleed or gaps.
+// All geometry stays within the cell — the neighbor cell draws a matching arm
+// back, so connections are seamless at the shared boundary with no bleed or
+// gaps. Diagonal Bresenham steps don't need special handling here: worldgen's
+// paintLine is 4-connected, so every diagonal step has a real elbow cell.
 //
 // "Connected" = any road or path type (asymmetric widths create natural tapers
 // at junctions between tiers — e.g. a 4px path arm entering a 10px road arm).
@@ -53,53 +59,13 @@
     return t === 7 || t === 8 || t === 13 || t === 14;
   }
 
-  const INV_SQRT2 = Math.SQRT1_2;
-
-  // Fill a quad band from (ax,ay) to (bx,by) with half-width hw; (ux,uy) is
-  // the unit perpendicular to the band axis.
-  function band(g, ax, ay, bx, by, ux, uy, hw) {
-    const px = ux * hw, py = uy * hw;
-    g.fillPoints([
-      { x: ax + px, y: ay + py },
-      { x: bx + px, y: by + py },
-      { x: bx - px, y: by - py },
-      { x: ax - px, y: ay - py },
-    ], true);
-  }
-
-  // Diagonal connector — bridges two road cells that touch only at a corner.
-  //
-  // Worldgen rasterizes roads with Bresenham, which steps diagonally; a
-  // width-1 road/path therefore produces corner-touching cells with NO
-  // orthogonal neighbor between them. drawRoadCell's orthogonal arms can't
-  // span that, so without this the run renders as disconnected squares.
-  //
-  // Draws a full center-to-center band from THIS cell to its SE (dxSign=+1)
-  // or SW (dxSign=-1) diagonal neighbor, split at the shared corner so each
-  // half uses its own tier's width/colour (tapering like the orthogonal
-  // arms). Both halves are drawn by the northern cell of the pair in one
-  // call — curbs first, then surfaces — so there's no cross-cell paint-order
-  // seam at the corner.
-  function drawDiagonal(g, sx, sy, typeA, typeB, dxSign) {
-    const ax = sx + HALF, ay = sy + HALF;             // this cell's center
-    const kx = sx + (dxSign > 0 ? CELL_PX : 0);       // shared corner
-    const ky = sy + CELL_PX;
-    const bx = kx + dxSign * HALF, by = ky + HALF;    // neighbor's center
-    const ux = INV_SQRT2, uy = -dxSign * INV_SQRT2;   // unit perpendicular
-    const hwA = (ROAD_WIDTH[typeA] || 10) / 2;
-    const hwB = (ROAD_WIDTH[typeB] || 10) / 2;
-    g.fillStyle(CURB_COLOR[typeA], 1); band(g, ax, ay, kx, ky, ux, uy, hwA + 1);
-    g.fillStyle(CURB_COLOR[typeB], 1); band(g, kx, ky, bx, by, ux, uy, hwB + 1);
-    g.fillStyle(ROAD_COLOR[typeA], 1); band(g, ax, ay, kx, ky, ux, uy, hwA);
-    g.fillStyle(ROAD_COLOR[typeB], 1); band(g, kx, ky, bx, by, ux, uy, hwB);
-  }
-
   // Draw procedural road geometry for one cell.
   //
-  //   g        — Phaser Graphics (cellGfx, already cleared this frame)
+  //   g        — Phaser Graphics (roadGfx, already cleared this frame)
   //   sx, sy   — integer pixel top-left of the cell
   //   type     — terrain code
-  //   mask     — 4-bit neighbor flags: N=1, E=2, S=4, W=8
+  //   mask     — 8-bit neighbor flags: N=1, E=2, S=4, W=8,
+  //              NE=16, SE=32, SW=64, NW=128
   function drawRoadCell(g, sx, sy, type, mask) {
     const W   = ROAD_WIDTH[type] || 10;
     const hw  = W >> 1;           // half road-width
@@ -110,6 +76,13 @@
     const E = mask & 2;
     const S = mask & 4;
     const W8 = mask & 8;
+    // A diagonal is "solid" when both flanking orthogonals and the diagonal
+    // itself are road — the four cells form a block, so the corner quadrant
+    // between the two arms belongs to the road surface.
+    const NE = N && E  && (mask & 16);
+    const SE = S && E  && (mask & 32);
+    const SW = S && W8 && (mask & 64);
+    const NW = N && W8 && (mask & 128);
 
     // ── Curb layer — 1px wider on each side, drawn first so the road surface
     //    covers the interior and only the 1px kerb edge remains visible.
@@ -129,8 +102,18 @@
     if (S)  g.fillRect(cx - hw,   sy + HALF, W,    HALF);  // S arm
     if (E)  g.fillRect(sx + HALF, cy - hw,   HALF, W);     // E arm
     if (W8) g.fillRect(sx,        cy - hw,   HALF, W);     // W arm
+
+    // ── Inner-corner fill — close the quadrant gap between two arms when the
+    //    diagonal is solid. Without this a 2-cell-wide road reads as two
+    //    parallel strips linked by rungs; with it the block merges into one
+    //    surface (also covers the now-interior kerb lines drawn above).
+    const q = HALF - hw;          // quadrant size: arm edge → cell corner
+    if (NE) g.fillRect(cx + hw, sy,      q, q);
+    if (SE) g.fillRect(cx + hw, cy + hw, q, q);
+    if (SW) g.fillRect(sx,      cy + hw, q, q);
+    if (NW) g.fillRect(sx,      sy,      q, q);
   }
 
-  root.RoadRender = { drawRoadCell, drawDiagonal, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
+  root.RoadRender = { drawRoadCell, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.RoadRender;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -261,16 +261,28 @@ Render.drawCells = function drawCells(scene) {
         const tw = T(col - 1, row), te = T(col + 1, row);
         const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
         const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
-        if (tn !== type && tw !== type && tnw !== type) tl = CORNER_R;
-        if (tn !== type && te !== type && tne !== type) tr = CORNER_R;
-        if (ts_ !== type && tw !== type && tsw !== type) bl = CORNER_R;
-        if (ts_ !== type && te !== type && tse !== type) br = CORNER_R;
+        // Road/path cells only paint a BACKDROP here (the inherited zone
+        // colour — the asphalt itself is geometry on roadGfx above), so for
+        // rounding purposes all road/path tiers count as ONE type: a tier
+        // change must not round corners, and a road-like diagonal's corner
+        // paint must use its inferred backdrop colour, never the raw road
+        // grey from COLORS (which left grey notches at elbows/junctions).
+        const roadish = (t) => isRoad(t) || t === PATH;
+        const selfRoadish = roadish(type);
+        const sameAs = (t) => t === type || (selfRoadish && roadish(t));
+        if (!sameAs(tn) && !sameAs(tw) && !sameAs(tnw)) tl = CORNER_R;
+        if (!sameAs(tn) && !sameAs(te) && !sameAs(tne)) tr = CORNER_R;
+        if (!sameAs(ts_) && !sameAs(tw) && !sameAs(tsw)) bl = CORNER_R;
+        if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        if (tl) { g.fillStyle(COLORS[tnw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
-        if (tr) { g.fillStyle(COLORS[tne] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
-        if (bl) { g.fillStyle(COLORS[tsw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-        if (br) { g.fillStyle(COLORS[tse] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        const cornerColor = (t, dnx, dny) => roadish(t)
+          ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
+          : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+        if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
+        if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
+        if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        if (br) { g.fillStyle(cornerColor(tse, 1, 1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
       }
       g.fillStyle(color, 1);
       if (tl || tr || bl || br) {
@@ -464,24 +476,23 @@ Render.drawCells = function drawCells(scene) {
       {
         const cs = scene.cobblePool[cobbleIdx++];
         if ((isRoad(type) || type === PATH) && !isTilled) {
-          // Build 4-bit neighbor mask (N=1 E=2 S=4 W=8). Any road/path tier
-          // counts as connected so mismatched tiers taper naturally. PIER
-          // counts too, so a road/path runs flush onto the dock planks
-          // instead of stopping one half-cell short of the pier.
+          // Build 8-bit neighbor mask (N=1 E=2 S=4 W=8, NE=16 SE=32 SW=64
+          // NW=128). Any road/path tier counts as connected so mismatched
+          // tiers taper naturally; for the orthogonal arms PIER counts too,
+          // so a road/path runs flush onto the dock planks instead of
+          // stopping one half-cell short of the pier. The diagonal bits
+          // drive the inner-corner fill that merges multi-cell-wide roads
+          // into one solid surface.
           const tn  = T(col, row - 1), ts_ = T(col, row + 1);
           const tw  = T(col - 1, row), te  = T(col + 1, row);
+          const tne = T(col + 1, row - 1), tse = T(col + 1, row + 1);
+          const tsw = T(col - 1, row + 1), tnw = T(col - 1, row - 1);
           const conn = (t) => isAnyRoad(t) || t === PIER;
           const mask = (conn(tn) ? 1 : 0) | (conn(te) ? 2 : 0)
-                     | (conn(ts_) ? 4 : 0) | (conn(tw) ? 8 : 0);
+                     | (conn(ts_) ? 4 : 0) | (conn(tw) ? 8 : 0)
+                     | (isAnyRoad(tne) ? 16 : 0) | (isAnyRoad(tse) ? 32 : 0)
+                     | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
           RoadRender.drawRoadCell(gr, sx, sy, type, mask);
-          // Bridge diagonal Bresenham steps (corner-touching road cells with
-          // no orthogonal cell between them) — drawn once per pair by the
-          // northern cell, so only the SE/SW diagonals are checked here.
-          const tse = T(col + 1, row + 1), tsw = T(col - 1, row + 1);
-          if (isAnyRoad(tse) && !isAnyRoad(ts_) && !isAnyRoad(te))
-            RoadRender.drawDiagonal(gr, sx, sy, type, tse, 1);
-          if (isAnyRoad(tsw) && !isAnyRoad(ts_) && !isAnyRoad(tw))
-            RoadRender.drawDiagonal(gr, sx, sy, type, tsw, -1);
           // Named-path stone tint — semi-transparent blue rect over activated stones.
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             const N2  = scene.cellsPerTile;
