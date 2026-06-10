@@ -340,14 +340,24 @@
       const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
       const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
       let err = dx + dy;
-      while (true) {
+      const stamp = (cx, cy) => {
         for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
-          if (ox * ox + oy * oy <= r * r) paintCell(grid, w, h, x0 + ox, y0 + oy, type, under);
+          if (ox * ox + oy * oy <= r * r) paintCell(grid, w, h, cx + ox, cy + oy, type, under);
         }
+      };
+      while (true) {
+        stamp(x0, y0);
         if (x0 === x1 && y0 === y1) break;
         const e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x0 += sx; }
-        if (e2 <= dx) { err += dx; y0 += sy; }
+        const stepX = e2 >= dy, stepY = e2 <= dx;
+        if (stepX) { err += dy; x0 += sx; }
+        if (stepY) { err += dx; y0 += sy; }
+        // 4-connected: a plain Bresenham diagonal step leaves consecutive
+        // cells touching only at a corner, which a width-1 road renders as
+        // disconnected squares (the renderer draws orthogonal arms only).
+        // Stamp the x-stepped intermediate cell too so every diagonal step
+        // becomes a real L-elbow in the grid.
+        if (stepX && stepY) stamp(x0, y0 - sy);
       }
     }
   }
