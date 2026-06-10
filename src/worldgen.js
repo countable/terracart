@@ -1012,7 +1012,17 @@
         } else if (f.type === 2 && name === 'transportation') {
           const t = classifyLine(name, f.tags);
           if (t == null) continue;
-          const wCells = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
+          // Roads and paths rasterize exactly ONE cell wide regardless of
+          // their OSM width: the tier's visible width is procedural
+          // (RoadRender.ROAD_WIDTH px within the cell), so wider disk
+          // stamping only made the band wobble between 1 and 2 rows
+          // ("ladder" artifacts) and welded dual carriageways together.
+          // Two parallel OSM ways now read as two clean uniform lanes.
+          // Piers keep their measured width (their plank sprite fills the
+          // whole cell, so coverage IS their width).
+          const wCells = (t === T.PIER)
+            ? Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M))
+            : 1;
           // Only PATH records its under-biome — roads/piers fully cover their
           // cell so the base never shows, and skipping them keeps pathUnder small.
           const under = t === T.PATH ? pathUnder : undefined;

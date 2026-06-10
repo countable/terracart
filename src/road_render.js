@@ -84,12 +84,34 @@
     const SW = S && W8 && (mask & 64);
     const NW = N && W8 && (mask & 128);
 
+    // Elbow = exactly two perpendicular arms (an L-bend). The center piece
+    // is then drawn as a quarter-disc pie anchored at the bend's INNER
+    // corner: its two straight edges sit flush with the arms and its arc
+    // rounds the bend's outer corner, so turns sweep instead of boxing.
+    // (g.slice is Phaser Graphics; stub contexts without it get the square.)
+    const armCount = (N ? 1 : 0) + (E ? 1 : 0) + (S ? 1 : 0) + (W8 ? 1 : 0);
+    const isElbow = armCount === 2 && !(N && S) && !(E && W8) && !!g.slice;
+    // Center piece at half-size d (hw for surface, chw for curb): a plain
+    // 2d×2d square, or the rounded quarter-disc for elbows.
+    const centerPiece = (d) => {
+      if (!isElbow) { g.fillRect(cx - d, cy - d, 2 * d, 2 * d); return; }
+      const ix = E ? cx + d : cx - d;             // inner-corner pivot
+      const iy = S ? cy + d : cy - d;
+      const a0 = (N && E) ? Math.PI / 2           // pie opens toward SW
+                : (N && W8) ? 0                   // toward SE
+                : (S && E)  ? Math.PI             // toward NW
+                : Math.PI * 1.5;                  // S+W → toward NE
+      g.beginPath();
+      g.slice(ix, iy, 2 * d, a0, a0 + Math.PI / 2, false);
+      g.fillPath();
+    };
+
     // ── Curb layer — 1px wider on each side, drawn first so the road surface
     //    covers the interior and only the 1px kerb edge remains visible.
     const CW  = W + 2;
     const chw = CW >> 1;
     g.fillStyle(CURB_COLOR[type], 1);
-    g.fillRect(cx - chw, cy - chw, CW,   CW);    // center
+    centerPiece(chw);                            // center
     if (N)  g.fillRect(cx - chw,  sy,        CW,   HALF);  // N arm
     if (S)  g.fillRect(cx - chw,  sy + HALF, CW,   HALF);  // S arm
     if (E)  g.fillRect(sx + HALF, cy - chw,  HALF, CW);    // E arm
@@ -97,7 +119,7 @@
 
     // ── Road surface — drawn on top of curb, W px wide.
     g.fillStyle(ROAD_COLOR[type], 1);
-    g.fillRect(cx - hw, cy - hw, W,    W);       // center
+    centerPiece(hw);                             // center
     if (N)  g.fillRect(cx - hw,   sy,        W,    HALF);  // N arm
     if (S)  g.fillRect(cx - hw,   sy + HALF, W,    HALF);  // S arm
     if (E)  g.fillRect(sx + HALF, cy - hw,   HALF, W);     // E arm
