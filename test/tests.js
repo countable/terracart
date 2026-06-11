@@ -428,9 +428,13 @@ test('every produce item has a sell price', () => {
   }
 });
 
-test('produce prices range from $1 (rockfruit) to $500 (sunflower)', () => {
+test('produce prices range from $1 (rockfruit) to $500 (iceflower)', () => {
   assert.eq(PRICES.rockfruit, 1, 'rockfruit floor = $1');
-  assert.eq(PRICES.sunflower, 500, 'sunflower ceiling = $500');
+  assert.eq(PRICES.iceflower, 500, 'iceflower ceiling = $500');
+  // Magical-flower prices follow BASE_TIER: sunflower (T4) < fireflower (T5)
+  // < iceflower (T6) — the rarity ladder and the price ladder must agree.
+  assert.gt(PRICES.fireflower, PRICES.sunflower, 'fireflower > sunflower');
+  assert.gt(PRICES.iceflower, PRICES.fireflower, 'iceflower > fireflower');
 });
 
 // ───────────────────────────────────────────────────────────────────────
