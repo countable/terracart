@@ -84,34 +84,12 @@
     const SW = S && W8 && (mask & 64);
     const NW = N && W8 && (mask & 128);
 
-    // Elbow = exactly two perpendicular arms (an L-bend). The center piece
-    // is then drawn as a quarter-disc pie anchored at the bend's INNER
-    // corner: its two straight edges sit flush with the arms and its arc
-    // rounds the bend's outer corner, so turns sweep instead of boxing.
-    // (g.slice is Phaser Graphics; stub contexts without it get the square.)
-    const armCount = (N ? 1 : 0) + (E ? 1 : 0) + (S ? 1 : 0) + (W8 ? 1 : 0);
-    const isElbow = armCount === 2 && !(N && S) && !(E && W8) && !!g.slice;
-    // Center piece at half-size d (hw for surface, chw for curb): a plain
-    // 2d×2d square, or the rounded quarter-disc for elbows.
-    const centerPiece = (d) => {
-      if (!isElbow) { g.fillRect(cx - d, cy - d, 2 * d, 2 * d); return; }
-      const ix = E ? cx + d : cx - d;             // inner-corner pivot
-      const iy = S ? cy + d : cy - d;
-      const a0 = (N && E) ? Math.PI / 2           // pie opens toward SW
-                : (N && W8) ? 0                   // toward SE
-                : (S && E)  ? Math.PI             // toward NW
-                : Math.PI * 1.5;                  // S+W → toward NE
-      g.beginPath();
-      g.slice(ix, iy, 2 * d, a0, a0 + Math.PI / 2, false);
-      g.fillPath();
-    };
-
     // ── Curb layer — 1px wider on each side, drawn first so the road surface
     //    covers the interior and only the 1px kerb edge remains visible.
     const CW  = W + 2;
     const chw = CW >> 1;
     g.fillStyle(CURB_COLOR[type], 1);
-    centerPiece(chw);                            // center
+    g.fillRect(cx - chw, cy - chw, CW,   CW);    // center
     if (N)  g.fillRect(cx - chw,  sy,        CW,   HALF);  // N arm
     if (S)  g.fillRect(cx - chw,  sy + HALF, CW,   HALF);  // S arm
     if (E)  g.fillRect(sx + HALF, cy - chw,  HALF, CW);    // E arm
@@ -119,7 +97,7 @@
 
     // ── Road surface — drawn on top of curb, W px wide.
     g.fillStyle(ROAD_COLOR[type], 1);
-    centerPiece(hw);                             // center
+    g.fillRect(cx - hw, cy - hw, W,    W);       // center
     if (N)  g.fillRect(cx - hw,   sy,        W,    HALF);  // N arm
     if (S)  g.fillRect(cx - hw,   sy + HALF, W,    HALF);  // S arm
     if (E)  g.fillRect(sx + HALF, cy - hw,   HALF, W);     // E arm
@@ -136,6 +114,55 @@
     if (NW) g.fillRect(sx,      sy,      q, q);
   }
 
-  root.RoadRender = { drawRoadCell, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
+  // Pure L-bend detection. Returns the sprite rotation (degrees) that maps
+  // the canonical N+E elbow texture onto this cell's orientation, or -1 when
+  // the cell isn't a pure elbow (straights, junctions, dead ends — or a
+  // block corner whose between-diagonal is solid road: that corner quadrant
+  // belongs to the merged surface, so the square geometry is correct there).
+  function elbowAngle(mask) {
+    const o = mask & 15;
+    if (o === 3)  return (mask & 16)  ? -1 : 0;    // N+E (diag NE solid → no)
+    if (o === 6)  return (mask & 32)  ? -1 : 90;   // E+S
+    if (o === 12) return (mask & 64)  ? -1 : 180;  // S+W
+    if (o === 9)  return (mask & 128) ? -1 : 270;  // W+N
+    return -1;
+  }
+
+  // Bake one 32×32 elbow texture per road tier (canonical orientation: arms
+  // N + E, rounded outer corner at SW). Canvas 2D fills the arc with proper
+  // antialiasing at bake time, so the curve stays smooth even though the
+  // game runs with pixelArt (no runtime AA — Graphics-drawn arcs staircase,
+  // which is why the elbow is a texture and not vector geometry). The other
+  // three orientations come free via 90° sprite rotation (lossless).
+  function makeElbowTextures(scene) {
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    for (const type of [8, 7, 14, 13]) {
+      const key = 'roadelbow_' + type;
+      if (scene.textures.exists(key)) continue;
+      const tex = scene.textures.createCanvas(key, CELL_PX, CELL_PX);
+      const ctx = tex.getContext();
+      const W = ROAD_WIDTH[type], hw = W / 2, CW = W + 2, chw = CW / 2;
+      const cx = HALF, cy = HALF;
+      // One layer = N-arm rect + E-arm rect + quarter-disc pie pivoted on the
+      // bend's inner corner (flat pie edges flush with both arms; the arc
+      // rounds the outer corner). Curb layer first, surface on top leaves
+      // the 1px kerb ring visible along the whole bend.
+      const layer = (color, h) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(cx - h, 0, 2 * h, cy - h);          // N arm
+        ctx.fillRect(cx + h, cy - h, CELL_PX, 2 * h);    // E arm
+        ctx.beginPath();
+        ctx.moveTo(cx + h, cy - h);                      // inner-corner pivot
+        ctx.arc(cx + h, cy - h, 2 * h, Math.PI / 2, Math.PI);
+        ctx.closePath();
+        ctx.fill();
+      };
+      layer(hex(CURB_COLOR[type]), chw);
+      layer(hex(ROAD_COLOR[type]), hw);
+      tex.refresh();
+    }
+  }
+
+  root.RoadRender = { drawRoadCell, elbowAngle, makeElbowTextures, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.RoadRender;
 })(typeof window !== 'undefined' ? window : globalThis);

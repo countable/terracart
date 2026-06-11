@@ -145,6 +145,9 @@ Render.drawCells = function drawCells(scene) {
   // put it underneath all of those and made roads look broken up.
   const gr = scene.roadGfx || g;
   if (gr !== g) gr.clear();
+  // Baked elbow textures (RoadRender.makeElbowTextures) — checked once per
+  // frame; stub/test scenes without them fall back to square geometry.
+  const _hasElbowTex = !!(scene.textures && scene.textures.exists && scene.textures.exists('roadelbow_7'));
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
@@ -492,7 +495,20 @@ Render.drawCells = function drawCells(scene) {
                      | (conn(ts_) ? 4 : 0) | (conn(tw) ? 8 : 0)
                      | (isAnyRoad(tne) ? 16 : 0) | (isAnyRoad(tse) ? 32 : 0)
                      | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
-          RoadRender.drawRoadCell(gr, sx, sy, type, mask);
+          // Pure L-bends render as a baked elbow sprite (rounded outer
+          // corner with real antialiasing — Graphics arcs staircase under
+          // pixelArt) rotated into orientation; everything else is geometry.
+          const elbowAng = _hasElbowTex ? RoadRender.elbowAngle(mask) : -1;
+          if (elbowAng >= 0) {
+            cs.setTexture('roadelbow_' + type)
+              .setDisplaySize(CELL_PX, CELL_PX)
+              .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+              .setAngle(elbowAng)
+              .setTint(0xffffff).setVisible(true);
+          } else {
+            RoadRender.drawRoadCell(gr, sx, sy, type, mask);
+            cs.setVisible(false);
+          }
           // Named-path stone tint — semi-transparent blue rect over activated stones.
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             const N2  = scene.cellsPerTile;
@@ -503,12 +519,13 @@ Render.drawCells = function drawCells(scene) {
               gr.fillRect(sx, sy, CELL_PX, CELL_PX);
             }
           }
-          cs.setVisible(false);
         } else if (type === PIER && !isTilled) {
           // PIER keeps sprite-based plank rendering (Bridge Beach.png frame 20).
+          // setAngle(0) — the pooled slot may have just been an elbow sprite.
           cs.setTexture('pier', PIER_FRAME)
             .setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+            .setAngle(0)
             .setTint(0xffffff).setVisible(true);
         } else {
           cs.setVisible(false);
