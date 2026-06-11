@@ -836,22 +836,32 @@ function makeRoundPadTexture(scene, key) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, size, size);
   const inset = 2;                          // room for the 2px cyan perimeter outline
-  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2;
+  // Pedestal: the slab top sits `depth` px above the silhouette's bottom; the
+  // exposed band below it is drawn as a darker side face, so the pad reads as
+  // a raised plinth the chest stands on rather than a flat painted disc.
+  const depth = 4;
+  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2 - depth;
   const radius = w * 0.32;                  // generously rounded corners
-  // Cyan outline first: a wider stroke centred on the slab path. The body fill
-  // below covers its inner half, leaving a clean ~1.5px cyan ring hugging the
-  // pad edge so POI pads read as cyan-outlined.
-  roundRectPath(ctx, x, y, w, h, radius);
+  // Side face first: the same rounded rect shifted down by `depth`, darker
+  // fill, with its own cyan stroke (the visible part forms the thick bottom
+  // border of the pedestal).
+  roundRectPath(ctx, x, y + depth, w, h, radius);
   ctx.strokeStyle = '#00e5ff';
   ctx.lineWidth = 3;
   ctx.lineJoin = 'round';
   ctx.stroke();
-  // Body fill.
+  roundRectPath(ctx, x, y + depth, w, h, radius);
+  ctx.fillStyle = '#8d8d8d';
+  ctx.fill();
+  // Top slab: cyan outline first (the slab fill covers its inner half, leaving
+  // a clean ~1.5px cyan ring hugging the pad edge), then the body fill.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.stroke();
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.fillStyle = '#b2b2b2';
   ctx.fill();
-  // Subtle top sheen + bottom shadow, clipped to the slab, for the same faint
-  // "beveled flagstone" feel the old shape pads had.
+  // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
+  // faint "beveled flagstone" feel the old shape pads had.
   ctx.save();
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.clip();

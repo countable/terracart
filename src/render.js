@@ -1261,14 +1261,19 @@ Render.drawObjects = function drawObjects(scene) {
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
               // frame, i.e. 12px transparent padding on the left, 0 on the
-              // right). At origin 0.5 that left the stall ~3.6px (= 6px frame
-              // offset × 0.6 scale) right of its cell. Nudge it back left so the
-              // visible stall art is centred horizontally on the tile.
-              dxPx: (o) => produceStandFor(o) ? -3.6 : (_isCoinBurst(o) ? 4 : 0),
+              // right). -3.6 (= 6px frame offset × 0.6 scale) centres the art;
+              // +3 on top of that per playtest so the stall reads centred over
+              // its POI cell in situ.
+              dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
               // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
               // the art's centroid down toward that anchor. Lift the crate back
               // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
-              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              // Stand: every market_stand frame has 10 transparent rows under
+              // the art (y:[0,70) of 80), so the old +2 left the stall's feet
+              // floating ~4px ABOVE the cell centre ("the food stand is about
+              // 20px too high"). +22 seats the feet on the cell's bottom edge
+              // (centre + 16), where a structure-like sprite should stand.
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
@@ -1507,6 +1512,9 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of objList) {
     const { o, dx, dy } = item;
     if (o.kind !== 'chest') continue;
+    // Produce/food stands render their own 80×80 stall structure — a concrete
+    // slab poking out from under the stall reads wrong, so they skip the pad.
+    if (produceStandFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) continue;
     const shape = PAD_SHAPES[shapeKey];
