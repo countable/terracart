@@ -1565,7 +1565,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.chestLabelPool.push(tx);
     }
     // Named POIs get their rusticified name; unnamed POIs fall back to a
-    // class-based descriptor in brackets (e.g. "(Chapel)", "(Practice Field)").
+    // class-based descriptor in brackets (e.g. "(Chapel)", "(Tourney Grounds)").
     const isFallback = !o.name;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`

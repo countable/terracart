@@ -789,6 +789,7 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
+    this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.

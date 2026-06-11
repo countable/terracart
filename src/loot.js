@@ -60,7 +60,7 @@ const RUSTIC_WORDS = {
 // Fallback labels for POIs missing a `name` tag in OSM. Shown so unnamed
 // POIs read as a generic descriptor rather than a blank.
 const POI_CLASS_FALLBACK = {
-  pitch:            'Practice Field',
+  pitch:            'Tourney Grounds',
   playground:       'Children\'s Yard',
   gate:             'Gate',
   place_of_worship: 'Chapel',

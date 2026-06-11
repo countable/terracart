@@ -110,7 +110,10 @@
               // two stacked OSM polygons (landcover+landuse / landuse+park),
               // each running its own scatter — observed density ~2x the window.
               fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
-              fix('marigold', 0.004, 0.012, S.MARIGOLD)],
+              // Marigold halved (was 0.008–0.024 effective across stacked polys)
+              // and kept below forget-me-not: it's the rarer flower (sell 3 vs 2)
+              // but grows in far more biomes, so it read as the most common bloom.
+              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
     },
     forest: {
@@ -139,7 +142,7 @@
       flora: [dyn('longgrass', 0.15, S.LONGGRASS),
               // Halved (see grassland family note) — was 0.006–0.020.
               fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
-              fix('marigold', 0.004, 0.012, S.MARIGOLD)],
+              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
     },
     [T.FOREST]: {
@@ -155,7 +158,7 @@
       // Muddy pasture — patches of grass + the odd wildflower (green, not the
       // old golden wheat tint, to suit the churned-pasture look).
       flora: [dyn('longgrass', 0.10, S.FARM_LG),
-              fix('marigold', 0.006, 0.018, S.FARM_MAR)],
+              fix('marigold', 0.003, 0.009, S.FARM_MAR)],
       tint: {},
     },
     [T.RESIDENTIAL]: {
@@ -170,7 +173,7 @@
       flora: [fix('shrub', 0.025, 0.075, S.SHRUB),
               dyn('longgrass', 0.15, S.LONGGRASS),
               fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
-              fix('marigold', 0.004, 0.012, S.MARIGOLD)],
+              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
     },
     [T.ROCK]: { flora: [], tint: {} },   // minerals carry rock terrain (worldgen)
@@ -179,7 +182,7 @@
       // meadow-flora pass that ran on every LONGGRASS_TYPES member).
       flora: [dyn('longgrass', 0.12, S.LONGGRASS),
               fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
-              fix('marigold', 0.006, 0.016, S.SCH_MAR)],
+              fix('marigold', 0.003, 0.008, S.SCH_MAR)],
       tint: {},
     },
     [T.COMMERCIAL]: {
@@ -187,7 +190,7 @@
       // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js) plus a few
       // planter marigolds for colour.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
-              fix('marigold', 0.008, 0.02, S.COM_MAR)],
+              fix('marigold', 0.004, 0.010, S.COM_MAR)],
       tint: { shrub: 0x8fd06f },        // bright manicured green
     },
     [T.INDUSTRIAL]: {
@@ -198,7 +201,7 @@
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
               fix('forgetmenot', 0.004, 0.014, S.FORGETMENOT),
-              fix('marigold', 0.004, 0.012, S.MARIGOLD)],
+              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
     },
     // PITCH + GOLF are deliberately manicured: long grass only, no wildflowers
@@ -220,7 +223,7 @@
     [T.ORCHARD]: {
       // Fruit trees (worldgen canopy) + grassy understory with wildflowers.
       flora: [dyn('longgrass', 0.08, S.ORCH_LG),
-              fix('marigold', 0.006, 0.016, S.ORCH_MAR)],
+              fix('marigold', 0.003, 0.008, S.ORCH_MAR)],
       tint: {},
     },
   };

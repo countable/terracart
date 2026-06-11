@@ -2166,11 +2166,29 @@
         // POI chests (bus stops, signals, crossings, gates, towers, pitches,
         // gardens, bicycle racks, …). poiClass drives loot / tier / label /
         // coin-burst via loot.js + the render/interact chest paths.
+        //
+        // Area-derived sidecar POIs (way centroids: pitches, playgrounds,
+        // gardens, pools) usually describe the SAME real-world feature the MVT
+        // poi layer already spawned a chest for — but the two pipelines snap on
+        // different bases (MVT label point + placement offset vs Overpass way
+        // centroid on the global 5 m grid), so the same field's two chests land
+        // several metres apart and the cell-occupancy check can't catch them
+        // (this is what duplicated the Children's Yard / Tourney Grounds
+        // chests). Skip the sidecar copy when a same-class chest already sits
+        // within ~25 m — point-furniture classes (bus stops, signals, …) keep
+        // the cell-only dedupe, since two distinct real stops can legitimately
+        // sit ~15 m apart.
+        const SX_AREA_POI = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
+        const AREA_DUP_R2 = 25 * 25;
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           if (!_sxYardOK(ch.x, ch.y)) continue;
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k)) continue;
+          if (SX_AREA_POI.has(ch.poiClass) && entry.objects.some((o) =>
+                o.kind === 'chest' && o.poiClass === ch.poiClass &&
+                (o.x - ch.x) * (o.x - ch.x) + (o.y - ch.y) * (o.y - ch.y) <= AREA_DUP_R2))
+            continue;
           occupied.add(k);
           const c = localCentre(ch.x, ch.y);
           ch.x = c.x; ch.y = c.y;
