@@ -512,7 +512,7 @@ class MapScene extends Phaser.Scene {
       !this.save.starterShopId &&
       !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
-    // (The 20 s no-fix safety net for home capture is armed in startGps, once
+    // (The no-fix safety net for home capture is armed in startGps, once
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
@@ -1062,13 +1062,19 @@ class MapScene extends Phaser.Scene {
     if (_teleportOverride) { this.gpsAvailable = false; return; }
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
-    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting for
-    // home capture after 20 s so the start flow falls back to the default
-    // origin rather than hang. Armed here — not in create() — so the clock
-    // starts when GPS actually starts watching; the opening story + safety
-    // splash can hold sensors off far longer than 20 s.
+    // Safety net: if no fix ever arrives, stop waiting for home capture after
+    // 2 min so the start flow falls back to the default origin rather than
+    // hang forever. Generous on purpose: a cold GPS start indoors routinely
+    // takes 30-60 s, and giving up early permanently anchors the save at the
+    // default home — the starter-chest trail then spawns half a world from
+    // the player (the post-reset "my loot boxes are missing" bug). While
+    // capture is pending nothing is placed or adopted (ensureStarterShopId
+    // waits), so the only cost of patience is Home appearing a little later.
+    // Armed here — not in create() — so the clock starts when GPS actually
+    // starts watching; the opening story + safety splash can hold sensors
+    // off far longer than that.
     if (this._homeCapturePending && !this._homeCaptureTimer) {
-      this._homeCaptureTimer = setTimeout(() => { this._homeCapturePending = false; }, 20000);
+      this._homeCaptureTimer = setTimeout(() => { this._homeCapturePending = false; }, 120000);
     }
     try {
       this.gpsWatchId = navigator.geolocation.watchPosition(
@@ -1136,7 +1142,19 @@ class MapScene extends Phaser.Scene {
             if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
           }
         },
-        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; this._homeCapturePending = false; },
+        err => {
+          console.warn('GPS error', err.message);
+          this.gpsAvailable = false;
+          // Only a hard permission denial cancels home capture. Transient
+          // errors — TIMEOUT (err.code 3, guaranteed within 10 s by the
+          // watch's `timeout` option on a cold GPS start) and
+          // POSITION_UNAVAILABLE (2) — must NOT: cancelling here froze the
+          // save's origin at the DEFAULT home, so when the real fix finally
+          // arrived the starter-chest trail + cleared tutorial pocket had
+          // spawned on the default spawn tile, nowhere near the player
+          // (classic symptom right after a save reset).
+          if (err && err.code === 1 /* PERMISSION_DENIED */) this._homeCapturePending = false;
+        },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
     } catch { this.gpsAvailable = false; }
@@ -1371,7 +1389,14 @@ class MapScene extends Phaser.Scene {
     // Overpass is fired only for the centre tile (the one the player is in).
     // Neighbours get their Overpass fetch when the player walks into them and
     // they become the centre tile on the next ensureTilesAround call.
-    WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    // warmOverpass resolves true when the bin landed after the tile had
+    // already rasterized without it (cold cache — e.g. right after a save
+    // reset) and evicted the stale entry; re-run so the rebuilt tile (now
+    // with its real-world trees) loads even if the player is standing still.
+    const warmed = WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    if (warmed && typeof warmed.then === 'function') {
+      warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
+    }
     let anyFailed = false;
     for (const k of needed) {
       const [tx, ty] = k.split('/').map(Number);

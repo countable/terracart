@@ -418,6 +418,10 @@
       tileEdgeM,
       cellsPerEdge,
       fromCache: true,
+      // Mark as already-decorated so warmOverpass's evict-and-rebuild (which
+      // refreshes real tiles whose Overpass bin landed late) never evicts a
+      // synthetic sandbox tile in favour of real-world geometry.
+      hadBin: true,
       // loadTile awaits entry.promise when status === 'loading'; ours is
       // ready so it's never awaited, but harmless to satisfy the shape.
       promise: Promise.resolve(null),

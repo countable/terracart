@@ -2126,6 +2126,12 @@
       // real-world features and should appear where OSM says they are — but we
       // still skip any that land on a water cell (a tree mid-lake reads wrong).
       const bin = await getTileBin(x, y, lat);
+      // Remember whether this build had real-world decoration. warmOverpass
+      // uses it to evict-and-rebuild the tile once a freshly fetched bin
+      // lands, so trees appear THIS session instead of after the next reload
+      // (the start area otherwise loads treeless right after a save reset
+      // wipes the IDB cache).
+      entry.hadBin = !!bin;
       if (bin) {
         const cpe = entry.cellsPerEdge;
         const mPerCell = tileEdgeM / cpe;
@@ -2862,7 +2868,10 @@
         // Features near the bbox edge can project into a neighbour tile; we
         // keep only this tile's bin (neighbours fetch their own bbox).
         const bin = bins.get(`${x}_${y}`) || emptyBin();
-        idbPut(key, bin);                      // trees/poles ~static → cache forever
+        // Awaited so warmOverpass's evict-and-rebuild can't race a rebuild's
+        // getTileBin against an uncommitted write (the rebuild would miss the
+        // bin and come back treeless again). Trees/poles ~static → cached forever.
+        await idbPut(key, bin);
         ovpNote(x, y, 'loaded', bin);
         return bin;
       } catch (_) { ovpNote(x, y, 'failed'); return null; }
@@ -2899,10 +2908,33 @@
 
   // Schedule a background Overpass fetch for one tile. Call this only for the
   // tile the player is currently in — not for every neighbour loaded on startup.
+  //
+  // Returns a promise resolving true iff the bin arrived AFTER the tile had
+  // already rasterized without it — in which case the stale entry is evicted
+  // from the surface cache so the caller can reload it with the real-world
+  // trees/furniture injected. (Evict-and-rebuild is the sanctioned refresh
+  // path: per-tile player state lives in save.*, so a rebuild reconstructs
+  // the same view — see the LRU-prune comment in loadTile.) Without this, a
+  // tile first loaded with a cold Overpass cache — every tile right after a
+  // save reset wipes the IDB — stayed treeless until the next full reload.
   function warmOverpass(x, y, lat) {
-    if (!overpassLiveEnabled()) return;
+    if (!overpassLiveEnabled()) return Promise.resolve(false);
     ovpNote(x, y, 'fetching');
-    fetchOverpassBin(x, y, lat).catch(() => {});
+    return fetchOverpassBin(x, y, lat).then(async (bin) => {
+      if (!bin) return false;
+      const cache = cacheFor(0);
+      const key = `${Z}/${x}/${y}`;
+      let e = cache.get(key);
+      // The bin can beat a slow MVT fetch: if the tile is still mid-build,
+      // wait for it to settle before judging whether it missed the bin (its
+      // own getTileBin may have picked the bin up already → hadBin true).
+      if (e && e.status === 'loading' && e.promise) {
+        try { await e.promise; } catch (_) { /* failed build — re-check below */ }
+        e = cache.get(key);
+      }
+      if (e && e.status === 'ready' && !e.hadBin) { cache.delete(key); return true; }
+      return false;
+    }).catch(() => false);
   }
 
   // --- Underground cave generation (depth > 0) ---------------------------
