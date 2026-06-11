@@ -58,7 +58,7 @@
     'mineralrock:5':   { fw: 16, fh: 16, minX: 2,  minY: 4,  maxX: 13, maxY: 14 },
     'mineralrock:6':   { fw: 16, fh: 16, minX: 2,  minY: 4,  maxX: 13, maxY: 14 },
     'well:0':          { fw: 48, fh: 32, minX: 2,  minY: 0,  maxX: 37, maxY: 32 },
-    'pillar:0':        { fw: 16, fh: 32, minX: 0,  minY: 0,  maxX: 9,  maxY: 30 },
+    'pillar:0':        { fw: 16, fh: 32, minX: 1,  minY: 0,  maxX: 15, maxY: 28 },
     'scarecrow:0':     { fw: 48, fh: 48, minX: 3,  minY: 8,  maxX: 45, maxY: 47 },
     'bonfire:0':       { fw: 16, fh: 32, minX: 1,  minY: 9,  maxX: 14, maxY: 31 },
   };

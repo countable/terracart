@@ -621,6 +621,12 @@
     const objects = [];
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
+    // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
+    // school pyramid painted around a POI chest). Scatter interactables are
+    // culled off these cells in the post-pass — a rock/tree on a POI's plaza
+    // reads as junk dumped on the destination. Park-family buffers (padType
+    // PARK) are deliberately NOT tracked: they're meant to read as meadow.
+    const poiPadCells = new Set();
     // "cx_cy" → biome code a PATH cell overwrote (see paintCell). Render uses
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
@@ -1373,6 +1379,9 @@
                 const idx = iy * w + ix;
                 if (KEEP.has(grid[idx])) continue;
                 grid[idx] = padType;
+                // Track concrete pads (not park buffers) so the post-pass can
+                // keep scatter interactables off the POI's plaza.
+                if (padType !== T.PARK) poiPadCells.add(idx);
                 if (spawnGreenery) {
                   const r1 = prng(), r2 = prng();
                   const { mx: cellCenterMx, my: cellCenterMy } = cellCenterMeters(ix, iy);
@@ -1518,9 +1527,10 @@
            tc === T.ROAD     || tc === T.ROAD_LG    || tc === T.ROAD_MD
         || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
       // A house/tower sprite is foot-anchored on its footprint and its base
-      // overhangs the immediately adjacent cells, so a rock one cell off the
-      // footprint still reads as sitting ON the building's foundation. Keep a
-      // one-cell moat clear of rocks around every building cell.
+      // overhangs the immediately adjacent cells, so a scatter object one cell
+      // off the footprint still reads as sitting ON the building's foundation
+      // ("interactables spawning in house boundaries"). Keep a one-cell moat
+      // clear of EVERY scatter object around every building cell.
       const _mrNearBuilding = (ix, iy) => {
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
@@ -1557,6 +1567,16 @@
             iy: Math.floor((o.y - tileOriginMy) / _mrCellW),
           })),
       };
+      // A chest's cell is protected by the occupancy pass, but its render pad
+      // spills past the cell and the player needs to stand beside it — keep
+      // scatter objects out of the chest's one-cell frontage too.
+      const _mrNearPoi = (ix, iy) => {
+        const ps = _mrSpawnOpts.pois;
+        for (let k = 0; k < ps.length; k++) {
+          if (Math.abs(ps[k].ix - ix) <= 1 && Math.abs(ps[k].iy - iy) <= 1) return true;
+        }
+        return false;
+      };
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
         if (_mrSkipKind(o.kind)) continue;
@@ -1569,11 +1589,21 @@
         // placed at its coordinates — and a POI inside a building is allowed
         // (the player taps the building floor to activate it). House/tower
         // sprites ARE the building and were already skipped via _mrSkipKind.
-        if (o.kind !== 'chest' && _onRoadOrBuilding(here)) { objects.splice(i, 1); continue; }
+        if (o.kind !== 'chest') {
+          if (_onRoadOrBuilding(here)) { objects.splice(i, 1); continue; }
+          // One-cell building moat for every scatter object — anything closer
+          // sits visually inside the house/tower sprite's overhang.
+          if (_mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
+          // Synthesized concrete POI pads (hospital cross / school pyramid)
+          // repaint cells AFTER scatter spawns ran — e.g. a residential rock
+          // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
+          // spawn gate below. Nothing but the chest belongs on its plaza.
+          if (poiPadCells.has(iy * w + ix)) { objects.splice(i, 1); continue; }
+          // Keep the chest's one-cell frontage clear too.
+          if (_mrNearPoi(ix, iy)) { objects.splice(i, 1); continue; }
+        }
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
-          // Never sit a rock on a building's foundation (footprint edge / base).
-          if (_mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
           // A rock whose FINAL cell turned out to be residential must pass the
           // same shared spawn rule as every other object (isSpawnCell: near a
           // road/path, a detectable public area, or a POI) — otherwise it'd
@@ -1607,6 +1637,9 @@
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         const wtc = grid[iy * w + ix];
         if (_onRoadOrBuilding(wtc)) { wildplants.splice(i, 1); continue; }
+        // Concrete POI pads stay bare — a shrub/marigold that survived the
+        // biome filter (rocky-family crops) still doesn't belong on the plaza.
+        if (poiPadCells.has(iy * w + ix)) { wildplants.splice(i, 1); continue; }
         if (wtc !== T.RESIDENTIAL) continue;
         if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
       }
@@ -1975,6 +2008,9 @@
       entry.owners = owners;
       entry.objects = filteredObjects;
       entry.depth = 0;
+      // Concrete POI pad cells (grid indices) — consumed by the cave-entrance
+      // pass below so a surface ladder never lands on a POI's plaza.
+      entry.poiPadCells = poiPadCells;
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
@@ -2075,10 +2111,77 @@
           const tc = grid[iy * cpe + ix];
           return tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
         };
+        // One-cell building moat — same rule the rasterize post-pass applies:
+        // house/tower sprites overhang their footprint's neighbours, so an
+        // injected object one cell off the footprint reads as sitting inside
+        // the house. Mirrored here for the sidecar features.
+        const _sxNearBuildingCell = (ix, iy) => {
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const nx = ix + dx, ny = iy + dy;
+            if (nx < 0 || ny < 0 || nx >= cpe || ny >= cpe) continue;
+            const tc = grid[ny * cpe + nx];
+            if (tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE) return true;
+          }
+          return false;
+        };
+        // One-cell POI frontage — keep injected features off a chest's cell
+        // neighbourhood (its pad spills past the cell and the player stands
+        // beside it). _sxPois already covers both rasterized and bin chests.
+        const _sxNearChestCell = (ix, iy) => {
+          for (let k2 = 0; k2 < _sxPois.length; k2++) {
+            if (Math.abs(_sxPois[k2].ix - ix) <= 1
+             && Math.abs(_sxPois[k2].iy - iy) <= 1) return true;
+          }
+          return false;
+        };
+        const _sxNearBuilding = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          return _sxNearBuildingCell(ix, iy);
+        };
+        const _sxNearChest = (wx, wy) => {
+          const { ix, iy } = _sxCell(wx, wy);
+          return _sxNearChestCell(ix, iy);
+        };
+        // POI chests (bus stops, signals, crossings, gates, towers, pitches,
+        // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
+        // destination, so it must win its cell over a generic tree/shrub/pole
+        // (mirroring the rasterize occupancy pass where chest outranks all).
+        // poiClass drives loot / tier / label / coin-burst via loot.js + the
+        // render/interact chest paths.
+        //
+        // Area-derived sidecar POIs (way centroids: pitches, playgrounds,
+        // gardens, pools) usually describe the SAME real-world feature the MVT
+        // poi layer already spawned a chest for — but the two pipelines snap on
+        // different bases (MVT label point + placement offset vs Overpass way
+        // centroid on the global 5 m grid), so the same field's two chests land
+        // several metres apart and the cell-occupancy check can't catch them
+        // (this is what duplicated the Children's Yard / Tourney Grounds
+        // chests). Skip the sidecar copy when a same-class chest already sits
+        // within ~25 m — point-furniture classes (bus stops, signals, …) keep
+        // the cell-only dedupe, since two distinct real stops can legitimately
+        // sit ~15 m apart.
+        const SX_AREA_POI = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
+        const AREA_DUP_R2 = 25 * 25;
+        for (const ch of (bin.chests || [])) {
+          if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
+          if (!_sxYardOK(ch.x, ch.y)) continue;
+          const k = cellKeyOf(ch.x, ch.y);
+          if (occupied.has(k)) continue;
+          if (SX_AREA_POI.has(ch.poiClass) && entry.objects.some((o) =>
+                o.kind === 'chest' && o.poiClass === ch.poiClass &&
+                (o.x - ch.x) * (o.x - ch.x) + (o.y - ch.y) * (o.y - ch.y) <= AREA_DUP_R2))
+            continue;
+          occupied.add(k);
+          const c = localCentre(ch.x, ch.y);
+          ch.x = c.x; ch.y = c.y;
+          delete ch.garden;   // internal flag — don't leak into the chest object
+          entry.objects.push(ch);
+        }
         const tryTreeCell = (ix, iy) => {
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
           if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
           if (occupied.has(`${ix}_${iy}`)) return null;
+          if (_sxNearBuildingCell(ix, iy) || _sxNearChestCell(ix, iy)) return null;
           const wcx = x * tileEdgeM + (ix + 0.5) * mPerCell;
           const wcy = y * tileEdgeM + (iy + 0.5) * mPerCell;
           if (!_sxYardOK(wcx, wcy)) return null;
@@ -2106,6 +2209,7 @@
         for (const s of (bin.shrubs || [])) {
           if (onWater(s.x, s.y)) continue;
           if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
+          if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
           if (!_sxYardOK(s.x, s.y)) continue;
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
@@ -2117,6 +2221,8 @@
         for (const p of (bin.poles || [])) {
           if (onWater(p.x, p.y)) continue;
           if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
+          if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
+          if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
           if (!_sxYardOK(p.x, p.y)) continue;
           const k = cellKeyOf(p.x, p.y);
           if (occupied.has(k)) continue;
@@ -2131,6 +2237,8 @@
         for (const wl of (bin.wells || [])) {
           if (onWater(wl.x, wl.y)) continue;
           if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
+          if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
+          if (_sxNearChest(wl.x, wl.y)) continue;     // keep the POI frontage clear
           if (!_sxYardOK(wl.x, wl.y)) continue;
           const k = cellKeyOf(wl.x, wl.y);
           if (occupied.has(k)) continue;
@@ -2163,38 +2271,9 @@
             if (entry.pathNames)   delete entry.pathNames[ck];
           }
         }
-        // POI chests (bus stops, signals, crossings, gates, towers, pitches,
-        // gardens, bicycle racks, …). poiClass drives loot / tier / label /
-        // coin-burst via loot.js + the render/interact chest paths.
-        //
-        // Area-derived sidecar POIs (way centroids: pitches, playgrounds,
-        // gardens, pools) usually describe the SAME real-world feature the MVT
-        // poi layer already spawned a chest for — but the two pipelines snap on
-        // different bases (MVT label point + placement offset vs Overpass way
-        // centroid on the global 5 m grid), so the same field's two chests land
-        // several metres apart and the cell-occupancy check can't catch them
-        // (this is what duplicated the Children's Yard / Tourney Grounds
-        // chests). Skip the sidecar copy when a same-class chest already sits
-        // within ~25 m — point-furniture classes (bus stops, signals, …) keep
-        // the cell-only dedupe, since two distinct real stops can legitimately
-        // sit ~15 m apart.
-        const SX_AREA_POI = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
-        const AREA_DUP_R2 = 25 * 25;
-        for (const ch of (bin.chests || [])) {
-          if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
-          if (!_sxYardOK(ch.x, ch.y)) continue;
-          const k = cellKeyOf(ch.x, ch.y);
-          if (occupied.has(k)) continue;
-          if (SX_AREA_POI.has(ch.poiClass) && entry.objects.some((o) =>
-                o.kind === 'chest' && o.poiClass === ch.poiClass &&
-                (o.x - ch.x) * (o.x - ch.x) + (o.y - ch.y) * (o.y - ch.y) <= AREA_DUP_R2))
-            continue;
-          occupied.add(k);
-          const c = localCentre(ch.x, ch.y);
-          ch.x = c.x; ch.y = c.y;
-          delete ch.garden;   // internal flag — don't leak into the chest object
-          entry.objects.push(ch);
-        }
+        // (POI chests were injected before the trees above — a chest is a
+        // real-world destination and must win its cell over scenery; the
+        // area-POI ~25 m same-class dedupe moved up with that loop.)
         // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
         // spot" mark, claimed via the treasure handler (same array the MVT
         // parking path fills). No per-cell occupancy — X marks sit under the
@@ -2770,6 +2849,38 @@
       ([plix, pliy]) => Math.max(Math.abs(plix - lix), Math.abs(pliy - liy)) < minStairCells);
     const markPlaced = (lix, liy) => placedCells.push([lix, liy]);
 
+    // This pass runs AFTER every spawn cull, so it must enforce the same
+    // placement rules itself or its ladders land where nothing else may:
+    //   • never on a cell an interactable already occupies (one per cell)
+    //   • never within the one-cell building moat (the house/tower sprite
+    //     overhangs its footprint — "interactable in the house boundary")
+    //   • never on or beside a POI chest / its concrete plaza pad
+    const objCells = new Set();
+    const chestCells = [];
+    for (const o of entry.objects) {
+      const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
+      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+      objCells.add(liy * N + lix);
+      if (o.kind === 'chest') chestCells.push([lix, liy]);
+    }
+    const isBuildingT = (tc) =>
+      tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+    const nearBuilding = (lix, liy) => {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = lix + dx, ny = liy + dy;
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        if (isBuildingT(grid[ny * N + nx])) return true;
+      }
+      return false;
+    };
+    const nearChest = (lix, liy) => chestCells.some(
+      ([cx2, cy2]) => Math.max(Math.abs(cx2 - lix), Math.abs(cy2 - liy)) <= 1);
+    const pads = entry.poiPadCells;
+    const stairCellOK = (lix, liy, idx) =>
+      !used.has(idx) && isWalkable(grid[idx]) && !tooClose(lix, liy)
+      && !objCells.has(idx) && !(pads && pads.has(idx))
+      && !nearBuilding(lix, liy) && !nearChest(lix, liy);
+
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
     // true on success; de-dupes so two clusters can't stack stairs on one cell,
     // and skips cells too near an entrance already placed on this tile.
@@ -2780,7 +2891,7 @@
         const lix = rlix + dx, liy = rliy + dy;
         if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
         const idx = liy * N + lix;
-        if (used.has(idx) || !isWalkable(grid[idx]) || tooClose(lix, liy)) continue;
+        if (!stairCellOK(lix, liy, idx)) continue;
         used.add(idx);
         markPlaced(lix, liy);
         const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
@@ -2796,7 +2907,7 @@
     const placeRandomWalkable = () => {
       const cells = [];
       for (let i = 0; i < grid.length; i++) {
-        if (!used.has(i) && isWalkable(grid[i]) && !tooClose(i % N, Math.floor(i / N))) {
+        if (stairCellOK(i % N, Math.floor(i / N), i)) {
           cells.push(i);
         }
       }

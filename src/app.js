@@ -294,7 +294,7 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house',       'assets/Objects/House.png');
-    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=1');
+    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
     this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
