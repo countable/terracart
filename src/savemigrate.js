@@ -3,8 +3,9 @@
 //
 // migrate(save) mutates `save` in place: backfills slots/defaults added since a
 // save was created, re-derives maxEnergy from armor, applies the history-size
-// cap, and runs the data migrations (inv string→object, stash fold, venison→
-// meat, golden→shiny rename, released golden flag, the sapling review seed).
+// cap, and runs the data migrations (inv string→object, stash fold, discovery
+// counter→badge stack, venison→meat, golden→shiny rename, released golden
+// flag, the sapling review seed).
 //
 // Returns `needsPersist`: true iff a REAL data migration changed something and
 // the save should be re-written now. Idempotent defaults (slot backfills, the
@@ -37,7 +38,6 @@
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
-    if (save.discovery === undefined) save.discovery = 0;
     if (save.discovered === undefined) save.discovered = {};
     // Self-heal: pre-fix, id-less trees pushed `undefined` into save.chopped,
     // and a choppedSet.has(undefined) match wiped whole groves. Strip falsy ids.
@@ -107,6 +107,18 @@
         if (n > 0 && typeof Inventory !== 'undefined') Inventory.add(save, id, n);
       }
       delete save.stash;
+      needsPersist = true;
+    }
+    // Older save: the `discovery` counter → a 'discovery' inventory stack.
+    // The badge item is capExempt (inventory.js) so every banked point fits
+    // regardless of bag tier. Runs after the inv string→object migration so
+    // Inventory.add always sees object stacks.
+    if (save.discovery !== undefined) {
+      const n = save.discovery;
+      if (typeof n === 'number' && n > 0 && typeof Inventory !== 'undefined') {
+        Inventory.add(save, 'discovery', n);
+      }
+      delete save.discovery;
       needsPersist = true;
     }
     // Rename: venison → meat (fold counts) so hunting loot survives the rework.

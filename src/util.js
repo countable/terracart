@@ -16,7 +16,8 @@ function randInt(min, max, rng) {
 // === Rare "shiny" variants =================================================
 // A small fraction of biome flora, trees and wild animals spawn as a rare
 // yellow-tinted ("shiny") version. Harvesting / catching one pays a 10× money
-// bonus plus a Discovery point (save.discovery), all with a fanfare popup.
+// bonus plus a Discovery badge (a 'discovery' inventory stack), all with a
+// fanfare popup.
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals 5%.
 const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05 };
 // Deterministic [0,1) hash off a stable id string (FNV-1a). Returns the SAME

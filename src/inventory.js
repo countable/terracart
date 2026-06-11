@@ -5,7 +5,8 @@
 //   - At most ONE stack per item id; legacy duplicate stacks self-heal (fold
 //     into one) on the next add.
 //   - Each stack is capped at stackCapForBags(bags relic): 9 with no bag, 249
-//     at tier 7. Excess is rejected (this game has no ground drops).
+//     at tier 7. Excess is rejected (this game has no ground drops). Items
+//     flagged `capExempt` in items.js (the Discovery badge) are uncapped.
 //
 // The scene keeps thin wrappers (app.js addToInv / invRoomFor) that call these
 // and then do the side effects cores must not own: persistSave, buildInventory
@@ -21,6 +22,15 @@
     return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bags) : 9;
   }
 
+  // Effective cap for ONE item id. Items flagged `capExempt` in items.js (the
+  // Discovery badge) ignore the bag cap entirely — they're irreplaceable
+  // one-per-type earns, so "bag full" must never reject one.
+  function stackCapFor(save, id) {
+    const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
+    if (item && item.capExempt) return Infinity;
+    return stackCap(save);
+  }
+
   // Total held of `id` across the inventory (folds any stray duplicate stacks).
   function count(save, id) {
     let have = 0;
@@ -28,10 +38,11 @@
     return have;
   }
 
-  // How many more of `id` would fit right now (0 = full). Mirrors add()'s cap so
-  // a caller can detect overflow before committing (chest "leave it for later").
+  // How many more of `id` would fit right now (0 = full, Infinity for
+  // cap-exempt items). Mirrors add()'s cap so a caller can detect overflow
+  // before committing (chest "leave it for later").
   function roomFor(save, id) {
-    return Math.max(0, stackCap(save) - count(save, id));
+    return Math.max(0, stackCapFor(save, id) - count(save, id));
   }
 
   // Add up to `n` of `id`. Pure: mutates save.inv (folding duplicates, creating
@@ -48,7 +59,7 @@
     const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
     if (!item || n <= 0) return { valid: false, accepted: 0, rejected: 0, isNewStack: false };
 
-    const cap = stackCap(save);
+    const cap = stackCapFor(save, id);
     save.inv = save.inv || [];
     // Fold any duplicate stacks for this id into one canonical stack — the
     // no-duplicate invariant self-heals here (legacy saves could create dupes).
@@ -84,5 +95,24 @@
     return { valid: true, accepted, rejected, isNewStack };
   }
 
-  root.Inventory = { stackCap, count, roomFor, add };
+  // Remove up to `n` of `id`. Pure: walks every stack of the id (legacy dupes
+  // included), deducting and splicing emptied stacks. Returns the count
+  // actually removed (≤ n; 0 if none held). The caller owns side effects —
+  // persist, DOM rebuild, and re-clamping save.selSlot after the splice.
+  function remove(save, id, n = 1) {
+    if (n <= 0) return 0;
+    let left = n;
+    const inv = save?.inv || [];
+    for (let i = inv.length - 1; i >= 0 && left > 0; i--) {
+      const s = inv[i];
+      if (!s || s.id !== id) continue;
+      const take = Math.min(left, s.count || 0);
+      s.count = (s.count || 0) - take;
+      left -= take;
+      if (s.count <= 0) inv.splice(i, 1);
+    }
+    return n - left;
+  }
+
+  root.Inventory = { stackCap, count, roomFor, add, remove };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

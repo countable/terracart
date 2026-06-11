@@ -80,7 +80,9 @@ const INV_CATS = [
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+  // 'badge' = the Discovery badge stack — listed here so it's visible/countable,
+  // though it's spent only at the wizard tower (no tap-to-use handler).
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Slot draw order within each gear tab (owned slots only are rendered).
@@ -3837,15 +3839,19 @@ class MapScene extends Phaser.Scene {
     addMoney(this.save, money);
     // Discovery badge: at most ONE per type of interactable (keyed by baseId —
     // the species/kind/produce id). The first shiny of a given type banks a
-    // Discovery point; later shinies of the same type still pay the cash
-    // windfall but don't re-award the badge.
+    // Discovery badge — a normal inventory stack (id 'discovery', cap-exempt so
+    // a full bag can never eat one); later shinies of the same type still pay
+    // the cash windfall but don't re-award the badge. Added silent so the
+    // fanfare moment doesn't hijack the player's selected tab/stack; the
+    // explicit rebuild below makes the new badge count show immediately.
     const found = this.save.discovered = this.save.discovered || {};
     const isNew = !found[baseId];
     if (isNew) {
       found[baseId] = 1;
-      this.save.discovery = (this.save.discovery || 0) + 1;
+      this.addToInv('discovery', 1, true);
     }
     persistSave(this.save);
+    if (isNew && this.buildInventoryDOM) this.buildInventoryDOM();
     this.flashShiny(money, isNew);
     return money;
   }
@@ -4360,7 +4366,7 @@ class MapScene extends Phaser.Scene {
     box.innerHTML =
       `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
       `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
-      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${this.save.discovery ?? 0}</b></div>` +
+      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${Inventory.count(this.save, 'discovery')}</b></div>` +
       `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
       Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
       `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
@@ -4522,6 +4528,9 @@ class MapScene extends Phaser.Scene {
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
       if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // noSell items (the Discovery badge) never enter the sell modal — the
+      // wizard tower is the only place they're worth anything.
+      if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
@@ -5667,7 +5676,7 @@ class MapScene extends Phaser.Scene {
       this.flash('The wizard nods — your sight already spans the world.', sx, sy);
       return;
     }
-    const have = this.save.discovery ?? 0;
+    const have = Inventory.count(this.save, 'discovery');
     const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
     this.showOfferModal({
       title: 'The wizard offers an Inner Light:',
@@ -5677,9 +5686,14 @@ class MapScene extends Phaser.Scene {
       cost: `🔆 ${cost} Discovery (you have ${have})`,
       canAfford: have >= cost,
       onAccept: () => {
-        if ((this.save.discovery ?? 0) < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
+        // Re-read the live stack so a stale modal can't overspend badges.
+        if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
         if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
-        this.save.discovery -= cost;
+        Inventory.remove(this.save, 'discovery', cost);
+        // The spend may have spliced the badge stack out — keep selSlot valid.
+        if (this.save.selSlot >= this.save.inv.length) {
+          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        }
         this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
         // The light's gift is a Ring whose tier matches the new inner-light
         // level — the relic that embodies your widened sight.

@@ -613,7 +613,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   flute, book, scarecrow
+     consumables:   flute, book, scarecrow      badge: discovery
 
 ================================================================================
 SHINY VARIANTS & DISCOVERY
@@ -624,9 +624,13 @@ SHINY VARIANTS & DISCOVERY
    reloads + tile re-rasterise WITHOUT storing anything on the object or save,
    and render.js sparkles the sprite so it reads as special.
  - harvesting / catching a shiny pays a headline bonus: 10× the base item's
-   value in cash PLUS one DISCOVERY point (save.discovery), with a fanfare popup
+   value in cash PLUS one DISCOVERY badge — an inventory stack (item id
+   'discovery', kind 'badge', shown on the Items tab) — with a fanfare popup
    (awardShinyBonus). A per-type ledger (save.discovered) tracks which kinds
    you've found. Shiny trees additionally require a Gold axe to fell.
+ - the badge stack is cap-exempt (a full bag never rejects one), excluded from
+   every loot/shop/delivery pool (no rarity class rolls kind 'badge'), and
+   refused by the home sell modal (noSell).
  - DISCOVERY is a soft currency spent at the WIZARD TOWER (see ECONOMY) on reach
    upgrades — an alternative to the shrine's delivery-gated path.
 

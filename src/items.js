@@ -164,6 +164,9 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // Discovery badge — the gold five-point star at row 8 col 4 of
+  // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
+  discovery:     { sheet: 'pickup',     frame: 116 },
 };
 
 function inventoryIconSource(itemId) {
@@ -355,6 +358,18 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
+  // Discovery badge — earned once per shiny TYPE found (awardShinyBonus), spent
+  // at the wizard tower on Inner Lights. Lives as a normal inventory stack so
+  // the player can see / count their badges, but it's deliberately walled off
+  // from the rest of the economy:
+  //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /
+  //                     deliveries never roll it (the Items tab lists the kind).
+  //   capExempt       → inventory.js ignores the bag stack-cap; a badge is
+  //                     irreplaceable (one per type, ever), so "bag full" must
+  //                     never eat one.
+  //   noSell          → the home sell modal refuses it; only the wizard trades
+  //                     in Discovery. No PRICES entry keeps it out of barter asks.
+  { id: 'discovery',    name: 'Discovery',    kind: 'badge', capExempt: true, noSell: true },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
