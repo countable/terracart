@@ -294,7 +294,7 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house',       'assets/Objects/House.png');
-    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=1');
+    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
     this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
@@ -1783,23 +1783,33 @@ class MapScene extends Phaser.Scene {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry.creatures = creatures; return; }
-    // Anchor spawns near the up-staircase (where the player enters) so monsters
-    // are immediately visible rather than scattered across the ~229×229 cell tile.
-    // Falls back to tile centre when no staircase exists on this tile.
-    const upStair = (entry.objects || []).find(o => o.kind === 'staircase' && o.dir === 'up');
+    // Anchor spawns near the up-staircases (where the player enters) so
+    // monsters are immediately visible rather than scattered across the
+    // ~229×229 cell tile. A level has an up-stair at EVERY surface entrance
+    // (and the player may descend any of them), so anchor around ALL of them —
+    // the old single-anchor (`find` → first stair) left every other entrance
+    // monster-free, and with the underground torch bubble only ~2 cells wide
+    // the far-away swarm was never seen ("I never see monsters underground").
+    // Falls back to the tile centre when no staircase exists on this tile.
     const cellSizeM = entry.tileEdgeM / N;
-    const anchorLix = upStair
-      ? Math.floor((upStair.x - tx * entry.tileEdgeM) / cellSizeM)
-      : Math.floor(N / 2);
-    const anchorLiy = upStair
-      ? Math.floor((upStair.y - ty * entry.tileEdgeM) / cellSizeM)
-      : Math.floor(N / 2);
-    const SPAWN_R = 25; // cells — fills 2–3 screens worth around the entry point
-    const randCell = () => ({
-      cx: anchorLix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
-      cy: anchorLiy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
-    });
-    const count = 50 + depth * 10;
+    const anchors = (entry.objects || [])
+      .filter(o => o.kind === 'staircase' && o.dir === 'up')
+      .map(s => ({
+        lix: Math.floor((s.x - tx * entry.tileEdgeM) / cellSizeM),
+        liy: Math.floor((s.y - ty * entry.tileEdgeM) / cellSizeM),
+      }));
+    if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
+    const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
+    const randCell = () => {
+      const a = anchors[Math.floor(rng() * anchors.length)];
+      return {
+        cx: a.lix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+        cy: a.liy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+      };
+    };
+    // Per-entrance density matches the old single-stair tuning; the tile-wide
+    // cap keeps a stair-dense level from turning into a wall of monsters.
+    const count = Math.min(160, (50 + depth * 10) * anchors.length);
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -1808,14 +1818,14 @@ class MapScene extends Phaser.Scene {
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already defeated — stays dead
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind, id });
         break;
       }
     }
-    // Rabbits: also anchored near the staircase.
-    const rabbitN = 10 + Math.floor(rng() * 8);
+    // Rabbits: also anchored near the staircases.
+    const rabbitN = (10 + Math.floor(rng() * 8)) * Math.min(3, anchors.length);
     for (let i = 0; i < rabbitN; i++) {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
@@ -1823,8 +1833,8 @@ class MapScene extends Phaser.Scene {
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already caught — stays gone
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
