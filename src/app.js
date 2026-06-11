@@ -510,11 +510,10 @@ class MapScene extends Phaser.Scene {
       !this.save.starterShopId &&
       !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
-    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
-    // 20 s so the start flow falls back to the default origin rather than hang.
-    if (this._homeCapturePending) {
-      setTimeout(() => { this._homeCapturePending = false; }, 20000);
-    }
+    // (The 20 s no-fix safety net for home capture is armed in startGps, once
+    // GPS is actually watching — sensors now start only after the opening
+    // story + the location CTA, so arming it here would count story-reading
+    // time against the fix and could silently skip the capture.)
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
     // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
@@ -1057,6 +1056,14 @@ class MapScene extends Phaser.Scene {
     if (_teleportOverride) { this.gpsAvailable = false; return; }
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
+    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting for
+    // home capture after 20 s so the start flow falls back to the default
+    // origin rather than hang. Armed here — not in create() — so the clock
+    // starts when GPS actually starts watching; the opening story + safety
+    // splash can hold sensors off far longer than 20 s.
+    if (this._homeCapturePending && !this._homeCaptureTimer) {
+      this._homeCaptureTimer = setTimeout(() => { this._homeCapturePending = false; }, 20000);
+    }
     try {
       this.gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
@@ -1075,7 +1082,14 @@ class MapScene extends Phaser.Scene {
               const rb = loadSave();
               ok = !!(rb && rb.home && rb.home.lat === latitude && rb.home.lon === longitude);
             } catch (_) { ok = false; }
-            if (ok) { location.reload(); return; }
+            if (ok) {
+              // One-shot flag for the reload: the player answered the safety
+              // splash seconds ago, so the reloaded page skips it and reuses
+              // the same compass-permission answer (sessionStorage — gone once
+              // the browsing session ends, so a later cold load asks again).
+              try { sessionStorage.setItem('terracart.skipSafety', window.__compassPerm || 'granted'); } catch (_) {}
+              location.reload(); return;
+            }
             // write/readback failed — don't loop; carry on with current origin.
           }
           const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);

@@ -640,11 +640,6 @@
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
-      // First-load story beat. Only on a truly fresh start (no introSeen
-      // flag — wiped by Reset save, so a reset also replays the intro).
-      try {
-        if (!localStorage.getItem('terracart.introSeen')) startStory();
-      } catch { /* localStorage blocked — just skip the intro */ }
     });
     // Two-slide opening story shown once after the safety splash. Slide 1
     // is the player's trailer ("You wake up…"), slide 2 is the wrecked
@@ -667,7 +662,7 @@
       },
     ];
     let __storyStarted = false;
-    function startStory() {
+    function startStory(onDone) {
       // Idempotent: never show the opening story more than once per page load,
       // even if something calls this twice (the overlay is removed on finish,
       // so a later call would no-op anyway — this just makes it explicit).
@@ -691,6 +686,7 @@
         if (i >= STORY_SLIDES.length) {
           try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
           overlay.remove();
+          onDone?.();
           return;
         }
         render();
@@ -698,6 +694,37 @@
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); advance(); });
       render();
       overlay.style.display = 'flex';
+    }
+    // Start-flow ordering. On a truly fresh start the opening story plays
+    // FIRST, and the safety/"Go to my location" splash only appears after the
+    // last slide — so the CTA never interrupts the story. And when startGps
+    // captures the first fix on a brand-new save it reloads to re-anchor the
+    // projection: that reload carries a one-shot sessionStorage flag (holding
+    // the compass-permission answer) so the splash — answered seconds earlier
+    // — is skipped instead of appearing a second time.
+    let __skipSafetyPerm = null;
+    try {
+      __skipSafetyPerm = sessionStorage.getItem('terracart.skipSafety');
+      if (__skipSafetyPerm) sessionStorage.removeItem('terracart.skipSafety');
+    } catch { /* sessionStorage blocked — show the splash as usual */ }
+    if (__skipSafetyPerm) {
+      // Home-capture reload — the splash was answered just before it. iOS
+      // compass permission persists for the browsing session, so reuse the
+      // pre-reload answer. The scene's create() sees window.__compassPerm and
+      // starts sensors itself; the direct call covers a scene that somehow
+      // finished loading first.
+      __safetyDismissed = true;
+      document.getElementById('safety')?.remove();
+      window.__compassPerm = __skipSafetyPerm;
+      window.__scene?.startSensors?.();
+    } else {
+      let freshIntro = false;
+      try { freshIntro = !localStorage.getItem('terracart.introSeen'); } catch {}
+      if (freshIntro) {
+        const safetyEl = document.getElementById('safety');
+        if (safetyEl) safetyEl.style.display = 'none';
+        startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+      }
     }
     // Reset THIS game: wipe only the active save slot's progress, plus every
     // cache of map tiles and global runtime state, so the current game reboots
@@ -832,10 +859,10 @@
   <script src="src/interactables.js?v=6"></script>
   <script src="src/interact.js?v=217"></script>
   <script src="src/road_render.js?v=5"></script>
-  <script src="src/render.js?v=262"></script>
+  <script src="src/render.js?v=263"></script>
   <script src="src/assets.js?v=173"></script>
   <script src="src/sandbox.js?v=31"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=347"></script>
+  <script src="src/app.js?v=348"></script>
 </body>
 </html>
