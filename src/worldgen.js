@@ -2263,15 +2263,35 @@
         // sit ~15 m apart.
         const SX_AREA_POI = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
         const AREA_DUP_R2 = 25 * 25;
+        // A chest outranks SCENERY on its cell, not just later injections: the
+        // occupied set is seeded from everything rasterizeTile placed, so a
+        // bus stop / crossing whose cell happened to hold a rasterized rock,
+        // tree or grass tuft was silently dropped — a real-world destination
+        // lost to set dressing ("I never see chests at POIs"). Evict the
+        // scenery instead; only another chest or a structure (house / tower /
+        // staircase) genuinely blocks the cell.
+        const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+        const evictSceneryAt = (k) => {
+          for (const o of entry.objects) {
+            if (SX_CHEST_BLOCKERS.has(o.kind) && cellKeyOf(o.x, o.y) === k) return false;
+          }
+          for (let i = entry.objects.length - 1; i >= 0; i--) {
+            if (cellKeyOf(entry.objects[i].x, entry.objects[i].y) === k) entry.objects.splice(i, 1);
+          }
+          for (let i = entry.wildplants.length - 1; i >= 0; i--) {
+            if (cellKeyOf(entry.wildplants[i].x, entry.wildplants[i].y) === k) entry.wildplants.splice(i, 1);
+          }
+          return true;
+        };
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           if (!_sxYardOK(ch.x, ch.y)) continue;
-          const k = cellKeyOf(ch.x, ch.y);
-          if (occupied.has(k)) continue;
           if (SX_AREA_POI.has(ch.poiClass) && entry.objects.some((o) =>
                 o.kind === 'chest' && o.poiClass === ch.poiClass &&
                 (o.x - ch.x) * (o.x - ch.x) + (o.y - ch.y) * (o.y - ch.y) <= AREA_DUP_R2))
             continue;
+          const k = cellKeyOf(ch.x, ch.y);
+          if (occupied.has(k) && !evictSceneryAt(k)) continue;
           occupied.add(k);
           const c = localCentre(ch.x, ch.y);
           ch.x = c.x; ch.y = c.y;
