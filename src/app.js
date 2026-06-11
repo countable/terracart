@@ -690,15 +690,15 @@ class MapScene extends Phaser.Scene {
     }
 
     // Road-letter pool: small light letters with a soft drop shadow, laid out one
-    // per cell along named streets. Lighter than the cobble background so they
-    // read like worn paint markings rather than carved-in lettering.
+    // per cell along named streets. Light ink on the (now black-cobble) road so
+    // they read like worn paint markings rather than carved-in lettering.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 10px serif', color: '#000000',
-      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
+        font: 'bold 10px serif', color: '#e6dfcd',
+      }).setOrigin(0.5, 0.5).setAlpha(0.5).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }

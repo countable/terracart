@@ -497,7 +497,10 @@ Render.drawCells = function drawCells(scene) {
                      | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
           // Pure L-bends render as a baked elbow sprite (rounded outer
           // corner with real antialiasing — Graphics arcs staircase under
-          // pixelArt) rotated into orientation; everything else is geometry.
+          // pixelArt) rotated into orientation; every other cell stamps a
+          // lazily-baked rough-edged texture (black cobble / dirt — see
+          // RoadRender.ensureRoadCellTexture). Variant alternates by cell
+          // parity so long straights don't repeat one wobble pattern.
           const elbowAng = _hasElbowTex ? RoadRender.elbowAngle(mask) : -1;
           if (elbowAng >= 0) {
             cs.setTexture('roadelbow_' + type)
@@ -506,8 +509,19 @@ Render.drawCells = function drawCells(scene) {
               .setAngle(elbowAng)
               .setTint(0xffffff).setVisible(true);
           } else {
-            RoadRender.drawRoadCell(gr, sx, sy, type, mask);
-            cs.setVisible(false);
+            const rcKey = RoadRender.ensureRoadCellTexture(
+              scene, type, mask, (absCellIX + absCellIY) & 1);
+            if (rcKey) {
+              cs.setTexture(rcKey)
+                .setDisplaySize(CELL_PX, CELL_PX)
+                .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+                .setAngle(0)
+                .setTint(0xffffff).setVisible(true);
+            } else {
+              // No canvas texture support — flat-colour Graphics fallback.
+              RoadRender.drawRoadCell(gr, sx, sy, type, mask);
+              cs.setVisible(false);
+            }
           }
           // Named-path stone tint — semi-transparent blue rect over activated stones.
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
