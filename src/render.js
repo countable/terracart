@@ -648,9 +648,20 @@ Render.drawCells = function drawCells(scene) {
         // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
         // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (wallEdge(col, row, 0, 1)) {
-          gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(gf, sx, sy + CELL_PX);
+          // The Home trailer parked in FRONT of (south of) this wall must
+          // occlude it — a wall behind the trailer painting over its roof
+          // reads backwards. Route just this cell's front wall to the BACK
+          // layer so the trailer sprite (objectsContainer, above gb) draws on
+          // top. Rect stamped by drawObjects' house `after` hook; the wall's
+          // painted strip spans crest top … face bottom (sy+CELL_PX+WALL).
+          const tr = scene._homeTrailerRect;
+          const gw = (tr &&
+            (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
+            tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
+            tr.x1 > sx && tr.x0 < sx + CELL_PX) ? gb : gf;
+          gw.fillStyle(STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          crestH(gw, sx, sy + CELL_PX);
         }
         // North / back wall → BACK layer (below objects). Same tall extruded face
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
@@ -860,6 +871,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Re-inject the synthetic starter trailer (if any) into its owning tile —
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
+  // Screen-space rect of the Home trailer's sprite — re-stamped each frame by
+  // the house spec's `after` hook when the trailer is on-screen, null when it
+  // isn't. drawCells reads it to sort castle front walls BEHIND the trailer
+  // (see the tier-12 rampart pass).
+  scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -1126,6 +1142,17 @@ Render.drawObjects = function drawObjects(scene) {
         // building, not a wall. Plain / blacksmith / trader / trailer / wizard
         // share 0.6 so they look like neighbours from the same village.
         return role === 'fort' ? 0.35 : 0.6;
+      },
+      // Stamp the Home trailer's display rect for drawCells' castle-rampart
+      // sorting: a front (south) wall the trailer is parked in front of must
+      // not paint over it. Runs after position/origin/scale are final.
+      after: (s, o) => {
+        if (_houseRole(o) !== 'trailer') return;
+        const w = s.displayWidth, h = s.displayHeight;
+        scene._homeTrailerRect = {
+          x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
+          y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
+        };
       } },
     // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
     // ~2/3 of a cell up into the tile above — leaving its collision cell (the

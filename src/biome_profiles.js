@@ -106,7 +106,10 @@
   const FAMILY_PROFILE = {
     grassland: {
       flora: [dyn('longgrass', 0.15, S.LONGGRASS),
-              fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
+              // Forget-me-not halved (was 0.006–0.020): parks/grass often carry
+              // two stacked OSM polygons (landcover+landuse / landuse+park),
+              // each running its own scatter — observed density ~2x the window.
+              fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
               fix('marigold', 0.004, 0.012, S.MARIGOLD)],
       tint: {},
     },
@@ -134,7 +137,8 @@
   const BIOME_PROFILES = {
     [T.GRASS]: {
       flora: [dyn('longgrass', 0.15, S.LONGGRASS),
-              fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
+              // Halved (see grassland family note) — was 0.006–0.020.
+              fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
               fix('marigold', 0.004, 0.012, S.MARIGOLD)],
       tint: {},
     },
@@ -159,9 +163,13 @@
       tint: {},
     },
     [T.PARK]: {
-      flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
+      // Shrub + forget-me-not halved (shrub was D_MIN–D_MAX = 0.05–0.15,
+      // forget-me-not 0.006–0.020): parks usually arrive as two stacked OSM
+      // polygons (landuse + park layers), each running its own scatter, so
+      // observed density landed ~2x the configured window.
+      flora: [fix('shrub', 0.025, 0.075, S.SHRUB),
               dyn('longgrass', 0.15, S.LONGGRASS),
-              fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
+              fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
               fix('marigold', 0.004, 0.012, S.MARIGOLD)],
       tint: {},
     },
