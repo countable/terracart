@@ -362,6 +362,86 @@
     }
   }
 
+  // Post-paint erosion for merged pavement blobs.
+  //
+  // Dense road/path networks — parking-lot aisles, plaza perimeter loops,
+  // footpath meshes, roads with sidewalk ways on both sides — run closer
+  // together than one game cell, so their 1-cell paintLine stamps (2-cell on
+  // diagonal steps) weld into solid multi-cell "zones" of pavement instead of
+  // distinct lines. This pass dissolves every cell that is STRICTLY INTERIOR
+  // to a same-kind paved area — all 8 neighbours paved AND the same kind
+  // (vehicle tiers ROAD/ROAD_MD/ROAD_LG count as one kind, PATH as another) —
+  // back to the biome the paint covered (recorded in pathUnder/roadUnder at
+  // stamp time). What survives:
+  //   • 1-wide lines and 2-wide lanes/diagonal staircases — they always touch
+  //     unpaved ground, so ordinary streets and dual carriageways never erode;
+  //   • the perimeter loop of a blob (reads as the road/path that encircles
+  //     the area, which is usually exactly what the OSM ways describe);
+  //   • a road line crossing a footpath plaza (and vice versa) — its
+  //     neighbours are the wrong kind, so the through-line is protected.
+  // Out-of-tile neighbours count as same-kind pavement: the geometry that
+  // built a seam-spanning blob extends into the adjacent tile's buffer, so
+  // both tiles see the same blob and erode the same interior cells.
+  function erodePavementBlobs(grid, w, h, pathUnder, roadUnder) {
+    const isPaved = (t) => t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG || t === T.PATH;
+    const kindOf = (t) => (t === T.PATH ? 1 : 0);
+    // The biome a paved cell covered, if any was recorded. A cell repainted
+    // across kinds (ROAD stamped over PATH) records PATH in roadUnder — skip
+    // paved values and fall through to the path stamp's original record.
+    const underAt = (x, y) => {
+      const k = `${x}_${y}`;
+      for (const u of [roadUnder[k], pathUnder[k]]) {
+        if (u != null && !isPaved(u)) return u;
+      }
+      return null;
+    };
+    const eroded = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const t = grid[y * w + x];
+        if (!isPaved(t)) continue;
+        const kind = kindOf(t);
+        let interior = true;
+        for (let dy = -1; dy <= 1 && interior; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; // seam: assume the blob continues
+            const nt = grid[ny * w + nx];
+            if (!isPaved(nt) || kindOf(nt) !== kind) { interior = false; break; }
+          }
+        }
+        if (interior) eroded.push([x, y]);
+      }
+    }
+    // Two-phase (collect, then write) so erosion decisions all read the
+    // original grid — peeling in scan order would cascade through the blob.
+    for (const [x, y] of eroded) {
+      let u = underAt(x, y);
+      if (u == null) {
+        // No usable record (shouldn't happen for painted lines) — borrow the
+        // most common restorable under-biome among the 8 neighbours.
+        const counts = {};
+        let best = T.GRASS, bestN = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nu = underAt(x + dx, y + dy);
+            if (nu == null) continue;
+            const n = (counts[nu] = (counts[nu] || 0) + 1);
+            if (n > bestN) { bestN = n; best = nu; }
+          }
+        }
+        u = best;
+      }
+      grid[y * w + x] = u;
+      // The cell is no longer PATH — drop its stale under record so the
+      // exported entry.pathUnder only describes live path cells.
+      delete pathUnder[`${x}_${y}`];
+    }
+    return eroded.length;
+  }
+
   // --- Tile fetching & caching ---
   // One tile cache PER DEPTH. depth 0 = surface (MVT-derived); depth 1,2,… =
   // underground cave levels (each derived from the level above — see
@@ -624,6 +704,11 @@
     // "cx_cy" → biome code a PATH cell overwrote (see paintCell). Render uses
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
+    // Same idea for the vehicle road tiers, but rasterize-local only: it isn't
+    // exported for render (roads fully cover their cell) — it exists so the
+    // pavement-blob erosion pass can restore the biome a dissolved road cell
+    // was stamped over. See erodePavementBlobs.
+    const roadUnder = {};
     const rng = makeRng(tx * HASH_MUL_X ^ ty * HASH_MUL_Y);
 
     // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
@@ -1083,6 +1168,11 @@
         } else if (f.type === 2 && name === 'transportation') {
           const t = classifyLine(name, f.tags);
           if (t == null) continue;
+          // Parking-lot aisles carpet a lot with parallel service lines spaced
+          // closer than one cell, so they rasterize into a solid asphalt blob,
+          // not a road network. Skip them entirely: the lot keeps its landuse
+          // paint and the parking-POI treasure X already marks it.
+          if (f.tags.service === 'parking_aisle') continue;
           // Roads and paths rasterize exactly ONE cell wide regardless of
           // their OSM width: the tier's visible width is procedural
           // (RoadRender.ROAD_WIDTH px within the cell), so wider disk
@@ -1094,9 +1184,12 @@
           const wCells = (t === T.PIER)
             ? Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M))
             : 1;
-          // Only PATH records its under-biome — roads/piers fully cover their
-          // cell so the base never shows, and skipping them keeps pathUnder small.
-          const under = t === T.PATH ? pathUnder : undefined;
+          // PATH records its under-biome in pathUnder (render draws it beneath
+          // the sparse path pebbles); vehicle road tiers record theirs in the
+          // rasterize-local roadUnder so the erosion pass can restore dissolved
+          // cells. Piers record nothing — they're never eroded and their plank
+          // sprite fully covers the cell.
+          const under = t === T.PATH ? pathUnder : (t === T.PIER ? undefined : roadUnder);
           for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell, under);
         } else if (f.type === 1 && name === 'poi') {
           // POI points → a generic chest (single sprite, no themed subkinds).
@@ -1492,6 +1585,14 @@
         }
       }
     }
+    // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
+    // (sidewalk meshes, plaza loops, anything denser than one cell apart)
+    // weld into solid paved zones; dissolve the strict same-kind interior back
+    // to the under-biome so pavement always reads as lines and loops, never
+    // as a flood-filled area. Runs after ALL painting (buildings included) so
+    // the interior test sees the final grid, and before the road-letter /
+    // path-stone passes so no glyph or stone lands on a dissolved cell.
+    erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -2994,6 +3095,7 @@
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, isWalkable, isSpawnCell, setDepth, tidyFootprintCells,
+    erodePavementBlobs,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
