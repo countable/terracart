@@ -102,10 +102,12 @@ MOVEMENT & REACH
    it NEVER gates it (no exceptions, no tool-or-tier gates):
      bare hands (tier 0) 9s · Wood 3s · Copper 2.5s · Iron 2s · Gold 1.3s ·
      Platinum 0.8s · Crimson 0.5s · Frost 0.3s   (bare hands = 3× wooden)
-   This single table governs chopping (Axe), mining (Pick), fishing (Rod),
-   worked foraging (Pick/Axe), animal catching (Bug Net) and pest defeating
-   (weapon); per-activity sections below only note their unique drops / energy /
-   tool, not the timing. The tool in use is shown during the action. You wait it
+   This single table governs chopping (Axe), mining (Pick), worked foraging
+   (Pick/Axe), animal catching (Bug Net) and pest defeating (weapon);
+   per-activity sections below only note their unique drops / energy / tool,
+   not the timing. EXCEPTION — fishing: the cast time is LOCKED at 9s bare /
+   3s with ANY rod; rod tier improves the catch table, skunk rate and energy
+   per cast, never the cast rate (see FISHING). The tool in use is shown during the action. You wait it
    out; tapping anywhere cancels it (and refunds any pre-charged energy). The
    first 150ms is swallowed so the launching tap can't immediately cancel.
 
@@ -120,7 +122,8 @@ ENERGY & FOOD
    boots +8/tier (per equipped tier). Equipping better armor bumps current
    energy by the delta too.
  - EAT: a persistent Eat button below the inventory eats the selected food for
-   FOOD_ENERGY[id] (longgrass 2 … sunflower 150, cow 120, meat 45, etc.).
+   FOOD_ENERGY[id] (longgrass 2 … iceflower 150, cow 120, meat 45, etc.).
+   Cats and dogs have NO FOOD_ENERGY entry — companions are never edible.
  - special food side effects: eating a rainberry waters every crop within 20m;
    eating a pairy points you to the nearest undiscovered chest for 5 minutes.
  - REST: energy regenerates over real time. Rates are "seconds to refill the
@@ -311,8 +314,11 @@ ORCHARD FRUIT TREES
 FISHING
 ================================================================================
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
-   tiers improve the catch and rare odds. A rod also tops the watering can to
-   full on every cast (so a rod owner never loses charges).
+   tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
+   3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
+   — tier-scaled 0.3s casts made high-tier fishing an unbounded money
+   faucet). A rod also tops the watering can to full on every cast (so a rod
+   owner never loses charges).
  - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
    T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
    → goldenfish, rarer more likely at high tier), with a small relic chance
@@ -486,6 +492,12 @@ ECONOMY (buying & selling)
    exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —
    see the shop roles above). The old mixed "1/3 cash / 2/3 barter" roll was
    removed so the two idioms map cleanly onto shop type.
+ - QUANTITY: cash purchases hand over exactly ONE unit (low-tier seeds add the
+   bulk-pack bonus); the ×TRADE_OFFER_QTY (2) bundle is BARTER-ONLY, so cash
+   buys can never be resold at a profit. The seed rotation (BUY_LIST) covers
+   T1-T3 seeds only — magical flower seeds (sunflower/fireflower/iceflower)
+   are loot finds (flora chests, rare trader/fort rarity rolls), never on the
+   shop rotation.
  - SELL: selling happens only at your HOME shop. With a stack selected, tapping
    home sells one at PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at
    Frost). Other houses are buy/trade-only.

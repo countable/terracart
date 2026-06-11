@@ -207,8 +207,11 @@ const PRESEED_RESTORE_ROLES = {
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
 // the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
 // now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
-// Shop/trader trades hand the player this many of the offered item per deal for
-// the same demand (cash or barter), so every trade is twice as favourable.
+// Trader BARTER deals hand the player this many of the offered item per deal,
+// so swapping goods is twice as favourable as raw cash. CASH purchases are
+// deliberately excluded (they hand over exactly 1): a ×2 cash bundle made the
+// effective per-unit buy price ~0.6× base, which a mid-tier Sword (sell
+// 0.5→1.0×) turned into a buy-then-resell money loop.
 const TRADE_OFFER_QTY     = 2;
 
 // Compare-only squared distance — avoids sqrt.
@@ -4778,9 +4781,11 @@ class MapScene extends Phaser.Scene {
       this.flash('no deal', sx, sy);
       return;
     }
-    // Low-tier seeds ship a few extra (planted in bulk); everything else is
-    // the flat trade quantity.
-    const buyQty = TRADE_OFFER_QTY + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
+    // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
+    // bundle is barter-only (see presentTraderOffer) so cash buys can't be
+    // flipped at a profit. Low-tier seeds still ship a few extra (planted in
+    // bulk; a starter nicety, not an arbitrage vector at $3 a pack).
+    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
       cancelLabel: 'Later',

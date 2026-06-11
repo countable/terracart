@@ -1308,16 +1308,16 @@ const TAP_HANDLERS = [
   }},
 
   // 2a-fish) Fishing: tap a water cell (type 3) with a Fishing Rod relic equipped.
-  // Triggers a 5s work-progress, then drops a random fish weighted by rarity
+  // Triggers a cast work-progress, then drops a random fish weighted by rarity
   // (modified by rod tier — higher tier → more chance of rare fish). Placed
   // BEFORE flavor so the water-tap doesn't get eaten by the 'water' label.
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
-    // No rod? You can still fish BARE-HANDED — it just takes 3× as long (the
-    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier AND
-    // improves the catch; bare hands fish at tier 0 (higher skunk rate, minnow-
-    // heavy weights) so only owning a rod improves the catch (spec §FISHING).
+    // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
+    // improves the catch table + skunk rate + energy per cast; bare hands fish
+    // at tier 0 (higher skunk rate, minnow-heavy weights) so only owning a rod
+    // improves the catch (spec §FISHING).
     const fishCost = (typeof effectiveFishCost === 'function')
       ? effectiveFishCost(save.relics) : (ENERGY_COST?.fish ?? 9);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
@@ -1325,8 +1325,12 @@ const TAP_HANDLERS = [
     // the can up here as part of the cast so owning a rod never costs you your
     // watering charges. Bare-handed casts without a can simply skip this.
     if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
-    const castMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'rod') : (save.relics?.rod ? 3000 : 9000);
+    // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
+    // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
+    // catch table, the skunk rate, and the energy cost; letting it also
+    // shrink the cast to 0.3s turned a Frost rod into a 3-casts-per-second
+    // money faucet (fish + the 2%-per-cast gear jackpot) with no rate limit.
+    const castMs = save.relics?.rod ? 3000 : 9000;
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
       // Per user: most of the wait results in nothing on a low-tier rod,
@@ -1391,7 +1395,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, castMs, 5, 'rod');   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
+    }, castMs, 5, 'rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
     return true;
   }},
 
