@@ -36,7 +36,7 @@
   // into a solid highway surface. PATH at 4px reads as a narrow dirt track.
   const ROAD_WIDTH = {
     8:  4,   // PATH    — narrow dirt track
-    7:  10,  // ROAD    — quiet residential street
+    7:  14,  // ROAD    — quiet residential street (was 10: read too narrow)
     14: 18,  // ROAD_MD — secondary / town road
     13: 30,  // ROAD_LG — highway (fills nearly the full cell)
   };
@@ -332,11 +332,18 @@
       // bend's inner corner (flat pie edges flush with both arms; the arc
       // rounds the outer corner). Curb layer first, patterned surface on top
       // leaves the 1px kerb ring visible along the whole bend.
+      //
+      // Built as ONE path with a single fill: the surface pass masks the
+      // pattern with destination-in, and under that op each fill() composites
+      // separately — three sequential fills would each erase everything
+      // outside themselves, leaving the intersection (≈ nothing), which is
+      // why elbows used to render as flat curb colour with no cobble/dirt
+      // pattern.
       const layer = (c2, color, h) => {
         c2.fillStyle = color;
-        c2.fillRect(cx - h, 0, 2 * h, cy - h);          // N arm
-        c2.fillRect(cx + h, cy - h, CELL_PX, 2 * h);    // E arm
         c2.beginPath();
+        c2.rect(cx - h, 0, 2 * h, cy - h);              // N arm
+        c2.rect(cx + h, cy - h, CELL_PX, 2 * h);        // E arm
         c2.moveTo(cx + h, cy - h);                      // inner-corner pivot
         c2.arc(cx + h, cy - h, 2 * h, Math.PI / 2, Math.PI);
         c2.closePath();

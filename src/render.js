@@ -494,8 +494,27 @@ Render.drawCells = function drawCells(scene) {
           const tne = T(col + 1, row - 1), tse = T(col + 1, row + 1);
           const tsw = T(col - 1, row + 1), tnw = T(col - 1, row - 1);
           const conn = (t) => isAnyRoad(t) || t === PIER;
-          const mask = (conn(tn) ? 1 : 0) | (conn(te) ? 2 : 0)
-                     | (conn(ts_) ? 4 : 0) | (conn(tw) ? 8 : 0)
+          // PARALLEL-RUN suppression: an arm toward a road-ish neighbour is
+          // dropped when BOTH this cell and that neighbour sit inside runs
+          // PERPENDICULAR to the arm (road on both sides along that axis).
+          // Without this, a path running beside a road sprouted a rung into
+          // it on every cell — and the corner-quadrant fill then ballooned
+          // the 4px track to the whole cell ("the path greatly oscillates in
+          // width"); two adjacent parallel roads likewise merged into one
+          // blob for short stretches. Junction connectivity is unaffected:
+          // a teeing/crossing line's cells never have road on both
+          // perpendicular sides, so their arms (and the matching arm drawn
+          // by the cell they tee into — the rule is symmetric) survive.
+          const runEW = isAnyRoad(tw) && isAnyRoad(te);   // self inside an E-W run
+          const runNS = isAnyRoad(tn) && isAnyRoad(ts_);  // self inside a N-S run
+          const nbrRunEW = (c, r) => isAnyRoad(T(c - 1, r)) && isAnyRoad(T(c + 1, r));
+          const nbrRunNS = (c, r) => isAnyRoad(T(c, r - 1)) && isAnyRoad(T(c, r + 1));
+          const cN = conn(tn)  && !(runEW && nbrRunEW(col, row - 1));
+          const cS = conn(ts_) && !(runEW && nbrRunEW(col, row + 1));
+          const cE = conn(te)  && !(runNS && nbrRunNS(col + 1, row));
+          const cW = conn(tw)  && !(runNS && nbrRunNS(col - 1, row));
+          const mask = (cN ? 1 : 0) | (cE ? 2 : 0)
+                     | (cS ? 4 : 0) | (cW ? 8 : 0)
                      | (isAnyRoad(tne) ? 16 : 0) | (isAnyRoad(tse) ? 32 : 0)
                      | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
           // Pure L-bends render as a baked elbow sprite (rounded outer
