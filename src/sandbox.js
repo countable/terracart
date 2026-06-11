@@ -17,7 +17,7 @@
 //   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
 //   composites — arranged in horizontal BANDS, separated by named connective
 //   ROADS. The roads are not filler: they're how the road / road_lg / road_md
-//   biomes (and their street-letter overlays) get covered.
+//   biomes (and their street-name labels) get covered.
 //
 //   Layout (north → south):
 //     Band 1  COUNTRYSIDE     FOREST · ORCHARD · ROCK
@@ -220,7 +220,7 @@
   };
 
   // ── RESIDENTIAL STREET — the headline scene. A ROAD runs across the middle
-  //    (with street-letter overlays); a house of EACH shop type lines it:
+  //    (with street-name labels); a house of EACH shop type lines it:
   //    blacksmith (addr 9), market (6), trader (8), plain/delivery (3). Yards
   //    carry mushroom decals + pickable mushrooms; a mineral rock sits at the
   //    curb (worldgen drops residential rocks only ≤1 cell from a road); cats
@@ -229,11 +229,9 @@
     name: 'RESIDENTIAL', label: 'RESIDENTIAL ST', w: 13, h: 8, fill: T.RESIDENTIAL,
     paint(p) {
       p.rect(0, 3, 13, 2, T.ROAD);            // 2-cell street, rows dy3..4
-      const nm = 'MAPLE ST';
-      for (let dx = 0; dx < 13; dx++) {
-        const ch = nm.charAt(dx % (nm.length + 3));
-        if (ch && ch !== ' ' && dx % (nm.length + 3) < nm.length) p.roadLetter(dx, 3, ch);
-      }
+      // One whole-word label per street half (covers the road-label render path).
+      p.roadLabel(3, 3, 'Maple');
+      p.roadLabel(10, 3, 'Maple');
       // Building footprints under each house — real houses sit on BUILDING
       // terrain, which renders the extruded foundation block. Kept to the
       // house's own row (the yard in front stays walkable so the 6m house
@@ -395,7 +393,7 @@
     const objects = [];
     const wildplants = [];
     const creatures = [];
-    const roadLetters = {};
+    const roadLabels = {};
     const pathNames = {};
 
     // Helper: cell index → world metres at cell centre.
@@ -404,7 +402,7 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    populate({ grid, objects, wildplants, creatures, roadLetters, pathNames,
+    populate({ grid, objects, wildplants, creatures, roadLabels, pathNames,
                cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM });
 
     return {
@@ -414,7 +412,7 @@
       wildplants,
       creatures,
       parkingTreasures: [],
-      roadLetters,
+      roadLabels,
       pathNames,
       treasure: null,
       tileEdgeM,
@@ -590,7 +588,7 @@
   }
 
   function populateSandbox(originIX, originIY, c) {
-    const { grid, objects, wildplants, creatures, roadLetters, pathNames,
+    const { grid, objects, wildplants, creatures, roadLabels, pathNames,
             cellsPerEdge, wmAt, tx, ty } = c;
     const baseId = `sb_${tx}_${ty}`;
 
@@ -611,7 +609,7 @@
         s.paint({
           cell: setCell,
           rect,
-          roadLetter: (dx, dy, ch) => { roadLetters[`${ix0 + dx}_${iy0 + dy}`] = { char: ch, angle: 0 }; },
+          roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
           pathName: (dx, dy, name) => { pathNames[`${ix0 + dx}_${iy0 + dy}`] = name; },
         });
       }
@@ -621,8 +619,7 @@
 
     // Connective roads span the full layout width below their band.
     for (const r of LAYOUT.roads) {
-      const letters = r.name.toUpperCase();
-      const period = letters.length + 4;   // blank gap between name repeats
+      const period = 12;   // one whole-word label per ~12 cells, like worldgen
       for (let t = 0; t < r.thick; t++) {
         const iy = originIY + r.y + t;
         if (iy < 0 || iy >= cellsPerEdge) continue;
@@ -630,10 +627,8 @@
           const ix = originIX + dx;
           if (ix < 0 || ix >= cellsPerEdge) continue;
           grid[iy * cellsPerEdge + ix] = r.type;
-          if (t === 0) {
-            const m = dx % period;
-            const ch = m < letters.length ? letters.charAt(m) : ' ';
-            if (ch !== ' ') roadLetters[`${ix}_${iy}`] = { char: ch, angle: 0 };
+          if (t === 0 && dx % period === 2) {
+            roadLabels[`${ix}_${iy}`] = { text: r.name, angle: 0 };
           }
         }
       }

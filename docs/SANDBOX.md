@@ -12,7 +12,7 @@ polygon is a *scene*: a road threads through it, houses (shop type set by the
 address digit) line the road, yards carry flora, mineral rocks sit at the curb.
 So each test area is a small realistic composite, and the connective **roads**
 between them aren't filler — they cover the road / road_lg / road_md / path
-biomes and their street-letter overlays.
+biomes and their street-name labels.
 
 ## Layout (north → south)
 

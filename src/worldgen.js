@@ -49,7 +49,7 @@
     // rejection, watering-can refill, fishing taps, mineralrock blocking,
     // building-zone scoring) don't each need to special-case "...unless it's
     // a pier cell". Walkable (not in any building/water blocking set),
-    // non-tillable, not a road tier (so no road-letter labels or path-stone
+    // non-tillable, not a road tier (so no road-name labels or path-stone
     // activation). Rendered by drawing a base water tile + plank sprite
     // overlay via the cobblePool — see render.js PIER_FRAME.
     PIER: 23,
@@ -1590,7 +1590,7 @@
     // weld into solid paved zones; dissolve the strict same-kind interior back
     // to the under-biome so pavement always reads as lines and loops, never
     // as a flood-filled area. Runs after ALL painting (buildings included) so
-    // the interior test sees the final grid, and before the road-letter /
+    // the interior test sees the final grid, and before the road-label /
     // path-stone passes so no glyph or stone lands on a dissolved cell.
     erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
@@ -1818,45 +1818,40 @@
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
     for (const o of otherKinds)  objects.push(o);
-    // Road-name letters: walk each transportation_name line at ~1 cell per step
-    // and stamp ONE letter per road cell, cycling through "FIRSTWORD " (the
-    // first word of the name plus a single space gap before it repeats).
-    // To keep labels readable, we pre-orient each polyline so it reads
-    // left-to-right (predominantly horizontal roads) or top-to-bottom
-    // (predominantly vertical roads), reversing the line if its raw direction
-    // points the "wrong" way. Cells visited more than once skip the duplicate.
-    // Stored as { "ix_iy": { char, angle } }.
-    const roadLetters = {};
+    // Road-name labels: walk each transportation_name line at ~1 cell per step
+    // and drop ONE compact whole-word label (the name's first word) every
+    // LABEL_PERIOD road cells, rotated to the local road direction. This
+    // replaced the old letter-per-cell stamping ("C","A","S",… each in its own
+    // cobble), which read as a cryptic letter trail rather than a street name.
+    // Angles are normalized to (-90°, 90°] so a label never renders upside
+    // down regardless of the way's digitized direction.
+    // Stored as { "ix_iy": { text, angle } } — anchor cells only, vehicle road
+    // tiers only (PATH pebbles are too small to carry a label; named paths
+    // keep their identity via pathNames below).
+    const roadLabels = {};
+    const LABEL_PERIOD = 12;   // cells between label repeats (~84 m)
+    const LABEL_OFFSET = 2;    // first label a couple of cells in from the line start
     // pathNames[`${ix}_${iy}`] = full street name, recorded ONLY for PATH
     // cells (terrain code 8). Drives the path-stone activation feature in
     // app.js — tap or step on a path stone to "claim" it, fill every stone
     // of one named path to trigger a treasure dialog. We deliberately
-    // store the FULL name (not just the first word the road-letters loop
+    // store the FULL name (not just the first word the road-label loop
     // uses) so two paths sharing a first word still count as distinct.
     const pathNames = {};
     const tnLayer = layersByName['transportation_name'];
     const ROAD_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
+    const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG]);
     if (tnLayer) {
       for (const f of tnLayer.features) {
         if (f.type !== 2) continue;
         const name = f.tags?.name;
         if (!name) continue;
-        // First word only, then a literal space — the space leaves a one-cell
-        // gap before the word repeats so the eye gets a natural break.
+        // First word only — compact enough to fit along the road at 10px.
         const firstWord = name.trim().split(/\s+/)[0];
         if (!firstWord) continue;
-        const letters = (firstWord + ' ').toUpperCase();
-        for (const lineOrig of f.geom) {
-          if (lineOrig.length < 2) continue;
-          // Reverse the polyline if its overall direction reads right-to-left
-          // or bottom-to-top — letters always lay out LTR / top-down.
-          const a = lineOrig[0], b = lineOrig[lineOrig.length - 1];
-          const ndx = b.x - a.x, ndy = b.y - a.y;
-          const horizontal = Math.abs(ndx) >= Math.abs(ndy);
-          const reverse = (horizontal && ndx < 0) || (!horizontal && ndy < 0);
-          const line = reverse ? lineOrig.slice().reverse() : lineOrig;
-
-          let letterIdx = 0;
+        for (const line of f.geom) {
+          if (line.length < 2) continue;
+          let cellStep = 0;
           let lastKey = '';
           const stepMvt = CELL_M / mvtToM;
           for (let i = 1; i < line.length; i++) {
@@ -1865,8 +1860,11 @@
             const segDx = bx - ax, segDy = by - ay;
             const segLen = Math.hypot(segDx, segDy);
             if (segLen < 1e-6) continue;
-            // Local direction in radians (note: MVT y grows downward → that matches screen y).
-            const ang = Math.atan2(segDy, segDx);
+            // Local direction, folded into (-90°, 90°] so the label always
+            // reads left-to-right (MVT y grows downward → matches screen y).
+            let ang = Math.atan2(segDy, segDx);
+            if (ang >   Math.PI / 2) ang -= Math.PI;
+            if (ang <= -Math.PI / 2) ang += Math.PI;
             const ux = segDx / segLen, uy = segDy / segLen;
             // March along the segment from its start, one cell-width per step.
             let curX = ax, curY = ay;
@@ -1878,15 +1876,15 @@
               if (key !== lastKey &&
                   ix >= 0 && iy >= 0 && ix < w && iy < h &&
                   ROAD_TYPES.has(grid[iy * w + ix])) {
-                const ch = letters.charAt(letterIdx % letters.length);
-                // Space cells stay visually blank (no entry written) so the
-                // gap between repeats reads as cobble showing through.
-                if (ch !== ' ') roadLetters[key] = { char: ch, angle: ang };
+                if (cellStep % LABEL_PERIOD === LABEL_OFFSET &&
+                    LABEL_TYPES.has(grid[iy * w + ix])) {
+                  roadLabels[key] = { text: firstWord, angle: ang };
+                }
                 // PATH cells additionally record the full street name so
                 // app.js can group stones by named path for the activation
                 // / completion-reward loop.
                 if (grid[iy * w + ix] === T.PATH) pathNames[key] = name;
-                letterIdx++;
+                cellStep++;
                 lastKey = key;
               }
               curX += ux * stepMvt;
@@ -1982,7 +1980,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLetters, pathNames, pathUnder };
+    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder };
   }
 
   function tileEdgeMeters(lat) {
@@ -2014,7 +2012,7 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, owners, objects, wildplants, parkingTreasures, roadLetters, pathNames, pathUnder } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner).
@@ -2082,7 +2080,7 @@
       maybePlaceCaveEntrance(entry, x, y, tileEdgeM);
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
-      entry.roadLetters = roadLetters || {};
+      entry.roadLabels = roadLabels || {};
       entry.pathNames   = pathNames   || {};
       entry.pathUnder   = pathUnder   || {};
       entry.layers = layers;
@@ -2241,7 +2239,7 @@
           entry.objects.push(wl);
           // A well supersedes a road/path tile it lands on — repaint the cell to
           // the dominant soft neighbour biome (so it blends, not a hard grass
-          // square) and clear the cobble's road-letter / path-name so no glyph
+          // square) and clear the cobble's road-label / path-name so no label
           // or path-stone tint shows under the well.
           const lix = Math.floor((wl.x - x * tileEdgeM) / mPerCell);
           const liy = Math.floor((wl.y - y * tileEdgeM) / mPerCell);
@@ -2260,7 +2258,7 @@
             for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
             grid[liy * cpe + lix] = best;
             const ck = `${lix}_${liy}`;
-            if (entry.roadLetters) delete entry.roadLetters[ck];
+            if (entry.roadLabels) delete entry.roadLabels[ck];
             if (entry.pathNames)   delete entry.pathNames[ck];
           }
         }
@@ -3042,7 +3040,7 @@
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants: [], parkingTreasures: [],
-      roadLetters: {}, pathNames: {}, pathUnder: {},
+      roadLabels: {}, pathNames: {}, pathUnder: {},
     };
     cache.set(key, entry);
     const MAX_CACHED_TILES = 64;

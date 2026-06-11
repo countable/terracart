@@ -621,7 +621,7 @@ class MapScene extends Phaser.Scene {
     // Procedural road/path geometry — redrawn each frame by Render.drawCells.
     // Must sit ABOVE the noise + border layers (so biome speckle and the wavy
     // zone borders never paint over the road surface — that's what the cobble
-    // sprites used to guarantee) and BELOW the road-letter layer.
+    // sprites used to guarantee) and BELOW the road-label layer.
     this.roadGfx = this.add.graphics();
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
@@ -689,9 +689,11 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
-    // Road-letter pool: small light letters with a soft drop shadow, laid out one
-    // per cell along named streets. Lighter than the cobble background so they
-    // read like worn paint markings rather than carved-in lettering.
+    // Road-label pool: compact whole-word street names (one anchor every ~12
+    // road cells, rotated along the road by render.js), drawn low-alpha so
+    // they read like worn paint markings on the asphalt. Pool is sized one
+    // slot per visible cell because render walks cells — at most one anchor
+    // can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];

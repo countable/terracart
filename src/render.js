@@ -183,7 +183,7 @@ Render.drawCells = function drawCells(scene) {
   // (frame 33) was a bridge-span tile with baked-in blue water + a diagonal
   // support leg + transparent holes, which rendered as fragmented "docks with
   // posts and water patches" instead of a solid walkway. Pier cells are NOT
-  // roads (no road-letter labels) and NOT paths (no path-stone activation tint).
+  // roads (no road-name labels) and NOT paths (no path-stone activation tint).
   const PIER = 23;
   const PIER_FRAME = 20;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
@@ -444,12 +444,16 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Embossed road-name letter — one per road/path cell, low-alpha "carved" look.
+      // Road-name label — one compact whole-word text per anchor cell
+      // (worldgen drops an anchor every ~12 road cells), laid along the road
+      // direction like a map label. Replaced the old letter-per-cell trail,
+      // which spelled the name out one glyph per cobble and read as noise.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Skip PATH (small 2-stone cobble) — too cramped for legible letters.
+        // Anchors exist only on vehicle road tiers (PATH pebbles are too
+        // small to carry a label), so the isRoad gate also keeps lookups cheap.
         if (!isTilled && isRoad(type)) {
-          // Look up letter for this cell from its owning tile.
+          // Look up this cell's label anchor from its owning tile.
           const wcxL = pc.cx + ox + pc.tx * scene.cellsPerTile;
           const wcyL = pc.cy + oy + pc.ty * scene.cellsPerTile;
           const tx2 = Math.floor(wcxL / scene.cellsPerTile);
@@ -457,15 +461,14 @@ Render.drawCells = function drawCells(scene) {
           const ix2 = Math.floor(wcxL - tx2 * scene.cellsPerTile);
           const iy2 = Math.floor(wcyL - ty2 * scene.cellsPerTile);
           const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
-          const info = entry && entry.roadLetters && entry.roadLetters[`${ix2}_${iy2}`];
+          const info = entry && entry.roadLabels && entry.roadLabels[`${ix2}_${iy2}`];
           if (info) {
-            // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
-            // Phaser Text textures include the font's internal padding (typically
-            // baseline gap + a 1-2px buffer). y still nudged -2 to optically
-            // centre the glyph in the cobble; x sits at cell centre (the prior
-            // +1 nudge read 1px too far right).
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2 - 2)
-              .setRotation(0).setVisible(true);
+            // Anchored at the cell centre; the word overhangs neighbouring
+            // cells along its rotation, which is fine — map labels do too.
+            // worldgen pre-normalizes angle into (-90°, 90°] so the text is
+            // never upside down.
+            lt.setText(info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+              .setRotation(info.angle).setVisible(true);
           } else {
             lt.setVisible(false);
           }
