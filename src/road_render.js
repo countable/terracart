@@ -1,18 +1,24 @@
-// Procedural road and path geometry — draws center squares + directional arms
-// onto the road Graphics layer, replacing the cobble-sprite overlay.
+// Procedural road and path geometry — bakes per-shape canvas textures (black
+// cobblestone for vehicle roads, yellowish dirt for footpaths) and stamps them
+// per cell, replacing the old flat-colour Graphics rectangles.
 //
-// Each road/path cell draws:
-//   • A center square (always, even for isolated cells)
-//   • One arm per connected orthogonal neighbor, each reaching the cell edge
+// Each road/path cell shows:
+//   • A center pad (always, even for isolated cells)
+//   • One arm per connected orthogonal neighbor, reaching the cell edge
 //   • A corner-quadrant fill per "solid" diagonal (both flanking orthogonals
 //     AND the diagonal between them are road) — this merges multi-cell-wide
 //     roads into one continuous surface instead of parallel strips joined by
 //     ladder rungs
 //
-// All geometry stays within the cell — the neighbor cell draws a matching arm
-// back, so connections are seamless at the shared boundary with no bleed or
-// gaps. Diagonal Bresenham steps don't need special handling here: worldgen's
-// paintLine is 4-connected, so every diagonal step has a real elbow cell.
+// The silhouette is painted as a chain of slightly jittered discs along each
+// arm's spine, which gives the surface the requested ROUGH, WINDY edge. The
+// jitter is PINNED TO ZERO at the cell boundary (and the boundary stamp is a
+// disc of exactly the nominal half-width), so the neighbour cell's matching
+// arm meets it seamlessly — the wobble lives strictly inside the cell.
+//
+// Textures are baked lazily per (type, normalized mask, variant) and cached in
+// the Phaser texture manager; render.js alternates two variants by cell parity
+// so long straights don't visibly repeat one wobble pattern.
 //
 // "Connected" = any road or path type (asymmetric widths create natural tapers
 // at junctions between tiers — e.g. a 4px path arm entering a 10px road arm).
@@ -27,31 +33,45 @@
 
   // Surface width in pixels per terrain type (out of 32px cell).
   // ROAD_LG at 30px leaves 1px margin each side; two adjacent cells merge
-  // into a solid highway surface. PATH at 4px reads as a narrow gravel track.
+  // into a solid highway surface. PATH at 4px reads as a narrow dirt track.
   const ROAD_WIDTH = {
-    8:  4,   // PATH    — narrow gravel/dirt track
+    8:  4,   // PATH    — narrow dirt track
     7:  10,  // ROAD    — quiet residential street
     14: 18,  // ROAD_MD — secondary / town road
     13: 30,  // ROAD_LG — highway (fills nearly the full cell)
   };
 
-  // Surface colours — warm-to-cool progression, all dark enough to contrast
-  // with the warm biome palette while staying recognisably "road".
+  // Flat base colours — used by the Graphics fallback (no texture manager) and
+  // as the tone the patterns are built around. Roads are black cobble now;
+  // paths are yellowish dirt.
   const ROAD_COLOR = {
-    8:  0xc4b896,  // PATH    — sandy warm gravel
-    7:  0x847c72,  // ROAD    — warm mid-grey asphalt
-    14: 0x6e6a7a,  // ROAD_MD — cooler grey
-    13: 0x4a4858,  // ROAD_LG — dark highway asphalt
+    8:  0xc9a35a,  // PATH    — yellowish dirt
+    7:  0x2e2e36,  // ROAD    — charcoal cobble
+    14: 0x26262e,  // ROAD_MD — darker cobble
+    13: 0x1e1e26,  // ROAD_LG — near-black cobble
   };
 
   // Thin darker outline drawn 1px wider than the surface on every side,
   // giving road edges a crisp kerb line against the biome background.
   const CURB_COLOR = {
-    8:  0x9e9478,
-    7:  0x504840,
-    14: 0x48444e,
-    13: 0x28263a,
+    8:  0x97793a,  // dirt edge — darker packed earth
+    7:  0x0d0d12,
+    14: 0x0b0b10,
+    13: 0x09090e,
   };
+
+  // Per-stone fill tones for the cobble pattern, per tier (all read "black",
+  // residential streets a shade lighter so they aren't pitch holes at night).
+  const COBBLE_TONES = {
+    7:  ['#2a2a32', '#30303a', '#34343e', '#2c2e38', '#262630'],
+    14: ['#22222a', '#282832', '#2c2c36', '#242630', '#1e1e28'],
+    13: ['#1a1a22', '#20202a', '#24242e', '#1c1e28', '#16161e'],
+  };
+  const COBBLE_JOINT = { 7: '#0d0d12', 14: '#0b0b10', 13: '#09090e' };
+
+  // Dirt-path mottling tones around the 0xc9a35a base.
+  const DIRT_BASE  = '#c9a35a';
+  const DIRT_TONES = ['#bd9549', '#d4b069', '#b08a40', '#dcb978', '#c39c4f'];
 
   // isAnyRoad — used by render.js to build the neighbor mask.
   // Exported so render.js doesn't duplicate the terrain-code list.
@@ -59,7 +79,171 @@
     return t === 7 || t === 8 || t === 13 || t === 14;
   }
 
-  // Draw procedural road geometry for one cell.
+  // Tiny deterministic RNG so a given (type, mask, variant) always bakes the
+  // same wobble + stone layout across sessions and devices.
+  function mulberry(seed) {
+    let s = seed >>> 0 || 1;
+    return () => {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+
+  // ── Pattern painters ───────────────────────────────────────────────────────
+  // Fill the whole 32×32 ctx with the tier's surface pattern; the caller masks
+  // it down to the road silhouette afterwards (destination-in).
+  function paintPattern(ctx, type, rng) {
+    if (type === 8) {
+      // Yellowish dirt: warm base + mottled blotches + a few small pebbles.
+      ctx.fillStyle = DIRT_BASE;
+      ctx.fillRect(0, 0, CELL_PX, CELL_PX);
+      for (let i = 0; i < 42; i++) {
+        ctx.fillStyle = DIRT_TONES[(rng() * DIRT_TONES.length) | 0];
+        const x = (rng() * CELL_PX) | 0, y = (rng() * CELL_PX) | 0;
+        const s = 1 + ((rng() * 2) | 0);
+        ctx.fillRect(x, y, s, s);
+      }
+      // Sparse pebbles — slightly grey against the dirt.
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = rng() < 0.5 ? '#9b8a62' : '#8a7445';
+        ctx.fillRect((rng() * CELL_PX) | 0, (rng() * CELL_PX) | 0, 2, 1);
+      }
+      return;
+    }
+    // Black cobblestones: staggered rounded stones over a near-black joint
+    // colour, each stone value-jittered with a faint top highlight + bottom
+    // shade so the surface reads as laid stone, not flat paint.
+    const tones = COBBLE_TONES[type] || COBBLE_TONES[7];
+    ctx.fillStyle = COBBLE_JOINT[type] || '#0b0b10';
+    ctx.fillRect(0, 0, CELL_PX, CELL_PX);
+    const SW = 8, SH = 6;          // stone pitch (stones 7×5 + a 1px joint)
+    for (let row = -1; row * SH < CELL_PX + SH; row++) {
+      const xoff = (row & 1) ? SW / 2 : 0;
+      for (let col = -1; col * SW < CELL_PX + SW; col++) {
+        const x = col * SW + xoff + 1, y = row * SH + 1;
+        const w = SW - 1, h = SH - 1;
+        ctx.fillStyle = tones[(rng() * tones.length) | 0];
+        // Rounded stone: plain rect + corner nicks kept in joint colour reads
+        // rounded at this scale without path arcs.
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = COBBLE_JOINT[type] || '#0b0b10';
+        ctx.fillRect(x, y, 1, 1);
+        ctx.fillRect(x + w - 1, y, 1, 1);
+        ctx.fillRect(x, y + h - 1, 1, 1);
+        ctx.fillRect(x + w - 1, y + h - 1, 1, 1);
+        // Relief: light top edge, dark bottom edge.
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(x + 1, y, w - 2, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillRect(x + 1, y + h - 1, w - 2, 1);
+      }
+    }
+  }
+
+  // ── Wobbled silhouette ─────────────────────────────────────────────────────
+  // Disc-chain silhouette of the cell's road shape. `jit` holds one jitter
+  // array per arm (precomputed so the curb and surface passes wobble in
+  // lockstep and the kerb ring stays a constant 1px). Jitter is scaled to 0
+  // approaching the cell boundary so neighbouring cells always meet at the
+  // nominal width — the wobble can never open a seam.
+  const ARM_STEP = 2;
+  const ARM_STEPS = HALF / ARM_STEP;          // stamps per arm (t = 0 .. HALF)
+  const ARMS = [                              // [dx, dy] spine direction per bit
+    { bit: 1, dx: 0,  dy: -1 },               // N
+    { bit: 2, dx: 1,  dy: 0  },               // E
+    { bit: 4, dx: 0,  dy: 1  },               // S
+    { bit: 8, dx: -1, dy: 0  },               // W
+  ];
+  function makeJitters(rng, amp) {
+    // One jitter value per stamp per arm, in [-amp, +amp].
+    return ARMS.map(() => {
+      const a = [];
+      for (let i = 0; i <= ARM_STEPS; i++) a.push((rng() * 2 - 1) * amp);
+      return a;
+    });
+  }
+  // Pin factor: 1 in the cell interior, fading to 0 over the last 5px before
+  // the boundary (t = HALF) so the seam stamp is exactly nominal width.
+  const pin = (t) => Math.max(0, Math.min(1, (HALF - t) / 5));
+
+  function silhouettePath(ctx, mask, r, jit, quad) {
+    ctx.beginPath();
+    ctx.moveTo(HALF + r, HALF);
+    ctx.arc(HALF, HALF, r, 0, Math.PI * 2);
+    for (let a = 0; a < ARMS.length; a++) {
+      const arm = ARMS[a];
+      if (!(mask & arm.bit)) continue;
+      for (let i = 0; i <= ARM_STEPS; i++) {
+        const t = i * ARM_STEP;
+        const rr = Math.max(1, r + jit[a][i] * pin(t));
+        const x = HALF + arm.dx * t, y = HALF + arm.dy * t;
+        ctx.moveTo(x + rr, y);
+        ctx.arc(x, y, rr, 0, Math.PI * 2);
+      }
+    }
+    // Inner-corner quadrants for solid diagonals (interior — no wobble).
+    const N = mask & 1, E = mask & 2, S = mask & 4, W8 = mask & 8;
+    if (N && E  && (mask & 16))  ctx.rect(HALF + quad.in, 0,              quad.q, quad.q);
+    if (S && E  && (mask & 32))  ctx.rect(HALF + quad.in, HALF + quad.in, quad.q, quad.q);
+    if (S && W8 && (mask & 64))  ctx.rect(0,              HALF + quad.in, quad.q, quad.q);
+    if (N && W8 && (mask & 128)) ctx.rect(0,              0,              quad.q, quad.q);
+    ctx.fill();
+  }
+
+  // Normalize a neighbour mask for texture caching: a diagonal bit only
+  // matters when both flanking orthogonals are set (it then makes the corner
+  // quadrant solid), so clear meaningless diagonals to collapse equivalent
+  // masks onto one baked texture.
+  function normalizeMask(mask) {
+    const o = mask & 15;
+    let nm = o;
+    if ((o & 3)  === 3  && (mask & 16))  nm |= 16;   // N+E
+    if ((o & 6)  === 6  && (mask & 32))  nm |= 32;   // E+S
+    if ((o & 12) === 12 && (mask & 64))  nm |= 64;   // S+W
+    if ((o & 9)  === 9  && (mask & 128)) nm |= 128;  // W+N
+    return nm;
+  }
+
+  // Lazily bake (and cache in the Phaser texture manager) the textured,
+  // rough-edged road-cell image for this tier + connection shape. Returns the
+  // texture key, or null when baking isn't possible (no DOM canvas — the
+  // caller then falls back to drawRoadCell's flat Graphics geometry).
+  function ensureRoadCellTexture(scene, type, mask, variant) {
+    if (!scene || !scene.textures || typeof document === 'undefined') return null;
+    const nm = normalizeMask(mask);
+    const key = `roadcell_${type}_${nm}_${variant & 1}`;
+    if (scene.textures.exists(key)) return key;
+    const tex = scene.textures.createCanvas(key, CELL_PX, CELL_PX);
+    if (!tex) return null;
+    const ctx = tex.getContext();
+    ctx.clearRect(0, 0, CELL_PX, CELL_PX);
+    const rng = mulberry((type * 0x9E3779B1) ^ (nm * 0x85EBCA77) ^ ((variant & 1) * 0xC2B2AE35));
+    const hw = (ROAD_WIDTH[type] || 10) / 2;
+    const jit = makeJitters(rng, type === 8 ? 1.0 : 1.4);
+    // Curb layer — same wobble, 1px fatter, so the kerb ring stays even.
+    ctx.fillStyle = hex(CURB_COLOR[type] || 0x0d0d12);
+    silhouettePath(ctx, nm, hw + 1, jit, { in: hw + 1, q: HALF - hw - 1 });
+    // Surface layer — full-cell pattern masked down to the wobbled silhouette.
+    const off = document.createElement('canvas');
+    off.width = off.height = CELL_PX;
+    const octx = off.getContext('2d');
+    paintPattern(octx, type, rng);
+    octx.globalCompositeOperation = 'destination-in';
+    octx.fillStyle = '#fff';
+    silhouettePath(octx, nm, hw, jit, { in: hw, q: HALF - hw });
+    ctx.drawImage(off, 0, 0);
+    tex.refresh();
+    return key;
+  }
+
+  // Draw procedural road geometry for one cell — flat-colour Graphics
+  // FALLBACK, used only when the texture manager isn't available. The shapes
+  // mirror the baked textures' nominal (un-wobbled) geometry.
   //
   //   g        — Phaser Graphics (roadGfx, already cleared this frame)
   //   sx, sy   — integer pixel top-left of the cell
@@ -133,9 +317,10 @@
   // antialiasing at bake time, so the curve stays smooth even though the
   // game runs with pixelArt (no runtime AA — Graphics-drawn arcs staircase,
   // which is why the elbow is a texture and not vector geometry). The other
-  // three orientations come free via 90° sprite rotation (lossless).
+  // three orientations come free via 90° sprite rotation (lossless). The
+  // surface fill is the same cobble/dirt pattern the straight cells bake, so
+  // bends match seamlessly.
   function makeElbowTextures(scene) {
-    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
     for (const type of [8, 7, 14, 13]) {
       const key = 'roadelbow_' + type;
       if (scene.textures.exists(key)) continue;
@@ -145,24 +330,35 @@
       const cx = HALF, cy = HALF;
       // One layer = N-arm rect + E-arm rect + quarter-disc pie pivoted on the
       // bend's inner corner (flat pie edges flush with both arms; the arc
-      // rounds the outer corner). Curb layer first, surface on top leaves
-      // the 1px kerb ring visible along the whole bend.
-      const layer = (color, h) => {
-        ctx.fillStyle = color;
-        ctx.fillRect(cx - h, 0, 2 * h, cy - h);          // N arm
-        ctx.fillRect(cx + h, cy - h, CELL_PX, 2 * h);    // E arm
-        ctx.beginPath();
-        ctx.moveTo(cx + h, cy - h);                      // inner-corner pivot
-        ctx.arc(cx + h, cy - h, 2 * h, Math.PI / 2, Math.PI);
-        ctx.closePath();
-        ctx.fill();
+      // rounds the outer corner). Curb layer first, patterned surface on top
+      // leaves the 1px kerb ring visible along the whole bend.
+      const layer = (c2, color, h) => {
+        c2.fillStyle = color;
+        c2.fillRect(cx - h, 0, 2 * h, cy - h);          // N arm
+        c2.fillRect(cx + h, cy - h, CELL_PX, 2 * h);    // E arm
+        c2.beginPath();
+        c2.moveTo(cx + h, cy - h);                      // inner-corner pivot
+        c2.arc(cx + h, cy - h, 2 * h, Math.PI / 2, Math.PI);
+        c2.closePath();
+        c2.fill();
       };
-      layer(hex(CURB_COLOR[type]), chw);
-      layer(hex(ROAD_COLOR[type]), hw);
+      layer(ctx, hex(CURB_COLOR[type]), chw);
+      if (typeof document !== 'undefined') {
+        const off = document.createElement('canvas');
+        off.width = off.height = CELL_PX;
+        const octx = off.getContext('2d');
+        paintPattern(octx, type, mulberry(type * 0x9E3779B1));
+        octx.globalCompositeOperation = 'destination-in';
+        layer(octx, '#fff', hw);
+        ctx.drawImage(off, 0, 0);
+      } else {
+        layer(ctx, hex(ROAD_COLOR[type]), hw);
+      }
       tex.refresh();
     }
   }
 
-  root.RoadRender = { drawRoadCell, elbowAngle, makeElbowTextures, isAnyRoad, ROAD_WIDTH, ROAD_COLOR };
+  root.RoadRender = { drawRoadCell, elbowAngle, makeElbowTextures, isAnyRoad,
+    ensureRoadCellTexture, normalizeMask, ROAD_WIDTH, ROAD_COLOR };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.RoadRender;
 })(typeof window !== 'undefined' ? window : globalThis);
