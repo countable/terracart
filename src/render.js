@@ -1360,12 +1360,11 @@ Render.drawObjects = function drawObjects(scene) {
     // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
     // the seat pass then seats the now-taller-than-a-cell sprite with its base
     // 1px above the cell's bottom edge (same as a tree).
-    // pillar.png's column art fills only the LEFT half of its 16px frame
-    // (cols 0–8; 9–15 are transparent), so a frame-centred origin (0.5) drew
-    // the pole shoved to one side. Anchor the origin at the art's true
-    // horizontal centre (~0.25 of the frame) so the pole sits centred on its
-    // cell (the seat pass refines this from the trimmed bounds).
-    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
+    // pillar.png's column art is symmetric and frame-centred (the earlier
+    // slice was cut off on the top and left; the art was redrawn complete),
+    // so a plain frame-centred origin works — the seat pass refines the
+    // final offsets from the trimmed bounds.
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
