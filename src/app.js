@@ -4920,6 +4920,68 @@ class MapScene extends Phaser.Scene {
     entry.objects.push(obj);
   }
 
+  // ☰ menu → "Move Home here". Confirmation dialog for relocating the Home
+  // trailer to the player's current position. The move costs HALF the player's
+  // current coins, capped at $500 — always affordable by construction, so the
+  // dialog never needs a can't-afford state; it just shows the price.
+  confirmMoveHomeTrailer() {
+    // The trailer lives on the surface (ensureStarterTrailerObject is
+    // depth-0-only), so relocating from inside a cave would silently target
+    // the surface spot above the player. Refuse with an explanation instead.
+    if ((this.depth || 0) !== 0) {
+      this.showMessageModal({ title: 'Move Home',
+        body: 'Your trailer stays on the surface — climb back up before moving Home.' });
+      return;
+    }
+    const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
+    const { wrap, box, mount, mkBtn } =
+      this.makeModalShell('move-home-modal', { zIndex: 60, onClose: () => {} });
+    box.innerHTML =
+      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">Move Home here?</div>` +
+      `<div style="margin:6px 0 12px">Your Home trailer relocates to where you're standing.` +
+      `<br><br>Cost: <b style="color:#ffe066">$${cost}</b>` +
+      `<span style="opacity:.7"> (half your coins, max $500)</span></div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
+    const cancel = mkBtn('Cancel', false);
+    const move   = mkBtn(`Move ($${cost})`, true);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    move.addEventListener('click', (e) => {
+      e.stopPropagation(); wrap.remove();
+      addMoney(this.save, -cost);
+      this.moveHomeTrailerHere();
+      this.updateHUD();
+      if (typeof persistSave === 'function') persistSave(this.save);
+      this.flashLoot('🏠 Home moved!');
+    });
+    row.appendChild(cancel);
+    row.appendChild(move);
+    box.appendChild(row);
+    mount();
+  }
+
+  // Relocate Home to the player's current position by (re)synthesizing the
+  // starter trailer there. Works whether the current Home is a real adopted
+  // house (it simply becomes a normal house again) or an existing synthetic
+  // trailer (it moves). Surface-only — the confirm above guards depth.
+  moveHomeTrailerHere() {
+    // Evict any previously injected trailer object from the loaded tiles.
+    // ensureStarterTrailerObject only dedupes within the NEW owning tile, so
+    // without this sweep a moved trailer leaves a phantom copy in its old
+    // tile's object list until that tile is evicted.
+    for (const e of WorldGen.tileCache.values()) {
+      if (!e.objects) continue;
+      const i = e.objects.findIndex((o) => o._synthetic && o.id === 'starter_trailer');
+      if (i >= 0) e.objects.splice(i, 1);
+    }
+    // playerM → absolute world metres (the space every object's x/y lives in).
+    const ax = this.startWorldM.x + this.playerM.x;
+    const ay = this.startWorldM.y + this.playerM.y;
+    this._makeStarterTrailer(ax, ay);
+    this.save.starterShopId = this.save.starterTrailer.id;
+    this._starterShopOk = true;
+  }
+
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
   // is forced to be a Blacksmith that forges T1 pick / axe / hoe out of
   // a flat 5 wood each (see starterBlacksmithRecipe).
