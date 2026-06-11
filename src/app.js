@@ -541,6 +541,9 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
+    // Rounded road elbows — baked with canvas AA (Graphics arcs staircase
+    // under pixelArt); render.js swaps them in for pure L-bend road cells.
+    RoadRender.makeElbowTextures(this);
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
