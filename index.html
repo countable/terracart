@@ -281,6 +281,7 @@
     <div class="items">
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
+      <button id="move-home">Move Home here</button>
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
@@ -435,6 +436,11 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    document.getElementById('move-home').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
     // Debug controls: toggles a gold soft-joystick that drives the body at
     // 10× walk speed. Replaces the purple ghost pad while on. The button
@@ -830,6 +836,6 @@
   <script src="src/assets.js?v=173"></script>
   <script src="src/sandbox.js?v=31"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=346"></script>
+  <script src="src/app.js?v=347"></script>
 </body>
 </html>
