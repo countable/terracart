@@ -179,7 +179,6 @@ INTERACTION MODEL
    treated as a tap on the player's own cell.
  - priority order (all gated to within reach of the player's cell):
      0)  cancel an in-progress work wheel
-     0)  use consumable on self (tap own feet with flute / book selected)
      1)  claim a treasure X within ~7.5m
      2)  creature within 4m (defeat / catch / tame / feed / pet — see CREATURES)
      3)  pick the nearest wild plant / flower within 4m
@@ -584,11 +583,16 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
 CONSUMABLES
 ================================================================================
- - FLUTE: select it and tap your own feet to play — lures wandering farm
-   animals (chickens / cows) within ~6 cells (30m) toward you (flash reports
+ - Self-targeted consumables (flute / book / potions / sapphire portal) are
+   used via a dedicated USE button (Play / Read / Drink / Portal) that appears
+   below the inventory bar while one is selected — same spot and behaviour as
+   the Eat CTA for food. No foot-tapping: tapping your own cell with one
+   selected falls through to the normal cell handlers (till / plant / etc.).
+ - FLUTE: select it and tap Play — lures wandering farm animals
+   (chickens / cows) within ~6 cells (30m) toward you (flash reports
    how many respond). Consumed on use.
- - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
-   hint to the nearest unopened chest ("about N paces northwest"). Consumed. TODO: get rid of foot-tapping. should have a custom button like Eat CTA when selected.
+ - BOOK: select it and tap Read — ~50% a play tip, ~50% a directional
+   hint to the nearest unopened chest ("about N paces northwest"). Consumed.
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
    (consumes the coal). A fire is a safe, slow outdoor recovery spot: it refills
    energy within 3 cells (full bar in 360s, see REST) and repels slimes within

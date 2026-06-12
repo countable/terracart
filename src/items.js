@@ -323,12 +323,13 @@ const ITEMS = [
   { id: 'marigold',    name: 'Marigold',      kind: 'produce', crop: 'marigold' },
   { id: 'wildrose',    name: 'Wild Rose',     kind: 'produce', crop: 'wildrose' },
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
-  // Consumables — used on yourself (tap your own feet with one selected).
+  // Consumables — used on yourself via the Use button that appears below the
+  // inventory bar while one is selected (syncConsumableButton in app.js).
   // Flute: lures wandering chickens + cows within 30m toward you.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
-  // Potion of Reach: drink it (tap your own feet with it selected) to light up
+  // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
@@ -399,9 +400,9 @@ const ITEMS = [
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
-  // Sapphire doubles as a one-shot descent charge: tap your own feet with it
-  // selected (or use the Portal button) to spend one gem and sink straight
-  // down a level in place. See useSapphirePortal in app.js.
+  // Sapphire doubles as a one-shot descent charge: tap the Portal button with
+  // it selected to spend one gem and sink straight down a level in place.
+  // See useSapphirePortal in app.js.
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
