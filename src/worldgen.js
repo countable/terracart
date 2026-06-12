@@ -1692,9 +1692,14 @@
         // sprites ARE the building and were already skipped via _mrSkipKind.
         if (o.kind !== 'chest') {
           if (_onRoadOrBuilding(here)) { objects.splice(i, 1); continue; }
-          // One-cell building moat for every scatter object — anything closer
-          // sits visually inside the house/tower sprite's overhang.
-          if (_mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
+          // One-cell building moat for ground scatter — anything closer sits
+          // visually inside the house/tower sprite's overhang. Trees are
+          // EXEMPT: yard trees genuinely grow against house walls (and the
+          // home grove the early game's wood supply depends on rings the
+          // player's own house), and a tall canopy beside a wall reads
+          // naturally where a rock on the foundation reads as junk.
+          const _mrIsTree = o.kind === 'tree' || o.kind === 'fruittree';
+          if (!_mrIsTree && _mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
           // Synthesized concrete POI pads (hospital cross / school pyramid)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock
           // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
@@ -2219,7 +2224,9 @@
         // One-cell building moat — same rule the rasterize post-pass applies:
         // house/tower sprites overhang their footprint's neighbours, so an
         // injected object one cell off the footprint reads as sitting inside
-        // the house. Mirrored here for the sidecar features.
+        // the house. Mirrored here for the sidecar GROUND furniture (poles,
+        // wells). Trees are exempt in both passes — yard trees grow right
+        // against real houses (see tryTreeCell).
         const _sxNearBuildingCell = (ix, iy) => {
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
             const nx = ix + dx, ny = iy + dy;
@@ -2306,7 +2313,12 @@
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
           if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
           if (occupied.has(`${ix}_${iy}`)) return null;
-          if (_sxNearBuildingCell(ix, iy) || _sxNearChestCell(ix, iy)) return null;
+          // Chest frontage stays clear (the player stands beside the chest),
+          // but trees may hug buildings — no _sxNearBuildingCell here. Yard
+          // trees sit right against real houses; routing them through the
+          // building moat dropped every detection ringing a house (the cells
+          // they'd relocate to are in the moat too) and left home yards bare.
+          if (_sxNearChestCell(ix, iy)) return null;
           const wcx = x * tileEdgeM + (ix + 0.5) * mPerCell;
           const wcy = y * tileEdgeM + (iy + 0.5) * mPerCell;
           if (!_sxYardOK(wcx, wcy)) return null;
