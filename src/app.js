@@ -7680,10 +7680,10 @@ class MapScene extends Phaser.Scene {
   }
 
   // Book / Flute Read / Play button. Mirror of syncEatButton — sits next
-  // to the Eat button (or in the same spot when food isn't selected) so
-  // the player has a one-tap affordance to use a consumable without
-  // having to tap their own feet precisely. Honours the existing
-  // showOfferModal flow used by interact.js 'use-consumable'.
+  // to the Eat button (or in the same spot when food isn't selected). This
+  // is THE way to use a self-targeted consumable: the old tap-your-own-feet
+  // gesture (interact.js 'use-consumable') was removed because it was easy
+  // to trigger accidentally while tilling / planting under the player.
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');

@@ -266,99 +266,11 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // -0.6) Flute / Book — tap your own feet (≤1.5m) with one selected to use it.
-  // These run BEFORE eat so the same "tap self with selected item" gesture
-  // routes to the right consumable based on the item id.
-  { name: 'use-consumable', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
-    const dx = wm.x - pWorldX, dy = wm.y - pWorldY;
-    if (dx * dx + dy * dy > 1.5 * 1.5) return false;
-    const sel = getSelectedSlot(save);
-    if (!sel || (sel.count ?? 0) <= 0) return false;
-    if (sel.id === 'flute') {
-      scene.showOfferModal({
-        title: 'Play the flute?',
-        get: '🪈 lure nearby creatures',
-        cost: `1× 🪈 Flute`,
-        canAfford: true,
-        acceptLabel: 'Play',
-        onAccept: () => scene.playFlute(),
-      });
-      return true;
-    }
-    if (sel.id === 'book') {
-      scene.showOfferModal({
-        title: 'Read the book?',
-        get: '📖 a tip from the elders',
-        cost: `1× 📖 Book`,
-        canAfford: true,
-        acceptLabel: 'Read',
-        onAccept: () => scene.readBook(),
-      });
-      return true;
-    }
-    if (sel.id === 'reach_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Reach?',
-        get: '✨ full-screen reach for 1 min',
-        cost: `1× ✨ Potion of Reach`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkReachPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'vigor_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Vigor?',
-        get: 'restore 40 energy',
-        cost: `1× Potion of Vigor`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkVigorPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'speed_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Speed?',
-        get: 'tier-9 ghost speed for 1 min',
-        cost: `1× Potion of Speed`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkSpeedPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'shield_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Shielding?',
-        get: 'half monster damage for 1 min',
-        cost: `1× Potion of Shielding`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkShieldPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'sapphire') {
-      scene.showOfferModal({
-        title: 'Open a portal down?',
-        get: '💎 descend one level',
-        cost: `1× 💎 Sapphire`,
-        canAfford: true,
-        acceptLabel: 'Open',
-        onAccept: () => scene.useSapphirePortal(),
-      });
-      return true;
-    }
-    return false;
-  }},
-
-  // (Eat-by-tapping-the-player removed — the persistent Eat button below the
-  // inventory bar covers this affordance now, and the tap-on-feet variant
-  // was easy to trigger accidentally while trying to till / plant under the
-  // player's own cell.)
+  // (Eat-by-tapping-the-player and the flute/book/potion/sapphire tap-on-feet
+  // gestures removed — the persistent Eat and consumable Use buttons below the
+  // inventory bar (syncEatButton / syncConsumableButton in app.js) cover those
+  // affordances now, and the tap-on-feet variants were easy to trigger
+  // accidentally while trying to till / plant under the player's own cell.)
 
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {

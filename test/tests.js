@@ -1611,8 +1611,9 @@ test('watering can: watering writes canBoost to the planted crop', (scene) => {
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
-  // Empty inventory so eat / use-consumable (priority -0.5 / -0.6) don't
-  // intercept the tap with leftover food/flute from a prior test.
+  // Empty inventory so leftover food/flute from a prior test can't confuse
+  // any selected-item handler (eat / use-consumable taps are gone — both
+  // moved to persistent buttons — but plant/release still read the slot).
   scene.save.inv = [];
   scene.save.selSlot = 0;
   // Cancel any lingering work-progress from a prior test — the work-progress
