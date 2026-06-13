@@ -98,3 +98,20 @@ test('migrate: chopped self-heal strips falsy ids (id-less tree bug)', () => {
   SaveMigrate.migrate(save);
   assert.eq(JSON.stringify(save.chopped), JSON.stringify(['t1', 't2']), 'only real ids survive');
 });
+
+test('migrate: the discovery counter folds into a cap-exempt badge stack', () => {
+  // 14 banked points on a no-bag save: every one must survive (capExempt).
+  const save = { inv: [{ id: 'wood', count: 2 }], discovery: 14, relics: {} };
+  const persist = SaveMigrate.migrate(save);
+  assert.eq(persist, true, 'counter→stack is a real migration → persist');
+  assert.eq(Inventory.count(save, 'discovery'), 14, 'all points kept past the bag cap');
+  assert.eq('discovery' in save, false, 'legacy counter field dropped');
+  // Second run: field is gone → idempotent, stack untouched.
+  SaveMigrate.migrate(save);
+  assert.eq(Inventory.count(save, 'discovery'), 14, 'no double-grant on re-migrate');
+  // A zero counter is dropped without creating a stack.
+  const zero = { inv: [], discovery: 0 };
+  SaveMigrate.migrate(zero);
+  assert.eq('discovery' in zero, false, 'zero counter dropped');
+  assert.eq(zero.inv.find((s) => s.id === 'discovery'), undefined, 'no empty badge stack');
+});

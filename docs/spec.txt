@@ -102,10 +102,12 @@ MOVEMENT & REACH
    it NEVER gates it (no exceptions, no tool-or-tier gates):
      bare hands (tier 0) 9s · Wood 3s · Copper 2.5s · Iron 2s · Gold 1.3s ·
      Platinum 0.8s · Crimson 0.5s · Frost 0.3s   (bare hands = 3× wooden)
-   This single table governs chopping (Axe), mining (Pick), fishing (Rod),
-   worked foraging (Pick/Axe), animal catching (Bug Net) and pest defeating
-   (weapon); per-activity sections below only note their unique drops / energy /
-   tool, not the timing. The tool in use is shown during the action. You wait it
+   This single table governs chopping (Axe), mining (Pick), worked foraging
+   (Pick/Axe), animal catching (Bug Net) and pest defeating (weapon);
+   per-activity sections below only note their unique drops / energy / tool,
+   not the timing. EXCEPTION — fishing: the cast time is LOCKED at 9s bare /
+   3s with ANY rod; rod tier improves the catch table, skunk rate and energy
+   per cast, never the cast rate (see FISHING). The tool in use is shown during the action. You wait it
    out; tapping anywhere cancels it (and refunds any pre-charged energy). The
    first 150ms is swallowed so the launching tap can't immediately cancel.
 
@@ -120,7 +122,8 @@ ENERGY & FOOD
    boots +8/tier (per equipped tier). Equipping better armor bumps current
    energy by the delta too.
  - EAT: a persistent Eat button below the inventory eats the selected food for
-   FOOD_ENERGY[id] (longgrass 2 … sunflower 150, cow 120, meat 45, etc.).
+   FOOD_ENERGY[id] (longgrass 2 … iceflower 150, cow 120, meat 45, etc.).
+   Cats and dogs have NO FOOD_ENERGY entry — companions are never edible.
  - special food side effects: eating a rainberry waters every crop within 20m;
    eating a pairy points you to the nearest undiscovered chest for 5 minutes.
  - REST: energy regenerates over real time. Rates are "seconds to refill the
@@ -176,7 +179,6 @@ INTERACTION MODEL
    treated as a tap on the player's own cell.
  - priority order (all gated to within reach of the player's cell):
      0)  cancel an in-progress work wheel
-     0)  use consumable on self (tap own feet with flute / book selected)
      1)  claim a treasure X within ~7.5m
      2)  creature within 4m (defeat / catch / tame / feed / pet — see CREATURES)
      3)  pick the nearest wild plant / flower within 4m
@@ -311,8 +313,11 @@ ORCHARD FRUIT TREES
 FISHING
 ================================================================================
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
-   tiers improve the catch and rare odds. A rod also tops the watering can to
-   full on every cast (so a rod owner never loses charges).
+   tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
+   3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
+   — tier-scaled 0.3s casts made high-tier fishing an unbounded money
+   faucet). A rod also tops the watering can to full on every cast (so a rod
+   owner never loses charges).
  - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
    T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
    → goldenfish, rarer more likely at high tier), with a small relic chance
@@ -486,6 +491,12 @@ ECONOMY (buying & selling)
    exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —
    see the shop roles above). The old mixed "1/3 cash / 2/3 barter" roll was
    removed so the two idioms map cleanly onto shop type.
+ - QUANTITY: cash purchases hand over exactly ONE unit (low-tier seeds add the
+   bulk-pack bonus); the ×TRADE_OFFER_QTY (2) bundle is BARTER-ONLY, so cash
+   buys can never be resold at a profit. The seed rotation (BUY_LIST) covers
+   T1-T3 seeds only — magical flower seeds (sunflower/fireflower/iceflower)
+   are loot finds (flora chests, rare trader/fort rarity rolls), never on the
+   shop rotation.
  - SELL: selling happens only at your HOME shop. With a stack selected, tapping
    home sells one at PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at
    Frost). Other houses are buy/trade-only.
@@ -572,11 +583,16 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
 CONSUMABLES
 ================================================================================
- - FLUTE: select it and tap your own feet to play — lures wandering farm
-   animals (chickens / cows) within ~6 cells (30m) toward you (flash reports
+ - Self-targeted consumables (flute / book / potions / sapphire portal) are
+   used via a dedicated USE button (Play / Read / Drink / Portal) that appears
+   below the inventory bar while one is selected — same spot and behaviour as
+   the Eat CTA for food. No foot-tapping: tapping your own cell with one
+   selected falls through to the normal cell handlers (till / plant / etc.).
+ - FLUTE: select it and tap Play — lures wandering farm animals
+   (chickens / cows) within ~6 cells (30m) toward you (flash reports
    how many respond). Consumed on use.
- - BOOK: select + tap your feet to read — ~50% a play tip, ~50% a directional
-   hint to the nearest unopened chest ("about N paces northwest"). Consumed. TODO: get rid of foot-tapping. should have a custom button like Eat CTA when selected.
+ - BOOK: select it and tap Read — ~50% a play tip, ~50% a directional
+   hint to the nearest unopened chest ("about N paces northwest"). Consumed.
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
    (consumes the coal). A fire is a safe, slow outdoor recovery spot: it refills
    energy within 3 cells (full bar in 360s, see REST) and repels slimes within
@@ -613,7 +629,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   flute, book, scarecrow
+     consumables:   flute, book, scarecrow      badge: discovery
 
 ================================================================================
 SHINY VARIANTS & DISCOVERY
@@ -624,9 +640,13 @@ SHINY VARIANTS & DISCOVERY
    reloads + tile re-rasterise WITHOUT storing anything on the object or save,
    and render.js sparkles the sprite so it reads as special.
  - harvesting / catching a shiny pays a headline bonus: 10× the base item's
-   value in cash PLUS one DISCOVERY point (save.discovery), with a fanfare popup
+   value in cash PLUS one DISCOVERY badge — an inventory stack (item id
+   'discovery', kind 'badge', shown on the Items tab) — with a fanfare popup
    (awardShinyBonus). A per-type ledger (save.discovered) tracks which kinds
    you've found. Shiny trees additionally require a Gold axe to fell.
+ - the badge stack is cap-exempt (a full bag never rejects one), excluded from
+   every loot/shop/delivery pool (no rarity class rolls kind 'badge'), and
+   refused by the home sell modal (noSell).
  - DISCOVERY is a soft currency spent at the WIZARD TOWER (see ECONOMY) on reach
    upgrades — an alternative to the shrine's delivery-gated path.
 

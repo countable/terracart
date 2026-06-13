@@ -77,6 +77,25 @@ test('add: an unknown id or n<=0 is an invalid no-op', () => {
   assert.eq(save.inv.length, 0, 'still untouched');
 });
 
+test('capExempt: discovery badges ignore the bag cap entirely', () => {
+  const save = { inv: [], relics: {} };        // no bag → cap 9 for normal items
+  const r = Inventory.add(save, 'discovery', 20);
+  assert.eq(r.accepted, 20, 'all 20 accepted past the bag cap');
+  assert.eq(r.rejected, 0, 'nothing rejected');
+  assert.eq(Inventory.count(save, 'discovery'), 20);
+  assert.eq(Inventory.roomFor(save, 'discovery'), Infinity, 'always room for a badge');
+});
+
+test('remove: deducts across stacks, splices empties, reports the shortfall', () => {
+  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'discovery', count: 6 }], relics: {} };
+  assert.eq(Inventory.remove(save, 'discovery', 5), 5, 'removed the full ask');
+  assert.eq(Inventory.count(save, 'discovery'), 1, '6 - 5 left');
+  assert.eq(Inventory.remove(save, 'discovery', 5), 1, 'short stack → partial removal reported');
+  assert.eq(save.inv.find((s) => s.id === 'discovery'), undefined, 'emptied stack spliced out');
+  assert.eq(Inventory.count(save, 'wood'), 2, 'other stacks untouched');
+  assert.eq(Inventory.remove(save, 'wood', 0), 0, 'n<=0 is a no-op');
+});
+
 test('roomFor: cap minus held, floored at 0', () => {
   const save = { inv: [], relics: {} };   // cap 9
   assert.eq(Inventory.roomFor(save, 'wood'), 9, 'empty → full room');

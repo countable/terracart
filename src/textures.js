@@ -116,28 +116,104 @@ function drawSandTex(ctx, size, rng) {
   }
 }
 
+// Toroidally-wrapped primitives for tileable textures: draw the feature at
+// every ±size offset where it would be visible, so anything crossing a tile
+// edge re-enters on the opposite side instead of being clipped flat.
+function wrapArc(ctx, size, x, y, r, style) {
+  ctx.fillStyle = style;
+  for (const ox of [-size, 0, size]) {
+    for (const oy of [-size, 0, size]) {
+      if (x + ox + r < 0 || x + ox - r > size) continue;
+      if (y + oy + r < 0 || y + oy - r > size) continue;
+      ctx.beginPath(); ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+function wrapRect(ctx, size, x, y, w, h, style) {
+  ctx.fillStyle = style;
+  for (const ox of [-size, 0, size]) {
+    for (const oy of [-size, 0, size]) {
+      if (x + ox + w <= 0 || x + ox >= size) continue;
+      if (y + oy + h <= 0 || y + oy >= size) continue;
+      ctx.fillRect(x + ox, y + oy, w, h);
+    }
+  }
+}
+
 function drawFarmlandTex(ctx, size, rng) {
   // Muddy pasture — churned brown mud patches with tufts of grass poking
   // through, plus a few hoof/churn marks. (Replaces the old tidy furrow rows,
   // which read too much like freshly-tilled soil.)
+  //
+  // Tileability: cells hash-pick a variant, so any edge can abut any other
+  // edge. The old version clipped its mud blobs flat at the canvas edge,
+  // which read as a light grid at every cell boundary. Now features that may
+  // touch an edge come from a FIXED seed shared by all variants and are drawn
+  // toroidally wrapped; per-variant features stay fully inside the tile. All
+  // variants therefore have pixel-identical borders and tile seamlessly in
+  // any arrangement.
   ctx.clearRect(0, 0, size, size);
-  // Soft mud patches — irregular brown blobs.
-  for (let i = 0; i < 6; i++) {
+
+  // ── Seam pass: fixed seed, identical across variants, wrapped ──
+  // Features are placed ON the tile edges (alternating top/left so the bottom
+  // and right edges get their halves via the toroidal wrap) so the borders
+  // carry the same mud density as the interior instead of a bare gutter.
+  const edge = seededRand(0xFA47);
+  // Mud blobs straddling the edges.
+  for (let i = 0; i < 3; i++) {
+    const style = edge() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
+    const along = edge() * size;                  // position along the edge
+    const across = (edge() - 0.5) * 4;            // small offset across it
+    const horiz = edge() < 0.5;                   // top edge vs left edge
+    const x = horiz ? along : (across + size) % size;
+    const y = horiz ? (across + size) % size : along;
+    wrapArc(ctx, size, x, y, 3 + edge() * 4, style);
+  }
+  // Grass tufts scattered over the edges.
+  for (let i = 0; i < 10; i++) {
+    const r = edge();
+    const style = r < 0.5 ? 'rgba(70,120,55,0.30)'
+                : r < 0.8 ? 'rgba(40,80,35,0.28)'
+                          : 'rgba(150,190,110,0.22)';
+    const along = Math.floor(edge() * size);
+    const across = Math.floor(edge() * 3) - 1;
+    const horiz = edge() < 0.5;
+    const x = horiz ? along : (across + size) % size;
+    const y = horiz ? (across + size) % size : along;
+    wrapRect(ctx, size, x, y, 1, edge() < 0.4 ? 2 : 1, style);
+  }
+  // Edge hoof marks.
+  for (let i = 0; i < 2; i++) {
+    const along = Math.floor(edge() * size);
+    const across = Math.floor(edge() * 3) - 1;
+    const horiz = edge() < 0.5;
+    const x = horiz ? along : (across + size) % size;
+    const y = horiz ? (across + size) % size : along;
+    wrapRect(ctx, size, x, y, 2, 1, 'rgba(40,25,12,0.30)');
+  }
+
+  // ── Interior pass: per-variant rng, kept clear of the edges ──
+  // Soft mud patches — irregular brown blobs, fully contained in the tile.
+  for (let i = 0; i < 3; i++) {
+    const r = 3 + rng() * 4;
     ctx.fillStyle = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 3 + rng() * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r + rng() * (size - 2 * r), r + rng() * (size - 2 * r), r, 0, Math.PI * 2);
+    ctx.fill();
   }
   // Grass tufts poking through — green specks, some 2px tall.
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 16; i++) {
     const r = rng();
     ctx.fillStyle = r < 0.5 ? 'rgba(70,120,55,0.30)'
                   : r < 0.8 ? 'rgba(40,80,35,0.28)'
                             : 'rgba(150,190,110,0.22)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, rng() < 0.4 ? 2 : 1);
+    const h = rng() < 0.4 ? 2 : 1;
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * (size - h + 1)), 1, h);
   }
   // A few dark churned / hoof marks.
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     ctx.fillStyle = 'rgba(40,25,12,0.30)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
+    ctx.fillRect(Math.floor(rng() * (size - 1)), Math.floor(rng() * size), 2, 1);
   }
 }
 
@@ -760,22 +836,32 @@ function makeRoundPadTexture(scene, key) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, size, size);
   const inset = 2;                          // room for the 2px cyan perimeter outline
-  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2;
+  // Pedestal: the slab top sits `depth` px above the silhouette's bottom; the
+  // exposed band below it is drawn as a darker side face, so the pad reads as
+  // a raised plinth the chest stands on rather than a flat painted disc.
+  const depth = 4;
+  const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2 - depth;
   const radius = w * 0.32;                  // generously rounded corners
-  // Cyan outline first: a wider stroke centred on the slab path. The body fill
-  // below covers its inner half, leaving a clean ~1.5px cyan ring hugging the
-  // pad edge so POI pads read as cyan-outlined.
-  roundRectPath(ctx, x, y, w, h, radius);
+  // Side face first: the same rounded rect shifted down by `depth`, darker
+  // fill, with its own cyan stroke (the visible part forms the thick bottom
+  // border of the pedestal).
+  roundRectPath(ctx, x, y + depth, w, h, radius);
   ctx.strokeStyle = '#00e5ff';
   ctx.lineWidth = 3;
   ctx.lineJoin = 'round';
   ctx.stroke();
-  // Body fill.
+  roundRectPath(ctx, x, y + depth, w, h, radius);
+  ctx.fillStyle = '#8d8d8d';
+  ctx.fill();
+  // Top slab: cyan outline first (the slab fill covers its inner half, leaving
+  // a clean ~1.5px cyan ring hugging the pad edge), then the body fill.
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.stroke();
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.fillStyle = '#b2b2b2';
   ctx.fill();
-  // Subtle top sheen + bottom shadow, clipped to the slab, for the same faint
-  // "beveled flagstone" feel the old shape pads had.
+  // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
+  // faint "beveled flagstone" feel the old shape pads had.
   ctx.save();
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.clip();

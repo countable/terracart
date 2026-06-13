@@ -80,7 +80,9 @@ const INV_CATS = [
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+  // 'badge' = the Discovery badge stack — listed here so it's visible/countable,
+  // though it's spent only at the wizard tower (no tap-to-use handler).
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Slot draw order within each gear tab (owned slots only are rendered).
@@ -205,8 +207,11 @@ const PRESEED_RESTORE_ROLES = {
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
 // the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
 // now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
-// Shop/trader trades hand the player this many of the offered item per deal for
-// the same demand (cash or barter), so every trade is twice as favourable.
+// Trader BARTER deals hand the player this many of the offered item per deal,
+// so swapping goods is twice as favourable as raw cash. CASH purchases are
+// deliberately excluded (they hand over exactly 1): a ×2 cash bundle made the
+// effective per-unit buy price ~0.6× base, which a mid-tier Sword (sell
+// 0.5→1.0×) turned into a buy-then-resell money loop.
 const TRADE_OFFER_QTY     = 2;
 
 // Compare-only squared distance — avoids sqrt.
@@ -292,7 +297,7 @@ class MapScene extends Phaser.Scene {
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house',       'assets/Objects/House.png');
-    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=1');
+    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
     this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
@@ -510,11 +515,10 @@ class MapScene extends Phaser.Scene {
       !this.save.starterShopId &&
       !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
-    // Safety net: if no fix (and no GPS error) ever arrives, stop waiting after
-    // 20 s so the start flow falls back to the default origin rather than hang.
-    if (this._homeCapturePending) {
-      setTimeout(() => { this._homeCapturePending = false; }, 20000);
-    }
+    // (The no-fix safety net for home capture is armed in startGps, once
+    // GPS is actually watching — sensors now start only after the opening
+    // story + the location CTA, so arming it here would count story-reading
+    // time against the fix and could silently skip the capture.)
 
     // One-time migration: older saves used pWorldX/cellM for cell indices, which
     // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
@@ -541,6 +545,9 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
+    // Rounded road elbows — baked with canvas AA (Graphics arcs staircase
+    // under pixelArt); render.js swaps them in for pure L-bend road cells.
+    RoadRender.makeElbowTextures(this);
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
@@ -614,6 +621,11 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
     this.cobbleContainer = this.add.container(0, 0);
+    // Procedural road/path geometry — redrawn each frame by Render.drawCells.
+    // Must sit ABOVE the noise + border layers (so biome speckle and the wavy
+    // zone borders never paint over the road surface — that's what the cobble
+    // sprites used to guarantee) and BELOW the road-label layer.
+    this.roadGfx = this.add.graphics();
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
@@ -680,16 +692,19 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
-    // Road-letter pool: small light letters with a soft drop shadow, laid out one
-    // per cell along named streets. Lighter than the cobble background so they
-    // read like worn paint markings rather than carved-in lettering.
+    // Road-label pool: compact whole-word street names (one anchor every ~12
+    // road cells, rotated along the road by render.js), drawn low-alpha in
+    // light ink (the road surface is black cobble) so they read like worn
+    // paint markings on the stone. Pool is sized one slot per visible cell
+    // because render walks cells — at most one anchor can occupy a cell, and
+    // most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 10px serif', color: '#000000',
-      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
+        font: 'bold 10px serif', color: '#e6dfcd',
+      }).setOrigin(0.5, 0.5).setAlpha(0.5).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -769,6 +784,7 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.setMask(mask);
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
+    this.roadGfx.setMask(mask);
     this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
@@ -779,6 +795,7 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
+    this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.
@@ -1048,6 +1065,29 @@ class MapScene extends Phaser.Scene {
     if (_teleportOverride) { this.gpsAvailable = false; return; }
     if (!navigator.geolocation) return;
     this.gpsAvailable = true;
+    // Safety net: if no fix ever arrives, stop waiting for home capture after
+    // 2 min so the start flow falls back to the default origin rather than
+    // hang forever. Generous on purpose: a cold GPS start indoors routinely
+    // takes 30-60 s, and giving up early permanently anchors the save at the
+    // default home — the starter-chest trail then spawns half a world from
+    // the player (the post-reset "my loot boxes are missing" bug). While
+    // capture is pending nothing is placed or adopted (ensureStarterShopId
+    // waits), so the only cost of patience is Home appearing a little later.
+    // Armed here — not in create() — so the clock starts when GPS actually
+    // starts watching; the opening story + safety splash can hold sensors
+    // off far longer than that.
+    if (this._homeCapturePending && !this._homeCaptureTimer) {
+      this._homeCaptureTimer = setTimeout(() => {
+        if (!this._homeCapturePending) return;
+        this._homeCapturePending = false;
+        // Capture abandoned — this save plays out at the current (default)
+        // origin, so freeze the starter crate trail there now. The spawn
+        // tile usually rasterized minutes ago, so this retro-places it.
+        if (!this.save.home && !this.save.starterShopId) {
+          this._setStarterCratesAt(this.startWorldM.x, this.startWorldM.y);
+        }
+      }, 120000);
+    }
     try {
       this.gpsWatchId = navigator.geolocation.watchPosition(
         pos => {
@@ -1066,7 +1106,14 @@ class MapScene extends Phaser.Scene {
               const rb = loadSave();
               ok = !!(rb && rb.home && rb.home.lat === latitude && rb.home.lon === longitude);
             } catch (_) { ok = false; }
-            if (ok) { location.reload(); return; }
+            if (ok) {
+              // One-shot flag for the reload: the player answered the safety
+              // splash seconds ago, so the reloaded page skips it and reuses
+              // the same compass-permission answer (sessionStorage — gone once
+              // the browsing session ends, so a later cold load asks again).
+              try { sessionStorage.setItem('terracart.skipSafety', window.__compassPerm || 'granted'); } catch (_) {}
+              location.reload(); return;
+            }
             // write/readback failed — don't loop; carry on with current origin.
           }
           const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);
@@ -1107,7 +1154,27 @@ class MapScene extends Phaser.Scene {
             if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
           }
         },
-        err => { console.warn('GPS error', err.message); this.gpsAvailable = false; this._homeCapturePending = false; },
+        err => {
+          console.warn('GPS error', err.message);
+          this.gpsAvailable = false;
+          // Only a hard permission denial cancels home capture. Transient
+          // errors — TIMEOUT (err.code 3, guaranteed within 10 s by the
+          // watch's `timeout` option on a cold GPS start) and
+          // POSITION_UNAVAILABLE (2) — must NOT: cancelling here froze the
+          // save's origin at the DEFAULT home, so when the real fix finally
+          // arrived the starter-chest trail + cleared tutorial pocket had
+          // spawned on the default spawn tile, nowhere near the player
+          // (classic symptom right after a save reset).
+          if (err && err.code === 1 /* PERMISSION_DENIED */) {
+            this._homeCapturePending = false;
+            // No GPS for this save — it plays out at the current (default)
+            // origin, so freeze the starter crate trail there (retro-places
+            // onto the already-rasterized spawn tile).
+            if (!this.save.home && !this.save.starterShopId) {
+              this._setStarterCratesAt(this.startWorldM.x, this.startWorldM.y);
+            }
+          }
+        },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
     } catch { this.gpsAvailable = false; }
@@ -1342,7 +1409,14 @@ class MapScene extends Phaser.Scene {
     // Overpass is fired only for the centre tile (the one the player is in).
     // Neighbours get their Overpass fetch when the player walks into them and
     // they become the centre tile on the next ensureTilesAround call.
-    WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    // warmOverpass resolves true when the bin landed after the tile had
+    // already rasterized without it (cold cache — e.g. right after a save
+    // reset) and evicted the stale entry; re-run so the rebuilt tile (now
+    // with its real-world trees) loads even if the player is standing still.
+    const warmed = WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    if (warmed && typeof warmed.then === 'function') {
+      warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
+    }
     let anyFailed = false;
     for (const k of needed) {
       const [tx, ty] = k.split('/').map(Number);
@@ -1463,180 +1537,23 @@ class MapScene extends Phaser.Scene {
     // on RESIDENTIAL cells — only near a public anchor (road/path, public area,
     // or POI). The `_spawnOpts` POI-anchor list was already built at the top of
     // this method for creature placement; reuse it here.
-    // Guaranteed starter trail: when this is the spawn tile, place 4 X
-    // marks along the nearest road instead of one X dangling 10 m north
-    // of the spawn point. The player walks out, sees a numbered breadcrumb
-    // along the kerb, and the onboarding is "follow the X's" instead of
-    // "go straight up". Falls back to the legacy north-of-spawn placement
-    // when no road exists within 15 cells of the spawn.
+    // Guaranteed starter trail: when this tile holds the starter-trail
+    // anchor, place the starter crates along the nearest road. The anchor is
+    // the player's HOME (frozen in save.starterCratesAt — see
+    // _starterTrailAnchor), NOT raw startWorldM: a save whose home capture
+    // failed keeps the default projection origin while the player actually
+    // plays somewhere else entirely, and the old origin-keyed check then put
+    // the crates on a tile that never loads. When the anchor can't resolve
+    // yet (fresh save still waiting on its first GPS fix), no tile places
+    // the trail now — it retro-places the moment the anchor freezes (home
+    // capture reloads the page; Home adoption calls _setStarterCratesAt).
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
-    const sx = this.startWorldM.x, sy = this.startWorldM.y;
-    const isStarterTile = (sx >= tx0 && sx < tx0 + this.tileEdgeM && sy >= ty0 && sy < ty0 + this.tileEdgeM);
+    const _trailAnchor = this._starterTrailAnchor();
+    const isStarterTile = !!_trailAnchor &&
+      _trailAnchor.x >= tx0 && _trailAnchor.x < tx0 + this.tileEdgeM &&
+      _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
     if (isStarterTile) {
-      const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
-      const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
-      const spawnIX = Math.floor((sx - tx0) / this.cellM);
-      const spawnIY = Math.floor((sy - ty0) / this.cellM);
-      // BFS from the spawn cell for the nearest road cell within 15 cells.
-      let roadCell = null;
-      const visited = new Set();
-      const queue = [[spawnIX, spawnIY]];
-      visited.add(spawnIX + ',' + spawnIY);
-      while (queue.length > 0 && !roadCell) {
-        const [cx, cy] = queue.shift();
-        if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
-        const dist = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
-        if (dist > 15) continue;
-        const t = entry.grid[cy * N + cx];
-        if (ROAD_TYPES.has(t)) { roadCell = { cx, cy }; break; }
-        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-          const k = (cx + ddx) + ',' + (cy + ddy);
-          if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
-        }
-      }
-      // Four starter chests, one stack of 9 each: wood (restoring plain
-      // houses + unsealing forts), rockfruit (the "Rock" stone — restoring
-      // themed shops), rockfruit seeds and potato seeds (the player's first
-      // crops; inventory starts empty). Per-chest counts stay within the
-      // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
-      // objects carrying a `fixedLoot` payload, so they open through the
-      // standard chest path (the ceremony modal + one-time save.opened)
-      // instead of the rarity picker — the player gets exactly what they need
-      // to bootstrap the restoration + farming loops. (No free scarecrow —
-      // it's sold at the forced scarecrow shop, the next house out past the
-      // starter blacksmith.)
-      const STARTER_LOOT = [
-        { id: 'wood',           qty: 9 },
-        { id: 'rockfruit',      qty: 9 },
-        { id: 'rockfruit_seed', qty: 9 },
-        { id: 'potato_seed',    qty: 9 },
-      ];
-      const COUNT = STARTER_LOOT.length;
-      const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
-      const placedIdx = new Set();          // loot indices successfully seated
-      const MIN_GAP = 3;                    // Chebyshev spacing between consecutive chests
-      const seatCrate = (cx, cy, i) => {
-        // Snap to the canonical global-cell centre. The tile-relative basis
-        // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
-        // because tileEdgeM is not an exact multiple of cellM, leaving the
-        // chest ~0.8 m off the centre cellAt() resolves it to. Round-tripping
-        // through worldMetersToAbsCell → absCellCenterMeters (the same basis
-        // POI chests and every cell tap use) keeps the chest exactly on-grid.
-        const rawX = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const rawY = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
-        const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
-        // A real chest with hardcoded contents — opens via the standard chest
-        // handler (interact.js), which reads o.fixedLoot and shows the same
-        // reward modal as POI chests. `crate: true` renders the humble lowtier
-        // crate (box) sprite instead of the tier-2 treasure chest, matching
-        // their role as starter supplies. No poiClass → no POI label.
-        entry.objects.push({
-          kind: 'chest', x: wmx, y: wmy,
-          fixedLoot: STARTER_LOOT[i],
-          crate: true,
-          id: `chest_start_${tx}_${ty}_${i + 1}`,
-        });
-        usedSeats.add(cx + ',' + cy);
-        placedIdx.add(i);
-      };
-      if (roadCell) {
-        // BFS-collect connected road cells from the nearest road cell, in
-        // nearest-first order, then seat crates on walkable, non-road
-        // neighbours spaced at least MIN_GAP apart. Following the road's
-        // shape (rather than a fixed straight line) means crates keep
-        // getting placed even when the street curves or branches.
-        const roadCells = [];
-        const rVisited = new Set();
-        const rQueue = [[roadCell.cx, roadCell.cy]];
-        rVisited.add(roadCell.cx + ',' + roadCell.cy);
-        while (rQueue.length > 0 && roadCells.length < 120) {
-          const [cx, cy] = rQueue.shift();
-          if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
-          if (!ROAD_TYPES.has(entry.grid[cy * N + cx])) continue;
-          roadCells.push([cx, cy]);
-          for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-            const k = (cx + ddx) + ',' + (cy + ddy);
-            if (!rVisited.has(k)) { rVisited.add(k); rQueue.push([cx + ddx, cy + ddy]); }
-          }
-        }
-        let nextIdx = 0;
-        let lastSeat = null;
-        for (const [rcx, rcy] of roadCells) {
-          if (nextIdx >= COUNT) break;
-          let seat = null;
-          for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
-            const nx = rcx + adx, ny = rcy + ady;
-            if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
-            const tt = entry.grid[ny * N + nx];
-            if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
-            if (usedSeats.has(nx + ',' + ny)) continue;
-            // Enforce a minimum gap from the previous crate so the trail
-            // spreads out instead of clustering on adjacent road cells.
-            if (lastSeat &&
-                Math.max(Math.abs(nx - lastSeat.nx), Math.abs(ny - lastSeat.ny)) < MIN_GAP) continue;
-            seat = { nx, ny }; break;
-          }
-          if (!seat) continue;
-          seatCrate(seat.nx, seat.ny, nextIdx);
-          lastSeat = seat;
-          nextIdx++;
-        }
-      }
-      // Fill any crates the road couldn't host (no road found, or the road
-      // ran out of walkable shoulders) in a tight ring around the spawn
-      // point on walkable cells. Guarantees the player always gets all six
-      // = 15 wood + 15 rockfruit (in 5-stacks).
-      if (placedIdx.size < COUNT) {
-        const RING = [[2, 0], [-2, 0], [0, 2], [0, -2], [3, 0], [-3, 0],
-                      [2, 2], [-2, -2], [2, -2], [-2, 2]];
-        let ringPos = 0;
-        for (let i = 0; i < COUNT; i++) {
-          if (placedIdx.has(i)) continue;
-          let seated = false;
-          while (ringPos < RING.length && !seated) {
-            const [bdx, bdy] = RING[ringPos++];
-            let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
-            for (let step = 0; step < 5; step++) {
-              if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
-              const t = entry.grid[ncy * N + ncx];
-              if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !usedSeats.has(ncx + ',' + ncy)) break;
-              ncx += Math.sign(bdx) || 0;
-              ncy += Math.sign(bdy) || 0;
-            }
-            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
-            const tt = entry.grid[ncy * N + ncx];
-            if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || usedSeats.has(ncx + ',' + ncy)) continue;
-            seatCrate(ncx, ncy, i);
-            seated = true;
-          }
-        }
-      }
-      // Clear the immediate spawn area of natural mineralrocks and procedural
-      // forest fill so the starter crates aren't visually competing with debris
-      // the player can't open. 10-cell Chebyshev radius (~50 m) around spawn.
-      // EXCEPTION: real-world detected trees (the player's actual yard / street
-      // trees — flagged `individual` or carrying a DeepForest crown_color/size)
-      // are kept, so the home reads like the real neighbourhood instead of a
-      // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
-      // forest-grove trees get cleared near spawn.
-      const CLEAR_R = 10;
-      const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
-      const _isRealTree = (o) =>
-        (o.kind === 'tree' || o.kind === 'fruittree') &&
-        (o.individual || o.crown_color || o.size);
-      const _nearSpawn = (wx, wy) => {
-        const oIx = Math.floor((wx - tx0) / this.cellM);
-        const oIy = Math.floor((wy - ty0) / this.cellM);
-        return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
-      };
-      entry.objects = entry.objects.filter(o =>
-        _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
-      // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
-      // any within the tutorial pocket too so spawn is free of pickable scrub.
-      if (Array.isArray(entry.wildplants)) {
-        entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
-      }
+      this._placeStarterTrail(entry, tx, ty);
     } else if (rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
       // see X's frequently instead of stumbling onto one a session.
@@ -1738,6 +1655,226 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // Resolve — and freeze — the world-metre anchor of the starter crate
+  // trail (save.starterCratesAt).
+  //
+  // Healthy saves anchor at the projection origin: either the captured home
+  // (save.home — the player's first GPS fix) or, for sessions that will play
+  // out at the default origin anyway (no geolocation at all), the default
+  // home. But a save whose home capture failed — the old 20 s GPS timeout,
+  // a denied prompt, a failed write — keeps the DEFAULT origin while the
+  // player actually plays somewhere else entirely; keying the crates off
+  // startWorldM then dropped them on a tile that never even loads ("my
+  // starting crates are not showing up"), even though Home itself anchors
+  // on the player's real position. For those saves the anchor resolves
+  // later, off the same Home adoption point (_setStarterCratesAt calls in
+  // ensureStarterShopId / startGps), and retro-places onto the loaded tile.
+  _starterTrailAnchor() {
+    const sv = this.save;
+    if (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x)) return sv.starterCratesAt;
+    if (this._sandboxMode) return null;     // sandbox curates its own loot
+    // Origin is trustworthy: a captured home, or a save that hasn't anchored
+    // anything anywhere else and isn't waiting on a capture reload.
+    if (_saveHome || (!this._homeCapturePending && !sv.starterShopId)) {
+      sv.starterCratesAt = { x: this.startWorldM.x, y: this.startWorldM.y };
+      if (typeof persistSave === 'function') persistSave(sv);
+      return sv.starterCratesAt;
+    }
+    return null;  // unresolved — frozen on home-capture reload or Home adoption
+  }
+
+  // Freeze the starter-trail anchor (idempotent — a save keeps its first
+  // anchor forever) and retro-place the trail when the anchor's tile has
+  // already spawned; tiles loading later place it in spawnInTile.
+  _setStarterCratesAt(x, y) {
+    const sv = this.save;
+    if (this._sandboxMode) return;
+    if (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x)) return;
+    sv.starterCratesAt = { x, y };
+    if (typeof persistSave === 'function') persistSave(sv);
+    if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
+    const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
+    const e = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
+  }
+
+  // Starter crate trail + tutorial-pocket clearing around the frozen anchor
+  // (save.starterCratesAt). Four starter chests, one stack of 9 each: wood
+  // (restoring plain houses + unsealing forts), rockfruit (the "Rock" stone —
+  // restoring themed shops), rockfruit seeds and potato seeds (the player's
+  // first crops; inventory starts empty). Per-chest counts stay within the
+  // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
+  // objects carrying a `fixedLoot` payload, so they open through the
+  // standard chest path (the ceremony modal + one-time save.opened) instead
+  // of the rarity picker. (No free scarecrow — it's sold at the forced
+  // scarecrow shop, the next house out past the starter blacksmith.)
+  //
+  // Crates seat along the nearest road so the onboarding reads "follow the
+  // breadcrumbs along the kerb"; with no road within 15 cells they fall back
+  // to a tight ring around the anchor. Runs from spawnInTile when the tile
+  // holding the anchor rasterizes, and from _setStarterCratesAt when the
+  // anchor resolves after the tile already spawned.
+  _placeStarterTrail(entry, tx, ty) {
+    const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
+    if (!anchor || entry._starterTrail) return;
+    entry._starterTrail = true;             // once per build (rebuilds re-run)
+    entry.objects = entry.objects || [];
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
+    const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+    const spawnIX = Math.floor((anchor.x - tx0) / this.cellM);
+    const spawnIY = Math.floor((anchor.y - ty0) / this.cellM);
+    // BFS from the anchor cell for the nearest road cell within 15 cells.
+    let roadCell = null;
+    const visited = new Set();
+    const queue = [[spawnIX, spawnIY]];
+    visited.add(spawnIX + ',' + spawnIY);
+    while (queue.length > 0 && !roadCell) {
+      const [cx, cy] = queue.shift();
+      if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+      const dist = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
+      if (dist > 15) continue;
+      const t = entry.grid[cy * N + cx];
+      if (ROAD_TYPES.has(t)) { roadCell = { cx, cy }; break; }
+      for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const k = (cx + ddx) + ',' + (cy + ddy);
+        if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
+      }
+    }
+    const STARTER_LOOT = [
+      { id: 'wood',           qty: 9 },
+      { id: 'rockfruit',      qty: 9 },
+      { id: 'rockfruit_seed', qty: 9 },
+      { id: 'potato_seed',    qty: 9 },
+    ];
+    const COUNT = STARTER_LOOT.length;
+    const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
+    const placedIdx = new Set();          // loot indices successfully seated
+    const MIN_GAP = 3;                    // Chebyshev spacing between consecutive chests
+    const seatCrate = (cx, cy, i) => {
+      // Snap to the canonical global-cell centre. The tile-relative basis
+      // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
+      // because tileEdgeM is not an exact multiple of cellM, leaving the
+      // chest ~0.8 m off the centre cellAt() resolves it to. Round-tripping
+      // through worldMetersToAbsCell → absCellCenterMeters (the same basis
+      // POI chests and every cell tap use) keeps the chest exactly on-grid.
+      const rawX = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
+      const rawY = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+      const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+      const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+      // A real chest with hardcoded contents — opens via the standard chest
+      // handler (interact.js), which reads o.fixedLoot and shows the same
+      // reward modal as POI chests. `crate: true` renders the humble lowtier
+      // crate (box) sprite instead of the tier-2 treasure chest, matching
+      // their role as starter supplies. No poiClass → no POI label.
+      entry.objects.push({
+        kind: 'chest', x: wmx, y: wmy,
+        fixedLoot: STARTER_LOOT[i],
+        crate: true,
+        id: `chest_start_${tx}_${ty}_${i + 1}`,
+      });
+      usedSeats.add(cx + ',' + cy);
+      placedIdx.add(i);
+    };
+    if (roadCell) {
+      // BFS-collect connected road cells from the nearest road cell, in
+      // nearest-first order, then seat crates on walkable, non-road
+      // neighbours spaced at least MIN_GAP apart. Following the road's
+      // shape (rather than a fixed straight line) means crates keep
+      // getting placed even when the street curves or branches.
+      const roadCells = [];
+      const rVisited = new Set();
+      const rQueue = [[roadCell.cx, roadCell.cy]];
+      rVisited.add(roadCell.cx + ',' + roadCell.cy);
+      while (rQueue.length > 0 && roadCells.length < 120) {
+        const [cx, cy] = rQueue.shift();
+        if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+        if (!ROAD_TYPES.has(entry.grid[cy * N + cx])) continue;
+        roadCells.push([cx, cy]);
+        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const k = (cx + ddx) + ',' + (cy + ddy);
+          if (!rVisited.has(k)) { rVisited.add(k); rQueue.push([cx + ddx, cy + ddy]); }
+        }
+      }
+      let nextIdx = 0;
+      let lastSeat = null;
+      for (const [rcx, rcy] of roadCells) {
+        if (nextIdx >= COUNT) break;
+        let seat = null;
+        for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
+          const nx = rcx + adx, ny = rcy + ady;
+          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+          const tt = entry.grid[ny * N + nx];
+          if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
+          if (usedSeats.has(nx + ',' + ny)) continue;
+          // Enforce a minimum gap from the previous crate so the trail
+          // spreads out instead of clustering on adjacent road cells.
+          if (lastSeat &&
+              Math.max(Math.abs(nx - lastSeat.nx), Math.abs(ny - lastSeat.ny)) < MIN_GAP) continue;
+          seat = { nx, ny }; break;
+        }
+        if (!seat) continue;
+        seatCrate(seat.nx, seat.ny, nextIdx);
+        lastSeat = seat;
+        nextIdx++;
+      }
+    }
+    // Fill any crates the road couldn't host (no road found, or the road
+    // ran out of walkable shoulders) in a tight ring around the anchor
+    // on walkable cells. Guarantees the player always gets all four crates.
+    if (placedIdx.size < COUNT) {
+      const RING = [[2, 0], [-2, 0], [0, 2], [0, -2], [3, 0], [-3, 0],
+                    [2, 2], [-2, -2], [2, -2], [-2, 2]];
+      let ringPos = 0;
+      for (let i = 0; i < COUNT; i++) {
+        if (placedIdx.has(i)) continue;
+        let seated = false;
+        while (ringPos < RING.length && !seated) {
+          const [bdx, bdy] = RING[ringPos++];
+          let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
+          for (let step = 0; step < 5; step++) {
+            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
+            const t = entry.grid[ncy * N + ncx];
+            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !usedSeats.has(ncx + ',' + ncy)) break;
+            ncx += Math.sign(bdx) || 0;
+            ncy += Math.sign(bdy) || 0;
+          }
+          if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
+          const tt = entry.grid[ncy * N + ncx];
+          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || usedSeats.has(ncx + ',' + ncy)) continue;
+          seatCrate(ncx, ncy, i);
+          seated = true;
+        }
+      }
+    }
+    // Clear the immediate anchor area of natural mineralrocks and procedural
+    // forest fill so the starter crates aren't visually competing with debris
+    // the player can't open. 10-cell Chebyshev radius (~50 m) around it.
+    // EXCEPTION: real-world detected trees (the player's actual yard / street
+    // trees — flagged `individual` or carrying a DeepForest crown_color/size)
+    // are kept, so the home reads like the real neighbourhood instead of a
+    // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
+    // forest-grove trees get cleared near the anchor.
+    const CLEAR_R = 10;
+    const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
+    const _isRealTree = (o) =>
+      (o.kind === 'tree' || o.kind === 'fruittree') &&
+      (o.individual || o.crown_color || o.size);
+    const _nearSpawn = (wx, wy) => {
+      const oIx = Math.floor((wx - tx0) / this.cellM);
+      const oIy = Math.floor((wy - ty0) / this.cellM);
+      return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
+    };
+    entry.objects = entry.objects.filter(o =>
+      _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
+    // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
+    // any within the tutorial pocket too so spawn is free of pickable scrub.
+    if (Array.isArray(entry.wildplants)) {
+      entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
+    }
+  }
+
   // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
   // Unlike surface animals these stalk the player and drain energy in range
   // (see wanderCreatures + MONSTERS). Eligible kinds are gated by depth
@@ -1755,23 +1892,33 @@ class MapScene extends Phaser.Scene {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry.creatures = creatures; return; }
-    // Anchor spawns near the up-staircase (where the player enters) so monsters
-    // are immediately visible rather than scattered across the ~229×229 cell tile.
-    // Falls back to tile centre when no staircase exists on this tile.
-    const upStair = (entry.objects || []).find(o => o.kind === 'staircase' && o.dir === 'up');
+    // Anchor spawns near the up-staircases (where the player enters) so
+    // monsters are immediately visible rather than scattered across the
+    // ~229×229 cell tile. A level has an up-stair at EVERY surface entrance
+    // (and the player may descend any of them), so anchor around ALL of them —
+    // the old single-anchor (`find` → first stair) left every other entrance
+    // monster-free, and with the underground torch bubble only ~2 cells wide
+    // the far-away swarm was never seen ("I never see monsters underground").
+    // Falls back to the tile centre when no staircase exists on this tile.
     const cellSizeM = entry.tileEdgeM / N;
-    const anchorLix = upStair
-      ? Math.floor((upStair.x - tx * entry.tileEdgeM) / cellSizeM)
-      : Math.floor(N / 2);
-    const anchorLiy = upStair
-      ? Math.floor((upStair.y - ty * entry.tileEdgeM) / cellSizeM)
-      : Math.floor(N / 2);
-    const SPAWN_R = 25; // cells — fills 2–3 screens worth around the entry point
-    const randCell = () => ({
-      cx: anchorLix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
-      cy: anchorLiy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
-    });
-    const count = 50 + depth * 10;
+    const anchors = (entry.objects || [])
+      .filter(o => o.kind === 'staircase' && o.dir === 'up')
+      .map(s => ({
+        lix: Math.floor((s.x - tx * entry.tileEdgeM) / cellSizeM),
+        liy: Math.floor((s.y - ty * entry.tileEdgeM) / cellSizeM),
+      }));
+    if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
+    const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
+    const randCell = () => {
+      const a = anchors[Math.floor(rng() * anchors.length)];
+      return {
+        cx: a.lix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+        cy: a.liy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+      };
+    };
+    // Per-entrance density matches the old single-stair tuning; the tile-wide
+    // cap keeps a stair-dense level from turning into a wall of monsters.
+    const count = Math.min(160, (50 + depth * 10) * anchors.length);
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -1780,14 +1927,14 @@ class MapScene extends Phaser.Scene {
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already defeated — stays dead
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind, id });
         break;
       }
     }
-    // Rabbits: also anchored near the staircase.
-    const rabbitN = 10 + Math.floor(rng() * 8);
+    // Rabbits: also anchored near the staircases.
+    const rabbitN = (10 + Math.floor(rng() * 8)) * Math.min(3, anchors.length);
     for (let i = 0; i < rabbitN; i++) {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
@@ -1795,8 +1942,8 @@ class MapScene extends Phaser.Scene {
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (this.save.caught.includes(id)) break;   // already caught — stays gone
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
@@ -3828,15 +3975,19 @@ class MapScene extends Phaser.Scene {
     addMoney(this.save, money);
     // Discovery badge: at most ONE per type of interactable (keyed by baseId —
     // the species/kind/produce id). The first shiny of a given type banks a
-    // Discovery point; later shinies of the same type still pay the cash
-    // windfall but don't re-award the badge.
+    // Discovery badge — a normal inventory stack (id 'discovery', cap-exempt so
+    // a full bag can never eat one); later shinies of the same type still pay
+    // the cash windfall but don't re-award the badge. Added silent so the
+    // fanfare moment doesn't hijack the player's selected tab/stack; the
+    // explicit rebuild below makes the new badge count show immediately.
     const found = this.save.discovered = this.save.discovered || {};
     const isNew = !found[baseId];
     if (isNew) {
       found[baseId] = 1;
-      this.save.discovery = (this.save.discovery || 0) + 1;
+      this.addToInv('discovery', 1, true);
     }
     persistSave(this.save);
+    if (isNew && this.buildInventoryDOM) this.buildInventoryDOM();
     this.flashShiny(money, isNew);
     return money;
   }
@@ -4351,7 +4502,7 @@ class MapScene extends Phaser.Scene {
     box.innerHTML =
       `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
       `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
-      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${this.save.discovery ?? 0}</b></div>` +
+      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${Inventory.count(this.save, 'discovery')}</b></div>` +
       `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
       Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
       `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
@@ -4513,6 +4664,9 @@ class MapScene extends Phaser.Scene {
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
       if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // noSell items (the Discovery badge) never enter the sell modal — the
+      // wizard tower is the only place they're worth anything.
+      if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
       // the price from half (no sword) up to full base value at tier 7.
@@ -4707,9 +4861,11 @@ class MapScene extends Phaser.Scene {
       this.flash('no deal', sx, sy);
       return;
     }
-    // Low-tier seeds ship a few extra (planted in bulk); everything else is
-    // the flat trade quantity.
-    const buyQty = TRADE_OFFER_QTY + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
+    // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
+    // bundle is barter-only (see presentTraderOffer) so cash buys can't be
+    // flipped at a profit. Low-tier seeds still ship a few extra (planted in
+    // bulk; a starter nicety, not an arbitrage vector at $3 a pack).
+    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
       title: this.buildingFlavorTitle(house, 'buy'),
       cancelLabel: 'Later',
@@ -4774,6 +4930,10 @@ class MapScene extends Phaser.Scene {
     if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
       this.ensureStarterTrailerObject();
       this._starterShopOk = true;
+      // Heal a save whose home capture failed (no save.home): anchor the
+      // starter crate trail on Home, where the player actually is — the
+      // origin-keyed anchor would sit on a tile that never loads.
+      this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
       return;
     }
     // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
@@ -4803,12 +4963,21 @@ class MapScene extends Phaser.Scene {
     // An existing home that is still loaded → keep it (stable across roaming,
     // even once it scrolls off-screen). A stale far memo simply isn't loaded near
     // the new spawn, so curFound is false and we re-resolve below.
-    if (cur != null && curFound) { this._starterShopOk = true; return; }
+    // _setStarterCratesAt on each lock-in below is the no-home heal: it
+    // no-ops for anchored saves, and freezes the crate trail at the player's
+    // real position for a save whose home capture failed (see
+    // _starterTrailAnchor).
+    if (cur != null && curFound) {
+      this._starterShopOk = true;
+      this._setStarterCratesAt(ax, ay);
+      return;
+    }
     // A house is visible on-screen → adopt the nearest one as the trailer.
     if (nearestId != null) {
       this.save.starterShopId = nearestId;
       this.save.starterTrailer = null;         // drop any prior synthetic trailer
       this._starterShopOk = true;
+      this._setStarterCratesAt(ax, ay);
       return;
     }
     // No house on-screen. Don't synthesize until every tile the viewport overlaps
@@ -4830,6 +4999,7 @@ class MapScene extends Phaser.Scene {
     this._makeStarterTrailer(ax, ay);
     this.save.starterShopId = this.save.starterTrailer.id;
     this._starterShopOk = true;
+    this._setStarterCratesAt(ax, ay);
   }
 
   // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
@@ -4909,6 +5079,68 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
     for (const o of entry.objects) { if (o.id === obj.id) return; }   // already in
     entry.objects.push(obj);
+  }
+
+  // ☰ menu → "Move Home here". Confirmation dialog for relocating the Home
+  // trailer to the player's current position. The move costs HALF the player's
+  // current coins, capped at $500 — always affordable by construction, so the
+  // dialog never needs a can't-afford state; it just shows the price.
+  confirmMoveHomeTrailer() {
+    // The trailer lives on the surface (ensureStarterTrailerObject is
+    // depth-0-only), so relocating from inside a cave would silently target
+    // the surface spot above the player. Refuse with an explanation instead.
+    if ((this.depth || 0) !== 0) {
+      this.showMessageModal({ title: 'Move Home',
+        body: 'Your trailer stays on the surface — climb back up before moving Home.' });
+      return;
+    }
+    const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
+    const { wrap, box, mount, mkBtn } =
+      this.makeModalShell('move-home-modal', { zIndex: 60, onClose: () => {} });
+    box.innerHTML =
+      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">Move Home here?</div>` +
+      `<div style="margin:6px 0 12px">Your Home trailer relocates to where you're standing.` +
+      `<br><br>Cost: <b style="color:#ffe066">$${cost}</b>` +
+      `<span style="opacity:.7"> (half your coins, max $500)</span></div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
+    const cancel = mkBtn('Cancel', false);
+    const move   = mkBtn(`Move ($${cost})`, true);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    move.addEventListener('click', (e) => {
+      e.stopPropagation(); wrap.remove();
+      addMoney(this.save, -cost);
+      this.moveHomeTrailerHere();
+      this.updateHUD();
+      if (typeof persistSave === 'function') persistSave(this.save);
+      this.flashLoot('🏠 Home moved!');
+    });
+    row.appendChild(cancel);
+    row.appendChild(move);
+    box.appendChild(row);
+    mount();
+  }
+
+  // Relocate Home to the player's current position by (re)synthesizing the
+  // starter trailer there. Works whether the current Home is a real adopted
+  // house (it simply becomes a normal house again) or an existing synthetic
+  // trailer (it moves). Surface-only — the confirm above guards depth.
+  moveHomeTrailerHere() {
+    // Evict any previously injected trailer object from the loaded tiles.
+    // ensureStarterTrailerObject only dedupes within the NEW owning tile, so
+    // without this sweep a moved trailer leaves a phantom copy in its old
+    // tile's object list until that tile is evicted.
+    for (const e of WorldGen.tileCache.values()) {
+      if (!e.objects) continue;
+      const i = e.objects.findIndex((o) => o._synthetic && o.id === 'starter_trailer');
+      if (i >= 0) e.objects.splice(i, 1);
+    }
+    // playerM → absolute world metres (the space every object's x/y lives in).
+    const ax = this.startWorldM.x + this.playerM.x;
+    const ay = this.startWorldM.y + this.playerM.y;
+    this._makeStarterTrailer(ax, ay);
+    this.save.starterShopId = this.save.starterTrailer.id;
+    this._starterShopOk = true;
   }
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
@@ -5596,7 +5828,7 @@ class MapScene extends Phaser.Scene {
       this.flash('The wizard nods — your sight already spans the world.', sx, sy);
       return;
     }
-    const have = this.save.discovery ?? 0;
+    const have = Inventory.count(this.save, 'discovery');
     const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
     this.showOfferModal({
       title: 'The wizard offers an Inner Light:',
@@ -5606,9 +5838,14 @@ class MapScene extends Phaser.Scene {
       cost: `🔆 ${cost} Discovery (you have ${have})`,
       canAfford: have >= cost,
       onAccept: () => {
-        if ((this.save.discovery ?? 0) < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
+        // Re-read the live stack so a stale modal can't overspend badges.
+        if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
         if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
-        this.save.discovery -= cost;
+        Inventory.remove(this.save, 'discovery', cost);
+        // The spend may have spliced the badge stack out — keep selSlot valid.
+        if (this.save.selSlot >= this.save.inv.length) {
+          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+        }
         this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
         // The light's gift is a Ring whose tier matches the new inner-light
         // level — the relic that embodies your widened sight.
@@ -7443,10 +7680,10 @@ class MapScene extends Phaser.Scene {
   }
 
   // Book / Flute Read / Play button. Mirror of syncEatButton — sits next
-  // to the Eat button (or in the same spot when food isn't selected) so
-  // the player has a one-tap affordance to use a consumable without
-  // having to tap their own feet precisely. Honours the existing
-  // showOfferModal flow used by interact.js 'use-consumable'.
+  // to the Eat button (or in the same spot when food isn't selected). This
+  // is THE way to use a self-targeted consumable: the old tap-your-own-feet
+  // gesture (interact.js 'use-consumable') was removed because it was easy
+  // to trigger accidentally while tilling / planting under the player.
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');

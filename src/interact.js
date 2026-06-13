@@ -266,99 +266,11 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // -0.6) Flute / Book — tap your own feet (≤1.5m) with one selected to use it.
-  // These run BEFORE eat so the same "tap self with selected item" gesture
-  // routes to the right consumable based on the item id.
-  { name: 'use-consumable', try: (ctx) => {
-    const { scene, save, wm, pWorldX, pWorldY, sx, sy } = ctx;
-    const dx = wm.x - pWorldX, dy = wm.y - pWorldY;
-    if (dx * dx + dy * dy > 1.5 * 1.5) return false;
-    const sel = getSelectedSlot(save);
-    if (!sel || (sel.count ?? 0) <= 0) return false;
-    if (sel.id === 'flute') {
-      scene.showOfferModal({
-        title: 'Play the flute?',
-        get: '🪈 lure nearby creatures',
-        cost: `1× 🪈 Flute`,
-        canAfford: true,
-        acceptLabel: 'Play',
-        onAccept: () => scene.playFlute(),
-      });
-      return true;
-    }
-    if (sel.id === 'book') {
-      scene.showOfferModal({
-        title: 'Read the book?',
-        get: '📖 a tip from the elders',
-        cost: `1× 📖 Book`,
-        canAfford: true,
-        acceptLabel: 'Read',
-        onAccept: () => scene.readBook(),
-      });
-      return true;
-    }
-    if (sel.id === 'reach_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Reach?',
-        get: '✨ full-screen reach for 1 min',
-        cost: `1× ✨ Potion of Reach`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkReachPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'vigor_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Vigor?',
-        get: 'restore 40 energy',
-        cost: `1× Potion of Vigor`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkVigorPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'speed_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Speed?',
-        get: 'tier-9 ghost speed for 1 min',
-        cost: `1× Potion of Speed`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkSpeedPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'shield_potion') {
-      scene.showOfferModal({
-        title: 'Drink the Potion of Shielding?',
-        get: 'half monster damage for 1 min',
-        cost: `1× Potion of Shielding`,
-        canAfford: true,
-        acceptLabel: 'Drink',
-        onAccept: () => scene.drinkShieldPotion(),
-      });
-      return true;
-    }
-    if (sel.id === 'sapphire') {
-      scene.showOfferModal({
-        title: 'Open a portal down?',
-        get: '💎 descend one level',
-        cost: `1× 💎 Sapphire`,
-        canAfford: true,
-        acceptLabel: 'Open',
-        onAccept: () => scene.useSapphirePortal(),
-      });
-      return true;
-    }
-    return false;
-  }},
-
-  // (Eat-by-tapping-the-player removed — the persistent Eat button below the
-  // inventory bar covers this affordance now, and the tap-on-feet variant
-  // was easy to trigger accidentally while trying to till / plant under the
-  // player's own cell.)
+  // (Eat-by-tapping-the-player and the flute/book/potion/sapphire tap-on-feet
+  // gestures removed — the persistent Eat and consumable Use buttons below the
+  // inventory bar (syncEatButton / syncConsumableButton in app.js) cover those
+  // affordances now, and the tap-on-feet variants were easy to trigger
+  // accidentally while trying to till / plant under the player's own cell.)
 
   // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
   { name: 'treasure', try: (ctx) => {
@@ -1308,16 +1220,16 @@ const TAP_HANDLERS = [
   }},
 
   // 2a-fish) Fishing: tap a water cell (type 3) with a Fishing Rod relic equipped.
-  // Triggers a 5s work-progress, then drops a random fish weighted by rarity
+  // Triggers a cast work-progress, then drops a random fish weighted by rarity
   // (modified by rod tier — higher tier → more chance of rare fish). Placed
   // BEFORE flavor so the water-tap doesn't get eaten by the 'water' label.
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
-    // No rod? You can still fish BARE-HANDED — it just takes 3× as long (the
-    // tier-0 cast time from toolDurationMs). A rod speeds the cast by tier AND
-    // improves the catch; bare hands fish at tier 0 (higher skunk rate, minnow-
-    // heavy weights) so only owning a rod improves the catch (spec §FISHING).
+    // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
+    // improves the catch table + skunk rate + energy per cast; bare hands fish
+    // at tier 0 (higher skunk rate, minnow-heavy weights) so only owning a rod
+    // improves the catch (spec §FISHING).
     const fishCost = (typeof effectiveFishCost === 'function')
       ? effectiveFishCost(save.relics) : (ENERGY_COST?.fish ?? 9);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
@@ -1325,8 +1237,12 @@ const TAP_HANDLERS = [
     // the can up here as part of the cast so owning a rod never costs you your
     // watering charges. Bare-handed casts without a can simply skip this.
     if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
-    const castMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'rod') : (save.relics?.rod ? 3000 : 9000);
+    // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
+    // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
+    // catch table, the skunk rate, and the energy cost; letting it also
+    // shrink the cast to 0.3s turned a Frost rod into a 3-casts-per-second
+    // money faucet (fish + the 2%-per-cast gear jackpot) with no rate limit.
+    const castMs = save.relics?.rod ? 3000 : 9000;
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
       // Per user: most of the wait results in nothing on a low-tier rod,
@@ -1391,7 +1307,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick.id];
       scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
-    }, castMs, 5, 'rod');   // castMs = rod-tier cast time (bare hands 9s); 5 = cancel refund
+    }, castMs, 5, 'rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
     return true;
   }},
 

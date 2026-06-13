@@ -164,6 +164,9 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // Discovery badge — the gold five-point star at row 8 col 4 of
+  // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
+  discovery:     { sheet: 'pickup',     frame: 116 },
 };
 
 function inventoryIconSource(itemId) {
@@ -320,12 +323,13 @@ const ITEMS = [
   { id: 'marigold',    name: 'Marigold',      kind: 'produce', crop: 'marigold' },
   { id: 'wildrose',    name: 'Wild Rose',     kind: 'produce', crop: 'wildrose' },
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
-  // Consumables — used on yourself (tap your own feet with one selected).
+  // Consumables — used on yourself via the Use button that appears below the
+  // inventory bar while one is selected (syncConsumableButton in app.js).
   // Flute: lures wandering chickens + cows within 30m toward you.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'flute', name: 'Flute', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
-  // Potion of Reach: drink it (tap your own feet with it selected) to light up
+  // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
@@ -355,6 +359,18 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
+  // Discovery badge — earned once per shiny TYPE found (awardShinyBonus), spent
+  // at the wizard tower on Inner Lights. Lives as a normal inventory stack so
+  // the player can see / count their badges, but it's deliberately walled off
+  // from the rest of the economy:
+  //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /
+  //                     deliveries never roll it (the Items tab lists the kind).
+  //   capExempt       → inventory.js ignores the bag stack-cap; a badge is
+  //                     irreplaceable (one per type, ever), so "bag full" must
+  //                     never eat one.
+  //   noSell          → the home sell modal refuses it; only the wizard trades
+  //                     in Discovery. No PRICES entry keeps it out of barter asks.
+  { id: 'discovery',    name: 'Discovery',    kind: 'badge', capExempt: true, noSell: true },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -384,9 +400,9 @@ const ITEMS = [
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
-  // Sapphire doubles as a one-shot descent charge: tap your own feet with it
-  // selected (or use the Portal button) to spend one gem and sink straight
-  // down a level in place. See useSapphirePortal in app.js.
+  // Sapphire doubles as a one-shot descent charge: tap the Portal button with
+  // it selected to spend one gem and sink straight down a level in place.
+  // See useSapphirePortal in app.js.
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
@@ -420,13 +436,16 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST. Prices are tuned to how easy each item is
-// to obtain. Produce range: wild-debris commons at $1, rarest T3 flower at $500.
+// to obtain. Produce range: wild-debris commons at $1, rarest flower
+// (iceflower, T6) at $500. The magical-flower ladder follows BASE_TIER —
+// sunflower (T4) cheapest, iceflower (T6) dearest — matching the smelting
+// pairing (sunflower→Platinum … iceflower→Frost).
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3,
   berry_seed: 3, cress_seed: 3, onion_seed: 3,
   gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12,
-  iceflower_seed: 30, fireflower_seed: 40, sunflower_seed: 50,
+  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
   nut: 4,
@@ -438,19 +457,19 @@ const PRICES = {
   pairy: 8,
   gemfruit: 25,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
-  iceflower: 150,  // T3 rare
-  fireflower: 300, // T3 rare
-  sunflower: 500,  // rarest — ceiling
+  sunflower: 150,  // T4 magical flower — commonest of the trio
+  fireflower: 300, // T5 magical flower
+  iceflower: 500,  // T6 — rarest flower, gates the Frost bar; price ceiling
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile, yields 4 per catch
   cow: 200,        // ~15–30/tile, premium catch
-  cat: 150,        // ~15–30/tile, wants milk
-  dog: 150,        // ~15–30/tile, wants eggs
+  cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
+  dog: 35,         // companion animal (wants meat) — modest sale, never eaten
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
   flowers: 2,
   // Rare wild flora — sell value climbs with rarity; the glowing starflower
-  // is a premium forage find (between gemfruit and the magical iceflower).
+  // is a premium forage find (between gemfruit and the magical sunflower).
   forgetmenot: 14,
   marigold:    45,
   wildrose:    35,
@@ -488,7 +507,7 @@ const PRICES = {
   meat: 30,
   rabbit_pelt: 15,
   crow_feather: 10,
-  butterfly: 200,  // premium catch — Bug Net required, so it's worth a lot
+  butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 8,
   // ── Fish ─────────────────────────────────────────────────
@@ -511,7 +530,14 @@ function itemValue(id) {
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
-const BUY_LIST = Object.keys(CROP_ROW).map(c => `${c}_seed`);
+// Seeds houses/traders rotate through for sale. Magical flower seeds (T4+:
+// sunflower / fireflower / iceflower) are deliberately EXCLUDED — they're the
+// gateway to the most valuable crops and the T5+ smelting ladder, so they must
+// be FOUND (flora chests, rare trader/fort rolls via the rarity picker), not
+// bought on tap at any house.
+const BUY_LIST = Object.keys(CROP_ROW)
+  .filter(c => (BASE_TIER[c] || 1) <= 3)
+  .map(c => `${c}_seed`);
 const STARTING_MONEY = 50;
 
 // === Energy / food ===
@@ -556,7 +582,7 @@ const PLAY_TIPS = [
   'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
   // ── Food side-effects ─────────────────────────────────────
   'Rainberry waters every crop within 20m when you eat it.',
-  'Sunflower stew restores +150 energy — the biggest meal in the world.',
+  'Iceflower stew restores +150 energy — the biggest meal in the world.',
   'A Mango is the universal treat: feed one to instantly tame any wild animal.',
   // ── World / map ───────────────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks and woods.',
@@ -611,13 +637,13 @@ const FOOD_ENERGY = {
   pairy:     12,   // also shows the nearest undiscovered chest for 5 min
   gemfruit:  20,
   coffee:    35,
-  iceflower:  60,
+  sunflower:  60,
   fireflower: 90,
-  sunflower: 150,
+  iceflower: 150,
   chicken:    30,
   cow:       120,
-  cat:        20,
-  dog:        20,
+  // cats + dogs are companions, not food — no FOOD_ENERGY entry means the
+  // eat button never appears for them and eatSelected() refuses.
   egg:        10,
   milk:       40,
   mushroom:   25,
@@ -841,7 +867,9 @@ function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
 // Fishing Rod: bare-handed cast expects 9, a Wood rod 3, a Frost rod 1. The rod
-// ALSO speeds the cast and improves the catch table.
+// ALSO improves the catch table. Cast TIME is locked (9s bare / 3s any rod —
+// see the fishing handler in interact.js), so tier buys cheaper + better
+// casts, never faster ones.
 function effectiveFishCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.rod?.tier || 0), rng);
 }

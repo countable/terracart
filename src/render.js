@@ -138,6 +138,16 @@ Render.drawCells = function drawCells(scene) {
   const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
   if (gf !== g) gf.clear();
   if (gb !== g && gb !== gf) gb.clear();
+  // Road/path geometry layer — sits ABOVE the noise-texture sprites and the
+  // wavy biome-border layer (and the building wall-extrusion pass in g), so
+  // road surfaces aren't speckled by biome textures or cut by zone borders.
+  // This is where the old cobble SPRITES sat; drawing the geometry into g
+  // put it underneath all of those and made roads look broken up.
+  const gr = scene.roadGfx || g;
+  if (gr !== g) gr.clear();
+  // Baked elbow textures (RoadRender.makeElbowTextures) — checked once per
+  // frame; stub/test scenes without them fall back to square geometry.
+  const _hasElbowTex = !!(scene.textures && scene.textures.exists && scene.textures.exists('roadelbow_7'));
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
@@ -173,7 +183,7 @@ Render.drawCells = function drawCells(scene) {
   // (frame 33) was a bridge-span tile with baked-in blue water + a diagonal
   // support leg + transparent holes, which rendered as fragmented "docks with
   // posts and water patches" instead of a solid walkway. Pier cells are NOT
-  // roads (no road-letter labels) and NOT paths (no path-stone activation tint).
+  // roads (no road-name labels) and NOT paths (no path-stone activation tint).
   const PIER = 23;
   const PIER_FRAME = 20;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
@@ -254,16 +264,28 @@ Render.drawCells = function drawCells(scene) {
         const tw = T(col - 1, row), te = T(col + 1, row);
         const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
         const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
-        if (tn !== type && tw !== type && tnw !== type) tl = CORNER_R;
-        if (tn !== type && te !== type && tne !== type) tr = CORNER_R;
-        if (ts_ !== type && tw !== type && tsw !== type) bl = CORNER_R;
-        if (ts_ !== type && te !== type && tse !== type) br = CORNER_R;
+        // Road/path cells only paint a BACKDROP here (the inherited zone
+        // colour — the asphalt itself is geometry on roadGfx above), so for
+        // rounding purposes all road/path tiers count as ONE type: a tier
+        // change must not round corners, and a road-like diagonal's corner
+        // paint must use its inferred backdrop colour, never the raw road
+        // grey from COLORS (which left grey notches at elbows/junctions).
+        const roadish = (t) => isRoad(t) || t === PATH;
+        const selfRoadish = roadish(type);
+        const sameAs = (t) => t === type || (selfRoadish && roadish(t));
+        if (!sameAs(tn) && !sameAs(tw) && !sameAs(tnw)) tl = CORNER_R;
+        if (!sameAs(tn) && !sameAs(te) && !sameAs(tne)) tr = CORNER_R;
+        if (!sameAs(ts_) && !sameAs(tw) && !sameAs(tsw)) bl = CORNER_R;
+        if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        if (tl) { g.fillStyle(COLORS[tnw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
-        if (tr) { g.fillStyle(COLORS[tne] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
-        if (bl) { g.fillStyle(COLORS[tsw] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-        if (br) { g.fillStyle(COLORS[tse] ?? GRASS_FALLBACK_COLOR, 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        const cornerColor = (t, dnx, dny) => roadish(t)
+          ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
+          : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+        if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
+        if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
+        if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
+        if (br) { g.fillStyle(cornerColor(tse, 1, 1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
       }
       g.fillStyle(color, 1);
       if (tl || tr || bl || br) {
@@ -422,12 +444,16 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Embossed road-name letter — one per road/path cell, low-alpha "carved" look.
+      // Road-name label — one compact whole-word text per anchor cell
+      // (worldgen drops an anchor every ~12 road cells), laid along the road
+      // direction like a map label. Replaced the old letter-per-cell trail,
+      // which spelled the name out one glyph per cobble and read as noise.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Skip PATH (small 2-stone cobble) — too cramped for legible letters.
+        // Anchors exist only on vehicle road tiers (PATH pebbles are too
+        // small to carry a label), so the isRoad gate also keeps lookups cheap.
         if (!isTilled && isRoad(type)) {
-          // Look up letter for this cell from its owning tile.
+          // Look up this cell's label anchor from its owning tile.
           const wcxL = pc.cx + ox + pc.tx * scene.cellsPerTile;
           const wcyL = pc.cy + oy + pc.ty * scene.cellsPerTile;
           const tx2 = Math.floor(wcxL / scene.cellsPerTile);
@@ -435,15 +461,14 @@ Render.drawCells = function drawCells(scene) {
           const ix2 = Math.floor(wcxL - tx2 * scene.cellsPerTile);
           const iy2 = Math.floor(wcyL - ty2 * scene.cellsPerTile);
           const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
-          const info = entry && entry.roadLetters && entry.roadLetters[`${ix2}_${iy2}`];
+          const info = entry && entry.roadLabels && entry.roadLabels[`${ix2}_${iy2}`];
           if (info) {
-            // Keep letters upright — rotating them per-segment makes them hard to read at small sizes.
-            // Phaser Text textures include the font's internal padding (typically
-            // baseline gap + a 1-2px buffer). y still nudged -2 to optically
-            // centre the glyph in the cobble; x sits at cell centre (the prior
-            // +1 nudge read 1px too far right).
-            lt.setText(info.char).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2 - 2)
-              .setRotation(0).setVisible(true);
+            // Anchored at the cell centre; the word overhangs neighbouring
+            // cells along its rotation, which is fine — map labels do too.
+            // worldgen pre-normalizes angle into (-90°, 90°] so the text is
+            // never upside down.
+            lt.setText(info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+              .setRotation(info.angle).setVisible(true);
           } else {
             lt.setVisible(false);
           }
@@ -457,29 +482,86 @@ Render.drawCells = function drawCells(scene) {
       {
         const cs = scene.cobblePool[cobbleIdx++];
         if ((isRoad(type) || type === PATH) && !isTilled) {
-          // Build 4-bit neighbor mask (N=1 E=2 S=4 W=8). Any road/path tier
-          // counts as connected so mismatched tiers taper naturally.
+          // Build 8-bit neighbor mask (N=1 E=2 S=4 W=8, NE=16 SE=32 SW=64
+          // NW=128). Any road/path tier counts as connected so mismatched
+          // tiers taper naturally; for the orthogonal arms PIER counts too,
+          // so a road/path runs flush onto the dock planks instead of
+          // stopping one half-cell short of the pier. The diagonal bits
+          // drive the inner-corner fill that merges multi-cell-wide roads
+          // into one solid surface.
           const tn  = T(col, row - 1), ts_ = T(col, row + 1);
           const tw  = T(col - 1, row), te  = T(col + 1, row);
-          const mask = (isAnyRoad(tn) ? 1 : 0) | (isAnyRoad(te) ? 2 : 0)
-                     | (isAnyRoad(ts_) ? 4 : 0) | (isAnyRoad(tw) ? 8 : 0);
-          RoadRender.drawRoadCell(g, sx, sy, type, mask);
+          const tne = T(col + 1, row - 1), tse = T(col + 1, row + 1);
+          const tsw = T(col - 1, row + 1), tnw = T(col - 1, row - 1);
+          const conn = (t) => isAnyRoad(t) || t === PIER;
+          // PARALLEL-RUN suppression: an arm toward a road-ish neighbour is
+          // dropped when BOTH this cell and that neighbour sit inside runs
+          // PERPENDICULAR to the arm (road on both sides along that axis).
+          // Without this, a path running beside a road sprouted a rung into
+          // it on every cell — and the corner-quadrant fill then ballooned
+          // the 4px track to the whole cell ("the path greatly oscillates in
+          // width"); two adjacent parallel roads likewise merged into one
+          // blob for short stretches. Junction connectivity is unaffected:
+          // a teeing/crossing line's cells never have road on both
+          // perpendicular sides, so their arms (and the matching arm drawn
+          // by the cell they tee into — the rule is symmetric) survive.
+          const runEW = isAnyRoad(tw) && isAnyRoad(te);   // self inside an E-W run
+          const runNS = isAnyRoad(tn) && isAnyRoad(ts_);  // self inside a N-S run
+          const nbrRunEW = (c, r) => isAnyRoad(T(c - 1, r)) && isAnyRoad(T(c + 1, r));
+          const nbrRunNS = (c, r) => isAnyRoad(T(c, r - 1)) && isAnyRoad(T(c, r + 1));
+          const cN = conn(tn)  && !(runEW && nbrRunEW(col, row - 1));
+          const cS = conn(ts_) && !(runEW && nbrRunEW(col, row + 1));
+          const cE = conn(te)  && !(runNS && nbrRunNS(col + 1, row));
+          const cW = conn(tw)  && !(runNS && nbrRunNS(col - 1, row));
+          const mask = (cN ? 1 : 0) | (cE ? 2 : 0)
+                     | (cS ? 4 : 0) | (cW ? 8 : 0)
+                     | (isAnyRoad(tne) ? 16 : 0) | (isAnyRoad(tse) ? 32 : 0)
+                     | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
+          // Pure L-bends render as a baked elbow sprite (rounded outer
+          // corner with real antialiasing — Graphics arcs staircase under
+          // pixelArt) rotated into orientation; every other cell stamps a
+          // lazily-baked rough-edged texture (black cobble / dirt — see
+          // RoadRender.ensureRoadCellTexture). Variant alternates by cell
+          // parity so long straights don't repeat one wobble pattern.
+          const elbowAng = _hasElbowTex ? RoadRender.elbowAngle(mask) : -1;
+          if (elbowAng >= 0) {
+            cs.setTexture('roadelbow_' + type)
+              .setDisplaySize(CELL_PX, CELL_PX)
+              .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+              .setAngle(elbowAng)
+              .setTint(0xffffff).setVisible(true);
+          } else {
+            const rcKey = RoadRender.ensureRoadCellTexture(
+              scene, type, mask, (absCellIX + absCellIY) & 1);
+            if (rcKey) {
+              cs.setTexture(rcKey)
+                .setDisplaySize(CELL_PX, CELL_PX)
+                .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+                .setAngle(0)
+                .setTint(0xffffff).setVisible(true);
+            } else {
+              // No canvas texture support — flat-colour Graphics fallback.
+              RoadRender.drawRoadCell(gr, sx, sy, type, mask);
+              cs.setVisible(false);
+            }
+          }
           // Named-path stone tint — semi-transparent blue rect over activated stones.
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             const N2  = scene.cellsPerTile;
             const tx2 = Math.floor(absCellIX / N2);
             const ty2 = Math.floor(absCellIY / N2);
             if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
-              g.fillStyle(0x88aaff, 0.30);
-              g.fillRect(sx, sy, CELL_PX, CELL_PX);
+              gr.fillStyle(0x88aaff, 0.30);
+              gr.fillRect(sx, sy, CELL_PX, CELL_PX);
             }
           }
-          cs.setVisible(false);
         } else if (type === PIER && !isTilled) {
           // PIER keeps sprite-based plank rendering (Bridge Beach.png frame 20).
+          // setAngle(0) — the pooled slot may have just been an elbow sprite.
           cs.setTexture('pier', PIER_FRAME)
             .setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+            .setAngle(0)
             .setTint(0xffffff).setVisible(true);
         } else {
           cs.setVisible(false);
@@ -602,9 +684,20 @@ Render.drawCells = function drawCells(scene) {
         // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
         // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (wallEdge(col, row, 0, 1)) {
-          gf.fillStyle(STONE_FACE, 1); gf.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gf.fillStyle(STONE_DARK, 1); gf.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(gf, sx, sy + CELL_PX);
+          // The Home trailer parked in FRONT of (south of) this wall must
+          // occlude it — a wall behind the trailer painting over its roof
+          // reads backwards. Route just this cell's front wall to the BACK
+          // layer so the trailer sprite (objectsContainer, above gb) draws on
+          // top. Rect stamped by drawObjects' house `after` hook; the wall's
+          // painted strip spans crest top … face bottom (sy+CELL_PX+WALL).
+          const tr = scene._homeTrailerRect;
+          const gw = (tr &&
+            (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
+            tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
+            tr.x1 > sx && tr.x0 < sx + CELL_PX) ? gb : gf;
+          gw.fillStyle(STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          crestH(gw, sx, sy + CELL_PX);
         }
         // North / back wall → BACK layer (below objects). Same tall extruded face
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
@@ -814,6 +907,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Re-inject the synthetic starter trailer (if any) into its owning tile —
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
+  // Screen-space rect of the Home trailer's sprite — re-stamped each frame by
+  // the house spec's `after` hook when the trailer is on-screen, null when it
+  // isn't. drawCells reads it to sort castle front walls BEHIND the trailer
+  // (see the tier-12 rampart pass).
+  scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -1080,6 +1178,17 @@ Render.drawObjects = function drawObjects(scene) {
         // building, not a wall. Plain / blacksmith / trader / trailer / wizard
         // share 0.6 so they look like neighbours from the same village.
         return role === 'fort' ? 0.35 : 0.6;
+      },
+      // Stamp the Home trailer's display rect for drawCells' castle-rampart
+      // sorting: a front (south) wall the trailer is parked in front of must
+      // not paint over it. Runs after position/origin/scale are final.
+      after: (s, o) => {
+        if (_houseRole(o) !== 'trailer') return;
+        const w = s.displayWidth, h = s.displayHeight;
+        scene._homeTrailerRect = {
+          x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
+          y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
+        };
       } },
     // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
     // ~2/3 of a cell up into the tile above — leaving its collision cell (the
@@ -1188,14 +1297,19 @@ Render.drawObjects = function drawObjects(scene) {
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
               // frame, i.e. 12px transparent padding on the left, 0 on the
-              // right). At origin 0.5 that left the stall ~3.6px (= 6px frame
-              // offset × 0.6 scale) right of its cell. Nudge it back left so the
-              // visible stall art is centred horizontally on the tile.
-              dxPx: (o) => produceStandFor(o) ? -3.6 : (_isCoinBurst(o) ? 4 : 0),
+              // right). -3.6 (= 6px frame offset × 0.6 scale) centres the art;
+              // +3 on top of that per playtest so the stall reads centred over
+              // its POI cell in situ.
+              dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
               // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
               // the art's centroid down toward that anchor. Lift the crate back
               // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
-              dyPx: (o) => produceStandFor(o) ? 2 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              // Stand: every market_stand frame has 10 transparent rows under
+              // the art (y:[0,70) of 80), so the old +2 left the stall's feet
+              // floating ~4px ABOVE the cell centre ("the food stand is about
+              // 20px too high"). +22 seats the feet on the cell's bottom edge
+              // (centre + 16), where a structure-like sprite should stand.
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
@@ -1287,12 +1401,11 @@ Render.drawObjects = function drawObjects(scene) {
     // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
     // the seat pass then seats the now-taller-than-a-cell sprite with its base
     // 1px above the cell's bottom edge (same as a tree).
-    // pillar.png's column art fills only the LEFT half of its 16px frame
-    // (cols 0–8; 9–15 are transparent), so a frame-centred origin (0.5) drew
-    // the pole shoved to one side. Anchor the origin at the art's true
-    // horizontal centre (~0.25 of the frame) so the pole sits centred on its
-    // cell (the seat pass refines this from the trimmed bounds).
-    pole:   { key: 'pillar', origin: [0.25, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
+    // pillar.png's column art is symmetric and frame-centred (the earlier
+    // slice was cut off on the top and left; the art was redrawn complete),
+    // so a plain frame-centred origin works — the seat pass refines the
+    // final offsets from the trimmed bounds.
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. The
     // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
     // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
@@ -1435,6 +1548,9 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of objList) {
     const { o, dx, dy } = item;
     if (o.kind !== 'chest') continue;
+    // Produce/food stands render their own 80×80 stall structure — a concrete
+    // slab poking out from under the stall reads wrong, so they skip the pad.
+    if (produceStandFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) continue;
     const shape = PAD_SHAPES[shapeKey];
@@ -1492,7 +1608,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.chestLabelPool.push(tx);
     }
     // Named POIs get their rusticified name; unnamed POIs fall back to a
-    // class-based descriptor in brackets (e.g. "(Chapel)", "(Practice Field)").
+    // class-based descriptor in brackets (e.g. "(Chapel)", "(Tourney Grounds)").
     const isFallback = !o.name;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`

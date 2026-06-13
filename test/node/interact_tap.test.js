@@ -41,16 +41,9 @@ test('TAP_HANDLERS: work-progress is the FIRST handler (priority guard)', () => 
     'work-progress must be index 0 so an in-progress wheel eats every tap first');
 });
 
-test('TAP_HANDLERS: use-consumable is second (before treasure / creature)', () => {
-  assert.eq(HANDLER_NAMES[1], 'use-consumable',
-    'use-consumable must be index 1 — tap-on-feet with flute/book/potion runs before world probes');
-});
-
-test('TAP_HANDLERS: use-consumable precedes creature', () => {
-  const iConsumable = HANDLER_NAMES.indexOf('use-consumable');
-  const iCreature   = HANDLER_NAMES.indexOf('creature');
-  assert.truthy(iConsumable < iCreature,
-    'use-consumable must precede creature so a self-tap with a consumable item is handled first');
+test('TAP_HANDLERS: treasure is second (use-consumable removed — Use button now)', () => {
+  assert.eq(HANDLER_NAMES[1], 'treasure',
+    'treasure must be index 1 — the tap-on-feet use-consumable handler was removed in favour of the persistent Use button');
 });
 
 test('TAP_HANDLERS: creature precedes wildplant (animals eat taps near plants)', () => {
@@ -191,72 +184,9 @@ test('work-progress: aborts and returns true after 150ms', () => {
   assert.truthy(aborted, 'abortWorkProgress was called');
 });
 
-// ─── 4. use-consumable handler behaviour ────────────────────────────────────
-
-test('use-consumable: returns false when tap is far from player (> 1.5m)', () => {
-  const scene = Object.assign(makeScene(), { showOfferModal: () => {} });
-  const save  = { inv: [{ id: 'book', count: 1 }], selSlot: 0 };
-  // Tap 3m away from player
-  const ctx = Object.assign(makeCtx(scene, save), {
-    wm: { x: 3, y: 0 }, pWorldX: 0, pWorldY: 0, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'use-consumable');
-  assert.eq(h.try(ctx), false, 'far tap passes through');
-});
-
-test('use-consumable: returns false when no item selected (empty hand)', () => {
-  const scene = Object.assign(makeScene(), { showOfferModal: () => {} });
-  const save  = { inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    wm: { x: 0, y: 0 }, pWorldX: 0, pWorldY: 0, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'use-consumable');
-  assert.eq(h.try(ctx), false, 'empty inv → pass through');
-});
-
-test('use-consumable: book tap near player opens offer modal and returns true', () => {
-  let modal = null;
-  const scene = Object.assign(makeScene(), {
-    showOfferModal: (opts) => { modal = opts; },
-    readBook: () => {},
-  });
-  const save = { inv: [{ id: 'book', count: 1 }], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    wm: { x: 0.5, y: 0 }, pWorldX: 0, pWorldY: 0, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'use-consumable');
-  assert.eq(h.try(ctx), true, 'book tap near player consumed');
-  assert.truthy(modal !== null, 'offer modal was opened');
-  assert.truthy(modal.title.toLowerCase().includes('book'), 'modal title mentions book');
-});
-
-test('use-consumable: flute tap near player opens offer modal and returns true', () => {
-  let modal = null;
-  const scene = Object.assign(makeScene(), {
-    showOfferModal: (opts) => { modal = opts; },
-    playFlute: () => {},
-  });
-  const save = { inv: [{ id: 'flute', count: 1 }], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    wm: { x: 0, y: 0 }, pWorldX: 0, pWorldY: 0, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'use-consumable');
-  assert.eq(h.try(ctx), true, 'flute tap consumed');
-  assert.truthy(modal !== null, 'offer modal opened');
-});
-
-test('use-consumable: non-consumable item near player falls through (returns false)', () => {
-  let modal = null;
-  const scene = Object.assign(makeScene(), { showOfferModal: (o) => { modal = o; } });
-  // 'wood' is not a consumable item
-  const save = { inv: [{ id: 'wood', count: 5 }], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    wm: { x: 0, y: 0 }, pWorldX: 0, pWorldY: 0, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'use-consumable');
-  assert.eq(h.try(ctx), false, 'non-consumable item falls through');
-  assert.falsy(modal, 'no modal for non-consumable item');
-});
+// (Section 4 — use-consumable handler behaviour — removed along with the
+// handler itself: self-targeted consumables are used via the persistent Use
+// button (syncConsumableButton in app.js), not by tapping your own feet.)
 
 // ─── 5. consumeSelected helper ───────────────────────────────────────────────
 
@@ -575,7 +505,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   // fails loudly so the ordering tests above can be updated.
   const EXPECTED = [
     'work-progress',
-    'use-consumable',
     'treasure',
     'creature',
     'wildplant',

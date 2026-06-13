@@ -281,6 +281,7 @@
     <div class="items">
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
+      <button id="move-home">Move Home here</button>
       <button id="debug-controls">Debug controls: off</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
@@ -435,6 +436,11 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    document.getElementById('move-home').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
     // Debug controls: toggles a gold soft-joystick that drives the body at
     // 10× walk speed. Replaces the purple ghost pad while on. The button
@@ -645,11 +651,6 @@
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
       window.__scene?.startSensors?.();
-      // First-load story beat. Only on a truly fresh start (no introSeen
-      // flag — wiped by Reset save, so a reset also replays the intro).
-      try {
-        if (!localStorage.getItem('terracart.introSeen')) startStory();
-      } catch { /* localStorage blocked — just skip the intro */ }
     });
     // Two-slide opening story shown once after the safety splash. Slide 1
     // is the player's trailer ("You wake up…"), slide 2 is the wrecked
@@ -672,7 +673,7 @@
       },
     ];
     let __storyStarted = false;
-    function startStory() {
+    function startStory(onDone) {
       // Idempotent: never show the opening story more than once per page load,
       // even if something calls this twice (the overlay is removed on finish,
       // so a later call would no-op anyway — this just makes it explicit).
@@ -696,6 +697,7 @@
         if (i >= STORY_SLIDES.length) {
           try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
           overlay.remove();
+          onDone?.();
           return;
         }
         render();
@@ -703,6 +705,37 @@
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); advance(); });
       render();
       overlay.style.display = 'flex';
+    }
+    // Start-flow ordering. On a truly fresh start the opening story plays
+    // FIRST, and the safety/"Go to my location" splash only appears after the
+    // last slide — so the CTA never interrupts the story. And when startGps
+    // captures the first fix on a brand-new save it reloads to re-anchor the
+    // projection: that reload carries a one-shot sessionStorage flag (holding
+    // the compass-permission answer) so the splash — answered seconds earlier
+    // — is skipped instead of appearing a second time.
+    let __skipSafetyPerm = null;
+    try {
+      __skipSafetyPerm = sessionStorage.getItem('terracart.skipSafety');
+      if (__skipSafetyPerm) sessionStorage.removeItem('terracart.skipSafety');
+    } catch { /* sessionStorage blocked — show the splash as usual */ }
+    if (__skipSafetyPerm) {
+      // Home-capture reload — the splash was answered just before it. iOS
+      // compass permission persists for the browsing session, so reuse the
+      // pre-reload answer. The scene's create() sees window.__compassPerm and
+      // starts sensors itself; the direct call covers a scene that somehow
+      // finished loading first.
+      __safetyDismissed = true;
+      document.getElementById('safety')?.remove();
+      window.__compassPerm = __skipSafetyPerm;
+      window.__scene?.startSensors?.();
+    } else {
+      let freshIntro = false;
+      try { freshIntro = !localStorage.getItem('terracart.introSeen'); } catch {}
+      if (freshIntro) {
+        const safetyEl = document.getElementById('safety');
+        if (safetyEl) safetyEl.style.display = 'none';
+        startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+      }
     }
     // Reset THIS game: wipe only the active save slot's progress, plus every
     // cache of map tiles and global runtime state, so the current game reboots
@@ -813,34 +846,34 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=10"></script>
-  <script src="src/sprite_layout.js?v=2"></script>
+  <script src="src/util.js?v=11"></script>
+  <script src="src/sprite_layout.js?v=3"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
   <script src="src/coords.js?v=119"></script>
-  <script src="src/biome_profiles.js?v=3"></script>
-  <script src="src/worldgen.js?v=196"></script>
-  <script src="src/textures.js?v=154"></script>
+  <script src="src/biome_profiles.js?v=5"></script>
+  <script src="src/worldgen.js?v=202"></script>
+  <script src="src/textures.js?v=155"></script>
   <script src="src/save.js?v=115"></script>
   <script src="src/items.js?v=185"></script>
-  <script src="src/inventory.js?v=1"></script>
+  <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
   <script src="src/delivery.js?v=2"></script>
-  <script src="src/savemigrate.js?v=2"></script>
+  <script src="src/savemigrate.js?v=3"></script>
   <script src="src/gear.js?v=2"></script>
   <script src="src/shops_math.js?v=1"></script>
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=24"></script>
-  <script src="src/loot.js?v=140"></script>
+  <script src="src/loot.js?v=141"></script>
   <script src="src/quests.js?v=1"></script>
   <script src="src/interactables.js?v=6"></script>
   <script src="src/interact.js?v=217"></script>
-  <script src="src/road_render.js?v=1"></script>
-  <script src="src/render.js?v=259"></script>
+  <script src="src/road_render.js?v=7"></script>
+  <script src="src/render.js?v=267"></script>
   <script src="src/assets.js?v=174"></script>
-  <script src="src/sandbox.js?v=31"></script>
+  <script src="src/sandbox.js?v=33"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=345"></script>
+  <script src="src/app.js?v=352"></script>
 </body>
 </html>

@@ -101,14 +101,15 @@ const ASSETS = {
   mushroom_world: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
-  // Stone pillar — 16×32 (1 cell wide × 2 tall) sliced from the gitignored
-  // Sprites/unused/Objects/Exterior/Deep Forest/Stone structures.png (col 8,
-  // rows 9-10: the SHORT fluted column with cap + stepped base). Used as a
-  // purely decorative stand-in for OSM utility poles / posts (power=pole,
+  // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
+  // stepped base. Originally sliced from a gitignored source sheet, but the
+  // slice rect clipped the column's top and left edge ("pole art is cut off"),
+  // so the art was redrawn complete and symmetric in the same palette. Used as
+  // a purely decorative stand-in for OSM utility poles / posts (power=pole,
   // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
   // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
   // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
-  pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png' },
+  pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png?v=2' },
   // Stone well — 48×32 single image (Sprites Well_Usable_16x16: a roofed well
   // with bucket). The in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
