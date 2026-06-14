@@ -295,7 +295,7 @@ class MapScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
-    // Red dragon transform (Dragon Potion). 11-col sheet of 96×96 frames;
+    // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
     // row 0 (frames 0-7) is the wing-flap we loop while transformed.
     this.load.spritesheet('dragon', 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', { frameWidth: 96, frameHeight: 96 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
@@ -440,13 +440,16 @@ class MapScene extends Phaser.Scene {
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
 
-    // TEST SEED: drop one Dragon Potion into the bag the first time this build
+    // TEST SEED: drop one Dragon Powder into the bag the first time this build
     // runs, so the transform can be tried without finding one in the wild.
-    // Guarded by a one-shot save flag so it isn't re-granted after it's drunk.
-    if (!this.save.gotDragonTestPotion) {
-      this.save.gotDragonTestPotion = true;
-      this.save.inv = this.save.inv || [];
-      this.save.inv.push({ id: 'dragon_potion', count: 1 });
+    // Guarded by a one-shot save flag so it isn't re-granted after it's used.
+    // The flag is versioned (…Powder) so saves that got the earlier
+    // dragon_potion still receive the renamed item once; drop the dead
+    // dragon_potion slot left over from that build at the same time.
+    if (!this.save.gotDragonTestPowder) {
+      this.save.gotDragonTestPowder = true;
+      this.save.inv = (this.save.inv || []).filter(s => !s || s.id !== 'dragon_potion');
+      this.save.inv.push({ id: 'dragon_powder', count: 1 });
       persistSave(this.save);
     }
 
@@ -854,7 +857,7 @@ class MapScene extends Phaser.Scene {
     // sprite DOWN by the difference (~1.4px) so the feet — and the +14
     // footprint anchor — stay exactly where they were.
     this.playerScale = 1.215;
-    // Dragon Potion skin: the 96×96 dragon frames are scaled down so the red
+    // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
@@ -2006,16 +2009,16 @@ class MapScene extends Phaser.Scene {
       this._speedPotionActive = speedPotionActive;
       if (!speedPotionActive) this.syncGhostPad();
     }
-    // Dragon potion reuses the speed-potion plumbing: it lights up the ghost
+    // Dragon powder reuses the speed-potion plumbing: it lights up the ghost
     // pad without an amulet. On each edge we swap the sprite skin on/off and,
     // when it expires, tear the pad down if nothing else keeps it eligible.
-    const dragonPotionActive = (this.save.dragonPotionUntil ?? 0) > Date.now();
-    if (this._dragonPotionActive !== dragonPotionActive) {
-      this._dragonPotionActive = dragonPotionActive;
-      this._applyDragonSkin(dragonPotionActive);
-      if (!dragonPotionActive) this.syncGhostPad();
+    const dragonActive = (this.save.dragonPowderUntil ?? 0) > Date.now();
+    if (this._dragonBuffActive !== dragonActive) {
+      this._dragonBuffActive = dragonActive;
+      this._applyDragonSkin(dragonActive);
+      if (!dragonActive) this.syncGhostPad();
     }
-    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive || dragonPotionActive) && this.depth === 0;
+    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive || dragonActive) && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -2059,7 +2062,7 @@ class MapScene extends Phaser.Scene {
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = dragonPotionActive
+      speedMul = dragonActive
         ? ghostSpeedMul({ amulet: { tier: 7 } }) * 2   // 2× the fastest (Frost) amulet = 48× walk
         : speedPotionActive
           ? ghostSpeedMul({ amulet: { tier: 9 } })
@@ -2563,10 +2566,15 @@ class MapScene extends Phaser.Scene {
       // costs the player the attempt. Normal animals get a 1 s grace;
       // butterflies flee faster but get 2 s, then keep bolting away from the
       // player for 2 minutes (see wanderCreatures' _escapingUntil handling).
-      const reachM = (typeof reachRadiusM === 'function')
-        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
-      const ndx = c.x - px, ndy = c.y - py;
-      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      // Out-of-reach uses the SAME lit-cell test as the reach silhouette
+      // (coords.js cellInReach) so a catch only fails once the target sits on a
+      // visibly-UNLIT cell — measuring raw centre-to-centre distance instead
+      // drifted from the lit diamond, failing catches while the animal was
+      // still plainly inside the player's lit range.
+      const fc = worldMetersToAbsCell(this, c.x, c.y);
+      const outOfRange = (typeof cellInReach === 'function')
+        ? !cellInReach(this, fc.cellIX, fc.cellIY)
+        : ((c.x - px) ** 2 + (c.y - py) ** 2) > (reachRadiusM(this)) ** 2;
       const graceMs = isButterfly ? 2000 : 1000;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
@@ -2589,12 +2597,16 @@ class MapScene extends Phaser.Scene {
     if (wp.track) {
       const c = wp.track;
       wp.worldX = c.x; wp.worldY = c.y;        // follow the target
-      const px = this.startWorldM.x + this.playerM.x;
-      const py = this.startWorldM.y + this.playerM.y;
-      const reachM = (typeof reachRadiusM === 'function')
-        ? reachRadiusM(this) : (VIEW_CELLS / 2) * this.cellM;
-      const ndx = c.x - px, ndy = c.y - py;
-      const outOfRange = (ndx * ndx + ndy * ndy) > reachM * reachM;
+      // Use the lit-cell test (coords.js cellInReach), identical to the reach
+      // silhouette, so a hunt only fails once the target is on a visibly-unlit
+      // cell. The old raw centre-to-centre circle was tighter than the lit
+      // diamond, so a crow still sitting inside the lit range read as "got
+      // away" while it hadn't visually left it.
+      const tc = worldMetersToAbsCell(this, c.x, c.y);
+      const outOfRange = (typeof cellInReach === 'function')
+        ? !cellInReach(this, tc.cellIX, tc.cellIY)
+        : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
+           + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
@@ -4314,20 +4326,21 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Dragon Potion: transform into a red dragon and fly free of the GPS at 2×
-  // the fastest (Frost) amulet's ghost speed for 1 minute, even without an
-  // amulet. ghostEligible + syncGhostPad both check dragonPotionUntil (same
-  // hook as the speed potion); update() applies the sprite swap and the 2×
-  // speed off this timestamp, so the buff survives tile reloads and self-
-  // expires. syncGhostPad here pops the ghost pad up immediately.
-  drinkDragonPotion() {
+  // Dragon Powder: transform into a red dragon and, for 1 minute, fly free of
+  // the GPS at 2× the fastest (Frost) amulet's ghost speed AND deal 2× attack
+  // damage (interact.js halves the kill-wheel duration while the buff is up),
+  // even without an amulet. ghostEligible + syncGhostPad both check
+  // dragonPowderUntil (same hook as the speed potion); update() applies the
+  // sprite swap and the 2× speed off this timestamp, so the buff survives tile
+  // reloads and self-expires. syncGhostPad here pops the ghost pad up now.
+  useDragonPowder() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'dragon_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.dragonPotionUntil = Date.now() + 60 * 1000;
+    if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
+    this.save.dragonPowderUntil = Date.now() + 60 * 1000;
     this.syncGhostPad();
     return this._finishConsumable(
-      '🐉 You drink the Dragon Potion',
-      'Scales erupt across your skin — for one minute you ARE a dragon, soaring free of the map at twice a Frost amulet’s speed. Use the ghost pad to fly.',
+      '🐉 You toss the Dragon Powder',
+      'Scales erupt across your skin — for one minute you ARE a dragon, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. Use the ghost pad to fly.',
     );
   }
 
@@ -6750,14 +6763,14 @@ class MapScene extends Phaser.Scene {
   // (movement frame), updates this._spriteDir so the idle pose holds the last
   // walking direction. Avoids restarting the anim if the key is unchanged.
   // Swap the player (and the ghost body) between the human sheets and the red
-  // dragon while the Dragon Potion is active. Sets _dragonActive so
+  // dragon while the Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
   // and rescales the 96×96 dragon frames down to roughly the walker's size.
   _applyDragonSkin(on) {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight
-    // buff (ghost pad + 2× speed) still works off the dragonPotionUntil
+    // buff (ghost pad + 2× speed + 2× damage) still works off dragonPowderUntil
     // timestamp, which is independent of the skin.
     const ready = on && this.textures.exists('dragon')
       && (this.anims.get('dragon-fly')?.frames?.length > 0);
@@ -6830,7 +6843,7 @@ class MapScene extends Phaser.Scene {
   syncGhostPad() {
     const has = (!!this.save.relics?.amulet
       || (this.save.speedPotionUntil ?? 0) > Date.now()
-      || (this.save.dragonPotionUntil ?? 0) > Date.now()) && !this.save.debugControls;
+      || (this.save.dragonPowderUntil ?? 0) > Date.now()) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7794,7 +7807,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
-      dragon_potion: { verb: 'Drink', method: 'drinkDragonPotion', title: 'Drink the Dragon Potion?',       get: '🐉 become a dragon — 2× amulet flight for 1 min' },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon — 2× flight speed + 2× damage for 1 min' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
