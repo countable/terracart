@@ -83,16 +83,6 @@ test('migrate: history fields are capped at 5000 most-recent entries', () => {
   assert.eq(save.opened[4999], 'id5999');
 });
 
-test('migrate: grants the sapling seed once, then is idempotent', () => {
-  const save = { armor: {}, inv: [] };
-  const first = SaveMigrate.migrate(save);
-  assert.eq(first, true, 'sapling grant forces a persist');
-  assert.eq(save._saplingsGranted, true);
-  // Second run: nothing real to migrate → no persist.
-  const second = SaveMigrate.migrate(save);
-  assert.eq(second, false, 'already-migrated save needs no persist');
-});
-
 test('migrate: chopped self-heal strips falsy ids (id-less tree bug)', () => {
   const save = { chopped: ['t1', undefined, 't2', null, ''] };
   SaveMigrate.migrate(save);

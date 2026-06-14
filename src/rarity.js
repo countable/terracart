@@ -42,10 +42,11 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use). qty always 1 regardless
+    // live catch at a time), consumable (tap-to-use), sapling (one fruit tree
+    // per find — packs of tree saplings read wrong). qty always 1 regardless
     // of bumps for these. flora maps to the produce 'flowers' item via picker
     // routing, but we treat it as a small-qty class.
-    singleStackClasses: ['relic', 'animal', 'consumable'],
+    singleStackClasses: ['relic', 'animal', 'consumable', 'sapling'],
     // Chest tier 1..4 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
@@ -115,9 +116,13 @@
     'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.06   } },
     'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.15   } },
     'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.09   } },
-    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.075  } },
-    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.0375 } },
-    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.15   } },
+    // Fruit-tree saplings are a rare nature-chest find: a small `sapling`
+    // share on the park/farm/flora contexts only. They're baseTier 3+, and
+    // pickItemInClass only slides DOWN, so they surface from higher-tier
+    // chests rather than the T1 lowtier boxes — naturally scarce.
+    'chest:park':       { classBias: { seed:0.36, produce:0.24, animal:0.02, mineral:0.14, consumable:0.14, relic:0.075, sapling:0.04 } },
+    'chest:farm':       { classBias: { seed:0.34, produce:0.34, animal:0.12, mineral:0.08, consumable:0.07, relic:0.0375, sapling:0.04 } },
+    'chest:flora':      { classBias: { seed:0.40, produce:0.25, mineral:0.00, consumable:0.15, animal:0.00,  relic:0.15, sapling:0.05 } },
 
     // ── Shops, by specialty ─────────────────────────────────────
     // Shops use the same deterministic chain. chainSteps maps to the

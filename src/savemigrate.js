@@ -155,16 +155,6 @@
         if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsPersist = true; }
       }
     }
-    // REVIEW SEED (temporary): grant fruit-tree saplings once. Gated by a flag.
-    if (!save._saplingsGranted) {
-      if (typeof Inventory !== 'undefined') {
-        Inventory.add(save, 'apple_sapling', 3);
-        Inventory.add(save, 'peach_sapling', 2);
-      }
-      save._saplingsGranted = true;
-      needsPersist = true;
-    }
-
     return needsPersist;
   }
 
