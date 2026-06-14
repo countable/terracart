@@ -295,6 +295,9 @@ class MapScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
+    // Red dragon transform (Dragon Potion). 11-col sheet of 96×96 frames;
+    // row 0 (frames 0-7) is the wing-flap we loop while transformed.
+    this.load.spritesheet('dragon', 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', { frameWidth: 96, frameHeight: 96 });
     this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('house',       'assets/Objects/House.png');
     this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
@@ -436,6 +439,16 @@ class MapScene extends Phaser.Scene {
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
+
+    // TEST SEED: drop one Dragon Potion into the bag the first time this build
+    // runs, so the transform can be tried without finding one in the wild.
+    // Guarded by a one-shot save flag so it isn't re-granted after it's drunk.
+    if (!this.save.gotDragonTestPotion) {
+      this.save.gotDragonTestPotion = true;
+      this.save.inv = this.save.inv || [];
+      this.save.inv.push({ id: 'dragon_potion', count: 1 });
+      persistSave(this.save);
+    }
 
     this.cameras.main.setBackgroundColor('#222');
     this.viewCenterX = W / 2;
@@ -815,6 +828,9 @@ class MapScene extends Phaser.Scene {
     this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('walk', { start: 0,  end: 5  }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'walk-up',   frames: this.anims.generateFrameNumbers('walk', { start: 6,  end: 11 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'walk-side', frames: this.anims.generateFrameNumbers('walk', { start: 12, end: 17 }), frameRate: 10, repeat: -1 });
+    // Dragon transform — single non-directional flap, mirrored by heading in
+    // _playDirected (the art faces right at rest). Used for both idle and fly.
+    this.anims.create({ key: 'dragon-fly', frames: this.anims.generateFrameNumbers('dragon', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'chicken-idle', frames: this.anims.generateFrameNumbers('chicken', { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
     this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
     // Cat / dog idle — row 0 (frames 0-3) of their 4×N pet body sheets. The
@@ -838,6 +854,10 @@ class MapScene extends Phaser.Scene {
     // sprite DOWN by the difference (~1.4px) so the feet — and the +14
     // footprint anchor — stay exactly where they were.
     this.playerScale = 1.215;
+    // Dragon Potion skin: the 96×96 dragon frames are scaled down so the red
+    // dragon reads a touch larger than the human walker without dwarfing the
+    // map. Applied in _applyDragonSkin.
+    this.dragonScale = 0.7;
     this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
       .setScale(this.playerScale)
@@ -1986,7 +2006,16 @@ class MapScene extends Phaser.Scene {
       this._speedPotionActive = speedPotionActive;
       if (!speedPotionActive) this.syncGhostPad();
     }
-    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive) && this.depth === 0;
+    // Dragon potion reuses the speed-potion plumbing: it lights up the ghost
+    // pad without an amulet. On each edge we swap the sprite skin on/off and,
+    // when it expires, tear the pad down if nothing else keeps it eligible.
+    const dragonPotionActive = (this.save.dragonPotionUntil ?? 0) > Date.now();
+    if (this._dragonPotionActive !== dragonPotionActive) {
+      this._dragonPotionActive = dragonPotionActive;
+      this._applyDragonSkin(dragonPotionActive);
+      if (!dragonPotionActive) this.syncGhostPad();
+    }
+    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive || dragonPotionActive) && this.depth === 0;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -2030,9 +2059,11 @@ class MapScene extends Phaser.Scene {
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = speedPotionActive
-        ? ghostSpeedMul({ amulet: { tier: 9 } })
-        : ghostSpeedMul(this.save.relics) || 8;
+      speedMul = dragonPotionActive
+        ? ghostSpeedMul({ amulet: { tier: 7 } }) * 2   // 2× the fastest (Frost) amulet = 48× walk
+        : speedPotionActive
+          ? ghostSpeedMul({ amulet: { tier: 9 } })
+          : ghostSpeedMul(this.save.relics) || 8;
     } else if (this._debugPadHeld && this.debugJoystickVec) {
       // Debug pad replaces the ghost pad while save.debugControls is on:
       // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
@@ -3048,6 +3079,12 @@ class MapScene extends Phaser.Scene {
       if (idx >= 0) {
         this.save.planted.splice(idx, 1);
         this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
+        // Sated: after a meal the crow takes off and stays away for a few
+        // minutes before it will case the field again. Force it out of the
+        // current perch so it launches an outbound flight on this very tick.
+        c._departUntilT = now + 150000 + Math.random() * 90000;   // ~2.5–4 min
+        c._perchUntilT = now;
+        c._flightUntilT = null;
       }
       c._destroyCropRef = null;
       c._destroyAtT = null;
@@ -3109,11 +3146,22 @@ class MapScene extends Phaser.Scene {
     // (6) Time to launch a new flight burst. Pick a target with up to
     // 6 attempts so we can reject water / buildings / scarecrow rings.
     let tx = c.x, ty = c.y, chosen = false;
-    const committed = c._destroyCropRef &&
+    // Sated crow leaving the field — ignore all crops and fly steadily away
+    // from the player until the few-minute timer lapses (it freezes once it
+    // drifts off the sim range, so it simply stays gone).
+    const departing = c._departUntilT && now < c._departUntilT;
+    if (departing) { c._destroyCropRef = null; c._destroyCyclesLeft = 0; c._destroyAtT = null; }
+    const committed = !departing && c._destroyCropRef &&
       c._destroyCyclesLeft > 0 && this.save.planted &&
       this.save.planted.indexOf(c._destroyCropRef) >= 0;
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
-      if (committed) {
+      if (departing) {
+        // Long outbound hop directly away from the player, with a little jitter.
+        const away = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.6;
+        const d = (2 + Math.random() * 0.5) * this.cellM;
+        tx = c.x + Math.cos(away) * d;
+        ty = c.y + Math.sin(away) * d;
+      } else if (committed) {
         // Committed to a crop mid-pause — keep hopping in place ON the crop
         // so each landing counts down a cycle toward destruction.
         const ang = Math.random() * Math.PI * 2;
@@ -4263,6 +4311,23 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(
       'You drink the Potion of Shielding',
       'A shimmering barrier wraps you — monster damage halved for one minute.',
+    );
+  }
+
+  // Dragon Potion: transform into a red dragon and fly free of the GPS at 2×
+  // the fastest (Frost) amulet's ghost speed for 1 minute, even without an
+  // amulet. ghostEligible + syncGhostPad both check dragonPotionUntil (same
+  // hook as the speed potion); update() applies the sprite swap and the 2×
+  // speed off this timestamp, so the buff survives tile reloads and self-
+  // expires. syncGhostPad here pops the ghost pad up immediately.
+  drinkDragonPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'dragon_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.dragonPotionUntil = Date.now() + 60 * 1000;
+    this.syncGhostPad();
+    return this._finishConsumable(
+      '🐉 You drink the Dragon Potion',
+      'Scales erupt across your skin — for one minute you ARE a dragon, soaring free of the map at twice a Frost amulet’s speed. Use the ghost pad to fly.',
     );
   }
 
@@ -6684,12 +6749,38 @@ class MapScene extends Phaser.Scene {
   // Play a directional player animation on `sprite`. When dx/dy are supplied
   // (movement frame), updates this._spriteDir so the idle pose holds the last
   // walking direction. Avoids restarting the anim if the key is unchanged.
+  // Swap the player (and the ghost body) between the human sheets and the red
+  // dragon while the Dragon Potion is active. Sets _dragonActive so
+  // _playDirected routes both sprites through the looping 'dragon-fly' anim,
+  // and rescales the 96×96 dragon frames down to roughly the walker's size.
+  _applyDragonSkin(on) {
+    this._dragonActive = on;
+    for (const s of [this.player, this.bodyPlayer]) {
+      if (!s) continue;
+      if (on) {
+        s.setScale(this.dragonScale);
+        if (s.anims.currentAnim?.key !== 'dragon-fly') s.play('dragon-fly');
+      } else {
+        s.setScale(this.playerScale);
+        s.setFlipX(false);
+        s.play('idle-down');   // _playDirected re-picks the directional anim next frame
+      }
+    }
+  }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
       if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
     }
     const { x, y } = this._spriteDir;
+    // Dragon transform: the player + ghost body fly as a single-direction
+    // dragon. Keep the flap looping and just mirror by heading (art faces
+    // right at rest), ignoring the human walk/idle directional sheets.
+    if (this._dragonActive && (sprite === this.player || sprite === this.bodyPlayer)) {
+      if (sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
+      if (Math.abs(x) > 0.001) sprite.setFlipX(x < 0);
+      return;
+    }
     let dir = 'down', flip = false;
     if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
     else if (y < 0) dir = 'up';
@@ -6730,7 +6821,9 @@ class MapScene extends Phaser.Scene {
   // slot — when save.debugControls is on the ghost pad is suppressed even
   // if an amulet is equipped.
   syncGhostPad() {
-    const has = (!!this.save.relics?.amulet || (this.save.speedPotionUntil ?? 0) > Date.now()) && !this.save.debugControls;
+    const has = (!!this.save.relics?.amulet
+      || (this.save.speedPotionUntil ?? 0) > Date.now()
+      || (this.save.dragonPotionUntil ?? 0) > Date.now()) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7694,6 +7787,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
+      dragon_potion: { verb: 'Drink', method: 'drinkDragonPotion', title: 'Drink the Dragon Potion?',       get: '🐉 become a dragon — 2× amulet flight for 1 min' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
