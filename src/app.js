@@ -2010,9 +2010,11 @@ class MapScene extends Phaser.Scene {
       if (!speedPotionActive) this.syncGhostPad();
     }
     // Dragon powder reuses the speed-potion plumbing: it lights up the ghost
-    // pad without an amulet. On each edge we swap the sprite skin on/off and,
-    // when it expires, tear the pad down if nothing else keeps it eligible.
-    const dragonActive = (this.save.dragonPowderUntil ?? 0) > Date.now();
+    // pad without an amulet. The transform is PERMANENT once used — save.dragonForm
+    // is a persisted boolean (not a timer), so the dragon survives refreshes.
+    // On each edge we swap the sprite skin on/off and, if it ever clears, tear
+    // the pad down when nothing else keeps it eligible.
+    const dragonActive = !!this.save.dragonForm;
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
@@ -4326,21 +4328,21 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Dragon Powder: transform into a red dragon and, for 1 minute, fly free of
-  // the GPS at 2× the fastest (Frost) amulet's ghost speed AND deal 2× attack
-  // damage (interact.js halves the kill-wheel duration while the buff is up),
+  // Dragon Powder: PERMANENTLY transform into a red dragon — fly free of the
+  // GPS at 2× the fastest (Frost) amulet's ghost speed AND deal 2× attack
+  // damage (interact.js halves the kill-wheel duration while in dragon form),
   // even without an amulet. ghostEligible + syncGhostPad both check
-  // dragonPowderUntil (same hook as the speed potion); update() applies the
-  // sprite swap and the 2× speed off this timestamp, so the buff survives tile
-  // reloads and self-expires. syncGhostPad here pops the ghost pad up now.
+  // save.dragonForm (same hook as the speed potion); update() applies the
+  // sprite swap and the 2× speed off that persisted boolean, so the dragon
+  // survives tile reloads AND page refreshes. syncGhostPad pops the pad up now.
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
-    this.save.dragonPowderUntil = Date.now() + 60 * 1000;
+    this.save.dragonForm = true;
     this.syncGhostPad();
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales erupt across your skin — for one minute you ARE a dragon, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. Use the ghost pad to fly.',
+      'Scales erupt across your skin — you ARE a dragon now, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. The change is permanent. Use the ghost pad to fly.',
     );
   }
 
@@ -6770,7 +6772,7 @@ class MapScene extends Phaser.Scene {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight
-    // buff (ghost pad + 2× speed + 2× damage) still works off dragonPowderUntil
+    // buff (ghost pad + 2× speed + 2× damage) still works off save.dragonForm
     // timestamp, which is independent of the skin.
     const ready = on && this.textures.exists('dragon')
       && (this.anims.get('dragon-fly')?.frames?.length > 0);
@@ -6843,7 +6845,7 @@ class MapScene extends Phaser.Scene {
   syncGhostPad() {
     const has = (!!this.save.relics?.amulet
       || (this.save.speedPotionUntil ?? 0) > Date.now()
-      || (this.save.dragonPowderUntil ?? 0) > Date.now()) && !this.save.debugControls;
+      || !!this.save.dragonForm) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7807,7 +7809,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon — 2× flight speed + 2× damage for 1 min' },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon forever — 2× flight speed + 2× damage' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
