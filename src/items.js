@@ -146,9 +146,9 @@ const MINERAL_ICON_SHEET = {
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
   shield_potion: { sheet: 'icon_potions', frame: 13 },
-  // Dragon Potion — the vivid crimson round flask (row 1 col 2 = frame 7).
-  // Drinking it turns you into a red dragon (drinkDragonPotion in app.js).
-  dragon_potion: { sheet: 'icon_potions', frame: 7 },
+  // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
+  // turns you into a red dragon (useDragonPowder in app.js).
+  dragon_powder: { sheet: 'icon_potions', frame: 7 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -260,7 +260,7 @@ const BASE_TIER = {
   cow: 5,
   // Consumables
   flute: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
-  dragon_potion: 3,
+  dragon_powder: 3,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -339,10 +339,10 @@ const ITEMS = [
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
-  // Dragon Potion: drink it (Use button with it selected) to transform into a
-  // red dragon and fly free of the GPS at 2× the fastest amulet's speed for
-  // 1 minute (drinkDragonPotion in app.js).
-  { id: 'dragon_potion', name: 'Dragon Potion',       kind: 'consumable' },
+  // Dragon Powder: use it (Use button with it selected) to transform into a
+  // red dragon — fly free of the GPS at 2× the fastest amulet's speed AND deal
+  // 2× attack damage for 1 minute (useDragonPowder in app.js).
+  { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -496,7 +496,7 @@ const PRICES = {
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 ghost speed for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
-  dragon_potion: 120,  // T3 — dragon flight at 2× Frost-amulet speed for 1 min
+  dragon_powder: 120,  // T3 — dragon flight at 2× Frost-amulet speed + 2× damage for 1 min
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────

@@ -488,6 +488,9 @@ const TAP_HANDLERS = [
       // slog and a 6-HP purple slime drops fast.
       const hpMul = _isMon ? MONSTERS[target.kind].hp / 15
                   : target.shiny ? 2 : 1;
+      // Dragon Powder: 2× attack damage → the kill wheel finishes in half the
+      // time while the transform is active (see useDragonPowder in app.js).
+      const dmgMul = (save.dragonPowderUntil ?? 0) > Date.now() ? 0.5 : 1;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'
@@ -514,7 +517,7 @@ const TAP_HANDLERS = [
         if (victim.shiny && dropId) {
           scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
         }
-      }, durMs * hpMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
+      }, durMs * hpMul * dmgMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
