@@ -1282,13 +1282,12 @@ Render.drawObjects = function drawObjects(scene) {
               } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
-                        // An opened crate switches from the single-frame `box`
-                        // PNG to the trunk sheet so it can show the open-lid
-                        // frame (box.png has no open variant).
-                        : (_chestOpenMarker(o) ? 'chest'
+                        // An opened crate swaps the closed `box` PNG for the
+                        // matching 16×16 open-lid `open_box` PNG (same footprint).
+                        : (_chestOpenMarker(o) ? 'open_box'
                         : (_chestIsBox(o) ? 'box' : 'chest'))),
-              // box.png is single-frame; trunk.png is 2-frame 32×32 (0 closed, 1 open).
-              // Unopened chests show frame 0; an opened crate-marker shows frame 1.
+              // box / open_box are single-frame images; trunk.png is 2-frame.
+              // Crates (closed or opened) and coin-burst pots leave `frame` at 0.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
@@ -1296,16 +1295,14 @@ Render.drawObjects = function drawObjects(scene) {
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
               frame: (o) => { const st = produceStandFor(o);
-                              return _isCoinBurst(o) ? undefined
-                                   : (st ? st.frame : (_chestOpenMarker(o) ? 1 : 0)); },
+                              return _isCoinBurst(o) ? undefined : (st ? st.frame : 0); },
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Closed crate (box sprite) renders at 1.7; trunk (and the opened
-              // crate-marker, which uses the trunk sheet) is 32×32 so scale 1.0 = one cell.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4
-                          : ((_chestIsBox(o) && !_chestOpenMarker(o)) ? 1.7 : 1.0)),
+              // Crates (box / open_box, 16×16) render at 1.7; trunk is 32×32 so
+              // scale 1.0 = one cell. The open marker shares the closed crate's scale.
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -1322,14 +1319,10 @@ Render.drawObjects = function drawObjects(scene) {
               // floating ~4px ABOVE the cell centre ("the food stand is about
               // 20px too high"). +22 seats the feet on the cell's bottom edge
               // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8
-                         : ((_chestIsBox(o) && !_chestOpenMarker(o)) ? -1.92 : 0)),
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o),
-              // Opened crate-markers read as "looted" — a soft grey dim over the
-              // open-lid art so they're clearly spent vs a fresh closed crate.
-              after: (s, o) => { if (_chestOpenMarker(o)) s.setTint(0xbdb6a8); } },
+              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -1509,9 +1502,15 @@ Render.drawObjects = function drawObjects(scene) {
     // available the player still spots the inaugural shop), but the
     // themed-house branch already returned 'plain' for non-themed roles.
     let tint = 0xffffff;
-    if (o.kind === 'house' && _houseRole(o) === 'plain') {
-      tint = Shops.shopTint(o) || 0xffffff;
-    }
+    // Houses: a resolved role of 'plain' is genuine residential (a delivery
+    // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
+    // wizard) carry their own sprite (house_<role>) and resolve to that role,
+    // not 'plain', so they never want a tint either. We deliberately do NOT
+    // fall back to the legacy address-based Shops.shopTint() here: it keyed off
+    // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
+    // delivery host whose address merely ENDED in 9 got painted dark steel —
+    // the "potato+onion house is tinted dark" bug. Address-shop houses get
+    // their look from being restored INTO a themed role, not from this tint.
     // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
     // player can spot a shiny harvest from across the tile.
     if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
