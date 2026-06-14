@@ -1032,8 +1032,22 @@ Render.drawObjects = function drawObjects(scene) {
   const choppedSet = new Set(scene.save.chopped || []);
   const pickedSetObj = new Set(scene.save.picked || []);
   const brokenRockSet = scene.brokenRockSet || new Set();
+  // Lowtier chests (chestTier === 1) and starter supply crates render the
+  // `box` sprite instead of the trunk chest. Defined here (ahead of the filter)
+  // because an OPENED box-crate stays in the render list as a marker.
+  const _chestIsBox = (o) => {
+    if (o.crate) return true;   // starter supply crates always use the box sprite
+    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+    return tier === 1;
+  };
+  const _chestOpened = (o) => o.kind === 'chest' && openedSet.has(o.id);
+  // An opened low-tier / starter crate does NOT vanish — it stays put as a
+  // visible "looted" marker (open-lid chest frame) until the chest refills, so
+  // the player can see where they already cracked one open. Higher-tier chests
+  // still disappear when opened (their pad + label persist via objList).
+  const _chestOpenMarker = (o) => _chestOpened(o) && _chestIsBox(o);
   const filteredObj = objList.filter(({ o }) =>
-    !(o.kind === 'chest' && openedSet.has(o.id)) &&
+    !(o.kind === 'chest' && openedSet.has(o.id) && !_chestIsBox(o)) &&
     !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
     // Mined-out mineralrocks vanish. Previously they hung around as a
     // dimmed sprite that flashed "spent" on tap — now they just clear,
@@ -1055,14 +1069,6 @@ Render.drawObjects = function drawObjects(scene) {
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
   // hides — used for variants that haven't baked yet.
-  // Lowtier chests (chestTier === 1) render the `box` sprite instead of the
-  // chest sprite. The save.opened filter above already removes opened chests
-  // from objList, so this branch only ever sees unopened ones.
-  const _chestIsBox = (o) => {
-    if (o.crate) return true;   // starter supply crates always use the box sprite
-    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
-    return tier === 1;
-  };
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
   const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
@@ -1276,9 +1282,13 @@ Render.drawObjects = function drawObjects(scene) {
               } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
-                        : (_chestIsBox(o) ? 'box' : 'chest')),
+                        // An opened crate switches from the single-frame `box`
+                        // PNG to the trunk sheet so it can show the open-lid
+                        // frame (box.png has no open variant).
+                        : (_chestOpenMarker(o) ? 'chest'
+                        : (_chestIsBox(o) ? 'box' : 'chest'))),
               // box.png is single-frame; trunk.png is 2-frame 32×32 (0 closed, 1 open).
-              // We only see unopened chests here, so frame 0 in both cases.
+              // Unopened chests show frame 0; an opened crate-marker shows frame 1.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
@@ -1286,13 +1296,16 @@ Render.drawObjects = function drawObjects(scene) {
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
               frame: (o) => { const st = produceStandFor(o);
-                              return _isCoinBurst(o) ? undefined : (st ? st.frame : 0); },
+                              return _isCoinBurst(o) ? undefined
+                                   : (st ? st.frame : (_chestOpenMarker(o) ? 1 : 0)); },
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crate (box sprite) renders at 1.7; trunk is 32×32 so scale 1.0 = one cell.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
+              // Closed crate (box sprite) renders at 1.7; trunk (and the opened
+              // crate-marker, which uses the trunk sheet) is 32×32 so scale 1.0 = one cell.
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4
+                          : ((_chestIsBox(o) && !_chestOpenMarker(o)) ? 1.7 : 1.0)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -1309,10 +1322,14 @@ Render.drawObjects = function drawObjects(scene) {
               // floating ~4px ABOVE the cell centre ("the food stand is about
               // 20px too high"). +22 seats the feet on the cell's bottom edge
               // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8
+                         : ((_chestIsBox(o) && !_chestOpenMarker(o)) ? -1.92 : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
+              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o),
+              // Opened crate-markers read as "looted" — a soft grey dim over the
+              // open-lid art so they're clearly spent vs a fresh closed crate.
+              after: (s, o) => { if (_chestOpenMarker(o)) s.setTint(0xbdb6a8); } },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
