@@ -68,8 +68,21 @@ test('wantedProduce: 2-3 real produce ids, deterministic + cached per day', () =
   assert.eq(house._wantedProduceDay, '20260606', 'cache stamped with the day');
 });
 
-test('wantedProduce: early houses (order < 3) ask only for TIER-1 produce', () => {
-  const save = { deliveryCount: 80, restoredHouses: { h: 'plain' } };   // order 0 → early
+test('wantedProduce: 1st house is scripted to potato + onion', () => {
+  const save = { deliveryCount: 80, restoredHouses: { h: 'plain' } };   // h → order 0
+  const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
+  assert.eq(JSON.stringify(got), JSON.stringify(['potato', 'onion']), 'starter kitchen-garden pair');
+});
+
+test('wantedProduce: 2nd house is scripted to the colored field-flower trio', () => {
+  const save = { deliveryCount: 80, restoredHouses: { a: 'plain', h: 'plain' } };   // h → order 1
+  const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
+  assert.eq(JSON.stringify(got), JSON.stringify(['marigold', 'forgetmenot', 'wildrose']), 'three field flowers');
+});
+
+test('wantedProduce: early house (order 2) asks only for TIER-1 produce', () => {
+  // Orders 0/1 are scripted; order 2 is the first to hit the early random pool.
+  const save = { deliveryCount: 80, restoredHouses: { a: 'plain', b: 'plain', h: 'plain' } };   // h → order 2
   const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
   for (const id of got) assert.eq(Delivery.produceTier(id), 1, id + ' must be T1 for an early house');
 });

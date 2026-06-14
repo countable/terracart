@@ -143,9 +143,12 @@
     // the smith has nothing better to forge → 'still working on it' flash.
     'shop:blacksmith':  { classBias: { relic: 1.00 },
                           chainSteps: 2, chainMax: 3, maxTier: 6, relicCap: 5, singleItem: true },
-    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, consumable:0.10, relic:0.05 },
+    // Wandering trader / fort quartermaster also deal the occasional fruit-tree
+    // sapling (small share; maxTier 4 keeps it to the apple — peach stays a
+    // rare nature-chest find).
+    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, consumable:0.10, relic:0.05, sapling:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
-    'shop:fort':        { classBias: { seed:0.27, produce:0.27, mineral:0.17, consumable:0.17, relic:0.12 },
+    'shop:fort':        { classBias: { seed:0.27, produce:0.27, mineral:0.17, consumable:0.17, relic:0.12, sapling:0.04 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
     'shop:castle':      { classBias: { relic: 1.00 },
                           chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, singleItem: true },

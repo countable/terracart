@@ -147,8 +147,9 @@
   // Each standing house draws a COHERENT bundle from its theme (beach / forage
   // / mining / harvest / animal) limited to what the tier cap has unlocked, so
   // wishlists read as themed sets rather than a random grab-bag. Special cases:
-  // the first 3 houses are pinned to gentle TIER-1 produce, and the 4th house
-  // gets the scripted foraged-flower trio.
+  // the 1st house is scripted to potato + onion, the 2nd to the colored
+  // field-flower trio, and houses 3 (order 2) are pinned to gentle TIER-1
+  // produce before standing houses open up to their full themes.
   function wantedProduce(save, house, now = new Date()) {
     if (!house?.id) return [];
     const dk = dayKey(now);
@@ -159,9 +160,17 @@
       return picks;
     };
 
-    // 4th delivery house → scripted foraged-flower trio (nudge toward picking).
-    if (houseOrder(save, house) === 3) {
-      const trio = ['forgetmenot', 'marigold', 'wildrose'].filter((id) => ITEM_BY_ID[id]);
+    // Scripted opening progression, by restore order:
+    //   1st house → potato + onion (the starter kitchen-garden pair).
+    //   2nd house → the three colored field flowers (nudge toward foraging
+    //               before the player has much under cultivation).
+    const order = houseOrder(save, house);
+    if (order === 0) {
+      const pair = ['potato', 'onion'].filter((id) => ITEM_BY_ID[id]);
+      if (pair.length) return remember(pair);
+    }
+    if (order === 1) {
+      const trio = ['marigold', 'forgetmenot', 'wildrose'].filter((id) => ITEM_BY_ID[id]);
       if (trio.length) return remember(trio);
     }
 
