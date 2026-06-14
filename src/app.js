@@ -6754,16 +6754,23 @@ class MapScene extends Phaser.Scene {
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
   // and rescales the 96×96 dragon frames down to roughly the walker's size.
   _applyDragonSkin(on) {
-    this._dragonActive = on;
+    // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
+    // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
+    // on currentFrame.duration. Degrade to no visual transform — the flight
+    // buff (ghost pad + 2× speed) still works off the dragonPotionUntil
+    // timestamp, which is independent of the skin.
+    const ready = on && this.textures.exists('dragon')
+      && (this.anims.get('dragon-fly')?.frames?.length > 0);
+    this._dragonActive = ready;
     for (const s of [this.player, this.bodyPlayer]) {
       if (!s) continue;
-      if (on) {
+      if (ready) {
         s.setScale(this.dragonScale);
         if (s.anims.currentAnim?.key !== 'dragon-fly') s.play('dragon-fly');
       } else {
         s.setScale(this.playerScale);
         s.setFlipX(false);
-        s.play('idle-down');   // _playDirected re-picks the directional anim next frame
+        if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
       }
     }
   }
