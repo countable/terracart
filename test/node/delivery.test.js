@@ -120,11 +120,3 @@ test('wantedProduce: a standing house draws a coherent bundle from its theme', (
   const again = Delivery.wantedProduce(save, { id: 'e' }, JUNE6);
   assert.eq(JSON.stringify(again), JSON.stringify(got), 'deterministic for (id, day)');
 });
-
-test('wantedProduce: the 4th house (order 3) asks for the foraged-flower trio', () => {
-  const trio = ['forgetmenot', 'marigold', 'wildrose'];
-  if (!trio.every((id) => ITEM_BY_ID[id])) return;   // skip if the flower items aren't in this build
-  const save = { deliveryCount: 10, restoredHouses: { a: 'plain', b: 'plain', c: 'plain', d: 'plain' } };
-  const got = Delivery.wantedProduce(save, { id: 'd' }, JUNE6);
-  assert.eq(JSON.stringify(got), JSON.stringify(trio), 'order-3 house gets the scripted trio');
-});

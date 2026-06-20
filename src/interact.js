@@ -489,8 +489,8 @@ const TAP_HANDLERS = [
       const hpMul = _isMon ? MONSTERS[target.kind].hp / 15
                   : target.shiny ? 2 : 1;
       // Dragon Powder: 2× attack damage → the kill wheel finishes in half the
-      // time while in (permanent) dragon form (see useDragonPowder in app.js).
-      const dmgMul = save.dragonForm ? 0.5 : 1;
+      // time during the 1-minute dragon form (see useDragonPowder in app.js).
+      const dmgMul = (typeof scene.isDragonActive === 'function' && scene.isDragonActive()) ? 0.5 : 1;
       const victim = target;
       const dropId = victim.kind === 'crow' ? 'crow_feather'
                    : victim.kind === 'deer' ? 'meat'

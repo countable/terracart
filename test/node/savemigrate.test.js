@@ -10,7 +10,6 @@ test('migrate: backfills relic / armor / progression defaults on an empty save',
   for (const slot of ['helmet', 'chest', 'legs', 'boots']) {
     assert.truthy(slot in save.armor, 'armor slot ' + slot + ' present');
   }
-  assert.eq(save.shrineLevel, 1);
   assert.eq(save.deliveryCount, 0);
   assert.eq(typeof save.houseSatisfied, 'object');
   assert.eq(typeof save.restoredHouses, 'object');

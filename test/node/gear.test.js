@@ -98,10 +98,14 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(ringT3[1].id, 'iron_bar', 'plus the tier bar');
 });
 
-test('smeltingRecipe + smeltUnlockedBars: T5+ only, gated by shrine level', () => {
+test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
   assert.eq(Gear.smeltingRecipe('iron_bar'), null, 'mined bars aren’t smeltable');
   assert.truthy(Gear.smeltingRecipe('frost_bar'), 'frost is smeltable');
-  assert.eq(Gear.smeltUnlockedBars({ shrineLevel: 1 }).length, 0, 'locked until L4');
-  assert.eq(JSON.stringify(Gear.smeltUnlockedBars({ shrineLevel: 4 })), JSON.stringify(['platinum_bar']), 'L4 → platinum');
-  assert.eq(Gear.smeltUnlockedBars({ shrineLevel: 6 }).length, 3, 'L6 → all three');
+  // The crafting shrine was removed — smelting is always available at the
+  // blacksmith, so all three T5+ bars are unlocked with no shrine-level gate.
+  assert.eq(
+    JSON.stringify(Gear.smeltUnlockedBars()),
+    JSON.stringify(['platinum_bar', 'crimson_bar', 'frost_bar']),
+    'all three T5+ bars unlocked',
+  );
 });

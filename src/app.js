@@ -877,6 +877,14 @@ class MapScene extends Phaser.Scene {
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
+    // Countdown label floated over the dragon's head while Dragon Powder is
+    // active — shows whole seconds of flight remaining. Hidden whenever the
+    // player isn't a dragon. The player sprite is camera-locked at viewCenter,
+    // so this just rides a fixed offset above it (set per-frame in update()).
+    this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: 'bold 13px sans-serif', color: '#ffe066',
+      stroke: '#5a1400', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     // Underground "ghost" target marker. On cave levels GPS / debug controls
     // steer a free-flying ghost (this._caveTargetM) that passes through rock;
     // the opaque body (this.player) auto-follows and mines walls in its path.
@@ -1163,6 +1171,10 @@ class MapScene extends Phaser.Scene {
             // itself off-centre based on _bodyM during render).
             this._bodyM.x = this.gpsM.x;
             this._bodyM.y = this.gpsM.y;
+          } else if (this.isDragonActive()) {
+            // Flying free as a dragon: gpsM still tracks for the HUD, but a fix
+            // must NOT pull the dragon back to the real location — no playerM
+            // write and no ease, so the dragon stays where it flew.
           } else {
             // Ease toward the new GPS fix instead of snapping.
             this._ease = {
@@ -2009,18 +2021,31 @@ class MapScene extends Phaser.Scene {
       this._speedPotionActive = speedPotionActive;
       if (!speedPotionActive) this.syncGhostPad();
     }
-    // Dragon powder reuses the speed-potion plumbing: it lights up the ghost
-    // pad without an amulet. The transform is PERMANENT once used — save.dragonForm
-    // is a persisted boolean (not a timer), so the dragon survives refreshes.
-    // On each edge we swap the sprite skin on/off and, if it ever clears, tear
-    // the pad down when nothing else keeps it eligible.
-    const dragonActive = !!this.save.dragonForm;
+    // Dragon powder lights up the ghost pad without an amulet, but it's a
+    // 1-minute timed buff (this._dragonUntil, in-memory — NOT persisted, so a
+    // refresh ends it). On each edge we swap the sprite skin on/off and sync
+    // the pad (pop it up on transform, tear it down on expiry when nothing else
+    // keeps it eligible). The countdown label is refreshed every frame below.
+    const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      if (!dragonActive) this.syncGhostPad();
+      this.syncGhostPad();
+      if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
-    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive || dragonActive) && this.depth === 0;
+    if (dragonActive) {
+      const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
+      this.dragonTimerText
+        .setText(`${secs}s`)
+        .setPosition(this.viewCenterX, this.viewCenterY - 34)
+        .setVisible(true);
+    }
+    // Dragon flight is its OWN movement mode, NOT ghost mode: the pad drives the
+    // player body directly (no _bodyM snapshot), so releasing the pad leaves the
+    // dragon where it flew instead of snapping back, and flying costs no energy.
+    // Ghost mode (amulet / speed potion) is suppressed while a dragon.
+    const dragonFlying = dragonActive && this._ghostPadHeld && this.depth === 0;
+    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive) && this.depth === 0 && !dragonActive;
     const ghostHeld = ghostEligible && this._ghostPadHeld;
     if (ghostHeld && !this._bodyM) {
       this._bodyM = { x: this.playerM.x, y: this.playerM.y };
@@ -2064,11 +2089,16 @@ class MapScene extends Phaser.Scene {
     if (this._bodyM && this.joystickVec) {
       vx = this.joystickVec.x;
       vy = this.joystickVec.y;
-      speedMul = dragonActive
-        ? ghostSpeedMul({ amulet: { tier: 7 } }) * 2   // 2× the fastest (Frost) amulet = 48× walk
-        : speedPotionActive
-          ? ghostSpeedMul({ amulet: { tier: 9 } })
-          : ghostSpeedMul(this.save.relics) || 8;
+      speedMul = speedPotionActive
+        ? ghostSpeedMul({ amulet: { tier: 9 } })
+        : ghostSpeedMul(this.save.relics) || 8;
+    } else if (dragonFlying && this.joystickVec) {
+      // Dragon flight: drive the body directly at 2× the fastest (Frost)
+      // amulet's ghost speed = 48× walk. No _bodyM means the per-cell energy
+      // debit below is skipped (free flight) and there's no snap-back.
+      vx = this.joystickVec.x;
+      vy = this.joystickVec.y;
+      speedMul = ghostSpeedMul({ amulet: { tier: 7 } }) * 2;
     } else if (this._debugPadHeld && this.debugJoystickVec) {
       // Debug pad replaces the ghost pad while save.debugControls is on:
       // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
@@ -4328,21 +4358,30 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Dragon Powder: PERMANENTLY transform into a red dragon — fly free of the
+  // True while a Dragon Powder is active. The buff is a 1-minute in-memory
+  // timer (this._dragonUntil) — deliberately NOT persisted to the save, so a
+  // refresh ends it. ghostEligible + syncGhostPad (and interact.js's 2×-damage
+  // check) all route through here.
+  isDragonActive() {
+    return (this._dragonUntil ?? 0) > Date.now();
+  }
+
+  // Dragon Powder: transform into a red dragon for ONE MINUTE — fly free of the
   // GPS at 2× the fastest (Frost) amulet's ghost speed AND deal 2× attack
   // damage (interact.js halves the kill-wheel duration while in dragon form),
-  // even without an amulet. ghostEligible + syncGhostPad both check
-  // save.dragonForm (same hook as the speed potion); update() applies the
-  // sprite swap and the 2× speed off that persisted boolean, so the dragon
-  // survives tile reloads AND page refreshes. syncGhostPad pops the pad up now.
+  // even without an amulet, spending no energy. Flight is its own movement mode
+  // (see update()): the pad moves the body directly, so it doesn't snap back on
+  // release. ghostEligible + syncGhostPad check isDragonActive(); syncGhostPad
+  // pops the pad up now.
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
-    this.save.dragonForm = true;
+    this._dragonUntil = Date.now() + 60 * 1000;
+    this._ease = null;   // drop any in-flight GPS ease so it can't tug the dragon
     this.syncGhostPad();
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales erupt across your skin — you ARE a dragon now, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. The change is permanent. Use the ghost pad to fly.',
+      'Scales erupt across your skin — you ARE a dragon for one minute, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. Use the ghost pad to fly.',
     );
   }
 
@@ -6772,8 +6811,8 @@ class MapScene extends Phaser.Scene {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight
-    // buff (ghost pad + 2× speed + 2× damage) still works off save.dragonForm
-    // timestamp, which is independent of the skin.
+    // buff (ghost pad + 2× speed + 2× damage) still works off the _dragonUntil
+    // timer, which is independent of the skin.
     const ready = on && this.textures.exists('dragon')
       && (this.anims.get('dragon-fly')?.frames?.length > 0);
     this._dragonActive = ready;
@@ -6845,7 +6884,7 @@ class MapScene extends Phaser.Scene {
   syncGhostPad() {
     const has = (!!this.save.relics?.amulet
       || (this.save.speedPotionUntil ?? 0) > Date.now()
-      || !!this.save.dragonForm) && !this.save.debugControls;
+      || this.isDragonActive()) && !this.save.debugControls;
     const exists = !!document.getElementById('ghost-pad');
     if (has && !exists) this.buildGhostPad();
     else if (!has && exists) this.removeGhostPad();
@@ -7809,7 +7848,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon forever — 2× flight speed + 2× damage' },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — 2× flight speed + 2× damage' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];
