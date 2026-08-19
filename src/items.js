@@ -563,53 +563,87 @@ const STARTING_MONEY = 50;
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
 // Ordered roughly by relevance to a NEW player: the first-hour basics
-// (energy, trading, the farming loop, your starter tools) come first, then
-// exploration and shops, then relic effects, world lore, animals, and finally
-// the rare secret. A Book read still picks one at random, but curating the
-// order keeps the list readable and front-loads what a beginner most needs.
+// (energy, resting, selling, your tools) come first, then the farming loop,
+// exploration, the caves, shops and the progression gates, then relic
+// effects, consumables, world lore, animals, and finally the rare secret.
+// A Book read still picks one at random, but curating the order keeps the
+// list readable and front-loads what a beginner most needs.
+//
+// EVERY tip here is a claim about live behaviour — when a mechanic changes,
+// the tip that describes it has to change with it, or the Book starts lying
+// to the player. Cross-check against: energy.js (rest), crops.js (growth),
+// shops_math.js (deal caps), rarity.js (chest/shop tables), gear.js
+// (recipes), items.js above (foods, relics, animal foods), interact.js
+// (taming / hunting / placeables) and worldgen.js (biomes, caves).
 const PLAY_TIPS = [
   // ── First-hour basics ─────────────────────────────────────
   'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
-  'Select an empty inventory slot, then tap a house to trade or buy.',
-  'Houses have different deals — some sell produce, others seeds.',
-  'A trader who wants an item you don\'t own marks the deal with an ✗.',
-  'Equip a Pickaxe to break rocks, an Axe to chop trees.',
+  'Stand inside any building to rest — a full bar in five minutes. Your own home does it in ninety seconds.',
+  'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
+  'Every tool works bare-handed — just slowly. A Wood relic is three times quicker, a Frost one thirty.',
+  'Armour is not just protection: each piece you equip raises your maximum energy.',
   // ── The farming loop ──────────────────────────────────────
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
-  'Crops auto-advance after 60 min if watered, even while you\'re away.',
+  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Tap a tilled empty cell with no seed selected to un-till it.',
+  'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
   // ── Exploration / chests ──────────────────────────────────
-  'Treasure X marks favour residential cells. Look there first.',
+  'Treasure X marks are buried in car parks — every parking lot hides one.',
   'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
   'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
-  // ── Shops / progression ───────────────────────────────────
-  'Forts handle up to 5 deals per hour. Houses just 1.',
-  'Castles always sell relics (and never run out of stock).',
-  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
-  'A bigger Bag relic raises how many of each item one slot can hold.',
+  'The gem above a chest is its tier. Gemless chests never hold relics; only violet ones can reach Frost.',
+  'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
+  // ── Underground ───────────────────────────────────────────
+  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
+  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  // ── Shops / trade ─────────────────────────────────────────
+  'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
+  'Addresses ending 2 or 6 are Markets, stocked with produce. Endings 1 and 8 are Traders, who barter only.',
+  'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
+  'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
+  'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
+  'Castles deal only in relics — and never run out of stock.',
+  // ── Progression gates ─────────────────────────────────────
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a market, trader or smithy.',
+  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
+  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
+  'The castle guard posts quests: cull ten slimes, find the old well, then bring a sapphire up from level 3.',
+  'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
+  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'A Bow drops the markup traders charge you — higher tier, lower prices.',
-  'A Ring nudges chest loot up a tier when it triggers.',
+  'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
+  'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
+  'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
   'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  'A bigger Bag relic raises how many of each item one slot can hold: 9 bare-handed, 249 at Frost.',
+  'A Hoe makes tilling cheaper — and, now and then, free.',
+  'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
+  // ── Consumables / placeables ──────────────────────────────
+  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier ghosting, Shielding halves monster damage.',
+  'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
+  'Play a Flute to draw every chicken and cow within 30m toward you.',
   // ── Food side-effects ─────────────────────────────────────
   'Rainberry waters every crop within 20m when you eat it.',
-  'Iceflower stew restores +150 energy — the biggest meal in the world.',
-  'A Mango is the universal treat: feed one to instantly tame any wild animal.',
+  'An Iceflower restores 150 energy — the biggest meal in the world.',
+  'A Mango is the universal treat: feed one to tame any wild animal. Cave monsters are the exception.',
   // ── World / map ───────────────────────────────────────────
-  'Wild rock grows in residential streets; shrubs in parks and woods.',
-  'Long grass only grows on plain grassland — never under trees.',
+  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Hold rock and tap an empty tile to drop a stone fence.',
-  'Tap an animal you released to catch it again.',
-  // ── Animal favourite foods — one tip per kind ─────────────
+  // ── Animals ───────────────────────────────────────────────
+  'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
+  'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
-  'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
+  'Cats take milk, or any fish you land. Nothing else will win one over.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
-  'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
-  'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
-  'Cats and dogs only eat meat — feeding them plants just wastes the food.',
+  'A deer can be hunted bare-handed, but it is a long slog. A sword, bow or staff makes short work of it.',
+  'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
+  'A shiny animal pays ten times its plain kind, and takes twice the work to bring down.',
   // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
