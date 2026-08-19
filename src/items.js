@@ -498,9 +498,9 @@ const PRICES = {
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 ghost speed for 1 min
+  speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
-  dragon_powder: 120,  // T3 — permanent dragon: 2× Frost-amulet flight speed + 2× damage
+  dragon_powder: 120,  // T3 — permanent dragon: free flight + 2× damage
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -618,12 +618,12 @@ const PLAY_TIPS = [
   'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
-  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  'An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
   'A bigger Bag relic raises how many of each item one slot can hold: 9 bare-handed, 249 at Frost.',
   'A Hoe makes tilling cheaper — and, now and then, free.',
   'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
   // ── Consumables / placeables ──────────────────────────────
-  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier ghosting, Shielding halves monster damage.',
+  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
   'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
   'Play a Flute to draw every chicken and cow within 30m toward you.',
   // ── Food side-effects ─────────────────────────────────────
@@ -667,7 +667,7 @@ const ITEM_EFFECTS = {
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink for full-screen reach (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
-  speed_potion:  'Drink for tier-9 ghost speed (1 min)',
+  speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };
@@ -772,7 +772,7 @@ const RELIC_DEFS = {
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'ghostMode',     blurb: 'projects a ghost — faster + cheaper per tier' },
+             effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons. Sword raises sell values; Bow lowers buy prices. Staff is a
   // pure hunting weapon — all three (sword/bow/staff) speed the pest-defeat
   // wheel, but only the Bow bends buy prices.
@@ -949,23 +949,25 @@ function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 function ringTierBoost(relics) {
   return relics?.ring ? 0.05 * relics.ring.tier : 0;
 }
-// Amulet relic: +10% per tier chance to double the chest quantity.
-// Amulet relic: powers ghost mode. The slot's only job is to unlock the
-// pad and to scale how aggressive the projection can be — speed climbs to
-// 3× of the baseline at frost tier; per-cell energy cost falls to 15%.
-//   ghostSpeedMul   tier 1 → 8× walk, tier 7 → 24× walk (linear).
-//   ghostEnergyCost tier 1 → 1.0 / cell, tier 7 → 0.15 / cell (linear).
-// Both return 0 when no amulet is equipped — callers treat that as "ghost
-// mode unavailable".
-function ghostSpeedMul(relics) {
+// Amulet relic: powers STICK WALKING — steering yourself somewhere other than
+// where the GPS says you are. The stick is always there and always works; the
+// amulet is purely an upgrade to it, so both functions answer for a bare hand
+// too (no amulet = tier 0 = the baseline, never "unavailable").
+//   steerSpeedMul   no amulet → 1× walk, tier 1 → 1.5×, tier 7 → 4.5× (linear).
+//   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
+// Walking with the GPS costs nothing — that's you actually walking. Stick
+// walking is the character covering ground you didn't, which is what the
+// stamina pays for, and what the amulet makes cheap.
+function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
-  if (!t) return 0;
-  return 8 * (1 + (t - 1) / 3);
+  return 1 + 0.5 * t;
 }
-function ghostEnergyCost(relics) {
+function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;
-  if (!t) return 0;
-  return 1 - (t - 1) * (0.85 / 6);
+  if (!t) return 1;
+  // Floor keeps the speed potion's synthetic tier 9 (and any future tier past
+  // Frost) from running the cost negative, i.e. paying you to walk.
+  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6));
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that

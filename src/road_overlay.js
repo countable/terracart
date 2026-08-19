@@ -11,8 +11,8 @@
 //
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
 // drawn to the map's scale, so the band covers roughly the ground the road
-// covers: a 5 m residential street is one cell wide, a 12 m motorway more
-// than two.
+// covers: with 7 m cells a 5 m residential street is a little under one cell
+// wide, a 12 m motorway a little under two.
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
@@ -38,8 +38,8 @@
 
   // Stroke width for one way: its real-world carriageway width, drawn at the
   // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
-  // residential street covers exactly the one cell the rasterizer paints for
-  // it, and a 12 m motorway visibly covers more than two.
+  // residential street lands just inside the single cell the rasterizer paints
+  // for it, and a 12 m motorway visibly spills past that cell on both sides.
   function widthPxFor(scene, tags) {
     const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
       ? WorldGen.roadWidthM(tags || {})

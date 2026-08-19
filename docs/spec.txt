@@ -77,6 +77,12 @@ MOVEMENT & REACH
  - GPS (geolocation) drives the player on mobile. WASD / arrow keys move on
    desktop / localhost. The first manual key press latches a manual override
    for the session (GPS stops fighting the keyboard).
+ - ONE movement model at every depth: a GPS fix (plus any stick offset, see
+   STICK WALKING) sets a TARGET and the body walks toward it — underground
+   mining through whatever blocks it, on the surface a plain walk.
+ - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
+   it walks you off the GPS target for stamina. Dragon Powder briefly turns
+   it into a flight stick; the ☰ debug-controls pad takes its slot when on.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
  - REACH: you can only interact with cells within your reach radius (cardinally)
@@ -559,15 +565,22 @@ GEAR: RELICS & ARMOR
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
               wizard tower's Inner Light, tier = inner-light/reach level
-     amulet — projects a GHOST (see below); higher tier = faster + cheaper
+     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
      sword  — raises sell prices (0.5× → 1.0× at Frost)
      bow    — lowers buy prices (T7 = par)
      staff  — pure hunting weapon (speeds the pest-defeat wheel; no price effect)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
- - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
-   SCOUT ahead while your real body stays put. Energy drains per cell moved
-   (~1/cell at T1, falling to ~0.15/cell at T7). Releasing the pad collapses
-   the ghost back to your body. Speed scales ~8×→24× walk with amulet tier.
+ - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
+   needed and no separate mode. It walks the character somewhere OTHER than
+   the GPS target, and what it walks is the body itself: there is no ghost and
+   no snap-back on release. The distance walked is banked as an offset from
+   your real position, so each new fix targets (GPS + offset) and the ground
+   you covered by hand survives it; a GPS jump big enough to be a relocation
+   (GPS_SNAP_M) re-anchors you and drops the offset. Walking WITH the GPS is
+   free — that's you actually walking. Stick walking costs energy per cell,
+   and the AMULET is the upgrade to it: speed 1× walk bare → 4.5× at Frost,
+   cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
+   ("too tired"); the GPS still moves you.
  - TIER GATING: the only gate on rarer relic/armor tiers is the per-source LOOT
    RULE — each chest/fishing source has a tier ceiling derived from its own tier
    (rarity.js: maxTier / relicCap, plus the chest-tier→preferred clamp), so a

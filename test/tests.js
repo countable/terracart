@@ -1173,9 +1173,9 @@ test('ring relic boosts loot tier roll (forced RNG)', () => {
   assert.gt(tierOf(withRing.id), 1, 'with ring, loot tier upgraded');
 });
 
-test('amulet relic does NOT double chest qty (job changed to ghost mode)', () => {
+test('amulet relic does NOT double chest qty (job is stick walking)', () => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
-  // Amulet's job is ghost mode, not qty doubling. It may add at most one bracket
+  // Amulet's job is stick walking, not qty doubling. It may add at most one bracket
   // bump — far less than the old ×2. Guard: T7 amulet with a T1 chest keeps
   // qty well under the old doubled value (T1 base was 5, doubled was 10).
   // RNG call order for pickReward chest:park T1 (chainSteps=0):

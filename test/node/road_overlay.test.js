@@ -43,7 +43,9 @@ function makeContainer() {
 }
 
 // Scene fixture with round numbers: mPerPx = 10 so tileEdgeM = 2560, and
-// cellsPerTile = 512 → one cell is 5 m (WorldGen.CELL_M) and 0.5 world px.
+// cellsPerTile = 512 → one cell is 5 m and 0.5 world px. (The game's real cell
+// is WorldGen.CELL_M = 7 m; 5 makes the projection arithmetic checkable by
+// hand, and every assertion below is expressed against the fixture's cellM.)
 // The player sits exactly on tile (0,0)'s NW corner, so world metres map
 // straight onto screen pixels: sx = viewCenterX + (wm / 5) * 32.
 const TILE_EDGE_M = 2560;
@@ -122,8 +124,8 @@ test('road overlay: strokes black at 19% opacity', () => {
 });
 
 // ── Width by class ────────────────────────────────────────────────────────
-// The stroke is the class's real-world width at the map's scale: one cell is
-// scene.cellM (5 m) and CELL_PX (32 px), so a metre is 6.4 px.
+// The stroke is the class's real-world width at the map's scale: with the
+// fixture's 5 m / 32 px cell a metre is 6.4 px.
 // Computed the way the module computes it — (m / cellM) * CELL_PX — so the
 // assertions aren't chasing float-association noise.
 const px = (m) => (m / 5) * 32;
@@ -135,10 +137,12 @@ const widthOfWay = (tags) => {
   return scene.roadGeomGfx.paths[0].style.w;
 };
 
-test('road overlay: a residential street is exactly one cell wide', () => {
-  // 5 m — the same ground the rasterizer's one-cell band covers.
+test('road overlay: a residential street is stroked at its real 5 m width', () => {
   assert.eq(widthOfWay({ class: 'street' }), px(5), 'street');
   assert.eq(widthOfWay({ class: 'minor' }), px(5), 'minor');
+  // Which is a little under the one cell the rasterizer paints for it — the
+  // game's cell is 7 m, so a residential street doesn't fill its own band.
+  assert.lt(5, WorldGen.CELL_M, 'a street is narrower than a game cell');
 });
 
 test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
@@ -147,8 +151,9 @@ test('road overlay: bigger classes are drawn wider, in real-world proportion', (
   assert.eq(widthOfWay({ class: 'primary' }),   px(10), 'primary');
   assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
   assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
-  // A motorway covers more than two cells; a street covers one.
-  assert.gt(widthOfWay({ class: 'motorway' }), 2 * 32, 'motorway spans 2+ cells');
+  // A motorway is wider than a game cell — it spills past the single-cell band
+  // the rasterizer gives it, which is the whole point of drawing true widths.
+  assert.gt(12, WorldGen.CELL_M, 'a motorway is wider than a game cell');
 });
 
 test('road overlay: footways and cycleways are person-wide, not road-wide', () => {
