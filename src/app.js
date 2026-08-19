@@ -648,14 +648,15 @@ class MapScene extends Phaser.Scene {
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
-    // the rasterizer turned into road/path cells, stroked black @ 30%. Sits
+    // the rasterizer turned into road/path cells, as a brown band @ 19%. Sits
     // above the terrain + cobbles so it reads as an overlay ON the map, and
     // below the plant/object sprites so it never paints over a tree or house.
     // (The plant/object/creature layer is worldContainer, added below.)
     // Scrolled each frame for the sub-cell offset, like the border layer.
+    // Only the container is made here: road_overlay.js draws into an offscreen
+    // canvas (round caps, one flat alpha over the whole network) and adds the
+    // resulting image to this container on its first pass.
     this.roadGeomContainer = this.add.container(0, 0);
-    this.roadGeomGfx = this.add.graphics();
-    this.roadGeomContainer.add(this.roadGeomGfx);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -2346,16 +2347,23 @@ class MapScene extends Phaser.Scene {
       const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
       // perpendicular for the base of the triangle
       const px = -fy, py = fx;
-      const tip = 22; // distance from player center to arrow tip
-      const base = 14; // distance from player center to arrow base midpoint
-      const halfW = 6; // half-width of the base
-      let cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      // Arrow geometry, all measured from the anchor point so the whole shape
+      // scales about it. SCALE 0.85 = 15% smaller than the sizes it was drawn
+      // at before (tip 22 / base 14 / halfW 6).
+      const SCALE = 0.85;
+      const tip = 22 * SCALE; // distance from anchor to arrow tip
+      const base = 14 * SCALE; // distance from anchor to arrow base midpoint
+      const halfW = 6 * SCALE; // half-width of the base
+      // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
+      // 0 sits it on the centre; it used to be 2px higher.
+      const HEAD_DY = 0;
+      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
         // Anchor over the target marker's head. targetGhost sits at sprite-center
-        // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
-        // offset used at the viewport center so the arrow hovers identically.
+        // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
+        // used at the viewport center so the arrow hovers identically.
         cx = this.targetGhost.x;
-        cy = this.targetGhost.y - this.playerFeetNudgeY - 2;
+        cy = this.targetGhost.y - this.playerFeetNudgeY - HEAD_DY;
       }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
