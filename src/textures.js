@@ -624,7 +624,7 @@ function drawOrchardTex(ctx, size, rng) {
 // blade colours / shading next to the hand-painted wilderness art.)
 
 // Simple procedural castle turret — a stout stone column with a crenellated
-// top. One 28×44 canvas, anchor at bottom-centre so it sits on its cell. The
+// top. One 28×42 canvas, anchor at bottom-centre so it sits on its cell. The
 // column still rises clearly above the rampart battlements it stands among
 // (those reach ~10px above their cell) but is shorter than the old 50px
 // version, which towered over the walls rather than crowning them.
@@ -642,7 +642,12 @@ function makeTowerTexture(scene) {
   if (scene.textures.exists(KEY)) return;
   // 28 wide (was 24): the column read as a thin post next to the rampart it
   // crowns. The 24px battlement slab still sits inside the 32px cell.
-  const W = 28, H = 44;
+  // 42 tall with NO padding: the last row of the canvas IS the turret's
+  // grounding line, so the renderer can seat the sprite by its frame bottom
+  // and land the art exactly on the cell's bottom edge (see the tower entry in
+  // render.js RENDER_SPEC). Padding here would offset that by however many
+  // empty rows it left.
+  const W = 28, H = 42;
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);
@@ -662,7 +667,7 @@ function makeTowerTexture(scene) {
   const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 4;
   const battTop = MERLON_H, battH = 5;
   const bodyTop = battTop + battH;          // 9
-  const bodyBot = H - 2;                    // 42
+  const bodyBot = H;                        // 42 — art runs to the last row
   const bodyX = 4, bodyW = W - 8;           // x 4..24
   const battX = bodyX - 2, battW = bodyW + 4;  // slab overhangs 2px each side
 

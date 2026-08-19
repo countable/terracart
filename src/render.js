@@ -1190,12 +1190,16 @@ Render.drawObjects = function drawObjects(scene) {
           y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
         };
       } },
-    // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
-    // ~2/3 of a cell up into the tile above — leaving its collision cell (the
-    // castle wall it stands on) exposed as an empty-looking blocked space below
-    // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
-    // trees — so the tower stands inside its own single cell.
-    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 - 2 },
+    // Turret placement, exactly: the art is anchored by its frame's
+    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
+    // CENTRE that sy gives us, so its grounding line lands ON the cell's
+    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
+    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
+    // IS art bottom, and its art is symmetric about the frame's centre column,
+    // so origin x 0.5 centres it on the cell. Towers draw in their own layer
+    // above BOTH rampart layers (app.js towerContainer), so the turret always
+    // reads as standing on top of the wall, never behind it.
+    tower:  { key: 'tower',                  origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
