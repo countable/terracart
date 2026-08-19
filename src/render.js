@@ -117,6 +117,11 @@ const WAVE_AMP   = 1;
 const WAVE_LEN   = 16;
 const BORDER_DIM = 0.72;
 const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
+// Surf: the colour a WATER cell paints its biome-seam edge, in place of the
+// darkened own-colour edge every other terrain uses. Pale blue-white rather
+// than pure white so it reads as foam lit by the same flat daylight as the
+// rest of the map, not as a hard highlight.
+const SURF_COLOR = 0xdff0f7;
 const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
 const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
 const _WAVE_TABLE = (() => {
@@ -185,6 +190,7 @@ Render.drawCells = function drawCells(scene) {
   // roads (no road-name labels) and NOT paths (no path-stone activation tint).
   const PIER = 23;
   const PIER_FRAME = 20;
+  const WATER = 3;
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
@@ -318,7 +324,17 @@ Render.drawCells = function drawCells(scene) {
           // so geometry only needs to be rebuilt when baseCellIX/IY changes.
           const bx = scene.viewCenterX + ox * CELL_PX;
           const by = scene.viewCenterY + oy * CELL_PX;
-          gb2.fillStyle(getDark(color), 1);
+          // Shoreline surf. Every biome seam gets a darkened edge in its own
+          // colour, which is right where two solid grounds meet — but on the
+          // WATER side of a shore it read as a dark rim, the one place in the
+          // world where the darker line is wrong: water breaking on something
+          // is pale, not dark. So a water cell draws its edge in foam instead.
+          // The land cell still paints its own dark edge on the other side of
+          // the seam, which gives the dark-wet-margin-then-white-surf band a
+          // real shoreline has. PIER deliberately stays dark-edged: foam on
+          // its own outline traced the decking in white like a sticker, and
+          // the water cells around it already lap it with their own foam.
+          gb2.fillStyle(type === WATER ? SURF_COLOR : getDark(color), 1);
           if (drawN) {
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
               if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
@@ -1497,17 +1513,81 @@ Render.drawObjects = function drawObjects(scene) {
       origin: [0.5, 0.5], scale: 1.8,
     },
   };
-  // Soft contact shadows under buildings (houses + towers). Rendered into
-  // shadowContainer — z-ordered just below objectsContainer — so each
-  // building reads as resting on the ground rather than floating. The shadow
-  // is a feathered dark ellipse placed at the building's ground foot, sized
-  // to the building footprint (forts widest, towers slimmest).
+  // Kinds that stand UP off the ground and therefore cast a contact shadow.
+  // Buildings (house/tower) get the bespoke footprint math below; everything
+  // listed here is a seated sprite (see the "one cell" rule) so its shadow is
+  // derived from the same trimmed art bounds the seat pass uses — the shadow
+  // then tracks the real art, not the frame box's transparent padding.
+  // Deliberately excluded: `groundstack` (a pile already lying on the ground)
+  // and `staircase` (a hole cut INTO the ground — a shadow under it reads as
+  // a floating slab).
+  const SEATED_SHADOW_KINDS = new Set([
+    'tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole', '_scarecrow', '_fire',
+  ]);
+  // Ground geometry for a seated sprite: where its art actually meets the
+  // cell, and how wide that contact is. Returns null — i.e. no shadow — when
+  // the sprite isn't seated after all (a `chest` that resolved to a produce
+  // stand or a pot of gold) or when its frame has no ART_BOUNDS entry. Better
+  // no shadow than one placed by guesswork.
+  const _seatedFoot = (o) => {
+    const spec = RENDER_SPEC[o.kind];
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    if (!spec || !SL) return null;
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    if (!wantSeat) return null;
+    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    if (texKey == null || !scene.textures.exists(texKey)) return null;
+    const frameVal = spec.frame === undefined ? 0
+                   : (typeof spec.frame === 'function' ? spec.frame(o) : spec.frame);
+    const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
+    const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+    if (!bb) return null;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
+    const artW = (bb.maxX - bb.minX) * scl;
+    const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
+    // seatInCell centres art that fits and bottom-seats art that doesn't, so
+    // the art's bottom edge relative to the cell centre is one of two values.
+    const footFromCentre = artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1;
+    return { w: artW, footFromCentre };
+  };
+  // Soft contact shadows under everything that stands up off the ground —
+  // buildings, trees, rocks, chests, wells, poles. Rendered into
+  // shadowContainer — z-ordered just below objectsContainer — so each sprite
+  // reads as resting on the ground rather than floating. The shadow is a
+  // feathered dark ellipse placed at the sprite's ground foot, sized to what
+  // actually touches the cell (forts widest, saplings slimmest).
   if (scene.shadowPool && scene.shadowContainer) {
-    const shadowList = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
+    // _seatedFoot is measured once per object per frame here and carried on
+    // the list entry — the configure callback below runs on the same entries,
+    // so measuring again there would just repeat the work every frame.
+    const shadowList = [];
+    for (const item of filteredObj) {
+      const k = item.o.kind;
+      if (k === 'house' || k === 'tower') { shadowList.push(item); continue; }
+      if (!SEATED_SHADOW_KINDS.has(k)) continue;
+      const foot = _seatedFoot(item.o);
+      if (foot) shadowList.push({ ...item, _foot: foot });
+    }
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
+      // Non-building path: an ellipse centred on the art's base, so its top
+      // half tucks behind the sprite and its bottom half spills onto the cell.
+      // Only that bottom half is ever seen, and 'bldg_shadow' feathers toward
+      // its rim, so the numbers are tuned for what SHOWS: a shadow narrower
+      // than the art (0.9) but dense enough (0.45) to read against a dark
+      // forest floor, without turning a copse into a grid of blobs.
+      if (item._foot) {
+        const foot = item._foot;
+        const w = Math.max(8, foot.w * 0.9);
+        s.setOrigin(0.5, 0.5)
+         .setDisplaySize(w, w * 0.42)
+         .setPosition(Math.round(sx), Math.round(sy + foot.footFromCentre))
+         .setAlpha(0.45).setTint(0xffffff);
+        return;
+      }
       // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5) and is placed at
       // the building's visual BASE so a thin contact crescent grounds it. The
       // base depends on how the sprite is anchored (see RENDER_SPEC):
@@ -2397,6 +2477,31 @@ Render.drawObjects = function drawObjects(scene) {
     // explicit colour every frame (white for the common, plain case).
     s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
   });
+
+  // Contact shadows under creatures. Unlike the sprite, the shadow stays
+  // pinned to the CELL — it never rides the hop/hover offset — so a bouncing
+  // slime or a hovering bat reads as leaving the ground instead of sliding
+  // along it. Width is per-kind rather than measured, because creature sheets
+  // animate (a measured shadow would pulse frame to frame).
+  if (scene.creatureShadowPool && scene.shadowContainer) {
+    const CRITTER_SHADOW_W = {
+      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
+      butterfly: 9, slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22,
+    };
+    Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
+      const { c, dx, dy } = item;
+      const { sx, sy } = project(dx, dy);
+      setTextureIfDifferent(s, 'bldg_shadow');
+      const w = CRITTER_SHADOW_W[c.kind] || 18;
+      // Airborne kinds sit higher off the ground, so their shadow reads
+      // smaller and fainter — the standard "how high is it" cue.
+      const airborne = c.kind === 'butterfly' || c.kind === 'crow';
+      s.setOrigin(0.5, 0.5)
+       .setDisplaySize(w, w * 0.34)
+       .setPosition(Math.round(sx), Math.round(sy) + 2)
+       .setAlpha(airborne ? 0.20 : 0.32).setTint(0xffffff);
+    });
+  }
 
   // Renderer-AGNOSTIC shiny markers. The gold setTint() above (and on trees /
   // wild flora) is a WebGL multiply that silently does NOTHING under Phaser's

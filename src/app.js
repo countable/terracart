@@ -729,8 +729,14 @@ class MapScene extends Phaser.Scene {
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
+      // The serif face is the cartographic cue (street names on a paper map),
+      // but the family has to be PINNED: a bare `serif` resolves to whatever
+      // the platform picked — Times on iOS/macOS, Liberation/DejaVu Serif on
+      // Linux, Cambria on Windows — so the one label in the game that should
+      // look like a map label rendered differently on every device, at
+      // different widths. Same stack the shop-ready plaque already pins.
       const t = this.add.text(0, 0, '', {
-        font: 'bold 10px serif', color: '#000000',
+        font: 'bold 10px ui-serif, Georgia, "Times New Roman", serif', color: '#000000',
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
@@ -797,9 +803,13 @@ class MapScene extends Phaser.Scene {
       pg.generateTexture('shiny_spark', 32, 32);
       pg.destroy();
     }
-    // Shadow pool — one sprite per visible building. Sized to the worst case
-    // (every object cell could be a building); reuses the object pool budget.
+    // Shadow pool — one sprite per visible object that stands off the ground
+    // (buildings plus seated sprites: trees, rocks, chests, wells, poles).
+    // Sized to the worst case; reuses the object pool budget.
     this.shadowPool = [];
+    // Creatures get their own pool so their shadows can stay pinned to the
+    // cell while the sprite hops — see the creature shadow pass in render.js.
+    this.creatureShadowPool = [];
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -832,6 +842,33 @@ class MapScene extends Phaser.Scene {
     const frame = this.add.graphics();
     frame.lineStyle(2, 0x000000, 0.6)
       .strokeRect(this.viewLeft - 1, this.viewTop - 1, this.viewSize + 2, this.viewSize + 2);
+
+    // Inner vignette. The map is a hard-clipped 352×352 square sitting on the
+    // flat #222 page, so its edge used to end as an abrupt seam: bright grass
+    // straight into dead grey. A short darkening ramp inward from the rim
+    // makes the square read as a WINDOW onto the world rather than a cropped
+    // rectangle, and it does the usual vignette job of pulling the eye to the
+    // player at the centre.
+    //
+    // Nested 1px strokes rather than a gradient fill: Phaser's Graphics has no
+    // gradient primitive, and 1px rings cost nothing to bake once (the
+    // viewport never moves, so this is drawn exactly once in create()).
+    // Quadratic falloff over 14px, peaking at 15% black on the outermost ring
+    // — deliberately light, because the outer cell ring is where objects first
+    // appear as the player walks toward them and must stay readable.
+    // Unmasked and depth 90: above every world container (all depth 0) and
+    // below the work-progress wheel (95) + flash text (100+), which are UI and
+    // shouldn't be dimmed.
+    const vignette = this.add.graphics().setDepth(90);
+    const VIG_PX = 14;
+    for (let i = 0; i < VIG_PX; i++) {
+      const t = 1 - i / VIG_PX;              // 1 at the rim → 0 inward
+      vignette.lineStyle(1, 0x000000, 0.15 * t * t);
+      vignette.strokeRect(
+        this.viewLeft + i + 0.5, this.viewTop + i + 0.5,
+        this.viewSize - 2 * i - 1, this.viewSize - 2 * i - 1,
+      );
+    }
 
     // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
     // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
@@ -876,6 +913,19 @@ class MapScene extends Phaser.Scene {
       .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
+      .setMask(mask);
+    // Contact shadow under the player's feet. The player is camera-locked at
+    // viewCentre, so this never moves — it just sits at the footprint anchor
+    // (+14px, the same point drawFootprints drops its dots at). Depth 9.5:
+    // above the footprint trail (9) so a fresh dot can't sit on top of the
+    // shadow, below the character (10). Created here rather than in the
+    // per-frame pass because there is exactly one and it never relocates.
+    // 'bldg_shadow' is baked further up in create(), so it always exists.
+    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY + 13, 'bldg_shadow')
+      .setOrigin(0.5, 0.5)
+      .setDisplaySize(17, 6)
+      .setAlpha(0.34)
+      .setDepth(9.5)
       .setMask(mask);
     // Second sprite for the player's real body when ghost mode is active.
     // While ghost mode is OFF (the default) this stays hidden and `this.player`
@@ -6853,6 +6903,13 @@ class MapScene extends Phaser.Scene {
         s.setFlipX(false);
         if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
       }
+    }
+    // A flying dragon isn't standing on the cell, so its shadow shrinks and
+    // fades — the standard "it left the ground" read. Restored on landing.
+    if (this.playerShadow) {
+      this.playerShadow
+        .setDisplaySize(ready ? 13 : 17, ready ? 5 : 6)
+        .setAlpha(ready ? 0.20 : 0.34);
     }
   }
   _playDirected(sprite, baseKey, dx, dy) {
