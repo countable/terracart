@@ -545,8 +545,29 @@ Render.drawCells = function drawCells(scene) {
   // when the 4-neighbour isn't a building at all, OR is a different building.
   // This makes abutting footprints that merged into one block each draw their
   // own silhouette, so they read as separate structures.
-  const wallEdge = (col, row, dc, dr) =>
-    !isB(T(col + dc, row + dr)) || seamBetween(OWN(col, row), OWN(col + dc, row + dr));
+  //
+  // ONE WALL PER SHARED EDGE. Where two DIFFERENT buildings of the SAME tier
+  // abut, both cells used to draw the boundary and the two drawings don't
+  // coincide: a castle's south wall hangs 6px BELOW the gridline (crest rising
+  // back up into its own cell) while its neighbour's north wall rises 6px
+  // ABOVE it (crest on top of that) — a ~16px-tall double rampart for one
+  // shared edge, and side walls likewise stack two 4px bands into an 8px one.
+  // So only one cell of the pair draws it: the NORTH cell of a horizontal
+  // pair (its south wall) and the WEST cell of a vertical pair (its east
+  // wall). The boundary then looks exactly like the same building's outer
+  // wall, drawn once.
+  //
+  // Only same-tier neighbours dedupe. A castle abutting a palisade-fenced
+  // mid-rise are two different structures in two different materials, and each
+  // keeps its own wall — dropping one would leave that building without the
+  // silhouette its tier is drawn with.
+  const wallEdge = (col, row, dc, dr) => {
+    const nb = T(col + dc, row + dr);
+    if (!isB(nb)) return true;                                          // open ground → outer wall
+    if (!seamBetween(OWN(col, row), OWN(col + dc, row + dr))) return false;   // same building → no wall
+    if (nb === T(col, row) && (dc === -1 || dr === -1)) return false;   // partner already drew it
+    return true;
+  };
   // Pseudo-3D extrusion: building footprints are the "top surface", and the
   // south-facing edge of each building cell gets a 5px-tall darker wall projected
   // downward, painted on top of the row below. Other edges get a thin black tint
