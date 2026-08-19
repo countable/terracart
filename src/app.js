@@ -2687,7 +2687,11 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
-    const cy = Math.round(screen.y) - 9;
+    // Catch wheels sit over a creature sprite, which is drawn taller than the
+    // static targets (rock / tree / crop) the -9 default was tuned for, so the
+    // wheel read as overlapping the animal's body. Lift it another 5 px so it
+    // clears the fauna the same way it clears a rock.
+    const cy = Math.round(screen.y) - 9 - (wp.flee ? 5 : 0);
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
