@@ -1461,7 +1461,19 @@ Render.drawObjects = function drawObjects(scene) {
         if (o.itemId === 'wood') return Math.min(2, Math.max(0, (o.qty || 1) - 1));
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
-      origin: [0.5, 0.9], scale: 1.8,
+      // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the
+      // anchor sat at the cell centre with the art hanging above it, so a
+      // dropped stack rendered ~12px high — better than a third of a cell up,
+      // visibly spilling into the row behind. Ground stacks are flat props
+      // lying ON the tile, so they centre like the wildplants do.
+      //
+      // Frame-box centring rather than the seat pass: this sprite's texture
+      // and frame follow whatever item was dropped (inventoryIconSource), so
+      // there's no fixed frame to tabulate in ART_BOUNDS. The art of the
+      // sheets it actually uses is centred in its frame anyway — wood.png's
+      // logs sit at y[1,14) of 16 once the near-white background is keyed out
+      // (see its onLoad in assets.js), i.e. half a pixel off centre.
+      origin: [0.5, 0.5], scale: 1.8,
     },
   };
   // Soft contact shadows under buildings (houses + towers). Rendered into
