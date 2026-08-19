@@ -2489,8 +2489,8 @@ class MapScene extends Phaser.Scene {
     } catch (_) { /* never let error reporting itself throw */ }
   }
 
-  // Scan save.planted and bump stage on any watered crop whose 60-minute
-  // hold has elapsed. After each advance the crop needs re-watering, so
+  // Scan save.planted and bump stage on any watered crop whose stage hold
+  // (Crops.STAGE_HOLD_MS — 15 min) has elapsed. After each advance the crop needs re-watering, so
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
