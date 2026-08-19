@@ -81,8 +81,9 @@ MOVEMENT & REACH
    STICK WALKING) sets a TARGET and the body walks toward it — underground
    mining through whatever blocks it, on the surface a plain walk.
  - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
-   it walks you off the GPS target for stamina. Dragon Powder briefly turns
-   it into a flight stick; the ☰ debug-controls pad takes its slot when on.
+   it walks you off the GPS target for stamina. Nothing ever replaces it —
+   Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
+   9), and the ☰ "Free walking (debug)" toggle only makes it cost nothing.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
  - REACH: you can only interact with cells within your reach radius (cardinally)
@@ -580,7 +581,11 @@ GEAR: RELICS & ARMOR
    free — that's you actually walking. Stick walking costs energy per cell,
    and the AMULET is the upgrade to it: speed 1× walk bare → 4.5× at Frost,
    cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
-   ("too tired"); the GPS still moves you.
+   ("too tired"); the GPS still moves you. Two things borrow a tier rather
+   than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
+   damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
+   walking (debug)" toggle drops the stamina cost to nothing and with it the
+   0-energy stop; it changes nothing else.
  - TIER GATING: the only gate on rarer relic/armor tiers is the per-source LOOT
    RULE — each chest/fishing source has a tier ceiling derived from its own tier
    (rarity.js: maxTier / relicCap, plus the chest-tier→preferred clamp), so a
