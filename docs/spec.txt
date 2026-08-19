@@ -157,10 +157,27 @@ WORLD GENERATION
    BUILDING_LARGE (castle/civic).
  - building tier from polygon area + render_height: small house (<350m² & <10m),
    fort (350+m² or 10+m), castle (1500+m² or 15+m). Each tier still places one
-   house/tower sprite at the polygon centroid.
+   house/tower sprite, anchored on the footprint cell nearest the footprint's
+   centroid (never off the footprint).
+ - BUILDING FOOTPRINTS NEVER OVERLAP. Each building polygon is assigned an
+   exclusive set of cells before anything is painted:
+     1) a cell more than 45% covered by the polygon belongs to it;
+     2) inside the bounding box of what (1) gave it, a cell's cover counts 1.3x
+        over — a slight preference for squaring footprints off, so a rotated
+        house reads as a building rather than a staircase of cells;
+     3) a building that claimed nothing yet takes its single best-covered free
+        cell (down to 15% cover), so a shed smaller than half a cell still
+        exists instead of vanishing;
+     4) a shape cleanup (drop crumbs, fill 1-wide notches, bridge diagonal-only
+        contacts) that may only take cells no other building claimed.
+   Every contested cell is decided by how much of it each polygon covers, never
+   by paint order, so the result is identical whichever order the tile's
+   polygons arrive in — that is what keeps a building clipped by a tile seam
+   shaped the same in both tiles that draw it.
  - every tile enforces a minimum mix so trade/landmarks always exist: roughly
    ≥2% castles, ≥8% forts, ≥20% small houses — each rounded UP to at least one
    per tile (any tile with ≥3 buildings has ≥1 of each), re-tiered by area rank.
+   Enforced over the buildings that actually landed a cell on the tile.
  - flat colour is drawn first, then a terrain sprite from the tileset is
    overlaid where mapped (grass, forest, sand, farmland, park), with auto-tile
    lookup so edges/corners pick the right frame.
@@ -177,19 +194,27 @@ INTERACTION MODEL
    ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
    and the first that matches consumes the tap and stops. Tapping the player is
    treated as a tap on the player's own cell.
+ - TAP TARGETS ARE CELL-BOUNDED. Everything except FAUNA is hit-tested against
+   the ONE CELL it stands in: a tap inside that cell hits it, a tap outside
+   never does — however far the artwork rises above the cell (tall trees, the
+   castle turret, a market stall, a house roof). Creatures are the exception:
+   they move continuously and are drawn feet-anchored, so they're tapped by
+   their DRAWN sprite box (see CREATURES). Multi-cell buildings stay fully
+   tappable through the building-zone rule below, which is itself cell-based.
  - priority order (all gated to within reach of the player's cell):
      0)  cancel an in-progress work wheel
-     1)  claim a treasure X within ~7.5m
-     2)  creature within 4m (defeat / catch / tame / feed / pet — see CREATURES)
-     3)  pick the nearest wild plant / flower within 4m
-     4)  pick up a scattered coin within ~3m
-     5)  world object within reach: chest, well, tree, fruit tree, mineral rock,
-         ground stack, house/tower (shop), shrine
+     1)  claim a treasure X on the tapped cell
+     2)  creature whose drawn sprite contains the tap (defeat / catch / tame /
+         feed / pet — see CREATURES)
+     3)  pick the wild plant / flower rooted in the tapped cell
+     4)  pick up a scattered coin lying in the tapped cell
+     5)  world object standing in the tapped cell: chest, well, tree, fruit
+         tree, mineral rock, ground stack, house/tower (shop), shrine
      6)  resolve the tapped cell (bail if unloaded / out of reach)
      7)  path-stone claim (non-consuming — falls through)
-     8)  building-zone tap → snap to the nearest house/tower sprite within
-         30m and route to its shop (covers building footprints too large
-         for the sprite's tap zone alone)
+     8)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
+         house/tower sprite within 30m and routes to its shop (this is how a
+         footprint larger than the sprite's own cell stays tappable)
      9)  release a selected animal onto the cell
     10)  pick up a placed rock / placed scarecrow
     11)  place a held rock / scarecrow on an empty tilled-able cell
@@ -239,7 +264,7 @@ FORAGING / WILD PICKUPS
      residential → mushroom (yards)      park → shrub       forest → shrub
      forest      → occasional nut + mushroom clusters (rarer, own RNG)
      beach/sand  → shell                 grassland → longgrass (Fern)
- - tap a wild plant / debris within 4m (and within reach) to pick it (+1).
+ - tap the cell a wild plant / debris stands in (and within reach) to pick it (+1).
  - some wild crops need WORK (a work wheel): rockfruit (stone) via the Pick,
    shrub (woody) via the Axe. A shrub yields WOOD, not a "shrub" item. Other
    wildplants are instant.
@@ -410,7 +435,7 @@ COIN-BURST POIs (ATM / bicycle parking)
 ================================================================================
 TREASURE MARKS (X on the ground)
 ================================================================================
- - claim by tapping within ~7.5m (and within reach). Reward via the unified
+ - claim by tapping the cell the X is drawn on (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
  - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real

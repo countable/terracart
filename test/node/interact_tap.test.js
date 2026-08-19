@@ -539,44 +539,107 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   }
 });
 
-// ─── 5. Tap-precision radius scales with cell size ───────────────────────────
-// The REACH_*_M tap-precision constants were hand-tuned to a 5 m cell. tapReachM
-// floors them at the cell half-diagonal so a tap anywhere in a target's OWN cell
-// still resolves to it after CELL_M is retuned (the "tapping keeps breaking"
-// regression when the cell grew past 5 m). These tests pin that invariant so a
-// future cell-size change can't silently shrink the tappable area below the cell.
+// ─── 5. Cell-bounded tap targeting ───────────────────────────────────────────
+// Every non-fauna target is hit-tested against its OWN CELL. The tap-precision
+// disks this replaced (object 3.5 m, house 6 m, wild plant 4 m, treasure
+// 7.5 m, plus tapReachM's cell-half-diagonal floor) had to reach the far corner
+// of the target's own cell, which meant they also reached ~1 m INTO all four
+// neighbours — so a tap on the empty cell above a tall tree / turret / market
+// stall activated it. These tests pin both halves of the rule: the whole of the
+// target's own cell hits, and nothing outside it does.
 
-test('tapReachM: covers the cell half-diagonal at any cell size', () => {
-  for (const cellM of [5, 6, 7, 9]) {
-    const scene = { cellM };
-    const halfDiag = cellM * Math.SQRT1_2;
-    // A tap at the far corner of an item's own cell is up to halfDiag from its
-    // centre; the precision radius must cover that (with the +0.5 m epsilon).
-    assert.gte(tapReachM(scene, 0), halfDiag,
-      `cellM=${cellM}: floor ${tapReachM(scene, 0)} must cover half-diagonal ${halfDiag}`);
-  }
+// A scene with a clean projection: 32 cells per 256 px tile → 8 px per cell,
+// mPerPx 0.625 → a 5 m cell whose index is simply floor(metres / 5).
+const makeGridScene = (over = {}) => Object.assign(makeScene(), {
+  cellM: 5,
+  cellsPerTile: 32,
+  mPerPx: 5 / (WorldGen.TILE_PX / 32),
+  originPx: { x: 0, y: 0 },
+  startWorldM: { x: 0, y: 0 },
+  playerM: { x: 2.5, y: 2.5 },
+  feetOffsetM: 0,
+  depth: 0,
+}, over);
+
+test('sameAbsCell: two points inside one cell match', () => {
+  const scene = makeGridScene();
+  assert.truthy(sameAbsCell(scene, 0.1, 0.1, 4.9, 4.9), 'opposite corners of cell (0,0) are the same cell');
 });
 
-test('tapReachM: never bleeds into a neighbouring cell centre', () => {
-  // The floor must stay under a full cell so it can't grab an item centred in
-  // the adjacent cell (which sits exactly cellM away from the tap's cell).
-  for (const cellM of [5, 6, 7, 9]) {
-    assert.lt(tapReachM({ cellM }, 0), cellM,
-      `cellM=${cellM}: floor must stay below one cell to avoid neighbour grabs`);
-  }
+test('sameAbsCell: a neighbouring cell never matches, however close the points', () => {
+  const scene = makeGridScene();
+  // 0.2 m apart, but astride the gridline at 5 m — a disk test would call this a hit.
+  assert.falsy(sameAbsCell(scene, 4.9, 2.5, 5.1, 2.5), 'across the east gridline → different cells');
+  assert.falsy(sameAbsCell(scene, 2.5, 4.9, 2.5, 5.1), 'across the south gridline → different cells');
 });
 
-test('tapReachM: preserves a larger hand-tuned base radius', () => {
-  // House/treasure radii (6 m / 7.5 m) already exceed the 7 m half-diagonal and
-  // must pass through unchanged.
-  assert.eq(tapReachM({ cellM: 7 }, 7.5), 7.5, 'treasure radius preserved at 7 m cell');
+test('findItemInTapCell: a corner tap in the item\'s own cell still hits it', () => {
+  const orig = globalThis.WorldGen;
+  try {
+    const items = [{ x: 2.5, y: 2.5, id: 'w1' }];
+    globalThis.WorldGen = Object.assign({}, orig, {
+      forEachItem: (layer, cb) => { for (const it of items) cb(it); },
+    });
+    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
+    const scene = makeGridScene();
+    const found = findItemInTapCell(scene, 'wildplants', { x: 4.9, y: 4.9 });
+    assert.truthy(found !== null, 'far corner of the item cell is still the item cell');
+    assert.eq(found.id, 'w1', 'the item in the tapped cell');
+  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
 });
 
-test('tapReachM: REACH_OBJECT_M=3.5 was the 5 m cell half-diagonal', () => {
-  // Documents WHY the floor exists: at 5 m the constant already equalled the
-  // half-diagonal, so taps worked; at 7 m it no longer does without the floor.
-  assert.lt(3.5, tapReachM({ cellM: 7 }, 3.5),
-    'at a 7 m cell the bare 3.5 m radius is smaller than the floor');
+test('findItemInTapCell: tall art does NOT make the cell above it tappable', () => {
+  const orig = globalThis.WorldGen;
+  try {
+    // Item seated in cell (0,2); tap lands in cell (0,1), 2.6 m north of it —
+    // comfortably inside the old 3.5 m object disk, outside its cell.
+    const items = [{ x: 2.5, y: 12.5, id: 'tree1' }];
+    globalThis.WorldGen = Object.assign({}, orig, {
+      forEachItem: (layer, cb) => { for (const it of items) cb(it); },
+    });
+    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
+    const scene = makeGridScene();
+    assert.eq(findItemInTapCell(scene, 'objects', { x: 2.5, y: 9.9 }), null,
+      'the cell north of the sprite is not the sprite');
+    assert.truthy(findItemInTapCell(scene, 'objects', { x: 2.5, y: 10.1 }) !== null,
+      'one gridline further south IS its cell');
+  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+});
+
+test('findItemInTapCell: rejected items are skipped even in the tapped cell', () => {
+  const orig = globalThis.WorldGen;
+  try {
+    const items = [{ x: 2.0, y: 2.0, id: 'picked' }, { x: 3.0, y: 3.0, id: 'fresh' }];
+    globalThis.WorldGen = Object.assign({}, orig, {
+      forEachItem: (layer, cb) => { for (const it of items) cb(it); },
+    });
+    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
+    const scene = makeGridScene();
+    const found = findItemInTapCell(scene, 'wildplants', { x: 2.5, y: 2.5 }, (it) => it.id !== 'picked');
+    assert.eq(found.id, 'fresh', 'the accepted item in the cell wins');
+  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+});
+
+test('staircase handler: fires on the stair\'s cell, not the cell above it', () => {
+  const orig = globalThis.WorldGen;
+  try {
+    const items = [{ kind: 'staircase', dir: 'down', x: 2.5, y: 12.5, id: 's1' }];
+    globalThis.WorldGen = Object.assign({}, orig, {
+      forEachItem: (layer, cb) => { if (layer === 'objects') for (const it of items) cb(it); },
+    });
+    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
+    let descended = 0;
+    const scene = makeGridScene({ changeDepth: () => { descended++; } });
+    const save = { energy: 100, reachUpgrades: 0, inv: [], selSlot: 0 };
+    scene.save = save;
+    const h = TAP_HANDLERS.find(h => h.name === 'staircase');
+    const at = (x, y) => Object.assign(makeCtx(scene, save), { wm: { x, y }, pWorldX: 2.5, pWorldY: 2.5 });
+
+    assert.eq(h.try(at(2.5, 9.9)), false, 'tap one cell north of the stairs falls through');
+    assert.eq(descended, 0, 'no level change from the neighbouring cell');
+    assert.eq(h.try(at(4.9, 14.9)), true, 'a corner tap inside the stair cell is consumed');
+    assert.eq(descended, 1, 'level changed once');
+  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
 });
 
 // ─── 6. creature handler: tap the DRAWN body, not the foot cell ───────────────
