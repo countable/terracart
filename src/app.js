@@ -135,19 +135,13 @@ if (typeof window !== 'undefined') {
   window.DEBUG_TAPS = DEBUG || /[?&]debugtaps\b/.test(location.search || '');
 }
 
-// --- Tap reach radii (metres). Used by handleWorldTap distance checks. ---
-// (Creatures use a per-kind tap radius in interact.js, not a flat constant.)
-const REACH_WILDPLANT_M = 4;
-const REACH_OBJECT_M    = 3.5; // chest / tree
-const REACH_HOUSE_M     = 6;   // house body is larger than 3.5m
-// Bottom-anchored building sprites (house/tower) are drawn rising NORTH from
-// their foot at (o.x, o.y): the 'front' house frame is 95px × 0.6 scale ≈ 9m
-// tall, so its roof sits ~8m north of the foot — well outside a 6m circle
-// centred on the foot. Tap reach for these is measured from a point this far
-// north of the foot (the sprite's visual mid-height) so a tap anywhere on the
-// small/medium house body activates the shop, while the walkable front yard
-// SOUTH of the foot stays farmable instead of opening a shop on a stray tap.
-const HOUSE_HIT_RISE_M  = 4;
+// --- Tap reach (metres). Used by handleWorldTap distance checks. ---
+// The per-target tap-PRECISION radii that used to live here (wild plant 4 m,
+// object 3.5 m, house 6 m + a 4 m northward rise, treasure 7.5 m) are gone:
+// every non-fauna target is now hit-tested against its OWN CELL (interact.js
+// findItemInTapCell / sameAbsCell), because any disk wide enough to cover its
+// own cell also spilled into the neighbouring ones. Creatures still use a
+// per-kind drawn-sprite box in interact.js — they move and aren't cell-bound.
 // Outer "too far" gate. Matches the visual reach outline drawn by drawCells
 // (scene.REACH_CELL_M). Distance is measured from the player's CELL CENTRE
 // (not their feet) — same basis as the visual — so any cell shown inside the
@@ -155,7 +149,6 @@ const HOUSE_HIT_RISE_M  = 4;
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
 const REACH_FAR_M       = 16;
-const REACH_TREASURE_M  = 7.5; // treasure mark
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -484,9 +477,9 @@ class MapScene extends Phaser.Scene {
     // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
     // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
-    // somehow unavailable. The inner per-handler constants (REACH_OBJECT_M=3.5,
-    // REACH_HOUSE_M=6, …) are tap-PRECISION radii — how close your tap must land
-    // on the target — and are independent of how far the player can reach.
+    // somehow unavailable. Tap PRECISION — how exactly your tap must land on
+    // the target — is a separate question, answered by cell membership
+    // (interact.js), and is independent of how far the player can reach.
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,

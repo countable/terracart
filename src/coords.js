@@ -9,6 +9,7 @@
 //   cellKeyFromAbsCell(absIX, absIY)         — "ix_iy"
 //   worldMetersToAbsCell(scene, wmx, wmy)    — { cellIX, cellIY }
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
+//   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
 
 function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
@@ -38,6 +39,17 @@ function absCellCenterMeters(scene, cellIX, cellIY) {
     x: scene.startWorldM.x + (wx - scene.originPx.x) * scene.mPerPx,
     y: scene.startWorldM.y + (wy - scene.originPx.y) * scene.mPerPx,
   };
+}
+
+// Do two world points fall in the SAME absolute cell? The single answer to
+// "did this tap land on that thing's tile?", used by every cell-bounded tap
+// target in interact.js. Cell membership — never a radius — so a hit area can
+// physically not spill into the neighbouring cells the way a disk centred on
+// an object's foot does.
+function sameAbsCell(scene, ax, ay, bx, by) {
+  const a = worldMetersToAbsCell(scene, ax, ay);
+  const b = worldMetersToAbsCell(scene, bx, by);
+  return a.cellIX === b.cellIX && a.cellIY === b.cellIY;
 }
 
 // Player's "reach origin" — the absolute cell the visual reach silhouette

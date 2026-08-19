@@ -699,8 +699,9 @@
     scene._ease = null;
     // Pretend a GPS fix arrived so the UI doesn't sit in "no GPS" mode.
     scene.gpsM = { x: scene.playerM.x, y: scene.playerM.y };
-    // Plant a treasure X one cell north of spawn (within REACH_TREASURE_M) so
-    // the tester can verify treasure-tap loot without hunting for one.
+    // Plant a treasure X one cell north of spawn (tap that cell — treasure is
+    // cell-bounded like every non-fauna target) so the tester can verify
+    // treasure-tap loot without hunting for one.
     const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
     if (centreEntry && !centreEntry.treasure) {
       centreEntry.treasure = {
