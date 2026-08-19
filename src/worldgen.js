@@ -331,12 +331,21 @@
   }
   function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under) {
     // Stamp a disk of radius widthCells/2 along the polyline using Bresenham segments.
+    //
+    // Vertices map to the cell that CONTAINS them — floor(), the same rule
+    // snapCell / spawnDebris use, and the same answer paintPolygon's
+    // centre-sample gives. It used to be Math.round(), which picks the cell
+    // whose top-LEFT corner is nearest the point and so biased every road,
+    // path and pier half a cell south-east of the way it was painted from:
+    // roads sat half a cell off their own OSM geometry (visible the moment
+    // the road-geometry overlay was drawn over them) and half a cell off the
+    // buildings and water that were rasterized by the correct rule.
     const r = Math.max(0, Math.floor(widthCells / 2));
     for (let i = 1; i < line.length; i++) {
-      let x0 = Math.round(line[i - 1].x * mvtToCell);
-      let y0 = Math.round(line[i - 1].y * mvtToCell);
-      const x1 = Math.round(line[i].x * mvtToCell);
-      const y1 = Math.round(line[i].y * mvtToCell);
+      let x0 = Math.floor(line[i - 1].x * mvtToCell);
+      let y0 = Math.floor(line[i - 1].y * mvtToCell);
+      const x1 = Math.floor(line[i].x * mvtToCell);
+      const y1 = Math.floor(line[i].y * mvtToCell);
       const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
       const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
       let err = dx + dy;
@@ -3456,6 +3465,9 @@
     assignBuildingFootprints, cellCoverFraction,
     FOOT_COVER_MIN, FOOT_RECT_BONUS, FOOT_RESCUE_MIN,
     erodePavementBlobs,
+    // Road/path rasterization — exported for the headless tests, which pin the
+    // "a vertex paints the cell that contains it" rule (no half-cell bias).
+    paintLine,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
