@@ -715,16 +715,22 @@ class MapScene extends Phaser.Scene {
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
     // dark ink — the cobble tiles are light warm stone, so black reads like
-    // worn paint markings on them (white washed out over pale stone). Pool is
-    // sized one slot per visible cell because render walks cells — at most one
-    // anchor can occupy a cell, and most slots simply stay invisible.
+    // worn paint markings on them (white washed out over pale stone).
+    // A road cell is only PART stone, though: the ground the road was painted
+    // over shows between the cobbles, so on a road crossing grass or forest
+    // the dark glyphs used to disappear into the dark background. A pale
+    // stone-coloured halo around each glyph carries the word over both — the
+    // lettering stays dark on the stones and stays readable off them.
+    // Pool is sized one slot per visible cell because render walks cells — at
+    // most one anchor can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
         font: 'bold 10px serif', color: '#000000',
-      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
+        stroke: '#d8cdb4', strokeThickness: 3,
+      }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
