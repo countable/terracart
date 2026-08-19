@@ -635,6 +635,14 @@ class MapScene extends Phaser.Scene {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
+    // Original OSM road geometry (road_overlay.js) — the raw vector linework
+    // the rasterizer turned into road/path cells, stroked black @ 30%. Sits
+    // above the terrain + cobbles so it reads as an overlay ON the map, and
+    // below the plant/object sprites so it never paints over a tree or house.
+    // Scrolled each frame for the sub-cell offset, like the border layer.
+    this.roadGeomContainer = this.add.container(0, 0);
+    this.roadGeomGfx = this.add.graphics();
+    this.roadGeomContainer.add(this.roadGeomGfx);
     this.plantedContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
@@ -789,6 +797,7 @@ class MapScene extends Phaser.Scene {
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
+    this.roadGeomContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
@@ -2428,6 +2437,7 @@ class MapScene extends Phaser.Scene {
 
     this.wanderCreatures();
     this.drawCells();
+    this.drawRoadGeometry();
     this.drawObjects();
     this._drawWorkProgress();
     this.updateHUD();
@@ -3344,6 +3354,7 @@ class MapScene extends Phaser.Scene {
   // this.worldMetersToScreen, this.screenToWorldMeters) for the update loop,
   // interact.js, and test/tests.js -- behaviour is bit-identical.
   drawCells() { Render.drawCells(this); }
+  drawRoadGeometry() { if (typeof RoadOverlay !== 'undefined') RoadOverlay.draw(this); }
   drawObjects() { Render.drawObjects(this); }
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
@@ -7061,6 +7072,14 @@ class MapScene extends Phaser.Scene {
     // takes over. The startGps callback will skip future eases on its own.
     if (this.save.debugControls) this._ease = null;
     return this.save.debugControls;
+  }
+  // Road-geometry overlay (road_overlay.js) on/off. Persisted per save and
+  // read back by the menu button's label. Returns the new state.
+  setRoadGeomOverlay(on) {
+    this.save.roadGeomOverlay = !!on;
+    persistSave(this.save);
+    if (typeof RoadOverlay !== 'undefined') RoadOverlay.invalidate(this);
+    return this.save.roadGeomOverlay;
   }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
   // per-frame row rebuild can early-out by comparing a counter instead of

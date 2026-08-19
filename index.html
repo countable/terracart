@@ -288,6 +288,7 @@
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="move-home">Move Home here</button>
       <button id="debug-controls">Debug controls: off</button>
+      <button id="debug-road-geom">Road geometry: on</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
       <button id="debug-dump-tile">Dump tile (debug)</button>
@@ -492,6 +493,25 @@
       if (!scene || !scene.setDebugControls) return;
       const next = !scene.save?.debugControls;
       setDebugBtnLabel(scene.setDebugControls(next));
+    });
+    // Road-geometry overlay: draws the ORIGINAL OSM road linework (the vector
+    // ways the tile rasterizer turned into road cells) over the map in black
+    // at 30% opacity. On by default; the save only ever stores an explicit off.
+    const roadGeomBtn = document.getElementById('debug-road-geom');
+    function setRoadGeomBtnLabel(on) {
+      roadGeomBtn.textContent = 'Road geometry: ' + (on ? 'on' : 'off');
+    }
+    try {
+      const s = readActiveSaveRaw();
+      setRoadGeomBtnLabel(!(s && s.roadGeomOverlay === false));
+    } catch { /* leave default 'on' */ }
+    roadGeomBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.setRoadGeomOverlay) return;
+      const next = scene.save?.roadGeomOverlay === false;
+      setRoadGeomBtnLabel(scene.setRoadGeomOverlay(next));
     });
     document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -903,6 +923,7 @@
   <script src="src/interactables.js?v=6"></script>
   <script src="src/interact.js?v=221"></script>
   <script src="src/render.js?v=271"></script>
+  <script src="src/road_overlay.js?v=1"></script>
   <script src="src/assets.js?v=175"></script>
   <script src="src/sandbox.js?v=35"></script>
   <script src="src/testtools.js?v=7"></script>
@@ -923,7 +944,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=362';
+      const APP_SRC = 'src/app.js?v=363';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

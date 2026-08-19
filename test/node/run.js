@@ -53,6 +53,9 @@ const FILES = [
   'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
+  // Pure draw-math module: it only touches WorldGen + a stub Graphics, so the
+  // road-geometry overlay's projection/culling can be pinned without Phaser.
+  'road_overlay.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
