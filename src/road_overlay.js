@@ -6,7 +6,7 @@
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together, and parking aisles are dropped entirely. This layer draws the
 // SOURCE linework straight from the decoded MVT features on top of the map, in
-// black at 9% alpha, so the rasterized roads can be eyeballed against the real
+// black at 19% alpha, so the rasterized roads can be eyeballed against the real
 // ways they came from.
 //
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
@@ -30,7 +30,7 @@
 //   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
 (function (global) {
   const COLOR = 0x000000;
-  const ALPHA = 0.09;    // black @ 9% — faint enough to read the map through
+  const ALPHA = 0.19;    // black @ 19% — reads as a band without hiding the map
   const MVT_EXTENT = 4096;
   // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
   // the shared table lives there so the overlay and the rasterizer agree.

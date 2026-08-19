@@ -111,14 +111,14 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes black at 9% opacity', () => {
+test('road overlay: strokes black at 19% opacity', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
   assert.eq(style.c, 0x000000, 'colour is black');
-  assert.eq(style.a, 0.09, 'alpha is 9%');
+  assert.eq(style.a, 0.19, 'alpha is 19%');
 });
 
 // ── Width by class ────────────────────────────────────────────────────────
