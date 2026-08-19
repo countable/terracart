@@ -2409,16 +2409,23 @@ class MapScene extends Phaser.Scene {
       const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
       // perpendicular for the base of the triangle
       const px = -fy, py = fx;
-      const tip = 22; // distance from player center to arrow tip
-      const base = 14; // distance from player center to arrow base midpoint
-      const halfW = 6; // half-width of the base
-      let cx = this.viewCenterX, cy = this.viewCenterY - 2;
+      // Arrow geometry, all measured from the anchor point so the whole shape
+      // scales about it. SCALE 0.85 = 15% smaller than the sizes it was drawn
+      // at before (tip 22 / base 14 / halfW 6).
+      const SCALE = 0.85;
+      const tip = 22 * SCALE; // distance from anchor to arrow tip
+      const base = 14 * SCALE; // distance from anchor to arrow base midpoint
+      const halfW = 6 * SCALE; // half-width of the base
+      // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
+      // 0 sits it on the centre; it used to be 2px higher.
+      const HEAD_DY = 0;
+      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
         // Anchor over the ghost's head. targetGhost sits at sprite-center
-        // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
-        // offset used at the viewport center so the arrow hovers identically.
+        // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
+        // used at the viewport center so the arrow hovers identically.
         cx = this.targetGhost.x;
-        cy = this.targetGhost.y - this.playerFeetNudgeY - 2;
+        cy = this.targetGhost.y - this.playerFeetNudgeY - HEAD_DY;
       }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
