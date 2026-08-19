@@ -102,14 +102,13 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
-    /* The movement pads (#debug-pad / #move-pad) are position:fixed on <body>
-       at z-index 6 — but every modal dialog lives inside #game, whose transform
-       makes its own stacking context, so a modal can never climb above the
-       body-level pads. While a dialog is open the bottom-right pad would sit ON
-       TOP of it and swallow the taps meant to dismiss it (you could still walk
-       but not close the modal). MapScene._installModalPadGate toggles
-       body.modal-open whenever a .game-modal is shown; hide the pads then. */
-    body.modal-open #debug-pad,
+    /* The movement stick (#move-pad) is position:fixed on <body> at z-index 6
+       — but every modal dialog lives inside #game, whose transform makes its
+       own stacking context, so a modal can never climb above the body-level
+       stick. While a dialog is open the bottom-right stick would sit ON TOP of
+       it and swallow the taps meant to dismiss it (you could still walk but not
+       close the modal). MapScene._installModalPadGate toggles body.modal-open
+       whenever a .game-modal is shown; hide the stick then. */
     body.modal-open #move-pad { display: none !important; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
@@ -298,7 +297,7 @@
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="move-home">Move Home here</button>
-      <button id="debug-controls">Debug controls: off</button>
+      <button id="debug-controls">Free walking (debug): off</button>
       <button id="debug-road-geom">Road geometry: on</button>
       <button id="debug-clear-relics">Remove all relics</button>
       <button id="debug-wood-relics">All wood relics (T1)</button>
@@ -470,10 +469,10 @@
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
-    // Debug controls: toggles a gold soft-joystick that drives the body at
-    // 10× walk speed. Takes the purple movement stick's slot while on. The button
-    // label tracks state both before the scene loads (read save directly)
-    // and after each click (scene returns the new value).
+    // Debug controls: makes stick walking cost no stamina. That's all it does
+    // now — there's no second joystick any more. The button label tracks state
+    // both before the scene loads (read save directly) and after each click
+    // (scene returns the new value).
     // Resolve the ACTIVE saved game's raw data straight from localStorage.
     // This runs at parse time, before save.js loads, so it can't use the save.js
     // helpers — it reads the slot registry inline, falling back to the legacy
@@ -491,7 +490,7 @@
     }
     const debugBtn = document.getElementById('debug-controls');
     function setDebugBtnLabel(on) {
-      debugBtn.textContent = 'Debug controls: ' + (on ? 'on' : 'off');
+      debugBtn.textContent = 'Free walking (debug): ' + (on ? 'on' : 'off');
     }
     try {
       const s = readActiveSaveRaw();
@@ -939,7 +938,7 @@
   <script src="src/worldgen.js?v=207"></script>
   <script src="src/textures.js?v=160"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=191"></script>
+  <script src="src/items.js?v=192"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
@@ -975,7 +974,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=372';
+      const APP_SRC = 'src/app.js?v=373';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

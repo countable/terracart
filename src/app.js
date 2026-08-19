@@ -64,9 +64,9 @@ const WALK_M_S = 1.4;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
-// anything beyond this is a vehicle trip, a backgrounded tab catching up, or a
-// dragon flight ending — travel the player never made on foot, so walking it
-// back would be a minutes-long trek across terrain they aren't on any more.
+// anything beyond this is a vehicle trip or a backgrounded tab catching up —
+// travel the player never made on foot, so walking it back would be a
+// minutes-long trek across terrain they aren't on any more.
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 100;
@@ -136,10 +136,12 @@ function crowEatsCrop(p) { return Crops.crowEats(p); }
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
-// Dragon flight speed, in multiples of walk pace. Flight is its own movement
-// mode — free of energy and of the map — so it is not derived from the amulet
-// ladder that scales ordinary stick walking (items.js steerSpeedMul).
-const DRAGON_FLY_MUL = 48;
+// Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
+// sprite. For its minute the player walks as if they had an amulet of this
+// tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
+// twice as hard (interact.js). The Speed potion stands in a tier higher still.
+const DRAGON_AMULET_TIER = 8;
+const SPEED_POTION_AMULET_TIER = 9;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -957,7 +959,7 @@ class MapScene extends Phaser.Scene {
       .setDepth(9.5)
       .setMask(mask);
     // Countdown label floated over the dragon's head while Dragon Powder is
-    // active — shows whole seconds of flight remaining. Hidden whenever the
+    // active — shows whole seconds of the buff remaining. Hidden whenever the
     // player isn't a dragon. The player sprite is camera-locked at viewCenter,
     // so this just rides a fixed offset above it (set per-frame in update()).
     this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
@@ -1068,11 +1070,6 @@ class MapScene extends Phaser.Scene {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
 
-    // Debug-controls pad (opt-in via the ☰ menu). When save.debugControls is
-    // true the movement stick is suppressed and a debug pad takes its slot —
-    // steers at DEBUG_SPEED_MUL × walk speed, no energy cost.
-    this.debugJoystickVec = { x: 0, y: 0 };
-    this._debugPadHeld = false;
 
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
@@ -1249,18 +1246,15 @@ class MapScene extends Phaser.Scene {
           const dyM = -(latitude - START_LAT) * METERS_PER_DEG_LAT;
           const prev = this.gpsM;
           this.gpsM = { x: dxM, y: dyM };
-          // Debug controls — or a manual-control takeover this session (WASD /
-          // arrow keys / SPACE / T teleport) — own movement entirely: skip the
-          // GPS-driven target write so the gold joystick / arrow keys aren't
-          // fighting the watcher. gpsM still tracks so the HUD's gps-live check
-          // and the facing fallback below keep working.
-          if (this.save.debugControls || this._gpsManualOverride) {
+          // A manual-control takeover this session (WASD / arrow keys / SPACE /
+          // T teleport) owns movement entirely: skip the GPS-driven target
+          // write so the keyboard isn't fighting the watcher. gpsM still tracks
+          // so the HUD's gps-live check and the facing fallback below keep
+          // working. Debug controls no longer opt out — they only make stick
+          // walking free (see _steerManual) — and neither does a dragon, which
+          // is now a stat buff rather than a flight mode.
+          if (this._gpsManualOverride) {
             // intentionally no target / playerM write
-          } else if (this.isDragonActive()) {
-            // Flying free as a dragon: gpsM still tracks for the HUD, but a fix
-            // must NOT pull the dragon back to the real location — no target
-            // write, so the dragon stays where it flew. The buff's expiry edge
-            // in update() re-syncs the target onto wherever it landed.
           } else {
             // THE FIX IS THE TARGET — plus whatever the stick has walked you
             // off it (_manualOffsetM). The body walks toward that in
@@ -1488,7 +1482,8 @@ class MapScene extends Phaser.Scene {
       const off = this._manualOffsetM || { x: 0, y: 0 };
       out.push(`stickOffset=(${Math.round(off.x)},${Math.round(off.y)}) `
         + `${Math.round(Math.hypot(off.x, off.y))}m  `
-        + `speed=${steerSpeedMul(this.save.relics)}× cost=${steerEnergyCost(this.save.relics)}/cell`);
+        + `speed=${steerSpeedMul(this._walkRelics())}× `
+        + `cost=${this.save.debugControls ? 'free (debug)' : steerEnergyCost(this._walkRelics()) + '/cell'}`);
       if (!entry || !entry.grid) {
         out.push('(tile not loaded — stand on the spot, then dump)');
         if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
@@ -2140,20 +2135,16 @@ class MapScene extends Phaser.Scene {
     try {
     const dt = dtMs / 1000;
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
-    // NOT persisted, so a refresh ends it). On each edge we swap the sprite
-    // skin on/off; the stick it flies with is already on screen. The countdown
-    // label is refreshed every frame below.
+    // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
+    // a dragon walks the same way everyone walks, just with a tier-8 amulet's
+    // legs (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
+    // edge does is swap the sprite skin; the countdown label is refreshed
+    // every frame below.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      if (!dragonActive) {
-        this.dragonTimerText.setVisible(false);
-        // Landed. The target went untouched during flight (startGps skips it
-        // while a dragon), so park it here; the next fix decides whether the
-        // trip home is a walk or a GPS_SNAP_M snap.
-        this.syncMoveTarget();
-      }
+      if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
     if (dragonActive) {
       const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
@@ -2162,11 +2153,6 @@ class MapScene extends Phaser.Scene {
         .setPosition(this.viewCenterX, this.viewCenterY - 34)
         .setVisible(true);
     }
-    // Dragon flight is the one movement mode that still takes the stick away
-    // from ordinary walking: while a dragon holds it, the stick drives the body
-    // itself, free of charge and free of the map, and letting go leaves the
-    // dragon where it flew.
-    const dragonFlying = dragonActive && this._movePadHeld && this.depth === 0;
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -2185,51 +2171,26 @@ class MapScene extends Phaser.Scene {
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
-    // Keyboard movement (WASD / arrow keys) is a manual takeover — at this
-    // point vx/vy reflect only keyboard input (the debug-pad joystick override
-    // below comes after), so any non-zero value means the player is driving
-    // themselves. Latch off GPS for the rest of the session. The movement
-    // STICK is not a takeover: it walks you off the GPS while the GPS keeps
-    // tracking you (see _steerManual / _manualOffsetM).
+    // Keyboard movement (WASD / arrow keys) is a manual takeover — any non-zero
+    // value here means the player is driving themselves, so latch off GPS for
+    // the rest of the session. The movement STICK is not a takeover: it walks
+    // you off the GPS while the GPS keeps tracking you (see _steerManual /
+    // _manualOffsetM).
     if (vx || vy) this.disableGpsForSession();
-    if (this._debugPadHeld && this.debugJoystickVec) {
-      // Debug pad takes the stick's slot while save.debugControls is on:
-      // steers at DEBUG_SPEED_MUL × walk speed for free (same behaviour as the
-      // keyboard arrow keys, just touch-friendly).
-      vx = this.debugJoystickVec.x;
-      vy = this.debugJoystickVec.y;
-      speedMul = DEBUG_SPEED_MUL;
-    }
     if (this._fastWalk) speedMul = 25;
     // The movement stick — always on screen, always live.
     const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
-    // ONE movement model at every depth (see _steerTarget / _followStep):
-    // inputs and GPS fixes move a free-flying TARGET, and the opaque body —
-    // still this.playerM, so the camera and the reach/tap origin stay on it —
-    // walks toward it. Underground it mines through any wall in the way; on the
-    // surface nothing blocks, so it's a plain walk toward the target.
-    //
-    // Dragon flight opts OUT: there playerM is itself the flying thing, driven
-    // straight off the stick at many times walk pace, and the point is that it
-    // goes where you push it rather than trailing a target.
-    if (!dragonFlying) {
-      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
-      if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
-      // Keyboard / debug pad → steer the target directly, free, no offset.
-      this._steerTarget(vx, vy, speedMul, dt);
-      this._followStep(dt);
-    } else if (stick && (stick.x || stick.y)) {
-      const n = Math.hypot(stick.x, stick.y);
-      const dx = (stick.x / n) * WALK_M_S * DRAGON_FLY_MUL * dt;
-      const dy = (stick.y / n) * WALK_M_S * DRAGON_FLY_MUL * dt;
-      this.playerM.x += dx;
-      this.playerM.y += dy;
-      // Only let the stick drive facing when there's no compass heading.
-      if (this.compassDeg == null) this.facing = { x: stick.x, y: stick.y };
-      this._playDirected(this.player, 'walk', stick.x, stick.y);
-    } else {
-      this._playDirected(this.player, 'idle');
-    }
+    // ONE movement model, at every depth and under every buff (see
+    // _steerTarget / _followStep): inputs and GPS fixes move a free-flying
+    // TARGET, and the opaque body — still this.playerM, so the camera and the
+    // reach/tap origin stay on it — walks toward it. Underground it mines
+    // through any wall in the way; on the surface nothing blocks, so it's a
+    // plain walk toward the target.
+    // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+    if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
+    // Keyboard → steer the target directly, free, no offset.
+    this._steerTarget(vx, vy, speedMul, dt);
+    this._followStep(dt);
 
     // Exhaustion underground: hit 0 energy below the surface and you black out
     // and wake up top-side. Guarded so the modal fires once, and skipped in
@@ -2249,11 +2210,9 @@ class MapScene extends Phaser.Scene {
     // two are basically coincident — arrived — keep it hidden so nothing
     // diverges. The surface threshold is far looser: a GPS fix jitters a few
     // metres every second even when the player is standing still, and a marker
-    // strobing on and off with the noise is worse than no marker. Hidden
-    // outright under dragon flight, where playerM is the flier and the target
-    // isn't steering anything.
+    // strobing on and off with the noise is worse than no marker.
     const markerDiv = this.cellM * (this.depth > 0 ? 0.5 : 3);
-    if (this._targetM && !dragonFlying) {
+    if (this._targetM) {
       const gdx = this._targetM.x - this.playerM.x;
       const gdy = this._targetM.y - this.playerM.y;
       const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
@@ -3582,6 +3541,21 @@ class MapScene extends Phaser.Scene {
     this._followPaused = false;
     if (this.targetGhost) this.targetGhost.setVisible(false);
   }
+  // Effective amulet for WALKING: the best of what the player is wearing and
+  // what they're currently buffed with. Dragon Powder and the Speed potion are
+  // both just borrowed amulet tiers now — no modes, no separate speed ladders
+  // — so every walking site (stick speed, stamina cost, the body's catch-up
+  // floor, the debug dump) asks this one question. Returns a relics-shaped
+  // object so it can be handed straight to items.js's steer* helpers; tier 0
+  // is a bare hand, which those answer for.
+  _walkRelics() {
+    let tier = this.save.relics?.amulet?.tier || 0;
+    if (this.isDragonActive()) tier = Math.max(tier, DRAGON_AMULET_TIER);
+    if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
+      tier = Math.max(tier, SPEED_POTION_AMULET_TIER);
+    }
+    return { amulet: { tier } };
+  }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (keyboard / debug pad,
   // which is a free debug takeover) this is a first-class part of play:
@@ -3600,10 +3574,14 @@ class MapScene extends Phaser.Scene {
   _steerManual(vx, vy, dt) {
     const n = Math.hypot(vx, vy);
     if (!n) return;
+    // Debug controls (☰ menu) do exactly one thing now: stick walking is free.
+    // No stamina, and therefore no empty-tank stop either — that's the whole
+    // feature, so a dev can roam a map without the bar getting in the way.
+    const free = !!this.save.debugControls;
     // Out of energy is a hard stop, not a slow crawl: the stick simply can't
     // walk you any further off the GPS until you rest. Throttle the nag so it
     // doesn't fire every frame the player keeps pushing.
-    if ((this.save.energy ?? 0) <= 0) {
+    if (!free && (this.save.energy ?? 0) <= 0) {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
@@ -3611,9 +3589,7 @@ class MapScene extends Phaser.Scene {
       }
       return;
     }
-    const relics = (this.save.speedPotionUntil ?? 0) > Date.now()
-      ? { amulet: { tier: 9 } }
-      : this.save.relics;
+    const relics = this._walkRelics();
     const step = WALK_M_S * steerSpeedMul(relics) * dt;
     const dx = (vx / n) * step, dy = (vy / n) * step;
     if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
@@ -3623,6 +3599,7 @@ class MapScene extends Phaser.Scene {
     this._manualOffsetM.y += dy;
     this._followPaused = false;
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
+    if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
     // whole pip every ~7 cells instead of rounding up to one per cell.
     this._steerDistAccrue += Math.hypot(dx, dy);
@@ -3676,11 +3653,7 @@ class MapScene extends Phaser.Scene {
     // reads as lag rather than speed. The floor is deliberately NOT applied
     // when the stick is idle: a Frost amulet would otherwise have the body
     // darting at 4.5× after every few metres of GPS jitter.
-    const stickMul = this._movePadHeld
-      ? steerSpeedMul((this.save.speedPotionUntil ?? 0) > Date.now()
-          ? { amulet: { tier: 9 } }
-          : this.save.relics)
-      : 1;
+    const stickMul = this._movePadHeld ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(DEBUG_SPEED_MUL, Math.max(stickMul, 1 + dist / this.cellM));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
@@ -4484,7 +4457,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Potion of Speed: a minute of tier-9 amulet walking, even without an amulet
-  // — the stick moves you faster and costs almost no stamina (_steerManual
+  // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
   drinkSpeedPotion() {
     const sel = getSelectedSlot(this.save);
@@ -4508,25 +4481,24 @@ class MapScene extends Phaser.Scene {
 
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory
   // timer (this._dragonUntil) — deliberately NOT persisted to the save, so a
-  // refresh ends it. The flight branch in update() and interact.js's 2×-damage
+  // refresh ends it. _walkRelics (the tier-8 legs) and interact.js's 2×-damage
   // check both route through here.
   isDragonActive() {
     return (this._dragonUntil ?? 0) > Date.now();
   }
 
-  // Dragon Powder: transform into a red dragon for ONE MINUTE — fly free of the
-  // GPS at DRAGON_FLY_MUL × walk pace AND deal 2× attack damage (interact.js
-  // halves the kill-wheel duration while in dragon form), spending no energy.
-  // Flight is its own movement mode (see update()): the stick moves the body
-  // directly rather than walking it toward a target.
+  // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
+  // a tier-8 amulet's legs (DRAGON_AMULET_TIER, so the stick walks you faster
+  // and for less stamina than any forged amulet can) and 2× attack damage
+  // (interact.js halves the kill-wheel duration while in dragon form). No
+  // flight, no separate movement mode: a dragon walks the way everyone walks.
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
     this._dragonUntil = Date.now() + 60 * 1000;
-    this.syncMoveTarget();   // drop the walk target so it can't tug the dragon home
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales erupt across your skin — you ARE a dragon for one minute, soaring free of the map far faster than any amulet can walk you and striking twice as hard. Use the stick to fly.',
+      'Scales erupt across your skin — you ARE a dragon for one minute: dragon legs on the stick, and every blow lands twice as hard.',
     );
   }
 
@@ -5201,8 +5173,8 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
-    // frame). Sandbox / debug-control sessions have no GPS — fall back to the
-    // player's current position so Home still resolves.
+    // frame). A sandbox or debug session may have no fix at all — fall back to
+    // the player's current position so Home still resolves.
     const anchor = this.gpsM
       || ((this._sandboxMode || this.save.debugControls) ? this.playerM : null);
     if (!anchor) return;                       // no fix yet — wait for one
@@ -7064,15 +7036,11 @@ class MapScene extends Phaser.Scene {
     sync();
   }
   // The movement stick is ALWAYS on screen — it's how you walk anywhere the
-  // GPS isn't taking you, with or without an amulet. The only thing that ever
-  // takes its slot is the gold debug pad (save.debugControls), which sits in
-  // the same corner and would otherwise overlap it. Idempotent, so it's safe
-  // to call from create(), the debug toggle, and the per-frame relic sync.
+  // GPS isn't taking you, with or without an amulet, buff, or debug flag.
+  // Nothing takes its slot any more. Idempotent, so it's safe to call from the
+  // per-frame relic sync, which is what puts it up on the first frame.
   syncMovePad() {
-    const want = !this.save.debugControls;
-    const exists = !!document.getElementById('move-pad');
-    if (want && !exists) this.buildMovePad();
-    else if (!want && exists) this.removeMovePad();
+    if (!document.getElementById('move-pad')) this.buildMovePad();
   }
   removeMovePad() {
     document.getElementById('move-pad')?.remove();
@@ -7149,97 +7117,14 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('pointercancel', release);
     pad.addEventListener('lostpointercapture', reset);
   }
-  // Debug pad — same footprint as the movement stick but gold-tinted, takes
-  // the stick's slot while save.debugControls is on, and steers at
-  // DEBUG_SPEED_MUL × walk speed for free (no stamina, no GPS offset).
-  syncDebugPad() {
-    const want = !!this.save.debugControls;
-    const exists = !!document.getElementById('debug-pad');
-    if (want && !exists) this.buildDebugPad();
-    else if (!want && exists) this.removeDebugPad();
-  }
-  removeDebugPad() {
-    document.getElementById('debug-pad')?.remove();
-    this.debugJoystickVec = { x: 0, y: 0 };
-    this._debugPadHeld = false;
-  }
-  buildDebugPad() {
-    this.removeDebugPad();
-    const PAD = 110, NUB = 48;
-    const HALF = (PAD - NUB) / 2;
-    const R = HALF;
-    const pad = document.createElement('div');
-    pad.id = 'debug-pad';
-    // Gold tint so it reads as a dev/debug control rather than the purple
-    // movement stick. Same anchor point as the stick — they're mutually
-    // exclusive (see syncMovePad / syncDebugPad).
-    pad.style.cssText =
-      `position:fixed;` +
-      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
-      `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
-      `background:rgba(120,90,20,0.35);border:2px solid #ffe066;z-index:6;` +
-      `touch-action:none;user-select:none;-webkit-user-select:none;`;
-    const nub = document.createElement('div');
-    nub.style.cssText =
-      `position:absolute;left:${HALF}px;top:${HALF}px;` +
-      `width:${NUB}px;height:${NUB}px;border-radius:50%;` +
-      `background:rgba(255,224,128,0.7);border:2px solid #fff;pointer-events:none;`;
-    pad.appendChild(nub);
-    document.body.appendChild(pad);
-
-    let activePtr = null;
-    const reset = () => {
-      activePtr = null;
-      nub.style.left = `${HALF}px`;
-      nub.style.top  = `${HALF}px`;
-      this.debugJoystickVec = { x: 0, y: 0 };
-      this._debugPadHeld = false;
-    };
-    const place = (e) => {
-      const rect = pad.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top  + rect.height / 2;
-      let dx = e.clientX - cx;
-      let dy = e.clientY - cy;
-      const m = Math.hypot(dx, dy);
-      if (m > R) { dx = dx / m * R; dy = dy / m * R; }
-      nub.style.left = `${HALF + dx}px`;
-      nub.style.top  = `${HALF + dy}px`;
-      this.debugJoystickVec = { x: dx / R, y: dy / R };
-    };
-    pad.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      activePtr = e.pointerId;
-      pad.setPointerCapture(e.pointerId);
-      this._debugPadHeld = true;
-      place(e);
-    });
-    pad.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== activePtr) return;
-      e.stopPropagation();
-      place(e);
-    });
-    const release = (e) => {
-      if (e.pointerId !== activePtr) return;
-      e.stopPropagation();
-      reset();
-    };
-    pad.addEventListener('pointerup', release);
-    pad.addEventListener('pointercancel', release);
-    pad.addEventListener('lostpointercapture', reset);
-  }
-  // Toggle entry point wired from the ☰ menu. Persists the flag, swaps the
-  // movement stick for the debug pad (or back), and returns the new state so
+  // Toggle entry point wired from the ☰ menu. Debug controls are now a single
+  // switch on one thing — stick walking costs no stamina (_steerManual) —
+  // rather than a second joystick with its own speed and movement path. There
+  // is nothing to build or tear down: persist the flag and report it back so
   // the menu button can update its label.
   setDebugControls(on) {
     this.save.debugControls = !!on;
     persistSave(this.save);
-    this.syncMovePad();
-    this.syncDebugPad();
-    // Park the walk target on the body so a fix that landed milliseconds before
-    // the toggle doesn't keep dragging the player after the gold joystick takes
-    // over. The startGps callback skips future target writes on its own.
-    if (this.save.debugControls) this.syncMoveTarget();
     return this.save.debugControls;
   }
   // Road-geometry overlay (road_overlay.js) on/off. Persisted per save and
@@ -7265,11 +7150,8 @@ class MapScene extends Phaser.Scene {
     if (this._relicRowGen === gen) return;
     this._relicRowGen = gen;
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
-    // is what puts it on screen on the first frame, and keeps it in step with
-    // the debug pad that shares its corner — a save with debugControls already
-    // true gets the gold pad instead (the menu toggle handles later flips).
+    // is what puts it on screen on the first frame.
     this.syncMovePad();
-    this.syncDebugPad();
     // Drop the legacy top strip if an older build left one in the DOM.
     document.getElementById('relic-row')?.remove();
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
@@ -8038,7 +7920,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — 2× flight speed + 2× damage' },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
     };
     const cfg = sel && CONSUMABLE[sel.id];

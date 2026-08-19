@@ -343,9 +343,9 @@ const ITEMS = [
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
-  // Dragon Powder: use it (Use button with it selected) to PERMANENTLY become a
-  // red dragon — fly free of the GPS at 2× the fastest amulet's speed AND deal
-  // 2× attack damage (useDragonPowder in app.js; persists across refreshes).
+  // Dragon Powder: use it (Use button with it selected) to wear a red dragon
+  // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
+  // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
@@ -500,7 +500,7 @@ const PRICES = {
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
-  dragon_powder: 120,  // T3 — permanent dragon: free flight + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
