@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v53';
+const SHELL_VERSION = 'shell-v55';
 const TILE_CACHE    = 'tiles-v1';
 
 const SHELL_ASSETS = [
