@@ -102,7 +102,7 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
-    /* The movement pads (#debug-pad / #ghost-pad) are position:fixed on <body>
+    /* The movement pads (#debug-pad / #move-pad) are position:fixed on <body>
        at z-index 6 — but every modal dialog lives inside #game, whose transform
        makes its own stacking context, so a modal can never climb above the
        body-level pads. While a dialog is open the bottom-right pad would sit ON
@@ -110,7 +110,7 @@
        but not close the modal). MapScene._installModalPadGate toggles
        body.modal-open whenever a .game-modal is shown; hide the pads then. */
     body.modal-open #debug-pad,
-    body.modal-open #ghost-pad { display: none !important; }
+    body.modal-open #move-pad { display: none !important; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 6px;
@@ -471,7 +471,7 @@
       if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
     // Debug controls: toggles a gold soft-joystick that drives the body at
-    // 10× walk speed. Replaces the purple ghost pad while on. The button
+    // 10× walk speed. Takes the purple movement stick's slot while on. The button
     // label tracks state both before the scene loads (read save directly)
     // and after each click (scene returns the new value).
     // Resolve the ACTIVE saved game's raw data straight from localStorage.
@@ -939,7 +939,7 @@
   <script src="src/worldgen.js?v=207"></script>
   <script src="src/textures.js?v=160"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=190"></script>
+  <script src="src/items.js?v=191"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
@@ -975,7 +975,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=369';
+      const APP_SRC = 'src/app.js?v=370';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

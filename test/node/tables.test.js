@@ -70,3 +70,48 @@ test('WorldGen namespace is present and usable headlessly', () => {
   assert.eq(typeof WorldGen.lonLatToWorldPx, 'function', 'projection fn present');
   assert.eq(typeof WorldGen.Z, 'number', 'tile zoom is a number');
 });
+
+// ── Amulet: stick walking ────────────────────────────────────────────────────
+// The stick is always present and always works; the amulet is purely an upgrade
+// to it. Both curves therefore have to answer for a bare hand (tier 0) — the
+// old ghost-mode pair returned 0 there, meaning "no pad at all", and callers
+// had to paper over it with `|| 8` / `|| 1`.
+
+test('steerSpeedMul: bare hands walk at 1×, the amulet only makes it faster', () => {
+  assert.eq(steerSpeedMul({}), 1, 'no relics');
+  assert.eq(steerSpeedMul({ amulet: null }), 1, 'no amulet');
+  assert.eq(steerSpeedMul({ amulet: { tier: 1 } }), 1.5, 'T1');
+  assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), 4.5, 'T7 (Frost)');
+  // Monotonic, and never below the bare-handed baseline.
+  let prev = 0;
+  for (let t = 0; t <= 7; t++) {
+    const v = steerSpeedMul({ amulet: { tier: t } });
+    assert.gte(v, 1, `tier ${t} at least walk pace`);
+    assert.gt(v, prev, `tier ${t} beats tier ${t - 1}`);
+    prev = v;
+  }
+});
+
+test('steerEnergyCost: 1 pip/cell bare, ~7× cheaper at Frost', () => {
+  assert.eq(steerEnergyCost({}), 1, 'no relics — full price');
+  assert.eq(steerEnergyCost({ amulet: { tier: 1 } }), 1, 'T1 matches bare hands');
+  assert.inRange(steerEnergyCost({ amulet: { tier: 7 } }), 0.149, 0.151, 'T7 ≈ 0.15');
+  // Monotonic downward, and always something — walking off the GPS is never free.
+  let prev = Infinity;
+  for (let t = 1; t <= 7; t++) {
+    const v = steerEnergyCost({ amulet: { tier: t } });
+    assert.gt(v, 0, `tier ${t} still costs`);
+    assert.truthy(v <= prev, `tier ${t} no dearer than tier ${t - 1}`);
+    prev = v;
+  }
+});
+
+test('steerEnergyCost: the speed potion’s synthetic tier 9 never pays you to walk', () => {
+  // drinkSpeedPotion stands in a tier-9 amulet, which runs the linear curve
+  // negative — the floor is what keeps a minute of Speed from REFUNDING energy.
+  const v = steerEnergyCost({ amulet: { tier: 9 } });
+  assert.gt(v, 0, 'still positive');
+  assert.lt(v, steerEnergyCost({ amulet: { tier: 7 } }), 'still cheaper than Frost');
+  assert.gt(steerSpeedMul({ amulet: { tier: 9 } }), steerSpeedMul({ amulet: { tier: 7 } }),
+    'and faster than Frost');
+});

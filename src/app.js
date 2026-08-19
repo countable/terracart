@@ -136,6 +136,10 @@ function crowEatsCrop(p) { return Crops.crowEats(p); }
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
 const DEBUG = true;
 const DEBUG_SPEED_MUL = 10;
+// Dragon flight speed, in multiples of walk pace. Flight is its own movement
+// mode — free of energy and of the map — so it is not derived from the amulet
+// ladder that scales ordinary stick walking (items.js steerSpeedMul).
+const DRAGON_FLY_MUL = 48;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -951,16 +955,6 @@ class MapScene extends Phaser.Scene {
       .setAlpha(0.34)
       .setDepth(9.5)
       .setMask(mask);
-    // Second sprite for the player's real body when ghost mode is active.
-    // While ghost mode is OFF (the default) this stays hidden and `this.player`
-    // is the body. When ghost mode flips ON, `this.player` becomes the ghost
-    // (at 50% alpha, centred at viewCenter) and this sprite shows up at the
-    // body's offset, full opacity.
-    this.bodyPlayer = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
-      .setScale(this.playerScale)
-      .play('idle-down')
-      .setVisible(false)
-      .setMask(mask);
     // Countdown label floated over the dragon's head while Dragon Powder is
     // active — shows whole seconds of flight remaining. Hidden whenever the
     // player isn't a dragon. The player sprite is camera-locked at viewCenter,
@@ -1027,11 +1021,11 @@ class MapScene extends Phaser.Scene {
     // World tap (player handler runs first and stops propagation)
     this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
 
-    // The movement pads (debug / ghost) are position:fixed on <body> at
+    // The movement pads (stick / debug) are position:fixed on <body> at
     // z-index 6, but every modal lives INSIDE #game, whose CSS transform makes
     // its own stacking context — so a modal's z-index can't climb above the
-    // body-level pads. With a pad present (debug controls on, or an amulet),
-    // the bottom-right pad sits ON TOP of an open dialog and eats the taps that
+    // body-level pads. The bottom-right pad — now always on screen — sits ON
+    // TOP of an open dialog and eats the taps that
     // would dismiss it (and even walks the player), so the chest reward modal
     // gets stuck: "I can still walk around but can't interact." Gate the pads
     // behind a body.modal-open class toggled whenever a .game-modal is shown.
@@ -1058,21 +1052,24 @@ class MapScene extends Phaser.Scene {
     window.addEventListener('offline', () => this.showBanner(true));
     window.addEventListener('online', () => this.showBanner(false));
 
-    // Ghost-mode state. The pad shows up only when an amulet is equipped
-    // (managed in updateRelicRow → syncGhostPad). joystickVec is driven by
-    // pointer events on the pad; _ghostPadHeld tracks whether the pointer is
-    // currently down (so we can collapse the ghost on release even when the
-    // nub is centred). _bodyM is set on activation to remember where the
-    // real body was — restored to playerM on collapse.
+    // Movement-stick state. The stick is ALWAYS on screen (the debug pad is
+    // the only thing that ever takes its slot) — it's the control that walks
+    // you somewhere other than where the GPS puts you, and an amulet only
+    // makes that walking faster and cheaper. joystickVec is driven by pointer
+    // events on the pad, _movePadHeld says whether the pointer is currently
+    // down, and _manualOffsetM accumulates how far the stick has walked you
+    // from your real position: every fix targets gpsM + this offset, so the
+    // ground you covered by hand survives the next fix instead of being
+    // yanked back. _steerDistAccrue buffers metres toward the next energy pip.
     this.joystickVec = { x: 0, y: 0 };
-    this._ghostPadHeld = false;
-    this._bodyM = null;
-    this._speedPotionActive = false;
-    this._ghostDistAccrue = 0;   // meters of ghost travel since last energy pip
+    this._movePadHeld = false;
+    this._manualOffsetM = { x: 0, y: 0 };
+    this._steerDistAccrue = 0;
+    this._steerCostAccrue = 0;
 
     // Debug-controls pad (opt-in via the ☰ menu). When save.debugControls is
-    // true the ghost pad is suppressed and a debug pad takes its slot —
-    // direct body movement at DEBUG_SPEED_MUL × walk speed, no energy cost.
+    // true the movement stick is suppressed and a debug pad takes its slot —
+    // steers at DEBUG_SPEED_MUL × walk speed, no energy cost.
     this.debugJoystickVec = { x: 0, y: 0 };
     this._debugPadHeld = false;
 
@@ -1253,42 +1250,48 @@ class MapScene extends Phaser.Scene {
           this.gpsM = { x: dxM, y: dyM };
           // Debug controls — or a manual-control takeover this session (WASD /
           // arrow keys / SPACE / T teleport) — own movement entirely: skip the
-          // GPS-driven ease (and the silent body-warp under ghost mode) so the
-          // gold joystick / arrow keys aren't fighting the watcher. gpsM still
-          // tracks so the HUD's gps-live check and the facing fallback below
-          // keep working.
+          // GPS-driven target write so the gold joystick / arrow keys aren't
+          // fighting the watcher. gpsM still tracks so the HUD's gps-live check
+          // and the facing fallback below keep working.
           if (this.save.debugControls || this._gpsManualOverride) {
-            // intentionally no target / playerM / _bodyM write
+            // intentionally no target / playerM write
           } else if (this.isDragonActive()) {
             // Flying free as a dragon: gpsM still tracks for the HUD, but a fix
             // must NOT pull the dragon back to the real location — no target
             // write, so the dragon stays where it flew. The buff's expiry edge
             // in update() re-syncs the target onto wherever it landed.
           } else {
-            // THE FIX IS THE TARGET, at every depth. The body walks toward it
-            // in _followStep — underground through rock it mines out, on the
-            // surface as a plain walk. A fresh fix counts as a steer, so it
-            // also resumes any pursuit paused by a tap-interrupt.
-            this._targetM = { x: this.gpsM.x, y: this.gpsM.y };
-            this._followPaused = false;
-            if (this._bodyM) {
-              // Ghost mode: playerM IS the ghost and drives itself off the pad,
-              // so the parked body isn't the thing doing the walking — it just
-              // tracks the fix directly, silently, behind the ghost (bodyPlayer
-              // re-positions off _bodyM during render). collapseGhost re-syncs
-              // the target so the body doesn't chase the ghost's last spot.
-              this._bodyM.x = this.gpsM.x;
-              this._bodyM.y = this.gpsM.y;
-            } else if (this.depth === 0
-                       && (!prev || Math.hypot(this.gpsM.x - this.playerM.x,
-                                               this.gpsM.y - this.playerM.y) > GPS_SNAP_M)) {
-              // First fix of the session, or a jump too big to have been walked
-              // (see GPS_SNAP_M) — place the body outright. Surface only: a snap
-              // underground would drop the player inside solid rock, so down
-              // there the body always mines its way over, however far it is.
+            // THE FIX IS THE TARGET — plus whatever the stick has walked you
+            // off it (_manualOffsetM). The body walks toward that in
+            // _followStep: underground through rock it mines out, on the
+            // surface as a plain walk. Adding the offset rather than
+            // overwriting the target is what lets stick walking survive the
+            // next fix a second later instead of being yanked straight back.
+            // A fresh fix counts as a steer, so it also resumes any pursuit
+            // paused by a tap-interrupt.
+            const off = this._manualOffsetM;
+            // Is this fix a jump too big to have been WALKED? Measure in the
+            // GPS's own frame — body minus the stick offset — so walking 200 m
+            // off the GPS by hand doesn't read as a 200 m GPS jump and snap
+            // you home.
+            const bodyGpsX = this.playerM.x - off.x;
+            const bodyGpsY = this.playerM.y - off.y;
+            if (this.depth === 0
+                && (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
+                                        this.gpsM.y - bodyGpsY) > GPS_SNAP_M)) {
+              // First fix of the session, or a real jump (see GPS_SNAP_M) —
+              // place the body outright and drop the stick offset: the
+              // character is being re-anchored on the true position, and
+              // keeping the offset would just walk it back off again. Surface
+              // only: a snap underground would drop the player inside solid
+              // rock, so down there the body always mines its way over,
+              // however far it is.
+              off.x = 0; off.y = 0;
               this.playerM.x = this.gpsM.x;
               this.playerM.y = this.gpsM.y;
             }
+            this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
+            this._followPaused = false;
           }
           if (prev) {
             const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
@@ -1480,6 +1483,11 @@ class MapScene extends Phaser.Scene {
         ? `(${Math.round(this._targetM.x)},${Math.round(this._targetM.y)}) d=${Math.round(Math.hypot(this._targetM.x - this.playerM.x, this._targetM.y - this.playerM.y))}m`
         : 'none';
       out.push(`walkTarget=${tgt} paused=${!!this._followPaused}`);
+      // How far the stick has walked the player off their real (GPS) position.
+      const off = this._manualOffsetM || { x: 0, y: 0 };
+      out.push(`stickOffset=(${Math.round(off.x)},${Math.round(off.y)}) `
+        + `${Math.round(Math.hypot(off.x, off.y))}m  `
+        + `speed=${steerSpeedMul(this.save.relics)}× cost=${steerEnergyCost(this.save.relics)}/cell`);
       if (!entry || !entry.grid) {
         out.push('(tile not loaded — stand on the spot, then dump)');
         if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
@@ -2130,26 +2138,14 @@ class MapScene extends Phaser.Scene {
     // error so the underlying cause stays diagnosable on a phone.
     try {
     const dt = dtMs / 1000;
-    // Ghost-mode lifecycle: the pad is held iff the player has an amulet (or an
-    // active speed potion) AND they're actively touching the pad. On the
-    // down-edge, snapshot the body into _bodyM and let `this.playerM` become
-    // the ghost. On the up-edge, collapse. Underground the cave ghost-follow
-    // model owns the ghost concept, so don't let the two fight.
-    const speedPotionActive = (this.save.speedPotionUntil ?? 0) > Date.now();
-    if (this._speedPotionActive !== speedPotionActive) {
-      this._speedPotionActive = speedPotionActive;
-      if (!speedPotionActive) this.syncGhostPad();
-    }
-    // Dragon powder lights up the ghost pad without an amulet, but it's a
-    // 1-minute timed buff (this._dragonUntil, in-memory — NOT persisted, so a
-    // refresh ends it). On each edge we swap the sprite skin on/off and sync
-    // the pad (pop it up on transform, tear it down on expiry when nothing else
-    // keeps it eligible). The countdown label is refreshed every frame below.
+    // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
+    // NOT persisted, so a refresh ends it). On each edge we swap the sprite
+    // skin on/off; the stick it flies with is already on screen. The countdown
+    // label is refreshed every frame below.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      this.syncGhostPad();
       if (!dragonActive) {
         this.dragonTimerText.setVisible(false);
         // Landed. The target went untouched during flight (startGps skips it
@@ -2165,24 +2161,11 @@ class MapScene extends Phaser.Scene {
         .setPosition(this.viewCenterX, this.viewCenterY - 34)
         .setVisible(true);
     }
-    // Dragon flight is its OWN movement mode, NOT ghost mode: the pad drives the
-    // player body directly (no _bodyM snapshot), so releasing the pad leaves the
-    // dragon where it flew instead of snapping back, and flying costs no energy.
-    // Ghost mode (amulet / speed potion) is suppressed while a dragon.
-    const dragonFlying = dragonActive && this._ghostPadHeld && this.depth === 0;
-    const ghostEligible = (!!this.save.relics?.amulet || speedPotionActive) && this.depth === 0 && !dragonActive;
-    const ghostHeld = ghostEligible && this._ghostPadHeld;
-    if (ghostHeld && !this._bodyM) {
-      this._bodyM = { x: this.playerM.x, y: this.playerM.y };
-      this._ghostDistAccrue = 0;
-      this._ghostCostAccrue = 0;
-      // (No relic-icon flash — bodyPlayer.setVisible + alpha drop give the
-      // visual cue that ghost mode armed.)
-      this.bodyPlayer.setVisible(true);
-      this.player.setAlpha(0.5);
-    } else if (!ghostHeld && this._bodyM) {
-      this.collapseGhost();
-    }
+    // Dragon flight is the one movement mode that still takes the stick away
+    // from ordinary walking: while a dragon holds it, the stick drives the body
+    // itself, free of charge and free of the map, and letting go leaves the
+    // dragon where it flew.
+    const dragonFlying = dragonActive && this._movePadHeld && this.depth === 0;
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -2202,84 +2185,47 @@ class MapScene extends Phaser.Scene {
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
     }
     // Keyboard movement (WASD / arrow keys) is a manual takeover — at this
-    // point vx/vy reflect only keyboard input (the ghost / debug-pad joystick
-    // overrides below come after), so any non-zero value means the player is
-    // driving themselves. Latch off GPS for the rest of the session.
+    // point vx/vy reflect only keyboard input (the debug-pad joystick override
+    // below comes after), so any non-zero value means the player is driving
+    // themselves. Latch off GPS for the rest of the session. The movement
+    // STICK is not a takeover: it walks you off the GPS while the GPS keeps
+    // tracking you (see _steerManual / _manualOffsetM).
     if (vx || vy) this.disableGpsForSession();
-    // Ghost-mode joystick: vec ∈ [-1,1], amulet-tier-scaled speed. Keyboard
-    // movement is suppressed while the ghost is out so the two control
-    // schemes don't fight. Energy is debited per cell of ghost travel —
-    // amulet tier shrinks the per-cell cost (frost = 0.15/cell).
-    if (this._bodyM && this.joystickVec) {
-      vx = this.joystickVec.x;
-      vy = this.joystickVec.y;
-      speedMul = speedPotionActive
-        ? ghostSpeedMul({ amulet: { tier: 9 } })
-        : ghostSpeedMul(this.save.relics) || 8;
-    } else if (dragonFlying && this.joystickVec) {
-      // Dragon flight: drive the body directly at 2× the fastest (Frost)
-      // amulet's ghost speed = 48× walk. No _bodyM means the per-cell energy
-      // debit below is skipped (free flight) and there's no snap-back.
-      vx = this.joystickVec.x;
-      vy = this.joystickVec.y;
-      speedMul = ghostSpeedMul({ amulet: { tier: 7 } }) * 2;
-    } else if (this._debugPadHeld && this.debugJoystickVec) {
-      // Debug pad replaces the ghost pad while save.debugControls is on:
-      // drives the body directly at DEBUG_SPEED_MUL × walk speed (same
-      // behaviour as the keyboard arrow keys, just touch-friendly).
+    if (this._debugPadHeld && this.debugJoystickVec) {
+      // Debug pad takes the stick's slot while save.debugControls is on:
+      // steers at DEBUG_SPEED_MUL × walk speed for free (same behaviour as the
+      // keyboard arrow keys, just touch-friendly).
       vx = this.debugJoystickVec.x;
       vy = this.debugJoystickVec.y;
       speedMul = DEBUG_SPEED_MUL;
     }
     if (this._fastWalk) speedMul = 25;
-    const moving = vx || vy;
+    // The movement stick — always on screen, always live.
+    const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
     // ONE movement model at every depth (see _steerTarget / _followStep):
     // inputs and GPS fixes move a free-flying TARGET, and the opaque body —
     // still this.playerM, so the camera and the reach/tap origin stay on it —
     // walks toward it. Underground it mines through any wall in the way; on the
-    // surface nothing blocks, so it's a plain walk toward the GPS position.
+    // surface nothing blocks, so it's a plain walk toward the target.
     //
-    // Ghost mode and dragon flight opt OUT: there playerM is itself the flying
-    // thing, driven straight off the pad at many times walk pace, and the point
-    // is that it goes where you push it rather than trailing a target.
-    const padDriven = !!this._bodyM || dragonFlying;
-    if (!padDriven) {
+    // Dragon flight opts OUT: there playerM is itself the flying thing, driven
+    // straight off the stick at many times walk pace, and the point is that it
+    // goes where you push it rather than trailing a target.
+    if (!dragonFlying) {
+      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+      if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
+      // Keyboard / debug pad → steer the target directly, free, no offset.
       this._steerTarget(vx, vy, speedMul, dt);
       this._followStep(dt);
-    } else if (moving) {
-      const n = Math.hypot(vx, vy);
-      const dx = (vx / n) * WALK_M_S * speedMul * dt;
-      const dy = (vy / n) * WALK_M_S * speedMul * dt;
+    } else if (stick && (stick.x || stick.y)) {
+      const n = Math.hypot(stick.x, stick.y);
+      const dx = (stick.x / n) * WALK_M_S * DRAGON_FLY_MUL * dt;
+      const dy = (stick.y / n) * WALK_M_S * DRAGON_FLY_MUL * dt;
       this.playerM.x += dx;
       this.playerM.y += dy;
-      if (this._bodyM) {
-        // Each cell crossed accrues ghostEnergyCost(amulet) into the
-        // fractional buffer; whole units come out of save.energy. Higher
-        // amulet tier → smaller per-cell cost → fewer pips debited per cell.
-        // Collapse on empty so the player isn't stranded with no body.
-        this._ghostDistAccrue += Math.hypot(dx, dy);
-        const costPerCell = ghostEnergyCost(this.save.relics) || 1;
-        while (this._ghostDistAccrue >= this.cellM) {
-          this._ghostDistAccrue -= this.cellM;
-          this._ghostCostAccrue = (this._ghostCostAccrue || 0) + costPerCell;
-          while (this._ghostCostAccrue >= 1) {
-            this._ghostCostAccrue -= 1;
-            if ((this.save.energy ?? 0) <= 0) {
-              this.flash('too tired', this.viewCenterX, this.viewCenterY);
-              this.collapseGhost();
-              break;
-            }
-            const beforeGhost = this.save.energy ?? 0;
-            this.save.energy = Math.max(0, beforeGhost - 1);
-            this._warnIfTiring(beforeGhost);
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
-          }
-          if (!this._bodyM) break;   // collapse happened inside inner loop
-        }
-      }
-      // Only let WASD drive facing when there's no compass heading available.
-      if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-      this._playDirected(this.player, 'walk', vx, vy);
+      // Only let the stick drive facing when there's no compass heading.
+      if (this.compassDeg == null) this.facing = { x: stick.x, y: stick.y };
+      this._playDirected(this.player, 'walk', stick.x, stick.y);
     } else {
       this._playDirected(this.player, 'idle');
     }
@@ -2296,17 +2242,6 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Position the amulet-ghost body sprite at its true world offset.
-    // worldMetersToScreen does the camera-relative projection in one place;
-    // inlining the math here would let it drift away from every other
-    // render site if cellM / CELL_PX semantics ever change.
-    if (this._bodyM) {
-      const p = worldMetersToScreen(this,
-        this.startWorldM.x + this._bodyM.x,
-        this.startWorldM.y + this._bodyM.y);
-      this.bodyPlayer.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY));
-    }
-
     // Walk-target marker: show where the body is headed whenever the target has
     // pulled away from it (underground: trailing / mining; on the surface: the
     // GPS says you're over there and the body is still catching up). When the
@@ -2314,10 +2249,10 @@ class MapScene extends Phaser.Scene {
     // diverges. The surface threshold is far looser: a GPS fix jitters a few
     // metres every second even when the player is standing still, and a marker
     // strobing on and off with the noise is worse than no marker. Hidden
-    // outright under ghost mode / dragon flight, where playerM is the flier and
-    // the target isn't steering anything.
+    // outright under dragon flight, where playerM is the flier and the target
+    // isn't steering anything.
     const markerDiv = this.cellM * (this.depth > 0 ? 0.5 : 3);
-    if (this._targetM && !this._bodyM && !dragonFlying) {
+    if (this._targetM && !dragonFlying) {
       const gdx = this._targetM.x - this.playerM.x;
       const gdy = this._targetM.y - this.playerM.y;
       const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
@@ -2344,12 +2279,8 @@ class MapScene extends Phaser.Scene {
     // save.energy + refresh the DOM when a whole pip has accrued. Test mode
     // skips this so deterministic test runs don't see energy creep.
     if (!window.__TEST_MODE) {
-      // Rest is a body activity — when ghost mode is out, the BODY decides
-      // whether the player is indoors. Otherwise scouting a ghost into a
-      // house would let the body recover without ever being there.
-      const restAnchor = this._bodyM || this.playerM;
-      const pWX = this.startWorldM.x + restAnchor.x;
-      const pWY = this.startWorldM.y + restAnchor.y;
+      const pWX = this.startWorldM.x + this.playerM.x;
+      const pWY = this.startWorldM.y + this.playerM.y;
       const here = this.cellAt(pWX, pWY);
       const indoors = here.loaded && BUILDING_TYPES.has(here.type);
       // Resting at Home fills the bar much faster (HOME_FULL_REST_S) than any
@@ -2385,8 +2316,7 @@ class MapScene extends Phaser.Scene {
       // Stepping on a named path stone claims it. Memoised by absolute cell
       // index so we only do the lookup once per cell-change — without this
       // every frame inside the same cell would re-walk the pathNames map.
-      // Derive tile coords from the body position directly (NOT from
-      // playerToWorldCell, which tracks the ghost during ghost-mode).
+      // Derive tile coords from the body position directly.
       if (here.loaded && here.type === 8 /* PATH */) {
         const { cellIX, cellIY } = worldMetersToAbsCell(this, pWX, pWY);
         const key = `${cellIX},${cellIY}`;
@@ -2421,7 +2351,7 @@ class MapScene extends Phaser.Scene {
       const halfW = 6; // half-width of the base
       let cx = this.viewCenterX, cy = this.viewCenterY - 2;
       if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the ghost's head. targetGhost sits at sprite-center
+        // Anchor over the target marker's head. targetGhost sits at sprite-center
         // (p.y + playerFeetNudgeY); back out the nudge + the same -2 head
         // offset used at the viewport center so the arrow hovers identically.
         cx = this.targetGhost.x;
@@ -2440,10 +2370,7 @@ class MapScene extends Phaser.Scene {
     // from the feet.) Starting alpha is 0.45 (was 0.65 — ~30% lower) so the
     // freshest dot reads as a soft press rather than ink.
     {
-      // Footprints belong to the BODY — the ghost is an ethereal projection
-      // and shouldn't leave prints. When ghost mode is out, anchor logic to
-      // _bodyM (true body coords). When inactive, playerM IS the body.
-      const bodyM = this._bodyM || this.playerM;
+      const bodyM = this.playerM;
       const lp = this._lastFootprintM;
       const dx = bodyM.x - lp.x, dy = bodyM.y - lp.y;
       // First GPS fix can jump hundreds of meters from playerM=(0,0); skip the
@@ -2461,8 +2388,8 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
       this.footprintGfx.clear();
-      // Camera anchor stays on playerM (= ghost while active), so footprints
-      // drawn at body world coords land at the body's screen offset.
+      // Camera anchor stays on playerM, so footprints drawn at body world
+      // coords land at the body's screen offset.
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
@@ -2666,8 +2593,8 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     // Tapping to bail on an underground auto-mine pauses the body's pursuit of
-    // the ghost so the player can do something else; the next steer (GPS fix,
-    // keyboard, debug pad) clears the pause and resumes following.
+    // the target so the player can do something else; the next steer (GPS fix,
+    // stick, keyboard, debug pad) clears the pause and resumes following.
     if (this._autoMineKey) {
       this._followPaused = true;
       this._autoMineKey = null;
@@ -3634,13 +3561,75 @@ class MapScene extends Phaser.Scene {
   }
   // Snap the walk target onto the body and drop any pause. Call after ANY warp
   // that moves playerM without the body having walked there — teleport presets,
-  // taking a staircase, collapsing the amulet ghost, a dragon landing. Without
-  // it the stale target survives the warp and the body immediately sets off
-  // walking back to wherever it used to be headed.
+  // taking a staircase, a dragon landing. Also drops the stick's manual offset:
+  // after a warp there's no "how far I walked off the GPS" left to honour, and
+  // keeping it would just walk the player straight back off the new spot.
+  // Without this the stale target survives the warp and the body immediately
+  // sets off walking back to wherever it used to be headed.
   syncMoveTarget() {
     this._targetM = { x: this.playerM.x, y: this.playerM.y };
+    this._manualOffsetM = { x: 0, y: 0 };
+    this._steerDistAccrue = 0;
+    this._steerCostAccrue = 0;
     this._followPaused = false;
     if (this.targetGhost) this.targetGhost.setVisible(false);
+  }
+  // Steer with the STICK — the one control that walks you somewhere other than
+  // where the GPS says you are. Unlike _steerTarget (keyboard / debug pad,
+  // which is a free debug takeover) this is a first-class part of play:
+  //
+  //   • it moves the target AND banks the same delta into _manualOffsetM, so
+  //     the next fix targets gpsM + offset and the ground you covered by hand
+  //     isn't undone a second later;
+  //   • it costs STAMINA, per cell, because this is the character covering
+  //     ground you didn't. Walking with the GPS stays free — that's you
+  //     actually walking.
+  //
+  // The amulet is the upgrade to exactly this: steerSpeedMul scales how fast
+  // the stick walks you (1× bare → 4.5× at Frost) and steerEnergyCost scales
+  // what it costs (1 pip/cell bare → 0.15 at Frost). A speed potion stands in
+  // for a tier-9 amulet on both counts for its minute.
+  _steerManual(vx, vy, dt) {
+    const n = Math.hypot(vx, vy);
+    if (!n) return;
+    // Out of energy is a hard stop, not a slow crawl: the stick simply can't
+    // walk you any further off the GPS until you rest. Throttle the nag so it
+    // doesn't fire every frame the player keeps pushing.
+    if ((this.save.energy ?? 0) <= 0) {
+      const now = Date.now();
+      if (now - (this._steerTiredFlashAt || 0) > 3000) {
+        this._steerTiredFlashAt = now;
+        this.flash('too tired', this.viewCenterX, this.viewCenterY);
+      }
+      return;
+    }
+    const relics = (this.save.speedPotionUntil ?? 0) > Date.now()
+      ? { amulet: { tier: 9 } }
+      : this.save.relics;
+    const step = WALK_M_S * steerSpeedMul(relics) * dt;
+    const dx = (vx / n) * step, dy = (vy / n) * step;
+    if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
+    this._targetM.x += dx;
+    this._targetM.y += dy;
+    this._manualOffsetM.x += dx;
+    this._manualOffsetM.y += dy;
+    this._followPaused = false;
+    if (this.compassDeg == null) this.facing = { x: vx, y: vy };
+    // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
+    // whole pip every ~7 cells instead of rounding up to one per cell.
+    this._steerDistAccrue += Math.hypot(dx, dy);
+    const costPerCell = steerEnergyCost(relics);
+    while (this._steerDistAccrue >= this.cellM) {
+      this._steerDistAccrue -= this.cellM;
+      this._steerCostAccrue += costPerCell;
+      while (this._steerCostAccrue >= 1) {
+        this._steerCostAccrue -= 1;
+        const before = this.save.energy ?? 0;
+        this.save.energy = Math.max(0, before - 1);
+        this._warnIfTiring(before);
+        if (this.updateEnergyDOM) this.updateEnergyDOM();
+      }
+    }
   }
   // Move the body one frame toward the target through open cells, mining a wall
   // only when it actually blocks the path AND can't be walked around (a cave
@@ -3652,7 +3641,7 @@ class MapScene extends Phaser.Scene {
   // wedge-only check would slide against forever). When blocked, first try a
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
-  // body merely outrun by a fast ghost on open floor won't dig.
+  // body merely outrun by fast steering on open floor won't dig.
   _followStep(dt) {
     // No target yet (surface before the first fix / any steer) — stand still.
     if (!this._targetM) { this._playDirected(this.player, 'idle'); return; }
@@ -3671,7 +3660,20 @@ class MapScene extends Phaser.Scene {
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
     // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
     // big jump still reads as travel rather than a warp.
-    const mul = Math.min(DEBUG_SPEED_MUL, 1 + dist / this.cellM);
+    //
+    // While the STICK is held, floor it at the player's own stick speed: you
+    // can never outrun your own legs. Without this the body settles
+    // (steerSpeedMul - 1) cells behind a stick that's being held down — at
+    // Frost that's a 20 m tail, and 20 m of coasting after you let go, which
+    // reads as lag rather than speed. The floor is deliberately NOT applied
+    // when the stick is idle: a Frost amulet would otherwise have the body
+    // darting at 4.5× after every few metres of GPS jitter.
+    const stickMul = this._movePadHeld
+      ? steerSpeedMul((this.save.speedPotionUntil ?? 0) > Date.now()
+          ? { amulet: { tier: 9 } }
+          : this.save.relics)
+      : 1;
+    const mul = Math.min(DEBUG_SPEED_MUL, Math.max(stickMul, 1 + dist / this.cellM));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -3756,7 +3758,7 @@ class MapScene extends Phaser.Scene {
     // Affordability GATE only — do NOT deduct here. Unlike a hand-tapped mine
     // (which the player starts deliberately and waits out), the body kicks off
     // these wheels on its own — up to 9s bare-handed — while the player is
-    // tapping to steer the ghost underground. An up-front charge with
+    // tapping to steer underground. An up-front charge with
     // refund-on-bail (abortWorkProgress) meant every tap during the wheel handed
     // the energy back, so a whole tunnel could be dug for almost nothing.
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
@@ -3807,7 +3809,6 @@ class MapScene extends Phaser.Scene {
     // diverge until the player steers or the next GPS fix lands.
     if (this._workProgress && this._autoMineKey) this.cancelWorkProgress();
     this._autoMineKey = null;
-    if (this._bodyM) this.collapseGhost();   // never carry amulet ghost underground
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
     this.ensureTilesAround().catch(() => {});
@@ -3822,7 +3823,6 @@ class MapScene extends Phaser.Scene {
     this._passingOut = true;
     if (this._workProgress) this.cancelWorkProgress();
     this._autoMineKey = null;
-    if (this._bodyM) this.collapseGhost();
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);
@@ -4475,16 +4475,16 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Potion of Speed: unlocks the ghost pad at tier-9 speed for 1 minute, even
-  // without an amulet. ghostEligible + syncGhostPad both check speedPotionUntil.
+  // Potion of Speed: a minute of tier-9 amulet walking, even without an amulet
+  // — the stick moves you faster and costs almost no stamina (_steerManual
+  // reads speedPotionUntil).
   drinkSpeedPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.speedPotionUntil = Date.now() + 60 * 1000;
-    this.syncGhostPad();
     return this._finishConsumable(
       'You drink the Potion of Speed',
-      'The ghost pad blazes with energy — tier-9 amulet speed for one minute.',
+      'Your legs blaze — tier-9 amulet walking for one minute.',
     );
   }
 
@@ -4500,28 +4500,25 @@ class MapScene extends Phaser.Scene {
 
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory
   // timer (this._dragonUntil) — deliberately NOT persisted to the save, so a
-  // refresh ends it. ghostEligible + syncGhostPad (and interact.js's 2×-damage
-  // check) all route through here.
+  // refresh ends it. The flight branch in update() and interact.js's 2×-damage
+  // check both route through here.
   isDragonActive() {
     return (this._dragonUntil ?? 0) > Date.now();
   }
 
   // Dragon Powder: transform into a red dragon for ONE MINUTE — fly free of the
-  // GPS at 2× the fastest (Frost) amulet's ghost speed AND deal 2× attack
-  // damage (interact.js halves the kill-wheel duration while in dragon form),
-  // even without an amulet, spending no energy. Flight is its own movement mode
-  // (see update()): the pad moves the body directly, so it doesn't snap back on
-  // release. ghostEligible + syncGhostPad check isDragonActive(); syncGhostPad
-  // pops the pad up now.
+  // GPS at DRAGON_FLY_MUL × walk pace AND deal 2× attack damage (interact.js
+  // halves the kill-wheel duration while in dragon form), spending no energy.
+  // Flight is its own movement mode (see update()): the stick moves the body
+  // directly rather than walking it toward a target.
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
     this._dragonUntil = Date.now() + 60 * 1000;
     this.syncMoveTarget();   // drop the walk target so it can't tug the dragon home
-    this.syncGhostPad();
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales erupt across your skin — you ARE a dragon for one minute, soaring free of the map at twice a Frost amulet’s speed and striking twice as hard. Use the ghost pad to fly.',
+      'Scales erupt across your skin — you ARE a dragon for one minute, soaring free of the map far faster than any amulet can walk you and striking twice as hard. Use the stick to fly.',
     );
   }
 
@@ -6985,26 +6982,23 @@ class MapScene extends Phaser.Scene {
   // Row of obtained-relic icons, anchored top-right just below the
   // money/energy badges. Rebuilds only when the relics signature changes,
   // so calling from updateHUD every frame stays cheap.
-  // Collapse the ghost back into the body: restore playerM to the snapshot,
-  // re-show the now-merged sprite at full opacity, hide the body double.
-  // Safe to call when no ghost is active (it's a no-op).
   // Play a directional player animation on `sprite`. When dx/dy are supplied
   // (movement frame), updates this._spriteDir so the idle pose holds the last
   // walking direction. Avoids restarting the anim if the key is unchanged.
-  // Swap the player (and the ghost body) between the human sheets and the red
-  // dragon while the Dragon Powder is active. Sets _dragonActive so
+  // Swap the player between the human sheets and the red dragon while the
+  // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
   // and rescales the 96×96 dragon frames down to roughly the walker's size.
   _applyDragonSkin(on) {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight
-    // buff (ghost pad + 2× speed + 2× damage) still works off the _dragonUntil
+    // buff (free flight + 2× damage) still works off the _dragonUntil
     // timer, which is independent of the skin.
     const ready = on && this.textures.exists('dragon')
       && (this.anims.get('dragon-fly')?.frames?.length > 0);
     this._dragonActive = ready;
-    for (const s of [this.player, this.bodyPlayer]) {
+    for (const s of [this.player]) {
       if (!s) continue;
       if (ready) {
         s.setScale(this.dragonScale);
@@ -7029,10 +7023,10 @@ class MapScene extends Phaser.Scene {
       if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
     }
     const { x, y } = this._spriteDir;
-    // Dragon transform: the player + ghost body fly as a single-direction
-    // dragon. Keep the flap looping and just mirror by heading (art faces
+    // Dragon transform: the player flies as a single-direction dragon.
+    // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.
-    if (this._dragonActive && (sprite === this.player || sprite === this.bodyPlayer)) {
+    if (this._dragonActive && sprite === this.player) {
       if (sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
       if (Math.abs(x) > 0.001) sprite.setFlipX(x < 0);
       return;
@@ -7043,19 +7037,6 @@ class MapScene extends Phaser.Scene {
     const key = `${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
     sprite.setFlipX(flip);
-  }
-  collapseGhost() {
-    if (!this._bodyM) return;
-    this.playerM.x = this._bodyM.x;
-    this.playerM.y = this._bodyM.y;
-    this._bodyM = null;
-    this._ghostDistAccrue = 0;
-    this._ghostCostAccrue = 0;
-    // playerM just warped from the ghost back onto the body; without this the
-    // body would set off walking to wherever the ghost was last steered.
-    this.syncMoveTarget();
-    this.bodyPlayer.setVisible(false);
-    this.player.setAlpha(1);
   }
   // Watch #game for modal dialogs and mirror their presence onto a
   // body.modal-open class. CSS uses it to hide the movement pads while any
@@ -7074,47 +7055,42 @@ class MapScene extends Phaser.Scene {
     this._modalPadObserver.observe(gameEl, { childList: true });
     sync();
   }
-  // Show or tear down the ghost pad based on amulet ownership. Called from
-  // updateRelicRow so the pad appears the moment the player first equips an
-  // amulet (and disappears if they ever ditch it). Debug controls win the
-  // slot — when save.debugControls is on the ghost pad is suppressed even
-  // if an amulet is equipped.
-  syncGhostPad() {
-    const has = (!!this.save.relics?.amulet
-      || (this.save.speedPotionUntil ?? 0) > Date.now()
-      || this.isDragonActive()) && !this.save.debugControls;
-    const exists = !!document.getElementById('ghost-pad');
-    if (has && !exists) this.buildGhostPad();
-    else if (!has && exists) this.removeGhostPad();
+  // The movement stick is ALWAYS on screen — it's how you walk anywhere the
+  // GPS isn't taking you, with or without an amulet. The only thing that ever
+  // takes its slot is the gold debug pad (save.debugControls), which sits in
+  // the same corner and would otherwise overlap it. Idempotent, so it's safe
+  // to call from create(), the debug toggle, and the per-frame relic sync.
+  syncMovePad() {
+    const want = !this.save.debugControls;
+    const exists = !!document.getElementById('move-pad');
+    if (want && !exists) this.buildMovePad();
+    else if (!want && exists) this.removeMovePad();
   }
-  removeGhostPad() {
-    document.getElementById('ghost-pad')?.remove();
+  removeMovePad() {
+    document.getElementById('move-pad')?.remove();
     this.joystickVec = { x: 0, y: 0 };
-    this._ghostPadHeld = false;
-    if (this._bodyM) this.collapseGhost();
+    this._movePadHeld = false;
   }
   // Virtual analog stick — bottom-right above the inventory bar. Fixed to the
   // viewport (outside #game for the usual transform-containing-block reason).
-  // Pointer events drive this.joystickVec ∈ [-1, 1]² and _ghostPadHeld;
-  // update() reads both to advance the ghost while held.
-  buildGhostPad() {
-    this.removeGhostPad();
+  // Pointer events drive this.joystickVec ∈ [-1, 1]² and _movePadHeld;
+  // update() reads both to walk the player off the GPS while held.
+  buildMovePad() {
+    this.removeMovePad();
     const PAD = 110, NUB = 48;
     const HALF = (PAD - NUB) / 2;     // nub centred in the pad at rest
     const R = HALF;                   // max nub offset from pad centre
     const pad = document.createElement('div');
-    pad.id = 'ghost-pad';
+    pad.id = 'move-pad';
     // Sits above the two-bar inventory HUD (item bar bottom 48 + ~54 tall, plus
-    // the type-tab bar above it). Purple tint so the player reads it as
-    // "amulet/ghost" rather than a generic d-pad.
+    // the type-tab bar above it).
     pad.style.cssText =
       `position:fixed;` +
       `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
-      // Purple tint reads as "amulet/ghost" rather than generic d-pad.
       // Right-anchored via --phone-right so the pad tucks inside the
       // simulated phone column on desktop.
       `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
-      `background:rgba(80,30,120,0.35);border:2px solid #b07adc;z-index:6;` +
+      `background:rgba(80,30,120,0.35);border:2px solid #b07adc;z-index:6;` +   // purple: the walking stick
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
     const nub = document.createElement('div');
     nub.style.cssText =
@@ -7130,7 +7106,7 @@ class MapScene extends Phaser.Scene {
       nub.style.left = `${HALF}px`;
       nub.style.top  = `${HALF}px`;
       this.joystickVec = { x: 0, y: 0 };
-      this._ghostPadHeld = false;
+      this._movePadHeld = false;
     };
     const place = (e) => {
       const rect = pad.getBoundingClientRect();
@@ -7148,7 +7124,7 @@ class MapScene extends Phaser.Scene {
       e.stopPropagation();
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
-      this._ghostPadHeld = true;
+      this._movePadHeld = true;
       place(e);
     });
     pad.addEventListener('pointermove', (e) => {
@@ -7165,9 +7141,9 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('pointercancel', release);
     pad.addEventListener('lostpointercapture', reset);
   }
-  // Debug pad — same footprint as the ghost pad but gold-tinted, replaces
-  // the ghost pad while save.debugControls is on, and drives the body
-  // directly at DEBUG_SPEED_MUL × walk speed instead of activating a ghost.
+  // Debug pad — same footprint as the movement stick but gold-tinted, takes
+  // the stick's slot while save.debugControls is on, and steers at
+  // DEBUG_SPEED_MUL × walk speed for free (no stamina, no GPS offset).
   syncDebugPad() {
     const want = !!this.save.debugControls;
     const exists = !!document.getElementById('debug-pad');
@@ -7187,8 +7163,8 @@ class MapScene extends Phaser.Scene {
     const pad = document.createElement('div');
     pad.id = 'debug-pad';
     // Gold tint so it reads as a dev/debug control rather than the purple
-    // ghost amulet pad. Same anchor point as the ghost pad — they're
-    // mutually exclusive (see syncGhostPad / syncDebugPad).
+    // movement stick. Same anchor point as the stick — they're mutually
+    // exclusive (see syncMovePad / syncDebugPad).
     pad.style.cssText =
       `position:fixed;` +
       `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
@@ -7245,12 +7221,12 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('lostpointercapture', reset);
   }
   // Toggle entry point wired from the ☰ menu. Persists the flag, swaps the
-  // ghost pad for the debug pad (or back), and returns the new state so the
-  // menu button can update its label.
+  // movement stick for the debug pad (or back), and returns the new state so
+  // the menu button can update its label.
   setDebugControls(on) {
     this.save.debugControls = !!on;
     persistSave(this.save);
-    this.syncGhostPad();
+    this.syncMovePad();
     this.syncDebugPad();
     // Park the walk target on the body so a fix that landed milliseconds before
     // the toggle doesn't keep dragging the player after the gold joystick takes
@@ -7273,18 +7249,18 @@ class MapScene extends Phaser.Scene {
   // Relics/armor used to render as a read-only icon strip at the top-right.
   // That strip is gone: equipped gear now lives in the Relics / Armor tabs of
   // the two-bar inventory HUD (buildInventoryDOM). This method survives because
-  // it's the per-frame hook that keeps the amulet ghost pad / debug pad in sync
-  // with save.relics — guarded by a generation counter so it only does work
+  // it's the per-frame hook that keeps the movement stick / debug pad on screen
+  // — guarded by a generation counter so it only does work
   // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
     if (this._relicRowGen === gen) return;
     this._relicRowGen = gen;
-    // Amulet → ghost mode: the pad lives or dies with the slot. Mirror it
-    // here so the toggle happens the moment a buy/forge writes save.relics.
-    // syncDebugPad rides along so a save with debugControls already true
-    // gets its pad on first frame (the menu toggle path handles later flips).
-    this.syncGhostPad();
+    // The stick doesn't depend on gear any more, but syncing here (idempotent)
+    // is what puts it on screen on the first frame, and keeps it in step with
+    // the debug pad that shares its corner — a save with debugControls already
+    // true gets the gold pad instead (the menu toggle handles later flips).
+    this.syncMovePad();
     this.syncDebugPad();
     // Drop the legacy top strip if an older build left one in the DOM.
     document.getElementById('relic-row')?.remove();
@@ -8052,7 +8028,7 @@ class MapScene extends Phaser.Scene {
       flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min' },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 ghost speed for 1 min' },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — 2× flight speed + 2× damage' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
