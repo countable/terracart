@@ -603,8 +603,8 @@ function drawOrchardTex(ctx, size, rng) {
 // sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
 // blade colours / shading next to the hand-painted wilderness art.)
 
-// Simple procedural castle turret — narrow stone column with a crenellated
-// top. One 24×44 canvas, anchor at bottom-centre so it sits on its cell. The
+// Simple procedural castle turret — a stout stone column with a crenellated
+// top. One 28×44 canvas, anchor at bottom-centre so it sits on its cell. The
 // column still rises clearly above the rampart battlements it stands among
 // (those reach ~10px above their cell) but is shorter than the old 50px
 // version, which towered over the walls rather than crowning them.
@@ -620,7 +620,9 @@ function drawOrchardTex(ctx, size, rng) {
 function makeTowerTexture(scene) {
   const KEY = 'tower';
   if (scene.textures.exists(KEY)) return;
-  const W = 24, H = 44;
+  // 28 wide (was 24): the column read as a thin post next to the rampart it
+  // crowns. The 24px battlement slab still sits inside the 32px cell.
+  const W = 28, H = 44;
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);
@@ -631,11 +633,14 @@ function makeTowerTexture(scene) {
 
   // Layout, top to bottom: merlons, battlement slab (overhanging the body),
   // then the column down to a 2px gap at the canvas bottom.
-  const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 3;
+  // Four teeth on the wider crown keeps the same 4px tooth / 2px crenel rhythm
+  // the old three had on the narrower one (22px of crenellation on the 24px
+  // slab, so 1px of slab shows at each end).
+  const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 4;
   const battTop = MERLON_H, battH = 5;
   const bodyTop = battTop + battH;          // 9
   const bodyBot = H - 2;                    // 42
-  const bodyX = 4, bodyW = W - 8;           // x 4..20
+  const bodyX = 4, bodyW = W - 8;           // x 4..24
   const battX = bodyX - 2, battW = bodyW + 4;  // slab overhangs 2px each side
 
   // ── Column ────────────────────────────────────────────────────────────
@@ -675,8 +680,7 @@ function makeTowerTexture(scene) {
   // ── Battlement slab + merlons ─────────────────────────────────────────
   ctx.fillStyle = battleColor;
   ctx.fillRect(battX, battTop, battW, battH);
-  // Merlons centred on the slab: 3 × 4px with 2px crenels = 16px on a 20px
-  // slab, so 2px of slab shows at each end.
+  // Merlons centred on the slab (see MERLONS above).
   const crownW = MERLONS * MERLON_W + (MERLONS - 1) * MERLON_GAP;
   const crownX = battX + ((battW - crownW) >> 1);
   const merlonX = (i) => crownX + i * (MERLON_W + MERLON_GAP);
