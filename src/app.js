@@ -1848,6 +1848,13 @@ class MapScene extends Phaser.Scene {
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
     const placedIdx = new Set();          // loot indices successfully seated
     const MIN_GAP = 3;                    // Chebyshev spacing between consecutive chests
+    // The Home trailer covers its own cell and spills into all eight
+    // neighbours, and clearHomeTrailerOverlap() deletes whatever sits in them.
+    // A crate seated there would be swept away with its starter loot, so the
+    // trail skips the moat rather than losing a chest to it. (The ring
+    // fallback below already starts 2 cells out.)
+    const inTrailerMoat = (cx, cy) =>
+      Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1;
     const seatCrate = (cx, cy, i) => {
       // Snap to the canonical global-cell centre. The tile-relative basis
       // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
@@ -1904,6 +1911,7 @@ class MapScene extends Phaser.Scene {
           const tt = entry.grid[ny * N + nx];
           if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
           if (usedSeats.has(nx + ',' + ny)) continue;
+          if (inTrailerMoat(nx, ny)) continue;
           // Enforce a minimum gap from the previous crate so the trail
           // spreads out instead of clustering on adjacent road cells.
           if (lastSeat &&
@@ -5278,8 +5286,56 @@ class MapScene extends Phaser.Scene {
     const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
-    for (const o of entry.objects) { if (o.id === obj.id) return; }   // already in
-    entry.objects.push(obj);
+    let present = false;
+    for (const o of entry.objects) { if (o.id === obj.id) { present = true; break; } }
+    if (!present) entry.objects.push(obj);
+    this.clearHomeTrailerOverlap();
+  }
+
+  // Nothing sits inside the Home trailer. Its art is the 108×75 trailer PNG at
+  // scale 0.6 — 65×45 px centred on its cell — so it covers its own cell whole
+  // and reaches ~32px sideways and ~22px up/down into all eight neighbours. A
+  // crate, tree or rock in any of those cells is drawn half-buried in the
+  // trailer, which reads as a glitch rather than scenery.
+  //
+  // Worldgen already keeps a one-cell moat clear of scatter objects around
+  // every building cell, but the trailer is synthetic: it paints no building
+  // terrain, so that pass never sees it. This is the same moat, applied
+  // wherever the trailer actually stands (including after "Move Home here").
+  //
+  // Buildings are left alone — a real house that happens to be next door is
+  // part of the neighbourhood, and deleting one would take its shop with it.
+  // So is ground flora: wild plants draw small and low, and the starter-area
+  // clearing deliberately keeps the player's real yard planting.
+  //
+  // Each tile is scanned once per (trailer position, object count) — cheap
+  // enough for the per-frame caller, and re-runs whenever a tile gains objects
+  // (a starter crate trail seating late, an Overpass decoration arriving).
+  clearHomeTrailerOverlap() {
+    const st = this.save.starterTrailer;
+    if (!st || (this.depth || 0) !== 0) return;
+    if (this.save.starterShopId !== st.id) return;   // trailer isn't Home any more
+    const home = worldMetersToAbsCell(this, st.x, st.y);
+    const stamp = `${st.id}@${home.cellIX},${home.cellIY}`;
+    // Only the trailer's own tile and its 8 neighbours can hold a cell in the
+    // moat, so the rest of the cache is skipped without touching its objects.
+    const htx = Math.floor(st.x / this.tileEdgeM), hty = Math.floor(st.y / this.tileEdgeM);
+    for (const [key, entry] of WorldGen.tileCache) {
+      if (!entry || !entry.objects) continue;
+      const parts = key.split('/');
+      if (Math.abs(+parts[1] - htx) > 1 || Math.abs(+parts[2] - hty) > 1) continue;
+      if (entry._trailerMoat === stamp && entry._trailerMoatN === entry.objects.length) continue;
+      for (let i = entry.objects.length - 1; i >= 0; i--) {
+        const o = entry.objects[i];
+        if (o === this._starterTrailerObj || o.kind === 'house' || o.kind === 'tower') continue;
+        const oc = worldMetersToAbsCell(this, o.x, o.y);
+        if (Math.abs(oc.cellIX - home.cellIX) <= 1 && Math.abs(oc.cellIY - home.cellIY) <= 1) {
+          entry.objects.splice(i, 1);
+        }
+      }
+      entry._trailerMoat = stamp;
+      entry._trailerMoatN = entry.objects.length;
+    }
   }
 
   // ☰ menu → "Move Home here". Confirmation dialog for relocating the Home
