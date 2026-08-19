@@ -165,7 +165,9 @@
     const s = S();
     s.playerM.x = wx - s.startWorldM.x;
     s.playerM.y = wy - s.startWorldM.y;
-    s._ease = null;
+    // Movement is target-follow (app.js _followStep): without re-parking the
+    // target the body walks straight back out of the teleport.
+    if (s.syncMoveTarget) s.syncMoveTarget();
   }
 
   // Move the player one CELL adjacent to the target (south by default) so
