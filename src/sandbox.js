@@ -652,8 +652,8 @@
     scene._sandboxMode = true;
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.
-    if (scene.gpsWatchId != null && navigator.geolocation) {
-      try { navigator.geolocation.clearWatch(scene.gpsWatchId); } catch (_) {}
+    if (scene.gpsWatchId != null && typeof Geo !== 'undefined') {
+      Geo.unsubscribe(scene.gpsWatchId);
       scene.gpsWatchId = null;
     }
     scene.gpsAvailable = false;

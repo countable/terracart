@@ -202,23 +202,28 @@
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
        DeviceOrientationEvent.requestPermission() AND start GPS. */
-    #safety {
+    #safety, #locating {
       position: fixed; inset: 0; z-index: 100;
       background: rgba(0, 0, 0, 0.78);
       display: flex; align-items: center; justify-content: center;
       padding: 20px;
     }
-    #safety .box {
+    #safety .box, #locating .box {
       max-width: 320px; background: #1a1612; color: #fff;
       border: 2px solid #c8a64a; border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
-    #safety p { margin: 0 0 18px; }
-    #safety button {
+    #safety p, #locating p { margin: 0 0 18px; }
+    #safety button, #locating button {
       background: #c8a64a; color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
+    /* "Skip" is a secondary action — don't dress it up like the CTA. */
+    #locating button {
+      background: transparent; color: #c8a64a;
+      border: 1px solid #6b5a2c; font-weight: 400; padding: 8px 18px;
     }
     /* First-load story intro — shown once, right after the safety splash,
        only when there is no prior intro flag (fresh save). Mirrors the
@@ -305,6 +310,17 @@
       <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:#a7ffb0;">Farm your neighbourhood.</p>
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <button id="safety-dismiss">Go to my location</button>
+    </div>
+  </div>
+  <!-- Shown on a brand-new save while the very first GPS fix is being
+       waited for. The world's projection origin is frozen at that fix, so the
+       game boots once, already anchored at the player's home — see the boot
+       gate at the bottom of this file. -->
+  <div id="locating" style="display:none">
+    <div class="box">
+      <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:#ffd96b;">Finding your location…</p>
+      <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
+      <button id="locating-skip">Skip</button>
     </div>
   </div>
   <div id="story" style="display:none">
@@ -539,8 +555,11 @@
         sec.appendChild(btn);
       }
     }
-    // app.js (which defines window.TELEPORT_PRESETS) is a synchronous script at
-    // the end of <body>, so it has run by DOMContentLoaded. Build then.
+    // app.js defines window.TELEPORT_PRESETS. It normally loads before
+    // DOMContentLoaded, but the boot gate at the bottom of this file can hold
+    // it back until the first GPS fix — so build now AND again once app.js
+    // has actually loaded (the builder is a no-op until the presets exist).
+    window.__buildTeleportMenu = () => buildTeleportMenu();
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', buildTeleportMenu);
     } else {
@@ -617,6 +636,11 @@
     // here, inline in the click. The promise resolution can be async; the
     // call itself just has to originate inside the click stack.
     let __safetyDismissed = false;
+    // Set once the player has agreed to share their location (the safety CTA,
+    // or an earlier answer carried across a reload in the same session). The
+    // boot gate polls this via window.__locationConsented.
+    let __consented = false;
+    window.__locationConsented = () => __consented;
     // On a GPS-triggered location.reload() (new save home capture), sessionStorage
     // persists across the reload. Auto-dismiss the safety splash so it doesn't
     // appear a second time — the user already acknowledged it this session.
@@ -625,6 +649,9 @@
         __safetyDismissed = true;
         document.getElementById('safety')?.remove();
         window.__compassPerm = window.__compassPerm || 'granted';
+        // Consent was given earlier this session — the boot gate (below) may
+        // still be waiting for it, and no CTA is left to click.
+        __consented = true;
       }
     } catch {}
     document.getElementById('safety-dismiss')?.addEventListener('click', async (e) => {
@@ -634,6 +661,7 @@
       // synthesized re-fire) could re-enter and play the opening story twice.
       if (__safetyDismissed) return;
       __safetyDismissed = true;
+      __consented = true;
       try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
       // Remove the splash up front so a queued second tap can't land on it again
       // while we're awaiting the permission prompt.
@@ -650,6 +678,9 @@
       }
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
+      // On a brand-new save the scene doesn't exist yet — the boot gate is
+      // holding app.js back until the first fix; this is its go signal.
+      window.__onLocationConsent?.();
       window.__scene?.startSensors?.();
     });
     // Two-slide opening story shown once after the safety splash. Slide 1
@@ -727,6 +758,8 @@
       __safetyDismissed = true;
       document.getElementById('safety')?.remove();
       window.__compassPerm = __skipSafetyPerm;
+      __consented = true;
+      window.__onLocationConsent?.();
       window.__scene?.startSensors?.();
     } else {
       let freshIntro = false;
@@ -871,8 +904,112 @@
   <script src="src/interact.js?v=220"></script>
   <script src="src/render.js?v=271"></script>
   <script src="src/assets.js?v=175"></script>
-  <script src="src/sandbox.js?v=33"></script>
+  <script src="src/sandbox.js?v=34"></script>
   <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=360"></script>
+  <script src="src/geo.js?v=1"></script>
+  <script>
+    // ─── Boot gate ────────────────────────────────────────────────────────
+    // app.js freezes the world's projection origin at parse time (START_LAT /
+    // START_LON, read from save.home), so on a brand-new save that origin
+    // isn't knowable until the first GPS fix arrives. The app used to boot at
+    // the default origin, capture the fix, then location.reload() to re-anchor
+    // — and that reload cost the player a SECOND browser location prompt
+    // (a reload re-asks whenever the grant isn't persistent, e.g. Safari's
+    // "Allow Once"). So: on a fresh save, hold app.js back until the fix
+    // lands, write save.home, then boot ONCE, already anchored at home.
+    // Everything else (a save that already has a home, a teleport override,
+    // sandbox, the test harness) boots immediately, exactly as before.
+    //
+    // The fix comes from the shared Geo watcher, so the scene's own GPS
+    // tracking joins that same watch — one watchPosition per page, one prompt.
+    (function () {
+      const APP_SRC = 'src/app.js?v=361';
+      // How long the gate waits for that first fix before giving up and
+      // booting at the default origin. A cold GPS start can take far longer
+      // than this indoors, so app.js keeps its capture-then-reload path as a
+      // fallback for a fix that lands after we've booted.
+      const GATE_MS = 15000;
+
+      let booted = false;
+      function bootApp() {
+        if (booted) return;
+        booted = true;
+        document.getElementById('locating')?.remove();
+        const el = document.createElement('script');
+        el.src = APP_SRC;
+        // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
+        // section was built before it loaded, so build it again now.
+        el.onload = () => { try { window.__buildTeleportMenu?.(); } catch (_) {} };
+        document.body.appendChild(el);
+      }
+
+      // Does this load need to capture a home origin? Mirrors the
+      // _homeCapturePending conditions in app.js create().
+      function needsHomeCapture() {
+        if (window.__TEST_MODE) return false;
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return false;
+        // A teleport preset relocates the origin explicitly — no capture.
+        try {
+          const tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null');
+          if (tp && Number.isFinite(tp.lat) && Number.isFinite(tp.lon)) return false;
+        } catch (_) { /* malformed override → ignore */ }
+        if (typeof Sandbox !== 'undefined' && Sandbox.detect()) return false;
+        try {
+          if (typeof initSaves === 'function') initSaves();
+          const sv = (typeof loadSave === 'function') ? loadSave() : null;
+          if (!sv) return false;
+          // Already anchored, or already placed the starter home: a save that
+          // has put objects in the world can't have its origin moved.
+          if (sv.home || sv.starterShopId) return false;
+        } catch (_) { return false; }
+        return true;
+      }
+
+      if (!needsHomeCapture()) { bootApp(); return; }
+
+      let sub = null;
+      let timer = null;
+      function done() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (sub) { Geo.unsubscribe(sub); sub = null; }
+        bootApp();
+      }
+
+      // Called from the safety splash's "Go to my location" button — the
+      // player's consent, and the only point at which we touch geolocation.
+      window.__onLocationConsent = function () {
+        if (booted || sub) return;
+        const box = document.getElementById('locating');
+        if (box) box.style.display = 'flex';
+        sub = Geo.subscribe(
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            try {
+              const sv = loadSave();
+              sv.home = { lat: latitude, lon: longitude };
+              persistSave(sv);
+              flushSave();     // app.js reads the save synchronously as it parses
+            } catch (_) { /* write failed → app.js's fallback capture retries */ }
+            done();
+          },
+          err => {
+            // Denied outright: no GPS this save, boot at the default origin.
+            // TIMEOUT / POSITION_UNAVAILABLE are transient — keep waiting
+            // until the gate's own deadline.
+            if (err && err.code === 1) done();
+          }
+        );
+        if (!sub) { done(); return; }   // geolocation unavailable after all
+        timer = setTimeout(done, GATE_MS);
+      };
+      document.getElementById('locating-skip')?.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        done();
+      });
+      // Consent may already have been given before this script ran (the splash
+      // is auto-dismissed on a same-session reload).
+      if (window.__locationConsented?.()) window.__onLocationConsent();
+    })();
+  </script>
 </body>
 </html>
