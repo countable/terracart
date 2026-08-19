@@ -1433,7 +1433,10 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
+    // frame 0 is the well without the hoist arm (assets.js slices the sheet at
+    // 30px); it is set explicitly because pool sprites are shared with
+    // multi-frame sheets and would otherwise keep a stale frame index.
+    well:   { key: 'well', frame: 0, origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.

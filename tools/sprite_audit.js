@@ -143,7 +143,7 @@ const SHEETS = {
   chest:         { file: 'assets/Objects/trunk.png',                         fw: 32, fh: 32, frames: [0] },
   box:           { file: 'assets/Objects/Wilderness/Box_Single_16x16.png',   fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Wilderness/stone with minerals.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
-  well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 48, fh: 32, frames: [0] },
+  well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: 'assets/Objects/Wilderness/pillar.png',             fw: 16, fh: 32, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Scarecrow_16x16.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
