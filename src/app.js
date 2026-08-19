@@ -644,14 +644,15 @@ class MapScene extends Phaser.Scene {
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
-    // the rasterizer turned into road/path cells, stroked black @ 30%. Sits
+    // the rasterizer turned into road/path cells, as a brown band @ 19%. Sits
     // above the terrain + cobbles so it reads as an overlay ON the map, and
     // below the plant/object sprites so it never paints over a tree or house.
     // (The plant/object/creature layer is worldContainer, added below.)
     // Scrolled each frame for the sub-cell offset, like the border layer.
+    // Only the container is made here: road_overlay.js draws into an offscreen
+    // canvas (round caps, one flat alpha over the whole network) and adds the
+    // resulting image to this container on its first pass.
     this.roadGeomContainer = this.add.container(0, 0);
-    this.roadGeomGfx = this.add.graphics();
-    this.roadGeomContainer.add(this.roadGeomGfx);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
