@@ -611,6 +611,13 @@
           // Persist any pending writes to the OUTGOING slot before we switch.
           if (typeof flushSave === 'function') flushSave();
           if (typeof switchSave === 'function') switchSave(s.id);
+          // Then kill the save pipeline. switchSave repoints SAVE_KEY at the
+          // INCOMING slot, but the scene is still running and still holding the
+          // outgoing game in memory — any persistSave it makes between here and
+          // the reload (movement, energy tick), or the pagehide flush the reload
+          // itself fires, would write that game onto the slot we're switching
+          // TO. Same hazard the reset handler guards against below.
+          if (typeof disableSave === 'function') disableSave();
           location.reload();
         });
         row.appendChild(pick);
@@ -625,8 +632,14 @@
             if (!confirm('Delete saved game "' + s.name + '"? This cannot be undone.')) return;
             const wasActive = s.active;
             if (typeof deleteSave === 'function') deleteSave(s.id);
-            if (wasActive) location.reload();   // active slot changed → reboot scene
-            else buildSavesMenu();              // just refresh the list
+            if (wasActive) {
+              // Deleting the active slot repoints SAVE_KEY at a surviving game;
+              // freeze writes so the deleted game's in-memory state can't be
+              // flushed on top of it before the reload.
+              if (typeof disableSave === 'function') disableSave();
+              location.reload();   // active slot changed → reboot scene
+            }
+            else buildSavesMenu();            // just refresh the list
           });
           row.appendChild(del);
         }
@@ -641,6 +654,13 @@
           if (name === null) return;   // cancelled
           if (typeof flushSave === 'function') flushSave();
           if (typeof createSave === 'function') createSave(name);
+          // createSave points SAVE_KEY at the new, EMPTY slot — but the scene is
+          // still running with the old game in memory. Without freezing writes
+          // here, its next persistSave (or the pagehide flush that
+          // location.reload fires) lands the old game's inventory, money and
+          // progress in the brand-new slot, so "New game" started you off with
+          // everything you already had.
+          if (typeof disableSave === 'function') disableSave();
           location.reload();
         });
       }
