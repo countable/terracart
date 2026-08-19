@@ -1041,10 +1041,14 @@ class MapScene extends Phaser.Scene {
       if (document.visibilityState === 'hidden') {
         // Pause Phaser's render+update loop — saves CPU/battery while backgrounded.
         if (this.game && !this.game.isPaused) this.game.pause();
-        // Stop the GPS watcher — by far the biggest battery drain. We'll
-        // re-arm it on return so a fresh fix is taken.
+        // Stop tracking GPS — by far the biggest battery drain — and re-arm
+        // on return so a fresh fix is taken. Releasing the subscription
+        // doesn't tear the watch down instantly: Geo holds it for a short
+        // grace period, so a quick app-switch and back rejoins the SAME watch
+        // instead of starting a new one (a new watch means another location
+        // prompt on browsers whose grant is per page session).
         if (this.gpsWatchId != null) {
-          try { navigator.geolocation.clearWatch(this.gpsWatchId); } catch {}
+          Geo.unsubscribe(this.gpsWatchId);
           this.gpsWatchId = null;
         }
         // Snapshot the moment we paused. Phaser stops calling update() while
@@ -1095,6 +1099,10 @@ class MapScene extends Phaser.Scene {
     // override is active (same rationale as sandbox above).
     if (_teleportOverride) { this.gpsAvailable = false; return; }
     if (!navigator.geolocation) return;
+    // Already watching (or the subscription is being re-armed) — never stack a
+    // second watch: on browsers that grant location per page session rather
+    // than per origin, every extra watchPosition can mean another prompt.
+    if (this.gpsWatchId != null) return;
     this.gpsAvailable = true;
     // Safety net: if no fix ever arrives, stop waiting for home capture after
     // 2 min so the start flow falls back to the default origin rather than
@@ -1119,14 +1127,21 @@ class MapScene extends Phaser.Scene {
         }
       }, 120000);
     }
+    // One watch per page, shared through Geo (src/geo.js) — index.html's
+    // boot-time home capture uses the same one, so a fresh start asks the
+    // player for their location exactly once.
     try {
-      this.gpsWatchId = navigator.geolocation.watchPosition(
+      this.gpsWatchId = Geo.subscribe(
         pos => {
           const { latitude, longitude } = pos.coords;
           // First GPS fix on a brand-new save: freeze THIS location as the
           // save's home origin and reload so the whole projection re-anchors
           // here. Only reload after VERIFYING the write landed (read it back) —
           // otherwise a failed localStorage write would loop on every fix.
+          // (Fallback path only: index.html normally captures home BEFORE
+          // app.js loads, so no reload — and no second location prompt — is
+          // needed. This runs when that boot gate gave up waiting and the
+          // fix landed afterwards.)
           if (this._homeCapturePending) {
             this._homeCapturePending = false;
             this.save.home = { lat: latitude, lon: longitude };
@@ -1209,9 +1224,9 @@ class MapScene extends Phaser.Scene {
               this._setStarterCratesAt(this.startWorldM.x, this.startWorldM.y);
             }
           }
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        }
       );
+      if (this.gpsWatchId == null) this.gpsAvailable = false;
     } catch { this.gpsAvailable = false; }
   }
   // Device compass: prefer absolute-orientation events (Android), fall back to
