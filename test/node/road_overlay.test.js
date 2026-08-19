@@ -13,12 +13,25 @@
 if (typeof CELL_PX === 'undefined') globalThis.CELL_PX = 32;
 
 // ── Stubs ─────────────────────────────────────────────────────────────────
+// Records what the overlay strokes: one entry per path, carrying the lineStyle
+// in force when it was stroked. `lines` flattens those paths back into
+// segments so the geometry assertions stay readable.
 function makeGfx() {
   return {
-    lines: [], cleared: 0, style: null,
-    clear() { this.lines.length = 0; this.cleared++; },
+    paths: [], cleared: 0, style: null, _cur: null,
+    clear() { this.paths.length = 0; this.cleared++; },
     lineStyle(w, c, a) { this.style = { w, c, a }; },
-    lineBetween(x1, y1, x2, y2) { this.lines.push([x1, y1, x2, y2]); },
+    beginPath() { this._cur = { style: this.style, pts: [] }; },
+    moveTo(x, y) { this._cur.pts.push({ x, y }); },
+    lineTo(x, y) { this._cur.pts.push({ x, y }); },
+    strokePath() { this.paths.push(this._cur); this._cur = null; },
+    get lines() {
+      const segs = [];
+      for (const p of this.paths)
+        for (let i = 1; i < p.pts.length; i++)
+          segs.push([p.pts[i-1].x, p.pts[i-1].y, p.pts[i].x, p.pts[i].y]);
+      return segs;
+    },
   };
 }
 function makeContainer() {
@@ -98,13 +111,105 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes black at 30% opacity', () => {
+test('road overlay: strokes black at 9% opacity', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
-  assert.eq(scene.roadGeomGfx.style.c, 0x000000, 'colour is black');
-  assert.eq(scene.roadGeomGfx.style.a, 0.30, 'alpha is 30%');
+  const style = scene.roadGeomGfx.paths[0].style;
+  assert.eq(style.c, 0x000000, 'colour is black');
+  assert.eq(style.a, 0.09, 'alpha is 9%');
+});
+
+// ── Width by class ────────────────────────────────────────────────────────
+// The stroke is the class's real-world width at the map's scale: one cell is
+// scene.cellM (5 m) and CELL_PX (32 px), so a metre is 6.4 px.
+// Computed the way the module computes it — (m / cellM) * CELL_PX — so the
+// assertions aren't chasing float-association noise.
+const px = (m) => (m / 5) * 32;
+const widthOfWay = (tags) => {
+  clearTiles();
+  putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }], tags)]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  return scene.roadGeomGfx.paths[0].style.w;
+};
+
+test('road overlay: a residential street is exactly one cell wide', () => {
+  // 5 m — the same ground the rasterizer's one-cell band covers.
+  assert.eq(widthOfWay({ class: 'street' }), px(5), 'street');
+  assert.eq(widthOfWay({ class: 'minor' }), px(5), 'minor');
+});
+
+test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
+  assert.eq(widthOfWay({ class: 'motorway' }),  px(12), 'motorway');
+  assert.eq(widthOfWay({ class: 'trunk' }),     px(12), 'trunk');
+  assert.eq(widthOfWay({ class: 'primary' }),   px(10), 'primary');
+  assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
+  assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
+  // A motorway covers more than two cells; a street covers one.
+  assert.gt(widthOfWay({ class: 'motorway' }), 2 * 32, 'motorway spans 2+ cells');
+});
+
+test('road overlay: footways and cycleways are person-wide, not road-wide', () => {
+  assert.eq(widthOfWay({ class: 'footway' }),  px(2), 'footway');
+  assert.eq(widthOfWay({ class: 'path' }),     px(2), 'path');
+  assert.eq(widthOfWay({ class: 'cycleway' }), px(2.5), 'cycleway');
+  assert.lt(widthOfWay({ class: 'footway' }), widthOfWay({ class: 'street' }), 'thinner than a street');
+});
+
+test('road overlay: widths come from the rasterizer\'s own table', () => {
+  // One source of truth — the overlay must not drift from WorldGen.roadWidthM.
+  for (const cls of ['motorway', 'primary', 'secondary', 'tertiary', 'street',
+                     'service', 'pedestrian', 'track', 'cycleway', 'footway', 'pier']) {
+    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })), cls);
+  }
+});
+
+test('road overlay: wider classes are stroked first so narrow ones read on top', () => {
+  clearTiles();
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'footway' }),
+    line([{ x: 0, y: 8 }, { x: 16, y: 8 }], { class: 'motorway' }),
+    line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }),
+  ]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const widths = scene.roadGeomGfx.paths.map(p => p.style.w);
+  assert.eq(widths.length, 3, 'three ways stroked');
+  for (let i = 1; i < widths.length; i++)
+    assert.truthy(widths[i - 1] > widths[i], 'widest first: ' + widths.join(','));
+});
+
+// ── Path continuity ───────────────────────────────────────────────────────
+
+test('road overlay: a way is one continuous path, not loose segments', () => {
+  clearTiles();
+  // A wide band drawn segment-by-segment leaves a notch at every bend.
+  putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }, { x: 16, y: 16 }], { class: 'primary' })]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  assert.eq(scene.roadGeomGfx.paths.length, 1, 'one path');
+  assert.eq(scene.roadGeomGfx.paths[0].pts.length, 3, 'all three vertices in it');
+});
+
+test('road overlay: an off-screen detour breaks the path instead of shortcutting', () => {
+  clearTiles();
+  const far = Math.round(600 / M);   // 600 m away — far outside the 55 m view
+  // On-screen, way off south, then back on-screen: the middle stretch is culled
+  // and must NOT be replaced by a straight line across the viewport.
+  putTile(0, 0, [line([
+    { x: 0, y: 0 }, { x: 0, y: far }, { x: 16, y: far }, { x: 16, y: 0 },
+  ])]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  for (const p of scene.roadGeomGfx.paths)
+    assert.truthy(p.pts.length >= 2, 'no degenerate path');
+  // No stroked segment may run straight across the view from the first vertex
+  // to the last — that's the shortcut a single un-broken path would draw.
+  const shortcut = scene.roadGeomGfx.lines.some(([x1, y1, x2, y2]) =>
+    Math.abs(y1 - y2) < 1 && Math.abs(x1 - 176) < 1 && Math.abs(x2 - 240) < 1);
+  assert.falsy(shortcut, 'culled stretch not bridged');
 });
 
 test('road overlay: geometry rides the world — moving the player shifts it', () => {
