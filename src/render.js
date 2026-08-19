@@ -168,7 +168,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
-  const PATH_ALPHA = 0.85;   // path pebbles sit 15% into the ground they cross
+  // Cobble tiles (road cluster + path pebble alike) draw at 85% opacity so the
+  // stones read as settled into the ground they cross rather than stamped on
+  // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
+  // scattered stone.
+  const COBBLE_ALPHA = 0.85;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -517,17 +521,14 @@ Render.drawCells = function drawCells(scene) {
           // Pool sprites are created with the 'cobble' texture so reassign
           // each frame; Phaser short-circuits if the key is already current.
           cs.setTexture(isPier ? 'pier' : 'cobble', frame);
-          // The PATH pebble draws at 85% opacity (15% less than it used to) so
-          // a footpath reads as scattered stones settled into the ground it
-          // crosses rather than a stamped-on decal. Roads and piers stay fully
-          // opaque — they ARE the surface. Set on every draw, not just for
-          // paths: pool slots are reused across cell types, so a slot that
-          // carried a path last frame would keep its alpha on a road cell.
+          // Alpha is set on every draw, not just for the translucent kinds:
+          // pool slots are reused across cell types, so a slot that carried a
+          // cobble last frame would keep 0.85 on a pier plank the next.
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(tint)
-            .setAlpha(type === PATH ? PATH_ALPHA : 1)
+            .setAlpha(isPier ? 1 : COBBLE_ALPHA)
             .setVisible(true);
         } else {
           cs.setVisible(false);
@@ -1480,7 +1481,12 @@ Render.drawObjects = function drawObjects(scene) {
        .setAlpha(0.5).setTint(0xffffff);
     });
   }
-  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
+  // One configure routine, two pools: turrets render into towerContainer
+  // (added above BOTH rampart layers in app.js) so a tower always reads as
+  // standing above the wall it's built on — including the south wall, which
+  // draws above every other object and used to paint over the turret in front
+  // of it. Everything else keeps objectsContainer and its existing sorting.
+  const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     const spec = RENDER_SPEC[o.kind];
@@ -1552,7 +1558,11 @@ Render.drawObjects = function drawObjects(scene) {
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
     // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
     if (typeof spec.after === 'function') spec.after(s, o);
-  });
+  };
+  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
+  const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
+  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
 
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up

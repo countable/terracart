@@ -603,81 +603,124 @@ function drawOrchardTex(ctx, size, rng) {
 // sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
 // blade colours / shading next to the hand-painted wilderness art.)
 
-// Simple procedural castle turret — narrow stone column with crenellated top.
-// One 24×50 canvas, anchor at bottom-centre so it sits on its cell. The column
-// is deliberately taller than the rampart battlements so a tower standing on a
-// wall clearly rises ABOVE the back-wall crenellations (which reach ~10px above
-// their cell) instead of being level with them. Foot stays at the cell.
+// Simple procedural castle turret — narrow stone column with a crenellated
+// top. One 24×44 canvas, anchor at bottom-centre so it sits on its cell. The
+// column still rises clearly above the rampart battlements it stands among
+// (those reach ~10px above their cell) but is shorter than the old 50px
+// version, which towered over the walls rather than crowning them.
+//
+// Pixel-art rules this obeys (the old version broke all three, which is what
+// made it read as slightly "off"):
+//   • the outline is drawn as 1px fillRects, never a stroked path — a
+//     lineWidth-1 stroke ON integer coordinates straddles the pixel boundary
+//     and renders as two half-lit rows, blurring every edge;
+//   • the merlons are centred on the battlement slab (they used to sit 1px
+//     left of centre, so the crown looked knocked sideways);
+//   • shading lines stay INSIDE the outline instead of running under it.
 function makeTowerTexture(scene) {
   const KEY = 'tower';
   if (scene.textures.exists(KEY)) return;
-  const W = 24, H = 50;
+  const W = 24, H = 44;
   const tex = scene.textures.createCanvas(KEY, W, H);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, W, H);
-  // Lightened wall colours (~10% brighter than original #8e8e96 / #9a9aa2)
+
+  const OUTLINE     = '#1a1a1a';
   const wallColor   = '#a8a8b0';
   const battleColor = '#b4b4bc';
-  // Body
-  const bodyX = 4, bodyW = W - 8;
-  const bodyTop = 10, bodyBot = H - 2;
+
+  // Layout, top to bottom: merlons, battlement slab (overhanging the body),
+  // then the column down to a 2px gap at the canvas bottom.
+  const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 3;
+  const battTop = MERLON_H, battH = 5;
+  const bodyTop = battTop + battH;          // 9
+  const bodyBot = H - 2;                    // 42
+  const bodyX = 4, bodyW = W - 8;           // x 4..20
+  const battX = bodyX - 2, battW = bodyW + 4;  // slab overhangs 2px each side
+
+  // ── Column ────────────────────────────────────────────────────────────
   ctx.fillStyle = wallColor;
   ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
-  // Vertical highlight + shadow stripes
+  // Lit left edge / shadowed right edge, both inset 1px so the outline below
+  // paints over neither.
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.fillRect(bodyX + 1, bodyTop, 1, bodyBot - bodyTop);
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.fillRect(bodyX + bodyW - 2, bodyTop, 1, bodyBot - bodyTop);
-  // Stone-block joints (a few horizontal nicks)
+  // Corbel shadow: the slab overhangs, so the top of the column sits in its
+  // shade. Without this the overhang read as a hat balanced on a stick.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(bodyX + 1, bodyTop, bodyW - 2, 2);
+  // Stone-block joints, inset 1px from each side so they stop at the outline.
   ctx.fillStyle = 'rgba(0,0,0,0.30)';
-  for (let y = bodyTop + 6; y < bodyBot - 2; y += 7) {
-    ctx.fillRect(bodyX, y, bodyW, 1);
+  for (let y = bodyTop + 7; y < bodyBot - 3; y += 7) {
+    ctx.fillRect(bodyX + 1, y, bodyW - 2, 1);
   }
-  // Shaded foot — a small shadow only at the very bottom so the tower reads as
-  // grounded without darkening the whole lower body.
+  // Grounding shade at the foot only — the tower reads as planted without
+  // darkening the whole lower column.
   ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.fillRect(bodyX, bodyBot - 4, bodyW, 4);
+  ctx.fillRect(bodyX + 1, bodyBot - 4, bodyW - 2, 4);
   ctx.fillStyle = 'rgba(0,0,0,0.24)';
-  ctx.fillRect(bodyX, bodyBot - 2, bodyW, 2);
-  // Arrow-slit window
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(W / 2 - 1, bodyTop + 8, 2, 6);
-  // Battlement slab (wider than body)
-  const battTop = bodyTop - 6;
-  const battH = 6;
-  const battX = bodyX - 2, battW = bodyW + 4;
+  ctx.fillRect(bodyX + 1, bodyBot - 2, bodyW - 2, 2);
+  // Arrow slit — a dark 2px slot with a lit sill under it so it reads as an
+  // opening cut INTO the wall rather than a painted-on smudge. Sits one row
+  // BELOW the first joint course: starting flush on a joint made the slit look
+  // like a crack running out of the masonry line.
+  const slitX = (W >> 1) - 1, slitY = bodyTop + 8;
+  ctx.fillStyle = OUTLINE;
+  ctx.fillRect(slitX, slitY, 2, 5);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(slitX, slitY + 5, 2, 1);
+
+  // ── Battlement slab + merlons ─────────────────────────────────────────
   ctx.fillStyle = battleColor;
   ctx.fillRect(battX, battTop, battW, battH);
-  // Crenellations — three merlons across the top
-  ctx.fillStyle = battleColor;
-  const merlonW = 4, merlonH = 4;
-  for (let i = 0; i < 3; i++) {
-    const mx = battX + 1 + i * (merlonW + 2);
-    ctx.fillRect(mx, battTop - merlonH, merlonW, merlonH);
+  // Merlons centred on the slab: 3 × 4px with 2px crenels = 16px on a 20px
+  // slab, so 2px of slab shows at each end.
+  const crownW = MERLONS * MERLON_W + (MERLONS - 1) * MERLON_GAP;
+  const crownX = battX + ((battW - crownW) >> 1);
+  const merlonX = (i) => crownX + i * (MERLON_W + MERLON_GAP);
+  for (let i = 0; i < MERLONS; i++) {
+    ctx.fillRect(merlonX(i), battTop - MERLON_H, MERLON_W, MERLON_H);
   }
-  // Single silhouette outline — one continuous path so inner joints don't
-  // produce double-strokes and all corners are rendered once cleanly.
-  ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 1;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(bodyX, bodyBot);
-  ctx.lineTo(bodyX, bodyTop);
-  ctx.lineTo(battX, bodyTop);
-  ctx.lineTo(battX, battTop);
-  for (let i = 0; i < 3; i++) {
-    const mx = battX + 1 + i * (merlonW + 2);
-    ctx.lineTo(mx, battTop);
-    ctx.lineTo(mx, battTop - merlonH);
-    ctx.lineTo(mx + merlonW, battTop - merlonH);
-    ctx.lineTo(mx + merlonW, battTop);
+  // (Merlon top-lighting is applied after the outline below — drawn here it
+  // would be painted straight over by the merlon's own outline.)
+  // Shadow line under the slab's own lip, so slab and merlons read as separate
+  // courses of stone rather than one poured shape.
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(battX + 1, battTop + battH - 1, battW - 2, 1);
+
+  // ── Silhouette outline (1px fillRects — see the note above) ───────────
+  ctx.fillStyle = OUTLINE;
+  const vline = (x, y0, y1) => ctx.fillRect(x, y0, 1, y1 - y0);
+  const hline = (x0, x1, y) => ctx.fillRect(x0, y, x1 - x0, 1);
+  // Column sides + foot.
+  vline(bodyX, bodyTop, bodyBot);
+  vline(bodyX + bodyW - 1, bodyTop, bodyBot);
+  hline(bodyX, bodyX + bodyW, bodyBot - 1);
+  // Slab: sides, its underside where it overhangs the column, and the top
+  // where no merlon covers it.
+  vline(battX, battTop, bodyTop);
+  vline(battX + battW - 1, battTop, bodyTop);
+  hline(battX, bodyX, bodyTop - 1);                       // left overhang underside
+  hline(bodyX + bodyW, battX + battW, bodyTop - 1);        // right overhang underside
+  // Merlon outlines + the crenel floors between them.
+  hline(battX, crownX, battTop);
+  for (let i = 0; i < MERLONS; i++) {
+    const mx = merlonX(i);
+    vline(mx, battTop - MERLON_H, battTop);
+    vline(mx + MERLON_W - 1, battTop - MERLON_H, battTop);
+    hline(mx, mx + MERLON_W, battTop - MERLON_H);
+    if (i < MERLONS - 1) hline(mx + MERLON_W, merlonX(i + 1), battTop);
   }
-  ctx.lineTo(battX + battW, battTop);
-  ctx.lineTo(battX + battW, bodyTop);
-  ctx.lineTo(bodyX + bodyW, bodyTop);
-  ctx.lineTo(bodyX + bodyW, bodyBot);
-  ctx.closePath();
-  ctx.stroke();
+  hline(crownX + crownW, battX + battW, battTop);
+  // Merlon top-lighting, inside the outline: one lit pixel across each
+  // merlon's crown, matching the light direction the rampart crest uses
+  // (render.js crestH). Drawn last so the silhouette doesn't cover it.
+  ctx.fillStyle = 'rgba(255,255,255,0.30)';
+  for (let i = 0; i < MERLONS; i++) {
+    ctx.fillRect(merlonX(i) + 1, battTop - MERLON_H + 1, MERLON_W - 2, 1);
+  }
   tex.refresh();
 }
 

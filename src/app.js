@@ -656,9 +656,16 @@ class MapScene extends Phaser.Scene {
     this.rampartBackGfx = this.add.graphics();
     this.objectsContainer = this.add.container(0, 0);
     // FRONT layer — the south wall + its battlements — sits ABOVE the object
-    // sprites so towers on the front edge read as standing BEHIND it. Both
-    // rampart layers are cleared + repainted each frame in Render.drawCells.
+    // sprites so a building or chest south of the wall reads as standing
+    // BEHIND it. Both rampart layers are cleared + repainted each frame in
+    // Render.drawCells.
     this.rampartFrontGfx = this.add.graphics();
+    // Castle turrets get their OWN layer, added after both rampart layers, so
+    // a tower always reads as standing above the wall it's built on — on the
+    // front (south) edge too, where it used to be painted over by the wall in
+    // front of it. Still below the coin / creature / spark layers, so an
+    // animal walking past a turret passes in front of it as before.
+    this.towerContainer = this.add.container(0, 0);
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -722,6 +729,9 @@ class MapScene extends Phaser.Scene {
     }
 
     this.objectPool = [];
+    // Turrets render from their own pool into towerContainer (above the
+    // ramparts); every other world object shares objectPool.
+    this.towerPool = [];
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -804,6 +814,7 @@ class MapScene extends Phaser.Scene {
     this.rampartBackGfx.setMask(mask);
     this.objectsContainer.setMask(mask);
     this.rampartFrontGfx.setMask(mask);
+    this.towerContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
