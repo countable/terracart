@@ -561,9 +561,6 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
-    // Rounded road elbows — baked with canvas AA (Graphics arcs staircase
-    // under pixelArt); render.js swaps them in for pure L-bend road cells.
-    RoadRender.makeElbowTextures(this);
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
@@ -636,12 +633,10 @@ class MapScene extends Phaser.Scene {
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
     this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
+    // Cobblestone overlay sprites for road/path/pier cells. Sits ABOVE the
+    // noise + border layers, so biome speckle and the wavy zone borders never
+    // paint over the road surface, and BELOW the road-label layer.
     this.cobbleContainer = this.add.container(0, 0);
-    // Procedural road/path geometry — redrawn each frame by Render.drawCells.
-    // Must sit ABOVE the noise + border layers (so biome speckle and the wavy
-    // zone borders never paint over the road surface — that's what the cobble
-    // sprites used to guarantee) and BELOW the road-label layer.
-    this.roadGfx = this.add.graphics();
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
@@ -710,17 +705,17 @@ class MapScene extends Phaser.Scene {
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
-    // white ink (the road surface is black cobble) so they read like worn
-    // paint markings on the stone. Pool is sized one slot per visible cell
-    // because render walks cells — at most one anchor can occupy a cell, and
-    // most slots simply stay invisible.
+    // dark ink — the cobble tiles are light warm stone, so black reads like
+    // worn paint markings on them (white washed out over pale stone). Pool is
+    // sized one slot per visible cell because render walks cells — at most one
+    // anchor can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
-        font: 'bold 10px serif', color: '#ffffff',
-      }).setOrigin(0.5, 0.5).setAlpha(0.5).setDepth(0).setVisible(false);
+        font: 'bold 10px serif', color: '#000000',
+      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -800,7 +795,6 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.setMask(mask);
     this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
-    this.roadGfx.setMask(mask);
     this.letterContainer.setMask(mask);
     this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);

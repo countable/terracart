@@ -1180,9 +1180,8 @@
           // paint and the parking-POI treasure X already marks it.
           if (f.tags.service === 'parking_aisle') continue;
           // Roads and paths rasterize exactly ONE cell wide regardless of
-          // their OSM width: the tier's visible width is procedural
-          // (RoadRender.ROAD_WIDTH px within the cell), so wider disk
-          // stamping only made the band wobble between 1 and 2 rows
+          // their OSM width: the cobble tile fills the whole cell, so wider
+          // disk stamping only made the band wobble between 1 and 2 rows
           // ("ladder" artifacts) and welded dual carriageways together.
           // Two parallel OSM ways now read as two clean uniform lanes.
           // Piers keep their measured width (their plank sprite fills the

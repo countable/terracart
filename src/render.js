@@ -1,5 +1,5 @@
 // Per-frame draw pipeline — extracted from app.js. Owns the cell-grid paint
-// (terrain, tilled overlay, road geometry, reach silhouette, treasure X marks)
+// (terrain, tilled overlay, road cobbles, reach silhouette, treasure X marks)
 // and the dynamic sprite-pool dance for chests / planted / wild plants /
 // creatures / labels / tier diamonds.
 //
@@ -138,16 +138,6 @@ Render.drawCells = function drawCells(scene) {
   const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
   if (gf !== g) gf.clear();
   if (gb !== g && gb !== gf) gb.clear();
-  // Road/path geometry layer — sits ABOVE the noise-texture sprites and the
-  // wavy biome-border layer (and the building wall-extrusion pass in g), so
-  // road surfaces aren't speckled by biome textures or cut by zone borders.
-  // This is where the old cobble SPRITES sat; drawing the geometry into g
-  // put it underneath all of those and made roads look broken up.
-  const gr = scene.roadGfx || g;
-  if (gr !== g) gr.clear();
-  // Baked elbow textures (RoadRender.makeElbowTextures) — checked once per
-  // frame; stub/test scenes without them fall back to square geometry.
-  const _hasElbowTex = !!(scene.textures && scene.textures.exists && scene.textures.exists('roadelbow_7'));
   const half = (VIEW_CELLS - 1) / 2;
   const pc = scene.playerToWorldCell();
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
@@ -169,10 +159,18 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
+  // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
+  // 15-16 contain art. Each road tier picks ONE frame so the same road class
+  // reads visually consistent across cells; different tiers look distinct.
+  //   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
+  //   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
+  //   - ROAD (minor/service/street):      frame 1 — small cluster
+  //   - PATH:                             frame 3 — single small pebble
+  const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
+  const PATH_FRAME = 3;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
-  const isRoad    = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
-  const isAnyRoad = RoadRender.isAnyRoad;
+  const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // Reuses the cobblePool slot for the overlay sprite but swaps its texture
   // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
@@ -265,7 +263,7 @@ Render.drawCells = function drawCells(scene) {
         const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
         const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
         // Road/path cells only paint a BACKDROP here (the inherited zone
-        // colour — the asphalt itself is geometry on roadGfx above), so for
+        // colour — the cobbles themselves are sprites drawn above), so for
         // rounding purposes all road/path tiers count as ONE type: a tier
         // change must not round corners, and a road-like diagonal's corner
         // paint must use its inferred backdrop colour, never the raw road
@@ -477,92 +475,49 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Road/path geometry + pier plank. cobblePool slot is kept for PIER;
-      // road and path cells draw directly onto g via RoadRender.
+      // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for
+      // PATH, wooden plank for PIER. All three share the cobblePool slot but
+      // PIER swaps the sprite's texture from 'cobble' to 'pier' (Bridge Beach).
       {
         const cs = scene.cobblePool[cobbleIdx++];
-        if ((isRoad(type) || type === PATH) && !isTilled) {
-          // Build 8-bit neighbor mask (N=1 E=2 S=4 W=8, NE=16 SE=32 SW=64
-          // NW=128). Any road/path tier counts as connected so mismatched
-          // tiers taper naturally; for the orthogonal arms PIER counts too,
-          // so a road/path runs flush onto the dock planks instead of
-          // stopping one half-cell short of the pier. The diagonal bits
-          // drive the inner-corner fill that merges multi-cell-wide roads
-          // into one solid surface.
-          const tn  = T(col, row - 1), ts_ = T(col, row + 1);
-          const tw  = T(col - 1, row), te  = T(col + 1, row);
-          const tne = T(col + 1, row - 1), tse = T(col + 1, row + 1);
-          const tsw = T(col - 1, row + 1), tnw = T(col - 1, row - 1);
-          const conn = (t) => isAnyRoad(t) || t === PIER;
-          // PARALLEL-RUN suppression: an arm toward a road-ish neighbour is
-          // dropped when BOTH this cell and that neighbour sit inside runs
-          // PERPENDICULAR to the arm (road on both sides along that axis).
-          // Without this, a path running beside a road sprouted a rung into
-          // it on every cell — and the corner-quadrant fill then ballooned
-          // the 4px track to the whole cell ("the path greatly oscillates in
-          // width"); two adjacent parallel roads likewise merged into one
-          // blob for short stretches. Junction connectivity is unaffected:
-          // a teeing/crossing line's cells never have road on both
-          // perpendicular sides, so their arms (and the matching arm drawn
-          // by the cell they tee into — the rule is symmetric) survive.
-          const runEW = isAnyRoad(tw) && isAnyRoad(te);   // self inside an E-W run
-          const runNS = isAnyRoad(tn) && isAnyRoad(ts_);  // self inside a N-S run
-          const nbrRunEW = (c, r) => isAnyRoad(T(c - 1, r)) && isAnyRoad(T(c + 1, r));
-          const nbrRunNS = (c, r) => isAnyRoad(T(c, r - 1)) && isAnyRoad(T(c, r + 1));
-          const cN = conn(tn)  && !(runEW && nbrRunEW(col, row - 1));
-          const cS = conn(ts_) && !(runEW && nbrRunEW(col, row + 1));
-          const cE = conn(te)  && !(runNS && nbrRunNS(col + 1, row));
-          const cW = conn(tw)  && !(runNS && nbrRunNS(col - 1, row));
-          const mask = (cN ? 1 : 0) | (cE ? 2 : 0)
-                     | (cS ? 4 : 0) | (cW ? 8 : 0)
-                     | (isAnyRoad(tne) ? 16 : 0) | (isAnyRoad(tse) ? 32 : 0)
-                     | (isAnyRoad(tsw) ? 64 : 0) | (isAnyRoad(tnw) ? 128 : 0);
-          // Pure L-bends render as a baked elbow sprite (rounded outer
-          // corner with real antialiasing — Graphics arcs staircase under
-          // pixelArt) rotated into orientation; every other cell stamps a
-          // lazily-baked rough-edged texture (black cobble / dirt — see
-          // RoadRender.ensureRoadCellTexture). Variant alternates by cell
-          // parity so long straights don't repeat one wobble pattern.
-          const elbowAng = _hasElbowTex ? RoadRender.elbowAngle(mask) : -1;
-          if (elbowAng >= 0) {
-            cs.setTexture('roadelbow_' + type)
-              .setDisplaySize(CELL_PX, CELL_PX)
-              .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-              .setAngle(elbowAng)
-              .setTint(0xffffff).setVisible(true);
-          } else {
-            const rcKey = RoadRender.ensureRoadCellTexture(
-              scene, type, mask, (absCellIX + absCellIY) & 1);
-            if (rcKey) {
-              cs.setTexture(rcKey)
-                .setDisplaySize(CELL_PX, CELL_PX)
-                .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-                .setAngle(0)
-                .setTint(0xffffff).setVisible(true);
-            } else {
-              // No canvas texture support — flat-colour Graphics fallback.
-              RoadRender.drawRoadCell(gr, sx, sy, type, mask);
-              cs.setVisible(false);
-            }
-          }
-          // Named-path stone tint — semi-transparent blue rect over activated stones.
+        // Single frame per type — no per-cell randomization, so a road of one
+        // class reads as one consistent surface across all its cells.
+        const isPier = (type === PIER);
+        const frame = isPier ? PIER_FRAME
+                     : isRoad(type) ? ROAD_FRAME[type]
+                     : (type === PATH ? PATH_FRAME : null);
+        if (frame != null && !isTilled) {
+          // Roads get bumped up 10% so the cobble cluster reads as a real
+          // surface texture instead of pixel speckle. Paths + piers stay at
+          // cell size — the plank art is meant to tile edge-to-edge across
+          // adjacent pier cells, so upscaling would break the seam.
+          const size = isRoad(type) ? CELL_PX * 1.10 : CELL_PX;
+          // Named-path stones that the player has tapped / stepped onto
+          // pick up a blue tint to signal progress. _isPathStoneActive
+          // is null-safe (returns false in test mode or before save state
+          // exists), so this check is always cheap. PIER is excluded —
+          // piers are not named paths and the plank shouldn't tint blue.
+          let tint = 0xffffff;
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
+            // Cells outside the player's own tile fall back to the cell's
+            // tile coords — paths span tile seams, and we want consistent
+            // tinting across the boundary.
             const N2  = scene.cellsPerTile;
             const tx2 = Math.floor(absCellIX / N2);
             const ty2 = Math.floor(absCellIY / N2);
             if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
-              gr.fillStyle(0x88aaff, 0.30);
-              gr.fillRect(sx, sy, CELL_PX, CELL_PX);
+              tint = 0x88aaff;   // soft blue
             }
           }
-        } else if (type === PIER && !isTilled) {
-          // PIER keeps sprite-based plank rendering (Bridge Beach.png frame 20).
-          // setAngle(0) — the pooled slot may have just been an elbow sprite.
-          cs.setTexture('pier', PIER_FRAME)
-            .setDisplaySize(CELL_PX, CELL_PX)
+          // Swap texture key — 'pier' for plank, 'cobble' for everything else.
+          // Pool sprites are created with the 'cobble' texture so reassign
+          // each frame; Phaser short-circuits if the key is already current.
+          cs.setTexture(isPier ? 'pier' : 'cobble', frame);
+          cs.setFrame(frame)
+            .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-            .setAngle(0)
-            .setTint(0xffffff).setVisible(true);
+            .setTint(tint)
+            .setVisible(true);
         } else {
           cs.setVisible(false);
         }
