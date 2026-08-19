@@ -11,9 +11,10 @@
 // Depends on:
 //   app.js       — MapScene fields used per-frame (read unless noted):
 //                    Graphics:   cellGfx, tierGfx
-//                    Containers: terrainContainer, objectsContainer,
-//                                padContainer, plantedContainer,
-//                                creaturesContainer
+//                    Containers: terrainContainer, padContainer,
+//                                worldContainer (aliased as objectsContainer /
+//                                plantedContainer / creaturesContainer — one
+//                                shared, depth-sorted layer)
 //                    Pools:      cobblePool, noisePool, padPool,
 //                                letterPool, objectPool, padPool,
 //                                plantedPool, creaturePool, chestLabelPool
@@ -639,7 +640,7 @@ Render.drawCells = function drawCells(scene) {
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
-        const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
+        const WALL = 7;          // south wall-face height (the lit 3-D extrusion)
         // Ramparts split front vs back/side across two layers (gf above objects,
         // gb below) so towers sort per-edge. The wall stone is a light masonry
         // material that reads against the lighter castle floor.
@@ -685,8 +686,11 @@ Render.drawCells = function drawCells(scene) {
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
-        // align with the front/back crests. SIDE_W is the band thickness (4px).
-        const SIDE_W = 4;
+        // align with the front/back crests. SIDE_W is the band thickness (5px).
+        // WALL / SIDE_W set the wall's visible MASS; the merlon grid (SPAN /
+        // MOFF / MW) is independent of both, so thickening the stone keeps the
+        // teeth and side dashes on the same grid — still aligned cell to cell.
+        const SIDE_W = 5;
         const sideShade = (x, innerX) => {
           gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
           gb.fillStyle(STONE_SIDE, 1);
@@ -900,6 +904,10 @@ Render.drawObjects = function drawObjects(scene) {
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
   const objList = [], creatureList = [], plantedList = [];
+  // Depth band for non-sprite overlays that share the world layer (crop timer
+  // badges, pet hearts). World sprites take depths 0..n from the z-order pass
+  // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
+  const Z_OVERLAY = 10000;
   const pickedSet = new Set(scene.save.picked || []);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
@@ -1041,6 +1049,26 @@ Render.drawObjects = function drawObjects(scene) {
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   filteredObj.sort((a, b) => a.dy - b.dy);
+  // ── Screen-row z-order ──────────────────────────────────────────────────
+  // Crops, world objects and creatures all live in ONE display layer
+  // (scene.worldContainer — see app.js), so they can interleave: a sprite in a
+  // LOWER screen cell row ALWAYS draws over one in a higher row, whatever kind
+  // it is. A deer standing north of a house no longer floats in front of it,
+  // and a crop in the front row no longer hides under the row behind it.
+  // Inside a single cell row the previous hierarchy still decides: crops under
+  // objects under creatures, and within one kind the old north-to-south (dy)
+  // order. The stamped index becomes each sprite's Phaser depth; the container
+  // is sorted by it at the end of this pass. Overlay badges in the same layer
+  // (crop timers, pet hearts) sit at Z_OVERLAY, above every world sprite.
+  const _cellRow = (dy) => Math.floor((pWorldY + dy) / scene.cellM);
+  const zList = [];
+  for (const it of plantedList)  zList.push({ it, rank: 0 });
+  for (const it of filteredObj)  zList.push({ it, rank: 1 });
+  for (const it of creatureList) zList.push({ it, rank: 2 });
+  zList.sort((a, b) => (_cellRow(a.it.dy) - _cellRow(b.it.dy))
+                    || (a.rank - b.rank)
+                    || (a.it.dy - b.it.dy));
+  for (let zi = 0; zi < zList.length; zi++) zList[zi].it._z = zi;
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -1048,6 +1076,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
   const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
+  // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
+  const CRATE_SCALE = 1.53;
   const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
@@ -1115,6 +1145,60 @@ Render.drawObjects = function drawObjects(scene) {
     return (r << 16) | (g << 8) | b;
   };
 
+  // Texture key + frame for a house, by role. Named (rather than inlined in
+  // RENDER_SPEC) because the scale fit and the shadow pass both need to look
+  // up the same art the sprite will actually draw.
+  const _houseKey = (o) => {
+    const role = _houseRole(o);
+    if (role === 'plain')  return 'house';
+    if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
+    return `house_${role}`;
+  };
+  // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
+  // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
+  // other themed PNGs are single-image (frame undefined).
+  const _houseFrame = (o) => {
+    const role = _houseRole(o);
+    if (role === 'plain')  return 'front';
+    if (role === 'wizard') return 3;
+    return undefined;
+  };
+  // Baseline sprite scale per role. Fort PNG is ~3× the others — scaled down so
+  // it still reads as a building, not a wall. Plain / blacksmith / trader /
+  // trailer / wizard share 0.6 so they look like neighbours from one village.
+  const _houseBaseScale = (o) => (_houseRole(o) === 'fort' ? 0.35 : 0.6);
+  // Fit the roof inside the building's OWN footprint — capped at the baseline,
+  // so a house never grows past the size it has always drawn at, but a small
+  // polygon no longer gets a roof that overhangs its own tiles. `area` is the
+  // OSM footprint in m²; sqrt(area) is its side length in metres, /cellM gives
+  // cells and ×CELL_PX the on-screen extent the art has to fit into. Objects
+  // without an area (the synthetic starter trailer, sandbox houses) keep the
+  // baseline untouched.
+  const _houseScale = (o) => {
+    const base = _houseBaseScale(o);
+    const area = o.area;
+    if (!(area > 0) || !scene.textures || !scene.textures.exists(_houseKey(o))) return base;
+    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
+    if (!fr || !fr.width) return base;
+    const extentPx = (Math.sqrt(area) / scene.cellM) * CELL_PX;
+    return Math.min(base, extentPx / fr.width);
+  };
+
+  // Height in px from the house's ground point (sy) up to the TOP of its drawn
+  // art — what a badge has to clear to sit above the roof rather than on it.
+  // Mirrors the placement the sprite pass uses: every role but the wizard is
+  // centred on sy (origin y 0.5, no nudge), so the art reaches half its scaled
+  // height above; the wizard tower is foot-anchored half a cell lower and
+  // reaches its full scaled height up from there. Falls back to the pre-measure
+  // constant when the frame can't be read.
+  const _houseTopPx = (o) => {
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 20;
+    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
+    if (!fr || !fr.height) return 20;
+    const h = fr.height * _houseScale(o);
+    return _houseRole(o) === 'wizard' ? h - CELL_PX * 0.5 : h * 0.5;
+  };
+
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
@@ -1128,21 +1212,8 @@ Render.drawObjects = function drawObjects(scene) {
     // Tint is suppressed for themed houses (the sprite is already distinct)
     // in the post-config block further down — see the `themedHouse` flag.
     house:  {
-      key: (o) => {
-        const role = _houseRole(o);
-        if (role === 'plain')  return 'house';
-        if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
-        return `house_${role}`;
-      },
-      // Plain houses pick the 'front' sub-rect of the house tileset; wizard
-      // towers pick the fully-restored top-row tower frame (frame 3) of the
-      // wizard sheet; other themed PNGs are single-image (frame undefined).
-      frame: (o) => {
-        const role = _houseRole(o);
-        if (role === 'plain')  return 'front';
-        if (role === 'wizard') return 3;
-        return undefined;
-      },
+      key: _houseKey,
+      frame: _houseFrame,
       // Centre the sprite ON the building footprint's centroid (the house x/y
       // IS that centroid). A bottom-middle anchor used to seat the base at the
       // centroid and draw the whole body NORTH of it, which on any multi-cell
@@ -1154,13 +1225,7 @@ Render.drawObjects = function drawObjects(scene) {
       // anchor + a downward nudge.
       origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
       dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
-      scale: (o) => {
-        const role = _houseRole(o);
-        // Fort PNG is ~3× the others — scale down so it still reads as a
-        // building, not a wall. Plain / blacksmith / trader / trailer / wizard
-        // share 0.6 so they look like neighbours from the same village.
-        return role === 'fort' ? 0.35 : 0.6;
-      },
+      scale: _houseScale,
       // Stamp the Home trailer's display rect for drawCells' castle-rampart
       // sorting: a front (south) wall the trailer is parked in front of must
       // not paint over it. Runs after position/origin/scale are final.
@@ -1276,9 +1341,11 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crates (box / open_box, 16×16) render at 1.7; trunk is 32×32 so
+              // Crates (box / open_box, 16×16) render at 1.53 — 10% down from the
+              // old 1.7, so a crate reads as a prop rather than filling its cell
+              // (16 × 1.53 ≈ 24px inside the 32px cell). trunk is 32×32 so
               // scale 1.0 = one cell. The open marker shares the closed crate's scale.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 1.0)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -1287,15 +1354,17 @@ Render.drawObjects = function drawObjects(scene) {
               // +3 on top of that per playtest so the stall reads centred over
               // its POI cell in situ.
               dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
-              // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
-              // the art's centroid down toward that anchor. Lift the crate back
-              // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
+              // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
+              // its cell, so the anchor is pushed down by the distance from the
+              // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
+              // fallback — the seat pass below recomputes it from the trimmed art
+              // bounds whenever they're tabulated (src/sprite_layout.js).
               // Stand: every market_stand frame has 10 transparent rows under
               // the art (y:[0,70) of 80), so the old +2 left the stall's feet
               // floating ~4px ABOVE the cell centre ("the food stand is about
               // 20px too high"). +22 seats the feet on the cell's bottom edge
               // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 0.4 * 16 * CRATE_SCALE : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
@@ -1413,7 +1482,19 @@ Render.drawObjects = function drawObjects(scene) {
         if (o.itemId === 'wood') return Math.min(2, Math.max(0, (o.qty || 1) - 1));
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
-      origin: [0.5, 0.9], scale: 1.8,
+      // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the
+      // anchor sat at the cell centre with the art hanging above it, so a
+      // dropped stack rendered ~12px high — better than a third of a cell up,
+      // visibly spilling into the row behind. Ground stacks are flat props
+      // lying ON the tile, so they centre like the wildplants do.
+      //
+      // Frame-box centring rather than the seat pass: this sprite's texture
+      // and frame follow whatever item was dropped (inventoryIconSource), so
+      // there's no fixed frame to tabulate in ART_BOUNDS. The art of the
+      // sheets it actually uses is centred in its frame anyway — wood.png's
+      // logs sit at y[1,14) of 16 once the near-white background is keyed out
+      // (see its onLoad in assets.js), i.e. half a pixel off centre.
+      origin: [0.5, 0.5], scale: 1.8,
     },
   };
   // Soft contact shadows under buildings (houses + towers). Rendered into
@@ -1441,12 +1522,15 @@ Render.drawObjects = function drawObjects(scene) {
       else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
       else if (o.kind === 'house') {
         if (role === 'fort') w = CELL_PX * 2.4;
-        const hkey = role === 'plain' ? 'house' : `house_${role}`;
-        const hscale = role === 'fort' ? 0.35 : 0.6;
+        // Same art + scale the sprite pass will use, so a house shrunk to fit a
+        // small footprint gets a shadow that shrinks with it — in width as well
+        // as position, or a shrunk house would sit on an oversized ellipse.
+        const hkey = _houseKey(o);
+        const hscale = _houseScale(o);
+        w *= hscale / _houseBaseScale(o);
         let fh = CELL_PX;
         if (scene.textures.exists(hkey)) {
-          const fr = role === 'plain' ? scene.textures.get(hkey).get('front')
-                                      : scene.textures.get(hkey).get();
+          const fr = scene.textures.get(hkey).get(_houseFrame(o));
           if (fr && fr.height) fh = fr.height;
         }
         footY = sy + 0.5 * fh * hscale - 6;   // centred-house base, tucked up 6px
@@ -1460,6 +1544,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
@@ -1561,9 +1646,10 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
-    // Fully opaque — earlier 0.92 made pads read as slightly washed out
-    // against the terrain underneath, which dulled the POI signage too.
-    s.setAlpha(1);
+    // 0.8 — the slab is a backdrop for the POI, so it lets the terrain it sits
+    // on read through rather than stamping an opaque disc over it, while still
+    // reading as a plinth the chest stands on (0.7 dropped it to a smudge).
+    s.setAlpha(0.8);
     s.setTint(0xffffff);
   });
 
@@ -1581,6 +1667,9 @@ Render.drawObjects = function drawObjects(scene) {
   // tablet rather than floating on its surface.
   const LABEL_STROKE   = 'rgb(182,185,191)';
   const LABEL_STROKE_W = 1;
+  // Crate labels carry no plank, so their white glyphs are outlined in near-
+  // black to stay readable on pale ground as well as on grass.
+  const CRATE_LABEL_STROKE = '#14110c';
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -1605,19 +1694,27 @@ Render.drawObjects = function drawObjects(scene) {
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
       : rusticifyName(o.name);
-    // Anchored just below the chest sprite (chest bottom ≈ sy + 3 after origin+scale).
-    tx.setText(label).setPosition(Math.round(sx), Math.round(sy + 4)).setVisible(true);
+    // Anchored just BELOW the chest sprite. Chests and crates are seated
+    // centred in their cell now (the one-cell rule), so their art runs to about
+    // sy + 12 — the old +4 anchor cut the bottom third off every chest it
+    // labelled. Crates are the smaller sprite, so they need less clearance.
+    const labelY = sy + (_chestIsBox(o) ? 13 : 16);
+    tx.setText(label).setPosition(Math.round(sx), Math.round(labelY)).setVisible(true);
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
-    // Lowtier crates (the `box` sprite) get white lettering with a soft drop
-    // shadow and NO stone plank — the label floats over the crate like the
-    // house signs do. Higher-tier chests keep the blue-on-stone tablet. The
-    // pool is shared across both kinds, so set the full style every frame.
+    // Lowtier crates (the `box` sprite) get white lettering with NO stone plank
+    // — the label floats over the crate like the house signs do. Higher-tier
+    // chests keep the blue-on-stone tablet. The pool is shared across both
+    // kinds, so set the full style every frame.
     if (_chestIsBox(o)) {
       tx.setColor('#ffffff');
       tx.setBackgroundColor(null);
-      tx.setStroke('#000000', 0);
+      // A 2px dark stroke around the glyphs, not just a drop shadow: white on
+      // its own vanishes against pale ground (the commercial zone's light
+      // ceramic tiling, sand, concrete). The stroke carries the lettering over
+      // any background; the shadow stays for depth.
+      tx.setStroke(CRATE_LABEL_STROKE, 2);
       tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, true, true);
     } else {
       tx.setColor(LABEL_INK);
@@ -1940,15 +2037,17 @@ Render.drawObjects = function drawObjects(scene) {
     const label = info.ready ? 'open' : `${info.waitMin}m`;
     // Sepia ink on cream parchment for "open"; dim rust on cream for
     // "busy". Muted to read as a tag, not a callout.
-    const ink = info.ready ? '#3a6b2f' : '#7a3838';
+    const ink = info.ready ? '#27521e' : '#5f2a2a';
     tx.setText(label)
       .setColor(ink)
       .setBackgroundColor('#f3e9c6')
-      // Origin (0.5, 1): y is the plaque's bottom. sy is the house's foot
-      // anchor; sy - 20 tucks the tag just above the roofline. -10 on x
-      // nudges it slightly off-centre so it reads as hanging from a
-      // bracket on the left side rather than dead-centred on the gable.
-      .setPosition(Math.round(sx) - 10, Math.round(sy) - 20)
+      // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
+      // cell now, so the roof reaches half the scaled sprite height above sy —
+      // the old flat -20 landed the plaque ON the gable. Measure the art and
+      // clear it by 3px (falling back to the old offset when the frame can't
+      // be read). -10 on x nudges it off-centre so it reads as hanging from a
+      // bracket on the left rather than dead-centred on the gable.
+      .setPosition(Math.round(sx) - 10, Math.round(sy) - _houseTopPx(o) - 3)
       .setVisible(true);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
@@ -2041,6 +2140,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     // Rare shiny wild flora gets the warm sheen; everything else (farmed crops,
     // placed rocks) renders untinted. Pooled sprites keep their last tint, so
     // set it explicitly every frame. A flat gold multiply on already-green
@@ -2156,7 +2256,7 @@ Render.drawObjects = function drawObjects(scene) {
         font: 'bold 9px ui-monospace, monospace',
         color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 2, y: 1 },
-      }).setOrigin(1, 1).setDepth(60);
+      }).setOrigin(1, 1).setDepth(Z_OVERLAY);
       scene.plantedContainer.add(t);
       scene.plantedTimerPool.push(t);
     }
@@ -2185,7 +2285,7 @@ Render.drawObjects = function drawObjects(scene) {
     let t = scene._petHeartPool[hi];
     if (!t) {
       t = scene.add.text(0, 0, '💗', { font: '10px ui-monospace, monospace' })
-        .setOrigin(0.5, 1).setDepth(60);
+        .setOrigin(0.5, 1).setDepth(Z_OVERLAY);
       scene.creaturesContainer.add(t);
       scene._petHeartPool.push(t);
     }
@@ -2200,6 +2300,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     if (c.kind === 'cow') {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
       // Cow is the biggest farm animal — needs to read larger than the
@@ -2344,4 +2445,10 @@ Render.drawObjects = function drawObjects(scene) {
      .setTint(0xffffff)
      .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
+
+  // Apply the screen-row z-order stamped above. Phaser renders a container's
+  // children in list order, so the shared world layer has to be re-sorted by
+  // depth once every sprite has been positioned. StableSort, so pooled slots
+  // that share a depth (all the hidden ones) keep a fixed relative order.
+  if (scene.worldContainer && scene.worldContainer.sort) scene.worldContainer.sort('depth');
 };

@@ -639,11 +639,11 @@ class MapScene extends Phaser.Scene {
     // the rasterizer turned into road/path cells, stroked black @ 30%. Sits
     // above the terrain + cobbles so it reads as an overlay ON the map, and
     // below the plant/object sprites so it never paints over a tree or house.
+    // (The plant/object/creature layer is worldContainer, added below.)
     // Scrolled each frame for the sub-cell offset, like the border layer.
     this.roadGeomContainer = this.add.container(0, 0);
     this.roadGeomGfx = this.add.graphics();
     this.roadGeomContainer.add(this.roadGeomGfx);
-    this.plantedContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -654,7 +654,18 @@ class MapScene extends Phaser.Scene {
     // object sprites so towers on those edges read as standing IN FRONT of them
     // (and side walls tuck under everything). Added before objectsContainer.
     this.rampartBackGfx = this.add.graphics();
-    this.objectsContainer = this.add.container(0, 0);
+    // ONE display layer for every cell-anchored world sprite — planted crops,
+    // world objects (trees / buildings / chests / rocks) and creatures. They
+    // share a layer so render.js can depth-sort them TOGETHER by screen cell
+    // row: anything in a lower row always draws over anything in a higher row,
+    // whatever kind it is. Inside one cell row the old layer hierarchy still
+    // holds (crops under objects under creatures) — see the z-order pass in
+    // Render.drawObjects, which stamps each sprite's depth and sorts this
+    // container. The three aliases below are the names the renderer uses.
+    this.worldContainer = this.add.container(0, 0);
+    this.plantedContainer = this.worldContainer;
+    this.objectsContainer = this.worldContainer;
+    this.creaturesContainer = this.worldContainer;
     // FRONT layer — the south wall + its battlements — sits ABOVE the object
     // sprites so towers on the front edge read as standing BEHIND it. Both
     // rampart layers are cleared + repainted each frame in Render.drawCells.
@@ -662,9 +673,8 @@ class MapScene extends Phaser.Scene {
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
-    this.creaturesContainer = this.add.container(0, 0);
     // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
-    // animal / wild plant / tree. Added AFTER creaturesContainer so the spark
+    // animal / wild plant / tree. Added AFTER the world layer so the spark
     // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
     // cue: the multiply setTint() used elsewhere silently no-ops under the
     // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
@@ -707,16 +717,22 @@ class MapScene extends Phaser.Scene {
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
     // dark ink — the cobble tiles are light warm stone, so black reads like
-    // worn paint markings on them (white washed out over pale stone). Pool is
-    // sized one slot per visible cell because render walks cells — at most one
-    // anchor can occupy a cell, and most slots simply stay invisible.
+    // worn paint markings on them (white washed out over pale stone).
+    // A road cell is only PART stone, though: the ground the road was painted
+    // over shows between the cobbles, so on a road crossing grass or forest
+    // the dark glyphs used to disappear into the dark background. A pale
+    // stone-coloured halo around each glyph carries the word over both — the
+    // lettering stays dark on the stones and stays readable off them.
+    // Pool is sized one slot per visible cell because render walks cells — at
+    // most one anchor can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const t = this.add.text(0, 0, '', {
         font: 'bold 10px serif', color: '#000000',
-      }).setOrigin(0.5, 0.5).setAlpha(0.55).setDepth(0).setVisible(false);
+        stroke: '#d8cdb4', strokeThickness: 3,
+      }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -798,14 +814,12 @@ class MapScene extends Phaser.Scene {
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
-    this.plantedContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
-    this.objectsContainer.setMask(mask);
+    this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
     this.coinContainer.setMask(mask);
-    this.creaturesContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);

@@ -64,7 +64,11 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  mushroom: { sheet: 'props', custom: true, frame: 35 },
+  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
+  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
+  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
+  // pass, so it shrinks about the cell centre and stays centred.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
