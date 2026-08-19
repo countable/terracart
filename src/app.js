@@ -115,7 +115,7 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 // assets.js + render.js change per kind.
 //   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
 //   range  → cells within which it drains energy
-//   dmg    → energy drained per hit (1 hit/sec per monster)
+//   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
 //   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
 //   weight → relative spawn share among the kinds eligible at a given depth
 const MONSTERS = {
@@ -124,6 +124,11 @@ const MONSTERS = {
   goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
   goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
 };
+// Seconds between one monster's hits. Per user: monsters were landing a hit a
+// second each, so a pack shredded the energy bar faster than it could be read —
+// halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
+// a crop pest, not a cave enemy.)
+const MONSTER_HIT_MS = 2000;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 
@@ -2843,15 +2848,16 @@ class MapScene extends Phaser.Scene {
         }
       }
       // Underground monster attack: the slime's energy leech, parametrised.
-      // A monster within its RANGE (cells) drains DMG energy on a 1 s per-
-      // monster cooldown. Melee kinds use range 1 (adjacent); the goblin archer
-      // reaches 3 cells, so it chips at you before you can close. Accumulated +
-      // flashed once per window after the loop, like the slime swarm.
+      // A monster within its RANGE (cells) drains DMG energy on a
+      // MONSTER_HIT_MS per-monster cooldown. Melee kinds use range 1
+      // (adjacent); the goblin archer reaches 3 cells, so it chips at you
+      // before you can close. Accumulated + flashed once per window after the
+      // loop, like the slime swarm.
       if (isMonster(c.kind)) {
         const m = MONSTERS[c.kind];
         const R = m.range * this.cellM;
         if (ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + 1000;
+          c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (before > 0) {
             const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(m.dmg / 2) : m.dmg;

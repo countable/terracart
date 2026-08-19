@@ -708,8 +708,9 @@ UNDERGROUND CAVES (Phase 1)
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
    HP / RANGE / DAMAGE / SPEED, and is DEFEATED via the work wheel (HP scales
-   the wheel; tougher kinds take longer; no drops). Kinds are gated by depth so
-   descending introduces new foes; density rises gently with depth:
+   the wheel; tougher kinds take longer; no drops). Each monster lands at most
+   one hit every 2 s (MONSTER_HIT_MS). Kinds are gated by depth so descending
+   introduces new foes; density rises gently with depth:
      * cave slime    (depth 1+) — 15 hp, range 1, 2⚡/hit, slow
      * bat           (depth 1+) — 6 hp,  range 1, 1⚡/hit, fast + erratic, hovers
      * goblin        (depth 2+) — 25 hp, range 1, 4⚡/hit, medium speed (a slog)
