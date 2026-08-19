@@ -169,6 +169,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
+  // Cobble tiles (road cluster + path pebble alike) draw at 85% opacity so the
+  // stones read as settled into the ground they cross rather than stamped on
+  // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
+  // scattered stone.
+  const COBBLE_ALPHA = 0.85;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -488,11 +493,14 @@ Render.drawCells = function drawCells(scene) {
                      : isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
-          // Roads get bumped up 10% so the cobble cluster reads as a real
-          // surface texture instead of pixel speckle. Paths + piers stay at
-          // cell size — the plank art is meant to tile edge-to-edge across
-          // adjacent pier cells, so upscaling would break the seam.
-          const size = isRoad(type) ? CELL_PX * 1.10 : CELL_PX;
+          // Both cobble tiles — the dense ROAD cluster and the sparse PATH
+          // pebble — are drawn 10% smaller than they used to be (per playtest),
+          // centred on the same point: roads at 0.99 of a cell (they were
+          // bumped 10% OVER cell size so the cluster read as a real surface
+          // rather than pixel speckle) and paths at 0.9. The PIER plank is not
+          // one of them and keeps cell size: its art tiles edge-to-edge across
+          // adjacent pier cells, and any resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.99 : CELL_PX * 0.90);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -514,10 +522,14 @@ Render.drawCells = function drawCells(scene) {
           // Pool sprites are created with the 'cobble' texture so reassign
           // each frame; Phaser short-circuits if the key is already current.
           cs.setTexture(isPier ? 'pier' : 'cobble', frame);
+          // Alpha is set on every draw, not just for the translucent kinds:
+          // pool slots are reused across cell types, so a slot that carried a
+          // cobble last frame would keep 0.85 on a pier plank the next.
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(tint)
+            .setAlpha(isPier ? 1 : COBBLE_ALPHA)
             .setVisible(true);
         } else {
           cs.setVisible(false);
@@ -626,16 +638,22 @@ Render.drawCells = function drawCells(scene) {
       // dashes on the same merlon grid so they line up with the crests.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
-        const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
-              STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
-        // STONE_FACE — the tall extruded N/S wall faces use a darker stone than
-        // the lit battlement tops (STONE_BODY), so the wall mass reads with depth
-        // instead of looking washed-out/too-light against the light castle floor.
-        const STONE_FACE = 0x7e8188;
-        // STONE_SIDE — the E/W side-wall crenel dashes: a soft mid-grey (much
-        // lighter than the old STONE_SHADOW) so the gaps between the side merlons
-        // aren't harshly dark.
-        const STONE_SIDE = 0x7a7d84;
+        // Stone comes from the shared castle palette (textures.js
+        // CASTLE_STONE) — the same six values the turret texture is drawn
+        // from, so a tower reads as the same masonry as the wall it stands on.
+        //   BODY  — lit battlement tops
+        //   FACE  — the tall extruded N/S wall faces: darker than BODY so the
+        //           wall mass reads with depth instead of looking washed out
+        //           against the light castle floor
+        //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
+        //           gaps between the side merlons aren't harshly dark
+        const _CS = (typeof CASTLE_STONE !== 'undefined') ? CASTLE_STONE : null;
+        const STONE_LITE   = _CS ? _CS.LITE.n   : 0xb9bcc2;
+        const STONE_BODY   = _CS ? _CS.BODY.n   : 0x8f9298;
+        const STONE_SHADOW = _CS ? _CS.SHADOW.n : 0x5a5d63;
+        const STONE_DARK   = _CS ? _CS.DARK.n   : 0x303134;
+        const STONE_FACE   = _CS ? _CS.FACE.n   : 0x7e8188;
+        const STONE_SIDE   = _CS ? _CS.SIDE.n   : 0x7a7d84;
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
@@ -1237,12 +1255,16 @@ Render.drawObjects = function drawObjects(scene) {
           y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
         };
       } },
-    // sy is the cell CENTRE, so a foot-anchored (0.95) tower drawn there floats
-    // ~2/3 of a cell up into the tile above — leaving its collision cell (the
-    // castle wall it stands on) exposed as an empty-looking blocked space below
-    // it. Nudge the foot down to the cell's front (bottom) edge — same trick as
-    // trees — so the tower stands inside its own single cell.
-    tower:  { key: 'tower',                  origin: [0.5, 0.95], scale: 1.0, dyPx: CELL_PX * 0.5 - 2 },
+    // Turret placement, exactly: the art is anchored by its frame's
+    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
+    // CENTRE that sy gives us, so its grounding line lands ON the cell's
+    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
+    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
+    // IS art bottom, and its art is symmetric about the frame's centre column,
+    // so origin x 0.5 centres it on the cell. Towers draw in their own layer
+    // above BOTH rampart layers (app.js towerContainer), so the turret always
+    // reads as standing on top of the wall, never behind it.
+    tower:  { key: 'tower',                  origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
@@ -1341,19 +1363,26 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crates (box / open_box, 16×16) render at 1.53 — 10% down from the
-              // old 1.7, so a crate reads as a prop rather than filling its cell
-              // (16 × 1.53 ≈ 24px inside the 32px cell). trunk is 32×32 so
-              // scale 1.0 = one cell. The open marker shares the closed crate's scale.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 1.0)),
+              // Every chest kind and the market stall are drawn 10% smaller
+              // than they used to be (per playtest — they crowded their cell),
+              // about the SAME centre: the seated kinds (trunk chest, crates)
+              // are re-centred automatically by the seat pass, and the stall's
+              // dxPx/dyPx below are re-derived for the new scale so its art
+              // centre doesn't move. Crates (box / open_box, 16×16) sit at
+              // CRATE_SCALE — 16 × 1.53 ≈ 24px inside the 32px cell, so a crate
+              // reads as a prop rather than filling its cell; trunk is 32×32 so
+              // 0.9 is 90% of a cell. The open marker shares the crate's scale.
+              scale: (o) => produceStandFor(o) ? 0.54 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 0.9)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
               // frame, i.e. 12px transparent padding on the left, 0 on the
-              // right). -3.6 (= 6px frame offset × 0.6 scale) centres the art;
-              // +3 on top of that per playtest so the stall reads centred over
-              // its POI cell in situ.
-              dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
+              // right). -3.24 (= 6px frame offset × 0.54 scale) centres the
+              // art; +3 on top of that per playtest so the stall reads centred
+              // over its POI cell in situ. Both terms are re-derived whenever
+              // the scale changes so shrinking the stall leaves its art centre
+              // exactly where it was.
+              dxPx: (o) => produceStandFor(o) ? -0.24 : (_isCoinBurst(o) ? 4 : 0),
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
               // its cell, so the anchor is pushed down by the distance from the
               // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
@@ -1362,9 +1391,11 @@ Render.drawObjects = function drawObjects(scene) {
               // Stand: every market_stand frame has 10 transparent rows under
               // the art (y:[0,70) of 80), so the old +2 left the stall's feet
               // floating ~4px ABOVE the cell centre ("the food stand is about
-              // 20px too high"). +22 seats the feet on the cell's bottom edge
-              // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 0.4 * 16 * CRATE_SCALE : 0)),
+              // 20px too high"). +22 seated the feet on the cell's bottom edge
+              // at scale 0.6; at 0.54 the same art centre sits at 19.3
+              // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
+              // stall exactly where it was, just 10% smaller.
+              dyPx: (o) => produceStandFor(o) ? 19.3 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 0.4 * 16 * CRATE_SCALE : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
@@ -1468,7 +1499,10 @@ Render.drawObjects = function drawObjects(scene) {
     // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
     // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
     // it doesn't overspill its cell. Tap refills the watering can (interact.js).
-    well:   { key: 'well', origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
+    // frame 0 is the well without the hoist arm (assets.js slices the sheet at
+    // 30px); it is set explicitly because pool sprites are shared with
+    // multi-frame sheets and would otherwise keep a stale frame index.
+    well:   { key: 'well', frame: 0, origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
@@ -1541,7 +1575,12 @@ Render.drawObjects = function drawObjects(scene) {
        .setAlpha(0.5).setTint(0xffffff);
     });
   }
-  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
+  // One configure routine, two pools: turrets render into towerContainer
+  // (added above BOTH rampart layers in app.js) so a tower always reads as
+  // standing above the wall it's built on — including the south wall, which
+  // draws above every other object and used to paint over the turret in front
+  // of it. Everything else keeps objectsContainer and its existing sorting.
+  const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
@@ -1614,7 +1653,11 @@ Render.drawObjects = function drawObjects(scene) {
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
     // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
     if (typeof spec.after === 'function') spec.after(s, o);
-  });
+  };
+  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
+  const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
+  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
 
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up

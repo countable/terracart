@@ -675,9 +675,21 @@ class MapScene extends Phaser.Scene {
     this.objectsContainer = this.worldContainer;
     this.creaturesContainer = this.worldContainer;
     // FRONT layer — the south wall + its battlements — sits ABOVE the object
-    // sprites so towers on the front edge read as standing BEHIND it. Both
-    // rampart layers are cleared + repainted each frame in Render.drawCells.
+    // sprites so a building or chest south of the wall reads as standing
+    // BEHIND it. Both rampart layers are cleared + repainted each frame in
+    // Render.drawCells.
     this.rampartFrontGfx = this.add.graphics();
+    // Castle turrets get their OWN layer, added after both rampart layers, so
+    // a tower always reads as standing above the wall it's built on — on the
+    // front (south) edge too, where it used to be painted over by the wall in
+    // front of it.
+    //
+    // The cost of that: a turret sits outside worldContainer's row sort, so it
+    // no longer yields to a sprite one row further south — an animal crossing
+    // in front of a turret is drawn behind it. Anything above the front wall
+    // has to leave the shared layer, and the wall-over-turret artefact is the
+    // one people actually noticed. Coins / sparks / labels still draw above.
+    this.towerContainer = this.add.container(0, 0);
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -746,6 +758,9 @@ class MapScene extends Phaser.Scene {
     }
 
     this.objectPool = [];
+    // Turrets render from their own pool into towerContainer (above the
+    // ramparts); every other world object shares objectPool.
+    this.towerPool = [];
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -827,6 +842,7 @@ class MapScene extends Phaser.Scene {
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
+    this.towerContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.labelContainer.setMask(mask);
