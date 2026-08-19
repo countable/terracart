@@ -31,6 +31,17 @@
     :root {
       --phone-left:  0px;
       --phone-right: 0px;
+      /* Palette — the DOM half of the shared look. Mirrors the UI_* constants
+         in src/util.js (which the canvas text and Phaser graphics draw with);
+         keep the two in sync when either changes. Reach for the role that
+         fits rather than adding a near-duplicate shade. */
+      --gold:       #ffe066;   /* the game's gold: money, highlights, accents */
+      --gold-deep:  #ffd23a;   /* saturated gold — shiny + jackpot accents    */
+      --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
+      --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
+      --green:      #a7ffb0;   /* success / ready / energy gain               */
+      --danger:     #b71c1c;   /* destructive action + error surfaces         */
+      --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -102,7 +113,7 @@
     body.modal-open #ghost-pad { display: none !important; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
+      background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
     }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
@@ -112,7 +123,7 @@
     #errbar {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
-      background: #b71c1c; color: #fff; padding: 8px 10px; border-radius: 8px;
+      background: var(--danger); color: #fff; padding: 8px 10px; border-radius: 8px;
       font: 12px/1.45 ui-monospace, monospace; display: none; z-index: 20;
       box-shadow: 0 4px 16px #0008;
       white-space: pre-wrap; word-break: break-word;
@@ -127,7 +138,7 @@
       position: sticky; bottom: 0;
     }
     #errbar button {
-      font: 700 12px ui-monospace, monospace; color: #b71c1c; background: #fff;
+      font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
     #hud {
@@ -143,7 +154,7 @@
     #money {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
-      background: #000a; color: #ffd96b; padding: 4px 10px;
+      background: #000a; color: var(--gold); padding: 4px 10px;
       border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
@@ -151,7 +162,7 @@
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
-      background: #000a; color: #a7ffb0; padding: 4px 10px;
+      background: #000a; color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
@@ -165,7 +176,7 @@
     }
     #energy-bar-fill {
       height: 100%; width: 100%; border-radius: 2px;
-      background: #a7ffb0;
+      background: var(--green);
       transition: width 0.15s linear, background-color 0.15s linear;
     }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
@@ -190,14 +201,14 @@
       font: 12px ui-monospace, monospace; cursor: pointer;
     }
     #menu .items button:hover { background: #fff2; }
-    #menu .items button.danger { color: #ff8a7a; }
+    #menu .items button.danger { color: var(--danger-ink); }
     /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
        The active slot is marked with a leading ✓ and highlighted. */
     #menu .save-row { display: flex; align-items: stretch; gap: 2px; }
     #menu .save-row .save-pick { flex: 1; min-width: 0; }
-    #menu .save-row .save-pick.active { color: #a7ffb0; font-weight: 700; }
+    #menu .save-row .save-pick.active { color: var(--green); font-weight: 700; }
     #menu .save-row .save-del {
-      flex: 0 0 auto; color: #ff8a7a; padding: 6px 8px;
+      flex: 0 0 auto; color: var(--danger-ink); padding: 6px 8px;
     }
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
@@ -210,19 +221,19 @@
     }
     #safety .box, #locating .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid #c8a64a; border-radius: 12px;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
     #safety p, #locating p { margin: 0 0 18px; }
     #safety button, #locating button {
-      background: #c8a64a; color: #1a1612; border: 0;
+      background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
     /* "Skip" is a secondary action — don't dress it up like the CTA. */
     #locating button {
-      background: transparent; color: #c8a64a;
+      background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; font-weight: 400; padding: 8px 18px;
     }
     /* First-load story intro — shown once, right after the safety splash,
@@ -236,7 +247,7 @@
     }
     #story .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid #c8a64a; border-radius: 12px;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 15px ui-monospace, monospace; line-height: 1.5;
     }
@@ -251,7 +262,7 @@
     #story .art.wrecks img { height: 120px; }
     #story p { margin: 0 0 18px; min-height: 3em; }
     #story button {
-      background: #c8a64a; color: #1a1612; border: 0;
+      background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
@@ -307,8 +318,8 @@
   <div id="hud"></div>
   <div id="safety">
     <div class="box">
-      <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:#ffd96b;">Welcome to Pocket Acres</h2>
-      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:#a7ffb0;">Farm your neighbourhood.</p>
+      <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
+      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:var(--green);">Farm your neighbourhood.</p>
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <button id="safety-dismiss">Go to my location</button>
     </div>
@@ -319,7 +330,7 @@
        gate at the bottom of this file. -->
   <div id="locating" style="display:none">
     <div class="box">
-      <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:#ffd96b;">Finding your location…</p>
+      <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:var(--gold);">Finding your location…</p>
       <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
       <button id="locating-skip">Skip</button>
     </div>
@@ -919,7 +930,7 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=11"></script>
+  <script src="src/util.js?v=12"></script>
   <script src="src/sprite_layout.js?v=4"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
@@ -942,10 +953,10 @@
   <script src="src/quests.js?v=1"></script>
   <script src="src/interactables.js?v=6"></script>
   <script src="src/interact.js?v=221"></script>
-  <script src="src/render.js?v=281"></script>
+  <script src="src/render.js?v=282"></script>
   <script src="src/road_overlay.js?v=3"></script>
   <script src="src/assets.js?v=175"></script>
-  <script src="src/sandbox.js?v=35"></script>
+  <script src="src/sandbox.js?v=36"></script>
   <script src="src/testtools.js?v=7"></script>
   <script src="src/geo.js?v=1"></script>
   <script>
@@ -964,7 +975,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=366';
+      const APP_SRC = 'src/app.js?v=367';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

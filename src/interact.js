@@ -337,7 +337,7 @@ const TAP_HANDLERS = [
         // Shouldn't happen — context exists — but bail safely if rarity.js
         // is missing or the pool is empty.
         addMoney(save, 1);
-        scene.flashLoot('✕ → $1', '#ffd96b');
+        scene.flashLoot('✕ → $1', '#ffe066');
       } else if (reward.kind === 'item') {
         // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
         if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
@@ -354,7 +354,7 @@ const TAP_HANDLERS = [
         }
       } else if (reward.kind === 'gold') {
         addMoney(save, reward.amount);
-        scene.flashLoot(`✕ → $${reward.amount}`, '#ffd96b');
+        scene.flashLoot(`✕ → $${reward.amount}`, '#ffe066');
       }
       // Consolation coins for any qty bumps the picker couldn't apply
       // (bracket at cap or single-stack class). Small gold trickle alongside
@@ -1293,7 +1293,7 @@ const TAP_HANDLERS = [
           const label = (typeof gearName === 'function')
             ? gearName(reward.kind, reward.slot, reward.tier)
             : `${reward.slot} T${reward.tier}`;
-          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffd96b', 1.6);
+          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {

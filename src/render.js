@@ -1760,7 +1760,7 @@ Render.drawObjects = function drawObjects(scene) {
     let tx = scene.chestLabelPool[li];
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
-        font: 'bold 10px monospace',
+        font: fontMono('bold 10px'),
         color: LABEL_INK, backgroundColor: LABEL_BG,
         stroke: LABEL_STROKE, strokeThickness: LABEL_STROKE_W,
         padding: { x: 4, y: 3 },
@@ -1936,7 +1936,7 @@ Render.drawObjects = function drawObjects(scene) {
     let tx = scene.shopLabelPool[sli];
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
-        font: 'bold 9px monospace',
+        font: fontMono('bold 9px'),
         stroke: SHOP_STROKE, strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(50);
       // Drop-shadow offset down-right with no blur so the sign reads as a
@@ -2108,7 +2108,7 @@ Render.drawObjects = function drawObjects(scene) {
       // compete: the name sign owns the building's identity, this label is
       // a secondary "open/closed" tag.
       tx = scene.add.text(0, 0, '', {
-        font: 'italic 8px ui-serif, "Times New Roman", serif',
+        font: fontSerif('italic 8px'),
         padding: { x: 3, y: 1 },
       }).setOrigin(0.5, 1).setDepth(51);
       scene.labelContainer.add(tx);
@@ -2333,7 +2333,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Origin (1,1) anchors the badge at its bottom-right — set once at pool
       // creation rather than every frame (it doesn't vary by item).
       t = scene.add.text(0, 0, '', {
-        font: 'bold 9px ui-monospace, monospace',
+        font: fontMono('bold 9px'),
         color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 2, y: 1 },
       }).setOrigin(1, 1).setDepth(Z_OVERLAY);
@@ -2364,7 +2364,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { sx, sy } = project(dx, dy);
     let t = scene._petHeartPool[hi];
     if (!t) {
-      t = scene.add.text(0, 0, '💗', { font: '10px ui-monospace, monospace' })
+      t = scene.add.text(0, 0, '💗', { font: fontMono('10px') })
         .setOrigin(0.5, 1).setDepth(Z_OVERLAY);
       scene.creaturesContainer.add(t);
       scene._petHeartPool.push(t);
