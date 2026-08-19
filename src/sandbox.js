@@ -695,8 +695,9 @@
     const targetWorldY = centreTY * tileEdgeM + (playerCellIY + 0.5) * cellM;
     scene.playerM.x = targetWorldX - scene.startWorldM.x;
     scene.playerM.y = targetWorldY - scene.startWorldM.y;
-    // Cancel any GPS-ease that might overwrite our teleport.
-    scene._ease = null;
+    // Park the walk target on the teleported body — movement is target-follow
+    // now (app.js _followStep), so a stale target would walk us straight back.
+    if (scene.syncMoveTarget) scene.syncMoveTarget();
     // Pretend a GPS fix arrived so the UI doesn't sit in "no GPS" mode.
     scene.gpsM = { x: scene.playerM.x, y: scene.playerM.y };
     // Plant a treasure X one cell north of spawn (tap that cell — treasure is

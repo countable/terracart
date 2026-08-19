@@ -32,7 +32,9 @@ const assert = {
 function teleport(scene, wx, wy) {
   scene.playerM.x = wx - scene.startWorldM.x;
   scene.playerM.y = wy - scene.startWorldM.y;
-  scene._ease = null;
+  // Re-park the walk target too — movement is target-follow (app.js
+  // _followStep), so a stale target would walk the body back off the mark.
+  if (scene.syncMoveTarget) scene.syncMoveTarget();
 }
 
 // Project a world-meter point to screen pixels (the same maths handleWorldTap
