@@ -168,6 +168,7 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
+  const PATH_ALPHA = 0.85;   // path pebbles sit 15% into the ground they cross
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -516,10 +517,17 @@ Render.drawCells = function drawCells(scene) {
           // Pool sprites are created with the 'cobble' texture so reassign
           // each frame; Phaser short-circuits if the key is already current.
           cs.setTexture(isPier ? 'pier' : 'cobble', frame);
+          // The PATH pebble draws at 85% opacity (15% less than it used to) so
+          // a footpath reads as scattered stones settled into the ground it
+          // crosses rather than a stamped-on decal. Roads and piers stay fully
+          // opaque — they ARE the surface. Set on every draw, not just for
+          // paths: pool slots are reused across cell types, so a slot that
+          // carried a path last frame would keep its alpha on a road cell.
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(tint)
+            .setAlpha(type === PATH ? PATH_ALPHA : 1)
             .setVisible(true);
         } else {
           cs.setVisible(false);
