@@ -106,12 +106,20 @@ test('steerEnergyCost: 1 pip/cell bare, ~7× cheaper at Frost', () => {
   }
 });
 
-test('steerEnergyCost: the speed potion’s synthetic tier 9 never pays you to walk', () => {
-  // drinkSpeedPotion stands in a tier-9 amulet, which runs the linear curve
-  // negative — the floor is what keeps a minute of Speed from REFUNDING energy.
-  const v = steerEnergyCost({ amulet: { tier: 9 } });
-  assert.gt(v, 0, 'still positive');
-  assert.lt(v, steerEnergyCost({ amulet: { tier: 7 } }), 'still cheaper than Frost');
-  assert.gt(steerSpeedMul({ amulet: { tier: 9 } }), steerSpeedMul({ amulet: { tier: 7 } }),
-    'and faster than Frost');
+test('steer curves: the borrowed buff tiers rank above Frost and never pay you to walk', () => {
+  // Two buffs borrow an amulet tier instead of adding a movement mode (app.js
+  // _walkRelics): Dragon Powder walks as tier 8, the Speed potion as tier 9.
+  // Both run the linear cost curve negative — the floor is what keeps a minute
+  // of either from REFUNDING energy.
+  const DRAGON = 8, POTION = 9;
+  for (const t of [DRAGON, POTION]) {
+    assert.gt(steerEnergyCost({ amulet: { tier: t } }), 0, `tier ${t} still costs something`);
+    assert.lt(steerEnergyCost({ amulet: { tier: t } }), steerEnergyCost({ amulet: { tier: 7 } }),
+      `tier ${t} cheaper than Frost`);
+  }
+  // Speed ranks bare < Frost < dragon < potion.
+  const speeds = [0, 7, DRAGON, POTION].map(t => steerSpeedMul({ amulet: { tier: t } }));
+  for (let i = 1; i < speeds.length; i++) {
+    assert.gt(speeds[i], speeds[i - 1], `speeds ascend: ${speeds.join(' < ')}`);
+  }
 });
