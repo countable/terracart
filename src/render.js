@@ -11,9 +11,10 @@
 // Depends on:
 //   app.js       — MapScene fields used per-frame (read unless noted):
 //                    Graphics:   cellGfx, tierGfx
-//                    Containers: terrainContainer, objectsContainer,
-//                                padContainer, plantedContainer,
-//                                creaturesContainer
+//                    Containers: terrainContainer, padContainer,
+//                                worldContainer (aliased as objectsContainer /
+//                                plantedContainer / creaturesContainer — one
+//                                shared, depth-sorted layer)
 //                    Pools:      cobblePool, noisePool, padPool,
 //                                letterPool, objectPool, padPool,
 //                                plantedPool, creaturePool, chestLabelPool
@@ -618,7 +619,7 @@ Render.drawCells = function drawCells(scene) {
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
-        const WALL = 6;          // south wall-face height (the lit 3-D extrusion)
+        const WALL = 7;          // south wall-face height (the lit 3-D extrusion)
         // Ramparts split front vs back/side across two layers (gf above objects,
         // gb below) so towers sort per-edge. The wall stone is a light masonry
         // material that reads against the lighter castle floor.
@@ -664,8 +665,11 @@ Render.drawCells = function drawCells(scene) {
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
-        // align with the front/back crests. SIDE_W is the band thickness (4px).
-        const SIDE_W = 4;
+        // align with the front/back crests. SIDE_W is the band thickness (5px).
+        // WALL / SIDE_W set the wall's visible MASS; the merlon grid (SPAN /
+        // MOFF / MW) is independent of both, so thickening the stone keeps the
+        // teeth and side dashes on the same grid — still aligned cell to cell.
+        const SIDE_W = 5;
         const sideShade = (x, innerX) => {
           gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
           gb.fillStyle(STONE_SIDE, 1);
@@ -879,6 +883,10 @@ Render.drawObjects = function drawObjects(scene) {
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
   const objList = [], creatureList = [], plantedList = [];
+  // Depth band for non-sprite overlays that share the world layer (crop timer
+  // badges, pet hearts). World sprites take depths 0..n from the z-order pass
+  // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
+  const Z_OVERLAY = 10000;
   const pickedSet = new Set(scene.save.picked || []);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
@@ -1020,6 +1028,26 @@ Render.drawObjects = function drawObjects(scene) {
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   filteredObj.sort((a, b) => a.dy - b.dy);
+  // ── Screen-row z-order ──────────────────────────────────────────────────
+  // Crops, world objects and creatures all live in ONE display layer
+  // (scene.worldContainer — see app.js), so they can interleave: a sprite in a
+  // LOWER screen cell row ALWAYS draws over one in a higher row, whatever kind
+  // it is. A deer standing north of a house no longer floats in front of it,
+  // and a crop in the front row no longer hides under the row behind it.
+  // Inside a single cell row the previous hierarchy still decides: crops under
+  // objects under creatures, and within one kind the old north-to-south (dy)
+  // order. The stamped index becomes each sprite's Phaser depth; the container
+  // is sorted by it at the end of this pass. Overlay badges in the same layer
+  // (crop timers, pet hearts) sit at Z_OVERLAY, above every world sprite.
+  const _cellRow = (dy) => Math.floor((pWorldY + dy) / scene.cellM);
+  const zList = [];
+  for (const it of plantedList)  zList.push({ it, rank: 0 });
+  for (const it of filteredObj)  zList.push({ it, rank: 1 });
+  for (const it of creatureList) zList.push({ it, rank: 2 });
+  zList.sort((a, b) => (_cellRow(a.it.dy) - _cellRow(b.it.dy))
+                    || (a.rank - b.rank)
+                    || (a.it.dy - b.it.dy));
+  for (let zi = 0; zi < zList.length; zi++) zList[zi].it._z = zi;
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -1027,6 +1055,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
   const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
+  // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
+  const CRATE_SCALE = 1.53;
   const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
@@ -1255,9 +1285,11 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crates (box / open_box, 16×16) render at 1.7; trunk is 32×32 so
+              // Crates (box / open_box, 16×16) render at 1.53 — 10% down from the
+              // old 1.7, so a crate reads as a prop rather than filling its cell
+              // (16 × 1.53 ≈ 24px inside the 32px cell). trunk is 32×32 so
               // scale 1.0 = one cell. The open marker shares the closed crate's scale.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
+              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 1.0)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -1266,15 +1298,17 @@ Render.drawObjects = function drawObjects(scene) {
               // +3 on top of that per playtest so the stall reads centred over
               // its POI cell in situ.
               dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
-              // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
-              // the art's centroid down toward that anchor. Lift the crate back
-              // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
+              // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
+              // its cell, so the anchor is pushed down by the distance from the
+              // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
+              // fallback — the seat pass below recomputes it from the trimmed art
+              // bounds whenever they're tabulated (src/sprite_layout.js).
               // Stand: every market_stand frame has 10 transparent rows under
               // the art (y:[0,70) of 80), so the old +2 left the stall's feet
               // floating ~4px ABOVE the cell centre ("the food stand is about
               // 20px too high"). +22 seats the feet on the cell's bottom edge
               // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 0.4 * 16 * CRATE_SCALE : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
@@ -1439,6 +1473,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, filteredObj, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
     const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
@@ -1540,9 +1575,9 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
-    // Fully opaque — earlier 0.92 made pads read as slightly washed out
-    // against the terrain underneath, which dulled the POI signage too.
-    s.setAlpha(1);
+    // 0.7 — the slab is a backdrop for the POI, so it lets the terrain it sits
+    // on read through rather than stamping an opaque disc over it.
+    s.setAlpha(0.7);
     s.setTint(0xffffff);
   });
 
@@ -2020,6 +2055,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     // Rare shiny wild flora gets the warm sheen; everything else (farmed crops,
     // placed rocks) renders untinted. Pooled sprites keep their last tint, so
     // set it explicitly every frame. A flat gold multiply on already-green
@@ -2135,7 +2171,7 @@ Render.drawObjects = function drawObjects(scene) {
         font: 'bold 9px ui-monospace, monospace',
         color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 2, y: 1 },
-      }).setOrigin(1, 1).setDepth(60);
+      }).setOrigin(1, 1).setDepth(Z_OVERLAY);
       scene.plantedContainer.add(t);
       scene.plantedTimerPool.push(t);
     }
@@ -2164,7 +2200,7 @@ Render.drawObjects = function drawObjects(scene) {
     let t = scene._petHeartPool[hi];
     if (!t) {
       t = scene.add.text(0, 0, '💗', { font: '10px ui-monospace, monospace' })
-        .setOrigin(0.5, 1).setDepth(60);
+        .setOrigin(0.5, 1).setDepth(Z_OVERLAY);
       scene.creaturesContainer.add(t);
       scene._petHeartPool.push(t);
     }
@@ -2179,6 +2215,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     if (c.kind === 'cow') {
       if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
       // Cow is the biggest farm animal — needs to read larger than the
@@ -2323,4 +2360,10 @@ Render.drawObjects = function drawObjects(scene) {
      .setTint(0xffffff)
      .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
+
+  // Apply the screen-row z-order stamped above. Phaser renders a container's
+  // children in list order, so the shared world layer has to be re-sorted by
+  // depth once every sprite has been positioned. StableSort, so pooled slots
+  // that share a depth (all the hidden ones) keep a fixed relative order.
+  if (scene.worldContainer && scene.worldContainer.sort) scene.worldContainer.sort('depth');
 };

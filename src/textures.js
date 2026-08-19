@@ -835,28 +835,22 @@ function makeRoundPadTexture(scene, key) {
   const tex = scene.textures.createCanvas(key, size, size);
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, size, size);
-  const inset = 2;                          // room for the 2px cyan perimeter outline
+  const inset = 2;                          // keeps the slab off the texture edge
   // Pedestal: the slab top sits `depth` px above the silhouette's bottom; the
   // exposed band below it is drawn as a darker side face, so the pad reads as
   // a raised plinth the chest stands on rather than a flat painted disc.
   const depth = 4;
   const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2 - depth;
   const radius = w * 0.32;                  // generously rounded corners
-  // Side face first: the same rounded rect shifted down by `depth`, darker
-  // fill, with its own cyan stroke (the visible part forms the thick bottom
-  // border of the pedestal).
-  roundRectPath(ctx, x, y + depth, w, h, radius);
-  ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 3;
-  ctx.lineJoin = 'round';
-  ctx.stroke();
+  // BORDERLESS: the pad is a backdrop, so it carries no perimeter outline —
+  // just the two stone fills. (It used to be ringed in bright cyan, which
+  // drew the eye to the slab instead of to the POI standing on it.) The
+  // darker side face is the only thing separating plinth from top slab.
+  // Side face first: the same rounded rect shifted down by `depth`.
   roundRectPath(ctx, x, y + depth, w, h, radius);
   ctx.fillStyle = '#8d8d8d';
   ctx.fill();
-  // Top slab: cyan outline first (the slab fill covers its inner half, leaving
-  // a clean ~1.5px cyan ring hugging the pad edge), then the body fill.
-  roundRectPath(ctx, x, y, w, h, radius);
-  ctx.stroke();
+  // Top slab.
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.fillStyle = '#b2b2b2';
   ctx.fill();
