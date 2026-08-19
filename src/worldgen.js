@@ -141,22 +141,38 @@
     return T.BUILDING;
   }
 
-  // Per-tile distribution-floor enforcement. Per user balance pass: every
-  // tile should have AT LEAST 20% small houses, 8% forts, and 2% castles —
-  // and the percent floors ALWAYS round UP to at least one of each type, so
-  // no tile with buildings is left without a castle/fort/house. (Previously
-  // the floors used Math.round, so e.g. 2% castles vanished on any tile with
-  // fewer than 25 buildings.) If the default thresholds don't hit those minima
-  // on this tile's actual area distribution, promote/demote by area-rank until
-  // they do — biggest buildings get the biggest tier. n < 3 skips (can't host
-  // one of each type with fewer than three buildings).
+  // Per-tile distribution floors — the tuning knobs for how a tile's buildings
+  // split across the three tiers. Each is a FRACTION of the buildings that
+  // actually landed cells on the tile, always rounded UP to at least one, so no
+  // tile with buildings lacks a castle/fort/house. Raise TIER_FLOOR_SMALL to
+  // make tiles more residential, TIER_FLOOR_LARGE/MED to make them more civic.
+  //
+  // TIER_FLOOR_SMALL is 0.50 per user: at least HALF the buildings on any tile
+  // read as ordinary houses, so a loaded tile is a neighbourhood rather than a
+  // row of civic slabs. (It was 0.20, which on tiles whose polygons all cleared
+  // buildingTier's area thresholds left houses in a small minority.)
+  const TIER_FLOOR_LARGE = 0.02;   // castles  (BUILDING_LARGE — cement pad, no sprite)
+  const TIER_FLOOR_MED   = 0.08;   // forts    (BUILDING_MED)
+  const TIER_FLOOR_SMALL = 0.50;   // houses   (BUILDING)
+
+  // Enforce those floors. If buildingTier's defaults don't hit them on this
+  // tile's actual area distribution, promote/demote by area-rank until they do
+  // — biggest buildings get the biggest tier. n < 3 skips (can't host one of
+  // each type with fewer than three buildings).
+  //
+  // The three forced bands are taken from the top (large), then the next (med),
+  // then the BOTTOM needSmall by area, and the branch chain gives LARGE and MED
+  // precedence where they'd overlap. With these floors that can only happen at
+  // n === 3 (1 + 1 + 2 > 3), where the tile comes out one of each and the house
+  // floor goes unmet — the castle/fort guarantees win on a 3-building tile.
+  // Every n >= 4 satisfies all three floors.
   // Mutates each entry's `.tier`.
   function enforceBuildingDistribution(polys) {
     const n = polys.length;
     if (n < 3) return;
-    const needLarge = Math.max(1, Math.ceil(n * 0.02));
-    const needMed   = Math.max(1, Math.ceil(n * 0.08));
-    const needSmall = Math.max(1, Math.ceil(n * 0.20));
+    const needLarge = Math.max(1, Math.ceil(n * TIER_FLOOR_LARGE));
+    const needMed   = Math.max(1, Math.ceil(n * TIER_FLOOR_MED));
+    const needSmall = Math.max(1, Math.ceil(n * TIER_FLOOR_SMALL));
     // Count current
     let cLarge = 0, cMed = 0, cSmall = 0;
     for (const p of polys) {
@@ -1694,8 +1710,9 @@
       }
       // Building distribution post-process — runs ONCE per layer, but only
       // does work when this layer is 'building'. After collecting every
-      // building ring (above), enforce the per-tile floors (≥20% small,
-      // ≥8% fort, ≥2% castle) by re-tiering by area-rank where needed.
+      // building ring (above), enforce the per-tile floors (≥50% house,
+      // ≥8% fort, ≥2% castle — see TIER_FLOOR_*) by re-tiering by area-rank
+      // where needed.
       // Then paint + push house objects (LARGE gets a cement pad with no
       // sprite; everything else gets a 'house' object).
       if (name === 'building' && buildingPolys.length) {
@@ -3475,6 +3492,11 @@
     // one-cell-each / order-independence invariants.
     assignBuildingFootprints, cellCoverFraction,
     FOOT_COVER_MIN, FOOT_RECT_BONUS, FOOT_RESCUE_MIN,
+    // Per-tile building tier mix — the classifier and the distribution floors
+    // it gets corrected by. Exported so the headless tests can pin the floors
+    // (and so the mix is tunable from one place).
+    buildingTier, enforceBuildingDistribution,
+    TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
     erodePavementBlobs,
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).

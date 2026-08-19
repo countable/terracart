@@ -846,13 +846,16 @@ function makeRoundPadTexture(scene, key) {
   // just the two stone fills. (It used to be ringed in bright cyan, which
   // drew the eye to the slab instead of to the POI standing on it.) The
   // darker side face is the only thing separating plinth from top slab.
+  // Both stone tones sit HALFWAY between their old grey and white (#8d -> #c6,
+  // #b2 -> #d8), so the pad reads as pale stone rather than a grey disc — it
+  // still separates the POI from the terrain, but no longer as a dark blot.
   // Side face first: the same rounded rect shifted down by `depth`.
   roundRectPath(ctx, x, y + depth, w, h, radius);
-  ctx.fillStyle = '#8d8d8d';
+  ctx.fillStyle = '#c6c6c6';
   ctx.fill();
   // Top slab.
   roundRectPath(ctx, x, y, w, h, radius);
-  ctx.fillStyle = '#b2b2b2';
+  ctx.fillStyle = '#d8d8d8';
   ctx.fill();
   // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
   // faint "beveled flagstone" feel the old shape pads had.
