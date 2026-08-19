@@ -6,16 +6,22 @@
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together, and parking aisles are dropped entirely. This layer draws the
 // SOURCE linework straight from the decoded MVT features on top of the map, in
-// black at 30% alpha, so the rasterized roads can be eyeballed against the real
+// black at 9% alpha, so the rasterized roads can be eyeballed against the real
 // ways they came from.
+//
+// Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
+// drawn to the map's scale, so the band covers roughly the ground the road
+// covers: a 5 m residential street is one cell wide, a 12 m motorway more
+// than two.
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
 //     startWorldM, playerM, cellM, cellsPerTile, depth,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helper: playerToWorldCell()
-//   worldgen.js — WorldGen.tileCache, WorldGen.Z; per-tile `entry.layers`
-//                 (the raw decoded MVT layers) and `entry.tileEdgeM`
+//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM;
+//                 per-tile `entry.layers` (the raw decoded MVT layers)
+//                 and `entry.tileEdgeM`
 //   app.js consts — CELL_PX
 //
 // Exports as globals:
@@ -24,9 +30,22 @@
 //   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
 (function (global) {
   const COLOR = 0x000000;
-  const ALPHA = 0.30;    // black @ 30%
-  const WIDTH = 2;       // px — centreline, not the road's real width
+  const ALPHA = 0.09;    // black @ 9% — faint enough to read the map through
   const MVT_EXTENT = 4096;
+  // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
+  // the shared table lives there so the overlay and the rasterizer agree.
+  const FALLBACK_WIDTH_M = 5;
+
+  // Stroke width for one way: its real-world carriageway width, drawn at the
+  // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
+  // residential street covers exactly the one cell the rasterizer paints for
+  // it, and a 12 m motorway visibly covers more than two.
+  function widthPxFor(scene, tags) {
+    const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
+      ? WorldGen.roadWidthM(tags || {})
+      : FALLBACK_WIDTH_M;
+    return Math.max(1, (m / scene.cellM) * CELL_PX);
+  }
 
   // Overlay is ON unless the save explicitly turned it off, so an existing
   // save picks it up without a migration.
@@ -85,7 +104,6 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = scene.roadGeomGfx;
     g.clear();
-    g.lineStyle(WIDTH, COLOR, ALPHA);
     const pWorldX = scene.startWorldM.x + scene.playerM.x;
     const pWorldY = scene.startWorldM.y + scene.playerM.y;
     // Cell-snapped projection (the container re-applies the sub-cell offset).
@@ -98,6 +116,18 @@
     const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
     const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
 
+    // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
+    // by stroke width, and stroked as PATHS rather than loose segments: a wide
+    // band drawn segment-by-segment leaves a notch at every bend, and one
+    // lineStyle per width beats one per feature.
+    const runsByWidth = new Map();   // widthPx -> [ [{x,y},…], … ]
+    const addRun = (widthPx, run) => {
+      if (run.length < 2) return;
+      let runs = runsByWidth.get(widthPx);
+      if (!runs) { runs = []; runsByWidth.set(widthPx, runs); }
+      runs.push(run);
+    };
+
     for (const { tx, ty, entry } of tiles) {
       const tileEdgeM = entry.tileEdgeM;
       const originMx = tx * tileEdgeM;
@@ -107,21 +137,44 @@
         const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
         for (const f of layer.features) {
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
+          const widthPx = widthPxFor(scene, f.tags);
           for (const line of f.geom) {
             if (!line || line.length < 2) continue;
             let px = projX(originMx + line[0].x * mvtToM);
             let py = projY(originMy + line[0].y * mvtToM);
+            let run = [{ x: px, y: py }];
             for (let i = 1; i < line.length; i++) {
               const qx = projX(originMx + line[i].x * mvtToM);
               const qy = projY(originMy + line[i].y * mvtToM);
               const offscreen =
                 (px < minX && qx < minX) || (px > maxX && qx > maxX) ||
                 (py < minY && qy < minY) || (py > maxY && qy > maxY);
-              if (!offscreen) g.lineBetween(px, py, qx, qy);
+              if (offscreen) {
+                // Break the path here — the skipped stretch would otherwise be
+                // drawn as a straight shortcut across the viewport.
+                addRun(widthPx, run);
+                run = [{ x: qx, y: qy }];
+              } else {
+                run.push({ x: qx, y: qy });
+              }
               px = qx; py = qy;
             }
+            addRun(widthPx, run);
           }
         }
+      }
+    }
+
+    // Widest first, so a narrow street crossing a motorway still reads as its
+    // own stroke on top. Sorted rather than insertion-ordered so the draw order
+    // doesn't depend on which tile happened to load first.
+    for (const widthPx of [...runsByWidth.keys()].sort((a, b) => b - a)) {
+      g.lineStyle(widthPx, COLOR, ALPHA);
+      for (const run of runsByWidth.get(widthPx)) {
+        g.beginPath();
+        g.moveTo(run[0].x, run[0].y);
+        for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
+        g.strokePath();
       }
     }
   }

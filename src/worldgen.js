@@ -245,6 +245,11 @@
     if (c === 'pier') return T.PIER;
     return T.ROAD;
   }
+  // Approximate real-world carriageway width, in metres, per transportation
+  // class. The rasterizer only reads this for PIER (roads and paths always
+  // rasterize one cell wide — see the wCells comment in rasterizeTile), but
+  // the road-geometry overlay strokes each way at this width so the linework
+  // it draws covers roughly the ground the real road covers.
   function roadWidthM(tags) {
     const c = tags.class || '';
     if (c === 'motorway' || c === 'trunk') return 12;
@@ -254,6 +259,12 @@
     if (c === 'minor' || c === 'street' || c === 'service') return 5;
     // Piers are narrow wooden walkways — keep them single-cell.
     if (c === 'pier') return 2;
+    // Walkable classes: a pedestrian street or plaza is road-wide, a track is
+    // a farm/forest lane, and footways / cycleways / steps are person-wide.
+    if (c === 'pedestrian') return 6;
+    if (c === 'track') return 3;
+    if (c === 'cycleway') return 2.5;
+    if (c === 'footway' || c === 'path' || c === 'steps') return 2;
     return 3;
   }
 
@@ -3468,6 +3479,8 @@
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).
     paintLine,
+    // Per-class road width — the road-geometry overlay strokes with it.
+    roadWidthM,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
