@@ -637,16 +637,22 @@ Render.drawCells = function drawCells(scene) {
       // dashes on the same merlon grid so they line up with the crests.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
-        const STONE_LITE = 0xb9bcc2, STONE_BODY = 0x8f9298,
-              STONE_SHADOW = 0x5a5d63, STONE_DARK = 0x303134;
-        // STONE_FACE — the tall extruded N/S wall faces use a darker stone than
-        // the lit battlement tops (STONE_BODY), so the wall mass reads with depth
-        // instead of looking washed-out/too-light against the light castle floor.
-        const STONE_FACE = 0x7e8188;
-        // STONE_SIDE — the E/W side-wall crenel dashes: a soft mid-grey (much
-        // lighter than the old STONE_SHADOW) so the gaps between the side merlons
-        // aren't harshly dark.
-        const STONE_SIDE = 0x7a7d84;
+        // Stone comes from the shared castle palette (textures.js
+        // CASTLE_STONE) — the same six values the turret texture is drawn
+        // from, so a tower reads as the same masonry as the wall it stands on.
+        //   BODY  — lit battlement tops
+        //   FACE  — the tall extruded N/S wall faces: darker than BODY so the
+        //           wall mass reads with depth instead of looking washed out
+        //           against the light castle floor
+        //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
+        //           gaps between the side merlons aren't harshly dark
+        const _CS = (typeof CASTLE_STONE !== 'undefined') ? CASTLE_STONE : null;
+        const STONE_LITE   = _CS ? _CS.LITE.n   : 0xb9bcc2;
+        const STONE_BODY   = _CS ? _CS.BODY.n   : 0x8f9298;
+        const STONE_SHADOW = _CS ? _CS.SHADOW.n : 0x5a5d63;
+        const STONE_DARK   = _CS ? _CS.DARK.n   : 0x303134;
+        const STONE_FACE   = _CS ? _CS.FACE.n   : 0x7e8188;
+        const STONE_SIDE   = _CS ? _CS.SIDE.n   : 0x7a7d84;
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
