@@ -749,8 +749,14 @@ class MapScene extends Phaser.Scene {
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
+      // The serif face is the cartographic cue (street names on a paper map),
+      // but the family has to be PINNED: a bare `serif` resolves to whatever
+      // the platform picked — Times on iOS/macOS, Liberation/DejaVu Serif on
+      // Linux, Cambria on Windows — so the one label in the game that should
+      // look like a map label rendered differently on every device, at
+      // different widths. Same stack the shop-ready plaque already pins.
       const t = this.add.text(0, 0, '', {
-        font: 'bold 10px serif', color: '#000000',
+        font: fontSerif('bold 10px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
@@ -820,9 +826,13 @@ class MapScene extends Phaser.Scene {
       pg.generateTexture('shiny_spark', 32, 32);
       pg.destroy();
     }
-    // Shadow pool — one sprite per visible building. Sized to the worst case
-    // (every object cell could be a building); reuses the object pool budget.
+    // Shadow pool — one sprite per visible object that stands off the ground
+    // (buildings plus seated sprites: trees, rocks, chests, wells, poles).
+    // Sized to the worst case; reuses the object pool budget.
     this.shadowPool = [];
+    // Creatures get their own pool so their shadows can stay pinned to the
+    // cell while the sprite hops — see the creature shadow pass in render.js.
+    this.creatureShadowPool = [];
 
     // Viewport mask clips everything inside the 11x11 area.
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -856,6 +866,33 @@ class MapScene extends Phaser.Scene {
     const frame = this.add.graphics();
     frame.lineStyle(2, 0x000000, 0.6)
       .strokeRect(this.viewLeft - 1, this.viewTop - 1, this.viewSize + 2, this.viewSize + 2);
+
+    // Inner vignette. The map is a hard-clipped 352×352 square sitting on the
+    // flat #222 page, so its edge used to end as an abrupt seam: bright grass
+    // straight into dead grey. A short darkening ramp inward from the rim
+    // makes the square read as a WINDOW onto the world rather than a cropped
+    // rectangle, and it does the usual vignette job of pulling the eye to the
+    // player at the centre.
+    //
+    // Nested 1px strokes rather than a gradient fill: Phaser's Graphics has no
+    // gradient primitive, and 1px rings cost nothing to bake once (the
+    // viewport never moves, so this is drawn exactly once in create()).
+    // Quadratic falloff over 14px, peaking at 15% black on the outermost ring
+    // — deliberately light, because the outer cell ring is where objects first
+    // appear as the player walks toward them and must stay readable.
+    // Unmasked and depth 90: above every world container (all depth 0) and
+    // below the work-progress wheel (95) + flash text (100+), which are UI and
+    // shouldn't be dimmed.
+    const vignette = this.add.graphics().setDepth(90);
+    const VIG_PX = 14;
+    for (let i = 0; i < VIG_PX; i++) {
+      const t = 1 - i / VIG_PX;              // 1 at the rim → 0 inward
+      vignette.lineStyle(1, 0x000000, 0.15 * t * t);
+      vignette.strokeRect(
+        this.viewLeft + i + 0.5, this.viewTop + i + 0.5,
+        this.viewSize - 2 * i - 1, this.viewSize - 2 * i - 1,
+      );
+    }
 
     // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
     // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
@@ -901,6 +938,19 @@ class MapScene extends Phaser.Scene {
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
+    // Contact shadow under the player's feet. The player is camera-locked at
+    // viewCentre, so this never moves — it just sits at the footprint anchor
+    // (+14px, the same point drawFootprints drops its dots at). Depth 9.5:
+    // above the footprint trail (9) so a fresh dot can't sit on top of the
+    // shadow, below the character (10). Created here rather than in the
+    // per-frame pass because there is exactly one and it never relocates.
+    // 'bldg_shadow' is baked further up in create(), so it always exists.
+    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY + 13, 'bldg_shadow')
+      .setOrigin(0.5, 0.5)
+      .setDisplaySize(17, 6)
+      .setAlpha(0.34)
+      .setDepth(9.5)
+      .setMask(mask);
     // Second sprite for the player's real body when ghost mode is active.
     // While ghost mode is OFF (the default) this stays hidden and `this.player`
     // is the body. When ghost mode flips ON, `this.player` becomes the ghost
@@ -916,7 +966,7 @@ class MapScene extends Phaser.Scene {
     // player isn't a dragon. The player sprite is camera-locked at viewCenter,
     // so this just rides a fixed offset above it (set per-frame in update()).
     this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: 'bold 13px sans-serif', color: '#ffe066',
+      font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     // Walk-target marker. Movement is target-follow at every depth: GPS fixes
@@ -3506,7 +3556,7 @@ class MapScene extends Phaser.Scene {
       const id = `coin_${poi.id}_${dayKey}_${i}`;
       entry.coinDrops.push({ kind: 'coindrop', x: wmx, y: wmy, id, expiresAt });
     }
-    this.flashLoot(`🪙 Scattered ${n} coins!`, '#ffd96b');
+    this.flashLoot(`🪙 Scattered ${n} coins!`, '#ffe066');
   }
 
   // --- Movement collision & level transitions ---
@@ -3939,7 +3989,7 @@ class MapScene extends Phaser.Scene {
 
   flash(text, x, y) {
     const t = this.add.text(x, y, text, {
-      font: '12px monospace', color: '#ffffff', backgroundColor: '#000a',
+      font: fontMono('12px'), color: UI_INK, backgroundColor: '#000a',
       padding: { x: 4, y: 2 },
     }).setOrigin(0.5, 1).setDepth(100);
     // 2 s total — per user "tooltip splash …are a little too quick". Hold the
@@ -3960,7 +4010,7 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0) || this.viewCenterX == null) return;
     const x = this.viewCenterX, y = this.viewCenterY - 70;
     const t = this.add.text(x, y, `+${amount}⚡`, {
-      font: '12px monospace', color: '#a7ffb0', backgroundColor: '#000a',
+      font: fontMono('12px'), color: UI_GREEN, backgroundColor: '#000a',
       padding: { x: 4, y: 2 },
     }).setOrigin(0.5, 1).setDepth(100);
     this.tweens.add({
@@ -4036,7 +4086,7 @@ class MapScene extends Phaser.Scene {
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
     const t = this.add.text(x, y, text, {
-      font: 'bold 22px monospace', color, backgroundColor: '#000c',
+      font: fontMono('bold 22px'), color, backgroundColor: '#000c',
       stroke: '#000', strokeThickness: 3,
       padding: { left: 10 + RESERVE, right: 10, top: 5, bottom: 5 },
     }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
@@ -4108,7 +4158,7 @@ class MapScene extends Phaser.Scene {
     try {
       const label = `✨ JACKPOT +${n} ✨`;
       const t = this.add.text(x, y, label, {
-        font: 'bold 26px monospace', color: '#ffd866',
+        font: fontMono('bold 26px'), color: UI_GOLD,
         backgroundColor: '#3a1f5a', stroke: '#000', strokeThickness: 4,
         padding: { left: 14, right: 14, top: 6, bottom: 6 },
       }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
@@ -4123,7 +4173,7 @@ class MapScene extends Phaser.Scene {
         const sx = x + Math.cos(angle) * 12;
         const sy = y - 18 + Math.sin(angle) * 12;
         const star = this.add.text(sx, sy, '✦', {
-          font: 'bold 18px monospace', color: '#ffd866',
+          font: fontMono('bold 18px'), color: UI_GOLD,
           stroke: '#000', strokeThickness: 2,
         }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
         this.tweens.add({
@@ -4174,7 +4224,7 @@ class MapScene extends Phaser.Scene {
     const x = this.viewCenterX, y = this.viewCenterY - 150;
     try {
       const banner = this.add.text(x, y, '✨ SHINY FIND ✨', {
-        font: 'bold 26px monospace', color: '#fff3b0',
+        font: fontMono('bold 26px'), color: UI_GOLD_PALE,
         backgroundColor: '#7a5200', stroke: '#000', strokeThickness: 4,
         padding: { left: 14, right: 14, top: 6, bottom: 6 },
       }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
@@ -4185,7 +4235,7 @@ class MapScene extends Phaser.Scene {
         duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
       const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
       const sub = this.add.text(x, y + 8, subText, {
-        font: 'bold 16px monospace', color: '#ffd23a',
+        font: fontMono('bold 16px'), color: UI_GOLD_DEEP,
         backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
         padding: { left: 8, right: 8, top: 3, bottom: 3 },
       }).setOrigin(0.5, 0).setDepth(110).setAlpha(0);
@@ -4197,7 +4247,7 @@ class MapScene extends Phaser.Scene {
         const sx0 = x + Math.cos(angle) * 12;
         const sy0 = y - 18 + Math.sin(angle) * 12;
         const star = this.add.text(sx0, sy0, '✦', {
-          font: 'bold 18px monospace', color: '#ffe066',
+          font: fontMono('bold 18px'), color: UI_GOLD,
           stroke: '#000', strokeThickness: 2,
         }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
         this.tweens.add({
@@ -6299,7 +6349,7 @@ class MapScene extends Phaser.Scene {
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
-        color: '#ffd96b',
+        color: '#ffe066',
       });
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
@@ -6909,6 +6959,13 @@ class MapScene extends Phaser.Scene {
         if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
       }
     }
+    // A flying dragon isn't standing on the cell, so its shadow shrinks and
+    // fades — the standard "it left the ground" read. Restored on landing.
+    if (this.playerShadow) {
+      this.playerShadow
+        .setDisplaySize(ready ? 13 : 17, ready ? 5 : 6)
+        .setAlpha(ready ? 0.20 : 0.34);
+    }
   }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {
@@ -7080,7 +7137,7 @@ class MapScene extends Phaser.Scene {
       `position:fixed;` +
       `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
       `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
-      `background:rgba(120,90,20,0.35);border:2px solid #ffd96b;z-index:6;` +
+      `background:rgba(120,90,20,0.35);border:2px solid #ffe066;z-index:6;` +
       `touch-action:none;user-select:none;-webkit-user-select:none;`;
     const nub = document.createElement('div');
     nub.style.cssText =
@@ -7676,7 +7733,7 @@ class MapScene extends Phaser.Scene {
         'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;' +
         (active
-          ? 'background:#553a;border:2px solid #ffd866;border-bottom-color:#553a;color:#fff;'
+          ? 'background:#553a;border:2px solid #ffe066;border-bottom-color:#553a;color:#fff;'
           : 'background:#222a;border:2px solid #555;color:#ddd;');
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
       // count pip below keeps its full colour. The active tab shows its glyph in
@@ -7690,7 +7747,7 @@ class MapScene extends Phaser.Scene {
       if (count > 0) {
         const pip = document.createElement('span');
         pip.textContent = count;
-        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffd866;padding:0 3px;border-radius:7px;line-height:13px;';
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffe066;padding:0 3px;border-radius:7px;line-height:13px;';
         tab.appendChild(pip);
       }
       tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
@@ -7816,7 +7873,7 @@ class MapScene extends Phaser.Scene {
     }));
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
-    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffd866;font:700 11px ui-monospace,monospace;margin-left:4px;';
+    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffe066;font:700 11px ui-monospace,monospace;margin-left:4px;';
     bar.appendChild(pageLbl);
 
     document.body.appendChild(bar);
@@ -7826,7 +7883,7 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffd866;font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffe066;font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
@@ -7841,7 +7898,7 @@ class MapScene extends Phaser.Scene {
       let isSel;
       if (el.dataset.gear != null) isSel = el.dataset.gear === gearKey;
       else isSel = +el.dataset.slot === this.save.selSlot;
-      el.style.borderColor = isSel ? '#ffd866' : '#555';
+      el.style.borderColor = isSel ? '#ffe066' : '#555';
       el.style.background  = isSel ? '#553a' : '#222a';
     });
     const nameLbl = document.getElementById('inv-name');
@@ -7963,7 +8020,7 @@ class MapScene extends Phaser.Scene {
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'background:#1a1612;color:#ffd866;border:2px solid #c8a64a;' +
+      'background:#1a1612;color:#ffe066;border:2px solid #c8a64a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
     btn.addEventListener('click', (e) => {
