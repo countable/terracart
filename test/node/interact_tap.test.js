@@ -138,6 +138,52 @@ test('TAP_HANDLERS: flavor precedes plant and till (non-tillable label fires bef
   assert.truthy(iFlavor < iTill,  'flavor before till');
 });
 
+// ─── 2b. Flavor labels for non-tillable terrain ──────────────────────────────
+// Regression: a tap on a COMMERCIAL (retail plaza) cell flashed a lone '·'.
+// The flavor handler only named water / buildings / the road tiers, so every
+// other non-tillable code — commercial, industrial, bare rock, pier, cave
+// floor — fell through to the placeholder dot.
+
+test('TERRAIN_FLAVOR: every non-tillable terrain code has a real label', () => {
+  for (const code of NON_TILLABLE_CODES) {
+    const label = TERRAIN_FLAVOR[code];
+    assert.truthy(typeof label === 'string' && label.length > 0,
+      `terrain code ${code} is non-tillable but has no TERRAIN_FLAVOR label`);
+    assert.falsy(label === '\u00b7',
+      `terrain code ${code} still shows the placeholder dot instead of a name`);
+  }
+});
+
+test('TERRAIN_FLAVOR: commercial / industrial cells name themselves', () => {
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.COMMERCIAL], 'plaza', 'commercial label');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.INDUSTRIAL], 'industrial yard', 'industrial label');
+});
+
+test('TERRAIN_FLAVOR: the pinned road / water / building labels are unchanged', () => {
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.WATER],          'water',    'water');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD],           'road',     'road');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.PATH],           'path',     'path');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_LG],        'highway',  'highway');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_MD],        'avenue',   'avenue');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING],       'building', 'building');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_MED],   'building', 'building (med)');
+  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_LARGE], 'building', 'building (large)');
+});
+
+test('flavor handler: flashes the terrain label, not a dot', () => {
+  const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const seen = [];
+  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  for (const code of NON_TILLABLE_CODES) {
+    seen.length = 0;
+    const ctx = makeCtx(scene, {});
+    ctx.cell = { type: code };
+    assert.truthy(flavor.try(ctx), `flavor consumes the tap on terrain ${code}`);
+    assert.eq(seen.length, 1, `one flash for terrain ${code}`);
+    assert.eq(seen[0], TERRAIN_FLAVOR[code], `label for terrain ${code}`);
+  }
+});
+
 test('TAP_HANDLERS: plant precedes till (seed-in-hand beats un-till)', () => {
   const iPlant = HANDLER_NAMES.indexOf('plant');
   const iTill  = HANDLER_NAMES.indexOf('till');

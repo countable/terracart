@@ -69,7 +69,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   itemValue, randInt, pickFromArray, isShiny,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
-  TAP_HANDLERS,
+  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
 });`;
 try {
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
@@ -77,6 +77,26 @@ try {
 } catch (e) {
   console.error('Failed to load source bundle headlessly:\n', e && e.stack || e);
   process.exit(2);
+}
+
+// app.js can't load headlessly (it needs Phaser), but its NON_TILLABLE set is
+// the contract interact.js' TERRAIN_FLAVOR has to cover — every non-tillable
+// terrain code reaches the 'flavor' handler and needs a real label instead of
+// a bare '·'. Lift the codes straight out of the source text so the coverage
+// test in interact_tap.test.js can't drift from app.js.
+{
+  const m = readSrc('app.js').match(/const NON_TILLABLE = new Set\(\[([^\]]*)\]\)/);
+  if (!m) {
+    console.error('Could not find NON_TILLABLE in src/app.js — update run.js');
+    process.exit(2);
+  }
+  ctx.NON_TILLABLE_CODES = m[1].split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n));
+  // interact.js calls the global isTillable (defined in app.js) — stub it from
+  // the same parsed set so handlers that gate on it can be driven headlessly.
+  const nonTillable = new Set(ctx.NON_TILLABLE_CODES);
+  ctx.isTillable = (type) => !nonTillable.has(type);
 }
 
 // ── In-context test framework: test() / assert / makeScene ────────────────
