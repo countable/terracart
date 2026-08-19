@@ -157,10 +157,27 @@ WORLD GENERATION
    BUILDING_LARGE (castle/civic).
  - building tier from polygon area + render_height: small house (<350m² & <10m),
    fort (350+m² or 10+m), castle (1500+m² or 15+m). Each tier still places one
-   house/tower sprite at the polygon centroid.
+   house/tower sprite, anchored on the footprint cell nearest the footprint's
+   centroid (never off the footprint).
+ - BUILDING FOOTPRINTS NEVER OVERLAP. Each building polygon is assigned an
+   exclusive set of cells before anything is painted:
+     1) a cell more than 45% covered by the polygon belongs to it;
+     2) inside the bounding box of what (1) gave it, a cell's cover counts 1.3x
+        over — a slight preference for squaring footprints off, so a rotated
+        house reads as a building rather than a staircase of cells;
+     3) a building that claimed nothing yet takes its single best-covered free
+        cell (down to 15% cover), so a shed smaller than half a cell still
+        exists instead of vanishing;
+     4) a shape cleanup (drop crumbs, fill 1-wide notches, bridge diagonal-only
+        contacts) that may only take cells no other building claimed.
+   Every contested cell is decided by how much of it each polygon covers, never
+   by paint order, so the result is identical whichever order the tile's
+   polygons arrive in — that is what keeps a building clipped by a tile seam
+   shaped the same in both tiles that draw it.
  - every tile enforces a minimum mix so trade/landmarks always exist: roughly
    ≥2% castles, ≥8% forts, ≥20% small houses — each rounded UP to at least one
    per tile (any tile with ≥3 buildings has ≥1 of each), re-tiered by area rank.
+   Enforced over the buildings that actually landed a cell on the tile.
  - flat colour is drawn first, then a terrain sprite from the tileset is
    overlaid where mapped (grass, forest, sand, farmland, park), with auto-tile
    lookup so edges/corners pick the right frame.
