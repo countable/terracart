@@ -174,11 +174,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
-  // Cobble tiles (road cluster + path pebble alike) draw at 85% opacity so the
+  // Cobble tiles (road cluster + path pebble alike) draw at 77% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
   // scattered stone.
-  const COBBLE_ALPHA = 0.85;
+  const COBBLE_ALPHA = 0.77;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -510,13 +510,12 @@ Render.drawCells = function drawCells(scene) {
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
-          // pebble — are drawn 10% smaller than they used to be (per playtest),
-          // centred on the same point: roads at 0.99 of a cell (they were
-          // bumped 10% OVER cell size so the cluster read as a real surface
-          // rather than pixel speckle) and paths at 0.9. The PIER plank is not
-          // one of them and keeps cell size: its art tiles edge-to-edge across
-          // adjacent pier cells, and any resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.99 : CELL_PX * 0.90);
+          // pebble — sit inside their cell and have been stepped down 10% again
+          // (per playtest), centred on the same point: roads at 0.89 of a cell
+          // and paths at 0.81. The PIER plank is not one of them and keeps cell
+          // size: its art tiles edge-to-edge across adjacent pier cells, and any
+          // resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.89 : CELL_PX * 0.81);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
