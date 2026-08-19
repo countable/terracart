@@ -487,11 +487,14 @@ Render.drawCells = function drawCells(scene) {
                      : isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
-          // Roads get bumped up 10% so the cobble cluster reads as a real
-          // surface texture instead of pixel speckle. Paths + piers stay at
-          // cell size — the plank art is meant to tile edge-to-edge across
-          // adjacent pier cells, so upscaling would break the seam.
-          const size = isRoad(type) ? CELL_PX * 1.10 : CELL_PX;
+          // Both cobble tiles — the dense ROAD cluster and the sparse PATH
+          // pebble — are drawn 10% smaller than they used to be (per playtest),
+          // centred on the same point: roads at 0.99 of a cell (they were
+          // bumped 10% OVER cell size so the cluster read as a real surface
+          // rather than pixel speckle) and paths at 0.9. The PIER plank is not
+          // one of them and keeps cell size: its art tiles edge-to-edge across
+          // adjacent pier cells, and any resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.99 : CELL_PX * 0.90);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -1276,26 +1279,38 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => produceStandFor(o) ? [0.5, 1.0]
                            : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
-              // Crates (box / open_box, 16×16) render at 1.7; trunk is 32×32 so
-              // scale 1.0 = one cell. The open marker shares the closed crate's scale.
-              scale: (o) => produceStandFor(o) ? 0.6 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.7 : 1.0)),
+              // Every chest kind and the market stall are drawn 10% smaller
+              // than they used to be (per playtest — they crowded their cell),
+              // about the SAME centre: the seated kinds (trunk chest, crates)
+              // are re-centred automatically by the seat pass, and the stall's
+              // dxPx/dyPx below are re-derived for the new scale so its art
+              // centre doesn't move. Crates (box / open_box, 16×16) render at
+              // 1.53 (was 1.7); trunk is 32×32 so 0.9 (was 1.0) is 90% of a
+              // cell. The open marker shares the closed crate's scale.
+              scale: (o) => produceStandFor(o) ? 0.54 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? 1.53 : 0.9)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
               // frame, i.e. 12px transparent padding on the left, 0 on the
-              // right). -3.6 (= 6px frame offset × 0.6 scale) centres the art;
-              // +3 on top of that per playtest so the stall reads centred over
-              // its POI cell in situ.
-              dxPx: (o) => produceStandFor(o) ? -0.6 : (_isCoinBurst(o) ? 4 : 0),
+              // right). -3.24 (= 6px frame offset × 0.54 scale) centres the
+              // art; +3 on top of that per playtest so the stall reads centred
+              // over its POI cell in situ. Both terms are re-derived whenever
+              // the scale changes so shrinking the stall leaves its art centre
+              // exactly where it was.
+              dxPx: (o) => produceStandFor(o) ? -0.24 : (_isCoinBurst(o) ? 4 : 0),
               // The crate is foot-anchored (origin y 0.9), so shrinking it pulls
-              // the art's centroid down toward that anchor. Lift the crate back
-              // up by (0.5-0.9)·16·(1.7-2.0) = 1.92px so its centroid stays put.
+              // the art's centroid down toward that anchor. Lift it back up by
+              // (0.5-0.9)·16·(1.53-2.0) = 3.01px so its centroid stays put.
+              // (Only the no-SpriteLayout fallback — the seat pass normally
+              // computes this.)
               // Stand: every market_stand frame has 10 transparent rows under
               // the art (y:[0,70) of 80), so the old +2 left the stall's feet
               // floating ~4px ABOVE the cell centre ("the food stand is about
-              // 20px too high"). +22 seats the feet on the cell's bottom edge
-              // (centre + 16), where a structure-like sprite should stand.
-              dyPx: (o) => produceStandFor(o) ? 22 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -1.92 : 0)),
+              // 20px too high"). +22 seated the feet on the cell's bottom edge
+              // at scale 0.6; at 0.54 the same art centre sits at 19.3
+              // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
+              // stall exactly where it was, just 10% smaller.
+              dyPx: (o) => produceStandFor(o) ? 19.3 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? -3.01 : 0)),
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
