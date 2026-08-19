@@ -202,6 +202,34 @@ const TERRAIN = {
   BUILDING_LARGE: WorldGen.T.BUILDING_LARGE, // 12
   ROAD_LG: WorldGen.T.ROAD_LG,               // 13
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
+  COMMERCIAL: WorldGen.T.COMMERCIAL,         // 16
+  INDUSTRIAL: WorldGen.T.INDUSTRIAL,         // 17
+  PIER: WorldGen.T.PIER,                     // 23
+  CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
+  CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
+};
+
+// Flavor label per NON-TILLABLE terrain code (the 'flavor' handler below).
+// Every code in app.js' NON_TILLABLE set needs an entry here: a missing one
+// used to fall through to a bare '·', which is what a tap on a COMMERCIAL /
+// INDUSTRIAL / ROCK / PIER / cave cell showed — a lone dot with no idea what
+// you'd tapped. The '·' is now only a defensive last resort for a terrain
+// code that is neither tillable nor listed here.
+const TERRAIN_FLAVOR = {
+  [TERRAIN.WATER]:          'water',
+  [TERRAIN.ROAD]:           'road',
+  [TERRAIN.PATH]:           'path',
+  [TERRAIN.BUILDING]:       'building',
+  [TERRAIN.ROCK]:           'bare rock',
+  [TERRAIN.BUILDING_MED]:   'building',
+  [TERRAIN.BUILDING_LARGE]: 'building',
+  [TERRAIN.ROAD_LG]:        'highway',
+  [TERRAIN.ROAD_MD]:        'avenue',
+  [TERRAIN.COMMERCIAL]:     'plaza',
+  [TERRAIN.INDUSTRIAL]:     'industrial yard',
+  [TERRAIN.PIER]:           'pier',
+  [TERRAIN.CAVE_FLOOR]:     'cave floor',
+  [TERRAIN.CAVE_WALL]:      'cave wall',
 };
 
 // GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
@@ -1337,14 +1365,7 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillable(cell.type)) return false;
-    const t = cell.type;
-    const flavor = t === TERRAIN.WATER ? 'water'
-                 : (t === TERRAIN.BUILDING || t === TERRAIN.BUILDING_MED || t === TERRAIN.BUILDING_LARGE) ? 'building'
-                 : t === TERRAIN.ROAD_LG ? 'highway'
-                 : t === TERRAIN.ROAD_MD ? 'avenue'
-                 : t === TERRAIN.ROAD    ? 'road'
-                 : t === TERRAIN.PATH    ? 'path'
-                 : '·';
+    const flavor = TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},
