@@ -602,6 +602,26 @@ ECONOMY (buying & selling)
    Frost). Other houses are buy/trade-only.
  - the Bow relic shrinks the buy markup (T7 = buy at par). The Staff is a pure
    combat weapon — it no longer affects prices.
+ - ROADSIDE STANDS (the coffee cart, the fruit stall, the fishmonger — anything
+   loot.js produceStandFor matches) sell BELOW the listed price, not at par and
+   never at the 1.2-3.0x village-shop markup: a stand is a producer selling its
+   own goods, not a shop restocking from a wholesaler.
+   The discount has a hard ceiling — A STAND MUST NEVER BE AN ARBITRAGE PUMP.
+   Because the sell side is player-scaled (sword 0.5x -> 1.0x), a flat discount
+   would become free money the moment a player carried a tier-4 sword: buy at
+   0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN sell
+   multiplier and stays above it, capped at par:
+       standMul = min(1, max(0.75, sellMultiplier + 0.05))
+       no sword (sell 0.50) -> pay 0.75   coffee $40 -> $30
+       sword T4 (sell 0.79) -> pay 0.84   coffee $40 -> $34
+       sword T7 (sell 1.00) -> pay 1.00   coffee $40 -> $40, break-even
+   What guarantees the invariant is the TRACKING, not the 0.05 margin — that is
+   headroom so a later tweak to either curve doesn't land on the line. The price
+   is ceil()ed so rounding always favours the stand. The modal shows the saving
+   ("save $10"), suppressed once the price is back at par.
+   ShopsMath.standPrice owns this; shops_math.test.js sweeps every item price
+   and every sword tier, plus $1-$500, asserting resale never exceeds the price
+   paid.
  - DELIVERIES: a PLAIN house wants a SET of 2-3 specific produce. Turn in a
    complete set (a quantity stepper batches multiple sets) and it pays the set's
    summed full price × DELIVERY_BONUS_MULT (1.5) — a 50% premium over selling the
