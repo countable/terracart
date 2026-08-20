@@ -884,7 +884,7 @@ Render.drawCells = function drawCells(scene) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
-  const found = new Set(scene.save.foundTreasures || []);
+  const found = setOf(scene.save.foundTreasures);
   g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
     if (!tr || found.has(tr.id)) return;
@@ -945,7 +945,7 @@ Render.drawObjects = function drawObjects(scene) {
   // badges, pet hearts). World sprites take depths 0..n from the z-order pass
   // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
   const Z_OVERLAY = 10000;
-  const pickedSet = new Set(scene.save.picked || []);
+  const pickedSet = setOf(scene.save.picked);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -970,7 +970,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the random hangs the user reported). 9 tiles strictly cover the 11-cell
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
-  const caughtSet = new Set(scene.save.caught || []);
+  const caughtSet = setOf(scene.save.caught);
   const pc = scene.playerToWorldCell();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
@@ -1046,12 +1046,12 @@ Render.drawObjects = function drawObjects(scene) {
   //  - chopped trees
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
-  const openedSet = new Set(scene.save.opened);
+  const openedSet = setOf(scene.save.opened);
   // Trees flag o.chopped = true in-memory when the chop progress wheel completes
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
-  const choppedSet = new Set(scene.save.chopped || []);
-  const pickedSetObj = new Set(scene.save.picked || []);
+  const choppedSet = setOf(scene.save.chopped);
+  const pickedSetObj = setOf(scene.save.picked);
   const brokenRockSet = scene.brokenRockSet || new Set();
   // Lowtier chests (chestTier === 1) and starter supply crates render the
   // `box` sprite instead of the trunk chest. Defined here (ahead of the filter)

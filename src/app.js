@@ -2365,7 +2365,7 @@ class MapScene extends Phaser.Scene {
   // onboarding is unfollowable. Ids are stamped `chest_start_*` at placement,
   // which is what distinguishes them from ordinary POI chests.
   _nearestStarterCrate() {
-    const opened = new Set(this.save.opened || []);
+    const opened = setOf(this.save.opened);
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     let best = null, bestD2 = Infinity;
@@ -2659,7 +2659,7 @@ class MapScene extends Phaser.Scene {
     // toward the nearest undiscovered chest, blinking at 1 Hz. Cleared once
     // the chest is opened (target appears in save.opened) or the timer expires.
     if (this.pairyCompass) {
-      const opened = new Set(this.save.opened || []);
+      const opened = setOf(this.save.opened);
       const expired = Date.now() >= this.pairyCompass.until;
       const claimed = opened.has(this.pairyCompass.targetId);
       if (expired || claimed) {
@@ -5047,7 +5047,7 @@ class MapScene extends Phaser.Scene {
   findNearestUnopenedChest() {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const opened = new Set(this.save.opened || []);
+    const opened = setOf(this.save.opened);
     let best = null, bestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
