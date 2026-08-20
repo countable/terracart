@@ -134,7 +134,8 @@ MOVEMENT & REACH
  - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
    it walks you off the GPS target for stamina. Nothing ever replaces it —
    Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
-   9), and the ☰ "Free walking (debug)" toggle only makes it cost nothing.
+   9), coffee adds +1 tier on top of whatever's active for 3 minutes, and the
+   ☰ "Free walking (debug)" toggle only makes it cost nothing.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
  - REACH: you can only interact with cells within your reach radius (cardinally)
@@ -199,7 +200,11 @@ ENERGY & FOOD
    FOOD_ENERGY[id] (longgrass 2 … iceflower 150, cow 120, meat 45, etc.).
    Cats and dogs have NO FOOD_ENERGY entry — companions are never edible.
  - special food side effects: eating a rainberry waters every crop within 20m;
-   eating a pairy points you to the nearest undiscovered chest for 5 minutes.
+   eating a pairy points you to the nearest undiscovered chest for 5 minutes;
+   eating coffee ADDS +1 amulet tier to stick-walking speed for 3 minutes —
+   unlike Dragon Powder / the Speed potion (which override the tier to a
+   fixed 8/9), coffee stacks on top of whatever tier is already in play,
+   capped at the Speed potion's ceiling.
  - REST: energy regenerates over real time. Rates are "seconds to refill the
    whole bar" while you stand in a rest context (the pure formula lives in
    energy.js; app.js owns the per-frame accrual + splash):
