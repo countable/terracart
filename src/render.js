@@ -673,7 +673,7 @@ Render.drawCells = function drawCells(scene) {
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
-        const WALL = 7;          // south wall-face height (the lit 3-D extrusion)
+        const WALL = 8;          // south wall-face height (the lit 3-D extrusion)
         // Ramparts split front vs back/side across two layers (gf above objects,
         // gb below) so towers sort per-edge. The wall stone is a light masonry
         // material that reads against the lighter castle floor.

@@ -696,15 +696,15 @@ function makeTowerTexture(scene) {
   for (let y = bodyTop + 7; y < bodyBot - 3; y += 7) {
     ctx.fillRect(bodyX + 1, y, bodyW - 2, 1);
   }
-  // Grounding shade at the foot only — the tower reads as planted without
-  // darkening the whole lower column. Same ramp: SHADOW, then DARK at the
-  // contact line, exactly like the wall face's grounding.
-  ctx.globalAlpha = 0.45;
+  // Grounding shade at the foot — a single soft SHADOW pass, no DARK contact
+  // line. The turret always stands ON castle masonry (it only spawns on a
+  // tier-12 wall cell), and that stone is the same tone as its own column, so
+  // a hard dark line there read as the column being CUT rather than as it
+  // meeting the wall. The fade at the very bottom (applied after the outline,
+  // below) does the joining; this just keeps the foot from reading flat.
+  ctx.globalAlpha = 0.30;
   ctx.fillStyle = CASTLE_STONE.SHADOW.s;
-  ctx.fillRect(bodyX + 1, bodyBot - 4, bodyW - 2, 4);
-  ctx.globalAlpha = 0.5;
-  ctx.fillStyle = CASTLE_STONE.DARK.s;
-  ctx.fillRect(bodyX + 1, bodyBot - 2, bodyW - 2, 2);
+  ctx.fillRect(bodyX + 1, bodyBot - 5, bodyW - 2, 5);
   ctx.globalAlpha = 1;
   // Arrow slit — a dark 2px slot with a lit sill under it so it reads as an
   // opening cut INTO the wall rather than a painted-on smudge. Sits one row
@@ -738,10 +738,11 @@ function makeTowerTexture(scene) {
   ctx.fillStyle = OUTLINE;
   const vline = (x, y0, y1) => ctx.fillRect(x, y0, 1, y1 - y0);
   const hline = (x0, x1, y) => ctx.fillRect(x0, y, x1 - x0, 1);
-  // Column sides + foot.
+  // Column sides. NO foot line: the turret meets castle masonry of its own
+  // tone, so a dark rule across the bottom read as a cut edge. The foot fade
+  // at the end of this function joins it to the wall instead.
   vline(bodyX, bodyTop, bodyBot);
   vline(bodyX + bodyW - 1, bodyTop, bodyBot);
-  hline(bodyX, bodyX + bodyW, bodyBot - 1);
   // Slab: sides, its underside where it overhangs the column, and the top
   // where no merlon covers it.
   vline(battX, battTop, bodyTop);
@@ -765,6 +766,23 @@ function makeTowerTexture(scene) {
   for (let i = 0; i < MERLONS; i++) {
     ctx.fillRect(merlonX(i) + 1, battTop - MERLON_H + 1, MERLON_W - 2, 1);
   }
+
+  // ── Foot fade ─────────────────────────────────────────────────────────
+  // The last rows ramp to fully transparent, so the column dissolves into the
+  // masonry it stands on — the wall face where it crowns a rampart, the court
+  // floor where it overhangs one — instead of stopping on a drawn edge. Done
+  // by erasing (destination-out) rather than by painting a colour, so it
+  // blends into WHATEVER is underneath without the texture having to know.
+  // It also takes the side outlines with it, which is the point: an outline
+  // that ran to the last row was the other half of the cut-off look.
+  const FOOT_FADE = 6;
+  ctx.globalCompositeOperation = 'destination-out';
+  const foot = ctx.createLinearGradient(0, H - FOOT_FADE, 0, H);
+  foot.addColorStop(0, 'rgba(0,0,0,0)');
+  foot.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = foot;
+  ctx.fillRect(0, H - FOOT_FADE, W, FOOT_FADE);
+  ctx.globalCompositeOperation = 'source-over';
   tex.refresh();
 }
 
