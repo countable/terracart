@@ -700,6 +700,14 @@ class MapScene extends Phaser.Scene {
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
+    // Atmosphere: the GROUND-PLANE wash. One flat fill of the current biome's
+    // haze colour over the whole viewport, sitting above every ground layer
+    // (terrain, noise, borders, cobbles, road geometry, pads, shadows) and
+    // below every standing sprite. That split is what gives a top-down grid a
+    // readable foreground/background: the ground recedes into the biome's air
+    // while trees, houses and creatures stay at full contrast on top of it.
+    // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
+    this.atmosGroundGfx = this.add.graphics();
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -744,6 +752,17 @@ class MapScene extends Phaser.Scene {
     // on those devices. The spark texture is baked gold and animates via
     // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
     this.sparkContainer = this.add.container(0, 0);
+    // Atmosphere: the RIM HAZE. A short ramp of the biome's haze colour inward
+    // from the viewport edge — the top-down stand-in for atmospheric
+    // perspective. The map is a hard-clipped window onto the world, so the rim
+    // is exactly where "far away" lives; fading it into the biome's air is what
+    // makes the edge read as distance rather than as a crop.
+    //
+    // Deliberately added AFTER the world sprites (so distant objects haze too)
+    // but BEFORE labelContainer — POI name tablets are UI and must stay crisp.
+    // Position in the display list is what does this, NOT setDepth: the
+    // vignette's depth 90 would put it over the labels as well.
+    this.atmosRimGfx = this.add.graphics();
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -920,12 +939,14 @@ class MapScene extends Phaser.Scene {
     this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
+    this.atmosGroundGfx.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
     this.towerContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
+    this.atmosRimGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
