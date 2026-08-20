@@ -2137,6 +2137,55 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // Edge compass: an arrow parked on the rim of the viewport pointing at a
+  // world-space target. Three callers share it — the pairy chest compass, the
+  // delivery waypoint, and the starter-crate trail — so the ring geometry
+  // lives here once instead of being re-derived (identically) at each site.
+  // Returns the distance to the target in metres so callers can decide when
+  // "close enough" retires their arrow.
+  _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const dxM = targetWX - pWX, dyM = targetWY - pWY;
+    const mag = Math.hypot(dxM, dyM);
+    if (!(mag > 0.001)) return mag;
+    const ux = dxM / mag, uy = dyM / mag;
+    const dist = Math.min(this.viewSize / 2 - 18, 140);
+    const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
+    // Perpendicular to the bearing gives the triangle's base.
+    const pxN = -uy, pyN = ux;
+    const back = 14, halfW = 7;
+    this._drawArrowTriangle(this.facingGfx, tipX, tipY,
+      tipX - ux * back + pxN * halfW, tipY - uy * back + pyN * halfW,
+      tipX - ux * back - pxN * halfW, tipY - uy * back - pyN * halfW,
+      outlineAlpha, fillColor);
+    return mag;
+  }
+
+  // The nearest starter supply crate the player has not opened yet, or null.
+  // The crate trail (see _placeStarterTrail) is seeded along the road out to
+  // 15 cells, but the viewport is only VIEW_CELLS across — so most of the
+  // trail spawns off-screen, and without a bearing the "follow the breadcrumbs"
+  // onboarding is unfollowable. Ids are stamped `chest_start_*` at placement,
+  // which is what distinguishes them from ordinary POI chests.
+  _nearestStarterCrate() {
+    const opened = new Set(this.save.opened || []);
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    let best = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'chest' || !o.id) continue;
+        if (!String(o.id).startsWith('chest_start_')) continue;
+        if (opened.has(o.id)) continue;
+        const dx = o.x - pWX, dy = o.y - pWY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; best = o; }
+      }
+    }
+    return best;
+  }
+
   // === Tick ===
   update(_, dtMs) {
     // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
@@ -2506,21 +2555,9 @@ class MapScene extends Phaser.Scene {
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
-        const pWX = this.startWorldM.x + this.playerM.x;
-        const pWY = this.startWorldM.y + this.playerM.y;
-        const dxM = this.pairyCompass.x - pWX, dyM = this.pairyCompass.y - pWY;
-        const mag = Math.hypot(dxM, dyM);
-        if (mag > 0.001 && Math.floor(Date.now() / 500) % 2 === 0) {
-          const ux = dxM / mag, uy = dyM / mag;
-          const dist = Math.min(this.viewSize / 2 - 18, 140);
-          const cx = this.viewCenterX, cy = this.viewCenterY;
-          const tipX = cx + ux * dist, tipY = cy + uy * dist;
-          // Perpendicular for triangle base.
-          const pxN = -uy, pyN = ux;
-          const back = 14, halfW = 7;
-          const blx2 = tipX - ux * back + pxN * halfW, bly2 = tipY - uy * back + pyN * halfW;
-          const brx2 = tipX - ux * back - pxN * halfW, bry2 = tipY - uy * back - pyN * halfW;
-          this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx2, bly2, brx2, bry2, 0.8, 0xc77dff);
+        // Blinks at 1 Hz to distinguish it from the solid delivery arrow.
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+          this._drawEdgeCompass(this.pairyCompass.x, this.pairyCompass.y, 0xc77dff, 0.8);
         }
       }
     }
@@ -2534,20 +2571,29 @@ class MapScene extends Phaser.Scene {
       const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
-      const dxM = this.deliveryCompass.x - pWX, dyM = this.deliveryCompass.y - pWY;
-      const mag = Math.hypot(dxM, dyM);
+      const mag = Math.hypot(this.deliveryCompass.x - pWX, this.deliveryCompass.y - pWY);
       if (satisfied || mag < this.cellM * 1.2) {
         this.deliveryCompass = null;
       } else {
-        const ux = dxM / mag, uy = dyM / mag;
-        const dist = Math.min(this.viewSize / 2 - 18, 140);
-        const cx = this.viewCenterX, cy = this.viewCenterY;
-        const tipX = cx + ux * dist, tipY = cy + uy * dist;
-        const pxN = -uy, pyN = ux;
-        const back = 14, halfW = 7;
-        const blx3 = tipX - ux * back + pxN * halfW, bly3 = tipY - uy * back + pyN * halfW;
-        const brx3 = tipX - ux * back - pxN * halfW, bry3 = tipY - uy * back - pyN * halfW;
-        this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx3, bly3, brx3, bry3, 0.9, 0xffffff);
+        this._drawEdgeCompass(this.deliveryCompass.x, this.deliveryCompass.y, 0xffffff, 0.9);
+      }
+    }
+
+    // Starter-crate trail — a GOLD arrow toward the nearest unopened supply
+    // crate, shown only while the first-session ladder is still running. The
+    // crates are the game's designed opening breadcrumb but most of the trail
+    // seeds outside the viewport, so without this the player is told to follow
+    // a trail they cannot see. Retires itself the moment the ladder finishes
+    // or is dismissed, and stops pointing once the player is on top of a crate
+    // (it is in reach by then, and the arrow would only cover the sprite).
+    if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
+      const crate = this._nearestStarterCrate();
+      if (crate) {
+        const pWX = this.startWorldM.x + this.playerM.x;
+        const pWY = this.startWorldM.y + this.playerM.y;
+        if (Math.hypot(crate.x - pWX, crate.y - pWY) > this.cellM * 1.5) {
+          this._drawEdgeCompass(crate.x, crate.y, 0xffd24a, 0.9);
+        }
       }
     }
 
