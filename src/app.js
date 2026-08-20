@@ -2949,7 +2949,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -2972,7 +2972,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -3142,22 +3142,26 @@ class MapScene extends Phaser.Scene {
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
-    // Every wheel is 20% more transparent than it used to be (0.55 → 0.44
-    // backing, 0.9 → 0.72 arc, and the tool icon at 0.8): the wheel sits ON
-    // the thing being worked, and at full strength it hid the very sprite it
-    // was reporting progress against.
-    g.fillStyle(0x000000, 0.44);
+    // The wheel sits ON the thing being worked, so it has been walked back
+    // twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
+    // then a flat 0.1 off each alpha — backing 0.34, arc 0.62, tool icon 0.7
+    // (the icon's is set on the DOM element in startWorkProgress /
+    // startCatchProgress). At full strength it hid the very sprite it was
+    // reporting progress against.
+    g.fillStyle(0x000000, 0.34);
     g.fillCircle(cx, cy, R + 1);
     // Unfilled TRACK ring behind the arc, so the wheel shows how far there is
     // still to go and not just how much is done (UX audit §20). Kept faint —
     // it adds the missing information without walking back the transparency
-    // above, which is the point of that pass.
-    g.lineStyle(3, 0xffffff, 0.18);
+    // above, which is the point of that pass. Thinned in step with the arc
+    // (×0.62/0.72) rather than by the flat 0.1, which would have all but
+    // erased it.
+    g.lineStyle(3, 0xffffff, 0.155);
     g.beginPath();
     g.arc(cx, cy, R, 0, Math.PI * 2, false);
     g.strokePath();
     if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.72);
+      g.lineStyle(3, 0xffffff, 0.62);
       g.beginPath();
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
