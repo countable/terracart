@@ -6,8 +6,12 @@
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together, and parking aisles are dropped entirely. This layer draws the
 // SOURCE linework straight from the decoded MVT features on top of the map, as
-// a soft brown band at 31% alpha, so the rasterized roads can be eyeballed
-// against the real ways they came from.
+// a soft brown band, so the rasterized roads can be eyeballed against the real
+// ways they came from. Railways are drawn in slate instead of earth — the
+// rasterizer has no rail tier, so without that they'd read as ordinary
+// streets. The band is punched out over water and over building floors (see
+// "Keep-out"), and the layer itself sits UNDER the cobbles, so the stones the
+// rasterizer actually laid always read on top of the linework they came from.
 //
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
 // drawn to the map's scale, so the band covers roughly the ground the road
@@ -24,8 +28,8 @@
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helper: playerToWorldCell()
 //   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM;
-//                 per-tile `entry.layers` (the raw decoded MVT layers)
-//                 and `entry.tileEdgeM`
+//                 per-tile `entry.layers` (the raw decoded MVT layers),
+//                 `entry.tileEdgeM`, and `entry.grid` (for the keep-out pass)
 //   app.js consts — CELL_PX
 //
 // Exports as globals:
@@ -40,9 +44,28 @@
   // competed with the map instead of sitting under it, and the grain below
   // needs a quiet base to read against.
   const COLOR = 0x614b3a;
-  const COLOR_CSS = '#614b3a';
-  const ALPHA = 0.31;    // 31% — reads as a band without hiding the map
+  const ALPHA = 0.51;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
+
+  // Rail is not road. It arrives in the same `transportation` layer and the
+  // rasterizer has no tier for it, so a railway lands on the map as an
+  // ordinary street — which is exactly why the overlay has to say otherwise:
+  // cold steel-slate instead of the warm earth every road tier shares. The
+  // classes are OpenMapTiles' rail family (`rail` covers heavy rail and its
+  // subclasses; `transit` covers tram / subway / light_rail).
+  const RAIL_CLASSES = new Set(['rail', 'transit']);
+  const RAIL_COLOR = 0x565d69;
+  const colorFor = (tags) => RAIL_CLASSES.has((tags && tags.class) || '') ? RAIL_COLOR : COLOR;
+  const cssOf = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
+
+  // Cells the overlay must not paint over, punched out of the finished canvas
+  // (see keepOut below): WATER, so the linework stays on land instead of
+  // laying a brown band across a lake wherever a bridge or a shoreline way
+  // runs, and the three BUILDING tiers, whose floors — a house's boards, the
+  // castle's court paving — should read as the top surface there rather than
+  // having a road drawn across them.
+  const WATER_T = 3;
+  const BUILDING_T = new Set([9, 11, 12]);
   // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
   // the shared table lives there so the overlay and the rasterizer agree.
   const FALLBACK_WIDTH_M = 5;
@@ -158,13 +181,18 @@
     const wrap = (v) => ((Math.round(v) % GRAIN_PX) + GRAIN_PX) % GRAIN_PX;
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
-      // Colour + alpha are the module's constants for every way; the alpha is
-      // carried by the IMAGE (see above), so the stroke itself is opaque.
-      lineStyle(w) { ctx.lineWidth = w; ctx.strokeStyle = COLOR_CSS; },
+      // The alpha is carried by the IMAGE (see above), so the stroke itself is
+      // always opaque; the colour is the caller's (earth for roads, slate for
+      // rail) and the alpha argument is deliberately ignored here.
+      lineStyle(w, c) { ctx.lineWidth = w; ctx.strokeStyle = cssOf(c == null ? COLOR : c); },
       beginPath() { ctx.beginPath(); },
       moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
       lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
       strokePath() { ctx.stroke(); },
+      // Punch a cell-sized hole in what's been drawn so far. Used for the
+      // water / building keep-out; clearRect rather than a destination-out
+      // fill so the hole is exact and costs nothing to composite.
+      eraseRect(x, y, w, h) { ctx.clearRect(x - originX, y - originY, w, h); },
       // Screen position the world origin projected to this pass — the grain is
       // anchored there, so it sits still on the road while the road moves.
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
@@ -251,12 +279,57 @@
     const key = `${baseCellIX},${baseCellIY},${ready}`;
     if (key !== scene._roadGeomKey) {
       scene._roadGeomKey = key;
-      rebuild(scene, tiles, fracX, fracY);
+      rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   }
 
-  function rebuild(scene, tiles, fracX, fracY) {
+  // ── Keep-out ─────────────────────────────────────────────────────────────
+  // The overlay is a band painted over the GROUND, so it has no business on
+  // the two things that aren't ground: open water and a building's floor.
+  // Both are cell-shaped, so rather than clipping every stroke we draw the
+  // whole network first and punch the offending cells back out afterwards —
+  // one clearRect per keep-out cell, and only on a rebuild.
+  //
+  // The projection is the same cell-snapped one the strokes use: with the
+  // container carrying the sub-cell offset, the cell `ox` columns east and
+  // `oy` rows south of the player's own cell lands at exactly
+  // (viewCenterX + ox*CELL_PX, viewCenterY + oy*CELL_PX). Only the padded
+  // viewport is walked — the same pad the culler keeps.
+  function keepOut(scene, g, baseCellIX, baseCellIY) {
+    if (!g.eraseRect || baseCellIX == null) return;
+    const PAD = CELL_PX * 2;
+    const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
+    const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
+    const ox0 = Math.floor((minX - scene.viewCenterX) / CELL_PX);
+    const ox1 = Math.ceil((maxX - scene.viewCenterX) / CELL_PX);
+    const oy0 = Math.floor((minY - scene.viewCenterY) / CELL_PX);
+    const oy1 = Math.ceil((maxY - scene.viewCenterY) / CELL_PX);
+    const N = scene.cellsPerTile;
+    // Tile lookups are memoised across the row-major walk: a padded viewport
+    // spans at most 4 tiles, so this is 4 Map.gets instead of one per cell.
+    let curTX = null, curTY = null, curGrid = null;
+    for (let oy = oy0; oy <= oy1; oy++) {
+      const acy = baseCellIY + oy;
+      const ty = Math.floor(acy / N), iy = acy - ty * N;
+      for (let ox = ox0; ox <= ox1; ox++) {
+        const acx = baseCellIX + ox;
+        const tx = Math.floor(acx / N), ix = acx - tx * N;
+        if (tx !== curTX || ty !== curTY) {
+          curTX = tx; curTY = ty;
+          const e = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+          curGrid = (e && e.grid) || null;
+        }
+        if (!curGrid) continue;
+        const t = curGrid[iy * N + ix];
+        if (t !== WATER_T && !BUILDING_T.has(t)) continue;
+        g.eraseRect(scene.viewCenterX + ox * CELL_PX,
+                    scene.viewCenterY + oy * CELL_PX, CELL_PX, CELL_PX);
+      }
+    }
+  }
+
+  function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
     const g = strokeTarget(scene);
     g.clear();
     const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -272,15 +345,16 @@
     const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
 
     // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
-    // by stroke width, and stroked as PATHS rather than loose segments: a wide
-    // band drawn segment-by-segment leaves a notch at every bend, and one
-    // lineStyle per width beats one per feature.
-    const runsByWidth = new Map();   // widthPx -> [ [{x,y},…], … ]
-    const addRun = (widthPx, run) => {
+    // by stroke STYLE (width + colour), and stroked as PATHS rather than loose
+    // segments: a wide band drawn segment-by-segment leaves a notch at every
+    // bend, and one lineStyle per style beats one per feature.
+    const runsByStyle = new Map();   // "widthPx|color" -> { widthPx, color, runs }
+    const addRun = (widthPx, color, run) => {
       if (run.length < 2) return;
-      let runs = runsByWidth.get(widthPx);
-      if (!runs) { runs = []; runsByWidth.set(widthPx, runs); }
-      runs.push(run);
+      const k = `${widthPx}|${color}`;
+      let bucket = runsByStyle.get(k);
+      if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
+      bucket.runs.push(run);
     };
 
     for (const { tx, ty, entry } of tiles) {
@@ -293,6 +367,7 @@
         for (const f of layer.features) {
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
           const widthPx = widthPxFor(scene, f.tags);
+          const color = colorFor(f.tags);
           for (const line of f.geom) {
             if (!line || line.length < 2) continue;
             let px = projX(originMx + line[0].x * mvtToM);
@@ -307,14 +382,14 @@
               if (offscreen) {
                 // Break the path here — the skipped stretch would otherwise be
                 // drawn as a straight shortcut across the viewport.
-                addRun(widthPx, run);
+                addRun(widthPx, color, run);
                 run = [{ x: qx, y: qy }];
               } else {
                 run.push({ x: qx, y: qy });
               }
               px = qx; py = qy;
             }
-            addRun(widthPx, run);
+            addRun(widthPx, color, run);
           }
         }
       }
@@ -322,16 +397,21 @@
 
     // Widest first, so a narrow street crossing a motorway still reads as its
     // own stroke on top. Sorted rather than insertion-ordered so the draw order
-    // doesn't depend on which tile happened to load first.
-    for (const widthPx of [...runsByWidth.keys()].sort((a, b) => b - a)) {
-      g.lineStyle(widthPx, COLOR, ALPHA);
-      for (const run of runsByWidth.get(widthPx)) {
+    // doesn't depend on which tile happened to load first; ties (same width,
+    // different colour) break on the colour so the order is fully determined.
+    const styles = [...runsByStyle.values()]
+      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color));
+    for (const { widthPx, color, runs } of styles) {
+      g.lineStyle(widthPx, color, ALPHA);
+      for (const run of runs) {
         g.beginPath();
         g.moveTo(run[0].x, run[0].y);
         for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
         g.strokePath();
       }
     }
+    // Land only, and never over a floor: punch the keep-out cells back out.
+    keepOut(scene, g, baseCellIX, baseCellIY);
     // Anchor the grain to the world before it's laid down: the world origin's
     // screen position in THIS pass tells the target how far to phase the
     // pattern, so walking scrolls the texture with the road rather than under
