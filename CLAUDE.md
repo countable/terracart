@@ -56,18 +56,28 @@
 
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
-  work-progress wheel drawn over one is not free-floating: its centre sits on
-  that kind's **crown** — the top row of its visible art at rest — so half the
-  ring covers the body and half is clear sky, at any animal size. It's derived,
-  not tuned: the per-kind draw geometry (frame, scale, foot origin, constant
-  float, trimmed art rows) lives in **`src/sprite_layout.js`** › `CREATURE_ART`,
-  which `render.js` draws from and `app.js` places the wheel from via
-  `creatureWheelDy(kind)`. Never re-tune the wheel with a flat px offset — one
-  number can't fit a chicken and a cow, which is how it ended up 4px above the
-  chicken and down at a perched crow's feet.
+  work-progress wheel drawn over one is not free-floating: it **rests on** that
+  kind's **crown** — the ring's TOP EDGE sits on the top row of its visible art
+  at rest — so the whole wheel reads as sitting on the animal, at any size.
+  An animal shorter than the wheel's diameter can't give up a full radius
+  without the ring sliding off its feet, so the drop is capped at half the art's
+  height and the wheel centres on its midline instead.
+  It's derived, not tuned: the per-kind draw geometry (frame, scale, foot
+  origin, constant float, trimmed art rows) lives in
+  **`src/sprite_layout.js`** › `CREATURE_ART`, which `render.js` draws from and
+  `app.js` places the wheel from via `creatureWheelDy(kind)`; the ring radius
+  lives there too (`CREATURE_WHEEL_R`) so the number that draws the wheel and
+  the number that seats it can't drift apart. Never re-tune the wheel with a
+  flat px offset — one number can't fit a chicken and a cow, which is how it
+  ended up 4px above the chicken and down at a perched crow's feet.
+  **The wheel CENTRED on the crown until Aug 2026**, which left a full radius
+  (10px) of ring in the empty sky above every animal — a constant overshoot, so
+  it read as too high on all of them and worst as a fraction of the small ones.
+  If you are tempted to centre it on the crown again, that is the bug.
   **Audit it:** `node tools/sprite_audit.js` (also in `node test/node/run.js`)
   re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
-  art or a wheel has left its crown.
+  art, if a wheel has left its seating, or if any ring floats above a crown it
+  is tall enough to sit on.
 
 ## Testing
 

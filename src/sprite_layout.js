@@ -132,6 +132,12 @@
   // Fallback for a kind with no entry: the flat offset the wheel used before
   // this table existed.
   const CREATURE_WHEEL_FALLBACK_DY = -11;
+  // The work wheel's ring radius, as app.js strokes it. The dark backing disc
+  // behind the ring is drawn one pixel larger, so the wheel's OUTER edge is
+  // CREATURE_WHEEL_R + 1 — that outer figure is what the seating below has to
+  // clear, and what tools/sprite_audit.js measures. Kept here so the number
+  // that DRAWS the wheel and the number that PLACES it can't drift apart.
+  const CREATURE_WHEEL_R = 9;
 
   // Vertical origin the renderer should anchor `kind` at (fraction of frame).
   function creatureFoot(kind) {
@@ -139,11 +145,24 @@
     return a ? a.foot : 0.9;
   }
 
-  // THE CREATURE WHEEL RULE: the work-progress wheel is centred on the
-  // animal's CROWN — the top row of its visible art, at rest — so half the
-  // ring sits over the body and half in clear sky whatever the animal's size.
-  // One flat offset can't do that: the -21 px that hugged a cow's head floated
-  // clear above a chicken and sat down at a perched crow's feet.
+  // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
+  // CROWN — the top row of its visible art, at rest. The ring's top edge sits
+  // on that row, so the whole wheel reads as sitting on the animal rather than
+  // straddling its outline.
+  //
+  // This used to centre the wheel ON the crown, which put a full radius — ten
+  // pixels — of ring in the empty sky above every animal, for every kind. That
+  // is what read as "too high": the overshoot was a constant 10 px, so it was
+  // wrong everywhere, and wrong by a far bigger FRACTION of a 12 px butterfly
+  // than of a 28 px cow, which is why some animals looked worse than others.
+  // Seating the ring's top edge on the crown removes exactly that overshoot.
+  //
+  // The clamp is what keeps it honest at both ends of the size range. An
+  // animal shorter than the wheel's diameter has nowhere to put a full radius
+  // without the ring sliding off its feet, so the drop is capped at half the
+  // art's height and the wheel centres on the animal's midline instead. A flat
+  // offset can do neither: the -21 px this replaced hugged a cow's head, floated
+  // clear above a chicken, and sat down at a perched crow's feet.
   //
   // Returns the offset in screen px from the creature's projected cell centre
   // to the wheel centre (negative = up the screen).
@@ -151,12 +170,16 @@
     const a = CREATURE_ART[kind];
     if (!a) return CREATURE_WHEEL_FALLBACK_DY;
     const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
-    return anchorY - (a.foot * a.fh - a.minY) * a.scale;
+    const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
+    const artH = (a.maxY - a.minY) * a.scale;
+    // Outer edge of the wheel — the backing disc, not the stroked ring.
+    return artTop + Math.min(CREATURE_WHEEL_R + 1, artH / 2);
   }
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
-    CREATURE_ART, CREATURE_GROUND_DY, creatureFoot, creatureWheelDy,
+    CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
+    creatureFoot, creatureWheelDy,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

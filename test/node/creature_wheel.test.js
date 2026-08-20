@@ -5,17 +5,19 @@
 // cell centre for a capture, -11 for a hunt. Animals are drawn feet-anchored at
 // wildly different sizes, so that single number floated ~4 px clear above a
 // chicken's head (the reported bug) and sat down at a perched crow's FEET.
-// The rule now: the wheel centre lands on the kind's crown — the top row of its
-// visible art at rest — so half the ring covers the body and half is clear sky.
+// The rule now: the wheel RESTS ON the kind's crown — the ring's top edge lands
+// on the top row of its visible art at rest, so the whole wheel sits on the
+// animal. It used to CENTRE on the crown, which left a full radius (10 px) of
+// ring in the sky above every animal — a constant overshoot, so it read as too
+// high on all of them, and worst as a fraction of the small ones.
 //
 // tools/sprite_audit.js re-derives these numbers from the real PNGs (run as part
 // of this suite); the pins below guard the CONTRACT — that the wheel is a
-// function of the art, that it touches the body, and that it moved the reported
-// 4 px down on the chicken.
+// function of the art, that it touches the body, that nothing floats above the
+// crown, and that the correction is derived per kind rather than one offset.
 
-const WHEEL_R = 10;          // app.js: R + 1, the ring's outer radius
-const OLD_CATCH_DY = -21;    // the flat pre-crown-rule capture offset
-const OLD_HUNT_DY = -11;     // the flat pre-crown-rule hunt offset
+const WHEEL_R = SpriteLayout.CREATURE_WHEEL_R + 1;   // outer radius (backing disc)
+const OLD_HUNT_DY = -11;     // the flat pre-crown-rule hunt offset (still the fallback)
 
 // Top of a kind's drawn art, relative to its projected cell centre — the same
 // geometry render.js places the sprite with.
@@ -28,10 +30,37 @@ function artBottom(kind) {
   return SpriteLayout.CREATURE_GROUND_DY - a.float - (a.foot * a.fh - a.maxY) * a.scale;
 }
 
-test('creature wheel: every kind is centred on its own crown', () => {
+test('creature wheel: every kind rests its ring on its own crown', () => {
   for (const kind of Object.keys(SpriteLayout.CREATURE_ART)) {
     const dy = SpriteLayout.creatureWheelDy(kind);
-    assert.inRange(dy - artTop(kind), -0.5, 0.5, `${kind} wheel off the crown`);
+    const h = artBottom(kind) - artTop(kind);
+    const want = artTop(kind) + Math.min(WHEEL_R, h / 2);
+    assert.inRange(dy - want, -0.5, 0.5, `${kind} wheel off its seating`);
+  }
+});
+
+test('creature wheel: no ring floats above the crown of an animal that can seat it', () => {
+  // The bug this rule replaced: the ring's top edge sat a full radius above the
+  // art on EVERY kind. Any animal at least a wheel-diameter tall must now seat
+  // it exactly, with nothing above the crown.
+  for (const kind of Object.keys(SpriteLayout.CREATURE_ART)) {
+    const h = artBottom(kind) - artTop(kind);
+    if (h < 2 * WHEEL_R) continue;               // too short — clamped case below
+    const top = SpriteLayout.creatureWheelDy(kind) - WHEEL_R;
+    assert.inRange(top - artTop(kind), -0.5, 0.5, `${kind} ring top off the crown`);
+  }
+});
+
+test('creature wheel: an animal shorter than the wheel centres on its midline', () => {
+  // A butterfly is 12 px of art under a 20 px ring — seating the ring's top on
+  // its crown would hang the wheel off its feet, so the drop is capped at half
+  // the art and the wheel straddles the body instead.
+  for (const kind of ['butterfly', 'purple_slime', 'slime', 'cat']) {
+    const h = artBottom(kind) - artTop(kind);
+    assert.lt(h, 2 * WHEEL_R, `${kind} is expected to be a short kind`);
+    const mid = artTop(kind) + h / 2;
+    assert.inRange(SpriteLayout.creatureWheelDy(kind) - mid, -0.5, 0.5,
+      `${kind} wheel should centre on its midline`);
   }
 });
 
@@ -43,11 +72,23 @@ test('creature wheel: the ring always overlaps the body it reports on', () => {
   }
 });
 
-test('creature wheel: chicken drops ~4px from the old flat capture offset', () => {
-  // The reported bug, pinned: 16×16 sheet at 1.20 → the chicken's crown is
-  // 17.2 px above its cell centre, not the 21 the flat offset assumed.
-  const dy = SpriteLayout.creatureWheelDy('chicken');
-  assert.inRange(dy - OLD_CATCH_DY, 3.5, 4.5, 'chicken wheel should sit ~4px lower');
+test('creature wheel: every kind sits lower than the old centre-on-crown rule', () => {
+  // The reported bug: the wheel was too high on every animal. The old rule put
+  // the centre on the crown; each kind must now sit strictly lower than that.
+  for (const kind of Object.keys(SpriteLayout.CREATURE_ART)) {
+    assert.gt(SpriteLayout.creatureWheelDy(kind), artTop(kind),
+      `${kind} wheel should sit below its crown, not on it`);
+  }
+});
+
+test('creature wheel: the drop scales with the animal, it is not one offset', () => {
+  // "Never re-tune the wheel with a flat px offset" — the whole point is that
+  // the correction is derived. A cow can give up a full radius; a purple slime
+  // (10 px of art) can only give up half its height, so the drops must differ.
+  const drop = (k) => SpriteLayout.creatureWheelDy(k) - artTop(k);
+  assert.inRange(drop('cow'), 9.5, 10.5, 'cow gives up a full radius');
+  assert.lt(drop('purple_slime'), drop('cow') - 3, 'a short kind drops less');
+  assert.lt(drop('butterfly'), drop('cow') - 3, 'a butterfly drops less');
 });
 
 test('creature wheel: a perched crow no longer wears its wheel at its feet', () => {
