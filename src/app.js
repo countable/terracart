@@ -990,10 +990,27 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the pale
-    // pad it breathes out from — a gold halo under a blue-white slab read
-    // as two different signals for the same thing.
-    bakeHalo('halo_poi',  0xcfe2ff, 0.22);   // the slow breath under a POI
+    // POI marker: a thick soft-edged RING (not a filled disc like the warning
+    // halos above) that render.js expands outward and fades as it grows — a
+    // "ping" rather than a breathing glow. Drawn as concentric strokes whose
+    // alpha follows a triangular feather peaking at the middle of the band,
+    // so both the inner and outer edge of the ring soften instead of hard-
+    // cutting. Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the
+    // pale pad it rings out from — a gold ring under a blue-white slab would
+    // read as two different signals for the same thing.
+    if (!this.textures.exists('halo_poi')) {
+      const rg = this.make.graphics({ x: 0, y: 0, add: false });
+      const C = 32, steps = 24, outerR = 30, bandW = 9;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;                        // 0 → inner edge of band, 1 → outer edge
+        const r = outerR - bandW + bandW * t;
+        const feather = 1 - Math.abs(t - 0.5) * 2;   // 0 at both edges, 1 at band centre
+        rg.lineStyle(2, 0xcfe2ff, 0.65 * feather);
+        rg.strokeCircle(C, C, r);
+      }
+      rg.generateTexture('halo_poi', 64, 64);
+      rg.destroy();
+    }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
     // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
