@@ -108,6 +108,38 @@ const TOAST_TIER = {
              ease: 'Sine.In' },
 };
 
+// ── What KIND of dialog is this? ────────────────────────────────────────────
+// Every modal opens with one of these: a hero icon and a one-word category, so
+// the player knows what they are looking at before reading a line of it — a
+// castle says QUEST, a chest says TREASURE, a blacksmith says FORGE. Dialogs
+// used to open straight into flavour copy ("The trader offers:"), which reads
+// fine once you already know where you are and not at all when you don't.
+//
+// The label is the CATEGORY, not the specific offer — the flavour line under
+// it still carries that. Callers may override the label for a one-off outcome
+// ("MILL LANE complete") and keep the kind's icon; see showChestRewardModal.
+//
+// Keys are referenced by every modal call site and pinned by
+// tools/modal_audit.js, which fails the build if a dialog opens without one.
+const MODAL_KINDS = {
+  quest:    { icon: '🏰', label: 'Quest'     },   // castle quest board
+  treasure: { icon: '💎', label: 'Treasure'  },   // chests, boxes, loot ceremonies
+  trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
+  shop:     { icon: '🪙', label: 'Shop'      },   // buying and selling for money
+  trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
+  forge:    { icon: '🔨', label: 'Forge'     },   // blacksmith: forging + smelting
+  relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
+  delivery: { icon: '📦', label: 'Delivery'  },   // household orders
+  build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
+  wizard:   { icon: '🔮', label: 'Wizard'    },   // Inner Light reach upgrades
+  farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
+  stats:    { icon: '📊', label: 'Stats'     },   // stats & relics readout
+  energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
+  rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
+  use:      { icon: '🎒', label: 'Use'       },   // confirming a consumable from the bag
+  note:     { icon: '📜', label: 'Note'      },   // generic message dialog
+};
+
 // Inventory category tabs (the top bar of the two-bar bottom HUD). The order
 // here is the on-screen left→right order. Item categories filter save.inv by
 // `kind`; gear categories (relic / armor) synthesize their slot list from
@@ -1611,11 +1643,11 @@ class MapScene extends Phaser.Scene {
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
     const { wrap, box, mount } = this.makeModalShell('energy-help',
-      { maxWidth: 300, textAlign: 'left', onClose: () => {} });
+      { maxWidth: 300, textAlign: 'left', onClose: () => {}, kind: 'energy' });
     const h = document.createElement('div');
     h.style.cssText = 'font:700 14px ui-monospace,monospace;color:var(--green);'
       + 'margin-bottom:8px;text-align:center;';
-    h.textContent = `Energy  ${cur} / ${max}`;
+    h.textContent = `${cur} / ${max}`;   // the kind header already says ENERGY
     box.appendChild(h);
     const body = document.createElement('div');
     body.style.cssText = 'font:12px/1.5 ui-monospace,monospace;color:#ddd;';
@@ -4504,6 +4536,7 @@ class MapScene extends Phaser.Scene {
     this.ensureTilesAround().catch(() => {});
     persistSave(this.save);
     this.showChestRewardModal({
+      kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You pass out from exhaustion and wake up on the surface.',
@@ -5399,7 +5432,8 @@ class MapScene extends Phaser.Scene {
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = UI_CONTROL_DIM,
-    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose } = {}) {
+    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
+    kind, kindLabel } = {}) {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -5440,7 +5474,40 @@ class MapScene extends Phaser.Scene {
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
     }
-    const mount = () => { wrap.appendChild(box); (document.getElementById('game') || document.body).appendChild(wrap); };
+    // ── The kind header ────────────────────────────────────────────────
+    // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
+    // announces what it is before its first line of copy. `kindLabel`
+    // overrides the word for a one-off outcome while keeping the icon.
+    //
+    // Built here but inserted in mount(), NOT appended to `box` now: several
+    // callers build their contents with `box.innerHTML = …`, which would
+    // silently wipe a header added up front. mount() runs after all of them,
+    // so injecting at the top there is the one placement no caller can undo.
+    const k = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
+    let kindNode = null;
+    if (k) {
+      kindNode = document.createElement('div');
+      kindNode.className = 'modal-kind';
+      kindNode.style.cssText =
+        'display:flex;align-items:center;justify-content:center;gap:7px;' +
+        'margin:-2px 0 10px;padding-bottom:8px;' +
+        `border-bottom:1px solid ${borderColor}59;`;
+      const ico = document.createElement('span');
+      ico.style.cssText = 'font-size:22px;line-height:1';
+      ico.textContent = k.icon;
+      const lbl = document.createElement('span');
+      lbl.style.cssText =
+        'font:700 11px ui-monospace,monospace;letter-spacing:.14em;' +
+        `text-transform:uppercase;color:${borderColor};`;
+      lbl.textContent = kindLabel ?? k.label;
+      kindNode.appendChild(ico);
+      kindNode.appendChild(lbl);
+    }
+    const mount = () => {
+      if (kindNode) box.insertBefore(kindNode, box.firstChild);
+      wrap.appendChild(box);
+      (document.getElementById('game') || document.body).appendChild(wrap);
+    };
     const mkBtn = (label, primary = true, disabled = false) => {
       const b = document.createElement('button');
       b.innerHTML = label;
@@ -5459,7 +5526,8 @@ class MapScene extends Phaser.Scene {
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
   showMessageModal({ title, body, okLabel = 'OK' }) {
     document.getElementById('offer-modal')?.remove();
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal', { zIndex: 60, onClose: () => {} });
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
+      { zIndex: 60, onClose: () => {}, kind: 'note' });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
@@ -5481,7 +5549,7 @@ class MapScene extends Phaser.Scene {
     const foodName  = ITEM_BY_ID[foodId]?.name || foodId;
     const faunaName = ITEM_BY_ID[faunaKind]?.name || faunaKind;
     const { wrap, box, mount, mkBtn } =
-      this.makeModalShell('feed-confirm-modal', { zIndex: 60, onClose: () => {} });
+      this.makeModalShell('feed-confirm-modal', { zIndex: 60, onClose: () => {}, kind: 'farm' });
     const side = (iconId, label) =>
       `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">` +
         `${this.iconSpanHTML(iconId, 32)}<span style="font-size:11px">${label}</span></span>`;
@@ -5506,7 +5574,8 @@ class MapScene extends Phaser.Scene {
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   showStatsModal() {
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('stats-modal', { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null, onClose: () => {} });
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('stats-modal',
+      { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null, onClose: () => {}, kind: 'stats' });
     const cur = this.save.energy ?? 0, max = this.getMaxEnergy();
     // Compact effect blurb per slot — for empty slots, the def.blurb tells
     // the player what the relic WOULD do (useful preview). For equipped, we
@@ -5556,7 +5625,7 @@ class MapScene extends Phaser.Scene {
         `</div>`;
     };
     box.innerHTML =
-      `<div style="text-align:center;color:#ffe066;font-weight:700;margin-bottom:6px">Stats &amp; Relics</div>` +
+      // (no title line — the kind header already says STATS)
       `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
       `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${Inventory.count(this.save, 'discovery')}</b></div>` +
       `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
@@ -5588,6 +5657,7 @@ class MapScene extends Phaser.Scene {
     const price = PRICES[id] ?? 30;
     const canAfford = () => (this.save.money ?? 0) >= price;
     this.showOfferModal({
+      kind: 'farm',
       title: 'The farmhand offers a scarecrow:',
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
@@ -5636,6 +5706,7 @@ class MapScene extends Phaser.Scene {
     };
     const first = fmt(1);
     this.showOfferModal({
+      kind: 'shop',
       title: 'The market stall sells fresh:',
       get: first.get,
       cost: first.cost,
@@ -5742,6 +5813,7 @@ class MapScene extends Phaser.Scene {
       });
       const first = fmt(1);
       this.showOfferModal({
+        kind: 'shop',
         title: 'Sell from your stash?',
         get: first.get,
         cost: first.cost,
@@ -5924,6 +5996,7 @@ class MapScene extends Phaser.Scene {
     // bulk; a starter nicety, not an arbitrage vector at $3 a pack).
     const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
+      kind: 'shop',
       title: this.buildingFlavorTitle(house, 'buy'),
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
@@ -6201,7 +6274,7 @@ class MapScene extends Phaser.Scene {
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
     const { wrap, box, mount, mkBtn } =
-      this.makeModalShell('move-home-modal', { zIndex: 60, onClose: () => {} });
+      this.makeModalShell('move-home-modal', { zIndex: 60, onClose: () => {}, kind: 'build' });
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">Move Home here?</div>` +
       `<div style="margin:6px 0 12px">Your Home trailer relocates to where you're standing.` +
@@ -6363,11 +6436,8 @@ class MapScene extends Phaser.Scene {
   // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
   openDeliveryMenu() {
     const { wrap, box, mount } = this.makeModalShell('delivery-menu',
-      { maxWidth: 320, textAlign: 'left', onClose: () => {} });
-    const title = document.createElement('div');
-    title.style.cssText = 'font:700 14px ui-monospace,monospace;color:#ffe066;margin-bottom:8px;text-align:center;';
-    title.textContent = 'Deliveries';
-    box.appendChild(title);
+      { maxWidth: 320, textAlign: 'left', onClose: () => {}, kind: 'delivery' });
+    // No title line — the kind header already says DELIVERY.
     const houses = this.knownDeliveryHouses();
     if (!houses.length) {
       const empty = document.createElement('div');
@@ -6632,6 +6702,7 @@ class MapScene extends Phaser.Scene {
     });
     const first = fmt(1);
     this.showOfferModal({
+      kind: 'delivery',
       title: 'The household wants the full set:',
       cancelLabel: 'Later',
       get: first.get,
@@ -6768,6 +6839,7 @@ class MapScene extends Phaser.Scene {
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
     this.showOfferModal({
+      kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
       cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
@@ -6865,6 +6937,7 @@ class MapScene extends Phaser.Scene {
     ];
     if (!bars.length) {
       this.showOfferModal({
+        kind: 'forge',
         title: 'Nothing to smelt',
         cancelLabel: 'Later',
         get: 'No ingredients yet',
@@ -6913,6 +6986,7 @@ class MapScene extends Phaser.Scene {
     });
     const first = fmt(1);
     this.showOfferModal({
+      kind: 'forge',
       title: 'The blacksmith stokes the crucible:',
       cancelLabel: 'Later',
       get: first.get,
@@ -6975,6 +7049,7 @@ class MapScene extends Phaser.Scene {
     const have = Inventory.count(this.save, 'discovery');
     const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
     this.showOfferModal({
+      kind: 'wizard',
       title: 'The wizard offers an Inner Light:',
       cancelLabel: 'Later',
       acceptLabel: 'Kindle',
@@ -7000,6 +7075,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         if (this.buildInventoryDOM) this.buildInventoryDOM();
         this.showChestRewardModal({
+          kind: 'wizard',
           header: '✨ Inner Light kindled ✨',
           iconHTML: '',
           name: `Reach ${reachAfter} cells · Ring T${Math.min(7, this.save.reachUpgrades)}`,
@@ -7071,6 +7147,7 @@ class MapScene extends Phaser.Scene {
     const giveQty = TRADE_OFFER_QTY
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
+      kind: 'trade',
       // Spell out who gives what so the barter can't be read backwards:
       // "Trader offers <giveItem> for your <askItem>".
       title: 'The trader offers:',
@@ -7123,7 +7200,7 @@ class MapScene extends Phaser.Scene {
   // ─── Path-stone activation ───────────────────────────────────────
   // Each cell of a named pedestrian path is a "stone" the player can
   // claim by either tapping it or walking onto it. Claimed stones get a
-  // blue tint (render.js looks them up via _isPathStoneActive). When
+  // full opacity (render.js looks them up via _isPathStoneActive). When
   // every stone of one named path on one tile is claimed, the player
   // gets a fanfare modal with a T4 lowtier-class loot roll — the kind
   // of nice surprise a focused "walk the whole trail" run deserves.
@@ -7217,6 +7294,7 @@ class MapScene extends Phaser.Scene {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
       this.showChestRewardModal({
+        kind: 'trail',
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
@@ -7230,6 +7308,7 @@ class MapScene extends Phaser.Scene {
       const color = (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff');
       const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '';
       this.showChestRewardModal({
+        kind: 'trail',
         header: `${title} complete`,
         iconHTML,
         name: item?.name || reward.id,
@@ -7239,6 +7318,7 @@ class MapScene extends Phaser.Scene {
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
       this.showChestRewardModal({
+        kind: 'trail',
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
@@ -7260,6 +7340,7 @@ class MapScene extends Phaser.Scene {
         ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64)
         : '★';
       this.showChestRewardModal({
+        kind: 'trail',
         header: `${title} complete`,
         iconHTML,
         name: relicName,
@@ -7347,6 +7428,7 @@ class MapScene extends Phaser.Scene {
     // line, greyed button) so the dialog reads as a price tag rather
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
+      kind: 'build',
       title: 'Restore this wreck?',
       cancelLabel: 'Later',
       get: `🛠 a working ${isThemed ? 'shop' : 'house'}`,
@@ -7401,6 +7483,7 @@ class MapScene extends Phaser.Scene {
           };
           const info = INFO[role] || INFO.plain;
           this.showChestRewardModal({
+            kind: 'build',
             iconHTML: this.buildingImgHTML(role, 72),
             header: 'Restored!',
             name: `You restored a ${info.name}`,
@@ -7490,6 +7573,7 @@ class MapScene extends Phaser.Scene {
     // twice with a stray "for" wedged between the two copies, and on a finished
     // quest printed the reward figure twice the same way.
     this.showOfferModal({
+      kind: 'quest',
       title: done ? 'Quest complete!' : q.title,
       get: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
       blurb: q.body,
@@ -7531,6 +7615,7 @@ class MapScene extends Phaser.Scene {
     const heldCount = ((this.save.inv || []).find(s => s && s.id === 'wood')?.count) ?? 0;
     const canAfford = heldCount >= need;
     this.showOfferModal({
+      kind: 'build',
       title: 'Unseal this fort?',
       cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
@@ -7558,6 +7643,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         if (this.showChestRewardModal) {
           this.showChestRewardModal({
+            kind: 'build',
             iconHTML: this.buildingImgHTML('fort', 72),
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
@@ -7609,6 +7695,7 @@ class MapScene extends Phaser.Scene {
         ]
       : undefined;
     this.showOfferModal({
+      kind: 'forge',
       title: this.buildingFlavorTitle(house, 'forge'),
       cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
@@ -8190,8 +8277,9 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for' }) {
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', { maxWidth: 340, onClose: () => {} });
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', kind, kindLabel }) {
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
+      { maxWidth: 340, onClose: () => {}, kind, kindLabel });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -8363,10 +8451,16 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
+  // `header` is the legacy per-reward line ('MILL LANE complete', 'Restored!').
+  // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
+  // its outcome wording and gains the kind's hero icon — so this modal shows
+  // one header, not two. Callers that say nothing get TREASURE, which is what
+  // a chest is.
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header = 'From the chest', actions }) {
+    onDismiss, header, kind = 'treasure', actions }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
+      kind, kindLabel: header,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
@@ -8401,7 +8495,6 @@ class MapScene extends Phaser.Scene {
       : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
-      `<div style="opacity:.75;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;color:${accent}">${header}</div>` +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +
@@ -8997,6 +9090,7 @@ class MapScene extends Phaser.Scene {
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
       this.showOfferModal({
+        kind: 'use',
         title: entry.title,
         get: entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,

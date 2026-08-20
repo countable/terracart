@@ -358,7 +358,8 @@ Render.drawCells = function drawCells(scene) {
   // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
-  // scattered stone.
+  // scattered stone — and so does an ACTIVATED named-path stone: coming up to
+  // full opacity is how a claimed stone reads as lit.
   const COBBLE_ALPHA = 0.57;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
@@ -748,22 +749,23 @@ Render.drawCells = function drawCells(scene) {
           // one of them and keeps cell size: its art tiles edge-to-edge across
           // adjacent pier cells, and any resize opens a seam.
           const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
-          // Named-path stones that the player has tapped / stepped onto
-          // pick up a blue tint to signal progress. _isPathStoneActive
-          // is null-safe (returns false in test mode or before save state
-          // exists), so this check is always cheap. PIER is excluded —
-          // piers are not named paths and the plank shouldn't tint blue.
-          let tint = 0xffffff;
+          // Named-path stones the player has tapped / stepped onto come up to
+          // FULL opacity — the same stone, lit rather than recoloured. It used
+          // to be a blue tint, which read as a different material dropped into
+          // the path instead of as a stone the player has claimed, and said
+          // nothing under the Phaser Canvas fallback where setTint is a no-op.
+          // _isPathStoneActive is null-safe (returns false in test mode or
+          // before save state exists), so this check is always cheap. PIER is
+          // excluded — piers are not named paths.
+          let active = false;
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             // Cells outside the player's own tile fall back to the cell's
-            // tile coords — paths span tile seams, and we want consistent
-            // tinting across the boundary.
+            // tile coords — paths span tile seams, and we want the same answer
+            // on both sides of the boundary.
             const N2  = scene.cellsPerTile;
             const tx2 = Math.floor(absCellIX / N2);
             const ty2 = Math.floor(absCellIY / N2);
-            if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
-              tint = 0x88aaff;   // soft blue
-            }
+            active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
           }
           // Swap texture key — 'pier' for plank, 'cobble' for everything else.
           // Pool sprites are created with the 'cobble' texture so reassign
@@ -775,8 +777,8 @@ Render.drawCells = function drawCells(scene) {
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-            .setTint(tint)
-            .setAlpha(isPier ? 1 : COBBLE_ALPHA)
+            .setTint(0xffffff)
+            .setAlpha(isPier || active ? 1 : COBBLE_ALPHA)
             .setVisible(true);
         } else {
           cs.setVisible(false);
