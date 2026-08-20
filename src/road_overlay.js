@@ -12,7 +12,11 @@
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
 // drawn to the map's scale, so the band covers roughly the ground the road
 // covers: with 7 m cells a 5 m residential street is a little under one cell
-// wide, a 12 m motorway a little under two.
+// wide, a 12 m motorway a little under two. The large tier (motorway / trunk
+// / primary) is then drawn 50% wider still, so the trunk network stands out
+// from the streets feeding it. A grain pattern is stamped over the finished
+// linework in one pass, giving the bands a packed-dirt mottle for the cost of
+// a single fill (see "Grain" below).
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
@@ -31,24 +35,83 @@
 (function (global) {
   // Warm earth brown rather than black: the ways read as packed track over the
   // biome colours instead of as a shadow, and they sit in the same family as
-  // the cobble the rasterizer paints.
-  const COLOR = 0x6b4a2f;
-  const COLOR_CSS = '#6b4a2f';
+  // the cobble the rasterizer paints. Muted well off the saturated brown it
+  // started as — over the greens and tans of the biome paint a chromatic band
+  // competed with the map instead of sitting under it, and the grain below
+  // needs a quiet base to read against.
+  const COLOR = 0x614b3a;
+  const COLOR_CSS = '#614b3a';
   const ALPHA = 0.31;    // 31% — reads as a band without hiding the map
   const MVT_EXTENT = 4096;
   // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
   // the shared table lives there so the overlay and the rasterizer agree.
   const FALLBACK_WIDTH_M = 5;
 
+  // The big ways — motorway / trunk / primary, exactly worldgen's ROAD_LG
+  // tier — are stroked half again as wide as their measured carriageway.
+  // Their real widths are already the largest on the map, but at map scale
+  // they still read as ribbons barely wider than the residential streets
+  // feeding them; the extra weight puts the road hierarchy back so the trunk
+  // routes are legible at a glance. Everything else keeps its true width.
+  const LARGE_CLASSES = new Set(['motorway', 'trunk', 'primary']);
+  const LARGE_SCALE = 1.5;
+
   // Stroke width for one way: its real-world carriageway width, drawn at the
   // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
   // residential street lands just inside the single cell the rasterizer paints
-  // for it, and a 12 m motorway visibly spills past that cell on both sides.
+  // for it, and a 12 m motorway visibly spills past that cell on both sides —
+  // by half again as much once LARGE_SCALE is applied to the top tier.
   function widthPxFor(scene, tags) {
     const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
       ? WorldGen.roadWidthM(tags || {})
       : FALLBACK_WIDTH_M;
-    return Math.max(1, (m / scene.cellM) * CELL_PX);
+    const scale = LARGE_CLASSES.has((tags && tags.class) || '') ? LARGE_SCALE : 1;
+    return Math.max(1, (m / scene.cellM) * CELL_PX * scale);
+  }
+
+  // ── Grain ────────────────────────────────────────────────────────────────
+  // A flat band of colour reads as a sticker laid over the map. The grain is
+  // a packed-dirt mottle that costs nothing per way: ONE small noise tile is
+  // generated once, made into a repeating canvas pattern, and painted over
+  // the finished network in a SINGLE source-atop fillRect — so it lands only
+  // on pixels a way already covers, whatever shape the network is, and the
+  // per-rebuild cost is that one fill no matter how many ways are on screen.
+  // (The obvious alternative — a patterned strokeStyle per way — pays for the
+  // pattern on every stroke, and still can't texture the joins evenly.)
+  // Rebuilds are already rare: the pass only runs when the camera crosses a
+  // cell or a tile finishes loading, never per frame.
+  const GRAIN_PX = 32;        // repeat every cell — grain, not a visible weave
+  const GRAIN_ALPHA = 0.22;   // before the layer's own 31% knocks it back
+  let grainCanvas;
+  function grainTile() {
+    if (grainCanvas !== undefined) return grainCanvas;
+    grainCanvas = null;
+    if (typeof document === 'undefined') return grainCanvas;
+    const c = document.createElement('canvas');
+    c.width = c.height = GRAIN_PX;
+    const cx = c.getContext('2d');
+    if (!cx) return grainCanvas;
+    const img = cx.createImageData(GRAIN_PX, GRAIN_PX);
+    const d = img.data;
+    // Fixed-seed LCG, not Math.random: the tile is identical every session, so
+    // the roads can't shimmer differently between one load and the next.
+    let seed = 0x2f6b4a;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < GRAIN_PX * GRAIN_PX; i++) {
+      const n = rnd();
+      // Two thirds of the pixels stay clear — a fleck here and there mottles
+      // the band, where texturing every pixel would just be static.
+      if (n < 0.66) continue;
+      const light = n > 0.88;
+      const v = light ? 255 : 0;
+      d[i * 4] = v; d[i * 4 + 1] = v; d[i * 4 + 2] = v;
+      // Light flecks are the highlights on the grit: fewer and fainter than
+      // the dark ones, so the band still darkens the map overall.
+      d[i * 4 + 3] = Math.round(255 * GRAIN_ALPHA * (light ? 0.6 : 1));
+    }
+    cx.putImageData(img, 0, 0);
+    grainCanvas = c;
+    return grainCanvas;
   }
 
   // ── Stroke target ────────────────────────────────────────────────────────
@@ -82,6 +145,17 @@
     ctx.lineJoin = 'round';
     const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0).setAlpha(ALPHA);
     scene.roadGeomContainer.add(img);
+    // Grain pattern + its phase, built on first commit and kept for the life
+    // of the target. The texture canvas is screen-fixed while the ways slide
+    // across it, so an un-phased pattern would swim over the roads as the
+    // player walks; the phase pins it to the world instead.
+    let grainPattern;
+    let phaseX = 0, phaseY = 0;
+    // Rounded, not just wrapped: a fractional translate makes the canvas
+    // resample the noise tile, which softens the 1 px flecks into mush and
+    // re-blurs them differently on every rebuild. Whole pixels keep the grain
+    // as crisp as the rest of the art.
+    const wrap = (v) => ((Math.round(v) % GRAIN_PX) + GRAIN_PX) % GRAIN_PX;
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
       // Colour + alpha are the module's constants for every way; the alpha is
@@ -91,7 +165,29 @@
       moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
       lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
       strokePath() { ctx.stroke(); },
-      commit() { tex.refresh(); },
+      // Screen position the world origin projected to this pass — the grain is
+      // anchored there, so it sits still on the road while the road moves.
+      texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
+      commit() {
+        if (grainPattern === undefined) {
+          const tile = grainTile();
+          grainPattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
+        }
+        if (grainPattern) {
+          ctx.save();
+          // source-atop keeps the grain inside what's already drawn, so it
+          // never leaks off the ways into empty canvas.
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.fillStyle = grainPattern;
+          // The pattern rides the current transform, so translating by the
+          // phase moves the grain with the world. Fill a tile wider on every
+          // side to cover what that shift pushes off the canvas.
+          ctx.translate(phaseX, phaseY);
+          ctx.fillRect(-GRAIN_PX, -GRAIN_PX, size + GRAIN_PX * 2, size + GRAIN_PX * 2);
+          ctx.restore();
+        }
+        tex.refresh();
+      },
     };
     scene._roadGeomTarget = target;
     return target;
@@ -236,6 +332,11 @@
         g.strokePath();
       }
     }
+    // Anchor the grain to the world before it's laid down: the world origin's
+    // screen position in THIS pass tells the target how far to phase the
+    // pattern, so walking scrolls the texture with the road rather than under
+    // it. (projX/projY are cheap and this is once per rebuild.)
+    if (g.texturePhase) g.texturePhase(projX(0), projY(0));
     // Upload the finished canvas once, after every way is on it — not per
     // stroke. No-op for the tests' recording stub.
     if (g.commit) g.commit();

@@ -180,6 +180,19 @@ const UI_DANGER_INK = '#ff8a7a';   // destructive action as TEXT on a dark groun
 const UI_INK        = '#ffffff';   // default text on world/dark backgrounds
 const UI_SHADOW     = '#000000';   // text stroke / drop shadow
 
+// Keep a CENTRED text object inside the canvas. A label placed at its raw
+// screen x with origin 0.5 runs past the edge and gets sliced by the viewport
+// mask — an out-of-reach tap near the right edge rendered as "Just out o", and
+// long POI names were cut on every viewport size. Returns the clamped x.
+// `textW` is the object's rendered width (tx.width AFTER setText), `canvasW`
+// the game canvas width. A label wider than the canvas is centred instead:
+// there is no x that fits it, and centring loses the same amount off each end.
+function clampTextX(x, textW, canvasW, pad = 2) {
+  const half = textW / 2;
+  if (textW + pad * 2 >= canvasW) return canvasW / 2;
+  return Math.min(Math.max(x, half + pad), canvasW - half - pad);
+}
+
 // ── Memoised array → Set lookups ────────────────────────────────────────
 // The render loop asks "is this id in save.opened / save.chopped / save.picked
 // / …?" for every object in view, on every frame, and used to answer by

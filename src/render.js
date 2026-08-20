@@ -939,7 +939,42 @@ Render.drawCells = function drawCells(scene) {
   }
 };
 
+// Labels draw ABOVE the player (depth 50/51 against the player's 10), and a POI
+// name anchors BELOW its sprite — so a label routinely lands on the cell the
+// player is standing in and covers the character. QC_RULES §3 already says
+// ground decals mustn't draw over the player; this is the same rule from the
+// other side. Rather than reordering the layers (a label still needs to read
+// over a building), any label whose box overlaps the player's fades back.
+const LABEL_OVER_PLAYER_ALPHA = 0.3;
+// The player's screen box, inset a little so a label merely touching the
+// sprite's transparent margin doesn't trip it. Null when there's no player
+// sprite yet (boot, or a stub scene in tests) — then nothing fades.
+function playerScreenBox(scene) {
+  const p = scene.player;
+  if (!p || !p.visible) return null;
+  const inset = 3;
+  const w = p.displayWidth, h = p.displayHeight;
+  return {
+    x0: p.x - w * p.originX + inset, x1: p.x + w * (1 - p.originX) - inset,
+    y0: p.y - h * p.originY + inset, y1: p.y + h * (1 - p.originY) - inset,
+  };
+}
+// Dim `tx` when it overlaps `box`; restore it to `full` when it doesn't.
+function fadeLabelOverPlayer(tx, box, full = 1) {
+  if (!box) { tx.setAlpha(full); return; }
+  const w = tx.width, h = tx.height;
+  const x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
+  const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
+  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : full);
+}
+
 Render.drawObjects = function drawObjects(scene) {
+  // Canvas width, for keeping centred labels on screen (see clampTextX in
+  // util.js). Same 352 the game canvas is sized to. Computed HERE, not at
+  // script top level: VIEW_CELLS / CELL_PX come from app.js, which loads AFTER
+  // render.js, so a top-level read threw at evaluation time and left
+  // Render.drawObjects unassigned ("Render.drawObjects is not a function").
+  const CANVAS_W = VIEW_CELLS * CELL_PX;
   // Resolve the starter shop id as soon as the spawn tile's houses have
   // loaded, so the trailer sprite + Home tint apply on first render (rather
   // than waiting for the player to tap a house). Runs every frame until it
@@ -1849,6 +1884,9 @@ Render.drawObjects = function drawObjects(scene) {
   const LABEL_STROKE    = '#14110c';
   const LABEL_STROKE_W  = 2;
   const LABEL_SHADOW    = 'rgba(0,0,0,0.75)';
+  // One player box for every label pass below (chest names, shop signs, the
+  // open/busy plaque) — they all fade where they'd cover the character.
+  const _playerBox = playerScreenBox(scene);
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -1878,7 +1916,11 @@ Render.drawObjects = function drawObjects(scene) {
     // sy + 12 — the old +4 anchor cut the bottom third off every chest it
     // labelled. Crates are the smaller sprite, so they need less clearance.
     const labelY = sy + (_chestIsBox(o) ? 13 : 16);
-    tx.setText(label).setPosition(Math.round(sx), Math.round(labelY)).setVisible(true);
+    // Clamp x to the canvas: origin-0.5 text at the raw sx ran off the edge,
+    // so long POI names were sliced on every viewport size. setText first —
+    // the clamp needs the rendered width.
+    tx.setText(label).setVisible(true);
+    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(labelY));
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
@@ -1888,11 +1930,11 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setColor(_chestIsBox(o) ? CRATE_LABEL_INK : LABEL_INK);
     tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
     tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
-    // Always full opacity — opened chests keep their concrete-pad label
-     // legible (per user: the dimmed-after-open look made closed shops read
-     // as inactive). The opened/closed state is already conveyed by the
-     // chest sprite frame + the tier-diamond disappearing.
-    tx.setAlpha(1);
+    // Full opacity EXCEPT where the label would cover the player — opened
+    // chests keep their label legible (per user: the dimmed-after-open look
+    // made closed shops read as inactive), the opened/closed state is carried
+    // by the chest sprite frame + the tier diamond instead.
+    fadeLabelOverPlayer(tx, _playerBox);
     li++;
   }
   hidePoolFrom(scene.chestLabelPool, li);
@@ -2040,8 +2082,9 @@ Render.drawObjects = function drawObjects(scene) {
     // sprite's own dyPx so the sign stays glued to the doorstep.
     tx.setText(_houseSignText(o))
       .setColor(_lighten30(_houseSignInk(o)))
-      .setPosition(Math.round(sx), Math.round(sy + 7) + 5)
       .setVisible(true);
+    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
+    fadeLabelOverPlayer(tx, _playerBox);
     sli++;
   }
   hidePoolFrom(scene.shopLabelPool, sli);
@@ -2213,13 +2256,15 @@ Render.drawObjects = function drawObjects(scene) {
       // clear it by 3px (falling back to the old offset when the frame can't
       // be read). -10 on x nudges it off-centre so it reads as hanging from a
       // bracket on the left rather than dead-centred on the gable.
-      .setPosition(Math.round(sx) - 10, Math.round(sy) - _houseTopPx(o) - 3)
+      .setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
+                   Math.round(sy) - _houseTopPx(o) - 3)
       .setVisible(true);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
     // hard 1-px outline of the previous version — that competed too
     // hard with the house sign's stroked block lettering.
     tx.setShadow(1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
+    fadeLabelOverPlayer(tx, _playerBox);
     hri++;
   }
   hidePoolFrom(scene.shopReadyPool, hri);
