@@ -119,7 +119,14 @@ function darkenHex(hex, f) {
 const BORDER_W   = 2;
 const WAVE_AMP   = 1;
 const WAVE_LEN   = 16;
-const BORDER_DIM = 0.72;
+// How far a biome seam darkens the cell's OWN colour to draw its edge. Higher
+// is lighter — 1.0 would make the border vanish into the cell. Raised from
+// 0.72, which read as a hard dark outline drawn around each zone rather than as
+// a seam between two of them: measured over the border pixels themselves, 0.86
+// lifts them from 96.8 to 105.8 mean luminance. Going further flattens the
+// wave — by 0.92 the seam stops reading as an edge in the lighter biomes, and
+// the border still has a job to do.
+const BORDER_DIM = 0.86;
 const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
 // Surf: the colour a WATER cell paints its biome-seam edge, in place of the
 // darkened own-colour edge every other terrain uses. Pale blue-white rather
