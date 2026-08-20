@@ -1131,12 +1131,20 @@ class MapScene extends Phaser.Scene {
       Sandbox.install(this);
     }
 
+    // Bridge for the how-to card's "Skip the tutorial" button. The card is
+    // plain DOM in index.html, outside the scene, so it drives the starter
+    // ladder through these two hooks rather than touching the save itself.
+    window.__tutorialActive = () =>
+      typeof Quests !== 'undefined' && !Quests.starterHidden(this.save);
+    window.__disableTutorial = () => this.dismissObjective();
+
     // First arrival in the world — show the how-to card over the live map, so
-    // the reach bubble and the inventory tabs it describes are visible behind
+    // the reach bubble and the objective chip it points at are visible behind
     // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
     // play" reopens it any time. Must sit BELOW the Sandbox.install above:
     // that call is what sets _sandboxMode, and the sandbox is a dev world that
-    // has no use for the card.
+    // has no use for the card. index.html queues the first-run card behind the
+    // opening story slides, so calling it here can't jump the story.
     if (!this._sandboxMode) window.showHowTo?.();
 
     // Boot tile load
