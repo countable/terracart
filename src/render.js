@@ -1911,10 +1911,11 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
-    // 0.8 — the slab is a backdrop for the POI, so it lets the terrain it sits
-    // on read through rather than stamping an opaque disc over it, while still
-    // reading as a plinth the chest stands on (0.7 dropped it to a smudge).
-    s.setAlpha(0.8);
+    // 0.55 — the slab is a backdrop for the POI, so it lets the terrain it
+    // sits on read through rather than stamping an opaque disc over it. The
+    // pale-stone tones carry the plinth read on their own, so it can sit well
+    // below the old 0.8 and still separate the chest from the ground.
+    s.setAlpha(0.55);
     s.setTint(0xffffff);
   });
 
