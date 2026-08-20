@@ -1202,6 +1202,7 @@ const TAP_HANDLERS = [
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
+      scene.questEvent?.('harvest');
       return true;
     }
     if (!p.watered_t) {
@@ -1422,6 +1423,7 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       scene.buildInventoryDOM();
       scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      scene.questEvent?.('plant');
       return true;
     }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
@@ -1430,6 +1432,7 @@ const TAP_HANDLERS = [
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash(`planted ${item.grows}`, sx, sy);
+    scene.questEvent?.('plant');
     return true;
   }},
 
@@ -1483,6 +1486,7 @@ const TAP_HANDLERS = [
       save.tilled = [...scene.tilledSet];
       persistSave(save);
       scene.flash('tilled', sx, sy);
+      scene.questEvent?.('till');
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

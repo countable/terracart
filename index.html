@@ -179,6 +179,43 @@
       background: var(--green);
       transition: width 0.15s linear, background-color 0.15s linear;
     }
+    /* Objective chip — the first-session guidance ladder (quests.js
+       STARTER_CHAIN). Sits just under the top HUD row and names the ONE thing
+       the player should do next; it retires itself when the ladder finishes or
+       the player taps ×. The container is pointer-events:none so it never eats
+       a world tap — only the × re-enables them. */
+    #objective {
+      position: fixed;
+      top: calc(56px + env(safe-area-inset-top, 0px));
+      left:  calc(var(--phone-left,  0px) + 10px);
+      right: calc(var(--phone-right, 0px) + 10px);
+      background: #000c; border: 2px solid var(--gold-dark); border-radius: 8px;
+      padding: 6px 8px; z-index: 6;
+      pointer-events: none;
+      font-family: ui-monospace, monospace;
+    }
+    #objective .row { display: flex; align-items: center; gap: 6px; }
+    #objective .step {
+      color: #1a1612; background: var(--gold-dark);
+      border-radius: 4px; padding: 1px 5px;
+      font: 700 10px ui-monospace, monospace; flex: none;
+    }
+    #objective .title {
+      color: var(--gold); font: 700 13px ui-monospace, monospace;
+      flex: 1; min-width: 0;
+    }
+    #objective .close {
+      pointer-events: auto; cursor: pointer; flex: none;
+      background: transparent; color: #888; border: 0;
+      font: 700 15px ui-monospace, monospace; padding: 0 2px; line-height: 1;
+    }
+    #objective .body {
+      color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
+    }
+    /* Brief green flash when a step is completed, before the next one renders. */
+    #objective.done { border-color: var(--green); }
+    #objective.done .title { color: var(--green); }
+    #objective.done .step { background: var(--green); }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
@@ -291,6 +328,14 @@
   <div id="energy">
     <span id="energy-label">⚡100/100</span>
     <div id="energy-bar"><div id="energy-bar-fill"></div></div>
+  </div>
+  <div id="objective" style="display:none">
+    <div class="row">
+      <span class="step"></span>
+      <span class="title"></span>
+      <button type="button" class="close" id="objective-hide" aria-label="Hide objective">&times;</button>
+    </div>
+    <div class="body"></div>
   </div>
   <details id="menu">
     <summary>☰</summary>

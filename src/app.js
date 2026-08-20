@@ -1043,6 +1043,24 @@ class MapScene extends Phaser.Scene {
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
 
+    // First-session objective chip. A save that predates the starter ladder is
+    // already past the point it teaches — retire it rather than telling a
+    // player with a built farm to go till their first cell. The tell is that
+    // they have played at all: any tilled ground, any restored house, any
+    // opened chest, or money moved off the starting purse.
+    if (typeof Quests !== 'undefined' && !this.save.starter) {
+      const playedAlready =
+        (this.save.tilled?.length ?? 0) > 0 ||
+        (this.save.planted?.length ?? 0) > 0 ||
+        (this.save.opened?.length ?? 0) > 0 ||
+        Object.keys(this.save.restoredHouses || {}).length > 0 ||
+        (this.save.money ?? STARTING_MONEY) !== STARTING_MONEY;
+      if (playedAlready) Quests.starterSkipAll(this.save);
+    }
+    document.getElementById('objective-hide')
+      ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
+    this.updateObjectiveDOM();
+
     // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
     // with a synthetic 5×5 grid of biome plots containing every native
     // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
@@ -4333,6 +4351,69 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // ── First-session objective chip ────────────────────────────────────────
+  // Renders the active step of the starter ladder (quests.js STARTER_CHAIN)
+  // into #objective. One step is shown at a time — the whole point is to
+  // answer "what now?" with a single instruction, not a checklist. The chip
+  // removes itself once the ladder is finished or the player dismisses it.
+  updateObjectiveDOM() {
+    const el = document.getElementById('objective');
+    if (!el) return;
+    if (typeof Quests === 'undefined' || Quests.starterHidden(this.save)) {
+      el.style.display = 'none';
+      return;
+    }
+    const step = Quests.starterCurrent(this.save);
+    if (!step) { el.style.display = 'none'; return; }
+    const idx = Quests.starterStepIndex(this.save);
+    el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
+    el.querySelector('.title').textContent = step.title;
+    el.querySelector('.body').textContent  = step.body;
+    el.style.display = 'block';
+  }
+
+  // Hide the chip for good (the × button). The ladder keeps tracking quietly
+  // underneath, so nothing downstream has to care that it was dismissed.
+  dismissObjective() {
+    if (typeof Quests === 'undefined') return;
+    Quests.starterDismiss(this.save);
+    persistSave(this.save);
+    this.updateObjectiveDOM();
+  }
+
+  // Report a gameplay event to the starter ladder. Called from the site that
+  // performs the action (open a crate, till, plant, restore, harvest, sell);
+  // no-ops unless that event is exactly what the current step is waiting for,
+  // so the call sites can fire unconditionally and stay ignorant of the chain.
+  questEvent(event) {
+    if (typeof Quests === 'undefined') return;
+    const done = Quests.onStarterEvent(this.save, event);
+    if (!done) return;
+    if (done.reward?.money) addMoney(this.save, done.reward.money);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +$${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+    // Hold the COMPLETED step on screen in green for a beat before swapping in
+    // the next one, so finishing something is legible instead of an instant
+    // relabel. The held text is written from `done` rather than left as
+    // whatever the chip happened to show, so two completions in quick
+    // succession each get their own flash instead of re-freezing a stale one.
+    const el = document.getElementById('objective');
+    // No chip on screen (dismissed, or not built yet) — just resync and go.
+    if (!el || el.style.display === 'none') { this.updateObjectiveDOM(); return; }
+    el.classList.add('done');
+    el.querySelector('.step').textContent  = '✓';
+    el.querySelector('.title').textContent = done.title;
+    el.querySelector('.body').textContent  = done.reward?.money
+      ? `Done — $${done.reward.money} earned.`
+      : 'Done.';
+    if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
+    this._objectiveTimer = setTimeout(() => {
+      el.classList.remove('done');
+      this.updateObjectiveDOM();
+    }, 1400);
+  }
+
   // Spend energy if the player has enough, returning true on success.
   // Callers (interact.js handlers) refuse the action when this returns false.
   spendEnergy(cost, sx, sy) {
@@ -4969,6 +5050,7 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.buildInventoryDOM();
           this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+          this.questEvent('sell');
         },
       });
       return;
@@ -6550,6 +6632,7 @@ class MapScene extends Phaser.Scene {
         }
         persistSave(this.save);
         this.buildInventoryDOM();
+        this.questEvent('restore');
         if (this.showChestRewardModal) {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
