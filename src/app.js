@@ -87,6 +87,9 @@ const MODAL_LIFT_PX = 140;
 //   note    — "that didn't work", small status. Lands where the player TAPPED
 //             so it stays attached to the thing they touched. No pop: a status
 //             message that animates in reads as more important than it is.
+//             The only tier with NO chip (bg: null) — it sits ON the map at
+//             the tapped cell, and a dark box there hides the thing the
+//             message is about. A drop shadow lifts it off the ground instead.
 //   sub     — a second line under a fanfare. Fades rather than pops so it
 //             doesn't compete with the headline it belongs to.
 //   gain    — "you got something". Centred, pops in, can carry an icon.
@@ -97,7 +100,11 @@ const MODAL_LIFT_PX = 140;
 // lets a gain and a fanfare fired in the same moment stack instead of overlap.
 const TOAST_BG = '#000c';
 const TOAST_TIER = {
-  note:    { font: '12px',      stroke: 0, pad: 4,  padY: 2, depth: 100, dy:  -70,
+  // pad here buys no visible chip — it stops Phaser cropping the shadow's
+  // blur at the glyph bounds, which is what makes an un-chipped Text look
+  // like its shadow has a straight edge cut through it.
+  note:    { font: '12px',      stroke: 0, pad: 6,  padY: 4, depth: 100, dy:  -70,
+             bg: null, shadow: { offsetX: 1, offsetY: 1, blur: 4 },
              pop: 0,   hold: 1300, fade: 700, rise: 30 },
   sub:     { font: 'bold 16px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
              pop: 0,   fadeIn: 240, hold: 1800, fade: 700, rise: 60, ease: 'Sine.In' },
@@ -4724,16 +4731,29 @@ class MapScene extends Phaser.Scene {
     const x = opts.x ?? this.viewCenterX;
     const y = opts.y ?? (this.viewCenterY + S.dy);
     const mul = opts.dwellMul || 1;
-    const t = this.add.text(x, y, text, {
+    // Chip colour: caller override, else the tier's own, else the shared one.
+    // A tier may opt out entirely with `bg: null`, so this can't collapse to
+    // `opts.bg || S.bg || TOAST_BG` — null is exactly the value that must win.
+    const bg = opts.bg !== undefined ? opts.bg
+             : (S.bg !== undefined ? S.bg : TOAST_BG);
+    const style = {
       font: fontMono(S.font),
       color: opts.color || UI_INK,
-      backgroundColor: opts.bg || TOAST_BG,
       stroke: UI_SHADOW, strokeThickness: S.stroke,
       padding: {
         left: S.pad + (opts.padExtraLeft || 0), right: S.pad,
         top: S.padY, bottom: S.padY,
       },
-    }).setOrigin(0.5, opts.originY ?? 1).setDepth(opts.depth ?? S.depth);
+    };
+    if (bg) style.backgroundColor = bg;
+    if (S.shadow) {
+      style.shadow = {
+        offsetX: S.shadow.offsetX, offsetY: S.shadow.offsetY,
+        color: UI_SHADOW, blur: S.shadow.blur, fill: true, stroke: true,
+      };
+    }
+    const t = this.add.text(x, y, text, style)
+      .setOrigin(0.5, opts.originY ?? 1).setDepth(opts.depth ?? S.depth);
     // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
     // edge rendered half a message ("Just out o") — and why a long item name
     // at 22px could still run off the 352px viewport in the loot pop, where
