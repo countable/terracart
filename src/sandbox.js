@@ -793,6 +793,23 @@
       }
     }
 
+    // ── Pin Home to a synthetic trailer away from every test house, BEFORE
+    //    app.js's ensureStarterShopId() gets a chance to run. That function
+    //    auto-adopts the NEAREST 'house'-kind object to the player's spawn as
+    //    Home — normally harmless, since a real wizard tower only exists after
+    //    15 house restorations. The sandbox pre-seeds 'wizard' immediately
+    //    (loop just above) on a house planted right next to PLAYER SPAWN, so
+    //    without this it wins the "nearest house" search: it renders as the
+    //    Home trailer instead of the shrine, and tapping it opens the sell
+    //    modal instead of the smelt/forge UI documented in docs/SANDBOX.md.
+    {
+      const { cellIX, cellIY } = sceneCell('PLAZA', 0, 3);
+      const { x, y } = cellCenter(cellIX, cellIY);
+      scene._makeStarterTrailer(x, y);
+      save.starterShopId = save.starterTrailer.id;
+      scene._starterShopOk = true;
+    }
+
     // ── FARMLAND: a row of crops at every growth stage 0..4. The cell must be
     //    tilled first; the renderer reads each entry's `stage` directly so we
     //    don't have to wait for real game time.
