@@ -1343,10 +1343,10 @@ Render.drawObjects = function drawObjects(scene) {
   scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   // Extra cull reach for house sprites — half the widest building art that can
-  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 1.05 is
-  // 7.02 cells wide, so 3.6 cells of roof either side of the centroid covers
+  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 0.65 is
+  // 4.34 cells wide, so 2.2 cells of roof either side of the centroid covers
   // it). Pinned by test/node/house_scale.test.js.
-  const HOUSE_PAD_M = 3.6 * scene.cellM;
+  const HOUSE_PAD_M = 2.2 * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
   // Per-object screen projection: world-meter delta (dx, dy from the player)

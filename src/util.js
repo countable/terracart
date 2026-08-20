@@ -251,13 +251,17 @@ function setOf(arr) {
 // Held at the baseline those drew the same ~2.3-cell roof as a 19 m fort, and
 // the footprint read as a field of bare brick with a toy building parked in the
 // middle. Growing the art to its own footprint fixes that; FORT_MAX_SCALE stops
-// a huge polygon filling the screen with one roof (3× the 0.35 fort baseline is
-// ~7 cells / 49 m wide). The game runs pixelArt:true, so the upscale stays
-// crisp rather than blurring.
+// a huge polygon filling the screen with one roof. The game runs pixelArt:true,
+// so the upscale stays crisp rather than blurring.
+//
+// FORT_MAX_SCALE was originally 1.05 (~7 cells / 49 m wide) — nearly two-thirds
+// of the 11-cell viewport, which read as oversized rather than as a landmark
+// you could still see around. 0.65 (~4.3 cells / 30 m) still reads as clearly
+// bigger than an ordinary house, just not screen-filling.
 //
 // Buildings with no area (the synthetic starter trailer, sandbox houses) and
 // unmeasurable frames keep the baseline untouched.
-const FORT_MAX_SCALE = 1.05;
+const FORT_MAX_SCALE = 0.65;
 function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
   if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
   const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
