@@ -6056,7 +6056,13 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
-    if (!shopType && Math.random() < 0.10) {
+    // SEEDED, not Math.random: this coin decides WHAT the shop is selling, so
+    // an unseeded flip let the player reopen a fort until it came up relic.
+    // Its own lane, so it can't consume a roll the offer itself needs.
+    // (house is always a real object from the tap dispatch, but everything
+    // around here is written null-tolerant, so keep the unseeded fallback.)
+    const swapRoll = house?.id ? this.shopRng(house, 'relicswap')() : Math.random();
+    if (!shopType && swapRoll < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
@@ -6090,7 +6096,7 @@ class MapScene extends Phaser.Scene {
     // Every cash storefront (markets + generic houses) buys for money now;
     // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
     // above). buildShopOffer always returns a cash offer.
-    const offer = this.buildShopOffer(id, baseValue);
+    const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -7868,7 +7874,14 @@ class MapScene extends Phaser.Scene {
   buildShopOffer(id, baseValue, opts = {}) {
     // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
-    const cashCost = ShopsMath.buyPrice(this.save, baseValue);
+    // Seed the markup roll off the shop's hour bucket when we know which shop
+    // is asking. buyPrice spans 1.2x-3.0x base, so on Math.random the player
+    // could close and reopen the modal until the price came up cheap — the
+    // markup is part of the offer, and the offer holds for the hour.
+    const priceRng = (opts.house && opts.house.id)
+      ? this.shopRng(opts.house, 'price')
+      : undefined;
+    const cashCost = ShopsMath.buyPrice(this.save, baseValue, priceRng);
     return {
       kind: 'money',
       label: `$${cashCost}`,
