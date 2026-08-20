@@ -763,6 +763,15 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
+    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
+    // out-of-reach dim with distance from the player (render.js drawCells).
+    // Sits beside the rim haze for the same reason and with the same
+    // constraint: after every world sprite, so distant OBJECTS recede along
+    // with the ground they stand on — in cellGfx (the bottom layer) it could
+    // only darken the base terrain fill, and objects at the rim stayed fully
+    // lit and read as stickers on dark ground. Still before labelContainer:
+    // POI name tablets are UI and must stay crisp at any distance.
+    this.atmosFalloffGfx = this.add.graphics();
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -947,6 +956,7 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
+    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
