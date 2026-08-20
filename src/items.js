@@ -953,14 +953,19 @@ function ringTierBoost(relics) {
 // where the GPS says you are. The stick is always there and always works; the
 // amulet is purely an upgrade to it, so both functions answer for a bare hand
 // too (no amulet = tier 0 = the baseline, never "unavailable").
-//   steerSpeedMul   no amulet → 1× walk, tier 1 → 1.5×, tier 7 → 4.5× (linear).
+//   steerSpeedMul   no amulet → 5× walk, tier 1 → 6.5×, tier 7 → 15.5× (linear).
 //   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
+// The bare baseline is 5× walk pace deliberately: at WALK_M_S that is one 7 m
+// cell per second, which is the slowest the stick can move and still feel like
+// a control rather than a drag — real walk pace crawls across a view that is
+// 11 cells wide. The stamina cost is per CELL, so a faster baseline doesn't
+// make travel cheaper, only less tedious.
 // Walking with the GPS costs nothing — that's you actually walking. Stick
 // walking is the character covering ground you didn't, which is what the
 // stamina pays for, and what the amulet makes cheap.
 function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
-  return 1 + 0.5 * t;
+  return 5 + 1.5 * t;
 }
 function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;

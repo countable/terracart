@@ -80,6 +80,9 @@ MOVEMENT & REACH
  - ONE movement model at every depth: a GPS fix (plus any stick offset, see
    STICK WALKING) sets a TARGET and the body walks toward it — underground
    mining through whatever blocks it, on the surface a plain walk.
+ - a GPS GHOST (translucent, cool-tinted) marks your REAL position whenever
+   the stick has walked the character more than a cell off it, so you can see
+   where you are and walk back.
  - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
    it walks you off the GPS target for stamina. Nothing ever replaces it —
    Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
@@ -579,7 +582,8 @@ GEAR: RELICS & ARMOR
    you covered by hand survives it; a GPS jump big enough to be a relocation
    (GPS_SNAP_M) re-anchors you and drops the offset. Walking WITH the GPS is
    free — that's you actually walking. Stick walking costs energy per cell,
-   and the AMULET is the upgrade to it: speed 1× walk bare → 4.5× at Frost,
+   and the AMULET is the upgrade to it: speed 5× walk bare (≈ one cell per
+   second — real walk pace is unusably slow on an 11-cell view) → 15.5× at Frost,
    cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
    ("too tired"); the GPS still moves you. Two things borrow a tier rather
    than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
