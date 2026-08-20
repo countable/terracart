@@ -146,6 +146,22 @@ MOVEMENT & REACH
    all read the same radius (coords.js reachRadiusM / cellInReach) so "if it's
    lit, you can tap it" — and growing your reach extends every kind of tap. The
    lit reach bubble IS the player's light: one radius does both jobs.
+ - WHAT "DIMMED" COVERS: the out-of-reach wash, the underground torch wash, the
+   low-energy pink tint and the white reach outline all paint onto a dedicated
+   LIGHTING layer (app.js reachGfx), which sits ABOVE every ground layer —
+   terrain fill, dashed grid, biome seam borders, cobbles, road lettering, POI
+   halos, treasure pads, shadows, the biome haze — and BELOW the standing
+   sprites. Ground recedes outside the lit area; trees, houses and creatures
+   keep full contrast, and DISTANCE (not reach) is what dims them, via
+   atmosFalloffGfx above the sprites.
+   These passes used to paint into cellGfx, the bottom-most layer, so the dim
+   could only darken the base terrain colour and every decoration above it
+   stayed bright outside the lit area — biome BOUNDARIES most visibly, reading
+   as glowing seams in the dark. Forcing the wash to alpha 1.0 showed the road
+   strip, the pale cobbles and the road lettering punching straight through a
+   fully opaque black.
+   Phaser draws in insertion order, so create()'s layer sequence IS the
+   z-order and nothing in the code says so; tools/layer_audit.js pins it.
  - REACH SIZE: starts at 2 cells. Below 30% energy it drops one whole cell
    (floored at 1) AND the lit range tints pink to signal the fading light; at
    0 energy there is no reach. DEPTH also shifts the light: +0.5 cell on the

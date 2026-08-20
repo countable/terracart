@@ -259,6 +259,16 @@ for (const f of testFiles) {
   for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// ── Display-layer audit (tools/layer_audit.js) ────────────────────────────
+// Phaser draws in insertion order, so create()'s sequence IS the z-order.
+// Pins the layers whose stacking carries meaning: the lighting layer must
+// cover every ground layer (or the out-of-reach dim can't darken the biome
+// seams) and stay below the sprites.
+{
+  const layers = require('../../tools/layer_audit.js');
+  for (const c of layers.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
   let pass = 0, fail = 0;

@@ -785,6 +785,21 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
+    // LIGHTING — the out-of-reach dim, the underground torch wash, the
+    // low-energy pink tint and the white reach outline. It sits here, ABOVE
+    // every piece of ground decoration (biome seams, cobbles, road letters,
+    // POI halos, treasure pads, shadows, the haze) and BELOW the standing
+    // sprites, because "outside the lit area" has to mean the whole ground
+    // goes dark — not just the flat terrain fill.
+    //
+    // These passes used to live in cellGfx, the bottom-most layer, so the dim
+    // could only reach the base colour: biome BOUNDARIES in particular stayed
+    // at full brightness outside the lit area and read as glowing seams in the
+    // dark. (The distance falloff hit the same wall and was moved above the
+    // sprites for it; this is the same bug one layer down.) Sprites stay at
+    // full contrast on purpose — see the note on atmosGroundGfx above — and
+    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    this.reachGfx = this.add.graphics();
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1046,6 +1061,7 @@ class MapScene extends Phaser.Scene {
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
+    this.reachGfx.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);

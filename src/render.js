@@ -1042,15 +1042,26 @@ Render.drawCells = function drawCells(scene) {
   // Underground stays pure black: the torch bubble's contrast against dead rock
   // is the whole readability budget down there, and tinting it only erodes it.
   const depth = scene.depth ?? 0;
+  // Every pass from here to the reach outline paints onto the LIGHTING layer
+  // (app.js reachGfx), not the terrain graphics. In cellGfx — the bottom-most
+  // layer — the dim could only darken the base terrain fill, so the biome
+  // seams, cobbles, road letters, POI halos and pads drawn above it stayed at
+  // full brightness outside the lit area; the boundaries in particular read as
+  // glowing lines in the dark. (The distance falloff below hit the same wall
+  // and was moved above the SPRITES for it; this is the same bug one layer
+  // down.) Falling back to `g` keeps a scene without the layer rendering
+  // rather than throwing.
+  const gr = scene.reachGfx || g;
+  if (gr !== g) gr.clear();
   const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
-  g.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
+  gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-      g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      gr.fillRect(sx, sy, CELL_PX, CELL_PX);
     }
   }
   // Underground the torch bubble itself is dimmer than full daylight — lay a
@@ -1059,14 +1070,14 @@ Render.drawCells = function drawCells(scene) {
   // level, like the surrounding dim, so descents feel progressively gloomier.
   if (depth > 0) {
     const litDim = Math.min(0.40, 0.26 + 0.03 * (depth - 1));
-    g.fillStyle(0x000000, litDim);
+    gr.fillStyle(0x000000, litDim);
     for (let row = -1; row <= VIEW_CELLS; row++) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
         const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
         const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
   }
@@ -1151,18 +1162,21 @@ Render.drawCells = function drawCells(scene) {
   const maxEnergy = scene.save?.maxEnergy ?? 100;
   const potionLit = (scene.save?.reachPotionUntil ?? 0) > Date.now();
   if (!potionLit && energy > 0 && (energy / maxEnergy) < 0.30) {
-    g.fillStyle(0xff5fa2, 0.16);
+    gr.fillStyle(0xff5fa2, 0.16);
     for (let row = -1; row <= VIEW_CELLS; row++) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
         const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
         const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
   }
-  g.lineStyle(3, 0xffffff, 0.3);
+  // The reach outline stays LAST on this layer, so the white edge sits on top
+  // of the dim band rather than under it — the relative order these passes
+  // had inside cellGfx, preserved.
+  gr.lineStyle(3, 0xffffff, 0.3);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
@@ -1173,10 +1187,10 @@ Render.drawCells = function drawCells(scene) {
       const bot = !isReach(col, row + 1);
       const lft = !isReach(col - 1, row);
       const rgt = !isReach(col + 1, row);
-      if (top) g.lineBetween(sx, sy, sx + CELL_PX, sy);
-      if (bot) g.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
-      if (lft) g.lineBetween(sx, sy, sx, sy + CELL_PX);
-      if (rgt) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+      if (top) gr.lineBetween(sx, sy, sx + CELL_PX, sy);
+      if (bot) gr.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
+      if (lft) gr.lineBetween(sx, sy, sx, sy + CELL_PX);
+      if (rgt) gr.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
     }
   }
 
