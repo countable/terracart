@@ -222,12 +222,30 @@ const DEBUG_SPEED_MUL = 10;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
-const WALK_HOME_IDLE_MS = 3000;
+//
+// This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
+// it doesn't send the character trotting back the instant you let go. It was
+// 3000 ms, which is long enough to read as the character ignoring you: let go
+// after walking 40 m out and the offset sat frozen for three full seconds
+// before anything moved (measured), then covered the whole way back in under
+// three. All of the sluggishness was in the wait, none of it in the walk.
+//
+// 700 ms is past the stick's own 170 ms spring-back and past any thumb
+// reposition, while still starting the return while the player is still
+// thinking about having released. Anything shorter twitches homeward mid-
+// manoeuvre; the tap/work-wheel cases don't rely on this at all — _driftHome
+// has explicit guards for a running wheel and for a held stick.
+const WALK_HOME_IDLE_MS = 700;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
 // stays out of the way until the stick has been untouched for this long.
-const WALK_HOME_HINT_IDLE_MS = 5000;
+//
+// It has to stay LONGER than the walk's own delay (or the lead line appears
+// before there's a walk to lead) but not so much longer that it never shows:
+// at the old 5000 ms against a 700 ms walk, a typical return was over before
+// the hint was due, so the hint only ever appeared on very long journeys home.
+const WALK_HOME_HINT_IDLE_MS = 2000;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no

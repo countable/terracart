@@ -108,6 +108,21 @@ try {
   ctx.isTillable = (type) => !nonTillable.has(type);
 }
 
+// The walk-home timings live in app.js too. Lift them the same way, so the
+// tests below assert on the REAL numbers rather than a copy that would quietly
+// drift the moment someone retunes the feel.
+{
+  const src = readSrc('app.js');
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    ctx[name] = parseInt(m[1], 10);
+  }
+}
+
 // The inventory category tabs are declared in app.js (which needs Phaser, so it
 // can't load here). Lift the {key, label, sym} triples straight out of the
 // source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
