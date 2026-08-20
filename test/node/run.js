@@ -102,6 +102,29 @@ try {
   ctx.isTillable = (type) => !nonTillable.has(type);
 }
 
+// The inventory category tabs are declared in app.js (which needs Phaser, so it
+// can't load here). Lift the {key, label, sym} triples straight out of the
+// source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
+// assert on the real table instead of a copy that would drift.
+{
+  const m = readSrc('app.js').match(/const INV_CATS = \[([\s\S]*?)\n\];/);
+  if (!m) {
+    console.error('Could not find INV_CATS in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const cats = [];
+  const re = /\{\s*key:\s*'([^']+)'[^}]*?label:\s*'([^']+)'[^}]*?sym:\s*'([^']+)'/g;
+  let row;
+  while ((row = re.exec(m[1])) !== null) {
+    cats.push({ key: row[1], label: row[2], sym: row[3] });
+  }
+  if (!cats.length) {
+    console.error('Parsed no entries out of INV_CATS — update run.js');
+    process.exit(2);
+  }
+  ctx.INV_CATS = cats;
+}
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];

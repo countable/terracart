@@ -132,3 +132,66 @@ test('isolation: the two ladders keep their state in separate save keys', () => 
   assert.eq(save.starter.step, 1, 'starter state in save.starter');
   assert.eq(save.quests.step, 1, 'castle state in save.quests');
 });
+
+// ── The un-till trap ────────────────────────────────────────────────────────
+//
+// Tapping tilled soil with nothing selected un-tills it. That is a real,
+// documented toggle — but during the ladder's "plant a seed" step it fires on
+// exactly the tap a confused beginner makes, silently undoing the till they
+// just paid energy for and calling it 'Soil loosened.'. These pin the guard.
+
+const plantHandler = () => TAP_HANDLERS.find((h) => h.name === 'plant');
+
+const tilledCtx = (save, flashes) => {
+  const scene = makeScene({
+    tilledSet: new Set(['7,7']),
+    flash: (msg) => flashes.push(msg),
+    buildInventoryDOM: () => {},
+  });
+  return { scene, save, sx: 0, sy: 0, dirty: false, cellKey: '7,7', cwmx: 0, cwmy: 0 };
+};
+
+test('plant: mid-ladder, a seedless tap on tilled soil instructs instead of un-tilling', () => {
+  const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
+  // Walk the ladder to the planting step.
+  Quests.onStarterEvent(save, 'chest');
+  Quests.onStarterEvent(save, 'till');
+  assert.eq(Quests.starterCurrent(save).event, 'plant', 'on the plant step');
+
+  const flashes = [];
+  const ctx = tilledCtx(save, flashes);
+  assert.eq(plantHandler().try(ctx), true, 'tap is consumed');
+  assert.truthy(ctx.scene.tilledSet.has('7,7'), 'soil survives — the till is not undone');
+  assert.truthy(/seed/i.test(flashes.join(' ')), `names the missing seed, got: ${flashes.join(' ')}`);
+});
+
+test('plant: outside the ladder, a seedless tap still un-tills', () => {
+  const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
+  Quests.starterSkipAll(save);
+
+  const flashes = [];
+  const ctx = tilledCtx(save, flashes);
+  assert.eq(plantHandler().try(ctx), true, 'tap is consumed');
+  assert.falsy(ctx.scene.tilledSet.has('7,7'), 'soil is un-tilled — the toggle still works');
+  assert.truthy(/un-till/i.test(flashes.join(' ')), `says what happened, got: ${flashes.join(' ')}`);
+});
+
+test('plant: the un-till message does not dress a removal up as progress', () => {
+  const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
+  Quests.starterSkipAll(save);
+  const flashes = [];
+  plantHandler().try(tilledCtx(save, flashes));
+  assert.falsy(/loosened/i.test(flashes.join(' ')),
+    'no success-sounding wording for an action that deleted the plot');
+});
+
+// ── Inventory category tabs ─────────────────────────────────────────────────
+
+test('inventory tabs: every category carries a label for its glyph', () => {
+  for (const c of INV_CATS) {
+    assert.truthy(c.label, `${c.key} has a label`);
+    assert.truthy(c.sym, `${c.key} has a glyph`);
+    // The tab strip is ~46px per tab on a phone; long words would ellipsise.
+    assert.lt(c.label.length, 10, `${c.key} label "${c.label}" fits the tab`);
+  }
+});

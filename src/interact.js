@@ -1378,10 +1378,24 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
+      // While the starter ladder is still asking for a first planting, DON'T
+      // un-till: the player has just spent energy breaking this ground and is
+      // tapping it to find out what happens next. Silently undoing it — and
+      // calling that 'Soil loosened.' — reads as success and teaches nothing.
+      // Tell them what's missing instead, and leave the soil alone.
+      const learning = typeof Quests !== 'undefined'
+        && !Quests.starterHidden(save)
+        && Quests.starterCurrent(save)?.event === 'plant';
+      if (learning) {
+        scene.flash('Select a seed from your bag first.', sx, sy);
+        return true;
+      }
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
-      scene.flash('Soil loosened.', sx, sy);
+      // Name the action taken, not just its texture — "Soil loosened" sounds
+      // like progress when what actually happened is the tilled plot going away.
+      scene.flash('Un-tilled (no seed selected).', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {

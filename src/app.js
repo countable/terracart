@@ -7916,7 +7916,8 @@ class MapScene extends Phaser.Scene {
       tab.title = c.label;
       tab.style.cssText =
         'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
-        'font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;' +
+        'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
+        'justify-content:center;gap:1px;padding:0;overflow:hidden;' +
         (active
           ? 'background:#553a;border:2px solid #ffe066;border-bottom-color:#553a;color:#fff;'
           : 'background:#222a;border:2px solid #555;color:#ddd;');
@@ -7928,6 +7929,17 @@ class MapScene extends Phaser.Scene {
       glyph.textContent = c.sym;
       glyph.style.cssText = 'line-height:1;' + (active ? '' : 'filter:grayscale(1) opacity(0.55);');
       tab.appendChild(glyph);
+      // Word under the glyph. Seven unlabelled emoji left a new player guessing
+      // which one holds seeds — and the seed tab is the first thing the starter
+      // ladder asks them to find. `title` alone doesn't help on a touch device,
+      // where there is nothing to hover.
+      const caption = document.createElement('span');
+      caption.textContent = c.label;
+      caption.style.cssText =
+        'font:700 7px ui-monospace,monospace;letter-spacing:-0.2px;line-height:1;' +
+        'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        (active ? 'color:#ffe066;' : 'color:#999;');
+      tab.appendChild(caption);
       // Tiny count pip so the player can see at a glance which tabs hold gear.
       if (count > 0) {
         const pip = document.createElement('span');
