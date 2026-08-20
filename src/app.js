@@ -984,6 +984,21 @@ class MapScene extends Phaser.Scene {
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
+    // GPS ghost — a translucent stand-in at your REAL (GPS) position, shown
+    // once the stick has walked the character far enough off it to matter.
+    // Walking off the GPS is the whole point of the stick, so you need to see
+    // where you actually are to find your way back; without this the only clue
+    // was the character quietly not being where you're standing. Tinted cool so
+    // it doesn't read as a second player (the tint no-ops under the Phaser
+    // Canvas fallback — the transparency alone still carries it).
+    this.gpsGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
+      .setAlpha(0.6)
+      .setTint(0x7ec8ff)
+      .setDepth(9.8)
+      .play('idle-down')
+      .setVisible(false)
+      .setMask(mask);
     // Target-follow state. _targetM is the walk target in body-relative world
     // metres; _autoMineKey marks the wall cell a wheel is currently chewing
     // through (underground only); _followPaused halts pursuit after the player
@@ -2231,6 +2246,26 @@ class MapScene extends Phaser.Scene {
       }
     } else if (this.targetGhost.visible) {
       this.targetGhost.setVisible(false);
+    }
+
+    // GPS ghost: where you REALLY are, whenever the character isn't standing
+    // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
+    // fix wanders a few metres while you stand still) so it appears only when
+    // the stick has genuinely walked you off your position. Surface only —
+    // underground the fix isn't where you are in any useful sense.
+    if (this.gpsM && this.depth === 0) {
+      const rdx = this.gpsM.x - this.playerM.x;
+      const rdy = this.gpsM.y - this.playerM.y;
+      if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
+        const g = worldMetersToScreen(this,
+          this.startWorldM.x + this.gpsM.x,
+          this.startWorldM.y + this.gpsM.y);
+        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y + this.playerFeetNudgeY)).setVisible(true);
+      } else {
+        this.gpsGhost.setVisible(false);
+      }
+    } else if (this.gpsGhost.visible) {
+      this.gpsGhost.setVisible(false);
     }
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -3547,6 +3582,14 @@ class MapScene extends Phaser.Scene {
     this._followPaused = false;
     if (this.targetGhost) this.targetGhost.setVisible(false);
   }
+  // Is the stick actually being PUSHED right now? Pointer-down alone isn't
+  // enough — a finger resting on a centred nub holds _movePadHeld true while
+  // steering nothing, and treating that as steering would animate the player
+  // walking on the spot.
+  _stickPushed() {
+    const v = this.joystickVec;
+    return !!(this._movePadHeld && v && (v.x || v.y));
+  }
   // Effective amulet for WALKING: the best of what the player is wearing and
   // what they're currently buffed with. Dragon Powder and the Speed potion are
   // both just borrowed amulet tiers now — no modes, no separate speed ladders
@@ -3574,9 +3617,10 @@ class MapScene extends Phaser.Scene {
   //     actually walking.
   //
   // The amulet is the upgrade to exactly this: steerSpeedMul scales how fast
-  // the stick walks you (1× bare → 4.5× at Frost) and steerEnergyCost scales
-  // what it costs (1 pip/cell bare → 0.15 at Frost). A speed potion stands in
-  // for a tier-9 amulet on both counts for its minute.
+  // the stick walks you (5× bare — one cell a second — → 15.5× at Frost) and
+  // steerEnergyCost scales what it costs (1 pip/cell bare → 0.15 at Frost).
+  // Dragon Powder and the speed potion stand in for tier 8 / 9 amulets on both
+  // counts for their minute (see _walkRelics).
   _steerManual(vx, vy, dt) {
     const n = Math.hypot(vx, vy);
     if (!n) return;
@@ -3604,6 +3648,12 @@ class MapScene extends Phaser.Scene {
     this._manualOffsetM.x += dx;
     this._manualOffsetM.y += dy;
     this._followPaused = false;
+    // Remember which way the stick is pushing. _followStep animates from this
+    // rather than from its own step vector while you steer: the body sits
+    // within a step of a target you're dragging along, so its step vector
+    // wobbles (and briefly points backwards) frame to frame, which showed up
+    // as the sprite flickering between walk and idle and flipping direction.
+    this._stickHeading = { x: vx / n, y: vy / n };
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
@@ -3641,11 +3691,16 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress) { this._playDirected(this.player, 'idle'); return; }
     // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
     if (this._followPaused) { this._playDirected(this.player, 'idle'); return; }
+    // Steering? Then the walk animation follows the STICK, not the step vector
+    // (see _stickHeading) — and "arrived" doesn't mean stop, because the target
+    // is being dragged away again the very next frame.
+    const steering = this._stickPushed() && this._stickHeading;
     const body = this.playerM;
     const dx = this._targetM.x - body.x, dy = this._targetM.y - body.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
-      this._playDirected(this.player, 'idle');
+      if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
+      else this._playDirected(this.player, 'idle');
       return;
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
@@ -3657,10 +3712,13 @@ class MapScene extends Phaser.Scene {
     // (steerSpeedMul - 1) cells behind a stick that's being held down — at
     // Frost that's a 20 m tail, and 20 m of coasting after you let go, which
     // reads as lag rather than speed. The floor is deliberately NOT applied
-    // when the stick is idle: a Frost amulet would otherwise have the body
-    // darting at 4.5× after every few metres of GPS jitter.
-    const stickMul = this._movePadHeld ? steerSpeedMul(this._walkRelics()) : 1;
-    const mul = Math.min(DEBUG_SPEED_MUL, Math.max(stickMul, 1 + dist / this.cellM));
+    // when the stick is idle: an amulet would otherwise have the body darting
+    // after every few metres of GPS jitter. The cap has to clear the floor —
+    // stick speeds run past DEBUG_SPEED_MUL from tier 4 up, and a cap under
+    // the floor would silently cancel it.
+    const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
+    const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
+                         Math.max(stickMul, 1 + dist / this.cellM));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -3671,9 +3729,11 @@ class MapScene extends Phaser.Scene {
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
     // Heading is the facing FALLBACK only — a real compass reading wins, same
     // rule _steerTarget follows. (The walk animation always uses the heading:
-    // _playDirected is handed ux/uy explicitly rather than reading this.facing.)
+    // _playDirected is handed the vector explicitly rather than reading
+    // this.facing.)
     if (this.compassDeg == null) this.facing = { x: ux, y: uy };
-    this._playDirected(this.player, 'walk', ux, uy);
+    if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
+    else this._playDirected(this.player, 'walk', ux, uy);
     // How much closer did we actually get? Against a wall in the heading
     // direction this collapses toward zero even while sliding sideways, so
     // we're blocked when progress is under half the step we tried to take.
