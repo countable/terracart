@@ -2877,25 +2877,31 @@ Render.drawObjects = function drawObjects(scene) {
   }
   hidePoolFrom(scene._petHeartPool, hi);
 
-  // Where a creature's ART bottom sits inside its FRAME, as a fraction of frame
-  // height — i.e. the origin that puts its feet on the ground. Creature sheets
-  // are padded differently: the slime blob ends at row 21 of 32 while a cow
-  // fills its frame to the last row, so the blanket 0.9 every kind used to
-  // share left the slime hanging 11px above its own contact shadow (it read as
-  // flying) and sank the cow 3px into hers. Measured off the PNGs, frames
-  // within a sheet agreeing to a pixel; a kind with no entry keeps 0.9.
-  const CREATURE_FOOT = {
-    slime: 21 / 32, purple_slime: 21 / 32,
-    goblin: 27 / 32, goblin_archer: 26 / 32,
-    cow: 32 / 32, cat: 29 / 32, dog: 29 / 32, deer: 31 / 32, crow: 31 / 32,
-    rabbit: 16 / 16, chicken: 16 / 16, butterfly: 12 / 16,
-  };
-  const creatureFoot = (kind) => CREATURE_FOOT[kind] ?? 0.9;
+  // Creature draw geometry — scale, foot origin and constant float — comes
+  // from ONE table, src/sprite_layout.js › CREATURE_ART, which the
+  // work-progress wheel reads too (SpriteLayout.creatureWheelDy) and
+  // tools/sprite_audit.js checks against the real PNGs. Keeping the numbers
+  // there rather than inline here is what stops a rescaled sprite from
+  // silently leaving its wheel (or its shadow) behind.
+  //
+  // `foot` is where a creature's ART bottom sits inside its FRAME, as a
+  // fraction of frame height — the origin that puts its feet on the ground.
+  // Creature sheets are padded differently: the slime blob ends at row 21 of
+  // 32 while a cow fills its frame to the last row, so the blanket 0.9 every
+  // kind used to share left the slime hanging 11px above its own contact
+  // shadow (it read as flying) and sank the cow 3px into hers. A kind with no
+  // entry keeps 0.9.
+  const CA = (typeof SpriteLayout !== 'undefined' && SpriteLayout.CREATURE_ART)
+    ? SpriteLayout.CREATURE_ART : {};
+  const creatureFoot = (kind) => CA[kind]?.foot ?? 0.9;
+  const creatureScale = (kind, fallback) => CA[kind]?.scale ?? fallback;
+  const creatureFloat = (kind) => CA[kind]?.float ?? 0;
   // The ground line a creature stands on, relative to its cell centre. Shared
   // with the shadow pass below so the sprite and its shadow can never drift:
   // with the origin above, placing the sprite at sy + this lands the art's
   // bottom edge exactly on the shadow's centre.
-  const CREATURE_GROUND_DY = 2;
+  const CREATURE_GROUND_DY = (typeof SpriteLayout !== 'undefined'
+    && SpriteLayout.CREATURE_GROUND_DY != null) ? SpriteLayout.CREATURE_GROUND_DY : 2;
 
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
@@ -2906,7 +2912,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Cow is the biggest farm animal — needs to read larger than the
       // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
       // (48 px effective) so the cow visibly dwarfs the pets.
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.50)
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.50))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
@@ -2915,7 +2921,7 @@ Render.drawObjects = function drawObjects(scene) {
       // fills more of its 32×32 cell than the cat's does, so they read as
       // visually similar despite sharing the scalar.
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      const sc = 1.3;
+      const sc = creatureScale(c.kind, 1.3);
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
       s.setOrigin(0.5, creatureFoot(c.kind)).setScale(sc)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
@@ -2925,7 +2931,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Row 0 frames 0-1 are the side-view idle pose.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.3)
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.3))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
@@ -2934,7 +2940,7 @@ Render.drawObjects = function drawObjects(scene) {
       // fills less of its 16×16 cell.
       if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.5)
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.5))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
@@ -2944,15 +2950,15 @@ Render.drawObjects = function drawObjects(scene) {
       // a proper bird next to the cow rather than a tiny pebble.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.3)
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - 13);
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.3))
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
       // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
       if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
       s.setFrame(Math.floor(performance.now() / 100) % 7);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(2.0)
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - 15);
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 2.0))
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
       const m = MONSTERS[c.kind];
@@ -2971,8 +2977,8 @@ Render.drawObjects = function drawObjects(scene) {
       const period = m.fly ? 320 : 600;
       const ph = ((performance.now() + c._hopSeed) % period) / period;
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
-      const floatPx = m.fly ? 8 : 0;   // bats hover off the floor
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(m.fly ? 0.95 : 1.25)
+      const floatPx = creatureFloat(c.kind);   // fliers hover off the floor
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, m.fly ? 0.95 : 1.25))
        .setPosition(Math.round(sx),
                     Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx) - floatPx);
       s.setFlipX(!!c._faceFlip);
@@ -2991,7 +2997,7 @@ Render.drawObjects = function drawObjects(scene) {
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
       // Anchored on the blob's own bottom row, so the hop lifts it OFF the
       // shadow instead of starting 11px above it ("the slime is flying").
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.2)
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.2))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx));
       s.setFlipX(!!c._faceFlip);
     } else {
@@ -2999,7 +3005,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Per user → 1.20 (still well under the cow's 1.20 because the chicken
       // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.20)
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.20))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     }

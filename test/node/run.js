@@ -50,6 +50,7 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
+  'sprite_layout.js',
   'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
@@ -222,6 +223,14 @@ for (const f of testFiles) {
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }
+  // Creatures skip the seat rule but own the wheel crown rule — same audit,
+  // same PNG decode, so a resized creature sheet can't strand its work wheel.
+  for (const kind of Object.keys(audit.CREATURE_SHEETS)) {
+    ctx.__tests.push({ name: `creature wheel (crown rule): ${kind}`, fn: () => {
+      const r = audit.evaluateCreature(kind);
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
 }
 
 // ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
@@ -239,6 +248,15 @@ for (const f of testFiles) {
 {
   const layout = require('../../tools/layout_audit.js');
   for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
+// Scans app.js for showOfferModal callers that fill BOTH halves of the "you
+// get X for Y" dialog with the same text — which is how the castle quest
+// board printed its progress line twice.
+{
+  const modal = require('../../tools/modal_audit.js');
+  for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Run + report ──────────────────────────────────────────────────────────

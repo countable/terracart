@@ -20,6 +20,10 @@
 // seatInCell() turns a frame's trimmed bounds + its origin/scale into the
 // (dxPx, dyPx) nudge — relative to the projected cell CENTRE — that satisfies
 // the rule. render.js applies it; the audit replays it to verify compliance.
+//
+// Creatures are exempt from the rule (they're moving actors), but their drawn
+// geometry lives here too — see CREATURE_ART near the bottom — so the sprite,
+// its shadow and the work-progress wheel all read one table.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -82,7 +86,78 @@
     return { dxPx, dyPx, fits };
   }
 
-  const api = { CELL_PX, ART_BOUNDS, seatInCell };
+  // ── Creatures ────────────────────────────────────────────────────────────
+  // Creatures are EXEMPT from the seat rule above (they're moving actors, and
+  // they're drawn feet-anchored so a cow can tower over its cell). But the
+  // work-progress wheel still has to be placed against their art, so the
+  // geometry the renderer draws them with lives here too, in one table:
+  //
+  //   fw/fh   frame size on the sheet
+  //   scale   render scale
+  //   foot    origin Y as a fraction of the frame — the row that sits on the
+  //           ground line (render.js setOrigin(0.5, foot))
+  //   float   constant lift off the ground line: crows perch above their tile,
+  //           butterflies and bats hover. NOT the idle hop, which is animated
+  //           in render.js — the wheel deliberately ignores the bob so it
+  //           doesn't jitter while a slime bounces under it.
+  //   minY/maxY  trimmed opaque rows of the REFERENCE frame (frame 0, the rest
+  //           pose — sibling frames agree to within a pixel), max EXCLUSIVE.
+  //
+  // render.js reads scale/foot/float from here so the drawn sprite and the
+  // wheel can't drift apart, and `node tools/sprite_audit.js` re-decodes the
+  // real PNGs to check minY/maxY hasn't drifted from the art.
+  const CREATURE_ART = {
+    chicken:       { fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
+    cow:           { fw: 32, fh: 32, scale: 1.50, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cat:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
+    dog:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
+    deer:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
+    rabbit:        { fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
+    crow:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    butterfly:     { fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
+    slime:         { fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    // Underground monsters. cave_slime reuses the slime sheet (tinted) but has
+    // never had a CREATURE_FOOT entry, so it draws on the blanket 0.9 origin —
+    // recorded here as it renders TODAY rather than "fixed", so this table
+    // stays a description of what's on screen. (It does mean the cave slime
+    // hangs ~10 px above its own contact shadow; worth a separate look.)
+    cave_slime:    { fw: 32, fh: 32, scale: 1.25, foot: 0.9,     float: 0,  minY: 10, maxY: 21 },
+    purple_slime:  { fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+  };
+  // Every creature is drawn this far below its projected cell centre, so its
+  // art bottom lands on the centre of its contact shadow (render.js).
+  const CREATURE_GROUND_DY = 2;
+  // Fallback for a kind with no entry: the flat offset the wheel used before
+  // this table existed.
+  const CREATURE_WHEEL_FALLBACK_DY = -11;
+
+  // Vertical origin the renderer should anchor `kind` at (fraction of frame).
+  function creatureFoot(kind) {
+    const a = CREATURE_ART[kind];
+    return a ? a.foot : 0.9;
+  }
+
+  // THE CREATURE WHEEL RULE: the work-progress wheel is centred on the
+  // animal's CROWN — the top row of its visible art, at rest — so half the
+  // ring sits over the body and half in clear sky whatever the animal's size.
+  // One flat offset can't do that: the -21 px that hugged a cow's head floated
+  // clear above a chicken and sat down at a perched crow's feet.
+  //
+  // Returns the offset in screen px from the creature's projected cell centre
+  // to the wheel centre (negative = up the screen).
+  function creatureWheelDy(kind) {
+    const a = CREATURE_ART[kind];
+    if (!a) return CREATURE_WHEEL_FALLBACK_DY;
+    const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
+    return anchorY - (a.foot * a.fh - a.minY) * a.scale;
+  }
+
+  const api = {
+    CELL_PX, ART_BOUNDS, seatInCell,
+    CREATURE_ART, CREATURE_GROUND_DY, creatureFoot, creatureWheelDy,
+  };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
