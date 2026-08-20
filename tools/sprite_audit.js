@@ -30,7 +30,8 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, seatInCell, CREATURE_ART, creatureWheelDy } =
+const { CELL_PX, ART_BOUNDS, seatInCell, CREATURE_ART, CREATURE_WHEEL_R,
+        creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
 
@@ -226,6 +227,11 @@ function evaluate(s) {
 // Reference frame is 0 — the rest pose — for every kind; sibling frames in
 // these sheets agree to within a pixel, and pinning one frame keeps the wheel
 // from bobbing with the idle animation.
+//
+// The rule checked below is that the ring RESTS ON the crown — its top edge on
+// the art's top row — not that its centre sits there. Centring on the crown put
+// a full radius of ring in the sky above every animal, which is what read as
+// "the wheel is too high".
 const CREATURE_SHEETS = {
   chicken:       'assets/Farm Animals/Chicken Red.png',
   cow:           'assets/Farm Animals/Female Cow Brown.png',
@@ -241,7 +247,9 @@ const CREATURE_SHEETS = {
   goblin:        'assets/Enemy/Goblin.png',
   goblin_archer: 'assets/Enemy/Goblin Archer.png',
 };
-const WHEEL_R = 10;   // outer radius of the wheel ring (app.js: R + 1)
+// Outer radius of the wheel — the backing disc, one px past the stroked ring.
+// Taken from the shared table so this can't drift from what app.js draws.
+const WHEEL_R = CREATURE_WHEEL_R + 1;
 
 function evaluateCreature(kind) {
   const file = CREATURE_SHEETS[kind];
@@ -261,10 +269,20 @@ function evaluateCreature(kind) {
   const artTop = frameTop + fresh.minY * a.scale;
   const artBottom = frameTop + fresh.maxY * a.scale;
   const cy = creatureWheelDy(kind);
-  if (Math.abs(cy - artTop) > 0.5) {
-    violations.push(`wheel off the crown by ${(cy - artTop).toFixed(1)}px`);
+  const artH = artBottom - artTop;
+  // The ring's top edge rests on the crown — or, on an animal too short to
+  // give up a full radius, the wheel centres on its midline instead.
+  const want = artTop + Math.min(WHEEL_R, artH / 2);
+  if (Math.abs(cy - want) > 0.5) {
+    violations.push(`wheel off its seating by ${(cy - want).toFixed(1)}px ` +
+                    `(want ${want.toFixed(1)}, got ${cy.toFixed(1)})`);
   }
-  // The ring must actually touch the animal — half over the body, half clear.
+  // No part of the ring may float above the crown on an animal tall enough to
+  // seat it — that overshoot is the bug this rule exists to prevent.
+  if (artH >= 2 * WHEEL_R && cy - WHEEL_R < artTop - 0.5) {
+    violations.push(`wheel overshoots the crown by ${(artTop - (cy - WHEEL_R)).toFixed(1)}px`);
+  }
+  // And it must still touch the body it reports on.
   if (cy + WHEEL_R <= artTop) violations.push('wheel floats clear above the art');
   if (cy - WHEEL_R >= artBottom) violations.push('wheel sits below the art');
   return { kind, artTop, artBottom, cy, violations };
