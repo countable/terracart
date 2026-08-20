@@ -58,6 +58,33 @@ Different map polygons rasterize to tiles according to rules
  - Avoid interactables or fauna on private property. in residential areas, all interactables must spawn within 2 spaces of a road or path, or an area that is designated as public.
 
 ================================================================================
+ONBOARDING (the first session)
+================================================================================
+ - OPENING: two story slides (trailer → wrecked neighbourhood), then the safety
+   splash + "Go to my location". On a brand-new save the first GPS fix triggers
+   a reload to anchor the projection, so nothing shown before it survives.
+ - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
+   reload), covering movement (you walk; WASD on desktop), reach, the farming
+   loop, energy and home-only selling. Reopenable any time from ☰ "How to play".
+   Seen-flag: localStorage terracart.howtoSeen.
+ - OBJECTIVE CHIP: a HUD chip naming the ONE next thing to do, driven by
+   quests.js STARTER_CHAIN — open a crate → till → plant → restore a wreck →
+   harvest → sell at Home. Steps auto-advance on gameplay events fired from the
+   sites that perform them (scene.questEvent); each pays a small coin reward.
+   The chip retires when the ladder finishes or the player dismisses it (×);
+   state lives in save.starter.
+   The starter ladder is INDEPENDENT of the castle QUEST_CHAIN — the vault gate
+   reads Quests.allDone(), which walks the castle chain alone. Do not merge them.
+ - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
+   while the ladder runs. The crate trail seeds out to 15 cells but the viewport
+   is only VIEW_CELLS across, so without it most of the trail is invisible.
+ - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
+   ladder's plant step — it otherwise fires on exactly the tap a beginner makes
+   and silently deletes the plot they just paid energy for.
+ - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
+   rather than being told to go till their first cell.
+
+================================================================================
 CORE
 ================================================================================
  - fullscreen mobile web first (desktop too), 390x844 viewport centered in the browser

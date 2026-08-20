@@ -313,6 +313,13 @@ const INTERACTABLES = {
         return true;
       }
       if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      // Every path below that actually spends the chest goes through this, so
+      // the starter ladder's "open a crate" step is credited exactly once no
+      // matter which branch (item / relic / gold / partial take) claimed it.
+      const markOpened = () => {
+        save.opened.push(o.id);
+        scene.questEvent?.('chest');
+      };
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
@@ -334,7 +341,7 @@ const INTERACTABLES = {
                     : null)));
       if (!result) {
         addMoney(save, 1);
-        save.opened.push(o.id);
+        markOpened();
         ctx.dirty = true;
         scene.flash('Chest had nothing useful.', sx, sy);
         return true;
@@ -345,7 +352,7 @@ const INTERACTABLES = {
         // gear slot). equipGearReward handles both — armor also bumps max/cur
         // energy by the delta.
         equipGearReward(result, save, scene);
-        save.opened.push(o.id);
+        markOpened();
         ctx.dirty = true;
         const name = (typeof gearName === 'function')
           ? gearName(result.kind, result.slot, result.tier)
@@ -357,7 +364,7 @@ const INTERACTABLES = {
       }
       if (result.kind === 'gold') {
         // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
-        save.opened.push(o.id);
+        markOpened();
         ctx.dirty = true;
         addMoney(save, result.amount || 0);
         const gearKind = result.gearKind || 'relic';
@@ -398,7 +405,7 @@ const INTERACTABLES = {
             } },
             { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
               if (room > 0) scene.addToInv(lootId, lootQty);
-              save.opened.push(o.id);
+              markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
             } },
@@ -408,7 +415,7 @@ const INTERACTABLES = {
       }
       // Fits fully — take it and empty the chest.
       scene.addToInv(lootId, lootQty);
-      save.opened.push(o.id);
+      markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
