@@ -659,25 +659,27 @@ class MapScene extends Phaser.Scene {
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
     this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
+    // Original OSM road geometry (road_overlay.js) — the raw vector linework
+    // the rasterizer turned into road/path cells, as a muted brown band. Sits
+    // above the terrain + biome borders but BELOW the cobbles: the linework is
+    // the evidence of what the rasterizer was AIMING at, so the stones it
+    // actually laid have to read on top of it, not through it. Anything above
+    // the cobble is likewise above this — road labels, plants, objects.
+    // Scrolled each frame for the sub-cell offset, like the border layer.
+    // Only the container is made here: road_overlay.js draws into an offscreen
+    // canvas (round caps, one flat alpha over the whole network) and adds the
+    // resulting image to this container on its first pass.
+    this.roadGeomContainer = this.add.container(0, 0);
     // Cobblestone overlay sprites for road/path/pier cells. Sits ABOVE the
     // noise + border layers, so biome speckle and the wavy zone borders never
-    // paint over the road surface, and BELOW the road-label layer.
+    // paint over the road surface, above the OSM linework overlay, and BELOW
+    // the road-label layer.
     this.cobbleContainer = this.add.container(0, 0);
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
-    // Original OSM road geometry (road_overlay.js) — the raw vector linework
-    // the rasterizer turned into road/path cells, as a brown band @ 31%. Sits
-    // above the terrain + cobbles so it reads as an overlay ON the map, and
-    // below the plant/object sprites so it never paints over a tree or house.
-    // (The plant/object/creature layer is worldContainer, added below.)
-    // Scrolled each frame for the sub-cell offset, like the border layer.
-    // Only the container is made here: road_overlay.js draws into an offscreen
-    // canvas (round caps, one flat alpha over the whole network) and adds the
-    // resulting image to this container on its first pass.
-    this.roadGeomContainer = this.add.container(0, 0);
     // POI halos — the slow glow under every live POI (render.js). Its own layer,
     // added before the pads, so a halo always sits UNDER the concrete slab no
     // matter which pool happened to allocate its sprites first.
@@ -785,10 +787,14 @@ class MapScene extends Phaser.Scene {
       // Linux, Cambria on Windows — so the one label in the game that should
       // look like a map label rendered differently on every device, at
       // different widths. Same stack the shop-ready plaque already pins.
+      // Alpha 0.88, not the old 0.72: at three-quarter alpha the dark ink
+      // washed toward its own pale halo and the street name read as a smudge
+      // rather than as lettering. Still short of full opacity so it stays
+      // map-printed rather than stamped on.
       const t = this.add.text(0, 0, '', {
         font: fontSerif('bold 10px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
-      }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
+      }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
@@ -8535,13 +8541,12 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
+      // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
+      tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
         'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
-        'justify-content:center;gap:1px;padding:0;overflow:hidden;' +
-        (active
-          ? 'background:#553a;border:2px solid #ffe066;border-bottom-color:#553a;color:#fff;'
-          : 'background:#222a;border:2px solid #555;color:#ddd;');
+        'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
       // count pip below keeps its full colour. The active tab shows its glyph in
       // full colour; inactive tabs render greyscale + dimmed so the lit-up tab
@@ -8569,7 +8574,8 @@ class MapScene extends Phaser.Scene {
       if (count > 0) {
         const pip = document.createElement('span');
         pip.textContent = count;
-        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffe066;padding:0 3px;border-radius:7px;line-height:13px;';
+        pip.className = 'hud-pip';
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;padding:0 3px;border-radius:7px;line-height:13px;';
         tab.appendChild(pip);
       }
       tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
@@ -8589,7 +8595,8 @@ class MapScene extends Phaser.Scene {
     const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
       b.textContent = txt;
-      b.style.cssText = `width:${w}px;height:44px;background:#222a;border:2px solid #555;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
+      b.className = 'hud-btn';
+      b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
@@ -8622,11 +8629,12 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save); this.buildInventoryDOM();
     }));
 
-    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
     for (let s = 0; s < PAGE; s++) {
       const p = startPos + s;
       const slot = document.createElement('button');
+      slot.className = 'hud-slot';
       slot.style.cssText = slotCss;
       if (isGear) {
         const g = gearList[p];
@@ -8640,7 +8648,8 @@ class MapScene extends Phaser.Scene {
           // Tier badge mirrors the item count badge so gear reads consistently.
           const badge = document.createElement('span');
           badge.textContent = 'T' + g.tier;
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.className = 'hud-badge';
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
           slot.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -8666,7 +8675,8 @@ class MapScene extends Phaser.Scene {
         if (entry.count != null) {
           const badge = document.createElement('span');
           badge.textContent = entry.count;
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.className = 'hud-badge';
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
         }
         slot.addEventListener('click', (e) => {
@@ -8700,7 +8710,8 @@ class MapScene extends Phaser.Scene {
     }));
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
-    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffe066;font:700 11px ui-monospace,monospace;margin-left:4px;';
+    pageLbl.className = 'hud-page';
+    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px ui-monospace,monospace;margin-left:4px;';
     bar.appendChild(pageLbl);
 
     document.body.appendChild(bar);
@@ -8725,8 +8736,9 @@ class MapScene extends Phaser.Scene {
       let isSel;
       if (el.dataset.gear != null) isSel = el.dataset.gear === gearKey;
       else isSel = +el.dataset.slot === this.save.selSlot;
-      el.style.borderColor = isSel ? '#ffe066' : '#555';
-      el.style.background  = isSel ? '#553a' : '#222a';
+      // .sel carries the whole selected look (gold rim + glow, lit well) —
+      // see .hud-slot in index.html. Inline paint here would outrank it.
+      el.classList.toggle('sel', isSel);
     });
     const nameLbl = document.getElementById('inv-name');
     if (nameLbl) {
@@ -8793,13 +8805,14 @@ class MapScene extends Phaser.Scene {
     // safe-area + 48px, so a button at safe-area + 4px sits in the gap
     // underneath). Right-anchored to --phone-right so the button tucks
     // inside the simulated phone column on desktop.
+    btn.className = 'hud-action';
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'background:#1a1612;color:#a7ffb0;border:2px solid #4a8c4a;' +
+      'color:#a7ffb0;border:2px solid #4a8c4a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
     btn.addEventListener('click', (e) => {
@@ -8841,13 +8854,14 @@ class MapScene extends Phaser.Scene {
     // consumable = book/flute selected) we use the same right slot. CSS
     // identical except border colour (warm tan to distinguish from
     // Eat's green).
+    btn.className = 'hud-action';
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'background:#1a1612;color:#ffe066;border:2px solid #c8a64a;' +
+      'color:#ffe066;border:2px solid #c8a64a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
     btn.addEventListener('click', (e) => {
