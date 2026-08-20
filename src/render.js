@@ -135,6 +135,27 @@ const _WAVE_TABLE = (() => {
   return t;
 })();
 
+// Flat-only terrain types (no tileset art) get rounded corners at zone
+// boundaries. Module-level: the membership never changes, and drawCells runs
+// every frame — rebuilding a 12-element Set 60 times a second bought nothing.
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+// Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
+// contain art. Each road tier picks ONE frame so the same road class reads
+// visually consistent across cells; different tiers look distinct.
+//   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
+//   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
+//   - ROAD (minor/service/street):      frame 1 — small cluster
+//   - PATH:                             frame 3 — single small pebble
+const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
+const PATH_FRAME = 3;
+// Scratch buffers for drawCells' per-frame ring scan, reused across frames.
+// Allocated on first use rather than at parse time because their size derives
+// from VIEW_CELLS, which app.js defines and which therefore is not readable
+// until the first call. Every element is overwritten by the scan before it is
+// read, so carrying them between frames is safe.
+let _ringTypes  = null;
+let _ringOwners = null;
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -169,15 +190,7 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
-  // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
-  // 15-16 contain art. Each road tier picks ONE frame so the same road class
-  // reads visually consistent across cells; different tiers look distinct.
-  //   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
-  //   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
-  //   - ROAD (minor/service/street):      frame 1 — small cluster
-  //   - PATH:                             frame 3 — single small pebble
-  const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
-  const PATH_FRAME = 3;
+  // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
   // Cobble tiles (road cluster + path pebble alike) draw at 67% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
@@ -205,12 +218,22 @@ Render.drawCells = function drawCells(scene) {
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
   // rounding to read its diagonal neighbor.
   const RING = VIEW_CELLS + 4;
-  const types = new Int8Array(RING * RING);
-  // Parallel ring of building ownership. 0 = no building; otherwise
-  // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
-  // and tileSalt distinguishes tiles so two buildings that happen to share a
-  // local id in different tiles never read as "the same building".
-  const owners = new Int32Array(RING * RING);
+  if (!_ringTypes || _ringTypes.length !== RING * RING) {
+    _ringTypes  = new Int8Array(RING * RING);
+    // Parallel ring of building ownership. 0 = no building; otherwise
+    // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
+    // and tileSalt distinguishes tiles so two buildings that happen to share a
+    // local id in different tiles never read as "the same building".
+    _ringOwners = new Int32Array(RING * RING);
+  }
+  const types  = _ringTypes;
+  const owners = _ringOwners;
+  // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
+  // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
+  // resolve to the same one. Hold the last tile (and its salt, which depends
+  // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
+  // the Map for all 225 cells on every frame.
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -222,17 +245,20 @@ Render.drawCells = function drawCells(scene) {
       // produce ix==N (out-of-bounds → silent grass fallback) at exact tile seams.
       const ix2 = ((Math.floor(wcx) % N) + N) % N;
       const iy2 = ((Math.floor(wcy) % N) + N) % N;
-      const e2 = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+      if (tx2 !== mTx || ty2 !== mTy) {
+        mTx = tx2; mTy = ty2;
+        mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
+      }
+      const e2 = mEntry;
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
-      const salt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
-      owners[r * RING + c] = ol ? ((salt << 16) | ol) : 0;
+      owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
-  // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-  const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+  // (FLAT_ROUNDABLE is module-level — see above.)
   const CORNER_R = 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
