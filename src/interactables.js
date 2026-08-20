@@ -108,7 +108,14 @@ const INTERACTABLES = {
       if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
       scene.addToInv('wood', wood);
       persistSave(save);
-      scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.` : `🌲 Felled ${treeSpeciesName(o)} tree.`, sx, sy);
+      // Say what came off the tree, like mining / harvesting / fishing do —
+      // felling used to report the species and never mention the wood it just
+      // put in the bag. The glyph follows the species: conifers keep 🌲,
+      // everything else gets the broadleaf 🌳.
+      const conifer = /pine|fir|spruce|cedar/i.test(treeSpeciesName(o) || '');
+      scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.`
+                : `${conifer ? '🌲' : '🌳'} Felled ${treeSpeciesName(o)} tree.`, sx, sy);
+      scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
       // Rare shiny tree — 10× wood value in cash + a discovery point.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
     },

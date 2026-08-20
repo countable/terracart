@@ -785,11 +785,15 @@ const TAP_HANDLERS = [
         const treasure = WILD_TREASURE[wp.crop];
         if (treasure && Math.random() < treasure.chance) {
           scene.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${treasure.bonus}`;
+          bonus = ` ✨${ITEM_BY_ID[treasure.bonus]?.name || treasure.bonus}`;
         }
         persistSave(save);
-        if (bonus) scene.flashLoot(`${outId}${bonus}`, '#ff8aff', 1, outId);
-        else scene.flashLoot(`+1 ${outId}`, undefined, 1, outId);
+        // Display NAMES, never raw ids — every other loot toast resolves the
+        // name first (QC_RULES §4), so this path used to be the one that
+        // flashed "+1 longgrass" instead of "+1 Long grass".
+        const outName = ITEM_BY_ID[outId]?.name || outId;
+        if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
+        else scene.flashLoot(`+1 ${outName}`, undefined, 1, outId);
         // Rare shiny flora — 10× money + a discovery point, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);

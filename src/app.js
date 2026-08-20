@@ -4258,6 +4258,9 @@ class MapScene extends Phaser.Scene {
       font: fontMono('12px'), color: UI_INK, backgroundColor: '#000a',
       padding: { x: 4, y: 2 },
     }).setOrigin(0.5, 1).setDepth(100);
+    // Keep it on the canvas: a tap near an edge used to render half the
+    // message ("Just out o") because origin-0.5 text at the raw x runs off.
+    t.x = clampTextX(x, t.width, W);
     // 2 s total — per user "tooltip splash …are a little too quick". Hold the
     // text visible for the first ~70 % of the duration, then drift up + fade
     // over the remainder so the eye has time to read it before it leaves.
