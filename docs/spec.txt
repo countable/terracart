@@ -841,7 +841,11 @@ I just won?" without reading a word.
  - EXCEPTIONS, and they are deliberate:
      * ITEM RARITY tier colours (loot.js) still colour a reward's NAME — rarity
        is information the ceremony's blue-white frame doesn't carry.
-     * ENERGY keeps green → gold → red as it drains; DANGER keeps red.
+     * ENERGY drains green → AMBER (#e8963c) → red, and DANGER keeps red. The
+       mid step was gold until the HUD pass: an energy bar is a gauge, it
+       reports and cannot be pressed, so gold there was the control colour
+       sitting on a non-control. Amber keeps the traffic-light reading
+       without borrowing the affordance hue.
      * Ceremonies that are NOT loot reuse the reward modal with their own
        accent (passing out = orange, restoring a wreck / unsealing a fort =
        green) so a construction never reads as treasure.
@@ -853,11 +857,69 @@ I just won?" without reading a word.
    shade, and change both halves together.
 
 ================================================================================
-HUD (debug)
+HUD
 ================================================================================
- - top-left: lat, lon, GPS state (wasd|waiting|live); line 2: current MVT tile
-   coords, loaded tile count, caught count, planted plot count. Not styled for
-   production; useful for testing.
+HOW THE COLOUR LANGUAGE LANDS ON THE HUD (see §UI COLOUR LANGUAGE above)
+ - Every persistent CONTROL carries the control colour: the menu button, the
+   walking stick, inventory tabs and slots, the pager, the action buttons, the
+   objective chip's close button. At REST they wear --ctl-rim (the control
+   colour with the light off — an alpha on --gold-dark, not a new hue);
+   SELECTED/ACTIVE lights to --gold (UI_CONTROL) plus a lit face and a gold
+   glow. Resting rims were briefly painted in full --gold-dark, which left
+   only a 1.79:1 luminance step to the selected state and made an unselected
+   item slot read almost as lit as the selected one; the unlit rim takes that
+   step to 4.85:1. The
+   walking stick was purple until this pass — the single most-touched control
+   in the game, painted a colour that said nothing about being touchable.
+ - Surfaces that only REPORT give the colour up, and wear neutral INK instead:
+   --bone for what you actually read (selected-item name, objective title),
+   --dust for what you only glance at (the GPS line, objective body copy).
+   The item name used to be gold, which put the loudest "reach for me" colour
+   in the HUD on the one thing down there you cannot touch.
+ - The money chip keeps gold, per §UI COLOUR LANGUAGE: coins are the currency
+   the player spends, so they sit on the control side of the line.
+ - The same law runs from the other side in the world palette: no terrain
+   colour is allowed into the yellow band (see COLORS in src/app.js).
+
+CHROME — salvaged field kit
+ - One --chrome-* token vocabulary in index.html paints every persistent HUD
+   surface, so they read as parts of one machine. The machine is SALVAGE:
+   warm olive-brown weathered steel, dusty (not white) lit edges, and a faint
+   brushed scuff layer. Panels are dark metal with a lit top lip and a cast
+   shadow; controls are RAISED with a gradient face; anything that HOLDS
+   something (item slots, the energy track) is SUNK. The tokens are paint
+   only — no widths, borders or padding — so adding chrome cannot move an
+   element.
+
+VERTICAL BUDGET (fitGame -> layOutVertically, index.html)
+ - Three bands share the screen height and only the middle one is the game:
+   TOP_CHROME (106px: money/energy row + objective chip), the map, and
+   INV_CLUSTER (148px: category tabs + item bar + name + action buttons).
+ - The game box used to be pinned to top:0 with the HUD pinned to the viewport
+   bottom, so ALL the slack landed in one unmeasured place. That read very
+   differently per device: an iPhone SE had the walking stick sitting 84px ON
+   TOP of the map while a tall desktop window had a 195px hole under it.
+ - Now the scale is capped by BOTH the phone-column width and the band that is
+   actually left, and the slack is spent in priority order: the walking stick's
+   room first, then a breathing margin (<=28px) under the objective chip.
+ - The stick is placed by fitGame into --stick-bottom: centred in the gap
+   between the map and the tabs when it fits there, otherwise tucked just above
+   the tabs, overlaying the map's bottom corner. Occluding a corner of the
+   world beats occluding the inventory, and the stick never reaches the map's
+   centre, where the player is drawn.
+ - tools/layout_audit.js lifts layOutVertically out of the page and pins these
+   invariants across eight real device sizes.
+
+CLUTTER
+ - The "no GPS — use the stick or WASD to move" line is a lesson, not a status:
+   it retires the moment the player first steers by hand (session-scoped, so a
+   fresh load offers it again). "waiting for GPS…" is live status and stays
+   until a fix lands.
+ - The pager (◀ ▶ and the page plate) is only built when a category actually
+   spans more than one page.
+ - Full developer readout — lat, lon, GPS state (wasd|waiting|live), current
+   MVT tile coords, loaded tile count, caught count, planted plot count — sits
+   behind ☰ › Developer, on one line at the bottom. Not styled for production.
 
 ================================================================================
 ARCHITECTURE: STANDARDIZED MODULES

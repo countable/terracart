@@ -763,6 +763,15 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
+    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
+    // out-of-reach dim with distance from the player (render.js drawCells).
+    // Sits beside the rim haze for the same reason and with the same
+    // constraint: after every world sprite, so distant OBJECTS recede along
+    // with the ground they stand on — in cellGfx (the bottom layer) it could
+    // only darken the base terrain fill, and objects at the rim stayed fully
+    // lit and read as stickers on dark ground. Still before labelContainer:
+    // POI name tablets are UI and must stay crisp at any distance.
+    this.atmosFalloffGfx = this.add.graphics();
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -950,6 +959,7 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
+    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 
@@ -4054,6 +4064,11 @@ class MapScene extends Phaser.Scene {
     this._driftingHome = false;
     const n = Math.hypot(vx, vy);
     if (!n) return;
+    // The "no GPS — use the stick or WASD" line is a lesson, not a status.
+    // The player just demonstrated they know it, so updateHUD stops drawing
+    // it from here on. Session-scoped: a fresh load offers the hint again,
+    // which costs one line until the first step and needs no save migration.
+    this._steeredManually = true;
     // Debug controls (☰ menu) do exactly one thing now: stick walking is free.
     // No stamina, and therefore no empty-tank stop either — that's the whole
     // feature, so a dev can roam a map without the bar getting in the way.
@@ -4926,9 +4941,13 @@ class MapScene extends Phaser.Scene {
     // players get one line they can act on; the full readout stays behind the
     // ☰ › Developer toggle.
     if (!this.save.debugControls) {
-      this.hud.textContent = this.gpsAvailable
-        ? 'waiting for GPS…'
-        : 'no GPS — use the stick or WASD to move';
+      // 'waiting for GPS…' is genuine live status and stays until a fix lands.
+      // The no-GPS movement hint retires the moment the player moves by hand
+      // (see _steerManual) — after that it is a permanent line of instructions
+      // for something they have already done.
+      const text = this.gpsAvailable ? 'waiting for GPS…'
+        : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
+      if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
       return;
     }
     const gps = this.gpsAvailable ? 'waiting' : 'wasd';
@@ -4996,8 +5015,8 @@ class MapScene extends Phaser.Scene {
     this._energyDOMMax = max;
     const pct = max > 0 ? cur / max : 0;
     // Green normally, yellow at/below 30%, red when critically low.
-    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
-    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
+    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#e8963c' : '#ff8a7a');
+    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8a5b23' : '#a04040');
     const label = els.label;
     if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }
@@ -7443,11 +7462,15 @@ class MapScene extends Phaser.Scene {
       case 'item':  progressLine = done ? 'Retrieved!' : `Need depth ≥ ${q.minDepth}`; break;
       default:      progressLine = '';
     }
+    // A quest board is NOT a trade — there is nothing to pay — so it fills the
+    // headline only and passes no cost. It used to hand the SAME string to both
+    // `get` and `cost`, which printed the progress line ("3 / 10 defeated")
+    // twice with a stray "for" wedged between the two copies, and on a finished
+    // quest printed the reward figure twice the same way.
     this.showOfferModal({
-      title: done ? `Quest complete!` : q.title,
-      get: done ? `$${q.reward?.money || 0}` : progressLine,
+      title: done ? 'Quest complete!' : q.title,
+      get: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
       blurb: q.body,
-      cost: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
@@ -7954,9 +7977,12 @@ class MapScene extends Phaser.Scene {
   // from buildMovePad's constants, so the CSS and the pointer maths can't drift.
   //
   // The shape it's going for: a well sunk into the HUD (dark centre, inner
-  // shadow, a lit lower rim) with a purple cap sitting proud of it (top-lit
-  // dome, its own drop shadow). Purple stays the walking stick's colour; the
-  // dark keyline and blur keep it legible over a bright map.
+  // shadow, a lit lower rim) with a brass cap sitting proud of it (top-lit
+  // dome, its own drop shadow). The stick is GOLD because gold is the
+  // interaction colour — it is the single most-touched control in the game,
+  // so it wears the affordance hue at full strength (it used to be purple,
+  // which said nothing about being touchable). The dark keyline and blur keep
+  // it legible over a bright map.
   _installMovePadCss(PAD, NUB, HALF) {
     if (document.getElementById('move-pad-css')) return;
     const s = document.createElement('style');
@@ -7964,9 +7990,12 @@ class MapScene extends Phaser.Scene {
     s.textContent = `
       #move-pad {
         position: fixed;
-        /* Sits above the two-bar inventory HUD (item bar bottom 48 + ~54
-           tall, plus the type-tab bar above it). */
-        bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+        /* Placed by fitGame, which measures what is actually left between the
+           map's bottom edge and the inventory tabs: centred in that gap when
+           the stick fits there, tucked just above the tabs (overlaying the
+           map's bottom corner) when it doesn't. The 160px fallback is the old
+           fixed offset, used only if the variable is somehow unset. */
+        bottom: calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
         /* Right-anchored via --phone-right so the pad tucks inside the
            simulated phone column on desktop. */
         right: calc(var(--phone-right, 0px) + 16px);
@@ -7975,15 +8004,15 @@ class MapScene extends Phaser.Scene {
         user-select: none; -webkit-user-select: none;
         background:
           radial-gradient(circle at 50% 38%,
-            rgba(150,96,200,0.26) 0%,
-            rgba(58,20,94,0.44) 58%,
-            rgba(30,10,52,0.60) 100%);
-        border: 2px solid rgba(176,122,220,0.72);
+            rgba(138,116,64,0.30) 0%,
+            rgba(66,52,22,0.48) 58%,
+            rgba(28,22,12,0.62) 100%);
+        border: 2px solid rgba(200,166,74,0.78);   /* --gold-dark / UI_CONTROL_DIM */
         box-shadow:
-          inset 0 3px 12px rgba(0,0,0,0.55),
-          inset 0 -2px 6px rgba(214,178,255,0.16),
-          0 4px 14px rgba(0,0,0,0.45),
-          0 0 0 1px rgba(0,0,0,0.38);
+          inset 0 3px 12px rgba(0,0,0,0.58),
+          inset 0 -2px 6px rgba(255,224,102,0.16),
+          0 4px 14px rgba(0,0,0,0.48),
+          0 0 0 1px rgba(0,0,0,0.42);
         -webkit-backdrop-filter: blur(3px) saturate(1.15);
         backdrop-filter: blur(3px) saturate(1.15);
         transition: border-color 140ms ease, box-shadow 140ms ease;
@@ -7994,10 +8023,10 @@ class MapScene extends Phaser.Scene {
         content: ''; position: absolute; inset: 0; border-radius: 50%;
         pointer-events: none; opacity: 0.5;
         background:
-          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 50% 7px / 2px 7px no-repeat,
-          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 50% calc(100% - 7px) / 2px 7px no-repeat,
-          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 7px 50% / 7px 2px no-repeat,
-          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) calc(100% - 7px) 50% / 7px 2px no-repeat;
+          linear-gradient(rgba(255,243,176,1), rgba(255,243,176,1)) 50% 7px / 2px 7px no-repeat,
+          linear-gradient(rgba(255,243,176,1), rgba(255,243,176,1)) 50% calc(100% - 7px) / 2px 7px no-repeat,
+          linear-gradient(rgba(255,243,176,1), rgba(255,243,176,1)) 7px 50% / 7px 2px no-repeat,
+          linear-gradient(rgba(255,243,176,1), rgba(255,243,176,1)) calc(100% - 7px) 50% / 7px 2px no-repeat;
         transition: opacity 140ms ease;
       }
       #move-pad .nub {
@@ -8006,13 +8035,13 @@ class MapScene extends Phaser.Scene {
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
-            rgba(255,252,255,0.95) 0%,
-            rgba(226,190,255,0.88) 42%,
-            rgba(168,112,214,0.90) 100%);
-        border: 2px solid rgba(255,255,255,0.85);
+            rgba(255,247,203,0.97) 0%,
+            rgba(255,214,92,0.94) 38%,
+            rgba(168,128,40,0.96) 100%);
+        border: 2px solid rgba(255,232,150,0.9);
         box-shadow:
-          inset 0 -3px 7px rgba(92,40,140,0.55),
-          inset 0 2px 4px rgba(255,255,255,0.55),
+          inset 0 -3px 7px rgba(96,72,18,0.55),
+          inset 0 2px 4px rgba(255,255,255,0.5),
           0 3px 8px rgba(0,0,0,0.45);
         /* Only the RELEASED nub animates. While .held is on, transform is
            excluded from the transition list so the cap tracks the finger
@@ -8024,23 +8053,23 @@ class MapScene extends Phaser.Scene {
       /* Held: the well lights up and the cap lifts, so a finger already
          covering the nub still gets feedback from the ring around it. */
       #move-pad.held {
-        border-color: rgba(226,190,255,0.95);
+        border-color: rgba(255,224,102,0.95);
         box-shadow:
           inset 0 3px 12px rgba(0,0,0,0.5),
-          inset 0 -2px 6px rgba(214,178,255,0.22),
+          inset 0 -2px 6px rgba(255,224,102,0.24),
           0 4px 16px rgba(0,0,0,0.45),
-          0 0 14px rgba(176,122,220,0.55),
-          0 0 0 1px rgba(0,0,0,0.38);
+          0 0 14px rgba(255,210,58,0.5),
+          0 0 0 1px rgba(0,0,0,0.42);
       }
       #move-pad.held::before { opacity: 0.75; }
       #move-pad.held .nub {
         transition: box-shadow 140ms ease, border-color 140ms ease;
-        border-color: #fff;
+        border-color: #fff8d6;
         box-shadow:
-          inset 0 -3px 7px rgba(92,40,140,0.5),
-          inset 0 2px 4px rgba(255,255,255,0.6),
+          inset 0 -3px 7px rgba(96,72,18,0.5),
+          inset 0 2px 4px rgba(255,255,255,0.55),
           0 3px 10px rgba(0,0,0,0.5),
-          0 0 12px rgba(226,190,255,0.6);
+          0 0 12px rgba(255,224,102,0.6);
       }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
@@ -8182,15 +8211,25 @@ class MapScene extends Phaser.Scene {
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
     }
-    const forDiv = document.createElement('div');
-    forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
-    forDiv.textContent = forLabel;
-    box.appendChild(forDiv);
-    const costDiv = document.createElement('div');
-    costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
-    costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
-    costDiv.innerHTML = cost;
-    box.appendChild(costDiv);
+    // `cost` is what the player PAYS — the second half of a "you get X FOR y"
+    // trade, and the `forLabel` row is the literal word joining the two. Not
+    // every caller is a trade: the quest board reports progress and asks for
+    // nothing. Those get neither row, rather than a dangling "for" over an
+    // empty line — or, as the quest board did, the same sentence printed twice
+    // because both halves were handed the same string.
+    const hasCost = cost != null && cost !== '';
+    let costDiv = null;
+    if (hasCost) {
+      const forDiv = document.createElement('div');
+      forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
+      forDiv.textContent = forLabel;
+      box.appendChild(forDiv);
+      costDiv = document.createElement('div');
+      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
+      costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
+      costDiv.innerHTML = cost;
+      box.appendChild(costDiv);
+    }
     // Quantity stepper (only when caller passes `quantity`). Lays out as
     // [ − ]  N / MAX  [ + ] just above the action-button row.
     let qty = 1;
@@ -8225,10 +8264,10 @@ class MapScene extends Phaser.Scene {
         if (typeof quantity.format === 'function') {
           const r = quantity.format(qty) || {};
           if (r.get  != null) getDiv.innerHTML  = r.get;
-          if (r.cost != null) costDiv.innerHTML = r.cost;
+          if (r.cost != null && costDiv) costDiv.innerHTML = r.cost;
           if (r.canAfford != null) {
             liveCanAfford = !!r.canAfford;
-            costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
+            if (costDiv) costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
           }
         }
         const dim = (b, off) => {
@@ -8677,10 +8716,17 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save); this.buildInventoryDOM();
       }));
     }
-    bar.appendChild(makeBtn('◀', () => {
-      this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
-      persistSave(this.save); this.buildInventoryDOM();
-    }));
+    // ◀ ▶ and the page plate only exist when the category actually spans more
+    // than one page. Most do not, and three dead controls on a bar that is
+    // already wider than the 352px column (5×42 slots + 3×40 buttons + the
+    // plate) cost both space and attention for nothing.
+    const paged = pageCount > 1;
+    if (paged) {
+      bar.appendChild(makeBtn('◀', () => {
+        this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
+        persistSave(this.save); this.buildInventoryDOM();
+      }));
+    }
 
     const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
@@ -8757,15 +8803,17 @@ class MapScene extends Phaser.Scene {
       }
       bar.appendChild(slot);
     }
-    bar.appendChild(makeBtn('▶', () => {
-      this.save.invPage = (this.save.invPage + 1) % pageCount;
-      persistSave(this.save); this.buildInventoryDOM();
-    }));
-    const pageLbl = document.createElement('span');
-    pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
-    pageLbl.className = 'hud-page';
-    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px ui-monospace,monospace;margin-left:4px;';
-    bar.appendChild(pageLbl);
+    if (paged) {
+      bar.appendChild(makeBtn('▶', () => {
+        this.save.invPage = (this.save.invPage + 1) % pageCount;
+        persistSave(this.save); this.buildInventoryDOM();
+      }));
+      const pageLbl = document.createElement('span');
+      pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
+      pageLbl.className = 'hud-page';
+      pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px ui-monospace,monospace;margin-left:4px;';
+      bar.appendChild(pageLbl);
+    }
 
     document.body.appendChild(bar);
 
@@ -8774,7 +8822,7 @@ class MapScene extends Phaser.Scene {
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:#ffe066;font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:var(--bone);font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();

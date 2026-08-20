@@ -48,33 +48,67 @@
       --treasure-deep: #7fb0ff; /* saturated blue — glow / deep accents       */
       --danger:     #b71c1c;   /* destructive action + error surfaces         */
       --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
+      /* ── Ink: what the HUD READS AS, not what it invites ──────────────
+         The gold family above says "you can touch this" (spec §UI COLOUR
+         LANGUAGE): a control at REST wears --gold-dark, and lights to
+         --gold when selected or active. The world palette obeys the same
+         law from the other side — no terrain tone is allowed into the
+         yellow band (see COLORS in src/app.js).
+         That leaves the surfaces that only REPORT with nothing to wear,
+         and they must not borrow gold: the selected-item name used to,
+         which put the loudest "reach for me" colour in the HUD on the one
+         thing down there you cannot touch. These two are that role —
+         neutral ink, deliberately outside both meaning-carrying families. */
+      --bone:       #cfc6b4;   /* readout ink — what you actually read       */
+      --dust:       #8d857a;   /* secondary readout ink — glance-only        */
+      /* A control at REST vs a control SELECTED has to be obvious at a glance,
+         and painting the resting rim in full --gold-dark did not clear that
+         bar: an unselected item slot read almost as lit as the selected one.
+         This is the SAME control colour with the light off — an alpha on
+         --gold-dark, not a new hue — so the rest→selected step is a real jump
+         (unlit rim → --gold rim + lit face + gold glow) while the family the
+         colour language names stays a family of one. */
+      --ctl-rim:    rgba(200, 166, 74, 0.42);   /* --gold-dark, unlit */
       /* ── HUD chrome ───────────────────────────────────────────────────
          One vocabulary for every persistent HUD surface, so the money chip,
          the item slots and the walking stick read as parts of the same
-         machine. Panels are dark glass with a lit top lip and a cast
-         shadow; controls are RAISED with a gradient face; anything that
-         HOLDS something (item slots, the energy track) is SUNK with an
-         inner shadow; a 1px dark keyline keeps every edge legible over
-         bright pixel art. Compose them —
+         machine. The machine is SALVAGE: field-built kit bolted together
+         out of weathered farm steel, not a clean console. So the faces are
+         warm olive-brown rather than neutral grey, the lit edges are dusty
+         rather than white, and every surface carries a faint brushed scuff.
+         Panels are dark metal with a lit top lip and a cast shadow;
+         controls are RAISED with a gradient face; anything that HOLDS
+         something (item slots, the energy track) is SUNK with an inner
+         shadow; a 1px dark keyline keeps every edge legible over bright
+         pixel art. Compose them —
              box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
          These are paint only. No widths, borders or padding live here, so
          adding chrome to an element can never move it. */
       /* The faces step at their midpoint rather than fading evenly — the hard
          line is what reads as a curved, polished surface catching the light. */
-      --chrome-panel: linear-gradient(180deg, rgba(56,49,42,0.92) 0%,
-                        rgba(38,33,28,0.92) 48%, rgba(22,19,16,0.94) 52%,
-                        rgba(12,10,9,0.94) 100%);
-      --chrome-face:  linear-gradient(180deg, #4b443a 0%, #3a352d 48%,
-                        #2a2620 52%, #1d1a16 100%);
-      --chrome-sunk:  linear-gradient(180deg, #14110e 0%, #1e1a16 55%, #2e2924 100%);
+      --chrome-panel: linear-gradient(180deg, rgba(58,52,40,0.93) 0%,
+                        rgba(41,36,28,0.93) 48%, rgba(24,21,16,0.94) 52%,
+                        rgba(13,11,9,0.95) 100%);
+      --chrome-face:  linear-gradient(180deg, #554c39 0%, #423a2c 48%,
+                        #2f2a20 52%, #201c15 100%);
+      --chrome-sunk:  linear-gradient(180deg, #14110c 0%, #1f1b14 55%, #322c22 100%);
       --chrome-lit:   linear-gradient(180deg, #8a6c2e 0%, #6b5426 48%,
                         #4a3a17 52%, #33280f 100%);   /* selected */
-      --chrome-lip:   inset 0  1px 0 rgba(255,255,255,0.15);      /* top edge  */
-      --chrome-well:  inset 0  2px 6px rgba(0,0,0,0.60);          /* recessed  */
-      --chrome-lift:  0 3px 8px rgba(0,0,0,0.45);                 /* cast      */
-      --chrome-key:   0 0 0 1px rgba(0,0,0,0.45);                 /* keyline   */
+      /* Brushed-metal scuff. Stacks ON TOP of a face/panel gradient —
+             background: var(--chrome-scuff), var(--chrome-face);
+         — so the salvage texture is opt-in per surface and never replaces
+         the shading underneath it. */
+      --chrome-scuff: repeating-linear-gradient(105deg,
+                        rgba(255,244,214,0.020) 0px, rgba(255,244,214,0.020) 1px,
+                        rgba(0,0,0,0) 1px, rgba(0,0,0,0) 5px,
+                        rgba(0,0,0,0.030) 5px, rgba(0,0,0,0.030) 6px,
+                        rgba(0,0,0,0) 6px, rgba(0,0,0,0) 17px);
+      --chrome-lip:   inset 0  1px 0 rgba(255,240,206,0.16);      /* top edge  */
+      --chrome-well:  inset 0  2px 6px rgba(0,0,0,0.62);          /* recessed  */
+      --chrome-lift:  0 3px 8px rgba(0,0,0,0.48);                 /* cast      */
+      --chrome-key:   0 0 0 1px rgba(0,0,0,0.5);                  /* keyline   */
       --chrome-gold:  0 0 12px rgba(255,224,102,0.38);            /* selected  */
-      --chrome-rim:   #554c3f;   /* warm grey rim, the HUD's default border  */
+      --chrome-rim:   #5c5340;   /* warm steel rim — for surfaces you can't touch */
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -205,7 +239,7 @@
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
       right: calc(var(--phone-right, 0px) + 8px);
-      font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
+      font-size: 11px; color: var(--dust); pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace; text-align: center;
       text-shadow: 0 1px 2px #000, 0 0 3px #000;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -213,10 +247,14 @@
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
        on #hud below) so it anchors to the visual viewport instead of #game's
        scaled box. env(safe-area-inset-top) clears the iPhone notch. */
+    /* The one place gold is NOT an affordance: this chip counts actual gold.
+       Currency is the subject matter here, not an invitation to tap (the chip
+       is pointer-events:none). Every OTHER gold surface in the HUD is a
+       control — see the interaction-colour note at the top of :root. */
     #money {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
-      background: var(--chrome-panel); color: var(--gold); padding: 4px 10px;
+      background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold); padding: 4px 10px;
       border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
@@ -233,7 +271,7 @@
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
-      background: var(--chrome-panel); color: var(--green); padding: 4px 10px;
+      background: var(--chrome-scuff), var(--chrome-panel); color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: auto; cursor: pointer; z-index: 7;
@@ -274,8 +312,8 @@
       top: calc(56px + env(safe-area-inset-top, 0px));
       left:  calc(var(--phone-left,  0px) + 10px);
       right: calc(var(--phone-right, 0px) + 10px);
-      background: var(--chrome-panel);
-      border: 2px solid var(--gold-dark); border-radius: 8px;
+      background: var(--chrome-scuff), var(--chrome-panel);
+      border: 2px solid var(--chrome-rim); border-radius: 8px;
       padding: 6px 8px; z-index: 6;
       pointer-events: none;
       font-family: ui-monospace, monospace;
@@ -293,7 +331,7 @@
       box-shadow: inset 0 -1px 0 #0006, 0 1px 2px #0008;
     }
     #objective .title {
-      color: var(--gold); font: 700 13px ui-monospace, monospace;
+      color: var(--bone); font: 700 13px ui-monospace, monospace;
       flex: 1; min-width: 0; text-shadow: 0 1px 0 #000;
     }
     /* 13×15px was a stray-thumb away from ending the onboarding ladder for a
@@ -301,13 +339,13 @@
        negative margin so the chip doesn't grow to fit). */
     #objective .close {
       pointer-events: auto; cursor: pointer; flex: none;
-      background: transparent; color: #888; border: 0;
+      background: transparent; color: var(--gold); border: 0;
       font: 700 15px ui-monospace, monospace; line-height: 1;
       min-width: 44px; min-height: 44px; margin: -14px -10px -14px 0;
       display: flex; align-items: center; justify-content: center;
     }
     #objective .body {
-      color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
+      color: var(--dust); font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
     }
     /* Brief green flash when a step is completed, before the next one renders. */
     #objective.done { border-color: var(--green); box-shadow:
@@ -321,8 +359,8 @@
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
-      background: var(--chrome-face); color: #ddd;
-      border: 2px solid var(--chrome-rim); border-radius: 8px;
+      background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
+      border: 2px solid var(--ctl-rim); border-radius: 8px;
       padding: 2px 8px; font: 700 16px ui-monospace, monospace;
       line-height: 1.4;
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
@@ -332,7 +370,7 @@
     /* Open = pressed in: the button sinks into the HUD and the panel it
        opened takes over the raised look. */
     #menu[open] summary {
-      border-color: #8a7d68; color: #fff;
+      border-color: var(--gold); color: var(--gold-pale);
       background: var(--chrome-sunk);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
@@ -343,7 +381,7 @@
        down onto the item bar. */
     #menu .items {
       margin-top: 4px; min-width: 140px;
-      background: #12100e; border: 2px solid var(--chrome-rim); border-radius: 8px;
+      background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
@@ -365,7 +403,7 @@
        26px below "+ New game". Padding takes them to ~40px without changing
        how they look. */
     #menu .items button {
-      background: transparent; color: #ddd; border: 0;
+      background: transparent; color: var(--bone); border: 0;
       text-align: left; padding: 12px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
       min-height: 40px;
@@ -395,8 +433,8 @@
     /* Category tab — raised, and joined to the slot bar below it (square
        bottom corners, no bottom edge on the selected one). */
     .hud-tab {
-      background: var(--chrome-face);
-      border: 2px solid var(--chrome-rim); color: #ddd;
+      background: var(--chrome-scuff), var(--chrome-face);
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -408,13 +446,13 @@
     /* Count pip riding the tab's top-right corner. */
     .hud-pip {
       background: linear-gradient(180deg, #2a2418, #0c0a07);
-      color: var(--gold);
+      color: var(--bone);
       box-shadow: inset 0 1px 0 #ffffff1f, 0 1px 2px #000a, var(--chrome-key);
     }
     /* Raised control — pager arrows, sort. */
     .hud-btn {
-      background: var(--chrome-face);
-      border: 2px solid var(--chrome-rim); color: #fff;
+      background: var(--chrome-scuff), var(--chrome-face);
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -426,7 +464,7 @@
        sits in a recess. Selected lights the well gold. */
     .hud-slot {
       background: var(--chrome-sunk);
-      border: 2px solid var(--chrome-rim); color: #fff;
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
     .hud-slot.sel {
@@ -436,19 +474,19 @@
     /* Count / tier badge in a slot's bottom-right corner. */
     .hud-badge {
       background: linear-gradient(180deg, #221e18, #0a0908);
-      color: #fff;
+      color: var(--bone);
       box-shadow: inset 0 1px 0 #ffffff1a, var(--chrome-key);
     }
     /* Page counter — a small struck plate, not a button. */
     .hud-page {
-      background: var(--chrome-sunk); color: var(--gold);
+      background: var(--chrome-sunk); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
     /* Eat / Read / Drink — the one-tap action buttons under the item bar.
        Their border colour stays inline (green for food, gold for the rest);
        everything else about them is this. */
     .hud-action {
-      background: var(--chrome-face);
+      background: var(--chrome-scuff), var(--chrome-face);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -800,16 +838,93 @@
     // itself inside the column rather than stretching across the full
     // browser width. body.phone-preview also paints a thin frame around
     // the column for clarity.
-    // Where the MAP is centred inside the 352×844 box — src/app.js sets
-    // viewCenterY = H/2 - 150 to lift the map clear of the two-bar inventory
-    // HUD. Centring on the box's own middle (422) instead puts the player far
-    // off the viewport's centre, so both branches below centre on this.
-    const MAP_CENTER_Y = 844 / 2 - 150;   // 272
+    // ── The vertical budget ─────────────────────────────────────────────
+    // Three bands share the screen height, and only the middle one is the
+    // game. Pinning the box to top:0 and the HUD to the viewport bottom dumped
+    // ALL the slack between them into one place, which measured very
+    // differently per device: an iPhone SE had the walking stick sitting 84px
+    // ON TOP of the map, while a tall desktop window had a 195px hole under
+    // it. Both come from the same non-decision. So: measure the bands, fit the
+    // map into what is actually left, and place the stick in the leftover
+    // rather than at a fixed offset that is right on exactly one screen.
+    //
+    // TOP_CHROME — the money/energy row (top 8, 35 tall) plus the objective
+    // chip below it (top 56, ~49 tall). Reserved whether or not the chip is
+    // currently showing, so the map doesn't jump when the ladder retires.
+    // The fixed game box, in GAME px. Named BOX_* rather than W/H because
+    // src/app.js declares top-level `const W`/`H` and every classic script on
+    // the page shares one global scope — a bare `const W` out here is a
+    // redeclaration that kills the whole bundle at parse time.
+    const BOX_W = 352, BOX_H = 844;
+    const TOP_CHROME = 106;
+    // INV_CLUSTER — the bottom stack, measured from the viewport bottom up to
+    // the TOP of the category tabs (bottom:104 + 44 tall). The walking stick
+    // is deliberately NOT in here: it is placed into the slack below, or
+    // allowed to overlay the map when there is no slack to place it in.
+    const INV_CLUSTER = 148;
+    // The map's 11×11 view inside the 352×844 box (src/app.js: viewTop /
+    // viewSize). fitGame positions the BOX so that this rectangle lands where
+    // the budget says it should.
+    const MAP_TOP_GAME = 96, MAP_H_GAME = 352;
+    const STICK_PX = 110;      // #move-pad — keep in sync with buildMovePad
     // The simulated phone column, in CSS px. iPhone regular ↔ Pro Max.
     const PHONE_MIN = 390, PHONE_MAX = 430;
 
+    // Given a horizontal scale and the viewport height, decide the final scale,
+    // the box's top offset, and where the stick sits. Shared by both branches
+    // so portrait and desktop-emulation can't drift apart.
+    function layOutVertically(sByWidth, vh) {
+      // Never scale up past what the width allows, and never let the map grow
+      // taller than the band between the two chrome stacks — that is what used
+      // to push it under the stick on short screens.
+      const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
+      const s = Math.min(sByWidth, band / MAP_H_GAME);
+      const mapH = MAP_H_GAME * s;
+      const slack = Math.max(0, band - mapH);
+      // Spend the slack in priority order. The stick's room comes FIRST: a
+      // breathing margin above the map is worth less than not having the
+      // walking stick sitting on the world, and allocating the margin first
+      // was enough on its own to push a 360×740 phone from a clean 8px gap
+      // into a 24px overlap. Only what survives that reservation becomes the
+      // margin under the objective chip.
+      const stickFits = slack >= STICK_PX + 16;
+      const spare = stickFits ? slack - (STICK_PX + 16) : slack;
+      const mapTop = TOP_CHROME + Math.min(28, spare * 0.35);
+      const mapBottom = mapTop + mapH;
+      const top = mapTop - MAP_TOP_GAME * s;
+      // The stick goes in the gap between the map and the tabs when it fits
+      // there, centred so it reads as the control zone rather than as
+      // something stranded. When the gap is too small (short screens) it
+      // overlays the bottom of the map instead — occluding a corner of the
+      // world beats occluding the inventory, and it is what the stick already
+      // did on those screens, just by accident rather than on purpose. It sits
+      // as low as it can then, so the occlusion stays in the corner and never
+      // reaches the player at the map's centre.
+      const gap = (vh - INV_CLUSTER) - mapBottom;
+      const stickBottom = gap >= STICK_PX + 16
+        ? Math.round(vh - (mapBottom + (gap - STICK_PX) / 2) - STICK_PX)
+        : INV_CLUSTER + 8;
+      return { s, top, stickBottom };
+    }
+
+    // The visible slice of the 844-tall box, in GAME px — modals size and
+    // centre against THIS, not against the box (see makeModalShell). The box
+    // is taller than most viewports, so a box-centred dialog hangs off the
+    // bottom and a box-relative max-height never actually caps it.
+    //
+    // `top` may now be POSITIVE (the box starts below the viewport's top edge)
+    // because the map is placed against the chrome budget rather than pinned
+    // to 0. When it is, the visible region starts at the box's own top — a
+    // negative --view-top would centre dialogs above the box and clip them.
+    function publishViewBox(root, top, s, vh) {
+      const viewTop = Math.max(0, -top / s);
+      const viewH   = Math.min(BOX_H - viewTop, (vh - Math.max(0, top)) / s);
+      root.style.setProperty('--view-top', viewTop + 'px');
+      root.style.setProperty('--view-h',   Math.max(0, viewH) + 'px');
+    }
+
     function fitGame() {
-      const W = 352, H = 844;
+      const W = BOX_W, H = BOX_H;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const portrait = vw < vh;
@@ -823,22 +938,15 @@
         // landed on top of the world, and the movement stick sat in the middle
         // of the play field. The desktop gutters are the mechanism for this —
         // portrait just wasn't using them.
-        const s = Math.min(vw / W, PHONE_MAX / W);
+        const { s, top, stickBottom } = layOutVertically(Math.min(vw / W, PHONE_MAX / W), vh);
         const phoneW = W * s;
         const left  = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
-        // Same map-centred rule as landscape, so a viewport shorter than the
-        // scaled box keeps the player in the middle rather than off the bottom.
-        const top = Math.min(0, vh / 2 - MAP_CENTER_Y * s);
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        // The visible slice of the 844-tall box, in GAME px — modals size and
-        // centre against THIS, not against the box (see makeModalShell). The
-        // box is taller than most viewports, so a box-centred dialog hangs off
-        // the bottom and a box-relative max-height never actually caps it.
-        root.style.setProperty('--view-top', (-top / s) + 'px');
-        root.style.setProperty('--view-h',   (vh / s) + 'px');
+        publishViewBox(root, top, s, vh);
+        root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.toggle('phone-preview', left > 0);
         root.style.setProperty('--phone-left',  left  + 'px');
         root.style.setProperty('--phone-right', right + 'px');
@@ -849,31 +957,23 @@
         // also clamp to ≤430 so the column doesn't grow unrealistically big.
         // #frame's overflow:hidden quietly clips the bottom if the column
         // exceeds vh.
-        const sByHeight = vh / H;
         const sByMaxW   = PHONE_MAX / W;
         const sByMinW   = PHONE_MIN / W;
-        const s = Math.max(sByMinW, Math.min(sByHeight, sByMaxW));
+        // The column still wants a phone-ish width; the vertical budget then
+        // decides whether the height can actually afford that much scale.
+        const { s, top, stickBottom } =
+          layOutVertically(Math.max(sByMinW, sByMaxW), vh);
         const phoneW = W * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
-        // Centre on the MAP, not on the box. Centring the 844-tall box put its
-        // middle (422) at the viewport's middle, but the map is drawn at
-        // MAP_CENTER_Y (272) — so on an 844×390 landscape phone the game was
-        // shifted up and the player ended 29px from the top edge, half behind
-        // the energy chip with no cells visible to the north.
-        const top = Math.min(0, vh / 2 - MAP_CENTER_Y * s);
         // #frame is already left/right-inset by var(--phone-*), so #game sits
         // at left:0 inside #frame — setting g.style.left = left would double
         // the offset and push the game off-centre to the right.
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        // The visible slice of the 844-tall box, in GAME px — modals size and
-        // centre against THIS, not against the box (see makeModalShell). The
-        // box is taller than most viewports, so a box-centred dialog hangs off
-        // the bottom and a box-relative max-height never actually caps it.
-        root.style.setProperty('--view-top', (-top / s) + 'px');
-        root.style.setProperty('--view-h',   (vh / s) + 'px');
+        publishViewBox(root, top, s, vh);
+        root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
         root.style.setProperty('--phone-right', right + 'px');
@@ -1557,8 +1657,8 @@
   <script src="src/quests.js?v=3"></script>
   <script src="src/interactables.js?v=9"></script>
   <script src="src/interact.js?v=223"></script>
-  <script src="src/render.js?v=292"></script>
-  <script src="src/road_overlay.js?v=6"></script>
+  <script src="src/render.js?v=301"></script>
+  <script src="src/road_overlay.js?v=7"></script>
   <script src="src/assets.js?v=176"></script>
   <script src="src/sandbox.js?v=37"></script>
   <script src="src/testtools.js?v=8"></script>
@@ -1579,7 +1679,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=389';
+      const APP_SRC = 'src/app.js?v=391';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

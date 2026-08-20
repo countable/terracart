@@ -241,6 +241,24 @@ for (const f of testFiles) {
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────
+// Lifts fitGame's budget out of index.html and checks it against real device
+// sizes: the map clears both chrome stacks, the stick never covers the
+// inventory or the player, and no screen is left with a big empty band.
+{
+  const layout = require('../../tools/layout_audit.js');
+  for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
+// Scans app.js for showOfferModal callers that fill BOTH halves of the "you
+// get X for Y" dialog with the same text — which is how the castle quest
+// board printed its progress line twice.
+{
+  const modal = require('../../tools/modal_audit.js');
+  for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
   let pass = 0, fail = 0;
