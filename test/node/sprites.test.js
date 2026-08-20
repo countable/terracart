@@ -171,8 +171,8 @@ test('CROP_SPRITE: longgrass frame is 10 (col 10 row 0 of 22-col Props.png grid)
   assert.eq(0 * 22 + 10, 10, 'frame derivation');
 });
 
-test('CROP_SPRITE: longgrass scale is 1.36', () => {
-  assert.eq(CROP_SPRITE['longgrass'].scale, 1.36);
+test('CROP_SPRITE: longgrass scale is 1.16', () => {
+  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16);
 });
 
 // ── CROP_SPRITE: mushroom (bug 1d5ac29) ───────────────────────────────────
