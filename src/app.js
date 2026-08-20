@@ -222,14 +222,40 @@ const DEBUG_SPEED_MUL = 10;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
-const WALK_HOME_IDLE_MS = 3000;
+//
+// This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
+// it doesn't send the character trotting back the instant you let go. It was
+// 3000 ms, which is long enough to read as the character ignoring you: let go
+// after walking 40 m out and the offset sat frozen for three full seconds
+// before anything moved (measured), then covered the whole way back in under
+// three. All of the sluggishness was in the wait, none of it in the walk.
+//
+// 700 ms is past the stick's own 170 ms spring-back and past any thumb
+// reposition, while still starting the return while the player is still
+// thinking about having released. Anything shorter twitches homeward mid-
+// manoeuvre; the tap/work-wheel cases don't rely on this at all — _driftHome
+// has explicit guards for a running wheel and for a held stick.
+const WALK_HOME_IDLE_MS = 700;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
 // stays out of the way until the stick has been untouched for this long.
-const WALK_HOME_HINT_IDLE_MS = 5000;
+//
+// It has to stay LONGER than the walk's own delay (or the lead line appears
+// before there's a walk to lead) but not so much longer that it never shows:
+// at the old 5000 ms against a 700 ms walk, a typical return was over before
+// the hint was due, so the hint only ever appeared on very long journeys home.
+const WALK_HOME_HINT_IDLE_MS = 2000;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
+// Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
+// tier used for stick-walking to a fixed high number), coffee is a common
+// crop, not a rare potion — so it just gives a caffeine-buzz +1 tier for 3
+// minutes, stacking additively on top of whatever tier is already in play
+// (worn amulet, Dragon, or the Speed potion), capped at the same ceiling
+// those top out at so a coffee can't out-tier the rarest buff.
+const COFFEE_AMULET_BOOST = 1;
+const COFFEE_BUFF_MS = 3 * 60 * 1000;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -777,6 +803,21 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
+    // LIGHTING — the out-of-reach dim, the underground torch wash, the
+    // low-energy pink tint and the white reach outline. It sits here, ABOVE
+    // every piece of ground decoration (biome seams, cobbles, road letters,
+    // POI halos, treasure pads, shadows, the haze) and BELOW the standing
+    // sprites, because "outside the lit area" has to mean the whole ground
+    // goes dark — not just the flat terrain fill.
+    //
+    // These passes used to live in cellGfx, the bottom-most layer, so the dim
+    // could only reach the base colour: biome BOUNDARIES in particular stayed
+    // at full brightness outside the lit area and read as glowing seams in the
+    // dark. (The distance falloff hit the same wall and was moved above the
+    // sprites for it; this is the same bug one layer down.) Sprites stay at
+    // full contrast on purpose — see the note on atmosGroundGfx above — and
+    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    this.reachGfx = this.add.graphics();
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1038,6 +1079,7 @@ class MapScene extends Phaser.Scene {
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
+    this.reachGfx.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
@@ -4133,6 +4175,11 @@ class MapScene extends Phaser.Scene {
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
       tier = Math.max(tier, SPEED_POTION_AMULET_TIER);
     }
+    // Coffee ADDS a tier rather than overriding to one — a caffeine buzz on
+    // top of whatever's already active, not a replacement for it.
+    if ((this.save.coffeeUntil ?? 0) > Date.now()) {
+      tier = Math.min(SPEED_POTION_AMULET_TIER, tier + COFFEE_AMULET_BOOST);
+    }
     return { amulet: { tier } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
@@ -5484,6 +5531,9 @@ class MapScene extends Phaser.Scene {
     } else if (sel.id === 'rainberry') {
       const watered = this.waterCropsWithin(20);
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+    } else if (sel.id === 'coffee') {
+      this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
+      extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
     persistSave(this.save);
     this.buildInventoryDOM();

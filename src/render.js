@@ -60,6 +60,18 @@ const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-match
 // the places are, not a call to action, and anything brisk turns a street of
 // POIs into a strobe.
 const POI_HALO_PERIOD_S = 4.5;
+// Electric light blue — the POI pad's tint. Punchier and more saturated than
+// the plain --treasure-deep (#7fb0ff) accent, so the pad itself (the "main
+// display" every POI sits on) reads as a live landmark rather than a grey
+// concrete disc. Deliberately a step brighter than the rest of the blue-white
+// treasure family (spec §UI COLOUR LANGUAGE) — this is the one surface that
+// carries the "a place lives here" cue on its own, with no gem or halo to
+// help it.
+const POI_PAD_TINT = 0x33ccff;
+// Minor/lowtier POIs (bus stops, ATMs, fuel, etc.) get the same pad shrunk
+// down rather than skipped outright — still marked as a place, just a
+// smaller one.
+const POI_PAD_MINI_SCALE = 0.55;
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -1030,15 +1042,26 @@ Render.drawCells = function drawCells(scene) {
   // Underground stays pure black: the torch bubble's contrast against dead rock
   // is the whole readability budget down there, and tinting it only erodes it.
   const depth = scene.depth ?? 0;
+  // Every pass from here to the reach outline paints onto the LIGHTING layer
+  // (app.js reachGfx), not the terrain graphics. In cellGfx — the bottom-most
+  // layer — the dim could only darken the base terrain fill, so the biome
+  // seams, cobbles, road letters, POI halos and pads drawn above it stayed at
+  // full brightness outside the lit area; the boundaries in particular read as
+  // glowing lines in the dark. (The distance falloff below hit the same wall
+  // and was moved above the SPRITES for it; this is the same bug one layer
+  // down.) Falling back to `g` keeps a scene without the layer rendering
+  // rather than throwing.
+  const gr = scene.reachGfx || g;
+  if (gr !== g) gr.clear();
   const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
-  g.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
+  gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-      g.fillRect(sx, sy, CELL_PX, CELL_PX);
+      gr.fillRect(sx, sy, CELL_PX, CELL_PX);
     }
   }
   // Underground the torch bubble itself is dimmer than full daylight — lay a
@@ -1047,14 +1070,14 @@ Render.drawCells = function drawCells(scene) {
   // level, like the surrounding dim, so descents feel progressively gloomier.
   if (depth > 0) {
     const litDim = Math.min(0.40, 0.26 + 0.03 * (depth - 1));
-    g.fillStyle(0x000000, litDim);
+    gr.fillStyle(0x000000, litDim);
     for (let row = -1; row <= VIEW_CELLS; row++) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
         const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
         const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
   }
@@ -1139,18 +1162,21 @@ Render.drawCells = function drawCells(scene) {
   const maxEnergy = scene.save?.maxEnergy ?? 100;
   const potionLit = (scene.save?.reachPotionUntil ?? 0) > Date.now();
   if (!potionLit && energy > 0 && (energy / maxEnergy) < 0.30) {
-    g.fillStyle(0xff5fa2, 0.16);
+    gr.fillStyle(0xff5fa2, 0.16);
     for (let row = -1; row <= VIEW_CELLS; row++) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
         const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
         const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
+        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
   }
-  g.lineStyle(3, 0xffffff, 0.3);
+  // The reach outline stays LAST on this layer, so the white edge sits on top
+  // of the dim band rather than under it — the relative order these passes
+  // had inside cellGfx, preserved.
+  gr.lineStyle(3, 0xffffff, 0.3);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
@@ -1161,10 +1187,10 @@ Render.drawCells = function drawCells(scene) {
       const bot = !isReach(col, row + 1);
       const lft = !isReach(col - 1, row);
       const rgt = !isReach(col + 1, row);
-      if (top) g.lineBetween(sx, sy, sx + CELL_PX, sy);
-      if (bot) g.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
-      if (lft) g.lineBetween(sx, sy, sx, sy + CELL_PX);
-      if (rgt) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+      if (top) gr.lineBetween(sx, sy, sx + CELL_PX, sy);
+      if (bot) gr.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
+      if (lft) gr.lineBetween(sx, sy, sx, sy + CELL_PX);
+      if (rgt) gr.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
     }
   }
 
@@ -2146,7 +2172,10 @@ Render.drawObjects = function drawObjects(scene) {
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up
   // with the chest's ground point (the slab spills ~10% past the cell).
-  // lowtier POIs (bus stops/intersections/fuel/etc.) skip the pad entirely.
+  // Minor/lowtier POIs (bus stops, intersections, fuel, ATMs, etc.) get a MINI
+  // version of the same slab — smaller and dimmer, but still a marked place —
+  // instead of skipping it outright. Genuine loose supply crates (o.crate,
+  // no poiClass) get no pad at all: they're a transient pickup, not a place.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {
@@ -2156,7 +2185,11 @@ Render.drawObjects = function drawObjects(scene) {
     // slab poking out from under the stall reads wrong, so they skip the pad.
     if (produceStandFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
-    if (!shapeKey) continue;
+    if (!shapeKey) {
+      if (o.crate) continue;
+      padList.push({ o, dx, dy, texKey: 'pad_round1', shape: PAD_SHAPES.round1, mini: true });
+      continue;
+    }
     const shape = PAD_SHAPES[shapeKey];
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
@@ -2193,23 +2226,27 @@ Render.drawObjects = function drawObjects(scene) {
   });
 
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
-    const { o, dx, dy, texKey, shape } = item;
+    const { o, dx, dy, texKey, shape, mini } = item;
     const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
     s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
-     .setScale(1)
+     .setScale(mini ? POI_PAD_MINI_SCALE : 1)
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
     // 0.55 — the slab is a backdrop for the POI, so it lets the terrain it
-    // sits on read through rather than stamping an opaque disc over it. The
-    // pale-stone tones carry the plinth read on their own, so it can sit well
-    // below the old 0.8 and still separate the chest from the ground.
-    s.setAlpha(0.55);
-    s.setTint(0xffffff);
+    // sits on read through rather than stamping an opaque disc over it. Minis
+    // sit a touch dimmer still (0.42), reading as a lesser landmark rather
+    // than competing with a full POI's pad.
+    s.setAlpha(mini ? 0.42 : 0.55);
+    // Electric light blue — a punchier, more saturated tint than the baked
+    // near-white texture (UI_TREASURE) carries on its own, so the pad reads
+    // as an energised landmark rather than a plain grey slab. The texture is
+    // near-white, so a multiply tint lands almost exactly on this hue.
+    s.setTint(POI_PAD_TINT);
   });
 
   // POI name labels above chests. ONE style for every world label: pale glyphs
@@ -2298,9 +2335,14 @@ Render.drawObjects = function drawObjects(scene) {
       tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(labelY));
     }
     // Same treatment either way — only the ink differs (blue-tinted for a named
-    // POI, plain white for a supply crate). The pool is shared across both, and
-    // a pooled slot may have just drawn the other kind, so set it every frame.
-    tx.setColor(_chestIsBox(o) ? CRATE_LABEL_INK : LABEL_INK);
+    // POI, plain white for a supply crate). The test is `o.crate`, same as the
+    // orientation branch above and for the same reason: a tier-1 POI (ATM,
+    // bike rack, bus stop) borrows the box SPRITE via _chestIsBox but is still
+    // a place, so its label carries the same "this is a place" blue cue as
+    // every other POI name. Only a genuine loose supply crate stays plain
+    // white. The pool is shared across both, and a pooled slot may have just
+    // drawn the other kind, so set it every frame.
+    tx.setColor(o.crate ? CRATE_LABEL_INK : LABEL_INK);
     tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
     tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
     // Full opacity EXCEPT where the label would cover the player — opened

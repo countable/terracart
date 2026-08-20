@@ -108,6 +108,21 @@ try {
   ctx.isTillable = (type) => !nonTillable.has(type);
 }
 
+// The walk-home timings live in app.js too. Lift them the same way, so the
+// tests below assert on the REAL numbers rather than a copy that would quietly
+// drift the moment someone retunes the feel.
+{
+  const src = readSrc('app.js');
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    ctx[name] = parseInt(m[1], 10);
+  }
+}
+
 // The inventory category tabs are declared in app.js (which needs Phaser, so it
 // can't load here). Lift the {key, label, sym} triples straight out of the
 // source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
@@ -290,6 +305,16 @@ for (const f of testFiles) {
 {
   const modal = require('../../tools/modal_audit.js');
   for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// ── Display-layer audit (tools/layer_audit.js) ────────────────────────────
+// Phaser draws in insertion order, so create()'s sequence IS the z-order.
+// Pins the layers whose stacking carries meaning: the lighting layer must
+// cover every ground layer (or the out-of-reach dim can't darken the biome
+// seams) and stay below the sprites.
+{
+  const layers = require('../../tools/layer_audit.js');
+  for (const c of layers.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Run + report ──────────────────────────────────────────────────────────

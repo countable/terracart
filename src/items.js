@@ -660,6 +660,7 @@ const ITEM_EFFECTS = {
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
+  coffee:    'Eat for +1 amulet tier of stick-walking speed (3 min)',
   // Universal tame treat — fed to any wild creature.
   mango:     'Feed to instantly tame any wild animal',
   // Offered to a slime to calm it (the secret gem).
