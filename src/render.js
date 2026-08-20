@@ -991,6 +991,11 @@ Render.drawObjects = function drawObjects(scene) {
   // (see the tier-12 rampart pass).
   scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+  // Extra cull reach for house sprites — half the widest building art that can
+  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 1.05 is
+  // 7.02 cells wide, so 3.6 cells of roof either side of the centroid covers
+  // it). Pinned by test/node/house_scale.test.js.
+  const HOUSE_PAD_M = 3.6 * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
   // Per-object screen projection: world-meter delta (dx, dy from the player)
@@ -1040,9 +1045,23 @@ Render.drawObjects = function drawObjects(scene) {
       if (entry.objects) {
         for (const o of entry.objects) {
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          // Houses are culled with extra margin. Every other object's art is
+          // about a cell wide, so its anchor leaving the viewport means its
+          // art has left too — but a house is CENTRED on its footprint
+          // centroid, and a grown fort's roof spans several cells (see
+          // _houseScale), so an anchor a little past the rim can still have
+          // half its building on screen. Without the pad, walking onto a big
+          // fort's footprint made the whole building vanish and left bare
+          // brick. HOUSE_PAD_M is half the widest art the fort cap allows.
+          const lim = o.kind === 'house' ? halfM + HOUSE_PAD_M : halfM;
+          if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
-          objList.push({ o, dx, dy });
+          // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
+          // still draw, but the label passes skip it — a sign or open/busy
+          // plaque for an off-screen building would be clamped to the screen
+          // edge, pointing at nothing.
+          const wide = Math.abs(dx) > halfM || Math.abs(dy) > halfM;
+          objList.push({ o, dx, dy, wide });
         }
       }
       if (entry.creatures) {
@@ -1265,21 +1284,17 @@ Render.drawObjects = function drawObjects(scene) {
   // it still reads as a building, not a wall. Plain / blacksmith / trader /
   // trailer / wizard share 0.6 so they look like neighbours from one village.
   const _houseBaseScale = (o) => (_houseRole(o) === 'fort' ? 0.35 : 0.6);
-  // Fit the roof inside the building's OWN footprint — capped at the baseline,
-  // so a house never grows past the size it has always drawn at, but a small
-  // polygon no longer gets a roof that overhangs its own tiles. `area` is the
-  // OSM footprint in m²; sqrt(area) is its side length in metres, /cellM gives
-  // cells and ×CELL_PX the on-screen extent the art has to fit into. Objects
-  // without an area (the synthetic starter trailer, sandbox houses) keep the
-  // baseline untouched.
+  // Size the roof against the building's OWN footprint — houses shrink to fit,
+  // forts also grow into a big one. The rule itself (and why forts differ) is
+  // houseArtScale in util.js; this only reads the art's real frame width and
+  // hands it over. Buildings whose texture isn't loaded keep the baseline.
   const _houseScale = (o) => {
     const base = _houseBaseScale(o);
-    const area = o.area;
-    if (!(area > 0) || !scene.textures || !scene.textures.exists(_houseKey(o))) return base;
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return base;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
     if (!fr || !fr.width) return base;
-    const extentPx = (Math.sqrt(area) / scene.cellM) * CELL_PX;
-    return Math.min(base, extentPx / fr.width);
+    return houseArtScale(o.area, fr.width, base, _houseRole(o) === 'fort',
+                         scene.cellM, CELL_PX);
   };
 
   // Height in px from the house's ground point (sy) up to the TOP of its drawn
@@ -2056,7 +2071,11 @@ Render.drawObjects = function drawObjects(scene) {
     const lb = Math.round(b + (255 - b) * 0.30);
     return '#' + ((1 << 24) | (lr << 16) | (lg << 8) | lb).toString(16).slice(1);
   };
-  const shopHouses = filteredObj.filter(({ o }) => o.kind === 'house' && _houseSignText(o));
+  // `wide` entries are buildings whose centroid sits outside the viewport
+  // (kept in the list so their roof still draws — see the cull pad). Their
+  // signs and pips are dropped: clampTextX would pin the label to the screen
+  // edge with no building under it.
+  const shopHouses = filteredObj.filter(({ o, wide }) => !wide && o.kind === 'house' && _houseSignText(o));
   let sli = 0;
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
@@ -2133,7 +2152,7 @@ Render.drawObjects = function drawObjects(scene) {
         // wishlist of produce icons; once a bundle's been delivered today the
         // house is happy and shows a smiling face instead (it'll want a fresh
         // bundle tomorrow). Non-host buildings get nothing here.
-        if (!_houseIsHost(it.o)) continue;
+        if (it.wide || !_houseIsHost(it.o)) continue;
         const happy = _houseSatisfied(it.o);
         const wanted = happy ? null : scene.wantedProduce(it.o);
         const { sx, sy } = project(it.dx, it.dy);
@@ -2202,7 +2221,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Styling: green ink on white plaque with a hard black border so the pip
   // reads against any biome colour, anchored top-left and offset 10 px
   // further left from the house's foot point.
-  const houseObjs = filteredObj.filter(({ o }) => o.kind === 'house' || o.kind === 'tower');
+  const houseObjs = filteredObj.filter(({ o, wide }) => !wide && (o.kind === 'house' || o.kind === 'tower'));
   let hri = 0;
   for (const item of houseObjs) {
     const { o, dx, dy } = item;
