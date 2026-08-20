@@ -7541,31 +7541,21 @@ class MapScene extends Phaser.Scene {
     const PAD = 110, NUB = 48;
     const HALF = (PAD - NUB) / 2;     // nub centred in the pad at rest
     const R = HALF;                   // max nub offset from pad centre
+    this._installMovePadCss(PAD, NUB, HALF);
     const pad = document.createElement('div');
     pad.id = 'move-pad';
-    // Sits above the two-bar inventory HUD (item bar bottom 48 + ~54 tall, plus
-    // the type-tab bar above it).
-    pad.style.cssText =
-      `position:fixed;` +
-      `bottom:calc(160px + env(safe-area-inset-bottom, 0px));` +
-      // Right-anchored via --phone-right so the pad tucks inside the
-      // simulated phone column on desktop.
-      `right:calc(var(--phone-right, 0px) + 16px);width:${PAD}px;height:${PAD}px;border-radius:50%;` +
-      `background:rgba(80,30,120,0.35);border:2px solid #b07adc;z-index:6;` +   // purple: the walking stick
-      `touch-action:none;user-select:none;-webkit-user-select:none;`;
     const nub = document.createElement('div');
-    nub.style.cssText =
-      `position:absolute;left:${HALF}px;top:${HALF}px;` +
-      `width:${NUB}px;height:${NUB}px;border-radius:50%;` +
-      `background:rgba(220,180,255,0.65);border:2px solid #fff;pointer-events:none;`;
+    nub.className = 'nub';
     pad.appendChild(nub);
     document.body.appendChild(pad);
 
     let activePtr = null;
     const reset = () => {
       activePtr = null;
-      nub.style.left = `${HALF}px`;
-      nub.style.top  = `${HALF}px`;
+      // Dropping .held re-arms the nub's transform transition (see the CSS
+      // note), so clearing the offset here is what plays the spring-back.
+      pad.classList.remove('held');
+      nub.style.transform = '';
       this.joystickVec = { x: 0, y: 0 };
       this._movePadHeld = false;
     };
@@ -7577,14 +7567,14 @@ class MapScene extends Phaser.Scene {
       let dy = e.clientY - cy;
       const m = Math.hypot(dx, dy);
       if (m > R) { dx = dx / m * R; dy = dy / m * R; }
-      nub.style.left = `${HALF + dx}px`;
-      nub.style.top  = `${HALF + dy}px`;
+      nub.style.transform = `translate(${dx}px, ${dy}px)`;
       this.joystickVec = { x: dx / R, y: dy / R };
     };
     pad.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
+      pad.classList.add('held');
       this._movePadHeld = true;
       place(e);
     });
@@ -7601,6 +7591,108 @@ class MapScene extends Phaser.Scene {
     pad.addEventListener('pointerup', release);
     pad.addEventListener('pointercancel', release);
     pad.addEventListener('lostpointercapture', reset);
+  }
+  // The stick's looks live in one injected sheet rather than inline styles:
+  // the recessed well, the domed cap and the spring-back all need states and
+  // pseudo-elements that a style attribute can't express. Geometry still comes
+  // from buildMovePad's constants, so the CSS and the pointer maths can't drift.
+  //
+  // The shape it's going for: a well sunk into the HUD (dark centre, inner
+  // shadow, a lit lower rim) with a purple cap sitting proud of it (top-lit
+  // dome, its own drop shadow). Purple stays the walking stick's colour; the
+  // dark keyline and blur keep it legible over a bright map.
+  _installMovePadCss(PAD, NUB, HALF) {
+    if (document.getElementById('move-pad-css')) return;
+    const s = document.createElement('style');
+    s.id = 'move-pad-css';
+    s.textContent = `
+      #move-pad {
+        position: fixed;
+        /* Sits above the two-bar inventory HUD (item bar bottom 48 + ~54
+           tall, plus the type-tab bar above it). */
+        bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+        /* Right-anchored via --phone-right so the pad tucks inside the
+           simulated phone column on desktop. */
+        right: calc(var(--phone-right, 0px) + 16px);
+        width: ${PAD}px; height: ${PAD}px; border-radius: 50%;
+        z-index: 6; touch-action: none;
+        user-select: none; -webkit-user-select: none;
+        background:
+          radial-gradient(circle at 50% 38%,
+            rgba(150,96,200,0.26) 0%,
+            rgba(58,20,94,0.44) 58%,
+            rgba(30,10,52,0.60) 100%);
+        border: 2px solid rgba(176,122,220,0.72);
+        box-shadow:
+          inset 0 3px 12px rgba(0,0,0,0.55),
+          inset 0 -2px 6px rgba(214,178,255,0.16),
+          0 4px 14px rgba(0,0,0,0.45),
+          0 0 0 1px rgba(0,0,0,0.38);
+        -webkit-backdrop-filter: blur(3px) saturate(1.15);
+        backdrop-filter: blur(3px) saturate(1.15);
+        transition: border-color 140ms ease, box-shadow 140ms ease;
+      }
+      /* Four ticks just inside the rim — N/E/S/W, so the well reads as a
+         direction control at a glance instead of a plain circle. */
+      #move-pad::before {
+        content: ''; position: absolute; inset: 0; border-radius: 50%;
+        pointer-events: none; opacity: 0.5;
+        background:
+          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 50% 7px / 2px 7px no-repeat,
+          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 50% calc(100% - 7px) / 2px 7px no-repeat,
+          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) 7px 50% / 7px 2px no-repeat,
+          linear-gradient(rgba(233,214,255,1), rgba(233,214,255,1)) calc(100% - 7px) 50% / 7px 2px no-repeat;
+        transition: opacity 140ms ease;
+      }
+      #move-pad .nub {
+        position: absolute; left: ${HALF}px; top: ${HALF}px;
+        width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 38% 30%,
+            rgba(255,252,255,0.95) 0%,
+            rgba(226,190,255,0.88) 42%,
+            rgba(168,112,214,0.90) 100%);
+        border: 2px solid rgba(255,255,255,0.85);
+        box-shadow:
+          inset 0 -3px 7px rgba(92,40,140,0.55),
+          inset 0 2px 4px rgba(255,255,255,0.55),
+          0 3px 8px rgba(0,0,0,0.45);
+        /* Only the RELEASED nub animates. While .held is on, transform is
+           excluded from the transition list so the cap tracks the finger
+           1:1; dropping the class on release re-arms it, so clearing the
+           inline transform plays as a spring back to centre. */
+        transition: transform 170ms cubic-bezier(.22,1,.36,1),
+                    box-shadow 140ms ease, border-color 140ms ease;
+      }
+      /* Held: the well lights up and the cap lifts, so a finger already
+         covering the nub still gets feedback from the ring around it. */
+      #move-pad.held {
+        border-color: rgba(226,190,255,0.95);
+        box-shadow:
+          inset 0 3px 12px rgba(0,0,0,0.5),
+          inset 0 -2px 6px rgba(214,178,255,0.22),
+          0 4px 16px rgba(0,0,0,0.45),
+          0 0 14px rgba(176,122,220,0.55),
+          0 0 0 1px rgba(0,0,0,0.38);
+      }
+      #move-pad.held::before { opacity: 0.75; }
+      #move-pad.held .nub {
+        transition: box-shadow 140ms ease, border-color 140ms ease;
+        border-color: #fff;
+        box-shadow:
+          inset 0 -3px 7px rgba(92,40,140,0.5),
+          inset 0 2px 4px rgba(255,255,255,0.6),
+          0 3px 10px rgba(0,0,0,0.5),
+          0 0 12px rgba(226,190,255,0.6);
+      }
+      /* The spring-back is decoration — the nub is already back at centre as
+         far as movement is concerned the moment the finger leaves. */
+      @media (prefers-reduced-motion: reduce) {
+        #move-pad, #move-pad::before, #move-pad .nub { transition: none; }
+      }
+    `;
+    document.head.appendChild(s);
   }
   // Toggle entry point wired from the ☰ menu. Debug controls are now a single
   // switch on one thing — stick walking costs no stamina (_steerManual) —
