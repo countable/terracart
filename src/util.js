@@ -192,3 +192,30 @@ function clampTextX(x, textW, canvasW, pad = 2) {
   if (textW + pad * 2 >= canvasW) return canvasW / 2;
   return Math.min(Math.max(x, half + pad), canvasW - half - pad);
 }
+
+// ── Memoised array → Set lookups ────────────────────────────────────────
+// The render loop asks "is this id in save.opened / save.chopped / save.picked
+// / …?" for every object in view, on every frame, and used to answer by
+// building a fresh Set from the array each time. Those arrays only ever grow —
+// a long session opens hundreds of chests and chops hundreds of trees — so the
+// cost was O(save size) allocation at 60 fps, getting steadily worse the longer
+// someone played. drawObjects alone rebuilt six of them per frame.
+//
+// Every writer of these arrays either push()es onto it (the length changes) or
+// assigns a whole new array (the identity changes); nothing rewrites an element
+// in place at an unchanged length. That makes (identity, length) a sound cache
+// key: the Set is rebuilt exactly when one of the two moves, and reused on
+// every frame in between.
+//
+// The returned Set is SHARED between callers — treat it as read-only. Anything
+// that needs to mutate should copy it (`new Set(setOf(arr))`).
+const _EMPTY_SET = new Set();
+const _setOfMemo = new WeakMap();
+function setOf(arr) {
+  if (!arr) return _EMPTY_SET;
+  const hit = _setOfMemo.get(arr);
+  if (hit && hit.len === arr.length) return hit.set;
+  const set = new Set(arr);
+  _setOfMemo.set(arr, { set, len: arr.length });
+  return set;
+}

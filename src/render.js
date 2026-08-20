@@ -135,6 +135,27 @@ const _WAVE_TABLE = (() => {
   return t;
 })();
 
+// Flat-only terrain types (no tileset art) get rounded corners at zone
+// boundaries. Module-level: the membership never changes, and drawCells runs
+// every frame — rebuilding a 12-element Set 60 times a second bought nothing.
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+// Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
+// contain art. Each road tier picks ONE frame so the same road class reads
+// visually consistent across cells; different tiers look distinct.
+//   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
+//   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
+//   - ROAD (minor/service/street):      frame 1 — small cluster
+//   - PATH:                             frame 3 — single small pebble
+const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
+const PATH_FRAME = 3;
+// Scratch buffers for drawCells' per-frame ring scan, reused across frames.
+// Allocated on first use rather than at parse time because their size derives
+// from VIEW_CELLS, which app.js defines and which therefore is not readable
+// until the first call. Every element is overwritten by the scan before it is
+// read, so carrying them between frames is safe.
+let _ringTypes  = null;
+let _ringOwners = null;
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -169,15 +190,7 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
-  // Road copiar.png is a 5x4 grid of 16×16 frames. Only frames 0-8, 10-11,
-  // 15-16 contain art. Each road tier picks ONE frame so the same road class
-  // reads visually consistent across cells; different tiers look distinct.
-  //   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
-  //   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
-  //   - ROAD (minor/service/street):      frame 1 — small cluster
-  //   - PATH:                             frame 3 — single small pebble
-  const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
-  const PATH_FRAME = 3;
+  // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
   // Cobble tiles (road cluster + path pebble alike) draw at 67% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
@@ -205,12 +218,22 @@ Render.drawCells = function drawCells(scene) {
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
   // rounding to read its diagonal neighbor.
   const RING = VIEW_CELLS + 4;
-  const types = new Int8Array(RING * RING);
-  // Parallel ring of building ownership. 0 = no building; otherwise
-  // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
-  // and tileSalt distinguishes tiles so two buildings that happen to share a
-  // local id in different tiles never read as "the same building".
-  const owners = new Int32Array(RING * RING);
+  if (!_ringTypes || _ringTypes.length !== RING * RING) {
+    _ringTypes  = new Int8Array(RING * RING);
+    // Parallel ring of building ownership. 0 = no building; otherwise
+    // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
+    // and tileSalt distinguishes tiles so two buildings that happen to share a
+    // local id in different tiles never read as "the same building".
+    _ringOwners = new Int32Array(RING * RING);
+  }
+  const types  = _ringTypes;
+  const owners = _ringOwners;
+  // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
+  // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
+  // resolve to the same one. Hold the last tile (and its salt, which depends
+  // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
+  // the Map for all 225 cells on every frame.
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -222,17 +245,20 @@ Render.drawCells = function drawCells(scene) {
       // produce ix==N (out-of-bounds → silent grass fallback) at exact tile seams.
       const ix2 = ((Math.floor(wcx) % N) + N) % N;
       const iy2 = ((Math.floor(wcy) % N) + N) % N;
-      const e2 = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+      if (tx2 !== mTx || ty2 !== mTy) {
+        mTx = tx2; mTy = ty2;
+        mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
+      }
+      const e2 = mEntry;
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
-      const salt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
-      owners[r * RING + c] = ol ? ((salt << 16) | ol) : 0;
+      owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
-  // Flat-only types (no tileset art) get rounded corners at zone boundaries.
-  const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+  // (FLAT_ROUNDABLE is module-level — see above.)
   const CORNER_R = 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
@@ -884,7 +910,7 @@ Render.drawCells = function drawCells(scene) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
-  const found = new Set(scene.save.foundTreasures || []);
+  const found = setOf(scene.save.foundTreasures);
   g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
     if (!tr || found.has(tr.id)) return;
@@ -980,7 +1006,7 @@ Render.drawObjects = function drawObjects(scene) {
   // badges, pet hearts). World sprites take depths 0..n from the z-order pass
   // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
   const Z_OVERLAY = 10000;
-  const pickedSet = new Set(scene.save.picked || []);
+  const pickedSet = setOf(scene.save.picked);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -1005,7 +1031,7 @@ Render.drawObjects = function drawObjects(scene) {
   // the random hangs the user reported). 9 tiles strictly cover the 11-cell
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
-  const caughtSet = new Set(scene.save.caught || []);
+  const caughtSet = setOf(scene.save.caught);
   const pc = scene.playerToWorldCell();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
@@ -1081,12 +1107,12 @@ Render.drawObjects = function drawObjects(scene) {
   //  - chopped trees
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
-  const openedSet = new Set(scene.save.opened);
+  const openedSet = setOf(scene.save.opened);
   // Trees flag o.chopped = true in-memory when the chop progress wheel completes
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
-  const choppedSet = new Set(scene.save.chopped || []);
-  const pickedSetObj = new Set(scene.save.picked || []);
+  const choppedSet = setOf(scene.save.chopped);
+  const pickedSetObj = setOf(scene.save.picked);
   const brokenRockSet = scene.brokenRockSet || new Set();
   // Lowtier chests (chestTier === 1) and starter supply crates render the
   // `box` sprite instead of the trunk chest. Defined here (ahead of the filter)
@@ -2482,6 +2508,26 @@ Render.drawObjects = function drawObjects(scene) {
   }
   hidePoolFrom(scene._petHeartPool, hi);
 
+  // Where a creature's ART bottom sits inside its FRAME, as a fraction of frame
+  // height — i.e. the origin that puts its feet on the ground. Creature sheets
+  // are padded differently: the slime blob ends at row 21 of 32 while a cow
+  // fills its frame to the last row, so the blanket 0.9 every kind used to
+  // share left the slime hanging 11px above its own contact shadow (it read as
+  // flying) and sank the cow 3px into hers. Measured off the PNGs, frames
+  // within a sheet agreeing to a pixel; a kind with no entry keeps 0.9.
+  const CREATURE_FOOT = {
+    slime: 21 / 32, purple_slime: 21 / 32,
+    goblin: 27 / 32, goblin_archer: 26 / 32,
+    cow: 32 / 32, cat: 29 / 32, dog: 29 / 32, deer: 31 / 32, crow: 31 / 32,
+    rabbit: 16 / 16, chicken: 16 / 16, butterfly: 12 / 16,
+  };
+  const creatureFoot = (kind) => CREATURE_FOOT[kind] ?? 0.9;
+  // The ground line a creature stands on, relative to its cell centre. Shared
+  // with the shadow pass below so the sprite and its shadow can never drift:
+  // with the origin above, placing the sprite at sy + this lands the art's
+  // bottom edge exactly on the shadow's centre.
+  const CREATURE_GROUND_DY = 2;
+
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -2491,7 +2537,8 @@ Render.drawObjects = function drawObjects(scene) {
       // Cow is the biggest farm animal — needs to read larger than the
       // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
       // (48 px effective) so the cow visibly dwarfs the pets.
-      s.setOrigin(0.5, 0.9).setScale(1.50).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.50)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
       // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
@@ -2501,14 +2548,16 @@ Render.drawObjects = function drawObjects(scene) {
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
       const sc = 1.3;
       if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
-      s.setOrigin(0.5, 0.9).setScale(sc).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(sc)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'deer') {
       // 32×32 sheet (see assets.js comment) → scale 1.3, a touch under cow.
       // Row 0 frames 0-1 are the side-view idle pose.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.3).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.3)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
       // 16×16 sheet → 1.5× (per user). Reads a touch smaller than the
@@ -2516,7 +2565,8 @@ Render.drawObjects = function drawObjects(scene) {
       // fills less of its 16×16 cell.
       if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.5).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.5)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
       // 32×32 sheet (see assets.js comment). Row 0 frames 0-4 are the ground
@@ -2525,13 +2575,15 @@ Render.drawObjects = function drawObjects(scene) {
       // a proper bird next to the cow rather than a tiny pebble.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, 0.9).setScale(1.3).setPosition(Math.round(sx), Math.round(sy) - 14);
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.3)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - 13);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
       // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
       if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
       s.setFrame(Math.floor(performance.now() / 100) % 7);
-      s.setOrigin(0.5, 0.9).setScale(2.0).setPosition(Math.round(sx), Math.round(sy) - 8);
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(2.0)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - 15);
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
       const m = MONSTERS[c.kind];
@@ -2551,8 +2603,9 @@ Render.drawObjects = function drawObjects(scene) {
       const ph = ((performance.now() + c._hopSeed) % period) / period;
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
       const floatPx = m.fly ? 8 : 0;   // bats hover off the floor
-      s.setOrigin(0.5, 0.9).setScale(m.fly ? 0.95 : 1.25)
-       .setPosition(Math.round(sx), Math.round(sy) - Math.round(hopPx) - floatPx);
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(m.fly ? 0.95 : 1.25)
+       .setPosition(Math.round(sx),
+                    Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx) - floatPx);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'slime') {
       // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
@@ -2567,14 +2620,18 @@ Render.drawObjects = function drawObjects(scene) {
       }
       const ph = ((performance.now() + c._hopSeed) % 600) / 600;   // 0..1 per hop
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
-      s.setOrigin(0.5, 0.9).setScale(1.2).setPosition(Math.round(sx), Math.round(sy) - Math.round(hopPx));
+      // Anchored on the blob's own bottom row, so the hop lifts it OFF the
+      // shadow instead of starting 11px above it ("the slime is flying").
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.2)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx));
       s.setFlipX(!!c._faceFlip);
     } else {
       // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
       // Per user → 1.20 (still well under the cow's 1.20 because the chicken
       // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
       if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
-      s.setOrigin(0.5, 0.9).setScale(1.20).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(1.20)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     }
     // Rare shiny animals wear the warm sheen; underground monsters wear their
@@ -2582,6 +2639,7 @@ Render.drawObjects = function drawObjects(scene) {
     // explicit colour every frame (white for the common, plain case).
     s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
   });
+
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing
@@ -2603,7 +2661,7 @@ Render.drawObjects = function drawObjects(scene) {
       const airborne = c.kind === 'butterfly' || c.kind === 'crow';
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.34)
-       .setPosition(Math.round(sx), Math.round(sy) + 2)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)
        .setAlpha(airborne ? 0.20 : 0.32).setTint(0xffffff);
     });
   }
