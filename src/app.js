@@ -4759,6 +4759,9 @@ class MapScene extends Phaser.Scene {
     // at 22px could still run off the 352px viewport in the loot pop, where
     // nobody had noticed because most names are short.
     t.x = clampTextX(x, t.width, W);
+    // Stack instead of overlapping. Do this BEFORE the drift tween is built so
+    // the tween captures the final resting y.
+    if (opts.stack !== false) this._stackToast(t);
     if (S.pop) {
       t.setScale(S.popScale).setAlpha(0);
       const peak = S.overshoot || 1;
@@ -4771,12 +4774,56 @@ class MapScene extends Phaser.Scene {
       t.setAlpha(0);
       this.tweens.add({ targets: t, alpha: 1, duration: S.fadeIn, delay: 160 });
     }
+    // t.y, not the anchor y — _stackToast may have lifted it clear.
     this.tweens.add({
-      targets: t, y: y - S.rise, alpha: 0,
+      targets: t, y: t.y - S.rise, alpha: 0,
       duration: Math.round(S.fade * mul), delay: Math.round(S.hold * mul),
       ease: S.ease, onComplete: () => t.destroy(),
     });
     return t;
+  }
+
+  // Lift a freshly-built toast until it clears every toast already on screen.
+  //
+  // The NEW one moves, never the ones already placed. That is not a style
+  // choice: a placed toast already owns a tween on its own `y` for the drift,
+  // and a second tween on the same property fights it — the toast would snap
+  // between the two values for the rest of its life. Walking the newcomer
+  // upward past what is already there needs no tween at all.
+  //
+  // Overlap is tested on real rendered bounds rather than on tier or anchor,
+  // so it also catches a note colliding with a loot pop, and leaves two
+  // messages at opposite corners alone.
+  _stackToast(t) {
+    const live = this._liveToasts || (this._liveToasts = []);
+    // Drop anything Phaser has already destroyed. The destroy handler below
+    // normally does this; the sweep covers a scene teardown that fired none.
+    for (let i = live.length - 1; i >= 0; i--) {
+      if (!live[i].scene || live[i].active === false) live.splice(i, 1);
+    }
+    const GAP = 3;
+    const ceiling = (this.viewTop ?? 0) + 2;
+    const hits = (b) => live.find((o) => {
+      const ob = o.getBounds();
+      return !(b.right <= ob.left || b.left >= ob.right
+            || b.bottom <= ob.top  || b.top  >= ob.bottom);
+    });
+    // Bounded: a burst of messages must not march off the top of the map. Once
+    // the stack reaches the ceiling the newest simply overlaps, which is the
+    // old behaviour and still better than a toast nobody can see.
+    for (let guard = 0; guard < 6; guard++) {
+      const b = t.getBounds();
+      const hit = hits(b);
+      if (!hit) break;
+      const lift = (b.bottom - hit.getBounds().top) + GAP;
+      if (b.top - lift < ceiling) break;
+      t.y -= lift;
+    }
+    live.push(t);
+    t.once('destroy', () => {
+      const i = live.indexOf(t);
+      if (i >= 0) live.splice(i, 1);
+    });
   }
 
   // Radial ✦ burst behind a fanfare. Was written out twice, identically bar
@@ -4986,7 +5033,14 @@ class MapScene extends Phaser.Scene {
       // Hangs BELOW the headline (originY 0) rather than above it, which is
       // the whole reason `sub` is its own tier.
       const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
-      this._toast(subText, { tier: 'sub', color: UI_GOLD_DEEP, originY: 0 });
+      // Pinned 8px under the headline's FINAL y (the banner may have been
+      // lifted clear of a loot pop — flashShiny is documented to fire after
+      // one) and opted out of stacking, so the pair always reads as one unit
+      // instead of the sub wandering off to find its own clear slot.
+      this._toast(subText, {
+        tier: 'sub', color: UI_GOLD_DEEP, originY: 0,
+        y: banner.y + 8, stack: false,
+      });
       this._starburst(banner.x, banner.y, 8, 80, 950);
     } catch (_) {}
   }
