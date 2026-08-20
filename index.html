@@ -441,6 +441,11 @@
         <dt>Getting around</dt>
         <dd>Walk. Your real-world location moves your character &mdash; the map
             is your neighbourhood. On a computer, use WASD or the arrow keys.</dd>
+        <dt>The stick</dt>
+        <dd>Drag the stick (bottom right) to walk somewhere you aren&rsquo;t.
+            It costs &#9889; once you leave the few cells around you, and your
+            character dims the further out it strays. Let go and it walks back
+            to you. An Amulet makes straying faster and cheaper.</dd>
         <dt>Reach</dt>
         <dd>You can only touch the lit cells around you. Everything outside
             them is dimmed until you walk closer.</dd>
@@ -1108,7 +1113,7 @@
   <script src="src/quests.js?v=2"></script>
   <script src="src/interactables.js?v=7"></script>
   <script src="src/interact.js?v=222"></script>
-  <script src="src/render.js?v=284"></script>
+  <script src="src/render.js?v=285"></script>
   <script src="src/road_overlay.js?v=4"></script>
   <script src="src/assets.js?v=176"></script>
   <script src="src/sandbox.js?v=36"></script>
@@ -1130,7 +1135,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=375';
+      const APP_SRC = 'src/app.js?v=376';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

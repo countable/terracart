@@ -456,6 +456,9 @@ CHESTS (POI-driven)
    or "Leave for later" (chest kept; it remembers its exact roll in
    save.chestHold so you can't re-roll for something better).
  - opened chests stay open + dimmed and persist (save.opened).
+ - every UNOPENED POI breathes a slow, subtle gold halo under it (~4.5 s per
+   pulse, phase hashed off the POI id so a street doesn't throb in unison) —
+   ambience that marks where the places are, drawn under the concrete pad.
  - POI names are RUSTICIFIED for display (Hospital→Apothecary, School→Hedge
    School, Coffee→Roastery, …) and shown as a label above the chest + in the
    loot flash.
@@ -612,7 +615,17 @@ GEAR: RELICS & ARMOR
    and the AMULET is the upgrade to it: speed 5× walk bare (≈ one cell per
    second — real walk pace is unusably slow on an 11-cell view) → 15.5× at Frost,
    cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
-   ("too tired"); the GPS still moves you. Two things borrow a tier rather
+   ("too tired"); the GPS still moves you.
+   Straying is shaped by a 3-cell ring around your real position: INSIDE it
+   stick walking costs 80% less (pottering about where you're actually
+   standing is nearly free), OUTSIDE it you pay full price and the character
+   TINTS DARKER the further out you go, with a black pulsing halo behind. At
+   0 energy the character tints RED with a red pulsing halo instead (that
+   warning wins when both apply). Let the stick sit idle for 3 s and the
+   character WALKS ITSELF HOME — the offset bleeds back to zero at stick pace,
+   free of charge; any push restarts the timer. Surface only, and never while
+   a work wheel is running (standing still to chop a tree is being busy, not
+   idle). Two things borrow a tier rather
    than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
    damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
    walking (debug)" toggle drops the stamina cost to nothing and with it the
