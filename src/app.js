@@ -4670,25 +4670,38 @@ class MapScene extends Phaser.Scene {
   }
 
   updateHUD() {
+    // Runs every frame, so every write in here is guarded on the value having
+    // actually changed. Money and energy move a few times a minute at most,
+    // but an unguarded textContent/style assignment still costs a style
+    // invalidation on each of the ~60 frames a second in between.
     // Money badge always shown.
-    if (this.moneyEl) this.moneyEl.textContent = `$${this.save.money ?? 0}`;
+    if (this.moneyEl) {
+      const money = `$${this.save.money ?? 0}`;
+      if (this._moneyDOM !== money) { this._moneyDOM = money; this.moneyEl.textContent = money; }
+    }
     this.updateEnergyDOM();
     this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
     const gpsLive = this.gpsAvailable && this.gpsM;
     if (gpsLive) {
-      this.hud.textContent = '';
+      if (this._hudDOM !== '') { this._hudDOM = ''; this.hud.textContent = ''; }
       return;
     }
     const gps = this.gpsAvailable ? 'waiting' : 'wasd';
     const pc = this.playerToWorldCell();
     const lat = START_LAT + (-this.playerM.y) / METERS_PER_DEG_LAT;
     const lon = START_LON + this.playerM.x / (METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180));
-    const loaded = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-    this.hud.textContent =
+    // Count in place. Spreading tileCache into an array allocated one entry per
+    // VISITED tile every frame, and that cache grows without bound as the
+    // player walks — the debug HUD was the most expensive thing on screen in a
+    // long desktop session.
+    let loaded = 0;
+    for (const t of WorldGen.tileCache.values()) if (t.status === 'ready') loaded++;
+    const text =
       `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
       `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
+    if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
   }
 
   // Always derive the cap from currently-equipped armor (rather than reading
@@ -4715,18 +4728,37 @@ class MapScene extends Phaser.Scene {
   }
 
   updateEnergyDOM() {
-    const el = document.getElementById('energy');
+    // Element refs are looked up once and kept: the energy widget is static
+    // markup in index.html and is never rebuilt. Re-query until found, so a
+    // call that somehow lands before the DOM is parsed can't cache nulls.
+    let els = this._energyEls;
+    if (!els || !els.el) {
+      els = this._energyEls = {
+        el:    document.getElementById('energy'),
+        label: document.getElementById('energy-label'),
+        fill:  document.getElementById('energy-bar-fill'),
+      };
+    }
+    const el = els.el;
     if (!el) return;
     const cur = Math.max(0, this.save.energy ?? 0);
     const max = this.getMaxEnergy();
+    // Every value written below — the two colours, the label text, the bar
+    // width — is a pure function of (cur, max). This is called once per frame
+    // from updateHUD, so when neither has moved there is nothing to write:
+    // bail before touching the DOM rather than restating the same six values
+    // and dirtying style for the next layout pass.
+    if (this._energyDOMCur === cur && this._energyDOMMax === max) return;
+    this._energyDOMCur = cur;
+    this._energyDOMMax = max;
     const pct = max > 0 ? cur / max : 0;
     // Green normally, yellow at/below 30%, red when critically low.
     const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
-    const label = document.getElementById('energy-label');
+    const label = els.label;
     if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }
-    const fill = document.getElementById('energy-bar-fill');
+    const fill = els.fill;
     if (fill) {
       fill.style.width = `${Math.round(pct * 100)}%`;
       fill.style.background = color;
