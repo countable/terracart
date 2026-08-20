@@ -8,7 +8,13 @@
 //      each rounded UP to at least one, so no tile with buildings lacks either;
 //   3. n === 3 is the one documented exception — 1 + 1 + ceil(3 × 0.5) > 3, so
 //      the tile comes out one of each and the house floor goes unmet;
-//   4. buildings are re-tiered by AREA RANK: the biggest get the biggest tier.
+//   4. buildings are re-tiered by AREA RANK: the biggest get the biggest tier;
+//   5. TIER_FLOOR_LARGE is a CEILING as well as a floor. A castle paints its
+//      footprint and draws no sprite, so a surplus castle is an empty block of
+//      building floor. Buildings outside the forced bands used to keep their
+//      default tier, and buildingTier() calls anything over 1500 m² OR taller
+//      than 15 m a castle — so a downtown / apartment-tower / industrial tile
+//      came out ~40% empty footprints against a 2% floor.
 
 // Locals are prefixed — every *.test.js shares ONE VM context, so a bare `T`
 // collides with another file's.
@@ -92,4 +98,76 @@ test('worldgen tiers: a tile already meeting every floor is left untouched', () 
   const before = polys.map(p => p.tier);
   WorldGen.enforceBuildingDistribution(polys);
   assert.eq(polys.map(p => p.tier).join(','), before.join(','), 'no re-tiering');
+});
+
+
+// ── The castle CEILING (surplus castles are empty footprints) ──────────────
+
+// A tile whose buildings are all naturally castle-sized, the way a downtown
+// block or a row of apartment towers arrives from OSM.
+function tierCeilN(n) { return Math.max(1, Math.ceil(n * TIER_FLOOR_LARGE)); }
+
+test('worldgen tiers: no tile keeps more castles than its ceiling', () => {
+  for (const n of [4, 5, 6, 7, 10, 17, 40, 99, 250]) {
+    const polys = tierPolys(n);          // every one a castle before enforcement
+    WorldGen.enforceBuildingDistribution(polys);
+    const castles = tierCount(polys, TIER_T.BUILDING_LARGE);
+    assert.eq(castles, tierCeilN(n), `n=${n}: castles capped at the floor count`);
+  }
+});
+
+test('worldgen tiers: empty footprints stay a rounding error on a real tile', () => {
+  // The whole point: a footprint the renderer paints should have something on
+  // it. BUILDING and BUILDING_MED both draw a roof; BUILDING_LARGE does not.
+  // Only checked from n=20 up — below that the "every tile gets a castle"
+  // floor IS the binding constraint (a 4-building tile is 25% castle by
+  // design), so the fraction only becomes meaningful on a populated tile.
+  for (const n of [20, 40, 99, 250]) {
+    const polys = tierPolys(n);
+    WorldGen.enforceBuildingDistribution(polys);
+    const spriteless = tierCount(polys, TIER_T.BUILDING_LARGE);
+    assert.truthy(spriteless / n <= 0.05,
+      `n=${n}: ${spriteless}/${n} footprints left empty (was ~40% before the ceiling)`);
+  }
+});
+
+test('worldgen tiers: a TALL building on a small footprint is not left empty', () => {
+  // buildingTier calls anything over 15 m a castle regardless of area, so a
+  // street of apartment towers arrived as an all-castle tile — every footprint
+  // painted, none built on.
+  const polys = [];
+  for (let i = 0; i < 30; i++) {
+    const areaM2 = 400 - i;                       // small footprints...
+    polys.push({ areaM2, tier: WorldGen.buildingTier(areaM2, 20) });  // ...20 m tall
+  }
+  assert.eq(tierCount(polys, TIER_T.BUILDING_LARGE), 30, 'all castles by height alone');
+  WorldGen.enforceBuildingDistribution(polys);
+  assert.eq(tierCount(polys, TIER_T.BUILDING_LARGE), tierCeilN(30), 'capped');
+});
+
+test('worldgen tiers: the ceiling holds even when every floor is already met', () => {
+  // The early-out used to return before any capping, so a tile that satisfied
+  // all three floors kept its surplus castles untouched.
+  const polys = [];
+  for (let i = 0; i < 50; i++) polys.push({ areaM2: 60 - i * 0.1, tier: TIER_T.BUILDING });
+  for (let i = 0; i < 8;  i++) polys.push({ areaM2: 500 - i,      tier: TIER_T.BUILDING_MED });
+  for (let i = 0; i < 42; i++) polys.push({ areaM2: 9000 - i,     tier: TIER_T.BUILDING_LARGE });
+  const n = polys.length;                                  // 100
+  assert.truthy(tierCount(polys, TIER_T.BUILDING) >= Math.ceil(n * TIER_FLOOR_SMALL), 'house floor met');
+  assert.truthy(tierCount(polys, TIER_T.BUILDING_MED) >= Math.ceil(n * TIER_FLOOR_MED), 'fort floor met');
+  assert.truthy(tierCount(polys, TIER_T.BUILDING_LARGE) >= Math.ceil(n * TIER_FLOOR_LARGE), 'castle floor met');
+  WorldGen.enforceBuildingDistribution(polys);
+  assert.eq(tierCount(polys, TIER_T.BUILDING_LARGE), tierCeilN(n), 'surplus castles still capped');
+});
+
+test('worldgen tiers: a demoted castle becomes a fort, not a house', () => {
+  // These are the tile's biggest footprints — a small house roof adrift on one
+  // reads as wrong as no roof at all, and the fort sprite scales to its block.
+  const polys = tierPolys(40);
+  WorldGen.enforceBuildingDistribution(polys);
+  // Index order is area order (tierPolys is strictly descending), so the
+  // entries just past the castle ceiling are the demoted ones.
+  for (let i = tierCeilN(40); i < 40 - Math.ceil(40 * TIER_FLOOR_SMALL); i++) {
+    assert.eq(polys[i].tier, TIER_T.BUILDING_MED, `rank ${i} demoted to fort`);
+  }
 });

@@ -166,6 +166,21 @@
   // n === 3 (1 + 1 + 2 > 3), where the tile comes out one of each and the house
   // floor goes unmet — the castle/fort guarantees win on a 3-building tile.
   // Every n >= 4 satisfies all three floors.
+  //
+  // TIER_FLOOR_LARGE is also a CEILING, and that half is load-bearing: a castle
+  // is the one tier that paints its footprint and draws NO sprite (see the
+  // BUILDING_LARGE skip in the emission loop below), so every castle beyond the
+  // few this tile is meant to have is a block of bare building floor with
+  // nothing standing on it. The floors alone couldn't hold that line, because
+  // buildings OUTSIDE the forced bands keep whatever buildingTier gave them —
+  // and it gives LARGE to anything over 1500 m² OR taller than 15 m. On a tile
+  // where that describes most of the buildings (a downtown, a row of apartment
+  // towers, an industrial estate) the middle band stayed castles wholesale:
+  // measured at 40% of the tile's footprints left empty, against a 2% floor.
+  // So only the biggest `needLarge` may be castles; any other building that
+  // would default to one becomes a fort, which draws a roof sized to its
+  // footprint. Applied BEFORE the early-out below so it holds even on a tile
+  // whose floors are already satisfied.
   // Mutates each entry's `.tier`.
   function enforceBuildingDistribution(polys) {
     const n = polys.length;
@@ -173,7 +188,14 @@
     const needLarge = Math.max(1, Math.ceil(n * TIER_FLOOR_LARGE));
     const needMed   = Math.max(1, Math.ceil(n * TIER_FLOOR_MED));
     const needSmall = Math.max(1, Math.ceil(n * TIER_FLOOR_SMALL));
-    // Count current
+    const byArea = [...polys].sort((a, b) => b.areaM2 - a.areaM2);
+    // Castle CEILING — see above. Demote to fort, not to house: these are the
+    // tile's big footprints, and a small house roof adrift on one reads as
+    // wrong as no roof at all.
+    for (let i = needLarge; i < byArea.length; i++) {
+      if (byArea[i].tier === T.BUILDING_LARGE) byArea[i].tier = T.BUILDING_MED;
+    }
+    // Count what the ceiling left behind.
     let cLarge = 0, cMed = 0, cSmall = 0;
     for (const p of polys) {
       if (p.tier === T.BUILDING_LARGE) cLarge++;
@@ -181,10 +203,8 @@
       else cSmall++;
     }
     if (cLarge >= needLarge && cMed >= needMed && cSmall >= needSmall) return;
-    // Rank by area descending and FORCE the top / bottom bands. Buildings
-    // outside the forced bands keep their default tier — the floors are
-    // "at least", so naturally-large mid-tier buildings stay where they were.
-    const byArea = [...polys].sort((a, b) => b.areaM2 - a.areaM2);
+    // FORCE the top / bottom bands. Buildings outside them keep the tier they
+    // now hold — which, after the ceiling, is never a castle.
     for (let i = 0; i < byArea.length; i++) {
       if (i < needLarge) byArea[i].tier = T.BUILDING_LARGE;
       else if (i < needLarge + needMed) byArea[i].tier = T.BUILDING_MED;
