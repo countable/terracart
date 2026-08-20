@@ -109,11 +109,29 @@
        it and swallow the taps meant to dismiss it (you could still walk but not
        close the modal). MapScene._installModalPadGate toggles body.modal-open
        whenever a .game-modal is shown; hide the stick then. */
-    body.modal-open #move-pad { display: none !important; }
+    /* The whole bottom HUD cluster, not just the stick. #inv-tabs / #inv /
+       #inv-name / #hud are position:fixed on <body> at z-index 5-6, and #game's
+       CSS transform makes a stacking context — so a modal inside #game at
+       z-index 50 can NEVER climb above them. Stats & Relics was the worst case:
+       its Close button sat behind the item bar. Hide the bars outright and dim
+       the top chips so a dialog owns the screen. */
+    body.modal-open #move-pad,
+    body.modal-open #inv-tabs,
+    body.modal-open #inv,
+    body.modal-open #inv-name,
+    body.modal-open #hud { display: none !important; }
+    body.modal-open #money,
+    body.modal-open #energy { opacity: 0.25; pointer-events: none; }
+    body.modal-open #objective { display: none !important; }
+    /* Tile-fetch failure. Tappable — a captive portal / blocked host / 5xx all
+       leave navigator.onLine true, so this is the only thing on screen telling
+       the player why the world is an empty green field. */
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 6px;
+      background: var(--danger); color: #fff; padding: 8px 12px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
+      pointer-events: auto; cursor: pointer; min-height: 32px;
+      font-family: ui-monospace, monospace;
     }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
        flash), this stays on screen until dismissed and is fully selectable so
@@ -140,12 +158,20 @@
       font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
+    /* Sits BELOW #inv-name (pinned at bottom:30px, ~15px tall) in the 8..21px
+       strip. It used to WRAP to two lines there and collide with the name by
+       ~4px at every viewport size — and this is a PERMANENT state on desktop
+       and for anyone who denies location, not the rare exception it reads as.
+       nowrap+ellipsis keeps it to one line, so the two never meet; the copy
+       itself is now one actionable phrase, with the coordinate dump behind
+       ☰ › Developer (see updateHUD). */
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
       right: calc(var(--phone-right, 0px) + 8px);
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
-      font-family: ui-monospace, monospace;
+      font-family: ui-monospace, monospace; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
        on #hud below) so it anchors to the visual viewport instead of #game's
@@ -158,13 +184,15 @@
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
+    /* Tappable: "how do I refill this?" is the obvious gesture and it used to
+       do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
       background: #000a; color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
-      pointer-events: none; z-index: 7;
+      pointer-events: auto; cursor: pointer; z-index: 7;
       display: flex; flex-direction: column; gap: 3px; align-items: stretch;
     }
     /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
@@ -203,10 +231,15 @@
       color: var(--gold); font: 700 13px ui-monospace, monospace;
       flex: 1; min-width: 0;
     }
+    /* 13×15px was a stray-thumb away from ending the onboarding ladder for a
+       save permanently. Same glyph, a 44×44 target around it (padding, and a
+       negative margin so the chip doesn't grow to fit). */
     #objective .close {
       pointer-events: auto; cursor: pointer; flex: none;
       background: transparent; color: #888; border: 0;
-      font: 700 15px ui-monospace, monospace; padding: 0 2px; line-height: 1;
+      font: 700 15px ui-monospace, monospace; line-height: 1;
+      min-width: 44px; min-height: 44px; margin: -14px -10px -14px 0;
+      display: flex; align-items: center; justify-content: center;
     }
     #objective .body {
       color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
@@ -226,10 +259,17 @@
     }
     #menu summary::-webkit-details-marker { display: none; }
     #menu[open] summary { border-color: #888; }
+    /* OPAQUE, not #000c: 80% black over bright pixel art let map detail bleed
+       through behind 12px text, and on a 360-wide phone the panel overlaps the
+       objective chip, which made both unreadable. Capped + scrollable so a tall
+       panel (Developer open) can't run its destructive "Reset this game" row
+       down onto the item bar. */
     #menu .items {
       margin-top: 4px; min-width: 140px;
-      background: #000c; border: 2px solid #444; border-radius: 8px;
+      background: #12100e; border: 2px solid #444; border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
+      max-height: calc(100vh - 60px); overflow-y: auto;
+      overscroll-behavior: contain;
     }
     /* Nested "Developer" disclosure inside the ☰ menu. */
     #devtools { border-top: 1px solid #333; margin-top: 2px; padding-top: 4px; }
@@ -243,10 +283,14 @@
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
     #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
+    /* Hit height, not font size: rows were 26px tall with "Reset this game"
+       26px below "+ New game". Padding takes them to ~40px without changing
+       how they look. */
     #menu .items button {
       background: transparent; color: #ddd; border: 0;
-      text-align: left; padding: 6px 8px; border-radius: 4px;
+      text-align: left; padding: 12px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
+      min-height: 40px;
     }
     #menu .items button:hover { background: #fff2; }
     #menu .items button.danger { color: var(--danger-ink); }
@@ -452,7 +496,7 @@
 <body>
   <div id="frame">
     <div id="game">
-      <div id="banner">reconnecting…</div>
+      <div id="banner">can't reach the map — tap to retry</div>
       <div id="errbar">
         <div class="errmsg"></div>
         <div class="errstack"></div>
@@ -487,6 +531,10 @@
       <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
+      <!-- Only shown when the objective ladder has been dismissed but isn't
+           finished — a dismissal used to be permanent with no way back. -->
+      <button id="show-objectives" style="display:none;">Show objectives</button>
+      <button id="toggle-haptics">Vibration: on</button>
       <button id="move-home">Move Home here</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
@@ -515,7 +563,7 @@
     </div>
   </details>
   <div id="hud"></div>
-  <div id="safety">
+  <div id="safety" class="game-modal">
     <div class="box">
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
       <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:var(--green);">Farm your neighbourhood.</p>
@@ -527,14 +575,14 @@
        waited for. The world's projection origin is frozen at that fix, so the
        game boots once, already anchored at the player's home — see the boot
        gate at the bottom of this file. -->
-  <div id="locating" style="display:none">
+  <div id="locating" class="game-modal" style="display:none">
     <div class="box">
       <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:var(--gold);">Finding your location…</p>
       <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
       <button id="locating-skip">Skip</button>
     </div>
   </div>
-  <div id="howto" style="display:none">
+  <div id="howto" class="game-modal" style="display:none">
     <div class="box">
       <h2>How to play</h2>
       <!-- The one mechanic a still picture explains better than a sentence:
@@ -574,7 +622,7 @@
       <button id="howto-skip" class="secondary" type="button">Skip the tutorial</button>
     </div>
   </div>
-  <div id="story" style="display:none">
+  <div id="story" class="game-modal" style="display:none">
     <div class="box">
       <div class="art" id="story-art"></div>
       <p id="story-text"></p>
@@ -597,6 +645,14 @@
     // itself inside the column rather than stretching across the full
     // browser width. body.phone-preview also paints a thin frame around
     // the column for clarity.
+    // Where the MAP is centred inside the 352×844 box — src/app.js sets
+    // viewCenterY = H/2 - 150 to lift the map clear of the two-bar inventory
+    // HUD. Centring on the box's own middle (422) instead puts the player far
+    // off the viewport's centre, so both branches below centre on this.
+    const MAP_CENTER_Y = 844 / 2 - 150;   // 272
+    // The simulated phone column, in CSS px. iPhone regular ↔ Pro Max.
+    const PHONE_MIN = 390, PHONE_MAX = 430;
+
     function fitGame() {
       const W = 352, H = 844;
       const vw = window.innerWidth;
@@ -606,13 +662,31 @@
       if (!g) return;
       const root = document.documentElement;
       if (portrait) {
-        const s = vw / W;
+        // CLAMP the column the same way landscape does. Unbounded, an iPad in
+        // portrait (768×1024) scaled the box by 768/352 = 2.18 into a 768×1841
+        // game: the map overflowed ~800px off the bottom, the inventory HUD
+        // landed on top of the world, and the movement stick sat in the middle
+        // of the play field. The desktop gutters are the mechanism for this —
+        // portrait just wasn't using them.
+        const s = Math.min(vw / W, PHONE_MAX / W);
+        const phoneW = W * s;
+        const left  = Math.max(0, (vw - phoneW) / 2);
+        const right = Math.max(0, vw - left - phoneW);
+        // Same map-centred rule as landscape, so a viewport shorter than the
+        // scaled box keeps the player in the middle rather than off the bottom.
+        const top = Math.min(0, vh / 2 - MAP_CENTER_Y * s);
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
-        g.style.top  = '0px';
-        document.body.classList.remove('phone-preview');
-        root.style.setProperty('--phone-left',  '0px');
-        root.style.setProperty('--phone-right', '0px');
+        g.style.top  = top + 'px';
+        // The visible slice of the 844-tall box, in GAME px — modals size and
+        // centre against THIS, not against the box (see makeModalShell). The
+        // box is taller than most viewports, so a box-centred dialog hangs off
+        // the bottom and a box-relative max-height never actually caps it.
+        root.style.setProperty('--view-top', (-top / s) + 'px');
+        root.style.setProperty('--view-h',   (vh / s) + 'px');
+        document.body.classList.toggle('phone-preview', left > 0);
+        root.style.setProperty('--phone-left',  left  + 'px');
+        root.style.setProperty('--phone-right', right + 'px');
       } else {
         // Desktop emulation: pin the simulated column to phone-sized widths
         // (390..430 CSS px — iPhone regular ↔ Pro Max) so HUD overlays sized
@@ -620,28 +694,31 @@
         // also clamp to ≤430 so the column doesn't grow unrealistically big.
         // #frame's overflow:hidden quietly clips the bottom if the column
         // exceeds vh.
-        const PHONE_MIN = 390, PHONE_MAX = 430;
         const sByHeight = vh / H;
         const sByMaxW   = PHONE_MAX / W;
         const sByMinW   = PHONE_MIN / W;
         const s = Math.max(sByMinW, Math.min(sByHeight, sByMaxW));
         const phoneW = W * s;
-        const scaledH = H * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
-        // Vertically centre the game inside the column. When the column is
-        // shorter than the scaled game (short laptop windows + the PHONE_MIN
-        // clamp above), top goes negative so the game's MIDDLE sits at the
-        // viewport's middle — otherwise the player view (rendered at
-        // canvas-centre ≈ 422) ends up below the visible area and the map
-        // disappears off the bottom.
-        const top = Math.min(0, (vh - scaledH) / 2);
+        // Centre on the MAP, not on the box. Centring the 844-tall box put its
+        // middle (422) at the viewport's middle, but the map is drawn at
+        // MAP_CENTER_Y (272) — so on an 844×390 landscape phone the game was
+        // shifted up and the player ended 29px from the top edge, half behind
+        // the energy chip with no cells visible to the north.
+        const top = Math.min(0, vh / 2 - MAP_CENTER_Y * s);
         // #frame is already left/right-inset by var(--phone-*), so #game sits
         // at left:0 inside #frame — setting g.style.left = left would double
         // the offset and push the game off-centre to the right.
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
+        // The visible slice of the 844-tall box, in GAME px — modals size and
+        // centre against THIS, not against the box (see makeModalShell). The
+        // box is taller than most viewports, so a box-centred dialog hangs off
+        // the bottom and a box-relative max-height never actually caps it.
+        root.style.setProperty('--view-top', (-top / s) + 'px');
+        root.style.setProperty('--view-h',   (vh / s) + 'px');
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
         root.style.setProperty('--phone-right', right + 'px');
@@ -703,6 +780,49 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    // Vibration toggle (UX audit §18). Label tracks the save both before the
+    // scene exists (read localStorage) and after each click.
+    (function wireHaptics() {
+      const btn = document.getElementById('toggle-haptics');
+      if (!btn) return;
+      const read = () => {
+        const sc = window.__scene;
+        if (sc && sc.save) return sc.save.haptics !== false;
+        try {
+          const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+          const slot = reg && reg.slots.find(s => s.id === reg.active);
+          const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
+          return !d || d.haptics !== false;
+        } catch { return true; }
+      };
+      const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sc = window.__scene;
+        if (sc && sc.save) {
+          sc.save.haptics = !(sc.save.haptics !== false);
+          if (typeof persistSave === 'function') persistSave(sc.save);
+          if (sc.save.haptics) sc.hapticOk?.();
+        }
+        paint();
+      });
+      paint();
+    })();
+    document.getElementById('energy')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sc = window.__scene;
+      if (sc && sc.showEnergyHelp) sc.showEnergyHelp();
+    });
+    document.getElementById('show-objectives').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const sc = window.__scene;
+      if (sc && typeof Quests !== 'undefined' && Quests.starterShow) {
+        Quests.starterShow(sc.save);
+        if (typeof persistSave === 'function') persistSave(sc.save);
+        sc.updateObjectiveDOM?.();
+      }
     });
     document.getElementById('move-home').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -920,6 +1040,16 @@
     } else {
       buildSavesMenu();
     }
+    // Show/hide "Show objectives" whenever the menu opens: it's only meaningful
+    // for a save whose ladder was dismissed part-way.
+    document.getElementById('menu')?.addEventListener('toggle', () => {
+      const btn = document.getElementById('show-objectives');
+      if (!btn) return;
+      const sc = window.__scene;
+      const on = !!(sc && typeof Quests !== 'undefined'
+        && Quests.starterDismissed && Quests.starterDismissed(sc.save));
+      btn.style.display = on ? '' : 'none';
+    });
     // Safety splash dismiss → also our sensor-permission gesture. iOS
     // requires DeviceOrientationEvent.requestPermission() to be called
     // synchronously from within a user-gesture handler — so we do it
@@ -1249,7 +1379,7 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=12"></script>
+  <script src="src/util.js?v=13"></script>
   <script src="src/sprite_layout.js?v=5"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
@@ -1269,10 +1399,10 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=2"></script>
-  <script src="src/interactables.js?v=7"></script>
-  <script src="src/interact.js?v=222"></script>
-  <script src="src/render.js?v=285"></script>
+  <script src="src/quests.js?v=3"></script>
+  <script src="src/interactables.js?v=8"></script>
+  <script src="src/interact.js?v=223"></script>
+  <script src="src/render.js?v=286"></script>
   <script src="src/road_overlay.js?v=4"></script>
   <script src="src/assets.js?v=176"></script>
   <script src="src/sandbox.js?v=36"></script>
@@ -1294,7 +1424,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=380';
+      const APP_SRC = 'src/app.js?v=381';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
