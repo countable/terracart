@@ -417,6 +417,13 @@
     #howto .lead {
       margin: 0 0 14px; color: #fff; font-size: 14px; line-height: 1.5;
     }
+    /* The keyboard aside is only true where there IS a keyboard. A coarse
+       primary pointer means a phone or tablet, where "WASD on a computer" is
+       noise — drop it and let the sentence close up around the gap. A laptop
+       with a touchscreen still reports a fine pointer, so it keeps the hint. */
+    @media (pointer: coarse) {
+      #howto .lead .kbd-only { display: none; }
+    }
     #howto dl { margin: 0 0 14px; }
     #howto dt {
       color: var(--green); font-weight: 700; margin-top: 11px;
@@ -550,7 +557,8 @@
         <div class="labels"><span>you</span><span></span><span>your GPS</span></div>
       </div>
       <p class="lead">Your real neighbourhood is the map. Walk to move your
-         farmer &mdash; WASD on a computer &mdash; and rebuild it.</p>
+         farmer <span class="kbd-only">&mdash; WASD on a computer &mdash;</span>
+         and rebuild it.</p>
       <dl>
         <dt>Reach</dt>
         <dd>Only the lit cells around you are in reach.</dd>
