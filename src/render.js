@@ -913,10 +913,6 @@ Render.drawCells = function drawCells(scene) {
   }
 };
 
-// Canvas width, for keeping centred labels on screen (see clampTextX in
-// util.js). Same 352 the game canvas is sized to — VIEW_CELLS × CELL_PX.
-const CANVAS_W = VIEW_CELLS * CELL_PX;
-
 // Labels draw ABOVE the player (depth 50/51 against the player's 10), and a POI
 // name anchors BELOW its sprite — so a label routinely lands on the cell the
 // player is standing in and covers the character. QC_RULES §3 already says
@@ -947,6 +943,12 @@ function fadeLabelOverPlayer(tx, box, full = 1) {
 }
 
 Render.drawObjects = function drawObjects(scene) {
+  // Canvas width, for keeping centred labels on screen (see clampTextX in
+  // util.js). Same 352 the game canvas is sized to. Computed HERE, not at
+  // script top level: VIEW_CELLS / CELL_PX come from app.js, which loads AFTER
+  // render.js, so a top-level read threw at evaluation time and left
+  // Render.drawObjects unassigned ("Render.drawObjects is not a function").
+  const CANVAS_W = VIEW_CELLS * CELL_PX;
   // Resolve the starter shop id as soon as the spawn tile's houses have
   // loaded, so the trailer sprite + Home tint apply on first render (rather
   // than waiting for the player to tap a house). Runs every frame until it

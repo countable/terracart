@@ -1489,7 +1489,22 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Tiles ===
-  showBanner(on) { this.banner.style.display = on ? 'block' : 'none'; }
+  showBanner(on) {
+    this.banner.style.display = on ? 'block' : 'none';
+    // Wire tap-to-retry once: drop the failed tiles so the next ensureTiles
+    // refetches them rather than serving the cached failure.
+    if (on && !this.banner._retryWired) {
+      this.banner._retryWired = true;
+      this.banner.addEventListener('click', (e) => {
+        e.stopPropagation();
+        for (const [k, t] of WorldGen.tileCache) if (t && t.status !== 'ready') WorldGen.tileCache.delete(k);
+        this.banner.textContent = 'retrying…';
+        this.ensureTilesAround?.().finally?.(() => {
+          this.banner.textContent = "can't reach the map — tap to retry";
+        });
+      });
+    }
+  }
 
   playerToWorldCell() {
     const wx = this.originPx.x + this.playerM.x / this.mPerPx;
@@ -1679,7 +1694,14 @@ class MapScene extends Phaser.Scene {
         console.warn('tile fetch failed', k, e.message);
       }
     }
-    this.showBanner(anyFailed && !navigator.onLine);
+    // Show it whenever tiles FAIL, not only when the browser admits it's
+    // offline: a captive portal, a blocked or DNS-failed tile host, a 5xx, a
+    // corporate proxy or a VPN all keep navigator.onLine true, and the player
+    // was left with a featureless green field, no message and no retry.
+    this.showBanner(anyFailed);
+    // Zero tiles ready means the world is empty — the objective ladder's
+    // "crates were left along the road nearby" reads as a lie over it.
+    this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
   }
 
   // === Spawns ===
@@ -2265,6 +2287,11 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // Keep body.modal-open honest every frame. The MutationObserver in
+    // _installModalPadGate misses an overlay that is REMOVED from the document
+    // (the story and safety cards are), and a latched class hides the entire
+    // bottom HUD. Cost is a querySelectorAll over a handful of nodes.
+    this._syncModalGate?.();
     // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
     // reschedules the NEXT frame only AFTER this callback returns (see
     // RequestAnimationFrame.step in vendor/phaser.js), so a single uncaught
@@ -4542,14 +4569,25 @@ class MapScene extends Phaser.Scene {
       this.hud.textContent = '';
       return;
     }
+    // The coordinate dump is DEVELOPER copy — it's welded to the bottom of the
+    // screen for everyone on desktop and for anyone who denied location, which
+    // is not a rare case for a game that asks for GPS on first launch. Those
+    // players get one line they can act on; the full readout stays behind the
+    // ☰ › Developer toggle.
+    if (!this.save.debugControls) {
+      this.hud.textContent = this.gpsAvailable
+        ? 'waiting for GPS…'
+        : 'no GPS — use the stick or WASD to move';
+      return;
+    }
     const gps = this.gpsAvailable ? 'waiting' : 'wasd';
     const pc = this.playerToWorldCell();
     const lat = START_LAT + (-this.playerM.y) / METERS_PER_DEG_LAT;
     const lon = START_LON + this.playerM.x / (METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180));
     const loaded = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
     this.hud.textContent =
-      `${lat.toFixed(5)}, ${lon.toFixed(5)}   gps:${gps}\n` +
-      `tile ${pc.tx}/${pc.ty}   tiles:${loaded}   caught:${this.save.caught.length}   plots:${this.save.planted.length}`;
+      `${lat.toFixed(5)}, ${lon.toFixed(5)}  gps:${gps}  ` +
+      `tile ${pc.tx}/${pc.ty}  tiles:${loaded}  caught:${this.save.caught.length}  plots:${this.save.planted.length}`;
   }
 
   // Always derive the cap from currently-equipped armor (rather than reading
@@ -4606,6 +4644,11 @@ class MapScene extends Phaser.Scene {
       el.style.display = 'none';
       return;
     }
+    // With no map tiles loaded there is no road and no crate, so the ladder's
+    // "supply crates were left along the road nearby" reads as a lie over an
+    // empty green field. Hold the chip until at least one tile is ready; the
+    // #banner is what's talking to the player in that state.
+    if (this._tilesReady === 0) { el.style.display = 'none'; return; }
     const step = Quests.starterCurrent(this.save);
     if (!step) { el.style.display = 'none'; return; }
     const idx = Quests.starterStepIndex(this.save);
@@ -4950,8 +4993,12 @@ class MapScene extends Phaser.Scene {
     // clear of the bottom inventory/HUD cluster (tabs/slots/name/action btns).
     // Because all modals go through here, they all position identically — tweak
     // this one constant to move them all.
+    // Cover the VISIBLE slice of the game box, not the whole 844-tall box —
+    // fitGame publishes it as --view-top/--view-h in game px. Centring on the
+    // box put a dialog's middle below the viewport on every short screen.
     wrap.style.cssText =
-      `position:absolute;inset:0;z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
+      `position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);` +
+      `z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
       `padding-bottom:${MODAL_LIFT_PX}px;box-sizing:border-box;` +
       `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
     const box = document.createElement('div');
@@ -4959,6 +5006,15 @@ class MapScene extends Phaser.Scene {
       `min-width:${minWidth}px;max-width:${maxWidth}px;background:#1a1612;color:#fff;` +
       `border:2px solid ${borderColor};border-radius:10px;padding:14px 16px;` +
       `font:13px ui-monospace,monospace;` +
+      // Any dialog taller than the viewport scrolls INSIDE itself. Stats &
+      // Relics had neither cap nor scroll, so its header was clipped off the
+      // top and its Close button ran off the bottom — the only way out was a
+      // backdrop tap on whatever sliver of wrap was still visible.
+      // Minus the wrap's own bottom lift as well as the margin: the lift eats
+      // into the flex content box, so a dialog capped only against --view-h
+      // still overflowed BOTH ends (its header clipped off the top).
+      `max-height:calc(var(--view-h, 100%) - ${MODAL_LIFT_PX}px - 32px);` +
+      `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
     if (onClose !== undefined) {
@@ -7371,13 +7427,34 @@ class MapScene extends Phaser.Scene {
   // Observing #game's direct children is enough: makeModalShell appends every
   // wrap there, and pads created mid-dialog are caught by the CSS rule itself.
   _installModalPadGate() {
+    if (typeof MutationObserver === 'undefined') return;
     const gameEl = document.getElementById('game');
-    if (!gameEl || typeof MutationObserver === 'undefined') return;
+    // The four hand-written overlays in index.html (#story / #safety /
+    // #locating / #howto) carry .game-modal too, but unlike makeModalShell's
+    // wraps they are always IN the document and toggle display — so presence
+    // alone can't gate anything, or the HUD would hide forever. Test that the
+    // element actually renders: getClientRects() is empty under display:none
+    // and non-empty for a visible fixed-position overlay (offsetParent is null
+    // for those, so it can't be used here).
+    const shown = (el) => el.getClientRects().length > 0;
     const sync = () => {
-      document.body.classList.toggle('modal-open', !!document.querySelector('.game-modal'));
+      const any = [...document.querySelectorAll('.game-modal')].some(shown);
+      document.body.classList.toggle('modal-open', any);
     };
     this._modalPadObserver = new MutationObserver(sync);
-    this._modalPadObserver.observe(gameEl, { childList: true });
+    // makeModalShell appends its wrap as a direct child of #game…
+    if (gameEl) this._modalPadObserver.observe(gameEl, { childList: true });
+    // …and the static overlays just flip their own style, so watch that.
+    for (const id of ['story', 'safety', 'locating', 'howto']) {
+      const el = document.getElementById(id);
+      if (el) this._modalPadObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+    // The observer alone is not enough: an overlay that is REMOVED from the
+    // document (the story and safety cards are, rather than hidden) fires no
+    // mutation any of the above watches, so the class latched on and the whole
+    // HUD stayed hidden. The per-frame call in update() is the backstop — a
+    // querySelectorAll over a handful of .game-modal nodes.
+    this._syncModalGate = sync;
     sync();
   }
   // The movement stick is ALWAYS on screen — it's how you walk anywhere the
