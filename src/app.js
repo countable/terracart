@@ -3139,7 +3139,10 @@ class MapScene extends Phaser.Scene {
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
     const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
-    const R = 9;
+    // Ring radius comes from the same table that PLACES the wheel — the crown
+    // seating clears the outer edge (R + 1, the backing disc below), so a
+    // resize here without one there would put the ring back in the sky.
+    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
     const g = this._workProgressGfx;
     g.clear();
     // The wheel sits ON the thing being worked, so it has been walked back
