@@ -366,7 +366,7 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: '#ffe066' });
+        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: UI_TREASURE });
         return true;
       }
       if (result.kind === 'gold') {
@@ -387,7 +387,7 @@ const INTERACTABLES = {
       const lootId  = result.id;
       const lootQty = result.qty;
       const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
-      const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : '#ffe066';
+      const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : UI_TREASURE;
       // Chest loot gets the full ceremony modal — quick-feedback flashLoot is
       // reserved for X-marks / harvest / mining (cheap repeating rewards).
       const iconHTML = scene.iconSpanHTML ? scene.iconSpanHTML(lootId, 64) : '';

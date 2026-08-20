@@ -191,12 +191,17 @@
       // planter marigolds for colour.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
               fix('marigold', 0.004, 0.010, S.COM_MAR)],
-      tint: { shrub: 0x8fd06f },        // bright manicured green
+      // Ornamental street trees get a hint of the same manicured green as the
+      // hedges, much lighter than the shrub tint so a tree-sized sprite doesn't
+      // read as an off-colour species — just a touch fresher than the wild default.
+      tint: { shrub: 0x8fd06f, tree: 0xd9f0c8 },        // bright manicured green
     },
     [T.INDUSTRIAL]: {
       // Hardy weeds breaking through the concrete; minerals (worldgen) dominate.
       flora: [fix('shrub', 0.02, 0.05, S.IND_SHRUB)],
-      tint: { shrub: 0x9aa882, mineralrock: 0xc98a5a },  // grey-green weeds, rusty rock
+      // Any tree that clings on here reads soot-dulled, not lush — a faint
+      // grey cast (lighter than the shrub/rock tints, kept subtle at tree size).
+      tint: { shrub: 0x9aa882, mineralrock: 0xc98a5a, tree: 0xc9cbb8 },  // grey-green weeds, rusty rock
     },
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
@@ -214,11 +219,15 @@
               fix('shrub', 0.03, 0.08, S.WET_SHRUB),
               fix('mushroom', 0.015, 0.04, S.WET_MUSH),
               fix('forgetmenot', 0.004, 0.010, S.WET_FMN)],
-      tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c },
+      // Marsh trees pick up a faint mossy cast — much lighter than the
+      // ground-level shrub/grass tints so a whole canopy doesn't go swamp-green.
+      tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c, tree: 0xc3d6ba },
     },
     [T.GOLF]: {
       flora: [dyn('longgrass', 0.05, S.LONGGRASS)],
-      tint: { longgrass: 0xa5d878 },    // bright fairway green
+      // Fairway trees get a whisper of the same bright manicured green as the
+      // turf, subtle enough at tree size to just read as "well kept".
+      tint: { longgrass: 0xa5d878, tree: 0xdcf0c8 },    // bright fairway green
     },
     [T.ORCHARD]: {
       // Fruit trees (worldgen canopy) + grassy understory with wildflowers.
@@ -260,6 +269,75 @@
     return GROUND.has(type);
   };
 
+  // ── Atmosphere ──────────────────────────────────────────────────────────────
+  // The post-apocalyptic grade, and the reason twenty biomes read as twenty
+  // places in the SAME dead world rather than twenty unrelated moods:
+  //
+  //     haze(type) = mix(baseColour(type), dust(type), HAZE_K)
+  //
+  // ONE transform applied to each biome's OWN colour. Hand-picking twenty haze
+  // colours would decouple them; deriving them means the whole world's feel is
+  // two numbers we can tune globally (DUST + HAZE_K), while each biome keeps
+  // its identity because its own base colour is half the mix.
+  //
+  // Consumed by render.js in three places, which are the three depth planes a
+  // top-down grid actually has:
+  //   dim   — the per-cell wash over everything OUTSIDE the player's reach.
+  //           Darkens (so the eye still lands on what's actionable) but in the
+  //           biome's hue instead of neutral black.
+  //   haze  — the ground-plane wash under the world sprites, and the rim haze
+  //           at the viewport edge (distance reads as air, not as a crop).
+  //
+  // Nothing outside this file may hardcode an atmosphere colour.
+  const DUST = 0x8d8272;    // the world's one dead-dust tone (warm grey ochre)
+  const HAZE_K = 0.55;      // how far a biome's colour is pulled toward its dust
+  const DIM_K = 0.34;       // how much biome hue survives in the out-of-reach wash
+
+  // Per-biome dust overrides. A biome may sit in a different KIND of dead air —
+  // rust over the industrial yards, cold rot over the marsh, bleached grit on
+  // the sand — without breaking the shared transform above.
+  const DUST_OF = {
+    [T.INDUSTRIAL]: 0x9c7a5c,   // rust and oxide
+    [T.COMMERCIAL]: 0x968f84,   // concrete dust
+    [T.WETLAND]:    0x6f7f6a,   // cold green rot
+    [T.FOREST]:     0x7d8570,   // damp leaf-mould air
+    [T.ORCHARD]:    0x7d8570,
+    [T.SAND]:       0xb0a186,   // bleached grit
+    [T.WATER]:      0x74808c,   // flat grey water-light
+    [T.PIER]:       0x74808c,
+    [T.ROCK]:       0x8e857a,   // stone powder
+    [T.CAVE_FLOOR]: 0x2a2622,   // underground: no daylight to haze with
+    [T.CAVE_WALL]:  0x2a2622,
+  };
+
+  // Fallback base colour for a type app.js has no COLORS entry for. Matches the
+  // renderer's own GRASS_FALLBACK so an unmapped type hazes like a green field.
+  const BASE_FALLBACK = 0x479757;
+
+  const _chan = (hex, sh) => (hex >> sh) & 0xff;
+  const mixHex = (a, b, t) => {
+    const r = Math.round(_chan(a, 16) + (_chan(b, 16) - _chan(a, 16)) * t);
+    const g = Math.round(_chan(a, 8)  + (_chan(b, 8)  - _chan(a, 8))  * t);
+    const bl = Math.round(_chan(a, 0) + (_chan(b, 0)  - _chan(a, 0))  * t);
+    return (r << 16) | (g << 8) | bl;
+  };
+
+  // Resolved lazily + cached: COLORS lives in app.js, which loads AFTER this
+  // module, so the base colours simply aren't readable at load time. The first
+  // atmos() call happens on the first rendered frame, long after app.js is in.
+  const _atmosCache = new Map();
+  const atmos = (type) => {
+    let a = _atmosCache.get(type);
+    if (a) return a;
+    const base = (typeof COLORS !== 'undefined' && COLORS[type] != null)
+      ? COLORS[type] : BASE_FALLBACK;
+    const dust = DUST_OF[type] != null ? DUST_OF[type] : DUST;
+    const haze = mixHex(base, dust, HAZE_K);
+    a = { base, dust, haze, dim: mixHex(0x000000, haze, DIM_K) };
+    _atmosCache.set(type, a);
+    return a;
+  };
+
   // ── Fauna ───────────────────────────────────────────────────────────────────
   // Per-species spawn config consumed by app.js spawnInTile. Each species has a
   // PRIMARY biome set (its dominant home, ~`share` of its count) and a wider
@@ -282,7 +360,7 @@
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
   };
 
-  const api = { T, get, flora, tint, allows, familyOf, BIOME_PROFILES, BIOME_FAUNA, FAUNA_ORDER };
+  const api = { T, get, flora, tint, atmos, mixHex, allows, familyOf, BIOME_PROFILES, BIOME_FAUNA, FAUNA_ORDER };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;

@@ -817,22 +817,62 @@ SAVED GAMES (slots)
    reset per-slot. Listed newest-played first in the menu.
 
 ================================================================================
+UI COLOUR LANGUAGE
+================================================================================
+Two colours carry MEANING; everything else is neutral chrome. A player glancing
+at any screen should be able to answer "is this something I press, or something
+I just won?" without reading a word.
+
+ - BLUE-WHITE = TREASURE & POWERUPS — what the WORLD gives the player.
+     --treasure      #f4f8ff  near-white with a blue cast; surfaces + frames
+     --treasure-ink  #cfe2ff  the same role as TEXT on a dark ground
+     --treasure-deep #7fb0ff  saturated; glow, side faces, deep accents
+   Worn by: the POI pads (the pale plinth under every chest), the POI halo
+   breathing under them, the chest/treasure reward ceremony modal (frame,
+   header, sparkle burst, primary button), and powerup grants (relics + armor
+   equipped, Inner Light reach upgrades).
+
+ - GOLD / YELLOW = PLAYER CONTROLS — what the PLAYER drives.
+     --gold #ffe066, --gold-deep #ffd23a, --gold-dark #c8a64a, --gold-pale #fff3b0
+   Worn by: buttons, the movement pad, inventory slots + tabs, HUD chrome and
+   dialog frames, and money (coins are the currency the player spends, so they
+   sit on the control side of the line).
+
+ - EXCEPTIONS, and they are deliberate:
+     * ITEM RARITY tier colours (loot.js) still colour a reward's NAME — rarity
+       is information the ceremony's blue-white frame doesn't carry.
+     * ENERGY drains green → AMBER (#e8963c) → red, and DANGER keeps red. The
+       mid step was gold until the HUD pass: an energy bar is a gauge, it
+       reports and cannot be pressed, so gold there was the control colour
+       sitting on a non-control. Amber keeps the traffic-light reading
+       without borrowing the affordance hue.
+     * Ceremonies that are NOT loot reuse the reward modal with their own
+       accent (passing out = orange, restoring a wreck / unsealing a fort =
+       green) so a construction never reads as treasure.
+
+ - ONE source of truth: the UI_* constants at the top of src/util.js (canvas
+   text + Phaser graphics) mirrored as CSS custom properties in index.html
+   (DOM). UI_CONTROL / UI_CONTROL_DIM name the control role; UI_TREASURE* name
+   the treasure role. Reach for the ROLE that fits — never add a near-duplicate
+   shade, and change both halves together.
+
+================================================================================
 HUD
 ================================================================================
-COLOUR LAW — gold means "you can touch this"
- - Gold/yellow is the interaction colour and nothing else may claim it. Every
-   CONTROL wears it: the menu, the walking stick, inventory tabs and slots,
-   the pager, the action buttons, the objective chip's close button. A control
-   at REST wears brass (dim, unlit gold); SELECTED/ACTIVE lights to full gold.
- - Anything that only REPORTS is ink, never gold: bone for what you read (item
-   name, objective title), dust for what you only glance at (the GPS line,
-   objective body copy). The selected-item name used to be gold, which put the
-   loudest "touch me" colour in the HUD on the one thing down there you can't.
- - The energy readout is a GAUGE, so it stays on its own green -> amber -> red
-   scale and claims no gold. Its mid-warning used to be the interaction gold.
- - ONE deliberate exception: the money chip is gold because it counts actual
-   gold. Currency is the subject matter there, not an affordance (the chip is
-   pointer-events:none).
+HOW THE COLOUR LANGUAGE LANDS ON THE HUD (see §UI COLOUR LANGUAGE above)
+ - Every persistent CONTROL carries the control colour: the menu button, the
+   walking stick, inventory tabs and slots, the pager, the action buttons, the
+   objective chip's close button. At REST they wear --gold-dark
+   (UI_CONTROL_DIM); SELECTED/ACTIVE lights to --gold (UI_CONTROL). The
+   walking stick was purple until this pass — the single most-touched control
+   in the game, painted a colour that said nothing about being touchable.
+ - Surfaces that only REPORT give the colour up, and wear neutral INK instead:
+   --bone for what you actually read (selected-item name, objective title),
+   --dust for what you only glance at (the GPS line, objective body copy).
+   The item name used to be gold, which put the loudest "reach for me" colour
+   in the HUD on the one thing down there you cannot touch.
+ - The money chip keeps gold, per §UI COLOUR LANGUAGE: coins are the currency
+   the player spends, so they sit on the control side of the line.
  - The same law runs from the other side in the world palette: no terrain
    colour is allowed into the yellow band (see COLORS in src/app.js).
 

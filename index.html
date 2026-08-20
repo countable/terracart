@@ -40,24 +40,27 @@
       --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
       --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
       --green:      #a7ffb0;   /* success / ready / energy gain               */
+      /* Blue-white = TREASURE & POWERUPS (what the world GIVES you); the gold
+         family above = PLAYER CONTROLS (what YOU drive). See spec
+         §UI COLOUR LANGUAGE and the UI_TREASURE_* constants in src/util.js. */
+      --treasure:      #f4f8ff; /* near-white, blue cast — treasure surfaces  */
+      --treasure-ink:  #cfe2ff; /* blue-white as TEXT on a dark ground        */
+      --treasure-deep: #7fb0ff; /* saturated blue — glow / deep accents       */
       --danger:     #b71c1c;   /* destructive action + error surfaces         */
       --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
-      /* ── Gold means "you can touch this" ──────────────────────────────
-         Gold/yellow is the interaction colour. Every CONTROL wears it —
-         the menu, the walking stick, inventory tabs and slots, the pager,
-         the action buttons — and nothing else may, or the one colour that
-         says "reach for me" turns into decoration. This is the same rule
-         the world palette obeys from the other side: no terrain tone is
-         allowed into the yellow band (see COLORS in src/app.js).
-         A control at REST wears --brass (dim, unlit gold). A control that
-         is SELECTED or ACTIVE lights up to --gold. Anything that merely
-         REPORTS — the item name, the coordinate line, the objective's body
-         copy — is ink, not gold: --bone for what you read, --dust for what
-         you only glance at. */
-      --brass:      #8a7440;   /* control at rest — gold with the light off   */
-      --brass-lit:  #b39750;   /* control rim under a finger                  */
-      --bone:       #cfc6b4;   /* readout ink — legible, deliberately not gold */
-      --dust:       #8d857a;   /* secondary readout ink — glance-only         */
+      /* ── Ink: what the HUD READS AS, not what it invites ──────────────
+         The gold family above says "you can touch this" (spec §UI COLOUR
+         LANGUAGE): a control at REST wears --gold-dark, and lights to
+         --gold when selected or active. The world palette obeys the same
+         law from the other side — no terrain tone is allowed into the
+         yellow band (see COLORS in src/app.js).
+         That leaves the surfaces that only REPORT with nothing to wear,
+         and they must not borrow gold: the selected-item name used to,
+         which put the loudest "reach for me" colour in the HUD on the one
+         thing down there you cannot touch. These two are that role —
+         neutral ink, deliberately outside both meaning-carrying families. */
+      --bone:       #cfc6b4;   /* readout ink — what you actually read       */
+      --dust:       #8d857a;   /* secondary readout ink — glance-only        */
       /* ── HUD chrome ───────────────────────────────────────────────────
          One vocabulary for every persistent HUD surface, so the money chip,
          the item slots and the walking stick read as parts of the same
@@ -349,7 +352,7 @@
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
       background: var(--chrome-scuff), var(--chrome-face); color: var(--gold);
-      border: 2px solid var(--brass); border-radius: 8px;
+      border: 2px solid var(--gold-dark); border-radius: 8px;
       padding: 2px 8px; font: 700 16px ui-monospace, monospace;
       line-height: 1.4;
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
@@ -370,7 +373,7 @@
        down onto the item bar. */
     #menu .items {
       margin-top: 4px; min-width: 140px;
-      background: #14110d; border: 2px solid var(--brass); border-radius: 8px;
+      background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
@@ -423,7 +426,7 @@
        bottom corners, no bottom edge on the selected one). */
     .hud-tab {
       background: var(--chrome-scuff), var(--chrome-face);
-      border: 2px solid var(--brass); color: var(--bone);
+      border: 2px solid var(--gold-dark); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -441,7 +444,7 @@
     /* Raised control — pager arrows, sort. */
     .hud-btn {
       background: var(--chrome-scuff), var(--chrome-face);
-      border: 2px solid var(--brass); color: var(--bone);
+      border: 2px solid var(--gold-dark); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -453,7 +456,7 @@
        sits in a recess. Selected lights the well gold. */
     .hud-slot {
       background: var(--chrome-sunk);
-      border: 2px solid var(--brass); color: var(--bone);
+      border: 2px solid var(--gold-dark); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
     .hud-slot.sel {
@@ -1623,16 +1626,16 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=14"></script>
+  <script src="src/util.js?v=15"></script>
   <script src="src/sprite_layout.js?v=5"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
   <script src="src/coords.js?v=120"></script>
-  <script src="src/biome_profiles.js?v=5"></script>
+  <script src="src/biome_profiles.js?v=6"></script>
   <script src="src/worldgen.js?v=208"></script>
-  <script src="src/textures.js?v=162"></script>
+  <script src="src/textures.js?v=164"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=194"></script>
+  <script src="src/items.js?v=195"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
@@ -1644,12 +1647,12 @@
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
   <script src="src/quests.js?v=3"></script>
-  <script src="src/interactables.js?v=8"></script>
+  <script src="src/interactables.js?v=9"></script>
   <script src="src/interact.js?v=223"></script>
-  <script src="src/render.js?v=290"></script>
+  <script src="src/render.js?v=291"></script>
   <script src="src/road_overlay.js?v=6"></script>
   <script src="src/assets.js?v=176"></script>
-  <script src="src/sandbox.js?v=36"></script>
+  <script src="src/sandbox.js?v=37"></script>
   <script src="src/testtools.js?v=8"></script>
   <script src="src/geo.js?v=1"></script>
   <script>
@@ -1668,7 +1671,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=386';
+      const APP_SRC = 'src/app.js?v=389';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

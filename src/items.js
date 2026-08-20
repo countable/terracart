@@ -50,8 +50,9 @@ const CROP_SPRITE = {
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
-  // wildplant scale.
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.36 },
+  // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
+  // oversized against neighbouring one-cell props.
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
   // Shrub — round lush bush from bushes.png (144×288 = 3×9 of 48×32 frames).
   // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px-wide
   // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
@@ -76,13 +77,14 @@ const CROP_SPRITE = {
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in
-  // src/biome_profiles.js) and pick like any wildplant. scale 1.33 renders the
-  // 16px frame at ~21px — blooms read as small foraged flowers tucked in the
-  // tile rather than filling it (the default scale 2 / full-cell was 50% too big).
-  forgetmenot: { sheet: 'props', custom: true, frame: 76,  scale: 1.33 },  // blue forget-me-not cluster (row 3, col 10)
-  marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.33 },  // golden marigold (row 1, col 12)
-  wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.33 },  // red wild rose (row 1, col 8)
-  starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.33 },  // glowing purple star-flower (row 4, col 14)
+  // src/biome_profiles.js) and pick like any wildplant. scale 1.13 (down 15%
+  // from 1.33) renders the 16px frame at ~18px — blooms read as small foraged
+  // flowers tucked in the tile rather than filling it (the default scale 2 /
+  // full-cell was 50% too big, and 1.33 was still crowding its neighbours).
+  forgetmenot: { sheet: 'props', custom: true, frame: 76,  scale: 1.13 },  // blue forget-me-not cluster (row 3, col 10)
+  marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.13 },  // golden marigold (row 1, col 12)
+  wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
+  starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
 };
 
 // Resolve the same icon source the inventory uses for an item id.
