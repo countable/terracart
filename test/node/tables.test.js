@@ -78,20 +78,22 @@ test('WorldGen namespace is present and usable headlessly', () => {
 // had to paper over it with `|| 8` / `|| 1`.
 
 test('steerSpeedMul: bare hands cover a cell a second, the amulet goes up from there', () => {
-  // The baseline is 5× walk pace on purpose: WALK_M_S (1.4) × 5 ≈ 7 m/s, which
-  // is one WorldGen.CELL_M cell per second. Real walk pace crawls across an
-  // 11-cell view, which is what "the default walk speed is super slow" was.
-  assert.eq(steerSpeedMul({}), 5, 'no relics');
-  assert.eq(steerSpeedMul({ amulet: null }), 5, 'no amulet');
-  assert.eq(steerSpeedMul({ amulet: { tier: 1 } }), 6.5, 'T1');
+  // The baseline is 6× walk pace on purpose: WALK_M_S (1.4) × 6 ≈ 8.4 m/s, a
+  // little over one WorldGen.CELL_M cell per second. Real walk pace crawls
+  // across an 11-cell view, which is what "the default walk speed is super
+  // slow" was. It was lifted from 5× (a flat one cell/second) because that
+  // still read as a drag over the whole opening; Frost is unchanged, so the
+  // per-tier step absorbed the lift rather than the whole ladder shifting.
+  assert.eq(steerSpeedMul({}), 6, 'no relics');
+  assert.eq(steerSpeedMul({ amulet: null }), 6, 'no amulet');
   assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), 15.5, 'T7 (Frost)');
-  assert.inRange(steerSpeedMul({}) * 1.4, WorldGen.CELL_M - 0.5, WorldGen.CELL_M + 0.5,
+  assert.inRange(steerSpeedMul({}) * 1.4, WorldGen.CELL_M - 0.5, WorldGen.CELL_M + 2,
     'bare baseline is ~one cell per second');
   // Monotonic, and never below the bare-handed baseline.
   let prev = 0;
   for (let t = 0; t <= 7; t++) {
     const v = steerSpeedMul({ amulet: { tier: t } });
-    assert.gte(v, 5, `tier ${t} at least the baseline`);
+    assert.gte(v, 6, `tier ${t} at least the baseline`);
     assert.gt(v, prev, `tier ${t} beats tier ${t - 1}`);
     prev = v;
   }

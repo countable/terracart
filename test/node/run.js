@@ -125,6 +125,33 @@ try {
   ctx.INV_CATS = cats;
 }
 
+// The starter plot (_carveStarterPlot) is pure grid math — no Phaser, no
+// rendering — but it lives on the Phaser scene class, so it can't be imported.
+// Lift the METHOD BODY straight out of the source text (same trick as
+// NON_TILLABLE / INV_CATS above) and expose it as a plain function the test can
+// .call() with a scene stub. The test then exercises the real shipping code
+// rather than a transcription of it, so the two can't drift.
+{
+  const src = readSrc('app.js');
+  const head = '  _carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _carveStarterPlot in src/app.js — update run.js');
+    process.exit(2);
+  }
+  // The method ends at the first line that is exactly two-space-indented '}'.
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _carveStarterPlot — update run.js');
+    process.exit(2);
+  }
+  const body = src.slice(bodyStart, end);
+  vm.runInContext(
+    `globalThis.carveStarterPlot = function (entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n${body}\n};`,
+    ctx, { filename: 'carveStarterPlot.js' });
+}
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];

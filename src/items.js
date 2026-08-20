@@ -953,19 +953,29 @@ function ringTierBoost(relics) {
 // where the GPS says you are. The stick is always there and always works; the
 // amulet is purely an upgrade to it, so both functions answer for a bare hand
 // too (no amulet = tier 0 = the baseline, never "unavailable").
-//   steerSpeedMul   no amulet → 5× walk, tier 1 → 6.5×, tier 7 → 15.5× (linear).
+//   steerSpeedMul   no amulet → 6× walk, tier 7 → 15.5× (linear between).
 //   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
-// The bare baseline is 5× walk pace deliberately: at WALK_M_S that is one 7 m
-// cell per second, which is the slowest the stick can move and still feel like
-// a control rather than a drag — real walk pace crawls across a view that is
-// 11 cells wide. The stamina cost is per CELL, so a faster baseline doesn't
-// make travel cheaper, only less tedious.
+// The bare baseline is 6× walk pace deliberately: at WALK_M_S that is a little
+// over one 7 m cell per second, about the slowest the stick can move and still
+// feel like a control rather than a drag — real walk pace crawls across a view
+// that is 11 cells wide. The stamina cost is per CELL, so a faster baseline
+// doesn't make travel cheaper, only less tedious.
 // Walking with the GPS costs nothing — that's you actually walking. Stick
 // walking is the character covering ground you didn't, which is what the
 // stamina pays for, and what the amulet makes cheap.
+// Ghost-walk (stick) speed endpoints, in multiples of WALK_M_S. Both ends are
+// named so the ladder between them is one subtraction rather than a magic
+// slope constant.
+const STEER_MUL_FLOOR = 6;      // bare hands
+const STEER_MUL_FROST = 15.5;   // tier 7 amulet
 function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
-  return 5 + 1.5 * t;
+  // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
+  // player spends the whole opening at, and it sat right on the edge of
+  // reading as a drag. The Frost end of the ladder is deliberately unchanged —
+  // 15.5× is a tuned endpoint — so the per-tier step absorbs the lift instead
+  // of every tier shifting up with it.
+  return STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t;
 }
 function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;

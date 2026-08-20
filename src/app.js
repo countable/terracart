@@ -2130,6 +2130,117 @@ class MapScene extends Phaser.Scene {
     if (Array.isArray(entry.wildplants)) {
       entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
     }
+    // Last, on the now-cleared pocket: the guaranteed patch of soil the
+    // ladder's "Break ground" step needs.
+    this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+  }
+
+  // A guaranteed 2x2 patch of tillable grass near the spawn anchor.
+  //
+  // STARTER_CHAIN step 2 ("Break ground") assumes there is ground to break,
+  // and the gold guidance arrow pointed at a supply CRATE through every step
+  // of the ladder. A player who spawns somewhere with no soil in reach — a
+  // parking lot, a terraced street, a riverbank — was therefore told to till a
+  // patch of grass while the only arrow on screen led to a box that isn't one.
+  // This paints a plot the step can actually be performed on, and freezes its
+  // position on the save so the arrow has an honest target to point at.
+  //
+  // 2x2 rather than a single cell: one cell to till for the step itself, and
+  // three more beside it so the first crop has somewhere to go without
+  // hunting for a second patch.
+  //
+  // save.starterPlotAt holds the TOP-LEFT cell's centre in world metres. It is
+  // chosen once and re-painted at those same cells on every later rebuild of
+  // the tile, so the plot can never drift out from under a player who has
+  // already tilled it.
+  _carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const grid = entry.grid;
+    if (!grid) return;
+    // Only for a player the ladder is still guiding. A veteran save has no use
+    // for the plot and shouldn't have its home terrain quietly edited on a
+    // reload — but one already frozen keeps being repainted forever (below),
+    // so a player who finishes the ladder doesn't watch their first field turn
+    // back into whatever was under it.
+    if (!this.save.starterPlotAt &&
+        (typeof Quests === 'undefined' || Quests.starterHidden(this.save))) return;
+    const N = entry.cellsPerEdge;
+    const GRASS = 0;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const paint = (cx, cy) => {
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 2; dx++) grid[(cy + dy) * N + (cx + dx)] = GRASS;
+      }
+    };
+    const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
+
+    // Already frozen — repaint in place. The plot lives within a few cells of
+    // the anchor, so a frozen plot that doesn't land on THIS tile belongs to a
+    // neighbour and is that tile's job to paint.
+    const frozen = this.save.starterPlotAt;
+    if (frozen && Number.isFinite(frozen.x)) {
+      const fcx = Math.floor((frozen.x - tx0) / this.cellM);
+      const fcy = Math.floor((frozen.y - ty0) / this.cellM);
+      if (inTile(fcx, fcy)) paint(fcx, fcy);
+      return;
+    }
+
+    // Cells a plot must never overwrite: the street, anyone's floor, open
+    // water and the decking over it. Everything else the world puts under
+    // your feet — yards, lots, scrub, sand, bare rock — is fair game to turn
+    // into a patch of soil.
+    const UNPAINTABLE = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
+      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
+      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
+      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    // Anything still standing in a cell blocks the till handler, so the plot
+    // has to avoid the objects and wild plants the clearing pass kept (real
+    // street trees, houses, the crates themselves).
+    const occupied = new Set();
+    const mark = (wx, wy) => occupied.add(
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    for (const o of (entry.objects || [])) mark(o.x, o.y);
+    for (const w of (entry.wildplants || [])) mark(w.x, w.y);
+
+    const usable = (cx, cy) => {
+      // The Home trailer covers the anchor cell and spills into all eight
+      // neighbours (see inTrailerMoat in the caller) — a plot there would sit
+      // under the building art.
+      if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
+      if (usedSeats.has(cx + ',' + cy)) return false;
+      if (occupied.has(cx + ',' + cy)) return false;
+      return !UNPAINTABLE.has(grid[cy * N + cx]);
+    };
+    const blockUsable = (cx, cy) => inTile(cx, cy) &&
+      usable(cx, cy) && usable(cx + 1, cy) && usable(cx, cy + 1) && usable(cx + 1, cy + 1);
+
+    // Nearest-first ring scan out to 8 cells, so the plot lands as close to
+    // the trailer as the surroundings allow. The scan order is fixed (not
+    // seeded), so a rebuild of the same tile would reach the same answer even
+    // if the freeze above were somehow missing.
+    let found = null;
+    for (let r = 2; r <= 8 && !found; r++) {
+      for (let dy = -r; dy <= r && !found; dy++) {
+        for (let dx = -r; dx <= r && !found; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          const cx = spawnIX + dx, cy = spawnIY + dy;
+          if (blockUsable(cx, cy)) found = { cx, cy };
+        }
+      }
+    }
+    // Nothing within 8 cells can host one (mid-river, deep inside a block of
+    // buildings). Leave the grid alone and freeze nothing — the arrow falls
+    // back to the crates, which is where it pointed before this existed.
+    if (!found) return;
+    paint(found.cx, found.cy);
+    // Snap the frozen point to the canonical global cell centre, the same
+    // basis seatCrate uses, so the arrow and the tap grid agree on where the
+    // plot is.
+    const rawX = tx0 + (found.cx + 0.5) * this.cellM;
+    const rawY = ty0 + (found.cy + 0.5) * this.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+    const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+    this.save.starterPlotAt = { x: wmx, y: wmy };
+    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
@@ -2578,20 +2689,36 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Starter-crate trail — a GOLD arrow toward the nearest unopened supply
-    // crate, shown only while the first-session ladder is still running. The
-    // crates are the game's designed opening breadcrumb but most of the trail
-    // seeds outside the viewport, so without this the player is told to follow
-    // a trail they cannot see. Retires itself the moment the ladder finishes
-    // or is dismissed, and stops pointing once the player is on top of a crate
-    // (it is in reach by then, and the arrow would only cover the sprite).
+    // Starter guidance — a GOLD arrow toward whatever the ACTIVE ladder step
+    // actually wants, shown only while the first-session ladder is running.
+    //
+    // Step 1 points at the nearest unopened supply crate: the crates are the
+    // game's designed opening breadcrumb but most of the trail seeds outside
+    // the viewport, so without a bearing the player is told to follow a trail
+    // they cannot see. Step 2 ("Break ground") points at the starter plot
+    // instead — it used to keep pointing at a crate, which is not tillable, so
+    // the arrow was leading the player away from the one thing the chip was
+    // asking them to do. Later steps happen wherever the player made them
+    // happen, so they fall back to the crates (still worth collecting).
+    //
+    // Retires itself the moment the ladder finishes or is dismissed, and stops
+    // pointing once the player is on top of the target (it is in reach by
+    // then, and the arrow would only cover the sprite).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
-      const crate = this._nearestStarterCrate();
-      if (crate) {
+      const step = Quests.starterCurrent(this.save);
+      const plot = this.save.starterPlotAt;
+      let goal = null;
+      if (step?.event === 'till' && plot && Number.isFinite(plot.x)) {
+        // starterPlotAt is the top-left cell centre; aim at the 2x2's middle.
+        goal = { x: plot.x + this.cellM / 2, y: plot.y + this.cellM / 2 };
+      } else {
+        goal = this._nearestStarterCrate();
+      }
+      if (goal) {
         const pWX = this.startWorldM.x + this.playerM.x;
         const pWY = this.startWorldM.y + this.playerM.y;
-        if (Math.hypot(crate.x - pWX, crate.y - pWY) > this.cellM * 1.5) {
-          this._drawEdgeCompass(crate.x, crate.y, 0xffd24a, 0.9);
+        if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
+          this._drawEdgeCompass(goal.x, goal.y, 0xffd24a, 0.9);
         }
       }
     }
@@ -2674,7 +2801,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -2697,7 +2824,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -2852,18 +2979,25 @@ class MapScene extends Phaser.Scene {
     const cx = Math.round(screen.x);
     // Wheels over a CREATURE — a capture (wp.flee) or a monster fight (wp.track)
     // — sit on a sprite drawn taller than the static targets (rock / tree /
-    // crop) the -9 default was tuned for, so they read as overlapping the body.
-    // Lift those 4 px, and a capture a further 5 on top: its target is fleeing,
-    // so the wheel wants to clear the animal outright rather than hug it.
+    // crop) the base offset was tuned for, so they read as overlapping the
+    // body. Lift those 4 px, and a capture a further 10 on top: its target is
+    // fleeing, so the wheel wants to clear the animal outright rather than hug
+    // it. Base is -7 (was -9: everything but the capture wheel sits 2 px
+    // lower now); the capture wheel's own extra went 5 → 10 so it nets 3 px
+    // HIGHER than before rather than 2 lower with the rest.
     const overCreature = !!(wp.flee || wp.track);
-    const cy = Math.round(screen.y) - 9 - (overCreature ? 4 : 0) - (wp.flee ? 5 : 0);
+    const cy = Math.round(screen.y) - 7 - (overCreature ? 4 : 0) - (wp.flee ? 10 : 0);
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
-    g.fillStyle(0x000000, 0.55);
+    // Every wheel is 20% more transparent than it used to be (0.55 → 0.44
+    // backing, 0.9 → 0.72 arc, and the tool icon at 0.8): the wheel sits ON
+    // the thing being worked, and at full strength it hid the very sprite it
+    // was reporting progress against.
+    g.fillStyle(0x000000, 0.44);
     g.fillCircle(cx, cy, R + 1);
     if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.9);
+      g.lineStyle(3, 0xffffff, 0.72);
       g.beginPath();
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
