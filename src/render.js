@@ -2161,28 +2161,34 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
-  // POI halos — a slow, subtle breath of light under every POI that still has
-  // something in it, so places read as places from across the map without
-  // shouting. Its own layer under the pads, so a pad's concrete slab covers the
-  // halo's centre and what's left is a glow spilling out around the slab. Each
-  // POI breathes on its own phase, hashed from its id — in lockstep a whole
-  // street would throb as one, which reads as a bug rather than as ambience.
+  // POI halos — a slow, subtle "ping" under every POI that still has something
+  // in it, so places read as places from across the map without shouting: a
+  // thick ring (baked in app.js, not a filled disc) expands outward and fades
+  // as it grows, then resets and expands again. Its own layer under the pads,
+  // so a pad's concrete slab covers the ring's centre and what's left is the
+  // band spilling out around the slab. Each POI pings on its own phase, hashed
+  // from its id — in lockstep a whole street would throb as one, which reads
+  // as a bug rather than as ambience.
   const haloT = performance.now() / 1000;
   const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestOpened(o));
   Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, 'halo_poi');
-    // Stable per-POI phase in [0, 1) from the id — no RNG, so a halo doesn't
+    // Stable per-POI phase in [0, 1) from the id — no RNG, so a ping doesn't
     // jump phase when its tile reloads.
     let h = 0;
     const id = String(o.id || '');
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    const wave = 0.5 + 0.5 * Math.sin((haloT / POI_HALO_PERIOD_S + (h % 1000) / 1000) * Math.PI * 2);
-    const size = CELL_PX * (1.5 + 0.25 * wave);
+    // Sawtooth 0..1 (NOT a sine breathe): the ring grows for one full period,
+    // then snaps back to its smallest size — but by then its alpha has faded
+    // to ~0, so the snap is invisible. This is what makes it read as an
+    // expanding ping rather than an in-and-out pulse.
+    const t = ((haloT / POI_HALO_PERIOD_S) + (h % 1000) / 1000) % 1;
+    const size = CELL_PX * (1.05 + 0.85 * t);
     s.setOrigin(0.5, 0.5)
      .setDisplaySize(size, size)
-     .setAlpha(0.10 + 0.10 * wave)
+     .setAlpha(0.35 * (1 - t))
      .setPosition(Math.round(sx), Math.round(sy));
   });
 
