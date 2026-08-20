@@ -1,4 +1,4 @@
-// Headless tests for src/road_overlay.js — the brown-@-31% overlay that draws
+// Headless tests for src/road_overlay.js — the muted-brown band that draws
 // the ORIGINAL OSM road linework (decoded MVT `transportation` lines) over the
 // rasterized map.
 //
@@ -19,7 +19,7 @@ if (typeof CELL_PX === 'undefined') globalThis.CELL_PX = 32;
 function makeGfx() {
   return {
     paths: [], cleared: 0, style: null, _cur: null,
-    clear() { this.paths.length = 0; this.cleared++; },
+    clear() { this.paths.length = 0; this.erased.length = 0; this.cleared++; },
     lineStyle(w, c, a) { this.style = { w, c, a }; },
     beginPath() { this._cur = { style: this.style, pts: [] }; },
     moveTo(x, y) { this._cur.pts.push({ x, y }); },
@@ -27,6 +27,8 @@ function makeGfx() {
     strokePath() { this.paths.push(this._cur); this._cur = null; },
     phase: null,
     texturePhase(x, y) { this.phase = { x, y }; },
+    erased: [],
+    eraseRect(x, y, w, h) { this.erased.push({ x, y, w, h }); },
     get lines() {
       const segs = [];
       for (const p of this.paths)
@@ -79,7 +81,7 @@ function makeOverlayScene(over) {
 
 // One decoded-MVT-shaped tile entry. `pts` are MVT integer coords (extent
 // 4096 across the tile edge); a 4096-unit tile spans TILE_EDGE_M metres.
-function putTile(tx, ty, features) {
+function putTile(tx, ty, features, grid) {
   const entry = {
     tileEdgeM: TILE_EDGE_M,
     layers: [
@@ -87,6 +89,17 @@ function putTile(tx, ty, features) {
       { name: 'transportation', extent: 4096, features },
     ],
   };
+  // `grid` (optional) is the rasterized terrain the keep-out pass reads. Pass
+  // a { "ix_iy": type } map; anything unlisted is grass (0).
+  if (grid) {
+    const N = 512;
+    const g = new Uint8Array(N * N);
+    for (const k of Object.keys(grid)) {
+      const [ix, iy] = k.split('_').map(Number);
+      g[iy * N + ix] = grid[k];
+    }
+    entry.grid = g;
+  }
   WorldGen.tileCache.set(`${WorldGen.Z}/${tx}/${ty}`, entry);
   return entry;
 }
@@ -115,14 +128,14 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes muted earth brown at 31% opacity', () => {
+test('road overlay: strokes muted earth brown at 51% opacity', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
   assert.eq(style.c, 0x614b3a, 'colour is the muted earth brown');
-  assert.eq(style.a, 0.31, 'alpha is 31%');
+  assert.eq(style.a, 0.51, 'alpha is 51%');
   // Desaturated, not merely darkened: the colour keeps its brightness but its
   // channels sit closer together than a saturated brown's would.
   const r = 0x61, g = 0x4b, b = 0x3a;
@@ -261,6 +274,89 @@ test('road overlay: sub-cell movement scrolls the container, not the geometry', 
   RoadOverlay.draw(scene);
   assert.eq(scene.roadGeomGfx.lines[0][0], 176, 'snapped x1 unchanged');
   assert.eq(scene.roadGeomContainer.x, -16, 'container carries the sub-cell offset');
+});
+
+// ── Rail ──────────────────────────────────────────────────────────────────
+
+test('road overlay: railways are drawn in slate, not road earth', () => {
+  clearTiles();
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'rail' }),
+    line([{ x: 0, y: 8 }, { x: 16, y: 8 }], { class: 'transit', subclass: 'tram' }),
+    line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }),
+  ]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const byColour = {};
+  for (const p of scene.roadGeomGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
+  assert.eq(byColour[0x565d69], 2, 'both rail classes stroke slate');
+  assert.eq(byColour[0x614b3a], 1, 'the street keeps the earth brown');
+});
+
+test('road overlay: rail and road of the same width are stroked separately', () => {
+  clearTiles();
+  // Both fall to the 3 m default width — bucketing on width alone would merge
+  // them into one path list and paint the rail brown (or the road slate).
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'rail' }),
+    line([{ x: 0, y: 8 }, { x: 16, y: 8 }], { class: 'raceway' }),
+  ]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const paths = scene.roadGeomGfx.paths;
+  assert.eq(paths.length, 2, 'two paths');
+  assert.eq(paths[0].style.w, paths[1].style.w, 'same width');
+  assert.truthy(paths[0].style.c !== paths[1].style.c, 'different colours');
+});
+
+// ── Keep-out (land only, never over a floor) ──────────────────────────────
+// The band is punched out of the finished canvas over water and building
+// cells. Cells are addressed off the player's own cell: the cell `ox` columns
+// east / `oy` rows south lands at (viewCenterX + ox*32, viewCenterY + oy*32).
+
+// The player's cell in the fixture — the tile-local cell holding world (0,0).
+const _erasedAt = (g, ox, oy) => g.erased.some(r =>
+  r.x === 176 + ox * 32 && r.y === 176 + oy * 32 && r.w === 32 && r.h === 32);
+
+test('road overlay: water cells are punched out of the band', () => {
+  clearTiles();
+  // Two cells east of the player is water; one cell east is plain ground.
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])], { '2_0': 3 });
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const g = scene.roadGeomGfx;
+  assert.truthy(g.erased.length > 0, 'something was punched out');
+  assert.truthy(_erasedAt(g, 2, 0), 'the water cell is cleared');
+  assert.falsy(_erasedAt(g, 1, 0), 'the land cell beside it is not');
+});
+
+test('road overlay: building floors are punched out of the band', () => {
+  clearTiles();
+  // House (9), building_med (11) and castle floor (12) all keep the band off.
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])],
+          { '1_0': 9, '2_0': 11, '3_0': 12, '4_0': 5 });
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const g = scene.roadGeomGfx;
+  for (const ox of [1, 2, 3]) assert.truthy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' cleared');
+  assert.falsy(_erasedAt(g, 4, 0), 'the residential cell is left alone');
+});
+
+test('road overlay: ordinary ground is never punched out', () => {
+  clearTiles();
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])], { '1_0': 0, '2_0': 7 });
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  assert.eq(scene.roadGeomGfx.erased.length, 0, 'nothing cleared over grass or road');
+});
+
+test('road overlay: a tile with no rasterized grid is simply not punched', () => {
+  clearTiles();
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])]);   // no grid
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  assert.eq(scene.roadGeomGfx.erased.length, 0, 'no grid, no keep-out');
+  assert.truthy(scene.roadGeomGfx.lines.length > 0, 'the way is still drawn');
 });
 
 // ── Grain ─────────────────────────────────────────────────────────────────

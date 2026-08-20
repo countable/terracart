@@ -126,6 +126,20 @@ const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand 
 // than pure white so it reads as foam lit by the same flat daylight as the
 // rest of the map, not as a hard highlight.
 const SURF_COLOR = 0xdff0f7;
+// Does the edge between a cell painted `color` and a neighbour of terrain
+// `nbrType` painted `nbrColor` get the wavy biome border? The rule is just
+// "the painted colours differ", with buildings opted out (their own outline
+// draws the seam). It lives out here, named and pure, because the interesting
+// case is subtle: road/path cells are painted the majority biome AROUND them
+// (neighborNonRoadColor), so two adjacent cells of the SAME road tier can
+// carry different colours where a road runs along a zone seam — and the old
+// rule, which skipped any edge between two road-like cells, dropped the
+// border exactly there. See the caller in drawCells for the full story.
+function edgeNeedsBorder(color, nbrType, nbrColor) {
+  if (BORDER_TRANS_SKIP.has(nbrType)) return false;
+  return nbrColor !== color;
+}
+if (typeof window !== 'undefined') window.edgeNeedsBorder = edgeNeedsBorder;
 const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
 const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
 const _WAVE_TABLE = (() => {
@@ -339,16 +353,26 @@ Render.drawCells = function drawCells(scene) {
       if (borderDirty && !TRANS_SKIP.has(type)) {
         const tN = T(col, row - 1), tS = T(col, row + 1);
         const tW = T(col - 1, row), tE = T(col + 1, row);
-        const isRoadLike = isRoad(type) || type === PATH;
         // Resolve the inferred colour of a road/path neighbour by looking through it.
         const nbrInferred = (dnx, dny) =>
           scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR;
-        const edgeNeeds = (t, dnx, dny) => {
-          if (t === type || TRANS_SKIP.has(t)) return false;
-          const nbrIsRoad = isRoad(t) || t === PATH;
-          if (isRoadLike && nbrIsRoad) return false;
-          return (nbrIsRoad ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR)) !== color;
-        };
+        // An edge needs the wavy border exactly when the PAINTED colours differ
+        // across it — nothing else (edgeNeedsBorder, above). That sounds
+        // obvious, but the old test ALSO short-circuited "both sides are
+        // road-like → no border", on the assumption that road cells all share
+        // one surface colour. They don't: a road cell is painted the majority
+        // biome of its 7×7 neighbourhood (neighborNonRoadColor), so a road
+        // running ALONG a biome seam flips from the grass colour to the
+        // residential colour partway down its own run. That flip is a
+        // full-strength colour seam on screen, and the short-circuit
+        // suppressed the border on precisely those cells — which is why zone
+        // boundaries appeared to lose their decoration wherever a road (and so
+        // a line of cobbles) sat on them.
+        // Comparing colours alone also subsumes the old `t === type` skip: two
+        // cells of one non-road type always resolve to the same colour.
+        const edgeNeeds = (t, dnx, dny) => edgeNeedsBorder(
+          color, t,
+          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR));
         const drawN = edgeNeeds(tN,  0, -1);
         const drawS = edgeNeeds(tS,  0, +1);
         const drawW = edgeNeeds(tW, -1,  0);
@@ -541,11 +565,14 @@ Render.drawCells = function drawCells(scene) {
         if (frame != null && !isTilled) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
           // pebble — sit inside their cell and have been stepped down another
-          // 10% (per playtest), centred on the same point: roads at 0.80 of a
-          // cell and paths at 0.73. The PIER plank is not one of them and keeps
-          // cell size: its art tiles edge-to-edge across adjacent pier cells,
-          // and any resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.80 : CELL_PX * 0.73);
+          // 20% (per playtest), centred on the same point: roads at 0.64 of a
+          // cell and paths at 0.584. Smaller stones leave more of the cell's
+          // own ground showing between them, so a road reads as a track laid
+          // ON the zone rather than as a tiled surface, and the wavy biome
+          // border at the cell edge has room to read. The PIER plank is not
+          // one of them and keeps cell size: its art tiles edge-to-edge across
+          // adjacent pier cells, and any resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -962,8 +989,19 @@ function playerScreenBox(scene) {
 // Dim `tx` when it overlaps `box`; restore it to `full` when it doesn't.
 function fadeLabelOverPlayer(tx, box, full = 1) {
   if (!box) { tx.setAlpha(full); return; }
-  const w = tx.width, h = tx.height;
-  const x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
+  let w = tx.width, h = tx.height;
+  let x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
+  // Quarter-turned labels (the vertical POI names) occupy a box that is the
+  // transpose of the text's own: rotating by -90° maps the glyph run's width
+  // onto screen Y and its line height onto screen X. Without this the fade
+  // test used the unrotated box and let a vertical name sit right across the
+  // character at full opacity.
+  if (Math.abs(Math.abs(tx.rotation || 0) - Math.PI / 2) < 0.01) {
+    const up = (tx.rotation || 0) < 0;   // -90° reads bottom-to-top
+    x0 = tx.x - h * tx.originY;
+    y0 = up ? tx.y - w * (1 - tx.originX) : tx.y - w * tx.originX;
+    const t = w; w = h; h = t;
+  }
   const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
   tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : full);
 }
@@ -1916,14 +1954,40 @@ Render.drawObjects = function drawObjects(scene) {
     // sy + 12 — the old +4 anchor cut the bottom third off every chest it
     // labelled. Crates are the smaller sprite, so they need less clearance.
     const labelY = sy + (_chestIsBox(o) ? 13 : 16);
-    // Clamp x to the canvas: origin-0.5 text at the raw sx ran off the edge,
-    // so long POI names were sliced on every viewport size. setText first —
-    // the clamp needs the rendered width.
+    // Switch font size + padding live: fallback labels are smaller. Done
+    // BEFORE the layout below, which measures the rendered text.
     tx.setText(label).setVisible(true);
-    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(labelY));
-    // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
+    // POI names hang VERTICALLY, reading bottom-to-top up the right-hand side
+    // of the chest; every other label on the map is horizontal. On a dense
+    // block the POI names, the shop signs and the crate labels all used to
+    // stack into the same horizontal pile and the eye couldn't tell which
+    // named what. A quarter turn separates them at a glance, and it costs no
+    // horizontal room — the reason the long ones were being clamped and
+    // sliced in the first place. Supply crates stay horizontal: they're
+    // transient pickups, not places, and their labels are one short word.
+    // The test is `o.crate` and NOT _chestIsBox: that helper also answers true
+    // for every tier-1 POI (an ATM, a bike rack, a bus stop) because they
+    // borrow the box SPRITE — but those are places and their names belong
+    // with the other POI names.
+    // The pool is shared, so BOTH branches set rotation/origin every frame.
+    const vertical = !o.crate;
+    if (vertical) {
+      // origin (0, 0.5) + a -90° turn: the run starts at the anchor and
+      // climbs, centred on the anchor's x. Anchor at the sprite's foot, one
+      // half-cell right of centre, so the glyphs clear the chest art.
+      tx.setRotation(-Math.PI / 2).setOrigin(0, 0.5);
+      // Clamp with the label's HEIGHT — that's its on-screen width once
+      // turned — so a name near the canvas edge still sits fully inside it.
+      tx.setPosition(Math.round(clampTextX(sx + CELL_PX * 0.5, tx.height, CANVAS_W)),
+                     Math.round(sy + 14));
+    } else {
+      tx.setRotation(0).setOrigin(0.5, 0);
+      // Clamp x to the canvas: origin-0.5 text at the raw sx ran off the edge,
+      // so long labels were sliced on every viewport size.
+      tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(labelY));
+    }
     // Same treatment either way — only the ink differs (blue-tinted for a named
     // POI, plain white for a supply crate). The pool is shared across both, and
     // a pooled slot may have just drawn the other kind, so set it every frame.

@@ -58,6 +58,11 @@ const FILES = [
   // Pure draw-math module: it only touches WorldGen + a stub Graphics, so the
   // road-geometry overlay's projection/culling can be pinned without Phaser.
   'road_overlay.js',
+  // render.js needs Phaser to DRAW, but it deliberately reads no globals at
+  // load time (see the CANVAS_W comment in drawObjects), so loading it here is
+  // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
+  // a home in the headless suite.
+  'render.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
