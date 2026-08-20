@@ -78,6 +78,43 @@ const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the 
 // this is the one knob that moves all dialogs together.
 const MODAL_LIFT_PX = 140;
 
+// ── Toast style ────────────────────────────────────────────────────────────
+// One dark chip for every in-world message, and one four-step type scale. The
+// old code had #000a, #000c and rgba(0,0,0,.6) for what was meant to be the
+// same chip, and 12 / 16 / 22 / 26px picked independently per call site.
+//
+// The four tiers are the distinctions worth keeping:
+//   note    — "that didn't work", small status. Lands where the player TAPPED
+//             so it stays attached to the thing they touched. No pop: a status
+//             message that animates in reads as more important than it is.
+//             The only tier with NO chip (bg: null) — it sits ON the map at
+//             the tapped cell, and a dark box there hides the thing the
+//             message is about. A drop shadow lifts it off the ground instead.
+//   sub     — a second line under a fanfare. Fades rather than pops so it
+//             doesn't compete with the headline it belongs to.
+//   gain    — "you got something". Centred, pops in, can carry an icon.
+//   fanfare — jackpot / shiny. Biggest, keeps its own chip colour, overshoots
+//             and settles, and stacks ABOVE a gain (hence the depth gap).
+//
+// dy is the offset from the viewport centre, and the ladder of values is what
+// lets a gain and a fanfare fired in the same moment stack instead of overlap.
+const TOAST_BG = '#000c';
+const TOAST_TIER = {
+  // pad here buys no visible chip — it stops Phaser cropping the shadow's
+  // blur at the glyph bounds, which is what makes an un-chipped Text look
+  // like its shadow has a straight edge cut through it.
+  note:    { font: '12px',      stroke: 0, pad: 6,  padY: 4, depth: 100, dy:  -70,
+             bg: null, shadow: { offsetX: 1, offsetY: 1, blur: 4 },
+             pop: 0,   hold: 1300, fade: 700, rise: 30 },
+  sub:     { font: 'bold 16px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
+             pop: 0,   fadeIn: 240, hold: 1800, fade: 700, rise: 60, ease: 'Sine.In' },
+  gain:    { font: 'bold 22px', stroke: 3, pad: 10, padY: 5, depth: 101, dy:  -90,
+             pop: 140, popScale: 0.6, hold: 1440, fade: 700, rise: 50, ease: 'Sine.In' },
+  fanfare: { font: 'bold 26px', stroke: 4, pad: 14, padY: 6, depth: 110, dy: -150,
+             pop: 220, popScale: 0.2, overshoot: 1.1, hold: 1800, fade: 700, rise: 60,
+             ease: 'Sine.In' },
+};
+
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
 // the player knows what they are looking at before reading a line of it — a
@@ -2981,7 +3018,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -3004,7 +3041,7 @@ class MapScene extends Phaser.Scene {
       const html = this.gearIconHTML('relic', toolSlot, tier, 16);
       if (html) {
         const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.8;';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
         el.innerHTML = html;
         document.body.appendChild(el);
         this._workProgressIcon = el;
@@ -3171,25 +3208,32 @@ class MapScene extends Phaser.Scene {
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
     const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
-    const R = 9;
+    // Ring radius comes from the same table that PLACES the wheel — the crown
+    // seating clears the outer edge (R + 1, the backing disc below), so a
+    // resize here without one there would put the ring back in the sky.
+    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
     const g = this._workProgressGfx;
     g.clear();
-    // Every wheel is 20% more transparent than it used to be (0.55 → 0.44
-    // backing, 0.9 → 0.72 arc, and the tool icon at 0.8): the wheel sits ON
-    // the thing being worked, and at full strength it hid the very sprite it
-    // was reporting progress against.
-    g.fillStyle(0x000000, 0.44);
+    // The wheel sits ON the thing being worked, so it has been walked back
+    // twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
+    // then a flat 0.1 off each alpha — backing 0.34, arc 0.62, tool icon 0.7
+    // (the icon's is set on the DOM element in startWorkProgress /
+    // startCatchProgress). At full strength it hid the very sprite it was
+    // reporting progress against.
+    g.fillStyle(0x000000, 0.34);
     g.fillCircle(cx, cy, R + 1);
     // Unfilled TRACK ring behind the arc, so the wheel shows how far there is
     // still to go and not just how much is done (UX audit §20). Kept faint —
     // it adds the missing information without walking back the transparency
-    // above, which is the point of that pass.
-    g.lineStyle(3, 0xffffff, 0.18);
+    // above, which is the point of that pass. Thinned in step with the arc
+    // (×0.62/0.72) rather than by the flat 0.1, which would have all but
+    // erased it.
+    g.lineStyle(3, 0xffffff, 0.155);
     g.beginPath();
     g.arc(cx, cy, R, 0, Math.PI * 2, false);
     g.strokePath();
     if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.72);
+      g.lineStyle(3, 0xffffff, 0.62);
       g.beginPath();
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
@@ -4669,39 +4713,154 @@ class MapScene extends Phaser.Scene {
     this.flash(`→ ${label} (${best.poiClass}, ${Math.round(bestD)}m)`, this.viewCenterX, this.viewCenterY - 40);
   }
 
-  flash(text, x, y) {
-    const t = this.add.text(x, y, text, {
-      font: fontMono('12px'), color: UI_INK, backgroundColor: '#000a',
-      padding: { x: 4, y: 2 },
-    }).setOrigin(0.5, 1).setDepth(100);
-    // Keep it on the canvas: a tap near an edge used to render half the
-    // message ("Just out o") because origin-0.5 text at the raw x runs off.
+  // ── Toasts ───────────────────────────────────────────────────────────────
+  // Every transient in-world message goes through _toast. There used to be
+  // five separate builders (flash, _splashEnergyGain, flashLoot, flashJackpot,
+  // flashShiny) which between them used three dark backgrounds (#000a, #000c,
+  // rgba(0,0,0,.6)), four unrelated font sizes, three stroke weights including
+  // none at all, and four padding shapes — so two messages a second apart could
+  // look like they came from different games.
+  //
+  // The tiers below are the differences that are actually meaningful; every
+  // other axis is now shared. See TOAST_TIER in this file for the table.
+  //
+  // Returns the text object so a caller can hang extra tweens on it (the
+  // fanfares add a wobble). Options:
+  //   tier          which row of TOAST_TIER
+  //   x, y          absolute position; default is the viewport centre offset
+  //                 by the tier's dy
+  //   originY       1 (default) hangs the chip above y; 0 drops it below
+  //   color, bg     ink and chip colour
+  //   dwellMul      scales hold + fade (a chest open lingers longer)
+  //   padExtraLeft  reserve inside the chip for flashLoot's DOM icon
+  _toast(text, opts = {}) {
+    const S = TOAST_TIER[opts.tier || 'note'];
+    const x = opts.x ?? this.viewCenterX;
+    const y = opts.y ?? (this.viewCenterY + S.dy);
+    const mul = opts.dwellMul || 1;
+    // Chip colour: caller override, else the tier's own, else the shared one.
+    // A tier may opt out entirely with `bg: null`, so this can't collapse to
+    // `opts.bg || S.bg || TOAST_BG` — null is exactly the value that must win.
+    const bg = opts.bg !== undefined ? opts.bg
+             : (S.bg !== undefined ? S.bg : TOAST_BG);
+    const style = {
+      font: fontMono(S.font),
+      color: opts.color || UI_INK,
+      stroke: UI_SHADOW, strokeThickness: S.stroke,
+      padding: {
+        left: S.pad + (opts.padExtraLeft || 0), right: S.pad,
+        top: S.padY, bottom: S.padY,
+      },
+    };
+    if (bg) style.backgroundColor = bg;
+    if (S.shadow) {
+      style.shadow = {
+        offsetX: S.shadow.offsetX, offsetY: S.shadow.offsetY,
+        color: UI_SHADOW, blur: S.shadow.blur, fill: true, stroke: true,
+      };
+    }
+    const t = this.add.text(x, y, text, style)
+      .setOrigin(0.5, opts.originY ?? 1).setDepth(opts.depth ?? S.depth);
+    // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
+    // edge rendered half a message ("Just out o") — and why a long item name
+    // at 22px could still run off the 352px viewport in the loot pop, where
+    // nobody had noticed because most names are short.
     t.x = clampTextX(x, t.width, W);
-    // 2 s total — per user "tooltip splash …are a little too quick". Hold the
-    // text visible for the first ~70 % of the duration, then drift up + fade
-    // over the remainder so the eye has time to read it before it leaves.
-    const total = 2000;
-    const fade = 700;
+    // Stack instead of overlapping. Do this BEFORE the drift tween is built so
+    // the tween captures the final resting y.
+    if (opts.stack !== false) this._stackToast(t);
+    if (S.pop) {
+      t.setScale(S.popScale).setAlpha(0);
+      const peak = S.overshoot || 1;
+      this.tweens.add({ targets: t, scale: peak, alpha: 1, duration: S.pop, ease: 'Back.Out' });
+      // Fanfares overshoot and settle back; the loot pop lands directly.
+      if (peak !== 1) {
+        this.tweens.add({ targets: t, scale: 1, duration: S.pop, delay: S.pop, ease: 'Sine.InOut' });
+      }
+    } else if (S.fadeIn) {
+      t.setAlpha(0);
+      this.tweens.add({ targets: t, alpha: 1, duration: S.fadeIn, delay: 160 });
+    }
+    // t.y, not the anchor y — _stackToast may have lifted it clear.
     this.tweens.add({
-      targets: t, y: y - 30, alpha: 0, duration: fade, delay: total - fade,
-      onComplete: () => t.destroy(),
+      targets: t, y: t.y - S.rise, alpha: 0,
+      duration: Math.round(S.fade * mul), delay: Math.round(S.hold * mul),
+      ease: S.ease, onComplete: () => t.destroy(),
+    });
+    return t;
+  }
+
+  // Lift a freshly-built toast until it clears every toast already on screen.
+  //
+  // The NEW one moves, never the ones already placed. That is not a style
+  // choice: a placed toast already owns a tween on its own `y` for the drift,
+  // and a second tween on the same property fights it — the toast would snap
+  // between the two values for the rest of its life. Walking the newcomer
+  // upward past what is already there needs no tween at all.
+  //
+  // Overlap is tested on real rendered bounds rather than on tier or anchor,
+  // so it also catches a note colliding with a loot pop, and leaves two
+  // messages at opposite corners alone.
+  _stackToast(t) {
+    const live = this._liveToasts || (this._liveToasts = []);
+    // Drop anything Phaser has already destroyed. The destroy handler below
+    // normally does this; the sweep covers a scene teardown that fired none.
+    for (let i = live.length - 1; i >= 0; i--) {
+      if (!live[i].scene || live[i].active === false) live.splice(i, 1);
+    }
+    const GAP = 3;
+    const ceiling = (this.viewTop ?? 0) + 2;
+    const hits = (b) => live.find((o) => {
+      const ob = o.getBounds();
+      return !(b.right <= ob.left || b.left >= ob.right
+            || b.bottom <= ob.top  || b.top  >= ob.bottom);
+    });
+    // Bounded: a burst of messages must not march off the top of the map. Once
+    // the stack reaches the ceiling the newest simply overlaps, which is the
+    // old behaviour and still better than a toast nobody can see.
+    for (let guard = 0; guard < 6; guard++) {
+      const b = t.getBounds();
+      const hit = hits(b);
+      if (!hit) break;
+      const lift = (b.bottom - hit.getBounds().top) + GAP;
+      if (b.top - lift < ceiling) break;
+      t.y -= lift;
+    }
+    live.push(t);
+    t.once('destroy', () => {
+      const i = live.indexOf(t);
+      if (i >= 0) live.splice(i, 1);
     });
   }
 
+  // Radial ✦ burst behind a fanfare. Was written out twice, identically bar
+  // the count and the throw distance.
+  _starburst(x, y, count, dist, duration) {
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      const sx = x + Math.cos(a) * 12, sy = y - 18 + Math.sin(a) * 12;
+      const star = this.add.text(sx, sy, '✦', {
+        font: fontMono('bold 18px'), color: UI_GOLD,
+        stroke: UI_SHADOW, strokeThickness: 2,
+      }).setOrigin(0.5, 0.5).setDepth(TOAST_TIER.fanfare.depth + 1).setAlpha(0.95);
+      this.tweens.add({
+        targets: star, x: sx + Math.cos(a) * dist, y: sy + Math.sin(a) * dist,
+        alpha: 0, duration, ease: 'Sine.Out', onComplete: () => star.destroy(),
+      });
+    }
+  }
+
+  // Small status message, placed where the player tapped so it stays attached
+  // to the thing they touched.
+  flash(text, x, y) {
+    this._toast(text, { tier: 'note', x, y });
+  }
+
   // Small green "+N⚡" splash near the player when energy is RECOVERED
-  // (passive rest, offline rest). Uses flash()'s subtle style rather than the
-  // big loot pop. No-ops before the viewport centre is known (early create).
+  // (passive rest, offline rest). No-ops before the viewport centre is known.
   _splashEnergyGain(amount) {
     if (!(amount > 0) || this.viewCenterX == null) return;
-    const x = this.viewCenterX, y = this.viewCenterY - 70;
-    const t = this.add.text(x, y, `+${amount}⚡`, {
-      font: fontMono('12px'), color: UI_GREEN, backgroundColor: '#000a',
-      padding: { x: 4, y: 2 },
-    }).setOrigin(0.5, 1).setDepth(100);
-    this.tweens.add({
-      targets: t, y: y - 30, alpha: 0, duration: 700, delay: 1300,
-      onComplete: () => t.destroy(),
-    });
+    this._toast(`+${amount}⚡`, { tier: 'note', color: UI_GREEN });
   }
 
   // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
@@ -4756,8 +4915,7 @@ class MapScene extends Phaser.Scene {
   // iconEl: an optional pre-rendered 28px icon element. Used for forged GEAR
   // (pick / axe / armor), whose art comes from gearIconHTML rather than the
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
-  flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null, iconEl = null) {
-    const x = this.viewCenterX, y = this.viewCenterY - 90;
+  flashLoot(text, color = UI_GOLD, dwellMul = 1, itemId = null, iconEl = null) {
     // Every "you got something" goes through here, so it's the one place a
     // success buzz needs wiring (UX audit §18).
     this.hapticOk();
@@ -4773,11 +4931,7 @@ class MapScene extends Phaser.Scene {
     const ICON_PX = 28;       // displayed icon side
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
-    const t = this.add.text(x, y, text, {
-      font: fontMono('bold 22px'), color, backgroundColor: '#000c',
-      stroke: '#000', strokeThickness: 3,
-      padding: { left: 10 + RESERVE, right: 10, top: 5, bottom: 5 },
-    }).setOrigin(0.5, 1).setDepth(101).setScale(0.6).setAlpha(0);
+    const t = this._toast(text, { tier: 'gain', color, dwellMul, padExtraLeft: RESERVE });
     if (iconEl) {
       // The 'block' icon came back as inline-block — restyle as a fixed
       // overlay we can absolute-position with transform.
@@ -4828,11 +4982,6 @@ class MapScene extends Phaser.Scene {
       });
       placeIcon();
     }
-    // Pop in (140ms), hold (1.44s * dwellMul), drift up + fade (700ms * dwellMul).
-    this.tweens.add({ targets: t, scale: 1.0, alpha: 1, duration: 140, ease: 'Back.Out' });
-    this.tweens.add({ targets: t, y: y - 50, alpha: 0,
-      duration: Math.round(700 * dwellMul), delay: Math.round(1440 * dwellMul),
-      ease: 'Sine.In', onComplete: () => t.destroy() });
   }
 
   // Jackpot fanfare for rarity.js' boost-chain rewards. Fires on any jackpot
@@ -4842,36 +4991,11 @@ class MapScene extends Phaser.Scene {
   flashJackpot(n) {
     if (!n || n < 1) return;
     if (!this.add) return;
-    const x = this.viewCenterX, y = this.viewCenterY - 140;
     try {
-      const label = `✨ JACKPOT +${n} ✨`;
-      const t = this.add.text(x, y, label, {
-        font: fontMono('bold 26px'), color: UI_GOLD,
-        backgroundColor: '#3a1f5a', stroke: '#000', strokeThickness: 4,
-        padding: { left: 14, right: 14, top: 6, bottom: 6 },
-      }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
-      this.tweens.add({ targets: t, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.Out' });
-      this.tweens.add({ targets: t, scale: 1.0, duration: 220, delay: 220, ease: 'Sine.InOut' });
+      const t = this._toast(`✨ JACKPOT +${n} ✨`,
+        { tier: 'fanfare', color: UI_GOLD, bg: '#3a1f5a' });
       this.tweens.add({ targets: t, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
-      this.tweens.add({ targets: t, y: y - 60, alpha: 0,
-        duration: 700, delay: 1800, ease: 'Sine.In',
-        onComplete: () => t.destroy() });
-      for (let i = 0; i < 6; i++) {
-        const angle = (i / 6) * Math.PI * 2;
-        const sx = x + Math.cos(angle) * 12;
-        const sy = y - 18 + Math.sin(angle) * 12;
-        const star = this.add.text(sx, sy, '✦', {
-          font: fontMono('bold 18px'), color: UI_GOLD,
-          stroke: '#000', strokeThickness: 2,
-        }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
-        this.tweens.add({
-          targets: star,
-          x: sx + Math.cos(angle) * 70,
-          y: sy + Math.sin(angle) * 70,
-          alpha: 0, duration: 900, ease: 'Sine.Out',
-          onComplete: () => star.destroy(),
-        });
-      }
+      this._starburst(t.x, t.y, 6, 70, 900);
     } catch (_) {}
   }
 
@@ -4909,43 +5033,22 @@ class MapScene extends Phaser.Scene {
   // loot/catch flash so it stacks above (depth 110).
   flashShiny(money, isNew = true) {
     if (!this.add) return;
-    const x = this.viewCenterX, y = this.viewCenterY - 150;
     try {
-      const banner = this.add.text(x, y, '✨ SHINY FIND ✨', {
-        font: fontMono('bold 26px'), color: UI_GOLD_PALE,
-        backgroundColor: '#7a5200', stroke: '#000', strokeThickness: 4,
-        padding: { left: 14, right: 14, top: 6, bottom: 6 },
-      }).setOrigin(0.5, 1).setDepth(110).setScale(0.2).setAlpha(0);
-      this.tweens.add({ targets: banner, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.Out' });
-      this.tweens.add({ targets: banner, scale: 1.0, duration: 220, delay: 220, ease: 'Sine.InOut' });
+      const banner = this._toast('✨ SHINY FIND ✨',
+        { tier: 'fanfare', color: UI_GOLD_PALE, bg: '#7a5200' });
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
-      this.tweens.add({ targets: banner, y: y - 60, alpha: 0,
-        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => banner.destroy() });
+      // Hangs BELOW the headline (originY 0) rather than above it, which is
+      // the whole reason `sub` is its own tier.
       const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
-      const sub = this.add.text(x, y + 8, subText, {
-        font: fontMono('bold 16px'), color: UI_GOLD_DEEP,
-        backgroundColor: '#000a', stroke: '#000', strokeThickness: 3,
-        padding: { left: 8, right: 8, top: 3, bottom: 3 },
-      }).setOrigin(0.5, 0).setDepth(110).setAlpha(0);
-      this.tweens.add({ targets: sub, alpha: 1, duration: 240, delay: 160 });
-      this.tweens.add({ targets: sub, y: y - 52, alpha: 0,
-        duration: 700, delay: 1900, ease: 'Sine.In', onComplete: () => sub.destroy() });
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const sx0 = x + Math.cos(angle) * 12;
-        const sy0 = y - 18 + Math.sin(angle) * 12;
-        const star = this.add.text(sx0, sy0, '✦', {
-          font: fontMono('bold 18px'), color: UI_GOLD,
-          stroke: '#000', strokeThickness: 2,
-        }).setOrigin(0.5, 0.5).setDepth(111).setAlpha(0.95);
-        this.tweens.add({
-          targets: star,
-          x: sx0 + Math.cos(angle) * 80,
-          y: sy0 + Math.sin(angle) * 80,
-          alpha: 0, duration: 950, ease: 'Sine.Out',
-          onComplete: () => star.destroy(),
-        });
-      }
+      // Pinned 8px under the headline's FINAL y (the banner may have been
+      // lifted clear of a loot pop — flashShiny is documented to fire after
+      // one) and opted out of stacking, so the pair always reads as one unit
+      // instead of the sub wandering off to find its own clear slot.
+      this._toast(subText, {
+        tier: 'sub', color: UI_GOLD_DEEP, originY: 0,
+        y: banner.y + 8, stack: false,
+      });
+      this._starburst(banner.x, banner.y, 8, 80, 950);
     } catch (_) {}
   }
 
