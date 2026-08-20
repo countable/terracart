@@ -137,11 +137,19 @@ function topLevelEntries(body) {
   return pairs;
 }
 
+// Every showChestRewardModal({...}) call site — the loot/ceremony dialogs.
+function chestCalls(file = 'src/app.js') {
+  return callsTo('showChestRewardModal(', file);
+}
+
 // Every showOfferModal({...}) call site, as { line, args }.
 function offerCalls(file = 'src/app.js') {
+  return callsTo('showOfferModal(', file);
+}
+
+function callsTo(CALL, file = 'src/app.js') {
   const src = blankComments(fs.readFileSync(path.resolve(ROOT, file), 'utf8'));
   const calls = [];
-  const CALL = 'showOfferModal(';
   let at = 0;
   for (;;) {
     const i = src.indexOf(CALL, at);
@@ -149,8 +157,7 @@ function offerCalls(file = 'src/app.js') {
     at = i + CALL.length;
     // Skip the method DEFINITION — it destructures its parameter object.
     const lineStart = src.lastIndexOf('\n', i) + 1;
-    if (!/[.\s]showOfferModal\($/.test(src.slice(lineStart, at))) continue;
-    if (/^\s*showOfferModal\(\{\s*title/.test(src.slice(lineStart, at + 40))) continue;
+    if (!src.slice(lineStart, at).endsWith('this.' + CALL)) continue;
     const brace = src.indexOf('{', at - 1);
     if (brace < 0 || brace > at + 4) continue;   // not a call with an object literal
     const body = objectLiteralAt(src, brace);
@@ -238,6 +245,18 @@ const CHECKS = [
       if (withCost.length < 8) {
         throw new Error(`only ${withCost.length} call sites parsed a get+cost pair — the scanner is broken`);
       }
+      if (chestCalls().length < 5) {
+        throw new Error(`only found ${chestCalls().length} chest-reward call sites — the scanner is broken`);
+      }
+      if (shellCalls().length < 6) {
+        throw new Error(`only found ${shellCalls().length} makeModalShell call sites — the scanner is broken`);
+      }
+      // MODAL_KINDS is a table of a dozen-plus categories; one entry means the
+      // parse died early (this is exactly what a stray apostrophe in the
+      // comment above the table did before blankComments was applied here).
+      if (declaredKinds().size < 8) {
+        throw new Error(`MODAL_KINDS parsed as only ${declaredKinds().size} entries — the scanner is broken`);
+      }
     },
   },
   {
@@ -263,4 +282,78 @@ const CHECKS = [
   },
 ];
 
-module.exports = { CHECKS, offerCalls, topLevelEntries, objectLiteralAt, blankComments, valueBranches };
+// Every kind key declared in the MODAL_KINDS table in src/app.js.
+function declaredKinds() {
+  const src = blankComments(fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8'));
+  const open = src.indexOf('const MODAL_KINDS = {');
+  if (open < 0) throw new Error('modal_audit: MODAL_KINDS not found in src/app.js');
+  const body = objectLiteralAt(src, src.indexOf('{', open));
+  if (body == null) throw new Error('modal_audit: could not read the MODAL_KINDS table');
+  return new Set([...topLevelEntries(body).keys()]);
+}
+
+// Modals built directly on makeModalShell rather than through showOfferModal —
+// the stats readout, the energy explainer, the delivery list and so on. Their
+// kind rides in the shell's OPTIONS object, so they need their own scan.
+function shellCalls() {
+  const src = blankComments(fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8'));
+  const calls = [];
+  const CALL = 'makeModalShell(';
+  let at = 0;
+  for (;;) {
+    const i = src.indexOf(CALL, at);
+    if (i < 0) break;
+    at = i + CALL.length;
+    if (!/this\.makeModalShell\($/.test(src.slice(Math.max(0, i - 5), at))) continue;  // the definition
+    const brace = src.indexOf('{', at);
+    if (brace < 0) continue;
+    const body = objectLiteralAt(src, brace);
+    if (body == null) continue;
+    const idMatch = src.slice(at, brace).match(/['"]([\w-]+)['"]/);
+    calls.push({ line: src.slice(0, i).split('\n').length, id: idMatch ? idMatch[1] : '?',
+                 args: topLevelEntries(body) });
+  }
+  return calls;
+}
+
+CHECKS.push({
+  name: 'offer modal: every dialog declares what KIND it is',
+  run: () => {
+    const kinds = declaredKinds();
+    const bad = [];
+    const check = (c, what) => {
+      const k = c.args.get('kind');
+      if (k == null) { bad.push(`src/app.js:${c.line} (${what}) opens without a kind`); return; }
+      // A literal key must exist in MODAL_KINDS; a computed one (a variable or
+      // a default forwarded from an outer call) is checked where it originates.
+      const lit = k.match(/^'([\w]+)'$/) || k.match(/^"([\w]+)"$/);
+      if (lit && !kinds.has(lit[1])) {
+        bad.push(`src/app.js:${c.line} (${what}) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
+      }
+    };
+    for (const c of offerCalls()) check(c, 'offer modal');
+    // showChestRewardModal defaults to 'treasure', so a caller may omit the
+    // kind — but a kind it does name has to be real.
+    for (const c of chestCalls()) {
+      const k = c.args.get('kind');
+      const lit = k && (k.match(/^'([\w]+)'$/) || k.match(/^"([\w]+)"$/));
+      if (lit && !kinds.has(lit[1])) {
+        bad.push(`src/app.js:${c.line} (chest modal) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
+      }
+    }
+    // The shell's own forwarding call inside showOfferModal passes the caller's
+    // kind through as a bare identifier; skip anything without a string id.
+    for (const c of shellCalls()) {
+      if (c.id === '?' || c.id === 'offer-modal' || c.id === 'chest-reward-modal') continue;
+      check(c, c.id);
+    }
+    if (bad.length) {
+      throw new Error(bad.join('; ') +
+        ' — every dialog opens with a hero icon and a one-word category so the ' +
+        'player knows what they are looking at. Add a `kind` from MODAL_KINDS.');
+    }
+  },
+});
+
+module.exports = { CHECKS, offerCalls, chestCalls, shellCalls, declaredKinds, topLevelEntries,
+                   objectLiteralAt, blankComments, valueBranches };

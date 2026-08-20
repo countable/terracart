@@ -114,19 +114,42 @@ function darkenHex(hex, f) {
        |  (Math.round( (hex        & 0xff) * f));
 }
 
+// Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b.
+function mixHex(a, b, t) {
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  return (Math.round(ar + (br - ar) * t) << 16)
+       | (Math.round(ag + (bg - ag) * t) <<  8)
+       |  Math.round(ab + (bb - ab) * t);
+}
+
 // Biome border wave — precomputed once. Values are integer pixel offsets
 // (±WAVE_AMP) for each column/row index 0..CELL_PX-1.
 const BORDER_W   = 2;
 const WAVE_AMP   = 1;
 const WAVE_LEN   = 16;
-// How far a biome seam darkens the cell's OWN colour to draw its edge. Higher
-// is lighter — 1.0 would make the border vanish into the cell. Raised from
-// 0.72, which read as a hard dark outline drawn around each zone rather than as
-// a seam between two of them: measured over the border pixels themselves, 0.86
-// lifts them from 96.8 to 105.8 mean luminance. Going further flattens the
-// wave — by 0.92 the seam stops reading as an edge in the lighter biomes, and
-// the border still has a job to do.
+// How far a biome seam darkens the cell's OWN colour. This is now only the
+// SHORELINE case: a land cell facing water keeps its dark wet margin, which is
+// what gives a shore its dark-margin-then-white-surf band (see the surf comment
+// in drawCells). Every other seam blends instead — see BLUR_MIX.
 const BORDER_DIM = 0.86;
+// Biome seams BLEND rather than outline. A single darkened line, however light,
+// still reads as a border drawn AROUND a zone; two biomes meeting in the world
+// should read as one grading into the other. Each cell paints a short inward
+// ramp of its own colour mixed toward the NEIGHBOUR's, most neighbour-like at
+// the boundary. The neighbour paints the mirror of the same ramp, so the seam
+// is BLUR_STEPS*BLUR_W px wide on each side — 12px in total across a 32px cell,
+// wide enough to read as a gradient and narrow enough that a cell still reads
+// as its own colour.
+//
+// The two innermost values matter more than they look: the outermost step is
+// 0.55 rather than 0.5 on purpose. At exactly 0.5 both sides of the boundary
+// resolve to the identical colour and the seam goes completely flat, which
+// loses the zone edge as a readable thing. Slightly past halfway, each side
+// leans a hair toward the other and the transition still has a direction.
+const BLUR_STEPS = 3;
+const BLUR_W     = 2;                      // px per step
+const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
 const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
 // Surf: the colour a WATER cell paints its biome-seam edge, in place of the
 // darkened own-colour edge every other terrain uses. Pale blue-white rather
@@ -149,6 +172,18 @@ function edgeNeedsBorder(color, nbrType, nbrColor) {
 if (typeof window !== 'undefined') window.edgeNeedsBorder = edgeNeedsBorder;
 const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
 const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
+// Seam blend results, cached like the darkened edges above. Bounded by
+// (palette x palette x BLUR_STEPS) and in practice far smaller — only colour
+// pairs that actually border each other are ever asked for. The key packs both
+// colours and the step into one number rather than a template string: this runs
+// per bordered cell edge on every cell-crossing rebuild.
+const _mixCache = new Map();
+const getBlend = (own, nbr, k) => {
+  const key = (own * 0x1000000 + nbr) * BLUR_STEPS + k;
+  let m = _mixCache.get(key);
+  if (m === undefined) { m = mixHex(own, nbr, BLUR_MIX[k]); _mixCache.set(key, m); }
+  return m;
+};
 const _WAVE_TABLE = (() => {
   const t = new Int8Array(32); // CELL_PX = 32
   for (let i = 0; i < 32; i++)
@@ -323,7 +358,8 @@ Render.drawCells = function drawCells(scene) {
   // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
-  // scattered stone.
+  // scattered stone — and so does an ACTIVATED named-path stone: coming up to
+  // full opacity is how a claimed stone reads as lit.
   const COBBLE_ALPHA = 0.57;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
@@ -488,60 +524,82 @@ Render.drawCells = function drawCells(scene) {
         // a line of cobbles) sat on them.
         // Comparing colours alone also subsumes the old `t === type` skip: two
         // cells of one non-road type always resolve to the same colour.
-        const edgeNeeds = (t, dnx, dny) => edgeNeedsBorder(
-          color, t,
-          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR));
-        const drawN = edgeNeeds(tN,  0, -1);
-        const drawS = edgeNeeds(tS,  0, +1);
-        const drawW = edgeNeeds(tW, -1,  0);
-        const drawE = edgeNeeds(tE, +1,  0);
+        // The neighbour's PAINTED colour, which both the needs-a-border test
+        // and the blend ramp want — resolved once per side rather than twice.
+        const nbrColorOf = (t, dnx, dny) =>
+          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+        const cN = nbrColorOf(tN,  0, -1);
+        const cS = nbrColorOf(tS,  0, +1);
+        const cW = nbrColorOf(tW, -1,  0);
+        const cE = nbrColorOf(tE, +1,  0);
+        const drawN = edgeNeedsBorder(color, tN, cN);
+        const drawS = edgeNeedsBorder(color, tS, cS);
+        const drawW = edgeNeedsBorder(color, tW, cW);
+        const drawE = edgeNeedsBorder(color, tE, cE);
         if (drawN || drawS || drawW || drawE) {
           // Draw at integer-snapped positions — the borderContainer scrolls by
           // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
           // so geometry only needs to be rebuilt when baseCellIX/IY changes.
           const bx = scene.viewCenterX + ox * CELL_PX;
           const by = scene.viewCenterY + oy * CELL_PX;
-          // Shoreline surf. Every biome seam gets a darkened edge in its own
-          // colour, which is right where two solid grounds meet — but on the
-          // WATER side of a shore it read as a dark rim, the one place in the
-          // world where the darker line is wrong: water breaking on something
-          // is pale, not dark. So a water cell draws its edge in foam instead.
-          // The land cell still paints its own dark edge on the other side of
-          // the seam, which gives the dark-wet-margin-then-white-surf band a
-          // real shoreline has. PIER deliberately stays dark-edged: foam on
-          // its own outline traced the decking in white like a sticker, and
-          // the water cells around it already lap it with their own foam.
-          gb2.fillStyle(type === WATER ? SURF_COLOR : getDark(color), 1);
-          if (drawN) {
+          // One wavy strip of thickness BLUR_W along `side`, `inset` px in from
+          // that edge. Runs are coalesced by wave offset exactly as before —
+          // consecutive columns sharing an offset become a single fillRect.
+          //   side: 0=N 1=S 2=W 3=E
+          const strip = (side, inset) => {
             for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(bx + s, by + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
+              if (i !== CELL_PX && _WAVE_TABLE[i] === _WAVE_TABLE[s]) continue;
+              const w = _WAVE_TABLE[s], len = i - s;
+              if      (side === 0) gb2.fillRect(bx + s, by + inset + w, len, BLUR_W);
+              else if (side === 1) gb2.fillRect(bx + s, by + CELL_PX - inset - BLUR_W + w, len, BLUR_W);
+              else if (side === 2) gb2.fillRect(bx + inset + w, by + s, BLUR_W, len);
+              else                 gb2.fillRect(bx + CELL_PX - inset - BLUR_W + w, by + s, BLUR_W, len);
+              s = i;
+            }
+          };
+          // Water draws foam, not a blend: a shore is where the world's one
+          // genuinely hard edge lives, and blurring land into sea would lose
+          // both the surf line and the coast. It stays a single BORDER_W strip
+          // in SURF_COLOR. The land cell opposite likewise keeps its darkened
+          // wet margin (see nbrDark below), preserving the dark-margin-then-
+          // white-surf band a real shoreline has.
+          //
+          // PIER deliberately stays hard-edged too: foam on its own outline
+          // traced the decking in white like a sticker, and the water cells
+          // around it already lap it with their own foam.
+          if (type === WATER) {
+            gb2.fillStyle(SURF_COLOR, 1);
+            if (drawN) strip(0, 0);
+            if (drawS) strip(1, 0);
+            if (drawW) strip(2, 0);
+            if (drawE) strip(3, 0);
+            if (drawN && drawW) gb2.fillCircle(bx + BORDER_W, by + BORDER_W, BORDER_W);
+            if (drawN && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + BORDER_W, BORDER_W);
+            if (drawS && drawW) gb2.fillCircle(bx + BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
+            if (drawS && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
+          } else {
+            // Facing water, keep the old darkened margin rather than blending
+            // toward the sea colour — that margin is half of the shoreline.
+            const edgeCol = (t, nbr, k) =>
+              t === WATER ? getDark(color) : getBlend(color, nbr, k);
+            for (let k = 0; k < BLUR_STEPS; k++) {
+              const inset = k * BLUR_W;
+              // A water-facing side has no ramp to walk: draw its flat margin
+              // once, on the outermost step only.
+              if (drawN && (tN !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tN, cN, k), 1); strip(0, inset); }
+              if (drawS && (tS !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tS, cS, k), 1); strip(1, inset); }
+              if (drawW && (tW !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tW, cW, k), 1); strip(2, inset); }
+              if (drawE && (tE !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tE, cE, k), 1); strip(3, inset); }
+              // Round each step's inner corner, as the single-line border did.
+              // The N/S colour wins the shared pixel; at BLUR_W the difference
+              // from the E/W ramp is under a level.
+              const o = inset + BLUR_W;
+              if (drawN && drawW) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + o, by + o, BLUR_W); }
+              if (drawN && drawE) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + o, BLUR_W); }
+              if (drawS && drawW) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + o, by + CELL_PX - o, BLUR_W); }
+              if (drawS && drawE) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + CELL_PX - o, BLUR_W); }
             }
           }
-          if (drawS) {
-            const base = by + CELL_PX - BORDER_W;
-            for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(bx + s, base + _WAVE_TABLE[s], i - s, BORDER_W); s = i; }
-            }
-          }
-          if (drawW) {
-            for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(bx + _WAVE_TABLE[s], by + s, BORDER_W, i - s); s = i; }
-            }
-          }
-          if (drawE) {
-            const base = bx + CELL_PX - BORDER_W;
-            for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i === CELL_PX || _WAVE_TABLE[i] !== _WAVE_TABLE[s])
-                { gb2.fillRect(base + _WAVE_TABLE[s], by + s, BORDER_W, i - s); s = i; }
-            }
-          }
-          if (drawN && drawW) gb2.fillCircle(bx + BORDER_W, by + BORDER_W, BORDER_W);
-          if (drawN && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + BORDER_W, BORDER_W);
-          if (drawS && drawW) gb2.fillCircle(bx + BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
-          if (drawS && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
         }
       }
 
@@ -691,22 +749,23 @@ Render.drawCells = function drawCells(scene) {
           // one of them and keeps cell size: its art tiles edge-to-edge across
           // adjacent pier cells, and any resize opens a seam.
           const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
-          // Named-path stones that the player has tapped / stepped onto
-          // pick up a blue tint to signal progress. _isPathStoneActive
-          // is null-safe (returns false in test mode or before save state
-          // exists), so this check is always cheap. PIER is excluded —
-          // piers are not named paths and the plank shouldn't tint blue.
-          let tint = 0xffffff;
+          // Named-path stones the player has tapped / stepped onto come up to
+          // FULL opacity — the same stone, lit rather than recoloured. It used
+          // to be a blue tint, which read as a different material dropped into
+          // the path instead of as a stone the player has claimed, and said
+          // nothing under the Phaser Canvas fallback where setTint is a no-op.
+          // _isPathStoneActive is null-safe (returns false in test mode or
+          // before save state exists), so this check is always cheap. PIER is
+          // excluded — piers are not named paths.
+          let active = false;
           if (type === PATH && typeof scene._isPathStoneActive === 'function') {
             // Cells outside the player's own tile fall back to the cell's
-            // tile coords — paths span tile seams, and we want consistent
-            // tinting across the boundary.
+            // tile coords — paths span tile seams, and we want the same answer
+            // on both sides of the boundary.
             const N2  = scene.cellsPerTile;
             const tx2 = Math.floor(absCellIX / N2);
             const ty2 = Math.floor(absCellIY / N2);
-            if (scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY)) {
-              tint = 0x88aaff;   // soft blue
-            }
+            active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
           }
           // Swap texture key — 'pier' for plank, 'cobble' for everything else.
           // Pool sprites are created with the 'cobble' texture so reassign
@@ -718,8 +777,8 @@ Render.drawCells = function drawCells(scene) {
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-            .setTint(tint)
-            .setAlpha(isPier ? 1 : COBBLE_ALPHA)
+            .setTint(0xffffff)
+            .setAlpha(isPier || active ? 1 : COBBLE_ALPHA)
             .setVisible(true);
         } else {
           cs.setVisible(false);

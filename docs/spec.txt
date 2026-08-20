@@ -523,7 +523,8 @@ TREASURE MARKS (X on the ground)
 PATH STONES
 ================================================================================
  - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. Every 10 consecutive claimed stones on the
+   automatically — no item, no UI. A claimed stone draws at FULL opacity while
+   unclaimed cobbles sit at 57%, so a walked path lights up as you go. Every 10 consecutive claimed stones on the
    same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
    than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
@@ -855,6 +856,33 @@ I just won?" without reading a word.
    (DOM). UI_CONTROL / UI_CONTROL_DIM name the control role; UI_TREASURE* name
    the treasure role. Reach for the ROLE that fits — never add a near-duplicate
    shade, and change both halves together.
+
+================================================================================
+DIALOGS
+================================================================================
+ - EVERY dialog opens with a KIND HEADER: a hero icon and a one-word category
+   in small caps, over a hairline rule — a castle says 🏰 QUEST, a chest says
+   💎 TREASURE, a blacksmith says 🔨 FORGE. Dialogs used to open straight into
+   flavour copy ("The trader offers:"), which reads fine once you already know
+   where you are and not at all when you don't.
+ - The label is the CATEGORY; the flavour line underneath still carries the
+   specific offer. A caller may override the label for a one-off outcome
+   ("MILL LANE complete") and keep the kind's icon.
+ - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
+   shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
+   rest, use, note. The header is built by makeModalShell and injected in
+   mount(), NOT appended up front — several dialogs build themselves with
+   `box.innerHTML = …`, which would wipe a header added earlier.
+ - Dialogs that used to repeat their own name in a title line (Stats & Relics,
+   Deliveries, "Energy 274 / 274") dropped it; the header says it once.
+ - showOfferModal renders a TRADE — `get` is what you receive, `cost` is what
+   you pay, and a literal "for" joins them. `cost` is optional: a caller with
+   nothing to charge (the quest board) omits it and gets neither the cost line
+   nor the "for". Passing the same text to both halves prints it twice, which
+   is what the castle quest board did to its progress line.
+ - tools/modal_audit.js pins all of the above: every dialog declares a kind,
+   every kind exists in MODAL_KINDS, and no caller fills both halves of a
+   trade with the same text.
 
 ================================================================================
 HUD
