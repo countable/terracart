@@ -60,6 +60,18 @@ const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-match
 // the places are, not a call to action, and anything brisk turns a street of
 // POIs into a strobe.
 const POI_HALO_PERIOD_S = 4.5;
+// Electric light blue — the POI pad's tint. Punchier and more saturated than
+// the plain --treasure-deep (#7fb0ff) accent, so the pad itself (the "main
+// display" every POI sits on) reads as a live landmark rather than a grey
+// concrete disc. Deliberately a step brighter than the rest of the blue-white
+// treasure family (spec §UI COLOUR LANGUAGE) — this is the one surface that
+// carries the "a place lives here" cue on its own, with no gem or halo to
+// help it.
+const POI_PAD_TINT = 0x33ccff;
+// Minor/lowtier POIs (bus stops, ATMs, fuel, etc.) get the same pad shrunk
+// down rather than skipped outright — still marked as a place, just a
+// smaller one.
+const POI_PAD_MINI_SCALE = 0.55;
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -2146,7 +2158,10 @@ Render.drawObjects = function drawObjects(scene) {
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up
   // with the chest's ground point (the slab spills ~10% past the cell).
-  // lowtier POIs (bus stops/intersections/fuel/etc.) skip the pad entirely.
+  // Minor/lowtier POIs (bus stops, intersections, fuel, ATMs, etc.) get a MINI
+  // version of the same slab — smaller and dimmer, but still a marked place —
+  // instead of skipping it outright. Genuine loose supply crates (o.crate,
+  // no poiClass) get no pad at all: they're a transient pickup, not a place.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {
@@ -2156,7 +2171,11 @@ Render.drawObjects = function drawObjects(scene) {
     // slab poking out from under the stall reads wrong, so they skip the pad.
     if (produceStandFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
-    if (!shapeKey) continue;
+    if (!shapeKey) {
+      if (o.crate) continue;
+      padList.push({ o, dx, dy, texKey: 'pad_round1', shape: PAD_SHAPES.round1, mini: true });
+      continue;
+    }
     const shape = PAD_SHAPES[shapeKey];
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
@@ -2193,23 +2212,27 @@ Render.drawObjects = function drawObjects(scene) {
   });
 
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
-    const { o, dx, dy, texKey, shape } = item;
+    const { o, dx, dy, texKey, shape, mini } = item;
     const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
     s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
-     .setScale(1)
+     .setScale(mini ? POI_PAD_MINI_SCALE : 1)
      .setPosition(Math.round(sx), Math.round(sy));
     // Pads persist even when the chest is opened — only the chest sprite + tier
     // diamond disappear. The pad always renders (objList includes opened chests).
     // 0.55 — the slab is a backdrop for the POI, so it lets the terrain it
-    // sits on read through rather than stamping an opaque disc over it. The
-    // pale-stone tones carry the plinth read on their own, so it can sit well
-    // below the old 0.8 and still separate the chest from the ground.
-    s.setAlpha(0.55);
-    s.setTint(0xffffff);
+    // sits on read through rather than stamping an opaque disc over it. Minis
+    // sit a touch dimmer still (0.42), reading as a lesser landmark rather
+    // than competing with a full POI's pad.
+    s.setAlpha(mini ? 0.42 : 0.55);
+    // Electric light blue — a punchier, more saturated tint than the baked
+    // near-white texture (UI_TREASURE) carries on its own, so the pad reads
+    // as an energised landmark rather than a plain grey slab. The texture is
+    // near-white, so a multiply tint lands almost exactly on this hue.
+    s.setTint(POI_PAD_TINT);
   });
 
   // POI name labels above chests. ONE style for every world label: pale glyphs
@@ -2298,9 +2321,14 @@ Render.drawObjects = function drawObjects(scene) {
       tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(labelY));
     }
     // Same treatment either way — only the ink differs (blue-tinted for a named
-    // POI, plain white for a supply crate). The pool is shared across both, and
-    // a pooled slot may have just drawn the other kind, so set it every frame.
-    tx.setColor(_chestIsBox(o) ? CRATE_LABEL_INK : LABEL_INK);
+    // POI, plain white for a supply crate). The test is `o.crate`, same as the
+    // orientation branch above and for the same reason: a tier-1 POI (ATM,
+    // bike rack, bus stop) borrows the box SPRITE via _chestIsBox but is still
+    // a place, so its label carries the same "this is a place" blue cue as
+    // every other POI name. Only a genuine loose supply crate stays plain
+    // white. The pool is shared across both, and a pooled slot may have just
+    // drawn the other kind, so set it every frame.
+    tx.setColor(o.crate ? CRATE_LABEL_INK : LABEL_INK);
     tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
     tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
     // Full opacity EXCEPT where the label would cover the player — opened

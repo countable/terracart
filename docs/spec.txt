@@ -493,9 +493,17 @@ CHESTS (POI-driven)
    that expands outward and fades, not a filled disc (~4.5 s per pulse,
    phase hashed off the POI id so a street doesn't throb in unison) —
    ambience that marks where the places are, drawn under the concrete pad.
+ - every POI's concrete pad (and its mini variant, see below) is tinted an
+   electric light blue — punchier than the rest of the blue-white treasure
+   family — since the pad is the one surface that has to carry "a place
+   lives here" on its own, with no gem or halo riding along.
+ - minor/lowtier POIs (bus stops, ATMs, fuel, intersections, etc.) get a MINI
+   version of the same pad — smaller and dimmer — instead of no pad at all;
+   only genuine loose starter supply crates (no poiClass) render with no pad.
  - POI names are RUSTICIFIED for display (Hospital→Apothecary, School→Hedge
    School, Coffee→Roastery, …) and shown as a label above the chest + in the
-   loot flash.
+   loot flash, tinted the same subtle blue as every other POI name — including
+   minor/lowtier POIs; only loose supply crate labels stay plain white.
 
 ================================================================================
 COIN-BURST POIs (ATM / bicycle parking)
