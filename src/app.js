@@ -2354,8 +2354,9 @@ class MapScene extends Phaser.Scene {
       const base = 14 * SCALE; // distance from anchor to arrow base midpoint
       const halfW = 6 * SCALE; // half-width of the base
       // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
-      // 0 sits it on the centre; it used to be 2px higher.
-      const HEAD_DY = 0;
+      // 0 sits it on the centre, negative nudges it below — it rode 2px high
+      // once, and now sits 1px under centre, where it lines up with the art.
+      const HEAD_DY = -1;
       let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
         // Anchor over the target marker's head. targetGhost sits at sprite-center
@@ -2721,11 +2722,13 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
-    // Catch wheels sit over a creature sprite, which is drawn taller than the
-    // static targets (rock / tree / crop) the -9 default was tuned for, so the
-    // wheel read as overlapping the animal's body. Lift it another 5 px so it
-    // clears the fauna the same way it clears a rock.
-    const cy = Math.round(screen.y) - 9 - (wp.flee ? 5 : 0);
+    // Wheels over a CREATURE — a capture (wp.flee) or a monster fight (wp.track)
+    // — sit on a sprite drawn taller than the static targets (rock / tree /
+    // crop) the -9 default was tuned for, so they read as overlapping the body.
+    // Lift those 4 px, and a capture a further 5 on top: its target is fleeing,
+    // so the wheel wants to clear the animal outright rather than hug it.
+    const overCreature = !!(wp.flee || wp.track);
+    const cy = Math.round(screen.y) - 9 - (overCreature ? 4 : 0) - (wp.flee ? 5 : 0);
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
