@@ -170,6 +170,114 @@ const PATH_FRAME = 3;
 let _ringTypes  = null;
 let _ringOwners = null;
 
+// ── Atmosphere ───────────────────────────────────────────────────────────────
+// Which biome is the player actually IN? The viewport routinely straddles three
+// or four of them, so "the terrain under the feet" flickers at every seam and
+// makes a terrible atmosphere source. Take the MODE of the visible 11x11
+// instead, and only re-sample when the player crosses a cell — between
+// crossings the answer physically cannot change, so this costs nothing on the
+// frames in between (same dirty-gate discipline as the border + grid layers).
+//
+// The sampled target is then EASED toward rather than snapped to. Walking from
+// the park into the industrial yard should be a felt transition over ~1.5 s;
+// snapping would read as a bug. The ease is the whole reason the biome comes
+// across as an atmosphere you're standing in rather than a per-cell property.
+const ATMOS_EASE_S = 1.5;
+// Ground-plane wash strength. Enough to grade the ground toward the biome's
+// dead air, low enough that the terrain textures the biomes are told apart by
+// still read through it. Above ~0.20 the textures start to disappear.
+const ATMOS_GROUND_A = 0.16;
+// Rim haze — ramp depth in px and its alpha at the very edge. The falloff is
+// quadratic so the haze is dense in the outer few px and gone well before the
+// reach bubble.
+const ATMOS_RIM_PX = 30;
+const ATMOS_RIM_A = 0.44;
+
+// Mode of the rendered VIEW_CELLS x VIEW_CELLS window. `types` carries a 2-cell
+// halo on every side (see the RING gather in drawCells); skip it so off-screen
+// cells can't vote.
+function sampleDominantBiome(types, RING) {
+  const counts = new Map();
+  let bestType = 0, bestN = -1;
+  for (let r = 2; r < RING - 2; r++) {
+    for (let c = 2; c < RING - 2; c++) {
+      const t = types[r * RING + c];
+      const n = (counts.get(t) || 0) + 1;
+      counts.set(t, n);
+      if (n > bestN) { bestN = n; bestType = t; }
+    }
+  }
+  return bestType;
+}
+
+// Unpack/pack helpers for the eased colour. The easing state is kept as FLOAT
+// channels, not as a packed int that gets re-rounded every frame: at 60 fps one
+// frame of a 1.5 s ease moves a channel by well under 1/255, so rounding to an
+// int each step snaps it straight back and the transition STALLS partway —
+// leaving the world permanently stuck between two biomes' air.
+const _chans = (hex) => [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
+const _pack = (c) => (Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2]);
+const _easeInto = (cur, target, t) => {
+  cur[0] += (target[0] - cur[0]) * t;
+  cur[1] += (target[1] - cur[1]) * t;
+  cur[2] += (target[2] - cur[2]) * t;
+};
+
+// Resolve (and ease) the scene's live atmosphere. Returns null when the biome
+// registry isn't loaded — every caller then falls back to the old flat black,
+// so the renderer still works standalone (node tests, bare harness pages).
+function updateAtmos(scene, types, RING, cellChanged) {
+  if (typeof BiomeProfiles === 'undefined' || !BiomeProfiles.atmos) return null;
+  let a = scene._atmos;
+  if (!a) a = scene._atmos = { hazeF: null, dimF: null, targetType: null, lastMs: 0, rimKey: -1 };
+  if (cellChanged || a.targetType == null) {
+    a.targetType = sampleDominantBiome(types, RING);
+    const t = BiomeProfiles.atmos(a.targetType);
+    a.hazeT = _chans(t.haze);
+    a.dimT  = _chans(t.dim);
+  }
+  const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  // Clamp dt: a backgrounded tab resumes with a huge delta, which would snap
+  // the ease and defeat the point of having one.
+  const dt = a.lastMs ? Math.min(0.25, (now - a.lastMs) / 1000) : 0;
+  a.lastMs = now;
+  if (!a.hazeF) {                 // first frame — adopt the target outright
+    a.hazeF = a.hazeT.slice();
+    a.dimF  = a.dimT.slice();
+  } else {
+    const t = Math.min(1, dt / ATMOS_EASE_S);
+    _easeInto(a.hazeF, a.hazeT, t);
+    _easeInto(a.dimF,  a.dimT,  t);
+  }
+  a.haze = _pack(a.hazeF);
+  a.dim  = _pack(a.dimF);
+  return a;
+}
+
+// Rim haze: nested 1px strokes ramping inward from the viewport edge, the same
+// technique (and for the same reason — Phaser Graphics has no gradient fill) as
+// the black vignette baked in app.js create(). Unlike that one this layer is
+// biome-coloured, so it has to be rebuilt when the eased colour moves. Rebuild
+// only when the colour changes VISIBLY (quantised to 3 bits per channel): the
+// ease is continuous, and rebuilding ATMOS_RIM_PX strokes every frame is
+// exactly the per-frame Graphics churn the rest of this file works to avoid.
+function drawAtmosRim(scene, haze) {
+  const g = scene.atmosRimGfx;
+  if (!g) return;
+  const key = ((haze >> 21) & 0x7) << 6 | ((haze >> 13) & 0x7) << 3 | ((haze >> 5) & 0x7);
+  if (scene._atmos.rimKey === key) return;
+  scene._atmos.rimKey = key;
+  g.clear();
+  for (let i = 0; i < ATMOS_RIM_PX; i++) {
+    const t = 1 - i / ATMOS_RIM_PX;             // 1 at the rim -> 0 inward
+    g.lineStyle(1, haze, ATMOS_RIM_A * t * t);
+    g.strokeRect(
+      scene.viewLeft + i + 0.5, scene.viewTop + i + 0.5,
+      scene.viewSize - 2 * i - 1, scene.viewSize - 2 * i - 1,
+    );
+  }
+}
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -271,6 +379,9 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
+  // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
+  // is exactly that signal), then ease toward it every frame.
+  const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   // (FLAT_ROUNDABLE is module-level — see above.)
   const CORNER_R = 6;
@@ -838,9 +949,23 @@ Render.drawCells = function drawCells(scene) {
   // top of the dim band, not under it. Underground the dim is much stronger —
   // the lit reach area reads as a torch bubble in the surrounding dark rock —
   // and it deepens by half a step per level so each descent feels darker.
+  //
+  // The surface wash is the biome's `dim` — a heavily darkened version of its
+  // haze — rather than neutral black, so the air between the player and the
+  // rest of the block carries the biome's colour.
+  //
+  // Its alpha is raised from the old flat black's 0.22 to 0.38 to COMPENSATE,
+  // not to dim harder: `dim` is a dark colour but it isn't black, so at equal
+  // alpha it darkens noticeably less and the reach bubble loses the contrast
+  // that makes it read as the actionable area. 0.38 against this palette lands
+  // within a couple of levels of the old luminance — same focus pull, new hue.
+  // Retune this alongside DIM_K in biome_profiles.js, never on its own.
+  //
+  // Underground stays pure black: the torch bubble's contrast against dead rock
+  // is the whole readability budget down there, and tinting it only erodes it.
   const depth = scene.depth ?? 0;
-  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.22;
-  g.fillStyle(0x000000, dimAlpha);
+  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
+  g.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -903,6 +1028,30 @@ Render.drawCells = function drawCells(scene) {
       if (lft) g.lineBetween(sx, sy, sx, sy + CELL_PX);
       if (rgt) g.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
     }
+  }
+
+  // Atmosphere washes. Both are single, flat draws over the viewport — the cost
+  // of the whole depth-layering effect is one fillRect per frame plus a rim
+  // rebuild on the rare frame where the eased colour visibly moved.
+  //
+  // SURFACE ONLY, for the same reason the out-of-reach dim stays black
+  // underground: down there the torch bubble's contrast against dead rock is
+  // the entire readability budget, and laying more washes over it — however
+  // atmospheric — spends what little is left. The caves already carry their own
+  // (much heavier) atmosphere from the depth-scaled dim. Both layers are
+  // cleared on the way down so a surface wash can't persist into the dark.
+  if (atmos && (scene.depth ?? 0) === 0) {
+    const ag = scene.atmosGroundGfx;
+    if (ag) {
+      ag.clear();
+      ag.fillStyle(atmos.haze, ATMOS_GROUND_A);
+      ag.fillRect(scene.viewLeft, scene.viewTop, scene.viewSize, scene.viewSize);
+    }
+    drawAtmosRim(scene, atmos.haze);
+  } else if (atmos) {
+    scene.atmosGroundGfx?.clear();
+    scene.atmosRimGfx?.clear();
+    scene._atmos.rimKey = -1;   // force a rebuild when we surface again
   }
 
   // Grid lines align with cell edges. Cells are positioned at

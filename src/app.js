@@ -245,40 +245,51 @@ const TRADE_OFFER_QTY     = 2;
 function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 
 const COLORS = {
-  0: 0x479757,  // grass — matched to the Autotiles_Godot shore grass (rgb 71,151,87) so water/biome edges blend seamlessly into the grass field
-  1: 0x2e6a2e,  // forest
-  2: 0xe6ae55,  // sand — warm golden tan; procedural ripple texture overlaid
-  3: 0x3a78c2,  // water
-  4: 0xa39660,  // farmland — muddy pasture (muted olive-brown under the mud/grass texture)
-  5: 0xada695,  // residential
-  6: 0x7fbf63,  // park
-  7: 0x444444,  // road
-  8: 0x9a7a4a,  // path
-  9: 0xb2705a,  // building — small house (lifted warm brown)
-  10: 0x7d736b, // rock
-  11: 0xc99858, // building_med — wooden plank floor (warm yellow wood)
-  12: 0x7c7f88, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
-  13: 0x383838, // road_lg (motorway/trunk/primary) — darkest
-  14: 0x3f3f3f, // road_md (secondary/tertiary)
+  // POST-APOCALYPTIC FARM PALETTE. The world is a neighbourhood going back to
+  // seed: sun-bleached, dust-blown, overgrown rather than landscaped. Every
+  // ground tone is pulled toward khaki / olive / grey-brown, and saturation is
+  // kept low so the eye reads the world as backdrop.
+  //
+  // YELLOW IS RESERVED FOR PLAYER INTERACTION — menus, buttons, the stick,
+  // money, loot. No terrain may claim it, or the one colour that means "you
+  // can touch this" turns into scenery. That is why sand, the paths, the
+  // farmland mud, the plank floors and tilled soil all sit in grey-brown and
+  // olive here rather than the golds they used to carry.
+  0: 0x6b7d4a,  // grass — dry meadow khaki-green (was a fresh lawn green)
+  1: 0x3c5233,  // forest — deep desaturated olive
+  2: 0xc6b9a2,  // sand — pale grit; was a golden tan, the worst yellow offender
+  3: 0x3f6b7a,  // water — murky standing teal, not swimming-pool blue
+  4: 0x7e7350,  // farmland — dull olive-brown mud
+  5: 0x9c968a,  // residential — dirty concrete
+  6: 0x7b8c53,  // park — unmown, going to seed
+  7: 0x474441,  // road — asphalt with dust blown over it
+  8: 0x8b8071,  // path — a worn grey dust track
+  9: 0x9d6350,  // building — small house: weathered brick
+  10: 0x776d63, // rock
+  11: 0x9b8365, // building_med — weathered grey-brown plank floor
+  12: 0x787a80, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
+  14: 0x413f3b, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
-  15: 0x7eb55a, // SCHOOL       (GRASSLAND) — schoolyard green, slightly mown
-  16: 0xa6a6a3, // COMMERCIAL   (ROCKY)     — grey anti-slip ceramic floor tile
-  17: 0xaa8d99, // INDUSTRIAL   (ROCKY)     — same hue, ~15% darker
-  18: 0xa39065, // PLAYGROUND   (GRASSLAND) — mulchy tan
-  19: 0x6fa850, // PITCH        (GRASSLAND) — vivid sports-field green
-  20: 0x365a3a, // WETLAND      (FOREST)    — dim swampy green
-  21: 0x88c460, // GOLF         (GRASSLAND) — bright emerald
-  22: 0x4a7a32, // ORCHARD      (FOREST)    — olive
+  15: 0x77805e, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
+  16: 0x999790, // COMMERCIAL   (ROCKY)     — grimy floor tile
+  17: 0x9a8279, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
+  18: 0x8e8270, // PLAYGROUND   (GRASSLAND) — rotting mulch
+  19: 0x62753f, // PITCH        (GRASSLAND) — pitch markings long gone
+  20: 0x3d4f3c, // WETLAND      (FOREST)    — dim swampy green
+  21: 0x87995c, // GOLF         (GRASSLAND) — fairway reverting to scrub
+  22: 0x556237, // ORCHARD      (FOREST)    — olive
   // PIER (transportation:pier OSM lines, painted as T.PIER=23 in worldgen).
-  // Base cell colour is the water blue — the wooden plank sprite from
+  // Base cell colour is the water tone — the wooden plank sprite from
   // Objects/Wilderness/Bridge Beach.png is drawn on top via the cobblePool
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
-  23: 0x3a78c2, // PIER         (WATER base) — plank sprite overlays on top
+  23: 0x3f6b7a, // PIER         (WATER base) — plank sprite overlays on top
   // --- Underground cave biome (depth > 0) ---
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
 };
+
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
 // road tiers, paths, every building tier, and rock are NOT tillable.
 // Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
@@ -689,6 +700,14 @@ class MapScene extends Phaser.Scene {
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
+    // Atmosphere: the GROUND-PLANE wash. One flat fill of the current biome's
+    // haze colour over the whole viewport, sitting above every ground layer
+    // (terrain, noise, borders, cobbles, road geometry, pads, shadows) and
+    // below every standing sprite. That split is what gives a top-down grid a
+    // readable foreground/background: the ground recedes into the biome's air
+    // while trees, houses and creatures stay at full contrast on top of it.
+    // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
+    this.atmosGroundGfx = this.add.graphics();
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -733,6 +752,17 @@ class MapScene extends Phaser.Scene {
     // on those devices. The spark texture is baked gold and animates via
     // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
     this.sparkContainer = this.add.container(0, 0);
+    // Atmosphere: the RIM HAZE. A short ramp of the biome's haze colour inward
+    // from the viewport edge — the top-down stand-in for atmospheric
+    // perspective. The map is a hard-clipped window onto the world, so the rim
+    // is exactly where "far away" lives; fading it into the biome's air is what
+    // makes the edge read as distance rather than as a crop.
+    //
+    // Deliberately added AFTER the world sprites (so distant objects haze too)
+    // but BEFORE labelContainer — POI name tablets are UI and must stay crisp.
+    // Position in the display list is what does this, NOT setDepth: the
+    // vignette's depth 90 would put it over the labels as well.
+    this.atmosRimGfx = this.add.graphics();
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -909,12 +939,14 @@ class MapScene extends Phaser.Scene {
     this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
+    this.atmosGroundGfx.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
     this.towerContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
+    this.atmosRimGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
 

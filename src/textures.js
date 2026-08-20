@@ -65,7 +65,7 @@ const BIOME_TEX = {
 };
 
 // Tilled soil is per-cell state (not a terrain class).
-const TILLED_COLOR = 0xc7973f;        // warm yellow-brown
+const TILLED_COLOR = 0x8a6a41;        // turned earth — brown, deliberately NOT the UI gold
 const TILLED_VARIANTS = 2;
 
 // Tiny deterministic RNG factory so each texture variant looks stable across reloads.
@@ -88,10 +88,10 @@ function drawGrassTex(ctx, size, rng) {
     const y = Math.floor(rng() * size);
     const r = rng();
     ctx.fillStyle = r < 0.20
-      ? 'rgba(25,70,25,0.35)'        // dark root speck
+      ? 'rgba(45,55,30,0.35)'        // dark root speck
       : r < 0.55
-      ? 'rgba(80,150,70,0.25)'       // mid-green speck
-      : 'rgba(180,225,140,0.18)';    // soft highlight
+      ? 'rgba(95,110,65,0.25)'       // dry mid-green speck
+      : 'rgba(170,175,130,0.18)';    // bleached highlight
     ctx.fillRect(x, y, 1, 1);
   }
 }
@@ -103,11 +103,11 @@ function drawForestTex(ctx, size, rng) {
     const x = rng() * size;
     const y = rng() * size;
     const r = 1.5 + rng() * 1.5;
-    ctx.fillStyle = 'rgba(0,30,0,0.35)';
+    ctx.fillStyle = 'rgba(15,28,12,0.35)';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
   for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = 'rgba(160,210,130,0.25)';
+    ctx.fillStyle = 'rgba(140,150,105,0.25)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
   }
 }
@@ -120,7 +120,7 @@ function drawSandTex(ctx, size, rng) {
     const baseY = Math.floor((r + 0.3 + rng() * 0.4) * (size / numLines));
     const amp = 0.7 + rng() * 0.9;
     const phase = rng() * Math.PI * 2;
-    ctx.strokeStyle = rng() < 0.65 ? 'rgba(130,70,30,0.30)' : 'rgba(190,140,80,0.20)';
+    ctx.strokeStyle = rng() < 0.65 ? 'rgba(105,95,80,0.30)' : 'rgba(175,170,155,0.20)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 0; x <= size; x++) {
@@ -131,7 +131,7 @@ function drawSandTex(ctx, size, rng) {
   }
   // Scattered fine grain specks.
   for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(100,55,15,0.14)' : 'rgba(255,240,200,0.12)';
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(90,82,68,0.14)' : 'rgba(235,232,222,0.12)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
   }
 }
@@ -192,9 +192,9 @@ function drawFarmlandTex(ctx, size, rng) {
   // Grass tufts scattered over the edges.
   for (let i = 0; i < 10; i++) {
     const r = edge();
-    const style = r < 0.5 ? 'rgba(70,120,55,0.30)'
-                : r < 0.8 ? 'rgba(40,80,35,0.28)'
-                          : 'rgba(150,190,110,0.22)';
+    const style = r < 0.5 ? 'rgba(88,100,58,0.30)'
+                : r < 0.8 ? 'rgba(52,62,38,0.28)'
+                          : 'rgba(150,150,105,0.22)';
     const along = Math.floor(edge() * size);
     const across = Math.floor(edge() * 3) - 1;
     const horiz = edge() < 0.5;
@@ -224,9 +224,9 @@ function drawFarmlandTex(ctx, size, rng) {
   // Grass tufts poking through — green specks, some 2px tall.
   for (let i = 0; i < 16; i++) {
     const r = rng();
-    ctx.fillStyle = r < 0.5 ? 'rgba(70,120,55,0.30)'
-                  : r < 0.8 ? 'rgba(40,80,35,0.28)'
-                            : 'rgba(150,190,110,0.22)';
+    ctx.fillStyle = r < 0.5 ? 'rgba(88,100,58,0.30)'
+                  : r < 0.8 ? 'rgba(52,62,38,0.28)'
+                            : 'rgba(150,150,105,0.22)';
     const h = rng() < 0.4 ? 2 : 1;
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * (size - h + 1)), 1, h);
   }
@@ -243,28 +243,32 @@ function drawParkTex(ctx, size, rng) {
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
-    const colors = ['rgba(255,180,200,0.7)', 'rgba(255,240,120,0.7)', 'rgba(220,180,255,0.7)'];
+    // No yellow bloom here: yellow is the interaction colour, and a yellow
+    // speck on the ground reads as something to tap. Faded pink / rust /
+    // mauve instead — wildflowers taking a park back.
+    const colors = ['rgba(216,150,165,0.55)', 'rgba(190,120,95,0.55)', 'rgba(178,150,195,0.55)'];
     ctx.fillStyle = colors[Math.floor(rng() * colors.length)];
     ctx.fillRect(x, y, 1, 1);
   }
 }
 
 function drawTilledTex(ctx, size, rng) {
-  // Yellow-brown ploughed soil — clear horizontal furrows + grain.
+  // Ploughed earth — clear horizontal furrows + grain. Brown, never gold:
+  // yellow is the interaction colour and tilled ground is terrain.
   ctx.clearRect(0, 0, size, size);
   const rowH = 8;
   for (let y = 2; y < size; y += rowH) {
     ctx.fillStyle = 'rgba(60,35,10,0.55)';
     ctx.fillRect(0, y, size, 1);
-    ctx.fillStyle = 'rgba(255,225,160,0.16)';
+    ctx.fillStyle = 'rgba(214,198,170,0.16)';
     ctx.fillRect(0, y + 3, size, 1);
   }
   for (let i = 0; i < 8; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
     ctx.fillStyle = rng() < 0.5
-      ? 'rgba(70,45,15,0.35)'
-      : 'rgba(255,220,150,0.22)';
+      ? 'rgba(64,44,22,0.35)'
+      : 'rgba(206,190,162,0.22)';
     ctx.fillRect(x, y, 1, 1);
   }
 }
@@ -276,9 +280,9 @@ function drawWaterTex(ctx, size, rng) {
   const gap = 5 + Math.floor(rng() * 3);   // 5-7 px between bands
   const startY = Math.floor(rng() * gap);
   for (let y = startY; y < size; y += gap + bandH) {
-    ctx.fillStyle = 'rgba(160,235,245,0.30)';  // cyan highlight band
+    ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
     ctx.fillRect(0, y, size, Math.min(bandH, size - y));
-    ctx.fillStyle = 'rgba(220,250,255,0.14)';  // bright leading edge
+    ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
     ctx.fillRect(0, y, size, 1);
   }
   // Subtle dark depth specks.
@@ -316,7 +320,7 @@ function drawPathTex(ctx, size, rng) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
     const dark = rng() < 0.6;
-    ctx.fillStyle = dark ? 'rgba(40,25,10,0.4)' : 'rgba(255,240,210,0.25)';
+    ctx.fillStyle = dark ? 'rgba(38,32,24,0.4)' : 'rgba(226,222,212,0.25)';
     const w = rng() < 0.3 ? 2 : 1;
     ctx.fillRect(x, y, w, w);
   }
@@ -379,14 +383,14 @@ function drawWoodFloorTex(ctx, size, rng) {
     ctx.stroke();
   }
   // Light grain streaks.
-  ctx.strokeStyle = 'rgba(255,230,170,0.18)';
+  ctx.strokeStyle = 'rgba(222,214,196,0.18)';
   for (let i = 0; i < 20; i++) {
     const y = rng() * size, x = rng() * size, len = 3 + rng() * 10;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
   }
   // Occasional knot.
   if (rng() < 0.5) {
-    ctx.fillStyle = 'rgba(70,40,15,0.55)';
+    ctx.fillStyle = 'rgba(62,48,30,0.55)';
     ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.4 + rng() * 0.6, 0, Math.PI * 2); ctx.fill();
   }
 }
@@ -514,11 +518,11 @@ function drawPitchTex(ctx, size, rng) {
   // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
   drawGrassTex(ctx, size, rng);
   for (let y = 0; y < size; y += 8) {
-    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.07)' : 'rgba(0,40,0,0.07)';
+    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.04)' : 'rgba(0,30,0,0.05)';
     ctx.fillRect(0, y, size, 8);
   }
   if (rng() < 0.25) {
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillStyle = 'rgba(235,235,225,0.22)';
     ctx.fillRect(rng() < 0.5 ? 2 : size - 3, 0, 1, size);
   }
 }
@@ -527,7 +531,7 @@ function drawGolfTex(ctx, size, rng) {
   // Fairway — fine vertical mowing stripes on bright turf.
   drawGrassTex(ctx, size, rng);
   for (let x = 0; x < size; x += 4) {
-    ctx.fillStyle = (Math.floor(x / 4) % 2) ? 'rgba(255,255,255,0.05)' : 'rgba(0,40,0,0.04)';
+    ctx.fillStyle = (Math.floor(x / 4) % 2) ? 'rgba(255,255,255,0.03)' : 'rgba(0,30,0,0.04)';
     ctx.fillRect(x, 0, 4, size);
   }
 }
@@ -538,9 +542,9 @@ function drawPlaygroundTex(ctx, size, rng) {
   for (let i = 0; i < 40; i++) {
     const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
     const r = rng();
-    ctx.fillStyle = r < 0.5 ? 'rgba(110,70,30,0.30)'
-                  : r < 0.8 ? 'rgba(150,100,50,0.25)'
-                            : 'rgba(80,50,20,0.30)';
+    ctx.fillStyle = r < 0.5 ? 'rgba(96,84,62,0.30)'
+                  : r < 0.8 ? 'rgba(128,116,92,0.25)'
+                            : 'rgba(72,62,44,0.30)';
     ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
   }
 }
@@ -590,10 +594,10 @@ function drawWetlandTex(ctx, size, rng) {
   // Marsh — dark mossy mottle, faint water glints, a few vertical reed flecks.
   ctx.clearRect(0, 0, size, size);
   for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = 'rgba(20,45,25,0.30)';
+    ctx.fillStyle = 'rgba(30,42,28,0.30)';
     ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.5 + rng() * 2, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.strokeStyle = 'rgba(150,200,210,0.20)';
+  ctx.strokeStyle = 'rgba(150,175,175,0.20)';
   ctx.lineWidth = 1;
   for (let r = 0; r < 2; r++) {
     const baseY = rng() * size, phase = rng() * Math.PI * 2;
@@ -605,7 +609,7 @@ function drawWetlandTex(ctx, size, rng) {
     ctx.stroke();
   }
   for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = 'rgba(90,130,70,0.30)';
+    ctx.fillStyle = 'rgba(96,108,66,0.30)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 2 + Math.floor(rng() * 2));
   }
 }
