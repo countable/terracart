@@ -1061,12 +1061,6 @@ class MapScene extends Phaser.Scene {
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
     this.updateObjectiveDOM();
 
-    // First arrival in the world — show the how-to card over the live map, so
-    // the reach bubble and the inventory tabs it describes are visible behind
-    // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
-    // play" reopens it any time. Skipped in the sandbox, which is a dev world.
-    if (!this._sandboxMode) window.showHowTo?.();
-
     // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
     // with a synthetic 5×5 grid of biome plots containing every native
     // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
@@ -1074,6 +1068,14 @@ class MapScene extends Phaser.Scene {
     if (typeof Sandbox !== 'undefined' && Sandbox.detect()) {
       Sandbox.install(this);
     }
+
+    // First arrival in the world — show the how-to card over the live map, so
+    // the reach bubble and the inventory tabs it describes are visible behind
+    // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
+    // play" reopens it any time. Must sit BELOW the Sandbox.install above:
+    // that call is what sets _sandboxMode, and the sandbox is a dev world that
+    // has no use for the card.
+    if (!this._sandboxMode) window.showHowTo?.();
 
     // Boot tile load
     this.ensureTilesAround().catch(e => console.error(e));

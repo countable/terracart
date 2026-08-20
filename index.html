@@ -232,6 +232,18 @@
       background: #000c; border: 2px solid #444; border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
     }
+    /* Nested "Developer" disclosure inside the ☰ menu. */
+    #devtools { border-top: 1px solid #333; margin-top: 2px; padding-top: 4px; }
+    #devtools summary {
+      list-style: none; cursor: pointer; user-select: none;
+      color: #888; padding: 4px 8px; border-radius: 4px;
+      font: 700 10px ui-monospace, monospace;
+    }
+    #devtools summary::-webkit-details-marker { display: none; }
+    #devtools summary::before { content: '▸ '; }
+    #devtools[open] summary::before { content: '▾ '; }
+    #devtools summary:hover { background: #ffffff14; color: #ccc; }
+    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
     #menu .items button {
       background: transparent; color: #ddd; border: 0;
       text-align: left; padding: 6px 8px; border-radius: 4px;
@@ -377,20 +389,29 @@
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="move-home">Move Home here</button>
-      <button id="debug-controls">Debug controls: off</button>
-      <button id="debug-road-geom">Road geometry: on</button>
-      <button id="debug-clear-relics">Remove all relics</button>
-      <button id="debug-wood-relics">All wood relics (T1)</button>
-      <button id="debug-dump-tile">Dump tile (debug)</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
-      <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
-        <!-- buttons injected from window.TELEPORT_PRESETS -->
-      </div>
+      <!-- Developer tools. Collapsed by default: these were sitting in the
+           open menu above the player-facing entries, so the first thing a new
+           player saw on tapping ☰ was five debug buttons and a teleport list.
+           Still one tap away for development — just not the default view. -->
+      <details id="devtools">
+        <summary>Developer</summary>
+        <div class="devitems">
+          <button id="debug-controls">Debug controls: off</button>
+          <button id="debug-road-geom">Road geometry: on</button>
+          <button id="debug-clear-relics">Remove all relics</button>
+          <button id="debug-wood-relics">All wood relics (T1)</button>
+          <button id="debug-dump-tile">Dump tile (debug)</button>
+          <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+            <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+            <!-- buttons injected from window.TELEPORT_PRESETS -->
+          </div>
+        </div>
+      </details>
       <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
@@ -1085,9 +1106,9 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=1"></script>
-  <script src="src/interactables.js?v=6"></script>
-  <script src="src/interact.js?v=221"></script>
+  <script src="src/quests.js?v=2"></script>
+  <script src="src/interactables.js?v=7"></script>
+  <script src="src/interact.js?v=222"></script>
   <script src="src/render.js?v=282"></script>
   <script src="src/road_overlay.js?v=3"></script>
   <script src="src/assets.js?v=176"></script>
@@ -1110,7 +1131,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=369';
+      const APP_SRC = 'src/app.js?v=370';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
