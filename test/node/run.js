@@ -241,6 +241,15 @@ for (const f of testFiles) {
   for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
+// Scans app.js for showOfferModal callers that fill BOTH halves of the "you
+// get X for Y" dialog with the same text — which is how the castle quest
+// board printed its progress line twice.
+{
+  const modal = require('../../tools/modal_audit.js');
+  for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
   let pass = 0, fail = 0;

@@ -7448,11 +7448,15 @@ class MapScene extends Phaser.Scene {
       case 'item':  progressLine = done ? 'Retrieved!' : `Need depth ≥ ${q.minDepth}`; break;
       default:      progressLine = '';
     }
+    // A quest board is NOT a trade — there is nothing to pay — so it fills the
+    // headline only and passes no cost. It used to hand the SAME string to both
+    // `get` and `cost`, which printed the progress line ("3 / 10 defeated")
+    // twice with a stray "for" wedged between the two copies, and on a finished
+    // quest printed the reward figure twice the same way.
     this.showOfferModal({
-      title: done ? `Quest complete!` : q.title,
-      get: done ? `$${q.reward?.money || 0}` : progressLine,
+      title: done ? 'Quest complete!' : q.title,
+      get: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
       blurb: q.body,
-      cost: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
@@ -8193,15 +8197,25 @@ class MapScene extends Phaser.Scene {
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
     }
-    const forDiv = document.createElement('div');
-    forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
-    forDiv.textContent = forLabel;
-    box.appendChild(forDiv);
-    const costDiv = document.createElement('div');
-    costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
-    costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
-    costDiv.innerHTML = cost;
-    box.appendChild(costDiv);
+    // `cost` is what the player PAYS — the second half of a "you get X FOR y"
+    // trade, and the `forLabel` row is the literal word joining the two. Not
+    // every caller is a trade: the quest board reports progress and asks for
+    // nothing. Those get neither row, rather than a dangling "for" over an
+    // empty line — or, as the quest board did, the same sentence printed twice
+    // because both halves were handed the same string.
+    const hasCost = cost != null && cost !== '';
+    let costDiv = null;
+    if (hasCost) {
+      const forDiv = document.createElement('div');
+      forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
+      forDiv.textContent = forLabel;
+      box.appendChild(forDiv);
+      costDiv = document.createElement('div');
+      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
+      costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
+      costDiv.innerHTML = cost;
+      box.appendChild(costDiv);
+    }
     // Quantity stepper (only when caller passes `quantity`). Lays out as
     // [ − ]  N / MAX  [ + ] just above the action-button row.
     let qty = 1;
@@ -8236,10 +8250,10 @@ class MapScene extends Phaser.Scene {
         if (typeof quantity.format === 'function') {
           const r = quantity.format(qty) || {};
           if (r.get  != null) getDiv.innerHTML  = r.get;
-          if (r.cost != null) costDiv.innerHTML = r.cost;
+          if (r.cost != null && costDiv) costDiv.innerHTML = r.cost;
           if (r.canAfford != null) {
             liveCanAfford = !!r.canAfford;
-            costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
+            if (costDiv) costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
           }
         }
         const dim = (b, off) => {
