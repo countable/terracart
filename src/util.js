@@ -219,3 +219,34 @@ function setOf(arr) {
   _setOfMemo.set(arr, { set, len: arr.length });
   return set;
 }
+
+// ── Building roof scale ──────────────────────────────────────────────────
+// Sprite scale for a building's roof art, from the OSM footprint it stands on.
+// sqrt(area) is the footprint's side in metres; /cellM gives cells and ×cellPx
+// the on-screen extent the art has to fill, so `fit` is the scale at which the
+// art exactly covers its own footprint.
+//
+// Ordinary houses only ever SHRINK: capped at their baseline so a house never
+// grows past the size it has always drawn at, while a small polygon stops
+// getting a roof that overhangs its own tiles.
+//
+// FORTS ALSO GROW. A fort's footprint has no fixed size: buildingTier gives
+// BUILDING_MED to anything over 350 m², and enforceBuildingDistribution then
+// promotes a tile's largest polygons into that band behind the single castle —
+// so a re-tiered civic block can be 5000 m² (10 cells across) or 20000 m² (20).
+// Held at the baseline those drew the same ~2.3-cell roof as a 19 m fort, and
+// the footprint read as a field of bare brick with a toy building parked in the
+// middle. Growing the art to its own footprint fixes that; FORT_MAX_SCALE stops
+// a huge polygon filling the screen with one roof (3× the 0.35 fort baseline is
+// ~7 cells / 49 m wide). The game runs pixelArt:true, so the upscale stays
+// crisp rather than blurring.
+//
+// Buildings with no area (the synthetic starter trailer, sandbox houses) and
+// unmeasurable frames keep the baseline untouched.
+const FORT_MAX_SCALE = 1.05;
+function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
+  if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
+  const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
+  if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, fit));
+  return Math.min(base, fit);
+}
