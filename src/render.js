@@ -313,11 +313,11 @@ Render.drawCells = function drawCells(scene) {
   let noiseIdx = 0;
   let letterIdx = 0;
   // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
-  // Cobble tiles (road cluster + path pebble alike) draw at 67% opacity so the
+  // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
   // scattered stone.
-  const COBBLE_ALPHA = 0.67;
+  const COBBLE_ALPHA = 0.57;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
