@@ -179,6 +179,20 @@ const UI_DANGER     = '#b71c1c';   // destructive action + error surfaces
 const UI_DANGER_INK = '#ff8a7a';   // destructive action as TEXT on a dark ground
 const UI_INK        = '#ffffff';   // default text on world/dark backgrounds
 const UI_SHADOW     = '#000000';   // text stroke / drop shadow
+// TWO ROLES CARRY MEANING (spec §UI COLOUR LANGUAGE):
+//   blue-white = TREASURE & POWERUPS — anything the WORLD gives the player
+//                (chest/treasure ceremonies, POI pads + halos, powerup grants)
+//   gold       = PLAYER CONTROLS — anything the PLAYER drives (buttons, pads,
+//                HUD chrome, money) — that's the UI_GOLD family above, and
+//                UI_CONTROL below names the role so a control reads as a
+//                control rather than as "the gold one".
+// Keeping the two apart means a glance at a screen answers "is this something
+// I press, or something I just won?" without reading a word of it.
+const UI_TREASURE      = '#f4f8ff';   // near-white with a blue cast — treasure surfaces + frames
+const UI_TREASURE_INK  = '#cfe2ff';   // blue-white as TEXT on a dark ground
+const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, deep accents
+const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
+const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 
 // Keep a CENTRED text object inside the canvas. A label placed at its raw
 // screen x with origin 0.5 runs past the edge and gets sliced by the viewport

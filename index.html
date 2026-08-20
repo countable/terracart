@@ -40,6 +40,12 @@
       --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
       --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
       --green:      #a7ffb0;   /* success / ready / energy gain               */
+      /* Blue-white = TREASURE & POWERUPS (what the world GIVES you); the gold
+         family above = PLAYER CONTROLS (what YOU drive). See spec
+         §UI COLOUR LANGUAGE and the UI_TREASURE_* constants in src/util.js. */
+      --treasure:      #f4f8ff; /* near-white, blue cast — treasure surfaces  */
+      --treasure-ink:  #cfe2ff; /* blue-white as TEXT on a dark ground        */
+      --treasure-deep: #7fb0ff; /* saturated blue — glow / deep accents       */
       --danger:     #b71c1c;   /* destructive action + error surfaces         */
       --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
       /* ── HUD chrome ───────────────────────────────────────────────────
@@ -1528,14 +1534,14 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=14"></script>
+  <script src="src/util.js?v=15"></script>
   <script src="src/sprite_layout.js?v=5"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
   <script src="src/coords.js?v=120"></script>
   <script src="src/biome_profiles.js?v=6"></script>
   <script src="src/worldgen.js?v=208"></script>
-  <script src="src/textures.js?v=163"></script>
+  <script src="src/textures.js?v=164"></script>
   <script src="src/save.js?v=115"></script>
   <script src="src/items.js?v=195"></script>
   <script src="src/inventory.js?v=2"></script>
@@ -1549,7 +1555,7 @@
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
   <script src="src/quests.js?v=3"></script>
-  <script src="src/interactables.js?v=8"></script>
+  <script src="src/interactables.js?v=9"></script>
   <script src="src/interact.js?v=223"></script>
   <script src="src/render.js?v=291"></script>
   <script src="src/road_overlay.js?v=6"></script>
@@ -1573,7 +1579,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=387';
+      const APP_SRC = 'src/app.js?v=388';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

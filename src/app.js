@@ -897,7 +897,10 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    bakeHalo('halo_poi',  0xffe066, 0.22);   // the slow breath under a POI
+    // Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the pale
+    // pad it breathes out from — a gold halo under a blue-white slab read
+    // as two different signals for the same thing.
+    bakeHalo('halo_poi',  0xcfe2ff, 0.22);   // the slow breath under a POI
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
     // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
@@ -4455,7 +4458,7 @@ class MapScene extends Phaser.Scene {
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You pass out from exhaustion and wake up on the surface.',
-      color: '#ff8c3b',
+      color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
     });
   }
@@ -5347,7 +5350,10 @@ class MapScene extends Phaser.Scene {
   //             the modal and calls onClose(). Pass () => {} for no-op backdrop.
   //   mkBtn(label, primary, disabled) — standardised button factory reused by
   //             every modal so styling stays consistent site-wide.
-  makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = '#c8a64a',
+  //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
+  //             something the player drives. Treasure ceremonies override it
+  //             with the blue-white (spec §UI COLOUR LANGUAGE).
+  makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose } = {}) {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
@@ -5396,7 +5402,8 @@ class MapScene extends Phaser.Scene {
       b.style.cssText =
         `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
         (primary
-          ? 'background:#c8a64a;color:#1a1612;border:0;'
+          // Buttons are CONTROLS — gold, always (spec §UI COLOUR LANGUAGE).
+          ? `background:${UI_CONTROL_DIM};color:#1a1612;border:0;`
           : 'background:transparent;color:#ddd;border:2px solid #444;');
       if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
       return b;
@@ -6952,7 +6959,7 @@ class MapScene extends Phaser.Scene {
           iconHTML: '',
           name: `Reach ${reachAfter} cells · Ring T${Math.min(7, this.save.reachUpgrades)}`,
           sub: `The wizard channels your discoveries into wider sight — and a Ring to bear it.`,
-          color: '#ffd23a',
+          color: UI_TREASURE,
         });
       },
     });
@@ -7168,7 +7175,7 @@ class MapScene extends Phaser.Scene {
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
-        color: '#a7e9ff',
+        color: UI_GOLD,
       });
       return;
     }
@@ -7190,7 +7197,7 @@ class MapScene extends Phaser.Scene {
         header: `${title} complete`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
-        color: '#ffe066',
+        color: UI_GOLD,
       });
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
@@ -7212,7 +7219,7 @@ class MapScene extends Phaser.Scene {
         iconHTML,
         name: relicName,
         sub: 'equipped',
-        color: '#ffe066',
+        color: UI_TREASURE,
       });
     }
     if (reward.consolation > 0) {
@@ -7353,7 +7360,7 @@ class MapScene extends Phaser.Scene {
             header: 'Restored!',
             name: `You restored a ${info.name}`,
             sub: info.blurb,
-            color: '#a7ffb0',
+            color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {
           this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
@@ -7506,7 +7513,7 @@ class MapScene extends Phaser.Scene {
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
             sub: 'The quartermaster trades relics — up to 5 deals an hour.',
-            color: '#a7ffb0',
+            color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {
           this.flashLoot('🛡️ unsealed', '#a7ffb0', 1.25);
@@ -8276,15 +8283,25 @@ class MapScene extends Phaser.Scene {
   //   name          string → big bold label (e.g. "Egg", "Wood Pickaxe").
   //   sub           string? → smaller line under the name (e.g. "× 3"
   //                          for stacks, or a relic-equipped tagline).
-  //   color         string? → tier colour for the name (defaults gold).
+  //   color         string? → tier / semantic colour for the NAME + qty lines
+  //                          (rarity tier, coin gold, …). Defaults to the
+  //                          treasure blue-white.
+  //   accent        string? → the modal's CHROME colour: frame, sparkle burst,
+  //                          primary button. Defaults to UI_TREASURE, because
+  //                          this modal is the treasure ceremony (spec
+  //                          §UI COLOUR LANGUAGE: blue-white = treasure &
+  //                          powerups). The few NON-treasure ceremonies that
+  //                          reuse this shell (passing out, restoring a wreck)
+  //                          pass their own accent so they don't read as loot.
   //   onDismiss     fn?    → called after the modal closes.
   //   actions       array? → [{ label, primary?, onClick }]. When present the
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  showChestRewardModal({ iconHTML, name, sub, qty, color = '#ffe066', onDismiss, header = 'From the chest', actions }) {
+  showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
+    onDismiss, header = 'From the chest', actions }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
-      zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: color, wrapBg: '#000c',
+      zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
@@ -8319,7 +8336,7 @@ class MapScene extends Phaser.Scene {
       : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
-      `<div style="opacity:.6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${header}</div>` +
+      `<div style="opacity:.75;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;color:${accent}">${header}</div>` +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +
@@ -8341,7 +8358,7 @@ class MapScene extends Phaser.Scene {
         b.style.cssText =
           'padding:9px 14px;border-radius:7px;font:700 12px ui-monospace,monospace;cursor:pointer;' +
           (a.primary
-            ? `background:${color};color:#1a1612;border:0;`
+            ? `background:${accent};color:#1a1612;border:0;`
             : 'background:transparent;color:#ddd;border:2px solid #555;');
         b.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -8403,9 +8420,9 @@ class MapScene extends Phaser.Scene {
           // simpler to fake the star highlight with a tighter inner gradient).
           `background:` +
             `radial-gradient(circle at 50% 50%, #ffffff 0%, #ffffff 18%, ` +
-            `${color} 40%, ${color}88 65%, transparent 100%);` +
+            `${accent} 40%, ${accent}88 65%, transparent 100%);` +
           `border-radius:50%;` +
-          `box-shadow:0 0 6px 1px ${color}cc, 0 0 12px 2px ${color}55;` +
+          `box-shadow:0 0 6px 1px ${accent}cc, 0 0 12px 2px ${accent}55;` +
           `transform:translate(-50%,-50%) scale(0);opacity:0;` +
           `animation:chestSparkle 1100ms ease-out ${delay.toFixed(0)}ms forwards;`;
         wrap.appendChild(sp);

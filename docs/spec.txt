@@ -817,6 +817,42 @@ SAVED GAMES (slots)
    reset per-slot. Listed newest-played first in the menu.
 
 ================================================================================
+UI COLOUR LANGUAGE
+================================================================================
+Two colours carry MEANING; everything else is neutral chrome. A player glancing
+at any screen should be able to answer "is this something I press, or something
+I just won?" without reading a word.
+
+ - BLUE-WHITE = TREASURE & POWERUPS — what the WORLD gives the player.
+     --treasure      #f4f8ff  near-white with a blue cast; surfaces + frames
+     --treasure-ink  #cfe2ff  the same role as TEXT on a dark ground
+     --treasure-deep #7fb0ff  saturated; glow, side faces, deep accents
+   Worn by: the POI pads (the pale plinth under every chest), the POI halo
+   breathing under them, the chest/treasure reward ceremony modal (frame,
+   header, sparkle burst, primary button), and powerup grants (relics + armor
+   equipped, Inner Light reach upgrades).
+
+ - GOLD / YELLOW = PLAYER CONTROLS — what the PLAYER drives.
+     --gold #ffe066, --gold-deep #ffd23a, --gold-dark #c8a64a, --gold-pale #fff3b0
+   Worn by: buttons, the movement pad, inventory slots + tabs, HUD chrome and
+   dialog frames, and money (coins are the currency the player spends, so they
+   sit on the control side of the line).
+
+ - EXCEPTIONS, and they are deliberate:
+     * ITEM RARITY tier colours (loot.js) still colour a reward's NAME — rarity
+       is information the ceremony's blue-white frame doesn't carry.
+     * ENERGY keeps green → gold → red as it drains; DANGER keeps red.
+     * Ceremonies that are NOT loot reuse the reward modal with their own
+       accent (passing out = orange, restoring a wreck / unsealing a fort =
+       green) so a construction never reads as treasure.
+
+ - ONE source of truth: the UI_* constants at the top of src/util.js (canvas
+   text + Phaser graphics) mirrored as CSS custom properties in index.html
+   (DOM). UI_CONTROL / UI_CONTROL_DIM name the control role; UI_TREASURE* name
+   the treasure role. Reach for the ROLE that fits — never add a near-duplicate
+   shade, and change both halves together.
+
+================================================================================
 HUD (debug)
 ================================================================================
  - top-left: lat, lon, GPS state (wasd|waiting|live); line 2: current MVT tile
