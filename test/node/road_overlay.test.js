@@ -135,7 +135,7 @@ test('road overlay: strokes muted earth brown at 51% opacity', () => {
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
   assert.eq(style.c, 0x614b3a, 'colour is the muted earth brown');
-  assert.eq(style.a, 0.51, 'alpha is 51%');
+  assert.eq(style.a, 0.61, 'alpha is 61%');
   // Desaturated, not merely darkened: the colour keeps its brightness but its
   // channels sit closer together than a saturated brown's would.
   const r = 0x61, g = 0x4b, b = 0x3a;

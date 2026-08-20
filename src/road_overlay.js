@@ -44,7 +44,7 @@
   // competed with the map instead of sitting under it, and the grain below
   // needs a quiet base to read against.
   const COLOR = 0x614b3a;
-  const ALPHA = 0.51;    // reads as a band without hiding the map
+  const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
 
   // Rail is not road. It arrives in the same `transportation` layer and the
@@ -104,7 +104,7 @@
   // Rebuilds are already rare: the pass only runs when the camera crosses a
   // cell or a tile finishes loading, never per frame.
   const GRAIN_PX = 32;        // repeat every cell — grain, not a visible weave
-  const GRAIN_ALPHA = 0.22;   // before the layer's own 31% knocks it back
+  const GRAIN_ALPHA = 0.22;   // before the layer's own ALPHA knocks it back
   let grainCanvas;
   function grainTile() {
     if (grainCanvas !== undefined) return grainCanvas;
