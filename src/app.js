@@ -288,7 +288,9 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
-};// Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
+};
+
+// Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
 // road tiers, paths, every building tier, and rock are NOT tillable.
 // Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
