@@ -6,7 +6,7 @@
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together, and parking aisles are dropped entirely. This layer draws the
 // SOURCE linework straight from the decoded MVT features on top of the map, as
-// a soft brown band at 21% alpha, so the rasterized roads can be eyeballed
+// a soft brown band at 31% alpha, so the rasterized roads can be eyeballed
 // against the real ways they came from.
 //
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
@@ -34,7 +34,7 @@
   // the cobble the rasterizer paints.
   const COLOR = 0x6b4a2f;
   const COLOR_CSS = '#6b4a2f';
-  const ALPHA = 0.21;    // 21% — reads as a band without hiding the map
+  const ALPHA = 0.31;    // 31% — reads as a band without hiding the map
   const MVT_EXTENT = 4096;
   // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
   // the shared table lives there so the overlay and the rasterizer agree.
@@ -62,7 +62,7 @@
   //     so every way ended in a hard square butt and every bend showed a notch.
   //   • NO DOUBLED JOINTS. A translucent stroke composites with ITSELF wherever
   //     a path doubles back over its own width — at every junction and sharp
-  //     bend — stacking 21% on 21% into a dark blot. Here the whole network is
+  //     bend — stacking 31% on 31% into a dark blot. Here the whole network is
   //     drawn OPAQUE into an offscreen canvas and the resulting image is shown
   //     at ALPHA, so overlaps are opaque-on-opaque and the band stays even.
   // The texture covers the viewport plus PAD on each side (the same pad the

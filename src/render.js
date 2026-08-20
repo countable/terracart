@@ -174,11 +174,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
-  // Cobble tiles (road cluster + path pebble alike) draw at 77% opacity so the
+  // Cobble tiles (road cluster + path pebble alike) draw at 67% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
   // scattered stone.
-  const COBBLE_ALPHA = 0.77;
+  const COBBLE_ALPHA = 0.67;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -510,12 +510,12 @@ Render.drawCells = function drawCells(scene) {
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
-          // pebble — sit inside their cell and have been stepped down 10% again
-          // (per playtest), centred on the same point: roads at 0.89 of a cell
-          // and paths at 0.81. The PIER plank is not one of them and keeps cell
-          // size: its art tiles edge-to-edge across adjacent pier cells, and any
-          // resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.89 : CELL_PX * 0.81);
+          // pebble — sit inside their cell and have been stepped down another
+          // 10% (per playtest), centred on the same point: roads at 0.80 of a
+          // cell and paths at 0.73. The PIER plank is not one of them and keeps
+          // cell size: its art tiles edge-to-edge across adjacent pier cells,
+          // and any resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.80 : CELL_PX * 0.73);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -539,7 +539,7 @@ Render.drawCells = function drawCells(scene) {
           cs.setTexture(isPier ? 'pier' : 'cobble', frame);
           // Alpha is set on every draw, not just for the translucent kinds:
           // pool slots are reused across cell types, so a slot that carried a
-          // cobble last frame would keep 0.85 on a pier plank the next.
+          // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
