@@ -109,6 +109,17 @@
       --chrome-key:   0 0 0 1px rgba(0,0,0,0.5);                  /* keyline   */
       --chrome-gold:  0 0 12px rgba(255,224,102,0.38);            /* selected  */
       --chrome-rim:   #5c5340;   /* warm steel rim — for surfaces you can't touch */
+      /* ── Top HUD row geometry ─────────────────────────────────────────
+         The ☰, the energy gauge and the money chip are three different roles
+         but ONE ROW, and a row whose chips are 30 / 35 / 27 px tall with two
+         rim weights between them reads as three widgets that happen to be
+         near each other. So the BOX is shared — height, rim weight, radius,
+         padding — and only the accent colour and the ink differ. Unlike the
+         paint tokens above (deliberately geometry-free), these ARE geometry:
+         they live here so the row can only ever change as a row. */
+      --hud-chip-h:   32px;
+      --hud-chip-pad: 0 10px;
+      --hud-chip-rim: 2px;
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -247,35 +258,56 @@
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
        on #hud below) so it anchors to the visual viewport instead of #game's
        scaled box. env(safe-area-inset-top) clears the iPhone notch. */
+    /* ONE BOX for the three chips of the top HUD row — the ☰, the energy gauge
+       and the money chip. Height, rim weight, radius and padding live here and
+       only here; each chip's own rule below keeps just what makes it itself —
+       its position, its face, its ink, and its rim COLOUR, which overrides the
+       steel default because those rules come after this one. The energy gauge
+       stacks a readout over a bar inside the shared height, centred, so the
+       row's baseline doesn't move when the bar is there. Steel (--chrome-rim)
+       is the default because it's the rim for a surface you can't touch; the
+       two you CAN touch repaint it. */
+    #menu summary, #energy, #money {
+      box-sizing: border-box;
+      height: var(--hud-chip-h);
+      padding: var(--hud-chip-pad);
+      border: var(--hud-chip-rim) solid var(--chrome-rim);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
     /* The one place gold is NOT an affordance: this chip counts actual gold.
        Currency is the subject matter here, not an invitation to tap (the chip
        is pointer-events:none). Every OTHER gold surface in the HUD is a
        control — see the interaction-colour note at the top of :root. */
-    #money {
+    /* Anchors the pair; the chips inside it are laid out, not positioned. */
+    #hud-row {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
-      background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold); padding: 4px 10px;
-      border-radius: 8px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 7; pointer-events: none;   /* the tappable chip re-enables it */
+    }
+    #money {
+      background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
       font: 700 16px ui-monospace, monospace;
-      pointer-events: none; z-index: 7;
-      /* Rim as an inset ring rather than a border: the chip is anchored right
-         and sized by its text, so a real border would widen it toward the
-         energy readout every time the player earns a digit. */
-      box-shadow: inset 0 0 0 1px #ffffff14, var(--chrome-lip),
-                  var(--chrome-lift), var(--chrome-key);
+      /* A real 2px rim, like every other chip in the row (it used to fake one
+         with an inset ring, which left it visibly thinner than its neighbours).
+         Steel, not gold: --chrome-rim is the rim for a surface you can't touch,
+         and this chip is a readout — the gold here is the CURRENCY, not an
+         invitation to tap. */
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000, 0 0 10px rgba(255,224,102,0.35);
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
     /* Tappable: "how do I refill this?" is the obvious gesture and it used to
        do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
-      position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
-      right: calc(var(--phone-right, 0px) + 88px);
-      background: var(--chrome-scuff), var(--chrome-panel); color: var(--green); padding: 4px 10px;
-      border: 2px solid #4a8c4a; border-radius: 8px;
+      background: var(--chrome-scuff), var(--chrome-panel); color: var(--green);
+      border-color: #4a8c4a;
       font: 700 14px ui-monospace, monospace;
-      pointer-events: auto; cursor: pointer; z-index: 7;
-      display: flex; flex-direction: column; gap: 3px; align-items: stretch;
+      pointer-events: auto; cursor: pointer;
+      gap: 3px; align-items: stretch;
       /* border-color is repainted per energy level by updateEnergyDOM. */
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
@@ -360,9 +392,14 @@
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
       background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
-      border: 2px solid var(--ctl-rim); border-radius: 8px;
-      padding: 2px 8px; font: 700 16px ui-monospace, monospace;
-      line-height: 1.4;
+      border-color: var(--ctl-rim);
+      font: 700 16px ui-monospace, monospace;
+      align-items: center;
+      /* The button is the size of the glyph, open or closed. Without this it
+         is a block inside <details> and stretches to the width of the PANEL it
+         opens — a 38px square that turns into a 150px bar the moment you tap
+         it, which is not the same control any more. */
+      width: fit-content;
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -705,10 +742,16 @@
        (#game uses transform:scale) takes the transformed parent as its
        containing block, which would put it back inside #game's clipped zone.
        Same reason buildInventoryDOM appends to <body>. -->
-  <div id="money">$0</div>
-  <div id="energy">
-    <span id="energy-label">⚡100/100</span>
-    <div id="energy-bar"><div id="energy-bar-fill"></div></div>
+  <!-- The right half of the top HUD row. Laid out as a flex row rather than
+       two separately-anchored fixed chips: money is sized by its digits, and
+       with a fixed anchor each a six-figure balance ran straight over the
+       energy gauge. In a row it just pushes the gauge left. -->
+  <div id="hud-row">
+    <div id="energy">
+      <span id="energy-label">⚡100/100</span>
+      <div id="energy-bar"><div id="energy-bar-fill"></div></div>
+    </div>
+    <div id="money">$0</div>
   </div>
   <div id="objective" style="display:none">
     <div class="row">
@@ -1679,7 +1722,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=394';
+      const APP_SRC = 'src/app.js?v=395';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
