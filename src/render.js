@@ -992,6 +992,47 @@ Render.drawCells = function drawCells(scene) {
       }
     }
   }
+  // Distance falloff — the dim DEEPENS with distance instead of sitting flat.
+  //
+  // The flat wash above owns the AFFORDANCE: its hard edge is the reach
+  // boundary, and interact.js resolves taps from the same cellInReach call, so
+  // that edge has to stay a hard step (the reach outline <=> tap-accept
+  // invariant, QC §7). This layer therefore starts OUTSIDE that boundary and
+  // only ramps within the already-dim region — the step is untouched, and the
+  // lit bubble reads stronger for sitting at the bright end of a longer ramp.
+  //
+  // Concentric rings because Phaser's Graphics has no gradient primitive (the
+  // same reason the vignette in app.js create() is 14 nested strokeRects). The
+  // ramp is super-linear so the deepening is gentle just outside the bubble and
+  // gathers toward the corners, and the ring pitch is 2px — below the point
+  // where banding is visible at these alphas.
+  {
+    // Plateau at the reach radius so the ramp begins exactly where the flat
+    // wash does. reachRadiusM is the same source cellInReach uses, so the two
+    // can't drift apart when energy / depth / a Potion of Reach moves it.
+    const r0 = (reachRadiusM(scene) / scene.cellM) * CELL_PX;
+    // Far corner of the drawn area (cells run -1..VIEW_CELLS, so the furthest
+    // drawn pixel is half a cell beyond the viewport's own corner).
+    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2 + CELL_PX;
+    // 0.70 at the far corner on a p=1.5 ramp. Measured against the flat wash,
+    // that costs the reach bubble nothing (0-90px: -0.1 luminance, i.e. noise),
+    // leaves the mid-field close to today (-2.9 at 150-180px), and lands -9.6
+    // in the corners. A linear ramp buys only 1.6 more corner depth but doubles
+    // the mid-field cost (-5.6 at the same radius) — and the outer ring is
+    // where objects first appear as the player walks toward them, so it has to
+    // stay readable. Retune the pair together, never the alpha alone.
+    const FALLOFF_A = 0.70;
+    const FALLOFF_P = 1.5;
+    const STEP = 2;
+    if (rMax > r0) {
+      const colour = depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000);
+      for (let r = r0; r < rMax; r += STEP) {
+        const t = (r - r0) / (rMax - r0);
+        g.lineStyle(STEP, colour, FALLOFF_A * Math.pow(t, FALLOFF_P));
+        g.strokeCircle(scene.viewCenterX, scene.viewCenterY, r + STEP / 2);
+      }
+    }
+  }
   // Low energy tints the lit range pink — the Inner Light guttering as the
   // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
   // depth does), but this pink wash is the cue that you're running low and
