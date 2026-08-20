@@ -992,6 +992,78 @@ Render.drawCells = function drawCells(scene) {
       }
     }
   }
+  // Distance falloff — the dim DEEPENS with distance instead of sitting flat.
+  //
+  // The flat wash above owns the AFFORDANCE: its hard edge is the reach
+  // boundary, and interact.js resolves taps from the same cellInReach call, so
+  // that edge has to stay a hard step (the reach outline <=> tap-accept
+  // invariant, QC §7). This layer therefore starts OUTSIDE that boundary and
+  // only ramps within the already-dim region — the step is untouched, and the
+  // lit bubble reads stronger for sitting at the bright end of a longer ramp.
+  //
+  // Concentric rings because Phaser's Graphics has no gradient primitive (the
+  // same reason the vignette in app.js create() is 14 nested strokeRects). The
+  // ramp is super-linear so the deepening is gentle just outside the bubble and
+  // gathers toward the corners, and the ring pitch is 2px — below the point
+  // where banding is visible at these alphas.
+  //
+  // Drawn into atmosFalloffGfx (above every world sprite, below the labels),
+  // NOT into the terrain graphics the flat wash uses. In cellGfx this layer
+  // could only paint the base terrain fill — the noise, biome borders,
+  // cobbles and every object sat above it, so the rim's objects stayed fully
+  // lit and read as stickers on darkening ground. Even at alpha 1.0 that was
+  // the ceiling on the effect. Above the sprites, distance dims what is AT
+  // that distance, which is the whole point.
+  //
+  // Rebuilt only when the ramp's inputs change — the player is always at the
+  // viewport centre, so the rings are identical frame to frame until the reach
+  // radius moves (energy / depth / Potion of Reach) or the eased biome colour
+  // changes visibly. Same dirty-gate discipline as drawAtmosRim; without it
+  // this is ~100 strokeCircle calls every frame for a static image.
+  if (scene.atmosFalloffGfx) {
+    // Plateau at the reach radius so the ramp begins exactly where the flat
+    // wash does. reachRadiusM is the same source cellInReach uses, so the two
+    // can't drift apart when energy / depth / a Potion of Reach moves it.
+    const r0 = (reachRadiusM(scene) / scene.cellM) * CELL_PX;
+    // The viewport's own corner — the furthest VISIBLE pixel. drawCells fills
+    // out to -1..VIEW_CELLS, but the geometry mask clips to the viewSize
+    // square, so ramping past its half-diagonal only spends the ramp on pixels
+    // nobody sees and dilutes everything inside it.
+    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
+    // 0.90 at the corner on a p=1.5 ramp. Picked by measuring mean luminance
+    // per radius band against the effect switched off, not by eye:
+    //
+    //   0-120px (reach bubble)  -0.2   i.e. noise — the affordance is untouched
+    //   150-180px (mid-field)   -7.7
+    //   210-240px (corners)    -17.2
+    //
+    // The super-linear ramp is what buys that spread: it holds the mid-field
+    // near today's readability while still gathering real depth at the rim,
+    // where the flat wash used to give distance no weight at all. Pushing the
+    // alpha to 1.0 adds only -1.9 in the corners for another -1.2 mid-field,
+    // which is the wrong trade — the outer ring is where objects first appear
+    // as the player walks toward them. Retune the pair together, never the
+    // alpha alone.
+    const FALLOFF_A = 0.90;
+    const FALLOFF_P = 1.5;
+    const STEP = 2;
+    const colour = depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000);
+    // Quantise the colour to 3 bits per channel, as drawAtmosRim does: the
+    // biome ease is continuous, and a key on the raw value would rebuild every
+    // frame of every transition for a change nobody can see.
+    const cKey = ((colour >> 21) & 0x7) << 6 | ((colour >> 13) & 0x7) << 3 | ((colour >> 5) & 0x7);
+    const key = `${Math.round(r0)}|${cKey}|${FALLOFF_A}|${FALLOFF_P}`;
+    if (scene._falloffKey !== key) {
+      scene._falloffKey = key;
+      const fg = scene.atmosFalloffGfx;
+      fg.clear();
+      for (let r = r0; r < rMax; r += STEP) {
+        const t = (r - r0) / (rMax - r0);
+        fg.lineStyle(STEP, colour, FALLOFF_A * Math.pow(t, FALLOFF_P));
+        fg.strokeCircle(scene.viewCenterX, scene.viewCenterY, r + STEP / 2);
+      }
+    }
+  }
   // Low energy tints the lit range pink — the Inner Light guttering as the
   // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
   // depth does), but this pink wash is the cue that you're running low and
