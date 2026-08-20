@@ -30,7 +30,8 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, seatInCell } = require(path.join(ROOT, 'src', 'sprite_layout.js'));
+const { CELL_PX, ART_BOUNDS, seatInCell, CREATURE_ART, creatureWheelDy } =
+  require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
 
 // Tolerances (px). Sub-pixel slop is fine; these are the "looks wrong" gates.
@@ -217,6 +218,58 @@ function evaluate(s) {
   return { ...s, fits, artH, bottom, centerX, overlap, violations };
 }
 
+// ── Creature check ─────────────────────────────────────────────────────────
+// Creatures are exempt from the seat rule (moving actors), but their entries in
+// CREATURE_ART still have to describe the real art: the work-progress wheel is
+// centred on each kind's CROWN from that table, so a resized or repainted
+// creature sheet must not be able to leave its wheel floating in the air.
+// Reference frame is 0 — the rest pose — for every kind; sibling frames in
+// these sheets agree to within a pixel, and pinning one frame keeps the wheel
+// from bobbing with the idle animation.
+const CREATURE_SHEETS = {
+  chicken:       'assets/Farm Animals/Chicken Red.png',
+  cow:           'assets/Farm Animals/Female Cow Brown.png',
+  cat:           'assets/Objects/Pets/cat.png',
+  dog:           'assets/Objects/Pets/dog.png',
+  deer:          'assets/Objects/Wilderness/Deer Idle.png',
+  rabbit:        'assets/Objects/Wilderness/Rabbit White.png',
+  crow:          'assets/Objects/Wilderness/Crow.png',
+  butterfly:     'assets/Objects/Wilderness/Azure Butterfly.png',
+  slime:         'assets/Enemy/Slime Green.png',
+  cave_slime:    'assets/Enemy/Slime Green.png',   // tinted reuse of the slime sheet
+  purple_slime:  'assets/Enemy/Purple Slime.png',
+  goblin:        'assets/Enemy/Goblin.png',
+  goblin_archer: 'assets/Enemy/Goblin Archer.png',
+};
+const WHEEL_R = 10;   // outer radius of the wheel ring (app.js: R + 1)
+
+function evaluateCreature(kind) {
+  const file = CREATURE_SHEETS[kind];
+  const a = CREATURE_ART[kind];
+  const violations = [];
+  if (!a) return { kind, violations: ['no CREATURE_ART entry'] };
+  if (!file) return { kind, violations: ['no sheet mapped in CREATURE_SHEETS'] };
+  const fresh = trimSheetFrame(file, a.fw, a.fh, 0);
+  if (!fresh) return { kind, violations: ['reference frame is fully transparent'] };
+  if (fresh.minY !== a.minY || fresh.maxY !== a.maxY) {
+    violations.push(`CREATURE_ART stale: art rows ${fresh.minY}-${fresh.maxY}, ` +
+                    `table says ${a.minY}-${a.maxY}`);
+  }
+  // Replay the renderer's placement, then measure the wheel against the art.
+  const anchorY = 2 - a.float;                       // CREATURE_GROUND_DY - float
+  const frameTop = anchorY - a.foot * a.fh * a.scale;
+  const artTop = frameTop + fresh.minY * a.scale;
+  const artBottom = frameTop + fresh.maxY * a.scale;
+  const cy = creatureWheelDy(kind);
+  if (Math.abs(cy - artTop) > 0.5) {
+    violations.push(`wheel off the crown by ${(cy - artTop).toFixed(1)}px`);
+  }
+  // The ring must actually touch the animal — half over the body, half clear.
+  if (cy + WHEEL_R <= artTop) violations.push('wheel floats clear above the art');
+  if (cy - WHEEL_R >= artBottom) violations.push('wheel sits below the art');
+  return { kind, artTop, artBottom, cy, violations };
+}
+
 // ── --emit-bounds: regenerate the ART_BOUNDS literal for sprite_layout.js ──
 function emitBounds() {
   const lines = [];
@@ -230,7 +283,8 @@ function emitBounds() {
   console.log('  const ART_BOUNDS = {\n' + lines.join('\n') + '\n  };');
 }
 
-module.exports = { decodePng, loadPng, trimFrame, trimSheetFrame, evaluate, SCENARIOS, SHEETS, CELL_PX };
+module.exports = { decodePng, loadPng, trimFrame, trimSheetFrame, evaluate,
+  evaluateCreature, CREATURE_SHEETS, SCENARIOS, SHEETS, CELL_PX };
 if (require.main !== module) return;
 
 if (process.argv.includes('--emit-bounds')) { emitBounds(); process.exit(0); }
@@ -254,6 +308,22 @@ for (const r of rows) {
 }
 console.log('─'.repeat(80));
 console.log(`${rows.length - bad} OK, ${bad} need attention.`);
+
+// ── Creatures: exempt from the seat rule, audited for the wheel crown rule ──
+const cRows = Object.keys(CREATURE_SHEETS).map(evaluateCreature);
+console.log('\nCreature wheel audit — wheel centre must sit on the art crown\n');
+console.log(pad('creature', 16), num('artTop'), num('artBot'), num('wheelY'), '  verdict');
+console.log('─'.repeat(80));
+let cBad = 0;
+for (const r of cRows) {
+  const ok = r.violations.length === 0;
+  if (!ok) cBad++;
+  console.log(pad(r.kind, 16), num(r.artTop), num(r.artBottom), num(r.cy),
+    '  ' + (ok ? '✓ OK' : '✗ ' + r.violations.join('; ')));
+}
+console.log('─'.repeat(80));
+console.log(`${cRows.length - cBad} OK, ${cBad} need attention.`);
 console.log('Exempt (not audited): buildings (house/tower/shrine), produce stands,');
-console.log('pot-of-gold, creatures, crops/wildplants, dropped-item ground stacks.\n');
-process.exit(bad ? 1 : 0);
+console.log('pot-of-gold, crops/wildplants, dropped-item ground stacks. Creatures are');
+console.log('exempt from the SEAT rule — only their wheel placement is checked.\n');
+process.exit((bad + cBad) ? 1 : 0);

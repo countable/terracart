@@ -523,7 +523,8 @@ TREASURE MARKS (X on the ground)
 PATH STONES
 ================================================================================
  - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. Every 10 consecutive claimed stones on the
+   automatically — no item, no UI. A claimed stone draws at FULL opacity while
+   unclaimed cobbles sit at 57%, so a walked path lights up as you go. Every 10 consecutive claimed stones on the
    same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
    than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
