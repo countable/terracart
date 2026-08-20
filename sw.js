@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v63';
+const SHELL_VERSION = 'shell-v64';
 const TILE_CACHE    = 'tiles-v1';
 // How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
 // is never an expiry: a stale tile is still served, and a failed refresh keeps
@@ -17,18 +17,24 @@ const TILE_CACHE    = 'tiles-v1';
 // moves, and re-fetching costs the player data.
 const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
+// Only assets whose URL here EXACTLY matches the URL the page requests
+// belong in this list. Cache.match() keys on the full URL *including the
+// query string*, so a precached './src/worldgen.js' can never satisfy the
+// page's request for './src/worldgen.js?v=208' — the entry is dead weight,
+// and fetching it costs a second, redundant download of every one of those
+// files on install, competing for bandwidth with the real page load.
+//
+// So the versioned src/*.js scripts are deliberately NOT precached. They are
+// all plain script tags in index.html, which means the very first page load
+// fetches them anyway and the stale-while-revalidate branch below stores each
+// one under its real ?v= URL. Precaching them bought nothing and cost ~800 KB.
+//
+// What is left are the URLs the page really does request verbatim.
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './vendor/phaser.js',
-  './src/mvt.js',
-  './src/home.js',
-  './src/biome_profiles.js',
-  './src/worldgen.js',
-  './src/textures.js',
-  './src/geo.js',
-  './src/app.js',
 ];
 
 self.addEventListener('install', (event) => {
