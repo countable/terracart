@@ -58,6 +58,33 @@ Different map polygons rasterize to tiles according to rules
  - Avoid interactables or fauna on private property. in residential areas, all interactables must spawn within 2 spaces of a road or path, or an area that is designated as public.
 
 ================================================================================
+ONBOARDING (the first session)
+================================================================================
+ - OPENING: two story slides (trailer → wrecked neighbourhood), then the safety
+   splash + "Go to my location". On a brand-new save the first GPS fix triggers
+   a reload to anchor the projection, so nothing shown before it survives.
+ - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
+   reload), covering movement (you walk; WASD on desktop), reach, the farming
+   loop, energy and home-only selling. Reopenable any time from ☰ "How to play".
+   Seen-flag: localStorage terracart.howtoSeen.
+ - OBJECTIVE CHIP: a HUD chip naming the ONE next thing to do, driven by
+   quests.js STARTER_CHAIN — open a crate → till → plant → restore a wreck →
+   harvest → sell at Home. Steps auto-advance on gameplay events fired from the
+   sites that perform them (scene.questEvent); each pays a small coin reward.
+   The chip retires when the ladder finishes or the player dismisses it (×);
+   state lives in save.starter.
+   The starter ladder is INDEPENDENT of the castle QUEST_CHAIN — the vault gate
+   reads Quests.allDone(), which walks the castle chain alone. Do not merge them.
+ - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
+   while the ladder runs. The crate trail seeds out to 15 cells but the viewport
+   is only VIEW_CELLS across, so without it most of the trail is invisible.
+ - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
+   ladder's plant step — it otherwise fires on exactly the tap a beginner makes
+   and silently deletes the plot they just paid energy for.
+ - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
+   rather than being told to go till their first cell.
+
+================================================================================
 CORE
 ================================================================================
  - fullscreen mobile web first (desktop too), 390x844 viewport centered in the browser
@@ -77,6 +104,16 @@ MOVEMENT & REACH
  - GPS (geolocation) drives the player on mobile. WASD / arrow keys move on
    desktop / localhost. The first manual key press latches a manual override
    for the session (GPS stops fighting the keyboard).
+ - ONE movement model at every depth: a GPS fix (plus any stick offset, see
+   STICK WALKING) sets a TARGET and the body walks toward it — underground
+   mining through whatever blocks it, on the surface a plain walk.
+ - a GPS GHOST (translucent, cool-tinted) marks your REAL position whenever
+   the stick has walked the character more than a cell off it, so you can see
+   where you are and walk back.
+ - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
+   it walks you off the GPS target for stamina. Nothing ever replaces it —
+   Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
+   9), and the ☰ "Free walking (debug)" toggle only makes it cost nothing.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
  - REACH: you can only interact with cells within your reach radius (cardinally)
@@ -157,10 +194,27 @@ WORLD GENERATION
    BUILDING_LARGE (castle/civic).
  - building tier from polygon area + render_height: small house (<350m² & <10m),
    fort (350+m² or 10+m), castle (1500+m² or 15+m). Each tier still places one
-   house/tower sprite at the polygon centroid.
+   house/tower sprite, anchored on the footprint cell nearest the footprint's
+   centroid (never off the footprint).
+ - BUILDING FOOTPRINTS NEVER OVERLAP. Each building polygon is assigned an
+   exclusive set of cells before anything is painted:
+     1) a cell more than 45% covered by the polygon belongs to it;
+     2) inside the bounding box of what (1) gave it, a cell's cover counts 1.3x
+        over — a slight preference for squaring footprints off, so a rotated
+        house reads as a building rather than a staircase of cells;
+     3) a building that claimed nothing yet takes its single best-covered free
+        cell (down to 15% cover), so a shed smaller than half a cell still
+        exists instead of vanishing;
+     4) a shape cleanup (drop crumbs, fill 1-wide notches, bridge diagonal-only
+        contacts) that may only take cells no other building claimed.
+   Every contested cell is decided by how much of it each polygon covers, never
+   by paint order, so the result is identical whichever order the tile's
+   polygons arrive in — that is what keeps a building clipped by a tile seam
+   shaped the same in both tiles that draw it.
  - every tile enforces a minimum mix so trade/landmarks always exist: roughly
    ≥2% castles, ≥8% forts, ≥20% small houses — each rounded UP to at least one
    per tile (any tile with ≥3 buildings has ≥1 of each), re-tiered by area rank.
+   Enforced over the buildings that actually landed a cell on the tile.
  - flat colour is drawn first, then a terrain sprite from the tileset is
    overlaid where mapped (grass, forest, sand, farmland, park), with auto-tile
    lookup so edges/corners pick the right frame.
@@ -177,19 +231,27 @@ INTERACTION MODEL
    ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
    and the first that matches consumes the tap and stops. Tapping the player is
    treated as a tap on the player's own cell.
+ - TAP TARGETS ARE CELL-BOUNDED. Everything except FAUNA is hit-tested against
+   the ONE CELL it stands in: a tap inside that cell hits it, a tap outside
+   never does — however far the artwork rises above the cell (tall trees, the
+   castle turret, a market stall, a house roof). Creatures are the exception:
+   they move continuously and are drawn feet-anchored, so they're tapped by
+   their DRAWN sprite box (see CREATURES). Multi-cell buildings stay fully
+   tappable through the building-zone rule below, which is itself cell-based.
  - priority order (all gated to within reach of the player's cell):
      0)  cancel an in-progress work wheel
-     1)  claim a treasure X within ~7.5m
-     2)  creature within 4m (defeat / catch / tame / feed / pet — see CREATURES)
-     3)  pick the nearest wild plant / flower within 4m
-     4)  pick up a scattered coin within ~3m
-     5)  world object within reach: chest, well, tree, fruit tree, mineral rock,
-         ground stack, house/tower (shop), shrine
+     1)  claim a treasure X on the tapped cell
+     2)  creature whose drawn sprite contains the tap (defeat / catch / tame /
+         feed / pet — see CREATURES)
+     3)  pick the wild plant / flower rooted in the tapped cell
+     4)  pick up a scattered coin lying in the tapped cell
+     5)  world object standing in the tapped cell: chest, well, tree, fruit
+         tree, mineral rock, ground stack, house/tower (shop), shrine
      6)  resolve the tapped cell (bail if unloaded / out of reach)
      7)  path-stone claim (non-consuming — falls through)
-     8)  building-zone tap → snap to the nearest house/tower sprite within
-         30m and route to its shop (covers building footprints too large
-         for the sprite's tap zone alone)
+     8)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
+         house/tower sprite within 30m and routes to its shop (this is how a
+         footprint larger than the sprite's own cell stays tappable)
      9)  release a selected animal onto the cell
     10)  pick up a placed rock / placed scarecrow
     11)  place a held rock / scarecrow on an empty tilled-able cell
@@ -239,7 +301,7 @@ FORAGING / WILD PICKUPS
      residential → mushroom (yards)      park → shrub       forest → shrub
      forest      → occasional nut + mushroom clusters (rarer, own RNG)
      beach/sand  → shell                 grassland → longgrass (Fern)
- - tap a wild plant / debris within 4m (and within reach) to pick it (+1).
+ - tap the cell a wild plant / debris stands in (and within reach) to pick it (+1).
  - some wild crops need WORK (a work wheel): rockfruit (stone) via the Pick,
    shrub (woody) via the Axe. A shrub yields WOOD, not a "shrub" item. Other
    wildplants are instant.
@@ -410,7 +472,7 @@ COIN-BURST POIs (ATM / bicycle parking)
 ================================================================================
 TREASURE MARKS (X on the ground)
 ================================================================================
- - claim by tapping within ~7.5m (and within reach). Reward via the unified
+ - claim by tapping the cell the X is drawn on (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
  - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real
@@ -534,15 +596,27 @@ GEAR: RELICS & ARMOR
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
               wizard tower's Inner Light, tier = inner-light/reach level
-     amulet — projects a GHOST (see below); higher tier = faster + cheaper
+     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
      sword  — raises sell prices (0.5× → 1.0× at Frost)
      bow    — lowers buy prices (T7 = par)
      staff  — pure hunting weapon (speeds the pest-defeat wheel; no price effect)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
- - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
-   SCOUT ahead while your real body stays put. Energy drains per cell moved
-   (~1/cell at T1, falling to ~0.15/cell at T7). Releasing the pad collapses
-   the ghost back to your body. Speed scales ~8×→24× walk with amulet tier.
+ - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
+   needed and no separate mode. It walks the character somewhere OTHER than
+   the GPS target, and what it walks is the body itself: there is no ghost and
+   no snap-back on release. The distance walked is banked as an offset from
+   your real position, so each new fix targets (GPS + offset) and the ground
+   you covered by hand survives it; a GPS jump big enough to be a relocation
+   (GPS_SNAP_M) re-anchors you and drops the offset. Walking WITH the GPS is
+   free — that's you actually walking. Stick walking costs energy per cell,
+   and the AMULET is the upgrade to it: speed 5× walk bare (≈ one cell per
+   second — real walk pace is unusably slow on an 11-cell view) → 15.5× at Frost,
+   cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
+   ("too tired"); the GPS still moves you. Two things borrow a tier rather
+   than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
+   damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
+   walking (debug)" toggle drops the stamina cost to nothing and with it the
+   0-energy stop; it changes nothing else.
  - TIER GATING: the only gate on rarer relic/armor tiers is the per-source LOOT
    RULE — each chest/fishing source has a tier ceiling derived from its own tier
    (rarity.js: maxTier / relicCap, plus the chest-tier→preferred clamp), so a
@@ -670,8 +744,9 @@ UNDERGROUND CAVES (Phase 1)
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
    HP / RANGE / DAMAGE / SPEED, and is DEFEATED via the work wheel (HP scales
-   the wheel; tougher kinds take longer; no drops). Kinds are gated by depth so
-   descending introduces new foes; density rises gently with depth:
+   the wheel; tougher kinds take longer; no drops). Each monster lands at most
+   one hit every 2 s (MONSTER_HIT_MS). Kinds are gated by depth so descending
+   introduces new foes; density rises gently with depth:
      * cave slime    (depth 1+) — 15 hp, range 1, 2⚡/hit, slow
      * bat           (depth 1+) — 6 hp,  range 1, 1⚡/hit, fast + erratic, hovers
      * goblin        (depth 2+) — 25 hp, range 1, 4⚡/hit, medium speed (a slog)

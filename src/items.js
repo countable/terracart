@@ -64,7 +64,11 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  mushroom: { sheet: 'props', custom: true, frame: 35 },
+  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
+  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
+  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
+  // pass, so it shrinks about the cell centre and stays centred.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -339,9 +343,9 @@ const ITEMS = [
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
-  // Dragon Powder: use it (Use button with it selected) to PERMANENTLY become a
-  // red dragon — fly free of the GPS at 2× the fastest amulet's speed AND deal
-  // 2× attack damage (useDragonPowder in app.js; persists across refreshes).
+  // Dragon Powder: use it (Use button with it selected) to wear a red dragon
+  // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
+  // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
@@ -494,9 +498,9 @@ const PRICES = {
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 ghost speed for 1 min
+  speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
-  dragon_powder: 120,  // T3 — permanent dragon: 2× Frost-amulet flight speed + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -559,53 +563,87 @@ const STARTING_MONEY = 50;
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
 // Ordered roughly by relevance to a NEW player: the first-hour basics
-// (energy, trading, the farming loop, your starter tools) come first, then
-// exploration and shops, then relic effects, world lore, animals, and finally
-// the rare secret. A Book read still picks one at random, but curating the
-// order keeps the list readable and front-loads what a beginner most needs.
+// (energy, resting, selling, your tools) come first, then the farming loop,
+// exploration, the caves, shops and the progression gates, then relic
+// effects, consumables, world lore, animals, and finally the rare secret.
+// A Book read still picks one at random, but curating the order keeps the
+// list readable and front-loads what a beginner most needs.
+//
+// EVERY tip here is a claim about live behaviour — when a mechanic changes,
+// the tip that describes it has to change with it, or the Book starts lying
+// to the player. Cross-check against: energy.js (rest), crops.js (growth),
+// shops_math.js (deal caps), rarity.js (chest/shop tables), gear.js
+// (recipes), items.js above (foods, relics, animal foods), interact.js
+// (taming / hunting / placeables) and worldgen.js (biomes, caves).
 const PLAY_TIPS = [
   // ── First-hour basics ─────────────────────────────────────
   'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
-  'Select an empty inventory slot, then tap a house to trade or buy.',
-  'Houses have different deals — some sell produce, others seeds.',
-  'A trader who wants an item you don\'t own marks the deal with an ✗.',
-  'Equip a Pickaxe to break rocks, an Axe to chop trees.',
+  'Stand inside any building to rest — a full bar in five minutes. Your own home does it in ninety seconds.',
+  'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
+  'Every tool works bare-handed — just slowly. A Wood relic is three times quicker, a Frost one thirty.',
+  'Armour is not just protection: each piece you equip raises your maximum energy.',
   // ── The farming loop ──────────────────────────────────────
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
-  'Crops auto-advance after 60 min if watered, even while you\'re away.',
+  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Tap a tilled empty cell with no seed selected to un-till it.',
+  'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
   // ── Exploration / chests ──────────────────────────────────
-  'Treasure X marks favour residential cells. Look there first.',
+  'Treasure X marks are buried in car parks — every parking lot hides one.',
   'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
   'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
-  // ── Shops / progression ───────────────────────────────────
-  'Forts handle up to 5 deals per hour. Houses just 1.',
-  'Castles always sell relics (and never run out of stock).',
-  'Higher-tier chests favour higher-tier relics — bus chests cap at Wood.',
-  'A bigger Bag relic raises how many of each item one slot can hold.',
+  'The gem above a chest is its tier. Gemless chests never hold relics; only violet ones can reach Frost.',
+  'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
+  // ── Underground ───────────────────────────────────────────
+  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
+  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  // ── Shops / trade ─────────────────────────────────────────
+  'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
+  'Addresses ending 2 or 6 are Markets, stocked with produce. Endings 1 and 8 are Traders, who barter only.',
+  'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
+  'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
+  'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
+  'Castles deal only in relics — and never run out of stock.',
+  // ── Progression gates ─────────────────────────────────────
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a market, trader or smithy.',
+  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
+  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
+  'The castle guard posts quests: cull ten slimes, find the old well, then bring a sapphire up from level 3.',
+  'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
+  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell prices — up to 100% at Frost tier.',
-  'A Bow drops the markup traders charge you — higher tier, lower prices.',
-  'A Ring nudges chest loot up a tier when it triggers.',
-  'An Amulet projects a ghost — higher tier means faster scouting + cheaper energy.',
+  'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
+  'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
+  'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
+  'An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
+  'A bigger Bag relic raises how many of each item one slot can hold: 9 bare-handed, 249 at Frost.',
+  'A Hoe makes tilling cheaper — and, now and then, free.',
+  'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
+  // ── Consumables / placeables ──────────────────────────────
+  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
+  'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
+  'Play a Flute to draw every chicken and cow within 30m toward you.',
   // ── Food side-effects ─────────────────────────────────────
   'Rainberry waters every crop within 20m when you eat it.',
-  'Iceflower stew restores +150 energy — the biggest meal in the world.',
-  'A Mango is the universal treat: feed one to instantly tame any wild animal.',
+  'An Iceflower restores 150 energy — the biggest meal in the world.',
+  'A Mango is the universal treat: feed one to tame any wild animal. Cave monsters are the exception.',
   // ── World / map ───────────────────────────────────────────
-  'Wild rock grows in residential streets; shrubs in parks and woods.',
-  'Long grass only grows on plain grassland — never under trees.',
+  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Hold rock and tap an empty tile to drop a stone fence.',
-  'Tap an animal you released to catch it again.',
-  // ── Animal favourite foods — one tip per kind ─────────────
+  // ── Animals ───────────────────────────────────────────────
+  'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
+  'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
-  'A saucer of milk tames a wild cat — that\'s the only way to catch one.',
+  'Cats take milk, or any fish you land. Nothing else will win one over.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
-  'Hunting a deer takes a weapon relic — sword, bow or staff. Bare hands won\'t do.',
-  'Feed any plant or crop to a chicken or cow and they\'ll trade it for an egg / milk.',
-  'Cats and dogs only eat meat — feeding them plants just wastes the food.',
+  'A deer can be hunted bare-handed, but it is a long slog. A sword, bow or staff makes short work of it.',
+  'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
+  'A shiny animal pays ten times its plain kind, and takes twice the work to bring down.',
   // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
@@ -629,7 +667,7 @@ const ITEM_EFFECTS = {
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink for full-screen reach (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
-  speed_potion:  'Drink for tier-9 ghost speed (1 min)',
+  speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };
@@ -734,7 +772,7 @@ const RELIC_DEFS = {
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'ghostMode',     blurb: 'projects a ghost — faster + cheaper per tier' },
+             effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons. Sword raises sell values; Bow lowers buy prices. Staff is a
   // pure hunting weapon — all three (sword/bow/staff) speed the pest-defeat
   // wheel, but only the Bow bends buy prices.
@@ -911,23 +949,30 @@ function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 function ringTierBoost(relics) {
   return relics?.ring ? 0.05 * relics.ring.tier : 0;
 }
-// Amulet relic: +10% per tier chance to double the chest quantity.
-// Amulet relic: powers ghost mode. The slot's only job is to unlock the
-// pad and to scale how aggressive the projection can be — speed climbs to
-// 3× of the baseline at frost tier; per-cell energy cost falls to 15%.
-//   ghostSpeedMul   tier 1 → 8× walk, tier 7 → 24× walk (linear).
-//   ghostEnergyCost tier 1 → 1.0 / cell, tier 7 → 0.15 / cell (linear).
-// Both return 0 when no amulet is equipped — callers treat that as "ghost
-// mode unavailable".
-function ghostSpeedMul(relics) {
+// Amulet relic: powers STICK WALKING — steering yourself somewhere other than
+// where the GPS says you are. The stick is always there and always works; the
+// amulet is purely an upgrade to it, so both functions answer for a bare hand
+// too (no amulet = tier 0 = the baseline, never "unavailable").
+//   steerSpeedMul   no amulet → 5× walk, tier 1 → 6.5×, tier 7 → 15.5× (linear).
+//   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
+// The bare baseline is 5× walk pace deliberately: at WALK_M_S that is one 7 m
+// cell per second, which is the slowest the stick can move and still feel like
+// a control rather than a drag — real walk pace crawls across a view that is
+// 11 cells wide. The stamina cost is per CELL, so a faster baseline doesn't
+// make travel cheaper, only less tedious.
+// Walking with the GPS costs nothing — that's you actually walking. Stick
+// walking is the character covering ground you didn't, which is what the
+// stamina pays for, and what the amulet makes cheap.
+function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
-  if (!t) return 0;
-  return 8 * (1 + (t - 1) / 3);
+  return 5 + 1.5 * t;
 }
-function ghostEnergyCost(relics) {
+function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;
-  if (!t) return 0;
-  return 1 - (t - 1) * (0.85 / 6);
+  if (!t) return 1;
+  // Floor keeps the speed potion's synthetic tier 9 (and any future tier past
+  // Frost) from running the cost negative, i.e. paying you to walk.
+  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6));
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that

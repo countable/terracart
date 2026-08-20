@@ -110,11 +110,19 @@ const ASSETS = {
   // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
   // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
   pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png?v=2' },
-  // Stone well — 48×32 single image (Sprites Well_Usable_16x16: a roofed well
-  // with bucket). The in-game stand-in for OSM amenity=fountain points. Tapping
+  // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
-  // branch). Foot-anchored near the base so it stands on its cell.
-  well:           { kind: 'image', path: 'assets/Objects/Wilderness/well.png' },
+  // branch).
+  //
+  // The PNG is 48×32 and holds the roofed well (opaque x2..29) PLUS a
+  // hoist arm and bucket jutting off its right side (x30..36, only 6 rows
+  // tall). Drawn whole, that arm is a ~6px orange-and-grey nub floating
+  // beside the well at game scale, and — because the sprite is seated by its
+  // ART bounds — it also dragged the well itself ~4px off the centre of its
+  // own cell. Loading the file as a 30px-wide sheet takes frame 0 = the well
+  // alone, so what's drawn is the well, centred.
+  well:           { kind: 'spritesheet', path: 'assets/Objects/Wilderness/well.png?v=2',
+                    frameWidth: 30, frameHeight: 32 },
   // Wizard tower — 320×208 sheet, 4 cols × 2 rows of 80×104.
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).

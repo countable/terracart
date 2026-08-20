@@ -652,8 +652,8 @@
     scene._sandboxMode = true;
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.
-    if (scene.gpsWatchId != null && navigator.geolocation) {
-      try { navigator.geolocation.clearWatch(scene.gpsWatchId); } catch (_) {}
+    if (scene.gpsWatchId != null && typeof Geo !== 'undefined') {
+      Geo.unsubscribe(scene.gpsWatchId);
       scene.gpsWatchId = null;
     }
     scene.gpsAvailable = false;
@@ -695,12 +695,14 @@
     const targetWorldY = centreTY * tileEdgeM + (playerCellIY + 0.5) * cellM;
     scene.playerM.x = targetWorldX - scene.startWorldM.x;
     scene.playerM.y = targetWorldY - scene.startWorldM.y;
-    // Cancel any GPS-ease that might overwrite our teleport.
-    scene._ease = null;
+    // Park the walk target on the teleported body — movement is target-follow
+    // now (app.js _followStep), so a stale target would walk us straight back.
+    if (scene.syncMoveTarget) scene.syncMoveTarget();
     // Pretend a GPS fix arrived so the UI doesn't sit in "no GPS" mode.
     scene.gpsM = { x: scene.playerM.x, y: scene.playerM.y };
-    // Plant a treasure X one cell north of spawn (within REACH_TREASURE_M) so
-    // the tester can verify treasure-tap loot without hunting for one.
+    // Plant a treasure X one cell north of spawn (tap that cell — treasure is
+    // cell-bounded like every non-fauna target) so the tester can verify
+    // treasure-tap loot without hunting for one.
     const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
     if (centreEntry && !centreEntry.treasure) {
       centreEntry.treasure = {
@@ -926,7 +928,7 @@
       const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
       const t = scene.add.text(0, 0, text, {
-        font: 'bold 8px ui-monospace, monospace',
+        font: fontMono('bold 8px'),
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.6)',
         padding: { x: 3, y: 1 },

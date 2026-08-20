@@ -1,0 +1,245 @@
+// Original OSM road geometry overlay.
+//
+// The world's roads reach the player as CELLS: worldgen rasterizes each
+// `transportation` line from the vector tile into a one-cell-wide band of
+// ROAD/PATH tiles (see worldgen.js classifyLine / paintLine). That's a lossy
+// step — a diagonal way becomes a staircase, two ways closer than a cell weld
+// together, and parking aisles are dropped entirely. This layer draws the
+// SOURCE linework straight from the decoded MVT features on top of the map, as
+// a soft brown band at 31% alpha, so the rasterized roads can be eyeballed
+// against the real ways they came from.
+//
+// Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
+// drawn to the map's scale, so the band covers roughly the ground the road
+// covers: with 7 m cells a 5 m residential street is a little under one cell
+// wide, a 12 m motorway a little under two.
+//
+// Depends on:
+//   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
+//     startWorldM, playerM, cellM, cellsPerTile, depth,
+//     viewCenterX/Y, viewLeft, viewTop, viewSize
+//     helper: playerToWorldCell()
+//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM;
+//                 per-tile `entry.layers` (the raw decoded MVT layers)
+//                 and `entry.tileEdgeM`
+//   app.js consts — CELL_PX
+//
+// Exports as globals:
+//   RoadOverlay.draw(scene)      — per-frame entry point (cheap when cached)
+//   RoadOverlay.isOn(scene)      — is the overlay enabled for this save?
+//   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
+(function (global) {
+  // Warm earth brown rather than black: the ways read as packed track over the
+  // biome colours instead of as a shadow, and they sit in the same family as
+  // the cobble the rasterizer paints.
+  const COLOR = 0x6b4a2f;
+  const COLOR_CSS = '#6b4a2f';
+  const ALPHA = 0.31;    // 31% — reads as a band without hiding the map
+  const MVT_EXTENT = 4096;
+  // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
+  // the shared table lives there so the overlay and the rasterizer agree.
+  const FALLBACK_WIDTH_M = 5;
+
+  // Stroke width for one way: its real-world carriageway width, drawn at the
+  // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
+  // residential street lands just inside the single cell the rasterizer paints
+  // for it, and a 12 m motorway visibly spills past that cell on both sides.
+  function widthPxFor(scene, tags) {
+    const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
+      ? WorldGen.roadWidthM(tags || {})
+      : FALLBACK_WIDTH_M;
+    return Math.max(1, (m / scene.cellM) * CELL_PX);
+  }
+
+  // ── Stroke target ────────────────────────────────────────────────────────
+  // The overlay strokes into a Graphics-SHAPED object: clear / lineStyle /
+  // beginPath / moveTo / lineTo / strokePath, plus an optional commit() once
+  // the pass is done. In the game that's the canvas-2D adapter below; the
+  // headless tests inject their own recording stub as scene.roadGeomGfx.
+  //
+  // Why canvas 2D rather than a Phaser Graphics:
+  //   • ROUND CAPS + JOINS. Phaser's Graphics has no lineCap/lineJoin control,
+  //     so every way ended in a hard square butt and every bend showed a notch.
+  //   • NO DOUBLED JOINTS. A translucent stroke composites with ITSELF wherever
+  //     a path doubles back over its own width — at every junction and sharp
+  //     bend — stacking 31% on 31% into a dark blot. Here the whole network is
+  //     drawn OPAQUE into an offscreen canvas and the resulting image is shown
+  //     at ALPHA, so overlaps are opaque-on-opaque and the band stays even.
+  // The texture covers the viewport plus PAD on each side (the same pad the
+  // culler keeps), and the container scrolls it for the sub-cell offset.
+  const TEX_KEY = 'roadgeom_overlay';
+  function canvasTarget(scene) {
+    if (typeof document === 'undefined' || !scene.textures || !scene.roadGeomContainer) return null;
+    if (scene._roadGeomTarget) return scene._roadGeomTarget;
+    const pad = CELL_PX * 2;
+    const size = Math.ceil(scene.viewSize + pad * 2);
+    const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
+    if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
+    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    if (!tex) return null;
+    const ctx = tex.getContext();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0).setAlpha(ALPHA);
+    scene.roadGeomContainer.add(img);
+    const target = {
+      clear() { ctx.clearRect(0, 0, size, size); },
+      // Colour + alpha are the module's constants for every way; the alpha is
+      // carried by the IMAGE (see above), so the stroke itself is opaque.
+      lineStyle(w) { ctx.lineWidth = w; ctx.strokeStyle = COLOR_CSS; },
+      beginPath() { ctx.beginPath(); },
+      moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
+      lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
+      strokePath() { ctx.stroke(); },
+      commit() { tex.refresh(); },
+    };
+    scene._roadGeomTarget = target;
+    return target;
+  }
+  // Prefer a scene-provided Graphics-shaped object (the headless tests inject
+  // one); otherwise build the canvas adapter.
+  function strokeTarget(scene) {
+    return scene.roadGeomGfx || canvasTarget(scene);
+  }
+
+  // Overlay is ON unless the save explicitly turned it off, so an existing
+  // save picks it up without a migration.
+  function isOn(scene) {
+    return !!scene && scene.save?.roadGeomOverlay !== false;
+  }
+
+  function invalidate(scene) {
+    if (scene) scene._roadGeomKey = null;
+  }
+
+  // Same trick the dashed grid + biome borders use: the world→screen transform
+  // is a pure translation, so the geometry is drawn ONCE at the cell-snapped
+  // camera position and the container is scrolled by the sub-cell fraction
+  // every frame. Without it this pass would re-stroke a few thousand segments
+  // per frame just to move them a pixel.
+  function draw(scene) {
+    const g = strokeTarget(scene);
+    if (!g) return;
+    const container = scene.roadGeomContainer;
+    const on = isOn(scene) && (scene.depth ?? 0) === 0;
+    if (container) container.setVisible(on);
+    if (!on) {
+      if (scene._roadGeomKey !== null) {
+        g.clear();
+        if (g.commit) g.commit();
+        scene._roadGeomKey = null;
+      }
+      return;
+    }
+
+    const pc = scene.playerToWorldCell();
+    const fracX = pc.cx - Math.floor(pc.cx);
+    const fracY = pc.cy - Math.floor(pc.cy);
+    const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
+    const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+
+    // Rebuild key: the snapped camera cell plus which of the 3×3 tiles have
+    // their MVT layers in hand — so a tile that finishes loading (or gets
+    // evicted and rebuilt) repaints even while the player stands still.
+    const tiles = [];
+    let ready = '';
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const tx = pc.tx + dtx, ty = pc.ty + dty;
+        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        if (!entry || !entry.layers || !entry.tileEdgeM) continue;
+        tiles.push({ tx, ty, entry });
+        ready += `${dtx}${dty}|`;
+      }
+    }
+    const key = `${baseCellIX},${baseCellIY},${ready}`;
+    if (key !== scene._roadGeomKey) {
+      scene._roadGeomKey = key;
+      rebuild(scene, tiles, fracX, fracY);
+    }
+    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+  }
+
+  function rebuild(scene, tiles, fracX, fracY) {
+    const g = strokeTarget(scene);
+    g.clear();
+    const pWorldX = scene.startWorldM.x + scene.playerM.x;
+    const pWorldY = scene.startWorldM.y + scene.playerM.y;
+    // Cell-snapped projection (the container re-applies the sub-cell offset).
+    const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;
+    const projY = (wmy) => scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX + fracY * CELL_PX;
+    // Cull generously — a segment whose endpoints both sit outside the padded
+    // viewport can still cross it, so the pad is a full cell wider than the
+    // sub-cell scroll can ever reveal.
+    const PAD = CELL_PX * 2;
+    const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
+    const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
+
+    // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
+    // by stroke width, and stroked as PATHS rather than loose segments: a wide
+    // band drawn segment-by-segment leaves a notch at every bend, and one
+    // lineStyle per width beats one per feature.
+    const runsByWidth = new Map();   // widthPx -> [ [{x,y},…], … ]
+    const addRun = (widthPx, run) => {
+      if (run.length < 2) return;
+      let runs = runsByWidth.get(widthPx);
+      if (!runs) { runs = []; runsByWidth.set(widthPx, runs); }
+      runs.push(run);
+    };
+
+    for (const { tx, ty, entry } of tiles) {
+      const tileEdgeM = entry.tileEdgeM;
+      const originMx = tx * tileEdgeM;
+      const originMy = ty * tileEdgeM;
+      for (const layer of entry.layers) {
+        if (layer.name !== 'transportation') continue;
+        const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
+        for (const f of layer.features) {
+          if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
+          const widthPx = widthPxFor(scene, f.tags);
+          for (const line of f.geom) {
+            if (!line || line.length < 2) continue;
+            let px = projX(originMx + line[0].x * mvtToM);
+            let py = projY(originMy + line[0].y * mvtToM);
+            let run = [{ x: px, y: py }];
+            for (let i = 1; i < line.length; i++) {
+              const qx = projX(originMx + line[i].x * mvtToM);
+              const qy = projY(originMy + line[i].y * mvtToM);
+              const offscreen =
+                (px < minX && qx < minX) || (px > maxX && qx > maxX) ||
+                (py < minY && qy < minY) || (py > maxY && qy > maxY);
+              if (offscreen) {
+                // Break the path here — the skipped stretch would otherwise be
+                // drawn as a straight shortcut across the viewport.
+                addRun(widthPx, run);
+                run = [{ x: qx, y: qy }];
+              } else {
+                run.push({ x: qx, y: qy });
+              }
+              px = qx; py = qy;
+            }
+            addRun(widthPx, run);
+          }
+        }
+      }
+    }
+
+    // Widest first, so a narrow street crossing a motorway still reads as its
+    // own stroke on top. Sorted rather than insertion-ordered so the draw order
+    // doesn't depend on which tile happened to load first.
+    for (const widthPx of [...runsByWidth.keys()].sort((a, b) => b - a)) {
+      g.lineStyle(widthPx, COLOR, ALPHA);
+      for (const run of runsByWidth.get(widthPx)) {
+        g.beginPath();
+        g.moveTo(run[0].x, run[0].y);
+        for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
+        g.strokePath();
+      }
+    }
+    // Upload the finished canvas once, after every way is on it — not per
+    // stroke. No-op for the tests' recording stub.
+    if (g.commit) g.commit();
+  }
+
+  global.RoadOverlay = { draw, isOn, invalidate };
+})(window);

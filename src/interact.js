@@ -15,7 +15,9 @@
 //                  catchCreature, screenToWorldMeters, cellAt, worldMetersToAbsCell,
 //                  absCellCenterMeters, buildInventoryDOM);
 //                  module-level helpers (distM2, isTillable);
-//                  reach constants (REACH_*).
+//                  the REACH_FAR_M fallback for the player-reach gate.
+//   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
+//                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
 //   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
 //   loot.js      — POI_CATEGORY, chestTier, rusticifyName, WILD_TREASURE
@@ -85,19 +87,36 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
   scene.showFeedConfirm({ foodId, faunaKind, onConfirm: doFeed });
 }
 
-// Floor a tap-PRECISION radius (the REACH_*_M "how close must the tap land"
-// constants) at the current cell's half-diagonal so "a tap anywhere inside the
-// target's own cell resolves to it" holds at ANY cell size. These constants
-// were hand-tuned to a 5 m cell, whose half-diagonal is 5·√½ ≈ 3.54 m — which
-// is why REACH_OBJECT_M was 3.5. When CELL_M is retuned larger (e.g. 7 m →
-// half-diag ≈ 4.95 m) a fixed-metre disk no longer spans the cell, so corner
-// taps on coins / wild plants / stairs fall through and tapping feels broken.
-// The +0.5 m epsilon keeps the exact corner inside the disk. A larger
-// hand-tuned base (wild plant 4 m, house 6 m, treasure 7.5 m) is preserved
-// whenever it already exceeds the floor.
-function tapReachM(scene, baseM) {
-  const halfDiag = (scene?.cellM ?? 5) * Math.SQRT1_2 + 0.5;
-  return Math.max(baseM, halfDiag);
+// ─── Cell-bounded tap targeting ──────────────────────────────────────────────
+// Everything in the world except FAUNA owns exactly one cell (CLAUDE.md's
+// "one cell" sprite rule), so its tap target IS that cell: a tap inside the
+// cell hits it, a tap outside never does.
+//
+// This replaces the old tap-PRECISION disks (REACH_OBJECT_M 3.5 m, house 6 m,
+// wild plant 4 m, treasure 7.5 m, …). A disk big enough to cover its own cell
+// must be at least the half-diagonal (5 m cell → 3.54 m), and such a disk
+// necessarily spills ~1 m into all four neighbours — which is how a tap on the
+// empty cell ABOVE a tall tree / turret / market stall still activated it.
+// Cell membership can't spill, needs no per-kind tuning, and stays correct if
+// CELL_M is ever retuned.
+//
+// Creatures keep their own hit test (a box matching the DRAWN sprite, see the
+// 'creature' handler): they move continuously and are drawn feet-anchored, so
+// they don't belong to a cell the way a planted object does. Multi-cell
+// buildings are reached through the 'building-zone' handler, which is itself
+// cell-based — it accepts any BUILDING-terrain cell of the footprint.
+
+// Closest item of `layer` whose own cell is the cell the tap landed in, or
+// null. "Closest" only breaks ties between items sharing one cell.
+function findItemInTapCell(scene, layer, wm, accept) {
+  let best = null, bestD2 = Infinity;
+  WorldGen.forEachItem(layer, (item) => {
+    if (accept && !accept(item)) return;
+    if (!sameAbsCell(scene, wm.x, wm.y, item.x, item.y)) return;
+    const d2 = distM2(item.x, item.y, wm.x, wm.y);
+    if (d2 < bestD2) { bestD2 = d2; best = item; }
+  });
+  return best;
 }
 
 // Nearest item in a WorldGen layer to (px, py) within reach that passes
@@ -183,6 +202,34 @@ const TERRAIN = {
   BUILDING_LARGE: WorldGen.T.BUILDING_LARGE, // 12
   ROAD_LG: WorldGen.T.ROAD_LG,               // 13
   ROAD_MD: WorldGen.T.ROAD_MD,               // 14
+  COMMERCIAL: WorldGen.T.COMMERCIAL,         // 16
+  INDUSTRIAL: WorldGen.T.INDUSTRIAL,         // 17
+  PIER: WorldGen.T.PIER,                     // 23
+  CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
+  CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
+};
+
+// Flavor label per NON-TILLABLE terrain code (the 'flavor' handler below).
+// Every code in app.js' NON_TILLABLE set needs an entry here: a missing one
+// used to fall through to a bare '·', which is what a tap on a COMMERCIAL /
+// INDUSTRIAL / ROCK / PIER / cave cell showed — a lone dot with no idea what
+// you'd tapped. The '·' is now only a defensive last resort for a terrain
+// code that is neither tillable nor listed here.
+const TERRAIN_FLAVOR = {
+  [TERRAIN.WATER]:          'water',
+  [TERRAIN.ROAD]:           'road',
+  [TERRAIN.PATH]:           'path',
+  [TERRAIN.BUILDING]:       'building',
+  [TERRAIN.ROCK]:           'bare rock',
+  [TERRAIN.BUILDING_MED]:   'building',
+  [TERRAIN.BUILDING_LARGE]: 'building',
+  [TERRAIN.ROAD_LG]:        'highway',
+  [TERRAIN.ROAD_MD]:        'avenue',
+  [TERRAIN.COMMERCIAL]:     'plaza',
+  [TERRAIN.INDUSTRIAL]:     'industrial yard',
+  [TERRAIN.PIER]:           'pier',
+  [TERRAIN.CAVE_FLOOR]:     'cave floor',
+  [TERRAIN.CAVE_WALL]:      'cave wall',
 };
 
 // GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
@@ -272,13 +319,16 @@ const TAP_HANDLERS = [
   // affordances now, and the tap-on-feet variants were easy to trigger
   // accidentally while trying to till / plant under the player's own cell.)
 
-  // 0) Treasure mark — tap within ~1.5 cells of the X opens it.
+  // 0) Treasure mark — tap the cell the X is drawn on to dig it up. The X is a
+  // ~10 px mark sitting well inside one cell, so its own cell is the target
+  // (it used to be a 7.5 m disk — a cell and a half of slop in every
+  // direction, which dug up treasure from cells away from the mark).
   { name: 'treasure', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!tr || found.has(tr.id)) return false;
-      if (distM2(tr.x, tr.y, wm.x, wm.y) >= REACH_TREASURE_M * REACH_TREASURE_M) return false;
+      if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
       const reward = (typeof pickReward === 'function')
@@ -287,7 +337,7 @@ const TAP_HANDLERS = [
         // Shouldn't happen — context exists — but bail safely if rarity.js
         // is missing or the pool is empty.
         addMoney(save, 1);
-        scene.flashLoot('✕ → $1', '#ffd96b');
+        scene.flashLoot('✕ → $1', '#ffe066');
       } else if (reward.kind === 'item') {
         // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
         if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
@@ -304,7 +354,7 @@ const TAP_HANDLERS = [
         }
       } else if (reward.kind === 'gold') {
         addMoney(save, reward.amount);
-        scene.flashLoot(`✕ → $${reward.amount}`, '#ffd96b');
+        scene.flashLoot(`✕ → $${reward.amount}`, '#ffe066');
       }
       // Consolation coins for any qty bumps the picker couldn't apply
       // (bracket at cap or single-stack class). Small gold trickle alongside
@@ -703,12 +753,13 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 1a) Pick the wild plant CLOSEST to the tap within REACH_WILDPLANT_M.
+  // 1a) Pick the unpicked wild plant standing in the TAPPED CELL. Tall flora
+  // (shrubs, long grass) draw above their cell, but only the cell they're
+  // rooted in picks them.
   { name: 'wildplant', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
-    const bestWp = findClosestItem('wildplants', wm.x, wm.y, tapReachM(scene, REACH_WILDPLANT_M),
-      (wp) => !pickedSet.has(wp.id));
+    const bestWp = findItemInTapCell(scene, 'wildplants', wm, (wp) => !pickedSet.has(wp.id));
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
@@ -762,15 +813,13 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // 1a") Coin drops (ATM / bicycle_parking burst). Closest coin within ~3m
-  // of the tap → +$1, splice it out of entry.coinDrops, mini flash. Runs
+  // 1a") Coin drops (ATM / bicycle_parking burst). The coin lying in the
+  // TAPPED CELL → +$1, splice it out of entry.coinDrops, mini flash. Runs
   // BEFORE the 'object' handler so a coin sitting near a chest sprite still
   // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
   { name: 'coindrop', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const REACH_COIN_M = tapReachM(scene, 3);
-    const REACH2 = REACH_COIN_M * REACH_COIN_M;
-    let bestEntry = null, bestIdx = -1, bestD2 = REACH2;
+    let bestEntry = null, bestIdx = -1, bestD2 = Infinity;
     // Scan the 3×3 tile neighbourhood around the player (same set the
     // renderer walks) — coins only live in loaded tiles.
     const pc = scene.playerToWorldCell();
@@ -782,14 +831,16 @@ const TAP_HANDLERS = [
         for (let i = 0; i < entry.coinDrops.length; i++) {
           const c = entry.coinDrops[i];
           if (c.expiresAt && c.expiresAt <= now) continue;
+          if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
+          // Distance only picks a winner among coins sharing the tapped cell.
           const d2 = distM2(c.x, c.y, wm.x, wm.y);
           if (d2 < bestD2) { bestD2 = d2; bestEntry = entry; bestIdx = i; }
         }
       }
     }
     if (!bestEntry) return false;
-    // Player-reach gate — the 3m REACH_COIN_M above is tap-precision from the
-    // tap point; without this a coin in a neighbour tile but outside the lit
+    // Player-reach gate — the cell test above is tap PRECISION (did you hit
+    // the coin?); without this a coin in a neighbour tile but outside the lit
     // reach indicator could be grabbed (QC §7).
     const coin = bestEntry.coinDrops[bestIdx];
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
@@ -806,8 +857,7 @@ const TAP_HANDLERS = [
   // than falling through to it.
   { name: 'staircase', try: (ctx) => {
     const { scene, wm } = ctx;
-    const stair = findClosestItem('objects', wm.x, wm.y, tapReachM(scene, REACH_OBJECT_M),
-      (o) => o.kind === 'staircase');
+    const stair = findItemInTapCell(scene, 'objects', wm, (o) => o.kind === 'staircase');
     if (!stair) return false;
     if (tooFar(ctx, stair.x, stair.y)) return 'far';
     scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
@@ -829,15 +879,15 @@ const TAP_HANDLERS = [
     // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
     // is identical to what's drawn. Sharing the same cell key (chest ids are cell-snapped)
     // avoids the order-dependent "see a crate but can't tap it" mismatch.
-    // The till handler below treats an object as "occupied" whenever its FOOT
-    // sits in the tapped cell — a cell-shaped target. The reach test here is a
-    // circle of radius REACH_OBJECT_M (3.5m) around the foot, measured from the
-    // raw tap. The two disagree at the corners: a tap near the far corner of an
-    // object's own 5m cell is ~3.54m from the foot, just past 3.5m, so the
-    // object falls through and till reports "occupied: chest" even though you
-    // clearly tapped it. Compute the tapped cell once so the open-test can also
-    // accept any object whose foot shares the tapped cell — symmetric with the
-    // occupied-guard, no more "tapped the chest but it won't open".
+    // Hit testing is CELL-SHAPED — the same shape the till handler's "occupied"
+    // guard uses (an object blocks the cell its FOOT sits in), so the two can't
+    // disagree in either direction: no corner of an object's own cell falls
+    // through to "occupied: chest", and no part of a NEIGHBOURING cell taps the
+    // object. The old reach circles (3.5 m, or 6 m raised 4 m north for tall
+    // sprites) had to be at least the cell half-diagonal to cover their own
+    // cell, which necessarily spilled into the four neighbours — that is what
+    // made a tall tree / turret / market stall tappable from the empty cell
+    // above it.
     const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
     const seenTapCell = new Set();
     const isDupTapChest = (o) => {
@@ -854,45 +904,13 @@ const TAP_HANDLERS = [
     };
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      // Shrine + house/tower share the wider house-sized reach: their sprites
-      // are taller than the default 3.5m hit zone, so a tap on the visible top
-      // of the sprite would otherwise miss-and-fall-through to the till handler
-      // under it. Wells are deliberately NOT here — they must activate on their
-      // own cell only (a tap on the cell above should not trigger them).
-      // Produce-stand chests render as an 80px market stall that rises ~1.5
-      // cells north of its foot (loot.js produceStandFor), so they need the
-      // same tall-sprite reach — without it a tap on the awning missed the
-      // foot-cell chest and fell through to the till handler, starting a
-      // phantom work wheel that made it feel like taps had stopped working.
-      const isStand = o.kind === 'chest' && typeof produceStandFor === 'function' && !!produceStandFor(o);
-      const tallSprite = (o.kind === 'house' || o.kind === 'tower' || isStand);
-      const r = tapReachM(scene, tallSprite ? REACH_HOUSE_M : REACH_OBJECT_M);
-      // The sprite rises NORTH (toward smaller world-y) from its foot at o.y, so
-      // for tall sprites measure reach from the sprite's mid-height — HOUSE_HIT_RISE_M
-      // north of the foot — rather than the foot itself. This lets a tap on the
-      // visible body of a SMALL/MEDIUM house (whose footprint is only 1-2 cells,
-      // all tucked under the roof) activate it, instead of missing the 6m foot
-      // circle and falling through to the till handler.
-      const oy = tallSprite ? o.y - HOUSE_HIT_RISE_M : o.y;
-      // Accept the tap if it lands within the sprite's reach circle OR anywhere
-      // in the object's own cell (so corner taps don't fall through to the till
-      // "occupied" guard). Opened chests are excluded from the cell-fallback so
-      // their cell stays tillable — the till guard skips them too, and a tap
-      // right on one still flashes "Picked clean already" via the reach circle.
-      const withinReach = distM2(o.x, oy, wm.x, wm.y) < r * r;
-      let inTapCell = false;
-      if (!withinReach && !(o.kind === 'chest' && openedSetTap.has(o.id))) {
-        const oc = worldMetersToAbsCell(scene, o.x, o.y);
-        const sameCol = oc.cellIX === tapCell.cellIX;
-        inTapCell = sameCol && oc.cellIY === tapCell.cellIY;
-        // A castle/tower turret (and a market stall) rises tall above its foot
-        // cell — let a tap on the empty cell directly ABOVE (north of) it
-        // activate it too. North is toward smaller world-y → smaller cellIY.
-        if (!inTapCell && (o.kind === 'tower' || isStand)) {
-          inTapCell = sameCol && tapCell.cellIY === oc.cellIY - 1;
-        }
-      }
-      if (!withinReach && !inTapCell) continue;
+      // The object's own cell is its whole tap target — for a house / turret /
+      // market stall too, however far their art rises above it. Nothing is
+      // lost for multi-cell buildings: the 'building-zone' handler below
+      // catches taps on any BUILDING-terrain cell of a footprint and routes
+      // them to that building, which is cell-based in the same way.
+      const oc = worldMetersToAbsCell(scene, o.x, o.y);
+      if (oc.cellIX !== tapCell.cellIX || oc.cellIY !== tapCell.cellIY) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       // Every tap-driven world object (groundstack / chest / well / tree /
       // mineralrock / fruittree / house / tower) is declared in the
@@ -964,8 +982,10 @@ const TAP_HANDLERS = [
   // had clicked the building sprite itself. Without this, taps on the
   // non-sprite cells of a building's biome cluster fall through to the
   // til/release/etc. handlers and look like nothing happened, because the
-  // 'object' handler's REACH_HOUSE_M=6m doesn't span the full 5×5-cell
-  // building footprint (≈35 m diagonal). The 30 m snap keeps us from
+  // 'object' handler only accepts the one cell the house sprite stands on.
+  // This is how a multi-cell building stays tappable across its whole
+  // footprint WITHOUT any hit area spilling past it: every cell that accepts
+  // the tap is a building cell you can see. The 30 m snap keeps us from
   // bridging across to a different cluster on the next tile.
   { name: 'building-zone', try: (ctx) => {
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
@@ -1182,6 +1202,7 @@ const TAP_HANDLERS = [
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
+      scene.questEvent?.('harvest');
       return true;
     }
     if (!p.watered_t) {
@@ -1273,7 +1294,7 @@ const TAP_HANDLERS = [
           const label = (typeof gearName === 'function')
             ? gearName(reward.kind, reward.slot, reward.tier)
             : `${reward.slot} T${reward.tier}`;
-          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffd96b', 1.6);
+          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {
@@ -1345,14 +1366,7 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillable(cell.type)) return false;
-    const t = cell.type;
-    const flavor = t === TERRAIN.WATER ? 'water'
-                 : (t === TERRAIN.BUILDING || t === TERRAIN.BUILDING_MED || t === TERRAIN.BUILDING_LARGE) ? 'building'
-                 : t === TERRAIN.ROAD_LG ? 'highway'
-                 : t === TERRAIN.ROAD_MD ? 'avenue'
-                 : t === TERRAIN.ROAD    ? 'road'
-                 : t === TERRAIN.PATH    ? 'path'
-                 : '·';
+    const flavor = TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},
@@ -1364,10 +1378,24 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
+      // While the starter ladder is still asking for a first planting, DON'T
+      // un-till: the player has just spent energy breaking this ground and is
+      // tapping it to find out what happens next. Silently undoing it — and
+      // calling that 'Soil loosened.' — reads as success and teaches nothing.
+      // Tell them what's missing instead, and leave the soil alone.
+      const learning = typeof Quests !== 'undefined'
+        && !Quests.starterHidden(save)
+        && Quests.starterCurrent(save)?.event === 'plant';
+      if (learning) {
+        scene.flash('Select a seed from your bag first.', sx, sy);
+        return true;
+      }
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
-      scene.flash('Soil loosened.', sx, sy);
+      // Name the action taken, not just its texture — "Soil loosened" sounds
+      // like progress when what actually happened is the tilled plot going away.
+      scene.flash('Un-tilled (no seed selected).', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
@@ -1409,6 +1437,7 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       scene.buildInventoryDOM();
       scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      scene.questEvent?.('plant');
       return true;
     }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
@@ -1417,6 +1446,7 @@ const TAP_HANDLERS = [
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash(`planted ${item.grows}`, sx, sy);
+    scene.questEvent?.('plant');
     return true;
   }},
 
@@ -1470,6 +1500,7 @@ const TAP_HANDLERS = [
       save.tilled = [...scene.tilledSet];
       persistSave(save);
       scene.flash('tilled', sx, sy);
+      scene.questEvent?.('till');
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

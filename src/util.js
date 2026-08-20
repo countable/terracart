@@ -145,3 +145,37 @@ function treeWoodMul(o) {
   // bush & small both yield base (1×) wood; medium 2×, full (large) 4×.
   return size === 'full' ? 4 : size === 'medium' ? 2 : 1;
 }
+
+// === Shared look: fonts + palette ==========================================
+// One home for the typefaces and colours the game draws with, so a new call
+// site can't quietly invent a seventh gold or a second monospace stack. The
+// DOM side mirrors these as CSS custom properties on :root (index.html) —
+// keep the two in sync when either changes.
+//
+// FONTS. Canvas text (Phaser) and DOM text share ONE monospace stack.
+// `ui-monospace` is a distinct generic from bare `monospace`: it resolves to
+// the platform's UI mono (SF Mono on Apple, Cascadia/Consolas on Windows)
+// where bare `monospace` resolves to the browser's default fixed font, often
+// Courier. Mixing the two put two different typefaces a cell apart on Apple
+// devices, so every text style goes through these helpers.
+const FONT_MONO_STACK  = 'ui-monospace, monospace';
+// Map lettering (road names) and the shop plaque. One serif stack, not two —
+// they used to differ by whether Georgia was in the list.
+const FONT_SERIF_STACK = 'ui-serif, Georgia, "Times New Roman", serif';
+// `spec` is everything before the family: 'bold 10px', '700 12px', 'italic 8px'.
+const fontMono  = (spec) => `${spec} ${FONT_MONO_STACK}`;
+const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
+
+// PALETTE. Named roles, not shades — reach for the role that fits rather than
+// adding a near-duplicate. The three secondary golds below are genuinely
+// different roles; a trio of near-identical ones (within 8/255 of each other
+// in a single channel) used to sit alongside them and now all read UI_GOLD.
+const UI_GOLD       = '#ffe066';   // the game's gold: money, highlights, accents
+const UI_GOLD_DEEP  = '#ffd23a';   // saturated gold — shiny tint + jackpot accents
+const UI_GOLD_DARK  = '#c8a64a';   // dim gold — borders, rules, inactive accents
+const UI_GOLD_PALE  = '#fff3b0';   // pale gold — the lit core of a highlight
+const UI_GREEN      = '#a7ffb0';   // success / ready / energy gain
+const UI_DANGER     = '#b71c1c';   // destructive action + error surfaces
+const UI_DANGER_INK = '#ff8a7a';   // destructive action as TEXT on a dark ground
+const UI_INK        = '#ffffff';   // default text on world/dark backgrounds
+const UI_SHADOW     = '#000000';   // text stroke / drop shadow

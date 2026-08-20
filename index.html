@@ -31,6 +31,17 @@
     :root {
       --phone-left:  0px;
       --phone-right: 0px;
+      /* Palette — the DOM half of the shared look. Mirrors the UI_* constants
+         in src/util.js (which the canvas text and Phaser graphics draw with);
+         keep the two in sync when either changes. Reach for the role that
+         fits rather than adding a near-duplicate shade. */
+      --gold:       #ffe066;   /* the game's gold: money, highlights, accents */
+      --gold-deep:  #ffd23a;   /* saturated gold — shiny + jackpot accents    */
+      --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
+      --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
+      --green:      #a7ffb0;   /* success / ready / energy gain               */
+      --danger:     #b71c1c;   /* destructive action + error surfaces         */
+      --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -91,18 +102,17 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
-    /* The movement pads (#debug-pad / #ghost-pad) are position:fixed on <body>
-       at z-index 6 — but every modal dialog lives inside #game, whose transform
-       makes its own stacking context, so a modal can never climb above the
-       body-level pads. While a dialog is open the bottom-right pad would sit ON
-       TOP of it and swallow the taps meant to dismiss it (you could still walk
-       but not close the modal). MapScene._installModalPadGate toggles
-       body.modal-open whenever a .game-modal is shown; hide the pads then. */
-    body.modal-open #debug-pad,
-    body.modal-open #ghost-pad { display: none !important; }
+    /* The movement stick (#move-pad) is position:fixed on <body> at z-index 6
+       — but every modal dialog lives inside #game, whose transform makes its
+       own stacking context, so a modal can never climb above the body-level
+       stick. While a dialog is open the bottom-right stick would sit ON TOP of
+       it and swallow the taps meant to dismiss it (you could still walk but not
+       close the modal). MapScene._installModalPadGate toggles body.modal-open
+       whenever a .game-modal is shown; hide the stick then. */
+    body.modal-open #move-pad { display: none !important; }
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      background: #c33; color: #fff; padding: 4px 10px; border-radius: 6px;
+      background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
     }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
@@ -112,7 +122,7 @@
     #errbar {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
-      background: #b71c1c; color: #fff; padding: 8px 10px; border-radius: 8px;
+      background: var(--danger); color: #fff; padding: 8px 10px; border-radius: 8px;
       font: 12px/1.45 ui-monospace, monospace; display: none; z-index: 20;
       box-shadow: 0 4px 16px #0008;
       white-space: pre-wrap; word-break: break-word;
@@ -127,7 +137,7 @@
       position: sticky; bottom: 0;
     }
     #errbar button {
-      font: 700 12px ui-monospace, monospace; color: #b71c1c; background: #fff;
+      font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
     #hud {
@@ -143,7 +153,7 @@
     #money {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
-      background: #000a; color: #ffd96b; padding: 4px 10px;
+      background: #000a; color: var(--gold); padding: 4px 10px;
       border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
@@ -151,7 +161,7 @@
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
-      background: #000a; color: #a7ffb0; padding: 4px 10px;
+      background: #000a; color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
@@ -165,9 +175,46 @@
     }
     #energy-bar-fill {
       height: 100%; width: 100%; border-radius: 2px;
-      background: #a7ffb0;
+      background: var(--green);
       transition: width 0.15s linear, background-color 0.15s linear;
     }
+    /* Objective chip — the first-session guidance ladder (quests.js
+       STARTER_CHAIN). Sits just under the top HUD row and names the ONE thing
+       the player should do next; it retires itself when the ladder finishes or
+       the player taps ×. The container is pointer-events:none so it never eats
+       a world tap — only the × re-enables them. */
+    #objective {
+      position: fixed;
+      top: calc(56px + env(safe-area-inset-top, 0px));
+      left:  calc(var(--phone-left,  0px) + 10px);
+      right: calc(var(--phone-right, 0px) + 10px);
+      background: #000c; border: 2px solid var(--gold-dark); border-radius: 8px;
+      padding: 6px 8px; z-index: 6;
+      pointer-events: none;
+      font-family: ui-monospace, monospace;
+    }
+    #objective .row { display: flex; align-items: center; gap: 6px; }
+    #objective .step {
+      color: #1a1612; background: var(--gold-dark);
+      border-radius: 4px; padding: 1px 5px;
+      font: 700 10px ui-monospace, monospace; flex: none;
+    }
+    #objective .title {
+      color: var(--gold); font: 700 13px ui-monospace, monospace;
+      flex: 1; min-width: 0;
+    }
+    #objective .close {
+      pointer-events: auto; cursor: pointer; flex: none;
+      background: transparent; color: #888; border: 0;
+      font: 700 15px ui-monospace, monospace; padding: 0 2px; line-height: 1;
+    }
+    #objective .body {
+      color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
+    }
+    /* Brief green flash when a step is completed, before the next one renders. */
+    #objective.done { border-color: var(--green); }
+    #objective.done .title { color: var(--green); }
+    #objective.done .step { background: var(--green); }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
@@ -184,41 +231,58 @@
       background: #000c; border: 2px solid #444; border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
     }
+    /* Nested "Developer" disclosure inside the ☰ menu. */
+    #devtools { border-top: 1px solid #333; margin-top: 2px; padding-top: 4px; }
+    #devtools summary {
+      list-style: none; cursor: pointer; user-select: none;
+      color: #888; padding: 4px 8px; border-radius: 4px;
+      font: 700 10px ui-monospace, monospace;
+    }
+    #devtools summary::-webkit-details-marker { display: none; }
+    #devtools summary::before { content: '▸ '; }
+    #devtools[open] summary::before { content: '▾ '; }
+    #devtools summary:hover { background: #ffffff14; color: #ccc; }
+    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
     #menu .items button {
       background: transparent; color: #ddd; border: 0;
       text-align: left; padding: 6px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
     }
     #menu .items button:hover { background: #fff2; }
-    #menu .items button.danger { color: #ff8a7a; }
+    #menu .items button.danger { color: var(--danger-ink); }
     /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
        The active slot is marked with a leading ✓ and highlighted. */
     #menu .save-row { display: flex; align-items: stretch; gap: 2px; }
     #menu .save-row .save-pick { flex: 1; min-width: 0; }
-    #menu .save-row .save-pick.active { color: #a7ffb0; font-weight: 700; }
+    #menu .save-row .save-pick.active { color: var(--green); font-weight: 700; }
     #menu .save-row .save-del {
-      flex: 0 0 auto; color: #ff8a7a; padding: 6px 8px;
+      flex: 0 0 auto; color: var(--danger-ink); padding: 6px 8px;
     }
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
        DeviceOrientationEvent.requestPermission() AND start GPS. */
-    #safety {
+    #safety, #locating {
       position: fixed; inset: 0; z-index: 100;
       background: rgba(0, 0, 0, 0.78);
       display: flex; align-items: center; justify-content: center;
       padding: 20px;
     }
-    #safety .box {
+    #safety .box, #locating .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid #c8a64a; border-radius: 12px;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
-    #safety p { margin: 0 0 18px; }
-    #safety button {
-      background: #c8a64a; color: #1a1612; border: 0;
+    #safety p, #locating p { margin: 0 0 18px; }
+    #safety button, #locating button {
+      background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
+    /* "Skip" is a secondary action — don't dress it up like the CTA. */
+    #locating button {
+      background: transparent; color: var(--gold-dark);
+      border: 1px solid #6b5a2c; font-weight: 400; padding: 8px 18px;
     }
     /* First-load story intro — shown once, right after the safety splash,
        only when there is no prior intro flag (fresh save). Mirrors the
@@ -231,7 +295,7 @@
     }
     #story .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid #c8a64a; border-radius: 12px;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 15px ui-monospace, monospace; line-height: 1.5;
     }
@@ -246,7 +310,40 @@
     #story .art.wrecks img { height: 120px; }
     #story p { margin: 0 0 18px; min-height: 3em; }
     #story button {
-      background: #c8a64a; color: #1a1612; border: 0;
+      background: var(--gold-dark); color: #1a1612; border: 0;
+      padding: 12px 22px; border-radius: 8px;
+      font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
+    /* How-to-play card. Shown once when a fresh save first reaches the world
+       (after the boot reload, so the player can see what it describes behind
+       it), and reopenable any time from the ☰ menu. Same box as #story. */
+    #howto {
+      position: fixed; inset: 0; z-index: 102;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #howto .box {
+      max-width: 320px; width: 100%;
+      background: #1a1612; color: #fff;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
+      padding: 20px; text-align: left;
+      font: 13px ui-monospace, monospace; line-height: 1.45;
+      max-height: 80vh; overflow-y: auto;
+    }
+    #howto h2 {
+      margin: 0 0 14px; text-align: center;
+      font: 700 17px ui-monospace, monospace; color: var(--gold);
+    }
+    #howto dl { margin: 0 0 16px; }
+    #howto dt {
+      color: var(--green); font-weight: 700; margin-top: 11px;
+    }
+    #howto dt:first-child { margin-top: 0; }
+    #howto dd { margin: 2px 0 0; color: #ddd; }
+    #howto button {
+      display: block; width: 100%;
+      background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
@@ -276,35 +373,89 @@
     <span id="energy-label">⚡100/100</span>
     <div id="energy-bar"><div id="energy-bar-fill"></div></div>
   </div>
+  <div id="objective" style="display:none">
+    <div class="row">
+      <span class="step"></span>
+      <span class="title"></span>
+      <button type="button" class="close" id="objective-hide" aria-label="Hide objective">&times;</button>
+    </div>
+    <div class="body"></div>
+  </div>
   <details id="menu">
     <summary>☰</summary>
     <div class="items">
+      <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="move-home">Move Home here</button>
-      <button id="debug-controls">Debug controls: off</button>
-      <button id="debug-clear-relics">Remove all relics</button>
-      <button id="debug-wood-relics">All wood relics (T1)</button>
-      <button id="debug-dump-tile">Dump tile (debug)</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
-      <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
-        <!-- buttons injected from window.TELEPORT_PRESETS -->
-      </div>
+      <!-- Developer tools. Collapsed by default: these were sitting in the
+           open menu above the player-facing entries, so the first thing a new
+           player saw on tapping ☰ was five debug buttons and a teleport list.
+           Still one tap away for development — just not the default view. -->
+      <details id="devtools">
+        <summary>Developer</summary>
+        <div class="devitems">
+          <button id="debug-controls">Free walking (debug): off</button>
+          <button id="debug-road-geom">Road geometry: on</button>
+          <button id="debug-clear-relics">Remove all relics</button>
+          <button id="debug-wood-relics">All wood relics (T1)</button>
+          <button id="debug-dump-tile">Dump tile (debug)</button>
+          <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+            <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+            <!-- buttons injected from window.TELEPORT_PRESETS -->
+          </div>
+        </div>
+      </details>
       <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
   <div id="hud"></div>
   <div id="safety">
     <div class="box">
-      <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:#ffd96b;">Welcome to Pocket Acres</h2>
-      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:#a7ffb0;">Farm your neighbourhood.</p>
+      <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
+      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:var(--green);">Farm your neighbourhood.</p>
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <button id="safety-dismiss">Go to my location</button>
+    </div>
+  </div>
+  <!-- Shown on a brand-new save while the very first GPS fix is being
+       waited for. The world's projection origin is frozen at that fix, so the
+       game boots once, already anchored at the player's home — see the boot
+       gate at the bottom of this file. -->
+  <div id="locating" style="display:none">
+    <div class="box">
+      <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:var(--gold);">Finding your location…</p>
+      <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
+      <button id="locating-skip">Skip</button>
+    </div>
+  </div>
+  <div id="howto" style="display:none">
+    <div class="box">
+      <h2>How to play</h2>
+      <dl>
+        <dt>Getting around</dt>
+        <dd>Walk. Your real-world location moves your character &mdash; the map
+            is your neighbourhood. On a computer, use WASD or the arrow keys.</dd>
+        <dt>Reach</dt>
+        <dd>You can only touch the lit cells around you. Everything outside
+            them is dimmed until you walk closer.</dd>
+        <dt>Farming</dt>
+        <dd>Tap open ground to till it, pick a seed from the Seeds tab, then
+            tap the soil to plant. Crops grow a stage every 15 minutes, even
+            while the game is closed.</dd>
+        <dt>Energy</dt>
+        <dd>Most actions cost &#9889;. Eat food to refill, or rest &mdash; it
+            trickles back on its own, fastest inside your own home.</dd>
+        <dt>Money</dt>
+        <dd>Selling happens at Home only. Carry your haul back to your house
+            and tap it to cash out.</dd>
+      </dl>
+      <button id="howto-close" type="button">Got it</button>
     </div>
   </div>
   <div id="story" style="display:none">
@@ -442,10 +593,10 @@
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
-    // Debug controls: toggles a gold soft-joystick that drives the body at
-    // 10× walk speed. Replaces the purple ghost pad while on. The button
-    // label tracks state both before the scene loads (read save directly)
-    // and after each click (scene returns the new value).
+    // Debug controls: makes stick walking cost no stamina. That's all it does
+    // now — there's no second joystick any more. The button label tracks state
+    // both before the scene loads (read save directly) and after each click
+    // (scene returns the new value).
     // Resolve the ACTIVE saved game's raw data straight from localStorage.
     // This runs at parse time, before save.js loads, so it can't use the save.js
     // helpers — it reads the slot registry inline, falling back to the legacy
@@ -463,7 +614,7 @@
     }
     const debugBtn = document.getElementById('debug-controls');
     function setDebugBtnLabel(on) {
-      debugBtn.textContent = 'Debug controls: ' + (on ? 'on' : 'off');
+      debugBtn.textContent = 'Free walking (debug): ' + (on ? 'on' : 'off');
     }
     try {
       const s = readActiveSaveRaw();
@@ -476,6 +627,25 @@
       if (!scene || !scene.setDebugControls) return;
       const next = !scene.save?.debugControls;
       setDebugBtnLabel(scene.setDebugControls(next));
+    });
+    // Road-geometry overlay: draws the ORIGINAL OSM road linework (the vector
+    // ways the tile rasterizer turned into road cells) over the map in black
+    // at 30% opacity. On by default; the save only ever stores an explicit off.
+    const roadGeomBtn = document.getElementById('debug-road-geom');
+    function setRoadGeomBtnLabel(on) {
+      roadGeomBtn.textContent = 'Road geometry: ' + (on ? 'on' : 'off');
+    }
+    try {
+      const s = readActiveSaveRaw();
+      setRoadGeomBtnLabel(!(s && s.roadGeomOverlay === false));
+    } catch { /* leave default 'on' */ }
+    roadGeomBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.setRoadGeomOverlay) return;
+      const next = scene.save?.roadGeomOverlay === false;
+      setRoadGeomBtnLabel(scene.setRoadGeomOverlay(next));
     });
     document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -539,8 +709,11 @@
         sec.appendChild(btn);
       }
     }
-    // app.js (which defines window.TELEPORT_PRESETS) is a synchronous script at
-    // the end of <body>, so it has run by DOMContentLoaded. Build then.
+    // app.js defines window.TELEPORT_PRESETS. It normally loads before
+    // DOMContentLoaded, but the boot gate at the bottom of this file can hold
+    // it back until the first GPS fix — so build now AND again once app.js
+    // has actually loaded (the builder is a no-op until the presets exist).
+    window.__buildTeleportMenu = () => buildTeleportMenu();
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', buildTeleportMenu);
     } else {
@@ -572,6 +745,13 @@
           // Persist any pending writes to the OUTGOING slot before we switch.
           if (typeof flushSave === 'function') flushSave();
           if (typeof switchSave === 'function') switchSave(s.id);
+          // Then kill the save pipeline. switchSave repoints SAVE_KEY at the
+          // INCOMING slot, but the scene is still running and still holding the
+          // outgoing game in memory — any persistSave it makes between here and
+          // the reload (movement, energy tick), or the pagehide flush the reload
+          // itself fires, would write that game onto the slot we're switching
+          // TO. Same hazard the reset handler guards against below.
+          if (typeof disableSave === 'function') disableSave();
           location.reload();
         });
         row.appendChild(pick);
@@ -586,8 +766,14 @@
             if (!confirm('Delete saved game "' + s.name + '"? This cannot be undone.')) return;
             const wasActive = s.active;
             if (typeof deleteSave === 'function') deleteSave(s.id);
-            if (wasActive) location.reload();   // active slot changed → reboot scene
-            else buildSavesMenu();              // just refresh the list
+            if (wasActive) {
+              // Deleting the active slot repoints SAVE_KEY at a surviving game;
+              // freeze writes so the deleted game's in-memory state can't be
+              // flushed on top of it before the reload.
+              if (typeof disableSave === 'function') disableSave();
+              location.reload();   // active slot changed → reboot scene
+            }
+            else buildSavesMenu();            // just refresh the list
           });
           row.appendChild(del);
         }
@@ -602,6 +788,13 @@
           if (name === null) return;   // cancelled
           if (typeof flushSave === 'function') flushSave();
           if (typeof createSave === 'function') createSave(name);
+          // createSave points SAVE_KEY at the new, EMPTY slot — but the scene is
+          // still running with the old game in memory. Without freezing writes
+          // here, its next persistSave (or the pagehide flush that
+          // location.reload fires) lands the old game's inventory, money and
+          // progress in the brand-new slot, so "New game" started you off with
+          // everything you already had.
+          if (typeof disableSave === 'function') disableSave();
           location.reload();
         });
       }
@@ -617,6 +810,11 @@
     // here, inline in the click. The promise resolution can be async; the
     // call itself just has to originate inside the click stack.
     let __safetyDismissed = false;
+    // Set once the player has agreed to share their location (the safety CTA,
+    // or an earlier answer carried across a reload in the same session). The
+    // boot gate polls this via window.__locationConsented.
+    let __consented = false;
+    window.__locationConsented = () => __consented;
     // On a GPS-triggered location.reload() (new save home capture), sessionStorage
     // persists across the reload. Auto-dismiss the safety splash so it doesn't
     // appear a second time — the user already acknowledged it this session.
@@ -625,6 +823,9 @@
         __safetyDismissed = true;
         document.getElementById('safety')?.remove();
         window.__compassPerm = window.__compassPerm || 'granted';
+        // Consent was given earlier this session — the boot gate (below) may
+        // still be waiting for it, and no CTA is left to click.
+        __consented = true;
       }
     } catch {}
     document.getElementById('safety-dismiss')?.addEventListener('click', async (e) => {
@@ -634,6 +835,7 @@
       // synthesized re-fire) could re-enter and play the opening story twice.
       if (__safetyDismissed) return;
       __safetyDismissed = true;
+      __consented = true;
       try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
       // Remove the splash up front so a queued second tap can't land on it again
       // while we're awaiting the permission prompt.
@@ -650,6 +852,9 @@
       }
       // Start sensors now if the scene already finished loading; otherwise
       // the scene's create() will see window.__compassPerm and start them.
+      // On a brand-new save the scene doesn't exist yet — the boot gate is
+      // holding app.js back until the first fix; this is its go signal.
+      window.__onLocationConsent?.();
       window.__scene?.startSensors?.();
     });
     // Two-slide opening story shown once after the safety splash. Slide 1
@@ -706,6 +911,37 @@
       render();
       overlay.style.display = 'flex';
     }
+    // How-to-play card. Deliberately NOT part of the opening story: a brand-new
+    // save reloads once after its first GPS fix (to re-anchor the projection),
+    // and anything shown before that is thrown away. app.js calls this from
+    // create() instead — by then the world is up, so the player can see the
+    // reach bubble and the tabs the card is describing behind it.
+    // `force` (the ☰ menu entry) reopens it regardless of the seen flag.
+    window.showHowTo = function showHowTo(force) {
+      const overlay = document.getElementById('howto');
+      if (!overlay) return;
+      if (!force) {
+        let seen = false;
+        try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
+        if (seen) return;
+      }
+      overlay.style.display = 'flex';
+    };
+    function closeHowTo() {
+      const overlay = document.getElementById('howto');
+      if (overlay) overlay.style.display = 'none';
+      try { localStorage.setItem('terracart.howtoSeen', '1'); } catch {}
+    }
+    document.getElementById('howto-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeHowTo();
+    });
+    document.getElementById('help-howto')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('menu')?.removeAttribute('open');
+      window.showHowTo(true);
+    });
+
     // Start-flow ordering. On a truly fresh start the opening story plays
     // FIRST, and the safety/"Go to my location" splash only appears after the
     // last slide — so the CTA never interrupts the story. And when startGps
@@ -727,6 +963,8 @@
       __safetyDismissed = true;
       document.getElementById('safety')?.remove();
       window.__compassPerm = __skipSafetyPerm;
+      __consented = true;
+      window.__onLocationConsent?.();
       window.__scene?.startSensors?.();
     } else {
       let freshIntro = false;
@@ -752,8 +990,9 @@
       //    localStorage AFTER we wipe it — silently restoring the old save.
       if (typeof resetCurrentSave === 'function') resetCurrentSave();
       else if (typeof disableSave === 'function') disableSave();
-      // 1) Global runtime state: replay the intro on the fresh game.
+      // 1) Global runtime state: replay the intro + how-to on the fresh game.
       try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
       // 2) Map-tile caches. Two layers persist tiles across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
@@ -846,16 +1085,16 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=11"></script>
-  <script src="src/sprite_layout.js?v=4"></script>
+  <script src="src/util.js?v=12"></script>
+  <script src="src/sprite_layout.js?v=5"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
-  <script src="src/coords.js?v=119"></script>
+  <script src="src/coords.js?v=120"></script>
   <script src="src/biome_profiles.js?v=5"></script>
-  <script src="src/worldgen.js?v=203"></script>
-  <script src="src/textures.js?v=155"></script>
+  <script src="src/worldgen.js?v=207"></script>
+  <script src="src/textures.js?v=161"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=188"></script>
+  <script src="src/items.js?v=193"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
@@ -866,14 +1105,118 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=1"></script>
-  <script src="src/interactables.js?v=6"></script>
-  <script src="src/interact.js?v=220"></script>
-  <script src="src/road_render.js?v=7"></script>
-  <script src="src/render.js?v=270"></script>
-  <script src="src/assets.js?v=175"></script>
-  <script src="src/sandbox.js?v=33"></script>
-  <script src="src/testtools.js?v=7"></script>
-  <script src="src/app.js?v=359"></script>
+  <script src="src/quests.js?v=2"></script>
+  <script src="src/interactables.js?v=7"></script>
+  <script src="src/interact.js?v=222"></script>
+  <script src="src/render.js?v=284"></script>
+  <script src="src/road_overlay.js?v=4"></script>
+  <script src="src/assets.js?v=176"></script>
+  <script src="src/sandbox.js?v=36"></script>
+  <script src="src/testtools.js?v=8"></script>
+  <script src="src/geo.js?v=1"></script>
+  <script>
+    // ─── Boot gate ────────────────────────────────────────────────────────
+    // app.js freezes the world's projection origin at parse time (START_LAT /
+    // START_LON, read from save.home), so on a brand-new save that origin
+    // isn't knowable until the first GPS fix arrives. The app used to boot at
+    // the default origin, capture the fix, then location.reload() to re-anchor
+    // — and that reload cost the player a SECOND browser location prompt
+    // (a reload re-asks whenever the grant isn't persistent, e.g. Safari's
+    // "Allow Once"). So: on a fresh save, hold app.js back until the fix
+    // lands, write save.home, then boot ONCE, already anchored at home.
+    // Everything else (a save that already has a home, a teleport override,
+    // sandbox, the test harness) boots immediately, exactly as before.
+    //
+    // The fix comes from the shared Geo watcher, so the scene's own GPS
+    // tracking joins that same watch — one watchPosition per page, one prompt.
+    (function () {
+      const APP_SRC = 'src/app.js?v=375';
+      // How long the gate waits for that first fix before giving up and
+      // booting at the default origin. A cold GPS start can take far longer
+      // than this indoors, so app.js keeps its capture-then-reload path as a
+      // fallback for a fix that lands after we've booted.
+      const GATE_MS = 15000;
+
+      let booted = false;
+      function bootApp() {
+        if (booted) return;
+        booted = true;
+        document.getElementById('locating')?.remove();
+        const el = document.createElement('script');
+        el.src = APP_SRC;
+        // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
+        // section was built before it loaded, so build it again now.
+        el.onload = () => { try { window.__buildTeleportMenu?.(); } catch (_) {} };
+        document.body.appendChild(el);
+      }
+
+      // Does this load need to capture a home origin? Mirrors the
+      // _homeCapturePending conditions in app.js create().
+      function needsHomeCapture() {
+        if (window.__TEST_MODE) return false;
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return false;
+        // A teleport preset relocates the origin explicitly — no capture.
+        try {
+          const tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null');
+          if (tp && Number.isFinite(tp.lat) && Number.isFinite(tp.lon)) return false;
+        } catch (_) { /* malformed override → ignore */ }
+        if (typeof Sandbox !== 'undefined' && Sandbox.detect()) return false;
+        try {
+          if (typeof initSaves === 'function') initSaves();
+          const sv = (typeof loadSave === 'function') ? loadSave() : null;
+          if (!sv) return false;
+          // Already anchored, or already placed the starter home: a save that
+          // has put objects in the world can't have its origin moved.
+          if (sv.home || sv.starterShopId) return false;
+        } catch (_) { return false; }
+        return true;
+      }
+
+      if (!needsHomeCapture()) { bootApp(); return; }
+
+      let sub = null;
+      let timer = null;
+      function done() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (sub) { Geo.unsubscribe(sub); sub = null; }
+        bootApp();
+      }
+
+      // Called from the safety splash's "Go to my location" button — the
+      // player's consent, and the only point at which we touch geolocation.
+      window.__onLocationConsent = function () {
+        if (booted || sub) return;
+        const box = document.getElementById('locating');
+        if (box) box.style.display = 'flex';
+        sub = Geo.subscribe(
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            try {
+              const sv = loadSave();
+              sv.home = { lat: latitude, lon: longitude };
+              persistSave(sv);
+              flushSave();     // app.js reads the save synchronously as it parses
+            } catch (_) { /* write failed → app.js's fallback capture retries */ }
+            done();
+          },
+          err => {
+            // Denied outright: no GPS this save, boot at the default origin.
+            // TIMEOUT / POSITION_UNAVAILABLE are transient — keep waiting
+            // until the gate's own deadline.
+            if (err && err.code === 1) done();
+          }
+        );
+        if (!sub) { done(); return; }   // geolocation unavailable after all
+        timer = setTimeout(done, GATE_MS);
+      };
+      document.getElementById('locating-skip')?.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        done();
+      });
+      // Consent may already have been given before this script ran (the splash
+      // is auto-dismissed on a same-session reload).
+      if (window.__locationConsented?.()) window.__onLocationConsent();
+    })();
+  </script>
 </body>
 </html>
