@@ -8503,13 +8503,12 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
+      // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
+      tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
         'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
-        'justify-content:center;gap:1px;padding:0;overflow:hidden;' +
-        (active
-          ? 'background:#553a;border:2px solid #ffe066;border-bottom-color:#553a;color:#fff;'
-          : 'background:#222a;border:2px solid #555;color:#ddd;');
+        'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
       // count pip below keeps its full colour. The active tab shows its glyph in
       // full colour; inactive tabs render greyscale + dimmed so the lit-up tab
@@ -8537,7 +8536,8 @@ class MapScene extends Phaser.Scene {
       if (count > 0) {
         const pip = document.createElement('span');
         pip.textContent = count;
-        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;background:#000c;color:#ffe066;padding:0 3px;border-radius:7px;line-height:13px;';
+        pip.className = 'hud-pip';
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;padding:0 3px;border-radius:7px;line-height:13px;';
         tab.appendChild(pip);
       }
       tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
@@ -8557,7 +8557,8 @@ class MapScene extends Phaser.Scene {
     const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
       b.textContent = txt;
-      b.style.cssText = `width:${w}px;height:44px;background:#222a;border:2px solid #555;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
+      b.className = 'hud-btn';
+      b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
@@ -8590,11 +8591,12 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save); this.buildInventoryDOM();
     }));
 
-    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;background:#222a;border:2px solid #555;border-radius:6px;font-size:22px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
     for (let s = 0; s < PAGE; s++) {
       const p = startPos + s;
       const slot = document.createElement('button');
+      slot.className = 'hud-slot';
       slot.style.cssText = slotCss;
       if (isGear) {
         const g = gearList[p];
@@ -8608,7 +8610,8 @@ class MapScene extends Phaser.Scene {
           // Tier badge mirrors the item count badge so gear reads consistently.
           const badge = document.createElement('span');
           badge.textContent = 'T' + g.tier;
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.className = 'hud-badge';
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
           slot.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -8634,7 +8637,8 @@ class MapScene extends Phaser.Scene {
         if (entry.count != null) {
           const badge = document.createElement('span');
           badge.textContent = entry.count;
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;background:#000c;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.className = 'hud-badge';
+          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
         }
         slot.addEventListener('click', (e) => {
@@ -8668,7 +8672,8 @@ class MapScene extends Phaser.Scene {
     }));
     const pageLbl = document.createElement('span');
     pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
-    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:#000a;border:1px solid #555;border-radius:11px;color:#ffe066;font:700 11px ui-monospace,monospace;margin-left:4px;';
+    pageLbl.className = 'hud-page';
+    pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px ui-monospace,monospace;margin-left:4px;';
     bar.appendChild(pageLbl);
 
     document.body.appendChild(bar);
@@ -8693,8 +8698,9 @@ class MapScene extends Phaser.Scene {
       let isSel;
       if (el.dataset.gear != null) isSel = el.dataset.gear === gearKey;
       else isSel = +el.dataset.slot === this.save.selSlot;
-      el.style.borderColor = isSel ? '#ffe066' : '#555';
-      el.style.background  = isSel ? '#553a' : '#222a';
+      // .sel carries the whole selected look (gold rim + glow, lit well) —
+      // see .hud-slot in index.html. Inline paint here would outrank it.
+      el.classList.toggle('sel', isSel);
     });
     const nameLbl = document.getElementById('inv-name');
     if (nameLbl) {
@@ -8761,13 +8767,14 @@ class MapScene extends Phaser.Scene {
     // safe-area + 48px, so a button at safe-area + 4px sits in the gap
     // underneath). Right-anchored to --phone-right so the button tucks
     // inside the simulated phone column on desktop.
+    btn.className = 'hud-action';
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'background:#1a1612;color:#a7ffb0;border:2px solid #4a8c4a;' +
+      'color:#a7ffb0;border:2px solid #4a8c4a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
     btn.addEventListener('click', (e) => {
@@ -8809,13 +8816,14 @@ class MapScene extends Phaser.Scene {
     // consumable = book/flute selected) we use the same right slot. CSS
     // identical except border colour (warm tan to distinguish from
     // Eat's green).
+    btn.className = 'hud-action';
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'background:#1a1612;color:#ffe066;border:2px solid #c8a64a;' +
+      'color:#ffe066;border:2px solid #c8a64a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
     btn.addEventListener('click', (e) => {

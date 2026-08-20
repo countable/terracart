@@ -42,6 +42,33 @@
       --green:      #a7ffb0;   /* success / ready / energy gain               */
       --danger:     #b71c1c;   /* destructive action + error surfaces         */
       --danger-ink: #ff8a7a;   /* destructive action as TEXT on a dark ground */
+      /* ── HUD chrome ───────────────────────────────────────────────────
+         One vocabulary for every persistent HUD surface, so the money chip,
+         the item slots and the walking stick read as parts of the same
+         machine. Panels are dark glass with a lit top lip and a cast
+         shadow; controls are RAISED with a gradient face; anything that
+         HOLDS something (item slots, the energy track) is SUNK with an
+         inner shadow; a 1px dark keyline keeps every edge legible over
+         bright pixel art. Compose them —
+             box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+         These are paint only. No widths, borders or padding live here, so
+         adding chrome to an element can never move it. */
+      /* The faces step at their midpoint rather than fading evenly — the hard
+         line is what reads as a curved, polished surface catching the light. */
+      --chrome-panel: linear-gradient(180deg, rgba(56,49,42,0.92) 0%,
+                        rgba(38,33,28,0.92) 48%, rgba(22,19,16,0.94) 52%,
+                        rgba(12,10,9,0.94) 100%);
+      --chrome-face:  linear-gradient(180deg, #4b443a 0%, #3a352d 48%,
+                        #2a2620 52%, #1d1a16 100%);
+      --chrome-sunk:  linear-gradient(180deg, #14110e 0%, #1e1a16 55%, #2e2924 100%);
+      --chrome-lit:   linear-gradient(180deg, #8a6c2e 0%, #6b5426 48%,
+                        #4a3a17 52%, #33280f 100%);   /* selected */
+      --chrome-lip:   inset 0  1px 0 rgba(255,255,255,0.15);      /* top edge  */
+      --chrome-well:  inset 0  2px 6px rgba(0,0,0,0.60);          /* recessed  */
+      --chrome-lift:  0 3px 8px rgba(0,0,0,0.45);                 /* cast      */
+      --chrome-key:   0 0 0 1px rgba(0,0,0,0.45);                 /* keyline   */
+      --chrome-gold:  0 0 12px rgba(255,224,102,0.38);            /* selected  */
+      --chrome-rim:   #554c3f;   /* warm grey rim, the HUD's default border  */
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -128,10 +155,13 @@
        the player why the world is an empty green field. */
     #banner {
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      background: var(--danger); color: #fff; padding: 8px 12px; border-radius: 6px;
+      background: linear-gradient(180deg, #d02525, var(--danger));
+      color: #fff; padding: 8px 12px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
       pointer-events: auto; cursor: pointer; min-height: 32px;
       font-family: ui-monospace, monospace;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #0008;
     }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
        flash), this stays on screen until dismissed and is fully selectable so
@@ -171,6 +201,7 @@
       right: calc(var(--phone-right, 0px) + 8px);
       font-size: 11px; color: #fff8; pointer-events: none; z-index: 5;
       font-family: ui-monospace, monospace; text-align: center;
+      text-shadow: 0 1px 2px #000, 0 0 3px #000;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
@@ -179,32 +210,53 @@
     #money {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 10px);
-      background: #000a; color: var(--gold); padding: 4px 10px;
+      background: var(--chrome-panel); color: var(--gold); padding: 4px 10px;
       border-radius: 8px;
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
+      /* Rim as an inset ring rather than a border: the chip is anchored right
+         and sized by its text, so a real border would widen it toward the
+         energy readout every time the player earns a digit. */
+      box-shadow: inset 0 0 0 1px #ffffff14, var(--chrome-lip),
+                  var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000, 0 0 10px rgba(255,224,102,0.35);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
     /* Tappable: "how do I refill this?" is the obvious gesture and it used to
        do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
-      background: #000a; color: var(--green); padding: 4px 10px;
+      background: var(--chrome-panel); color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
       pointer-events: auto; cursor: pointer; z-index: 7;
       display: flex; flex-direction: column; gap: 3px; align-items: stretch;
+      /* border-color is repainted per energy level by updateEnergyDOM. */
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000;
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
     /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
        updateEnergyDOM(): green normally, yellow at/below 30%, red when critical. */
     #energy-bar {
       height: 4px; border-radius: 2px; overflow: hidden;
-      background: #ffffff22;
+      background: var(--chrome-sunk);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.7);
     }
     #energy-bar-fill {
       height: 100%; width: 100%; border-radius: 2px;
       background: var(--green);
       transition: width 0.15s linear, background-color 0.15s linear;
+      position: relative;
+    }
+    /* Gloss on the top half of the fill. A pseudo-element, because the fill's
+       own background is the live energy COLOUR, written per frame by
+       updateEnergyDOM — this way the shine rides on top of whatever colour
+       the bar is at. */
+    #energy-bar-fill::after {
+      content: ''; position: absolute; inset: 0 0 50% 0; border-radius: 2px 2px 0 0;
+      background: linear-gradient(180deg, #ffffff88, #ffffff11);
     }
     /* Objective chip — the first-session guidance ladder (quests.js
        STARTER_CHAIN). Sits just under the top HUD row and names the ONE thing
@@ -216,20 +268,27 @@
       top: calc(56px + env(safe-area-inset-top, 0px));
       left:  calc(var(--phone-left,  0px) + 10px);
       right: calc(var(--phone-right, 0px) + 10px);
-      background: #000c; border: 2px solid var(--gold-dark); border-radius: 8px;
+      background: var(--chrome-panel);
+      border: 2px solid var(--gold-dark); border-radius: 8px;
       padding: 6px 8px; z-index: 6;
       pointer-events: none;
       font-family: ui-monospace, monospace;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
     #objective .row { display: flex; align-items: center; gap: 6px; }
+    /* The step number is the one MINTED thing on the chip — a struck gold
+       tag, lit from the top like everything else raised. */
     #objective .step {
-      color: #1a1612; background: var(--gold-dark);
+      color: #1a1612;
+      background: linear-gradient(180deg, var(--gold-pale), var(--gold-dark));
       border-radius: 4px; padding: 1px 5px;
       font: 700 10px ui-monospace, monospace; flex: none;
+      box-shadow: inset 0 -1px 0 #0006, 0 1px 2px #0008;
     }
     #objective .title {
       color: var(--gold); font: 700 13px ui-monospace, monospace;
-      flex: 1; min-width: 0;
+      flex: 1; min-width: 0; text-shadow: 0 1px 0 #000;
     }
     /* 13×15px was a stray-thumb away from ending the onboarding ladder for a
        save permanently. Same glyph, a 44×44 target around it (padding, and a
@@ -245,20 +304,32 @@
       color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
     }
     /* Brief green flash when a step is completed, before the next one renders. */
-    #objective.done { border-color: var(--green); }
+    #objective.done { border-color: var(--green); box-shadow:
+      var(--chrome-lip), var(--chrome-lift), var(--chrome-key),
+      0 0 12px rgba(167,255,176,0.35); }
     #objective.done .title { color: var(--green); }
-    #objective.done .step { background: var(--green); }
+    #objective.done .step {
+      background: linear-gradient(180deg, #d9ffdd, var(--green));
+    }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
-      background: #000a; color: #ddd;
-      border: 2px solid #444; border-radius: 8px;
+      background: var(--chrome-face); color: #ddd;
+      border: 2px solid var(--chrome-rim); border-radius: 8px;
       padding: 2px 8px; font: 700 16px ui-monospace, monospace;
       line-height: 1.4;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000;
     }
     #menu summary::-webkit-details-marker { display: none; }
-    #menu[open] summary { border-color: #888; }
+    /* Open = pressed in: the button sinks into the HUD and the panel it
+       opened takes over the raised look. */
+    #menu[open] summary {
+      border-color: #8a7d68; color: #fff;
+      background: var(--chrome-sunk);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
     /* OPAQUE, not #000c: 80% black over bright pixel art let map detail bleed
        through behind 12px text, and on a 360-wide phone the panel overlaps the
        objective chip, which made both unreadable. Capped + scrollable so a tall
@@ -266,10 +337,11 @@
        down onto the item bar. */
     #menu .items {
       margin-top: 4px; min-width: 140px;
-      background: #12100e; border: 2px solid #444; border-radius: 8px;
+      background: #12100e; border: 2px solid var(--chrome-rim); border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
+      box-shadow: var(--chrome-lip), 0 8px 20px rgba(0,0,0,0.6), var(--chrome-key);
     }
     /* Nested "Developer" disclosure inside the ☰ menu. */
     #devtools { border-top: 1px solid #333; margin-top: 2px; padding-top: 4px; }
@@ -292,7 +364,11 @@
       font: 12px ui-monospace, monospace; cursor: pointer;
       min-height: 40px;
     }
-    #menu .items button:hover { background: #fff2; }
+    #menu .items button:hover {
+      background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
+      box-shadow: var(--chrome-lip);
+    }
+    #menu .items button:active { background: #0006; box-shadow: var(--chrome-well); }
     #menu .items button.danger { color: var(--danger-ink); }
     /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
        The active slot is marked with a leading ✓ and highlighted. */
@@ -302,6 +378,79 @@
     #menu .save-row .save-del {
       flex: 0 0 auto; color: var(--danger-ink); padding: 6px 8px;
     }
+    /* ── Inventory HUD chrome ────────────────────────────────────────────
+       The two-bar inventory (category tabs + item slots), its pager and the
+       action buttons are BUILT IN JS (app.js buildInventoryDOM / syncEatButton),
+       but they're painted here, in the same place as the rest of the HUD, so
+       the whole thing can be re-styled without touching the code that lays it
+       out. app.js sets geometry inline and hangs these classes off it; nothing
+       here sets a size, so the two can't fight. */
+
+    /* Category tab — raised, and joined to the slot bar below it (square
+       bottom corners, no bottom edge on the selected one). */
+    .hud-tab {
+      background: var(--chrome-face);
+      border: 2px solid var(--chrome-rim); color: #ddd;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000;
+    }
+    .hud-tab.sel {
+      background: linear-gradient(180deg, #6b5426, #4a3a17);
+      border-color: var(--gold); border-bottom-color: #4a3a17; color: #fff;
+      box-shadow: var(--chrome-lip), var(--chrome-gold), var(--chrome-key);
+    }
+    /* Count pip riding the tab's top-right corner. */
+    .hud-pip {
+      background: linear-gradient(180deg, #2a2418, #0c0a07);
+      color: var(--gold);
+      box-shadow: inset 0 1px 0 #ffffff1f, 0 1px 2px #000a, var(--chrome-key);
+    }
+    /* Raised control — pager arrows, sort. */
+    .hud-btn {
+      background: var(--chrome-face);
+      border: 2px solid var(--chrome-rim); color: #fff;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000;
+    }
+    .hud-btn:active {
+      background: var(--chrome-sunk);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+    /* A slot HOLDS something, so it's sunk rather than raised — the item icon
+       sits in a recess. Selected lights the well gold. */
+    .hud-slot {
+      background: var(--chrome-sunk);
+      border: 2px solid var(--chrome-rim); color: #fff;
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+    .hud-slot.sel {
+      background: var(--chrome-lit); border-color: var(--gold);
+      box-shadow: var(--chrome-well), var(--chrome-gold), var(--chrome-key);
+    }
+    /* Count / tier badge in a slot's bottom-right corner. */
+    .hud-badge {
+      background: linear-gradient(180deg, #221e18, #0a0908);
+      color: #fff;
+      box-shadow: inset 0 1px 0 #ffffff1a, var(--chrome-key);
+    }
+    /* Page counter — a small struck plate, not a button. */
+    .hud-page {
+      background: var(--chrome-sunk); color: var(--gold);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+    /* Eat / Read / Drink — the one-tap action buttons under the item bar.
+       Their border colour stays inline (green for food, gold for the rest);
+       everything else about them is this. */
+    .hud-action {
+      background: var(--chrome-face);
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      text-shadow: 0 1px 0 #000;
+    }
+    .hud-action:active {
+      background: var(--chrome-sunk);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+
     /* Safety / sensor-permission splash shown on every load. The button
        click is the genuine user gesture we need to satisfy iOS's
        DeviceOrientationEvent.requestPermission() AND start GPS. */
@@ -1424,7 +1573,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=381';
+      const APP_SRC = 'src/app.js?v=382';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
