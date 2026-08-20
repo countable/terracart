@@ -1202,6 +1202,7 @@ const TAP_HANDLERS = [
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
+      scene.questEvent?.('harvest');
       return true;
     }
     if (!p.watered_t) {
@@ -1377,10 +1378,24 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
+      // While the starter ladder is still asking for a first planting, DON'T
+      // un-till: the player has just spent energy breaking this ground and is
+      // tapping it to find out what happens next. Silently undoing it — and
+      // calling that 'Soil loosened.' — reads as success and teaches nothing.
+      // Tell them what's missing instead, and leave the soil alone.
+      const learning = typeof Quests !== 'undefined'
+        && !Quests.starterHidden(save)
+        && Quests.starterCurrent(save)?.event === 'plant';
+      if (learning) {
+        scene.flash('Select a seed from your bag first.', sx, sy);
+        return true;
+      }
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       ctx.dirty = true;
-      scene.flash('Soil loosened.', sx, sy);
+      // Name the action taken, not just its texture — "Soil loosened" sounds
+      // like progress when what actually happened is the tilled plot going away.
+      scene.flash('Un-tilled (no seed selected).', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
@@ -1422,6 +1437,7 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       scene.buildInventoryDOM();
       scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      scene.questEvent?.('plant');
       return true;
     }
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
@@ -1430,6 +1446,7 @@ const TAP_HANDLERS = [
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash(`planted ${item.grows}`, sx, sy);
+    scene.questEvent?.('plant');
     return true;
   }},
 
@@ -1483,6 +1500,7 @@ const TAP_HANDLERS = [
       save.tilled = [...scene.tilledSet];
       persistSave(save);
       scene.flash('tilled', sx, sy);
+      scene.questEvent?.('till');
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

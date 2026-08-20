@@ -178,6 +178,43 @@
       background: var(--green);
       transition: width 0.15s linear, background-color 0.15s linear;
     }
+    /* Objective chip — the first-session guidance ladder (quests.js
+       STARTER_CHAIN). Sits just under the top HUD row and names the ONE thing
+       the player should do next; it retires itself when the ladder finishes or
+       the player taps ×. The container is pointer-events:none so it never eats
+       a world tap — only the × re-enables them. */
+    #objective {
+      position: fixed;
+      top: calc(56px + env(safe-area-inset-top, 0px));
+      left:  calc(var(--phone-left,  0px) + 10px);
+      right: calc(var(--phone-right, 0px) + 10px);
+      background: #000c; border: 2px solid var(--gold-dark); border-radius: 8px;
+      padding: 6px 8px; z-index: 6;
+      pointer-events: none;
+      font-family: ui-monospace, monospace;
+    }
+    #objective .row { display: flex; align-items: center; gap: 6px; }
+    #objective .step {
+      color: #1a1612; background: var(--gold-dark);
+      border-radius: 4px; padding: 1px 5px;
+      font: 700 10px ui-monospace, monospace; flex: none;
+    }
+    #objective .title {
+      color: var(--gold); font: 700 13px ui-monospace, monospace;
+      flex: 1; min-width: 0;
+    }
+    #objective .close {
+      pointer-events: auto; cursor: pointer; flex: none;
+      background: transparent; color: #888; border: 0;
+      font: 700 15px ui-monospace, monospace; padding: 0 2px; line-height: 1;
+    }
+    #objective .body {
+      color: #ddd; font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
+    }
+    /* Brief green flash when a step is completed, before the next one renders. */
+    #objective.done { border-color: var(--green); }
+    #objective.done .title { color: var(--green); }
+    #objective.done .step { background: var(--green); }
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
@@ -194,6 +231,18 @@
       background: #000c; border: 2px solid #444; border-radius: 8px;
       padding: 4px; display: flex; flex-direction: column; gap: 2px;
     }
+    /* Nested "Developer" disclosure inside the ☰ menu. */
+    #devtools { border-top: 1px solid #333; margin-top: 2px; padding-top: 4px; }
+    #devtools summary {
+      list-style: none; cursor: pointer; user-select: none;
+      color: #888; padding: 4px 8px; border-radius: 4px;
+      font: 700 10px ui-monospace, monospace;
+    }
+    #devtools summary::-webkit-details-marker { display: none; }
+    #devtools summary::before { content: '▸ '; }
+    #devtools[open] summary::before { content: '▾ '; }
+    #devtools summary:hover { background: #ffffff14; color: #ccc; }
+    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
     #menu .items button {
       background: transparent; color: #ddd; border: 0;
       text-align: left; padding: 6px 8px; border-radius: 4px;
@@ -265,6 +314,39 @@
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
+    /* How-to-play card. Shown once when a fresh save first reaches the world
+       (after the boot reload, so the player can see what it describes behind
+       it), and reopenable any time from the ☰ menu. Same box as #story. */
+    #howto {
+      position: fixed; inset: 0; z-index: 102;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #howto .box {
+      max-width: 320px; width: 100%;
+      background: #1a1612; color: #fff;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
+      padding: 20px; text-align: left;
+      font: 13px ui-monospace, monospace; line-height: 1.45;
+      max-height: 80vh; overflow-y: auto;
+    }
+    #howto h2 {
+      margin: 0 0 14px; text-align: center;
+      font: 700 17px ui-monospace, monospace; color: var(--gold);
+    }
+    #howto dl { margin: 0 0 16px; }
+    #howto dt {
+      color: var(--green); font-weight: 700; margin-top: 11px;
+    }
+    #howto dt:first-child { margin-top: 0; }
+    #howto dd { margin: 2px 0 0; color: #ddd; }
+    #howto button {
+      display: block; width: 100%;
+      background: var(--gold-dark); color: #1a1612; border: 0;
+      padding: 12px 22px; border-radius: 8px;
+      font: 700 15px ui-monospace, monospace; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -291,26 +373,44 @@
     <span id="energy-label">⚡100/100</span>
     <div id="energy-bar"><div id="energy-bar-fill"></div></div>
   </div>
+  <div id="objective" style="display:none">
+    <div class="row">
+      <span class="step"></span>
+      <span class="title"></span>
+      <button type="button" class="close" id="objective-hide" aria-label="Hide objective">&times;</button>
+    </div>
+    <div class="body"></div>
+  </div>
   <details id="menu">
     <summary>☰</summary>
     <div class="items">
+      <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
       <button id="stats-relics">Stats &amp; Relics</button>
       <button id="move-home">Move Home here</button>
-      <button id="debug-controls">Free walking (debug): off</button>
-      <button id="debug-road-geom">Road geometry: on</button>
-      <button id="debug-clear-relics">Remove all relics</button>
-      <button id="debug-wood-relics">All wood relics (T1)</button>
-      <button id="debug-dump-tile">Dump tile (debug)</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
-      <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
-        <!-- buttons injected from window.TELEPORT_PRESETS -->
-      </div>
+      <!-- Developer tools. Collapsed by default: these were sitting in the
+           open menu above the player-facing entries, so the first thing a new
+           player saw on tapping ☰ was five debug buttons and a teleport list.
+           Still one tap away for development — just not the default view. -->
+      <details id="devtools">
+        <summary>Developer</summary>
+        <div class="devitems">
+          <button id="debug-controls">Free walking (debug): off</button>
+          <button id="debug-road-geom">Road geometry: on</button>
+          <button id="debug-clear-relics">Remove all relics</button>
+          <button id="debug-wood-relics">All wood relics (T1)</button>
+          <button id="debug-dump-tile">Dump tile (debug)</button>
+          <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
+            <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+            <!-- buttons injected from window.TELEPORT_PRESETS -->
+          </div>
+        </div>
+      </details>
       <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
@@ -332,6 +432,30 @@
       <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:var(--gold);">Finding your location…</p>
       <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
       <button id="locating-skip">Skip</button>
+    </div>
+  </div>
+  <div id="howto" style="display:none">
+    <div class="box">
+      <h2>How to play</h2>
+      <dl>
+        <dt>Getting around</dt>
+        <dd>Walk. Your real-world location moves your character &mdash; the map
+            is your neighbourhood. On a computer, use WASD or the arrow keys.</dd>
+        <dt>Reach</dt>
+        <dd>You can only touch the lit cells around you. Everything outside
+            them is dimmed until you walk closer.</dd>
+        <dt>Farming</dt>
+        <dd>Tap open ground to till it, pick a seed from the Seeds tab, then
+            tap the soil to plant. Crops grow a stage every 15 minutes, even
+            while the game is closed.</dd>
+        <dt>Energy</dt>
+        <dd>Most actions cost &#9889;. Eat food to refill, or rest &mdash; it
+            trickles back on its own, fastest inside your own home.</dd>
+        <dt>Money</dt>
+        <dd>Selling happens at Home only. Carry your haul back to your house
+            and tap it to cash out.</dd>
+      </dl>
+      <button id="howto-close" type="button">Got it</button>
     </div>
   </div>
   <div id="story" style="display:none">
@@ -787,6 +911,37 @@
       render();
       overlay.style.display = 'flex';
     }
+    // How-to-play card. Deliberately NOT part of the opening story: a brand-new
+    // save reloads once after its first GPS fix (to re-anchor the projection),
+    // and anything shown before that is thrown away. app.js calls this from
+    // create() instead — by then the world is up, so the player can see the
+    // reach bubble and the tabs the card is describing behind it.
+    // `force` (the ☰ menu entry) reopens it regardless of the seen flag.
+    window.showHowTo = function showHowTo(force) {
+      const overlay = document.getElementById('howto');
+      if (!overlay) return;
+      if (!force) {
+        let seen = false;
+        try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
+        if (seen) return;
+      }
+      overlay.style.display = 'flex';
+    };
+    function closeHowTo() {
+      const overlay = document.getElementById('howto');
+      if (overlay) overlay.style.display = 'none';
+      try { localStorage.setItem('terracart.howtoSeen', '1'); } catch {}
+    }
+    document.getElementById('howto-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeHowTo();
+    });
+    document.getElementById('help-howto')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('menu')?.removeAttribute('open');
+      window.showHowTo(true);
+    });
+
     // Start-flow ordering. On a truly fresh start the opening story plays
     // FIRST, and the safety/"Go to my location" splash only appears after the
     // last slide — so the CTA never interrupts the story. And when startGps
@@ -835,8 +990,9 @@
       //    localStorage AFTER we wipe it — silently restoring the old save.
       if (typeof resetCurrentSave === 'function') resetCurrentSave();
       else if (typeof disableSave === 'function') disableSave();
-      // 1) Global runtime state: replay the intro on the fresh game.
+      // 1) Global runtime state: replay the intro + how-to on the fresh game.
       try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
       // 2) Map-tile caches. Two layers persist tiles across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
@@ -938,7 +1094,7 @@
   <script src="src/worldgen.js?v=207"></script>
   <script src="src/textures.js?v=161"></script>
   <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=192"></script>
+  <script src="src/items.js?v=193"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>
   <script src="src/crops.js?v=1"></script>
@@ -949,9 +1105,9 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=1"></script>
-  <script src="src/interactables.js?v=6"></script>
-  <script src="src/interact.js?v=221"></script>
+  <script src="src/quests.js?v=2"></script>
+  <script src="src/interactables.js?v=7"></script>
+  <script src="src/interact.js?v=222"></script>
   <script src="src/render.js?v=284"></script>
   <script src="src/road_overlay.js?v=4"></script>
   <script src="src/assets.js?v=176"></script>
@@ -974,7 +1130,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=373';
+      const APP_SRC = 'src/app.js?v=375';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

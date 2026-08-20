@@ -53,6 +53,8 @@ const FILES = [
   'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
+  // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
+  'quests.js',
   // Pure draw-math module: it only touches WorldGen + a stub Graphics, so the
   // road-geometry overlay's projection/culling can be pinned without Phaser.
   'road_overlay.js',
@@ -70,6 +72,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  Quests, QUEST_CHAIN, STARTER_CHAIN,
 });`;
 try {
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
@@ -97,6 +100,29 @@ try {
   // the same parsed set so handlers that gate on it can be driven headlessly.
   const nonTillable = new Set(ctx.NON_TILLABLE_CODES);
   ctx.isTillable = (type) => !nonTillable.has(type);
+}
+
+// The inventory category tabs are declared in app.js (which needs Phaser, so it
+// can't load here). Lift the {key, label, sym} triples straight out of the
+// source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
+// assert on the real table instead of a copy that would drift.
+{
+  const m = readSrc('app.js').match(/const INV_CATS = \[([\s\S]*?)\n\];/);
+  if (!m) {
+    console.error('Could not find INV_CATS in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const cats = [];
+  const re = /\{\s*key:\s*'([^']+)'[^}]*?label:\s*'([^']+)'[^}]*?sym:\s*'([^']+)'/g;
+  let row;
+  while ((row = re.exec(m[1])) !== null) {
+    cats.push({ key: row[1], label: row[2], sym: row[3] });
+  }
+  if (!cats.length) {
+    console.error('Parsed no entries out of INV_CATS — update run.js');
+    process.exit(2);
+  }
+  ctx.INV_CATS = cats;
 }
 
 // ── In-context test framework: test() / assert / makeScene ────────────────

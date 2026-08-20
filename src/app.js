@@ -984,6 +984,21 @@ class MapScene extends Phaser.Scene {
       .play('idle-down')
       .setVisible(false)
       .setMask(mask);
+    // GPS ghost — a translucent stand-in at your REAL (GPS) position, shown
+    // once the stick has walked the character far enough off it to matter.
+    // Walking off the GPS is the whole point of the stick, so you need to see
+    // where you actually are to find your way back; without this the only clue
+    // was the character quietly not being where you're standing. Tinted cool so
+    // it doesn't read as a second player (the tint no-ops under the Phaser
+    // Canvas fallback — the transparency alone still carries it).
+    this.gpsGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+      .setScale(this.playerScale)
+      .setAlpha(0.6)
+      .setTint(0x7ec8ff)
+      .setDepth(9.8)
+      .play('idle-down')
+      .setVisible(false)
+      .setMask(mask);
     // Target-follow state. _targetM is the walk target in body-relative world
     // metres; _autoMineKey marks the wall cell a wheel is currently chewing
     // through (underground only); _followPaused halts pursuit after the player
@@ -1045,6 +1060,24 @@ class MapScene extends Phaser.Scene {
     this.banner = document.getElementById('banner');
     this.buildInventoryDOM();
 
+    // First-session objective chip. A save that predates the starter ladder is
+    // already past the point it teaches — retire it rather than telling a
+    // player with a built farm to go till their first cell. The tell is that
+    // they have played at all: any tilled ground, any restored house, any
+    // opened chest, or money moved off the starting purse.
+    if (typeof Quests !== 'undefined' && !this.save.starter) {
+      const playedAlready =
+        (this.save.tilled?.length ?? 0) > 0 ||
+        (this.save.planted?.length ?? 0) > 0 ||
+        (this.save.opened?.length ?? 0) > 0 ||
+        Object.keys(this.save.restoredHouses || {}).length > 0 ||
+        (this.save.money ?? STARTING_MONEY) !== STARTING_MONEY;
+      if (playedAlready) Quests.starterSkipAll(this.save);
+    }
+    document.getElementById('objective-hide')
+      ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
+    this.updateObjectiveDOM();
+
     // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours
     // with a synthetic 5×5 grid of biome plots containing every native
     // interactable. Runs BEFORE ensureTilesAround so WorldGen.loadTile short-
@@ -1052,6 +1085,14 @@ class MapScene extends Phaser.Scene {
     if (typeof Sandbox !== 'undefined' && Sandbox.detect()) {
       Sandbox.install(this);
     }
+
+    // First arrival in the world — show the how-to card over the live map, so
+    // the reach bubble and the inventory tabs it describes are visible behind
+    // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
+    // play" reopens it any time. Must sit BELOW the Sandbox.install above:
+    // that call is what sets _sandboxMode, and the sandbox is a dev world that
+    // has no use for the card.
+    if (!this._sandboxMode) window.showHowTo?.();
 
     // Boot tile load
     this.ensureTilesAround().catch(e => console.error(e));
@@ -2128,6 +2169,55 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // Edge compass: an arrow parked on the rim of the viewport pointing at a
+  // world-space target. Three callers share it — the pairy chest compass, the
+  // delivery waypoint, and the starter-crate trail — so the ring geometry
+  // lives here once instead of being re-derived (identically) at each site.
+  // Returns the distance to the target in metres so callers can decide when
+  // "close enough" retires their arrow.
+  _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const dxM = targetWX - pWX, dyM = targetWY - pWY;
+    const mag = Math.hypot(dxM, dyM);
+    if (!(mag > 0.001)) return mag;
+    const ux = dxM / mag, uy = dyM / mag;
+    const dist = Math.min(this.viewSize / 2 - 18, 140);
+    const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
+    // Perpendicular to the bearing gives the triangle's base.
+    const pxN = -uy, pyN = ux;
+    const back = 14, halfW = 7;
+    this._drawArrowTriangle(this.facingGfx, tipX, tipY,
+      tipX - ux * back + pxN * halfW, tipY - uy * back + pyN * halfW,
+      tipX - ux * back - pxN * halfW, tipY - uy * back - pyN * halfW,
+      outlineAlpha, fillColor);
+    return mag;
+  }
+
+  // The nearest starter supply crate the player has not opened yet, or null.
+  // The crate trail (see _placeStarterTrail) is seeded along the road out to
+  // 15 cells, but the viewport is only VIEW_CELLS across — so most of the
+  // trail spawns off-screen, and without a bearing the "follow the breadcrumbs"
+  // onboarding is unfollowable. Ids are stamped `chest_start_*` at placement,
+  // which is what distinguishes them from ordinary POI chests.
+  _nearestStarterCrate() {
+    const opened = new Set(this.save.opened || []);
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    let best = null, bestD2 = Infinity;
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.kind !== 'chest' || !o.id) continue;
+        if (!String(o.id).startsWith('chest_start_')) continue;
+        if (opened.has(o.id)) continue;
+        const dx = o.x - pWX, dy = o.y - pWY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; best = o; }
+      }
+    }
+    return best;
+  }
+
   // === Tick ===
   update(_, dtMs) {
     // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
@@ -2233,6 +2323,26 @@ class MapScene extends Phaser.Scene {
       this.targetGhost.setVisible(false);
     }
 
+    // GPS ghost: where you REALLY are, whenever the character isn't standing
+    // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
+    // fix wanders a few metres while you stand still) so it appears only when
+    // the stick has genuinely walked you off your position. Surface only —
+    // underground the fix isn't where you are in any useful sense.
+    if (this.gpsM && this.depth === 0) {
+      const rdx = this.gpsM.x - this.playerM.x;
+      const rdy = this.gpsM.y - this.playerM.y;
+      if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
+        const g = worldMetersToScreen(this,
+          this.startWorldM.x + this.gpsM.x,
+          this.startWorldM.y + this.gpsM.y);
+        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y + this.playerFeetNudgeY)).setVisible(true);
+      } else {
+        this.gpsGhost.setVisible(false);
+      }
+    } else if (this.gpsGhost.visible) {
+      this.gpsGhost.setVisible(false);
+    }
+
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
     // save object is mutated by reference, so the next persistSave (or the
     // pagehide flush in save.js) carries it. This bounds offline-rest drift
@@ -2319,8 +2429,9 @@ class MapScene extends Phaser.Scene {
       const base = 14 * SCALE; // distance from anchor to arrow base midpoint
       const halfW = 6 * SCALE; // half-width of the base
       // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
-      // 0 sits it on the centre; it used to be 2px higher.
-      const HEAD_DY = 0;
+      // 0 sits it on the centre, negative nudges it below — it rode 2px high
+      // once, and now sits 1px under centre, where it lines up with the art.
+      const HEAD_DY = -1;
       let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
         // Anchor over the target marker's head. targetGhost sits at sprite-center
@@ -2387,21 +2498,9 @@ class MapScene extends Phaser.Scene {
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
-        const pWX = this.startWorldM.x + this.playerM.x;
-        const pWY = this.startWorldM.y + this.playerM.y;
-        const dxM = this.pairyCompass.x - pWX, dyM = this.pairyCompass.y - pWY;
-        const mag = Math.hypot(dxM, dyM);
-        if (mag > 0.001 && Math.floor(Date.now() / 500) % 2 === 0) {
-          const ux = dxM / mag, uy = dyM / mag;
-          const dist = Math.min(this.viewSize / 2 - 18, 140);
-          const cx = this.viewCenterX, cy = this.viewCenterY;
-          const tipX = cx + ux * dist, tipY = cy + uy * dist;
-          // Perpendicular for triangle base.
-          const pxN = -uy, pyN = ux;
-          const back = 14, halfW = 7;
-          const blx2 = tipX - ux * back + pxN * halfW, bly2 = tipY - uy * back + pyN * halfW;
-          const brx2 = tipX - ux * back - pxN * halfW, bry2 = tipY - uy * back - pyN * halfW;
-          this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx2, bly2, brx2, bry2, 0.8, 0xc77dff);
+        // Blinks at 1 Hz to distinguish it from the solid delivery arrow.
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+          this._drawEdgeCompass(this.pairyCompass.x, this.pairyCompass.y, 0xc77dff, 0.8);
         }
       }
     }
@@ -2415,20 +2514,29 @@ class MapScene extends Phaser.Scene {
       const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
-      const dxM = this.deliveryCompass.x - pWX, dyM = this.deliveryCompass.y - pWY;
-      const mag = Math.hypot(dxM, dyM);
+      const mag = Math.hypot(this.deliveryCompass.x - pWX, this.deliveryCompass.y - pWY);
       if (satisfied || mag < this.cellM * 1.2) {
         this.deliveryCompass = null;
       } else {
-        const ux = dxM / mag, uy = dyM / mag;
-        const dist = Math.min(this.viewSize / 2 - 18, 140);
-        const cx = this.viewCenterX, cy = this.viewCenterY;
-        const tipX = cx + ux * dist, tipY = cy + uy * dist;
-        const pxN = -uy, pyN = ux;
-        const back = 14, halfW = 7;
-        const blx3 = tipX - ux * back + pxN * halfW, bly3 = tipY - uy * back + pyN * halfW;
-        const brx3 = tipX - ux * back - pxN * halfW, bry3 = tipY - uy * back - pyN * halfW;
-        this._drawArrowTriangle(this.facingGfx, tipX, tipY, blx3, bly3, brx3, bry3, 0.9, 0xffffff);
+        this._drawEdgeCompass(this.deliveryCompass.x, this.deliveryCompass.y, 0xffffff, 0.9);
+      }
+    }
+
+    // Starter-crate trail — a GOLD arrow toward the nearest unopened supply
+    // crate, shown only while the first-session ladder is still running. The
+    // crates are the game's designed opening breadcrumb but most of the trail
+    // seeds outside the viewport, so without this the player is told to follow
+    // a trail they cannot see. Retires itself the moment the ladder finishes
+    // or is dismissed, and stops pointing once the player is on top of a crate
+    // (it is in reach by then, and the arrow would only cover the sprite).
+    if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
+      const crate = this._nearestStarterCrate();
+      if (crate) {
+        const pWX = this.startWorldM.x + this.playerM.x;
+        const pWY = this.startWorldM.y + this.playerM.y;
+        if (Math.hypot(crate.x - pWX, crate.y - pWY) > this.cellM * 1.5) {
+          this._drawEdgeCompass(crate.x, crate.y, 0xffd24a, 0.9);
+        }
       }
     }
 
@@ -2686,11 +2794,13 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
-    // Catch wheels sit over a creature sprite, which is drawn taller than the
-    // static targets (rock / tree / crop) the -9 default was tuned for, so the
-    // wheel read as overlapping the animal's body. Lift it another 5 px so it
-    // clears the fauna the same way it clears a rock.
-    const cy = Math.round(screen.y) - 9 - (wp.flee ? 5 : 0);
+    // Wheels over a CREATURE — a capture (wp.flee) or a monster fight (wp.track)
+    // — sit on a sprite drawn taller than the static targets (rock / tree /
+    // crop) the -9 default was tuned for, so they read as overlapping the body.
+    // Lift those 4 px, and a capture a further 5 on top: its target is fleeing,
+    // so the wheel wants to clear the animal outright rather than hug it.
+    const overCreature = !!(wp.flee || wp.track);
+    const cy = Math.round(screen.y) - 9 - (overCreature ? 4 : 0) - (wp.flee ? 5 : 0);
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
@@ -3547,6 +3657,14 @@ class MapScene extends Phaser.Scene {
     this._followPaused = false;
     if (this.targetGhost) this.targetGhost.setVisible(false);
   }
+  // Is the stick actually being PUSHED right now? Pointer-down alone isn't
+  // enough — a finger resting on a centred nub holds _movePadHeld true while
+  // steering nothing, and treating that as steering would animate the player
+  // walking on the spot.
+  _stickPushed() {
+    const v = this.joystickVec;
+    return !!(this._movePadHeld && v && (v.x || v.y));
+  }
   // Effective amulet for WALKING: the best of what the player is wearing and
   // what they're currently buffed with. Dragon Powder and the Speed potion are
   // both just borrowed amulet tiers now — no modes, no separate speed ladders
@@ -3574,9 +3692,10 @@ class MapScene extends Phaser.Scene {
   //     actually walking.
   //
   // The amulet is the upgrade to exactly this: steerSpeedMul scales how fast
-  // the stick walks you (1× bare → 4.5× at Frost) and steerEnergyCost scales
-  // what it costs (1 pip/cell bare → 0.15 at Frost). A speed potion stands in
-  // for a tier-9 amulet on both counts for its minute.
+  // the stick walks you (5× bare — one cell a second — → 15.5× at Frost) and
+  // steerEnergyCost scales what it costs (1 pip/cell bare → 0.15 at Frost).
+  // Dragon Powder and the speed potion stand in for tier 8 / 9 amulets on both
+  // counts for their minute (see _walkRelics).
   _steerManual(vx, vy, dt) {
     const n = Math.hypot(vx, vy);
     if (!n) return;
@@ -3604,6 +3723,12 @@ class MapScene extends Phaser.Scene {
     this._manualOffsetM.x += dx;
     this._manualOffsetM.y += dy;
     this._followPaused = false;
+    // Remember which way the stick is pushing. _followStep animates from this
+    // rather than from its own step vector while you steer: the body sits
+    // within a step of a target you're dragging along, so its step vector
+    // wobbles (and briefly points backwards) frame to frame, which showed up
+    // as the sprite flickering between walk and idle and flipping direction.
+    this._stickHeading = { x: vx / n, y: vy / n };
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
@@ -3641,11 +3766,16 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress) { this._playDirected(this.player, 'idle'); return; }
     // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
     if (this._followPaused) { this._playDirected(this.player, 'idle'); return; }
+    // Steering? Then the walk animation follows the STICK, not the step vector
+    // (see _stickHeading) — and "arrived" doesn't mean stop, because the target
+    // is being dragged away again the very next frame.
+    const steering = this._stickPushed() && this._stickHeading;
     const body = this.playerM;
     const dx = this._targetM.x - body.x, dy = this._targetM.y - body.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
-      this._playDirected(this.player, 'idle');
+      if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
+      else this._playDirected(this.player, 'idle');
       return;
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
@@ -3657,10 +3787,13 @@ class MapScene extends Phaser.Scene {
     // (steerSpeedMul - 1) cells behind a stick that's being held down — at
     // Frost that's a 20 m tail, and 20 m of coasting after you let go, which
     // reads as lag rather than speed. The floor is deliberately NOT applied
-    // when the stick is idle: a Frost amulet would otherwise have the body
-    // darting at 4.5× after every few metres of GPS jitter.
-    const stickMul = this._movePadHeld ? steerSpeedMul(this._walkRelics()) : 1;
-    const mul = Math.min(DEBUG_SPEED_MUL, Math.max(stickMul, 1 + dist / this.cellM));
+    // when the stick is idle: an amulet would otherwise have the body darting
+    // after every few metres of GPS jitter. The cap has to clear the floor —
+    // stick speeds run past DEBUG_SPEED_MUL from tier 4 up, and a cap under
+    // the floor would silently cancel it.
+    const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
+    const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
+                         Math.max(stickMul, 1 + dist / this.cellM));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -3671,9 +3804,11 @@ class MapScene extends Phaser.Scene {
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
     // Heading is the facing FALLBACK only — a real compass reading wins, same
     // rule _steerTarget follows. (The walk animation always uses the heading:
-    // _playDirected is handed ux/uy explicitly rather than reading this.facing.)
+    // _playDirected is handed the vector explicitly rather than reading
+    // this.facing.)
     if (this.compassDeg == null) this.facing = { x: ux, y: uy };
-    this._playDirected(this.player, 'walk', ux, uy);
+    if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
+    else this._playDirected(this.player, 'walk', ux, uy);
     // How much closer did we actually get? Against a wall in the heading
     // direction this collapses toward zero even while sliding sideways, so
     // we're blocked when progress is under half the step we tried to take.
@@ -4320,6 +4455,69 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // ── First-session objective chip ────────────────────────────────────────
+  // Renders the active step of the starter ladder (quests.js STARTER_CHAIN)
+  // into #objective. One step is shown at a time — the whole point is to
+  // answer "what now?" with a single instruction, not a checklist. The chip
+  // removes itself once the ladder is finished or the player dismisses it.
+  updateObjectiveDOM() {
+    const el = document.getElementById('objective');
+    if (!el) return;
+    if (typeof Quests === 'undefined' || Quests.starterHidden(this.save)) {
+      el.style.display = 'none';
+      return;
+    }
+    const step = Quests.starterCurrent(this.save);
+    if (!step) { el.style.display = 'none'; return; }
+    const idx = Quests.starterStepIndex(this.save);
+    el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
+    el.querySelector('.title').textContent = step.title;
+    el.querySelector('.body').textContent  = step.body;
+    el.style.display = 'block';
+  }
+
+  // Hide the chip for good (the × button). The ladder keeps tracking quietly
+  // underneath, so nothing downstream has to care that it was dismissed.
+  dismissObjective() {
+    if (typeof Quests === 'undefined') return;
+    Quests.starterDismiss(this.save);
+    persistSave(this.save);
+    this.updateObjectiveDOM();
+  }
+
+  // Report a gameplay event to the starter ladder. Called from the site that
+  // performs the action (open a crate, till, plant, restore, harvest, sell);
+  // no-ops unless that event is exactly what the current step is waiting for,
+  // so the call sites can fire unconditionally and stay ignorant of the chain.
+  questEvent(event) {
+    if (typeof Quests === 'undefined') return;
+    const done = Quests.onStarterEvent(this.save, event);
+    if (!done) return;
+    if (done.reward?.money) addMoney(this.save, done.reward.money);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +$${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+    // Hold the COMPLETED step on screen in green for a beat before swapping in
+    // the next one, so finishing something is legible instead of an instant
+    // relabel. The held text is written from `done` rather than left as
+    // whatever the chip happened to show, so two completions in quick
+    // succession each get their own flash instead of re-freezing a stale one.
+    const el = document.getElementById('objective');
+    // No chip on screen (dismissed, or not built yet) — just resync and go.
+    if (!el || el.style.display === 'none') { this.updateObjectiveDOM(); return; }
+    el.classList.add('done');
+    el.querySelector('.step').textContent  = '✓';
+    el.querySelector('.title').textContent = done.title;
+    el.querySelector('.body').textContent  = done.reward?.money
+      ? `Done — $${done.reward.money} earned.`
+      : 'Done.';
+    if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
+    this._objectiveTimer = setTimeout(() => {
+      el.classList.remove('done');
+      this.updateObjectiveDOM();
+    }, 1400);
+  }
+
   // Spend energy if the player has enough, returning true on success.
   // Callers (interact.js handlers) refuse the action when this returns false.
   spendEnergy(cost, sx, sy) {
@@ -4952,6 +5150,7 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.buildInventoryDOM();
           this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+          this.questEvent('sell');
         },
       });
       return;
@@ -6533,6 +6732,7 @@ class MapScene extends Phaser.Scene {
         }
         persistSave(this.save);
         this.buildInventoryDOM();
+        this.questEvent('restore');
         if (this.showChestRewardModal) {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
@@ -7659,7 +7859,8 @@ class MapScene extends Phaser.Scene {
       tab.title = c.label;
       tab.style.cssText =
         'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
-        'font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;' +
+        'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
+        'justify-content:center;gap:1px;padding:0;overflow:hidden;' +
         (active
           ? 'background:#553a;border:2px solid #ffe066;border-bottom-color:#553a;color:#fff;'
           : 'background:#222a;border:2px solid #555;color:#ddd;');
@@ -7671,6 +7872,17 @@ class MapScene extends Phaser.Scene {
       glyph.textContent = c.sym;
       glyph.style.cssText = 'line-height:1;' + (active ? '' : 'filter:grayscale(1) opacity(0.55);');
       tab.appendChild(glyph);
+      // Word under the glyph. Seven unlabelled emoji left a new player guessing
+      // which one holds seeds — and the seed tab is the first thing the starter
+      // ladder asks them to find. `title` alone doesn't help on a touch device,
+      // where there is nothing to hover.
+      const caption = document.createElement('span');
+      caption.textContent = c.label;
+      caption.style.cssText =
+        'font:700 7px ui-monospace,monospace;letter-spacing:-0.2px;line-height:1;' +
+        'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        (active ? 'color:#ffe066;' : 'color:#999;');
+      tab.appendChild(caption);
       // Tiny count pip so the player can see at a glance which tabs hold gear.
       if (count > 0) {
         const pip = document.createElement('span');
