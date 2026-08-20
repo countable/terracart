@@ -862,8 +862,13 @@ HUD
 HOW THE COLOUR LANGUAGE LANDS ON THE HUD (see §UI COLOUR LANGUAGE above)
  - Every persistent CONTROL carries the control colour: the menu button, the
    walking stick, inventory tabs and slots, the pager, the action buttons, the
-   objective chip's close button. At REST they wear --gold-dark
-   (UI_CONTROL_DIM); SELECTED/ACTIVE lights to --gold (UI_CONTROL). The
+   objective chip's close button. At REST they wear --ctl-rim (the control
+   colour with the light off — an alpha on --gold-dark, not a new hue);
+   SELECTED/ACTIVE lights to --gold (UI_CONTROL) plus a lit face and a gold
+   glow. Resting rims were briefly painted in full --gold-dark, which left
+   only a 1.79:1 luminance step to the selected state and made an unselected
+   item slot read almost as lit as the selected one; the unlit rim takes that
+   step to 4.85:1. The
    walking stick was purple until this pass — the single most-touched control
    in the game, painted a colour that said nothing about being touchable.
  - Surfaces that only REPORT give the colour up, and wear neutral INK instead:

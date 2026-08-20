@@ -61,6 +61,14 @@
          neutral ink, deliberately outside both meaning-carrying families. */
       --bone:       #cfc6b4;   /* readout ink — what you actually read       */
       --dust:       #8d857a;   /* secondary readout ink — glance-only        */
+      /* A control at REST vs a control SELECTED has to be obvious at a glance,
+         and painting the resting rim in full --gold-dark did not clear that
+         bar: an unselected item slot read almost as lit as the selected one.
+         This is the SAME control colour with the light off — an alpha on
+         --gold-dark, not a new hue — so the rest→selected step is a real jump
+         (unlit rim → --gold rim + lit face + gold glow) while the family the
+         colour language names stays a family of one. */
+      --ctl-rim:    rgba(200, 166, 74, 0.42);   /* --gold-dark, unlit */
       /* ── HUD chrome ───────────────────────────────────────────────────
          One vocabulary for every persistent HUD surface, so the money chip,
          the item slots and the walking stick read as parts of the same
@@ -351,8 +359,8 @@
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
       list-style: none; cursor: pointer; user-select: none;
-      background: var(--chrome-scuff), var(--chrome-face); color: var(--gold);
-      border: 2px solid var(--gold-dark); border-radius: 8px;
+      background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
+      border: 2px solid var(--ctl-rim); border-radius: 8px;
       padding: 2px 8px; font: 700 16px ui-monospace, monospace;
       line-height: 1.4;
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
@@ -426,7 +434,7 @@
        bottom corners, no bottom edge on the selected one). */
     .hud-tab {
       background: var(--chrome-scuff), var(--chrome-face);
-      border: 2px solid var(--gold-dark); color: var(--bone);
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -444,7 +452,7 @@
     /* Raised control — pager arrows, sort. */
     .hud-btn {
       background: var(--chrome-scuff), var(--chrome-face);
-      border: 2px solid var(--gold-dark); color: var(--bone);
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
@@ -456,7 +464,7 @@
        sits in a recess. Selected lights the well gold. */
     .hud-slot {
       background: var(--chrome-sunk);
-      border: 2px solid var(--gold-dark); color: var(--bone);
+      border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
     .hud-slot.sel {
