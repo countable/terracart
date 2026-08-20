@@ -9,22 +9,39 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v61';
+const SHELL_VERSION = 'shell-v62';
 const TILE_CACHE    = 'tiles-v1';
 
+// The non-script shell. The SCRIPTS are not listed here on purpose — they're
+// read out of index.html at install time (see scriptUrlsFromIndex), because a
+// hand-maintained list drifts: this one once named 6 of the ~25 modules the
+// page loads, app.js among them and save.js not, which is exactly how a boot
+// could end up with the app but not its save layer ("loadSave is not defined").
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './vendor/phaser.js',
-  './src/mvt.js',
-  './src/home.js',
-  './src/biome_profiles.js',
-  './src/worldgen.js',
-  './src/textures.js',
-  './src/geo.js',
-  './src/app.js',
 ];
+
+// Every same-origin script index.html pulls in, at the exact ?v= URLs it asks
+// for. Covers both the plain <script src> tags and app.js, which the boot gate
+// injects from the APP_SRC string rather than a tag.
+async function scriptUrlsFromIndex() {
+  try {
+    const resp = await fetch('./index.html', { cache: 'no-cache' });
+    if (!resp.ok) return [];
+    const html = await resp.text();
+    const urls = [];
+    for (const m of html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)) urls.push(m[1]);
+    const app = html.match(/APP_SRC\s*=\s*['"]([^'"]+)['"]/);
+    if (app) urls.push(app[1]);
+    // Same-origin only — a CDN URL isn't ours to cache.
+    return urls.filter(u => !/^[a-z]+:\/\//i.test(u) && !u.startsWith('//'));
+  } catch (_) {
+    return [];
+  }
+}
 
 self.addEventListener('install', (event) => {
   // Activate this worker immediately rather than waiting for open tabs to
@@ -35,7 +52,8 @@ self.addEventListener('install', (event) => {
   // any missing asset will be fetched normally and cached lazily on first use.
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_VERSION);
-    await Promise.allSettled(SHELL_ASSETS.map(u => cache.add(u)));
+    const scripts = await scriptUrlsFromIndex();
+    await Promise.allSettled([...SHELL_ASSETS, ...scripts].map(u => cache.add(u)));
   })());
 });
 
@@ -94,15 +112,18 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL_VERSION);
       if (isHTML) {
-        try {
-          const resp = await fetch(req);
-          if (resp.ok) cache.put(req, resp.clone());
+        let resp = null;
+        try { resp = await fetch(req); } catch (_) { resp = null; }
+        if (resp && resp.ok) {
+          cache.put(req, resp.clone());
           return resp;
-        } catch {
-          const cached = await cache.match(req);
-          if (cached) return cached;
-          throw new Error('offline and no cached HTML');
         }
+        // Offline, or the server answered 5xx — the last good copy beats an
+        // error page, and its ?v= URLs are the ones already in this cache.
+        const cachedHTML = await cache.match(req)
+          || await cache.match(req, { ignoreSearch: true });
+        if (cachedHTML) return cachedHTML;
+        return resp || new Response('', { status: 504, statusText: 'offline' });
       }
       const cached = await cache.match(req);
       if (cached) {
@@ -112,16 +133,28 @@ self.addEventListener('fetch', (event) => {
         }).catch(() => {}));
         return cached;
       }
-      // Not cached → go to network. NEVER resolve respondWith() with undefined:
-      // on a network failure return a real error Response so the browser can
-      // surface a normal load error instead of throwing a SW invariant.
-      try {
-        const resp = await fetch(req);
-        if (resp.ok) cache.put(req, resp.clone());
+      // Not cached — this exact ?v= is new, so go to network.
+      let resp = null;
+      try { resp = await fetch(req); } catch (_) { resp = null; }
+      if (resp && resp.ok) {
+        cache.put(req, resp.clone());
         return resp;
-      } catch {
-        return new Response('', { status: 504, statusText: 'offline' });
       }
+      // The fetch died or came back 4xx/5xx. A page HALF loads in that case:
+      // the modules already cached run, the one that failed doesn't, and the
+      // app throws on the first symbol from the missing file ("loadSave is not
+      // defined" on a refresh right after a deploy, when a single request
+      // hiccuped). So fall back to ANY cached build of the same PATH, ignoring
+      // the ?v=. A module one deploy stale still defines its functions; a
+      // missing one defines nothing, and the whole game is dead until the
+      // network comes back. Mixed versions are the lesser evil, and only ever
+      // happen on a request that already failed.
+      const stale = await cache.match(req, { ignoreSearch: true });
+      if (stale) return stale;
+      // Nothing cached under that path either. NEVER resolve respondWith()
+      // with undefined: hand back a real Response so the browser surfaces a
+      // normal load error instead of a SW invariant.
+      return resp || new Response('', { status: 504, statusText: 'offline' });
     })());
     return;
   }
