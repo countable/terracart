@@ -5,14 +5,14 @@
 // ROAD/PATH tiles (see worldgen.js classifyLine / paintLine). That's a lossy
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together, and parking aisles are dropped entirely. This layer draws the
-// SOURCE linework straight from the decoded MVT features on top of the map, in
-// black at 19% alpha, so the rasterized roads can be eyeballed against the real
-// ways they came from.
+// SOURCE linework straight from the decoded MVT features on top of the map, as
+// a soft brown band at 21% alpha, so the rasterized roads can be eyeballed
+// against the real ways they came from.
 //
 // Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
 // drawn to the map's scale, so the band covers roughly the ground the road
-// covers: a 5 m residential street is one cell wide, a 12 m motorway more
-// than two.
+// covers: with 7 m cells a 5 m residential street is a little under one cell
+// wide, a 12 m motorway a little under two.
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
@@ -29,8 +29,12 @@
 //   RoadOverlay.isOn(scene)      — is the overlay enabled for this save?
 //   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
 (function (global) {
-  const COLOR = 0x000000;
-  const ALPHA = 0.19;    // black @ 19% — reads as a band without hiding the map
+  // Warm earth brown rather than black: the ways read as packed track over the
+  // biome colours instead of as a shadow, and they sit in the same family as
+  // the cobble the rasterizer paints.
+  const COLOR = 0x6b4a2f;
+  const COLOR_CSS = '#6b4a2f';
+  const ALPHA = 0.21;    // 21% — reads as a band without hiding the map
   const MVT_EXTENT = 4096;
   // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
   // the shared table lives there so the overlay and the rasterizer agree.
@@ -38,13 +42,64 @@
 
   // Stroke width for one way: its real-world carriageway width, drawn at the
   // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
-  // residential street covers exactly the one cell the rasterizer paints for
-  // it, and a 12 m motorway visibly covers more than two.
+  // residential street lands just inside the single cell the rasterizer paints
+  // for it, and a 12 m motorway visibly spills past that cell on both sides.
   function widthPxFor(scene, tags) {
     const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
       ? WorldGen.roadWidthM(tags || {})
       : FALLBACK_WIDTH_M;
     return Math.max(1, (m / scene.cellM) * CELL_PX);
+  }
+
+  // ── Stroke target ────────────────────────────────────────────────────────
+  // The overlay strokes into a Graphics-SHAPED object: clear / lineStyle /
+  // beginPath / moveTo / lineTo / strokePath, plus an optional commit() once
+  // the pass is done. In the game that's the canvas-2D adapter below; the
+  // headless tests inject their own recording stub as scene.roadGeomGfx.
+  //
+  // Why canvas 2D rather than a Phaser Graphics:
+  //   • ROUND CAPS + JOINS. Phaser's Graphics has no lineCap/lineJoin control,
+  //     so every way ended in a hard square butt and every bend showed a notch.
+  //   • NO DOUBLED JOINTS. A translucent stroke composites with ITSELF wherever
+  //     a path doubles back over its own width — at every junction and sharp
+  //     bend — stacking 21% on 21% into a dark blot. Here the whole network is
+  //     drawn OPAQUE into an offscreen canvas and the resulting image is shown
+  //     at ALPHA, so overlaps are opaque-on-opaque and the band stays even.
+  // The texture covers the viewport plus PAD on each side (the same pad the
+  // culler keeps), and the container scrolls it for the sub-cell offset.
+  const TEX_KEY = 'roadgeom_overlay';
+  function canvasTarget(scene) {
+    if (typeof document === 'undefined' || !scene.textures || !scene.roadGeomContainer) return null;
+    if (scene._roadGeomTarget) return scene._roadGeomTarget;
+    const pad = CELL_PX * 2;
+    const size = Math.ceil(scene.viewSize + pad * 2);
+    const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
+    if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
+    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    if (!tex) return null;
+    const ctx = tex.getContext();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0).setAlpha(ALPHA);
+    scene.roadGeomContainer.add(img);
+    const target = {
+      clear() { ctx.clearRect(0, 0, size, size); },
+      // Colour + alpha are the module's constants for every way; the alpha is
+      // carried by the IMAGE (see above), so the stroke itself is opaque.
+      lineStyle(w) { ctx.lineWidth = w; ctx.strokeStyle = COLOR_CSS; },
+      beginPath() { ctx.beginPath(); },
+      moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
+      lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
+      strokePath() { ctx.stroke(); },
+      commit() { tex.refresh(); },
+    };
+    scene._roadGeomTarget = target;
+    return target;
+  }
+  // Prefer a scene-provided Graphics-shaped object (the headless tests inject
+  // one); otherwise build the canvas adapter.
+  function strokeTarget(scene) {
+    return scene.roadGeomGfx || canvasTarget(scene);
   }
 
   // Overlay is ON unless the save explicitly turned it off, so an existing
@@ -63,13 +118,17 @@
   // every frame. Without it this pass would re-stroke a few thousand segments
   // per frame just to move them a pixel.
   function draw(scene) {
-    const g = scene.roadGeomGfx;
+    const g = strokeTarget(scene);
     if (!g) return;
     const container = scene.roadGeomContainer;
     const on = isOn(scene) && (scene.depth ?? 0) === 0;
     if (container) container.setVisible(on);
     if (!on) {
-      if (scene._roadGeomKey !== null) { g.clear(); scene._roadGeomKey = null; }
+      if (scene._roadGeomKey !== null) {
+        g.clear();
+        if (g.commit) g.commit();
+        scene._roadGeomKey = null;
+      }
       return;
     }
 
@@ -102,7 +161,7 @@
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
-    const g = scene.roadGeomGfx;
+    const g = strokeTarget(scene);
     g.clear();
     const pWorldX = scene.startWorldM.x + scene.playerM.x;
     const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -177,6 +236,9 @@
         g.strokePath();
       }
     }
+    // Upload the finished canvas once, after every way is on it — not per
+    // stroke. No-op for the tests' recording stub.
+    if (g.commit) g.commit();
   }
 
   global.RoadOverlay = { draw, isOn, invalidate };

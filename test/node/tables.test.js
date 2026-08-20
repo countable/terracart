@@ -70,3 +70,61 @@ test('WorldGen namespace is present and usable headlessly', () => {
   assert.eq(typeof WorldGen.lonLatToWorldPx, 'function', 'projection fn present');
   assert.eq(typeof WorldGen.Z, 'number', 'tile zoom is a number');
 });
+
+// ── Amulet: stick walking ────────────────────────────────────────────────────
+// The stick is always present and always works; the amulet is purely an upgrade
+// to it. Both curves therefore have to answer for a bare hand (tier 0) — the
+// old ghost-mode pair returned 0 there, meaning "no pad at all", and callers
+// had to paper over it with `|| 8` / `|| 1`.
+
+test('steerSpeedMul: bare hands cover a cell a second, the amulet goes up from there', () => {
+  // The baseline is 5× walk pace on purpose: WALK_M_S (1.4) × 5 ≈ 7 m/s, which
+  // is one WorldGen.CELL_M cell per second. Real walk pace crawls across an
+  // 11-cell view, which is what "the default walk speed is super slow" was.
+  assert.eq(steerSpeedMul({}), 5, 'no relics');
+  assert.eq(steerSpeedMul({ amulet: null }), 5, 'no amulet');
+  assert.eq(steerSpeedMul({ amulet: { tier: 1 } }), 6.5, 'T1');
+  assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), 15.5, 'T7 (Frost)');
+  assert.inRange(steerSpeedMul({}) * 1.4, WorldGen.CELL_M - 0.5, WorldGen.CELL_M + 0.5,
+    'bare baseline is ~one cell per second');
+  // Monotonic, and never below the bare-handed baseline.
+  let prev = 0;
+  for (let t = 0; t <= 7; t++) {
+    const v = steerSpeedMul({ amulet: { tier: t } });
+    assert.gte(v, 5, `tier ${t} at least the baseline`);
+    assert.gt(v, prev, `tier ${t} beats tier ${t - 1}`);
+    prev = v;
+  }
+});
+
+test('steerEnergyCost: 1 pip/cell bare, ~7× cheaper at Frost', () => {
+  assert.eq(steerEnergyCost({}), 1, 'no relics — full price');
+  assert.eq(steerEnergyCost({ amulet: { tier: 1 } }), 1, 'T1 matches bare hands');
+  assert.inRange(steerEnergyCost({ amulet: { tier: 7 } }), 0.149, 0.151, 'T7 ≈ 0.15');
+  // Monotonic downward, and always something — walking off the GPS is never free.
+  let prev = Infinity;
+  for (let t = 1; t <= 7; t++) {
+    const v = steerEnergyCost({ amulet: { tier: t } });
+    assert.gt(v, 0, `tier ${t} still costs`);
+    assert.truthy(v <= prev, `tier ${t} no dearer than tier ${t - 1}`);
+    prev = v;
+  }
+});
+
+test('steer curves: the borrowed buff tiers rank above Frost and never pay you to walk', () => {
+  // Two buffs borrow an amulet tier instead of adding a movement mode (app.js
+  // _walkRelics): Dragon Powder walks as tier 8, the Speed potion as tier 9.
+  // Both run the linear cost curve negative — the floor is what keeps a minute
+  // of either from REFUNDING energy.
+  const DRAGON = 8, POTION = 9;
+  for (const t of [DRAGON, POTION]) {
+    assert.gt(steerEnergyCost({ amulet: { tier: t } }), 0, `tier ${t} still costs something`);
+    assert.lt(steerEnergyCost({ amulet: { tier: t } }), steerEnergyCost({ amulet: { tier: 7 } }),
+      `tier ${t} cheaper than Frost`);
+  }
+  // Speed ranks bare < Frost < dragon < potion.
+  const speeds = [0, 7, DRAGON, POTION].map(t => steerSpeedMul({ amulet: { tier: t } }));
+  for (let i = 1; i < speeds.length; i++) {
+    assert.gt(speeds[i], speeds[i - 1], `speeds ascend: ${speeds.join(' < ')}`);
+  }
+});

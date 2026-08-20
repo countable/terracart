@@ -78,6 +78,11 @@
 - **Work on the feature branch designated for the session** (the branch
   named in the session/task instructions). Create it locally if it
   doesn't exist yet.
+- **Minor changes can go straight to `main`** — a one-line constant, a
+  colour or copy fix, a small self-contained tweak to one file. Commit on
+  `main` and push; no branch, no merge commit. Anything bigger — work
+  spanning several files, a new module, a behaviour change worth reading
+  as one unit — belongs on the session branch.
 - **When work is ready, merge to `main` and push `main`** (via `git merge`,
   never rebase) rather than pushing the feature branch. Go ahead and do it
   — no approval needed.

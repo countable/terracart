@@ -104,6 +104,16 @@ MOVEMENT & REACH
  - GPS (geolocation) drives the player on mobile. WASD / arrow keys move on
    desktop / localhost. The first manual key press latches a manual override
    for the session (GPS stops fighting the keyboard).
+ - ONE movement model at every depth: a GPS fix (plus any stick offset, see
+   STICK WALKING) sets a TARGET and the body walks toward it — underground
+   mining through whatever blocks it, on the surface a plain walk.
+ - a GPS GHOST (translucent, cool-tinted) marks your REAL position whenever
+   the stick has walked the character more than a cell off it, so you can see
+   where you are and walk back.
+ - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
+   it walks you off the GPS target for stamina. Nothing ever replaces it —
+   Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
+   9), and the ☰ "Free walking (debug)" toggle only makes it cost nothing.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
    player's head; with no compass it falls back to the last move direction.
  - REACH: you can only interact with cells within your reach radius (cardinally)
@@ -586,15 +596,27 @@ GEAR: RELICS & ARMOR
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
               wizard tower's Inner Light, tier = inner-light/reach level
-     amulet — projects a GHOST (see below); higher tier = faster + cheaper
+     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
      sword  — raises sell prices (0.5× → 1.0× at Frost)
      bow    — lowers buy prices (T7 = par)
      staff  — pure hunting weapon (speeds the pest-defeat wheel; no price effect)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
- - GHOST MODE (amulet): an on-screen pad projects a fast ghost you steer to
-   SCOUT ahead while your real body stays put. Energy drains per cell moved
-   (~1/cell at T1, falling to ~0.15/cell at T7). Releasing the pad collapses
-   the ghost back to your body. Speed scales ~8×→24× walk with amulet tier.
+ - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
+   needed and no separate mode. It walks the character somewhere OTHER than
+   the GPS target, and what it walks is the body itself: there is no ghost and
+   no snap-back on release. The distance walked is banked as an offset from
+   your real position, so each new fix targets (GPS + offset) and the ground
+   you covered by hand survives it; a GPS jump big enough to be a relocation
+   (GPS_SNAP_M) re-anchors you and drops the offset. Walking WITH the GPS is
+   free — that's you actually walking. Stick walking costs energy per cell,
+   and the AMULET is the upgrade to it: speed 5× walk bare (≈ one cell per
+   second — real walk pace is unusably slow on an 11-cell view) → 15.5× at Frost,
+   cost 1/cell bare → ~0.15/cell at Frost. At 0 energy the stick stops
+   ("too tired"); the GPS still moves you. Two things borrow a tier rather
+   than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
+   damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
+   walking (debug)" toggle drops the stamina cost to nothing and with it the
+   0-energy stop; it changes nothing else.
  - TIER GATING: the only gate on rarer relic/armor tiers is the per-source LOOT
    RULE — each chest/fishing source has a tier ceiling derived from its own tier
    (rarity.js: maxTier / relicCap, plus the chest-tier→preferred clamp), so a
@@ -722,8 +744,9 @@ UNDERGROUND CAVES (Phase 1)
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
    HP / RANGE / DAMAGE / SPEED, and is DEFEATED via the work wheel (HP scales
-   the wheel; tougher kinds take longer; no drops). Kinds are gated by depth so
-   descending introduces new foes; density rises gently with depth:
+   the wheel; tougher kinds take longer; no drops). Each monster lands at most
+   one hit every 2 s (MONSTER_HIT_MS). Kinds are gated by depth so descending
+   introduces new foes; density rises gently with depth:
      * cave slime    (depth 1+) — 15 hp, range 1, 2⚡/hit, slow
      * bat           (depth 1+) — 6 hp,  range 1, 1⚡/hit, fast + erratic, hovers
      * goblin        (depth 2+) — 25 hp, range 1, 4⚡/hit, medium speed (a slog)

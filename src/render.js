@@ -174,11 +174,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
-  // Cobble tiles (road cluster + path pebble alike) draw at 85% opacity so the
+  // Cobble tiles (road cluster + path pebble alike) draw at 77% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
   // scattered stone.
-  const COBBLE_ALPHA = 0.85;
+  const COBBLE_ALPHA = 0.77;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -510,13 +510,12 @@ Render.drawCells = function drawCells(scene) {
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
-          // pebble — are drawn 10% smaller than they used to be (per playtest),
-          // centred on the same point: roads at 0.99 of a cell (they were
-          // bumped 10% OVER cell size so the cluster read as a real surface
-          // rather than pixel speckle) and paths at 0.9. The PIER plank is not
-          // one of them and keeps cell size: its art tiles edge-to-edge across
-          // adjacent pier cells, and any resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.99 : CELL_PX * 0.90);
+          // pebble — sit inside their cell and have been stepped down 10% again
+          // (per playtest), centred on the same point: roads at 0.89 of a cell
+          // and paths at 0.81. The PIER plank is not one of them and keeps cell
+          // size: its art tiles edge-to-edge across adjacent pier cells, and any
+          // resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.89 : CELL_PX * 0.81);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -1776,23 +1775,25 @@ Render.drawObjects = function drawObjects(scene) {
     s.setTint(0xffffff);
   });
 
-  // POI name labels above chests. One uniform style for all labels:
-  // white text on a translucent grey bg, with a soft black drop shadow on
-  // the text. Fallback labels (unnamed POIs) render smaller, with tighter
-  // padding so they read as secondary descriptors.
-  // Light stone tablet with vivid saturated blue writing. Clean and flat —
-  // no glow, no chisel stroke — just bright royal blue on pale stone for
-  // maximum legibility. ~5:1 contrast on the chosen tone (WCAG AA).
-  const LABEL_BG       = 'rgb(202,206,212)';       // pale cool stone
-  const LABEL_INK      = '#1a3fbf';                // vivid royal blue
-  // 1px outline around the glyphs — same hue as the stone bg but 10%
-  // darker (RGB × 0.9 → rgb(182,185,191)) so the text "sits in" the
-  // tablet rather than floating on its surface.
-  const LABEL_STROKE   = 'rgb(182,185,191)';
-  const LABEL_STROKE_W = 1;
-  // Crate labels carry no plank, so their white glyphs are outlined in near-
-  // black to stay readable on pale ground as well as on grass.
-  const CRATE_LABEL_STROKE = '#14110c';
+  // POI name labels above chests. ONE style for every world label: pale glyphs
+  // outlined in near-black with a soft drop shadow, floating straight over the
+  // map — the same treatment the crate labels and the house shop-signs use, so
+  // a POI name reads as part of the same map lettering rather than as a UI
+  // element pasted on top. (POI names used to be royal blue on an opaque pale
+  // stone tablet; the plank fought every other label on screen.) The only
+  // difference between the two kinds is the ink: POI names take a subtle blue
+  // tint to keep the "this is a place" cue the blue used to carry, crates stay
+  // plain white. Fallback labels (unnamed POIs) render smaller, with tighter
+  // padding, so they read as secondary descriptors.
+  const LABEL_INK       = '#d8e6ff';   // white with a subtle cool-blue tint
+  const CRATE_LABEL_INK = '#ffffff';
+  // A 2px dark outline, not just a drop shadow: pale glyphs on their own
+  // vanish against pale ground (the commercial zone's light ceramic tiling,
+  // sand, concrete). The outline carries the lettering over any background;
+  // the shadow adds the lift.
+  const LABEL_STROKE    = '#14110c';
+  const LABEL_STROKE_W  = 2;
+  const LABEL_SHADOW    = 'rgba(0,0,0,0.75)';
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
     o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
@@ -1804,7 +1805,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (!tx) {
       tx = scene.add.text(0, 0, '', {
         font: fontMono('bold 10px'),
-        color: LABEL_INK, backgroundColor: LABEL_BG,
+        color: LABEL_INK,
         stroke: LABEL_STROKE, strokeThickness: LABEL_STROKE_W,
         padding: { x: 4, y: 3 },
       }).setOrigin(0.5, 0).setDepth(50);
@@ -1826,25 +1827,12 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller.
     tx.setFontSize(isFallback ? 9 : 11);
     tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
-    // Lowtier crates (the `box` sprite) get white lettering with NO stone plank
-    // — the label floats over the crate like the house signs do. Higher-tier
-    // chests keep the blue-on-stone tablet. The pool is shared across both
-    // kinds, so set the full style every frame.
-    if (_chestIsBox(o)) {
-      tx.setColor('#ffffff');
-      tx.setBackgroundColor(null);
-      // A 2px dark stroke around the glyphs, not just a drop shadow: white on
-      // its own vanishes against pale ground (the commercial zone's light
-      // ceramic tiling, sand, concrete). The stroke carries the lettering over
-      // any background; the shadow stays for depth.
-      tx.setStroke(CRATE_LABEL_STROKE, 2);
-      tx.setShadow(1, 1, 'rgba(0,0,0,0.75)', 2, true, true);
-    } else {
-      tx.setColor(LABEL_INK);
-      tx.setBackgroundColor(LABEL_BG);
-      tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
-      tx.setShadow(0, 0, 'rgba(0,0,0,0)', 0, false, false);
-    }
+    // Same treatment either way — only the ink differs (blue-tinted for a named
+    // POI, plain white for a supply crate). The pool is shared across both, and
+    // a pooled slot may have just drawn the other kind, so set it every frame.
+    tx.setColor(_chestIsBox(o) ? CRATE_LABEL_INK : LABEL_INK);
+    tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
+    tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
     // Always full opacity — opened chests keep their concrete-pad label
      // legible (per user: the dimmed-after-open look made closed shops read
      // as inactive). The opened/closed state is already conveyed by the
