@@ -7101,7 +7101,7 @@ class MapScene extends Phaser.Scene {
   // ─── Path-stone activation ───────────────────────────────────────
   // Each cell of a named pedestrian path is a "stone" the player can
   // claim by either tapping it or walking onto it. Claimed stones get a
-  // blue tint (render.js looks them up via _isPathStoneActive). When
+  // full opacity (render.js looks them up via _isPathStoneActive). When
   // every stone of one named path on one tile is claimed, the player
   // gets a fanfare modal with a T4 lowtier-class loot roll — the kind
   // of nice surprise a focused "walk the whole trail" run deserves.
