@@ -66,10 +66,11 @@ const WALK_M_S = 1.4;
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
 // anything beyond this is a vehicle trip or a backgrounded tab catching up —
 // travel the player never made on foot, so walking it back would be a
-// minutes-long trek across terrain they aren't on any more.
+// minutes-long trek across terrain they aren't on any more. 200 m is roughly
+// 15 s of that chase, and about three screens of the 11-cell view.
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
-const GPS_SNAP_M = 100;
+const GPS_SNAP_M = 200;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 // How far above dead-centre every dialog rides (game px, in #game's 844-tall
 // box). Reserved as bottom padding on the shared modal wrap so the flex-centred

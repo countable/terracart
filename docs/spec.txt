@@ -643,7 +643,10 @@ GEAR: RELICS & ARMOR
    no snap-back on release. The distance walked is banked as an offset from
    your real position, so each new fix targets (GPS + offset) and the ground
    you covered by hand survives it; a GPS jump big enough to be a relocation
-   (GPS_SNAP_M) re-anchors you and drops the offset. Walking WITH the GPS is
+   (GPS_SNAP_M, 200 m) re-anchors you and drops the offset — the body is
+   placed on the fix outright rather than walking there. Surface only:
+   underground a snap would drop you inside solid rock, so down there the body
+   always mines its way over, however far it is. Walking WITH the GPS is
    free — that's you actually walking. Stick walking costs energy per cell,
    and the AMULET is the upgrade to it: speed 5× walk bare (≈ one cell per
    second — real walk pace is unusably slow on an 11-cell view) → 15.5× at Frost,
