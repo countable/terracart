@@ -548,15 +548,63 @@
     } catch {}
   }
 
+  // --- External map data caching -------------------------------------------
+  // The OpenFreeMap MVT bytes for a tile are cached in IndexedDB and served
+  // from there FOREVER. Age never invalidates anything: once the bytes are
+  // older than TILE_REFRESH_MS the only thing that happens is a background
+  // re-fetch, and a re-fetch that fails (offline, 5xx, rate limit) changes
+  // nothing — the cached bytes stay exactly where they are. So a tile the
+  // player has visited once keeps rendering, forever, on any network.
+  //
+  // The base map barely moves; a month is a generous refresh cadence for a
+  // game whose world is streets and buildings. The ONLY thing that clears
+  // these records is the menu's "Reset this game", which wipes the tile DB on
+  // purpose.
+  const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
+  const _tileRefreshing = new Set();
+  // Retry floor for a tile whose build failed (see loadTile). Short enough
+  // that walking back into the tile after a blip re-tries it, long enough that
+  // a genuinely offline session doesn't rebuild on every call.
+  const TILE_RETRY_MS = 3000;
+  const _tileFailedAt = new Map();   // "z/x/y" → Date.now() of the last failure
+  // Set while rebuildTileWithBin is replacing a tile: the cross-tile chest
+  // dedup skips this key so the rebuild doesn't dedupe against the very entry
+  // it is about to replace.
+  let _dedupSkipKey = null;
+
+  function tileUrlFor(x, y) {
+    return TILE_URL.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
+  }
+  // Background refresh of a stale record. Never throws, never deletes: on any
+  // failure the existing cached bytes remain the tile's source of truth.
+  function refreshTileBytes(x, y) {
+    const key = `${Z}/${x}/${y}`;
+    if (_tileRefreshing.has(key)) return;
+    _tileRefreshing.add(key);
+    fetch(tileUrlFor(x, y))
+      .then((resp) => (resp.ok ? resp.arrayBuffer() : null))
+      .then((buf) => { if (buf) idbPut(key, { bytes: new Uint8Array(buf), fetchedAt: Date.now() }); })
+      .catch(() => {})
+      .finally(() => _tileRefreshing.delete(key));
+  }
   async function fetchTileBytes(x, y) {
     const key = `${Z}/${x}/${y}`;
     const cached = await idbGet(key);
-    if (cached) return { bytes: cached, fromCache: true };
-    const url = TILE_URL.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
-    const resp = await fetch(url);
+    if (cached) {
+      // Records written before the timestamp existed are bare Uint8Arrays.
+      // Re-stamp them as of now rather than treating them as infinitely old —
+      // otherwise every returning player's whole cache would refresh at once.
+      if (!cached.bytes) {
+        idbPut(key, { bytes: cached, fetchedAt: Date.now() });
+        return { bytes: cached, fromCache: true };
+      }
+      if (Date.now() - (cached.fetchedAt || 0) > TILE_REFRESH_MS) refreshTileBytes(x, y);
+      return { bytes: cached.bytes, fromCache: true };
+    }
+    const resp = await fetch(tileUrlFor(x, y));
     if (!resp.ok) throw new Error(`tile ${key} HTTP ${resp.status}`);
     const buf = new Uint8Array(await resp.arrayBuffer());
-    idbPut(key, buf);
+    idbPut(key, { bytes: buf, fetchedAt: Date.now() });
     return { bytes: buf, fromCache: false };
   }
 
@@ -2248,7 +2296,12 @@
     return Math.round(tileEdgeMeters(lat) / CELL_M);
   }
 
-  async function loadTile(x, y, lat) {
+  // opts.detached — build a tile entry WITHOUT touching the shared cache (no
+  // hit-check, no insert, no LRU prune, no failure bookkeeping). Used by
+  // rebuildTileWithBin so a replacement can be constructed alongside the live
+  // entry and swapped in only once it is ready.
+  async function loadTile(x, y, lat, opts) {
+    const detached = !!(opts && opts.detached);
     // NOTE: cache key is `${Z}/${x}/${y}` — same tile at a different latitude would alias.
     // Safe today because the player session is anchored to one START_LAT. If we ever
     // support session-scale long-distance teleports between very different latitudes,
@@ -2261,8 +2314,20 @@
     const depth = activeDepth;
     const tileCache = cacheFor(depth);
     const key = `${Z}/${x}/${y}`;
-    if (tileCache.has(key)) return tileCache.get(key);
+    if (!detached && tileCache.has(key)) return tileCache.get(key);
     if (depth > 0) return loadCaveTile(tileCache, depth, key, x, y, lat);
+    // A failed build used to stay in the cache as a permanent 'loading' entry
+    // with a rejected promise: loadTile returns cached entries without looking
+    // at their status, so ONE flaky fetch turned that tile into blank grass for
+    // the rest of the session, mid-walk. Failures now evict themselves (below)
+    // so the next ensureTilesAround retries — with a short floor so a hard
+    // offline stretch doesn't spin on rebuild attempts.
+    const failedAt = detached ? 0 : _tileFailedAt.get(key);
+    if (failedAt && Date.now() - failedAt < TILE_RETRY_MS) {
+      return { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat),
+               tileEdgeM: tileEdgeMeters(lat), promise: Promise.reject(new Error(`tile ${key} backoff`)),
+               _transient: true };
+    }
     const entry = { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat) };
     const tileEdgeM = tileEdgeMeters(lat);
     entry.tileEdgeM = tileEdgeM;
@@ -2280,8 +2345,9 @@
       const DEDUP_M = 120;
       const DEDUP_M2 = DEDUP_M * DEDUP_M;
       const byName = new Map();   // name → [{ x, y }]
-      for (const e of tileCache.values()) {
+      for (const [ek, e] of tileCache) {
         if (!e || !e.objects) continue;
+        if (ek === _dedupSkipKey) continue;   // rebuilding this tile — see rebuildTileWithBin
         for (const p of e.objects) {
           if (p.kind !== 'chest' || !p.name) continue;
           const k = p.name.trim().toLowerCase();
@@ -2651,8 +2717,18 @@
 
       entry.status = 'ready';
       entry.fromCache = fromCache;
+      _tileFailedAt.delete(key);
       return entry;
-    })();
+    })().catch((err) => {
+      // Drop the poisoned entry so the tile can be retried instead of being
+      // stuck as grass forever. Callers still see the rejection.
+      if (!detached) {
+        if (tileCache.get(key) === entry) tileCache.delete(key);
+        _tileFailedAt.set(key, Date.now());
+      }
+      throw err;
+    });
+    if (detached) return entry;
     tileCache.set(key, entry);
     // LRU prune to bound memory on long-walking sessions. Insertion order is
     // a reasonable proxy for "least recently loaded"; per-tile state worth
@@ -3163,9 +3239,44 @@
         try { await e.promise; } catch (_) { /* failed build — re-check below */ }
         e = cache.get(key);
       }
-      if (e && e.status === 'ready' && !e.hadBin) { cache.delete(key); return true; }
+      if (e && e.status === 'ready' && !e.hadBin) return rebuildTileWithBin(x, y, lat);
       return false;
     }).catch(() => false);
+  }
+
+  // Rebuild a READY surface tile in place so its freshly-arrived Overpass bin
+  // (real-world trees / street furniture) shows up this session.
+  //
+  // This used to be a plain cache.delete() with the caller re-loading: for the
+  // whole rebuild the tile had no entry at all, so it rendered as blank grass
+  // — and if the rebuild's fetch failed, it STAYED grass. Now the replacement
+  // is built alongside the live entry and only swapped in once it is ready; a
+  // failed rebuild leaves the original untouched.
+  //
+  // The build's cross-tile chest dedup has to ignore the tile's own live entry,
+  // or the rebuild would dedupe its chests against the copies it is replacing
+  // and drop them all.
+  async function rebuildTileWithBin(x, y, lat) {
+    const cache = cacheFor(0);
+    const key = `${Z}/${x}/${y}`;
+    const prev = cache.get(key);
+    if (!prev || prev.status !== 'ready') return false;
+    _dedupSkipKey = key;
+    let fresh = null;
+    try {
+      fresh = await loadTile(x, y, lat, { detached: true });
+      await fresh.promise;
+    } catch (_) {
+      fresh = null;                      // rebuild failed — the original stands
+    } finally {
+      _dedupSkipKey = null;
+    }
+    if (!fresh || fresh.status !== 'ready') return false;
+    // Carry over live per-session state the rebuild can't reconstruct.
+    if (prev.creatures && !fresh.creatures) fresh.creatures = prev.creatures;
+    if (prev.coinDrops && !fresh.coinDrops) fresh.coinDrops = prev.coinDrops;
+    cache.set(key, fresh);               // atomic swap — never a missing tile
+    return true;
   }
 
   // --- Underground cave generation (depth > 0) ---------------------------

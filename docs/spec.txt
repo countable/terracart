@@ -95,6 +95,27 @@ CORE
    fixed at screen centre; the world pans under them.
  - graceful network loss: a 'reconnecting' banner shows; cached tiles still
    serve from IndexedDB, and a service worker (sw.js) precaches the app shell.
+ - EXTERNAL MAP DATA IS CACHED AGGRESSIVELY AND NEVER EXPIRES. A tile's bytes
+   are kept in IndexedDB (and, at the HTTP layer, in the service worker's tile
+   cache) and served from there forever, whatever their age. Age only decides
+   whether to ALSO re-fetch in the background: past 30 days a refresh is fired
+   while the cached copy is still what gets used, and a refresh that fails
+   (offline, 5xx, rate limit) leaves the cached copy exactly as it was.
+   Nothing in the game evicts a tile; only the menu's "Reset this game" clears
+   the tile stores, on purpose.
+ - a tile whose build FAILS is not remembered as failed: the half-built entry
+   is dropped so the next pass retries (with a few seconds' floor between
+   attempts). Before that, one flaky fetch left that tile blank grass for the
+   rest of the session — the tile cache handed the poisoned entry back to
+   every later request.
+ - a tile that is already on screen is never taken away to be rebuilt. When a
+   tile has to be regenerated (its real-world tree/furniture data arrives after
+   it first rasterized), the replacement is built alongside the live one and
+   swapped in only once it is ready; a failed rebuild leaves the original in
+   place. Nothing ever reverts to grass mid-play.
+ - in-memory tiles are LRU-capped (64); an evicted tile rebuilds from the
+   cached bytes, and per-tile player state (opened chests, chopped trees,
+   picked debris) lives in save.* so the rebuild reconstructs the same view.
  - all progress lives in one `save` object persisted to localStorage
    (debounced writes via save.js). Tiles cache separately in IndexedDB.
 
@@ -223,6 +244,18 @@ WORLD GENERATION
    debris, treasure, and creatures (all below).
  - a satextract sidecar (data/) injects extra real POIs (individual trees,
    fountains, parking, street furniture) on top of the MVT layer.
+ - NO SCATTER OBJECT SITS ON (OR BESIDE) A BUILDING. Building sprites are
+   foot-anchored and their base overhangs the neighbouring cells, so worldgen
+   keeps a one-cell moat clear of every scatter object around every building
+   cell. The Home trailer gets the same moat at runtime (app.js
+   clearHomeTrailerOverlap): it is a SYNTHETIC object that paints no building
+   terrain, so worldgen's pass never sees it, and its art — 108×75 at scale
+   0.6, centred on its cell — covers its own cell whole and reaches into all
+   eight neighbours. Anything else in those nine cells is removed as tiles
+   load, wherever the trailer stands (including after "Move Home here"). Real
+   buildings are spared (deleting one would take its shop with it), as is
+   ground flora. The starter crate trail seats outside the moat rather than
+   losing a chest to it.
 
 ================================================================================
 INTERACTION MODEL

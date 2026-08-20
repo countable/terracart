@@ -9,8 +9,13 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v59';
+const SHELL_VERSION = 'shell-v60';
 const TILE_CACHE    = 'tiles-v1';
+// How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
+// is never an expiry: a stale tile is still served, and a failed refresh keeps
+// the old copy. Deliberately long — the base map (streets, buildings) barely
+// moves, and re-fetching costs the player data.
+const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
 const SHELL_ASSETS = [
   './',
@@ -60,12 +65,27 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // ── MVT tiles: cache-first, indefinite. ──────────────────────────
+  // ── MVT tiles: cache-first, kept indefinitely. ───────────────────
+  // A cached tile is ALWAYS served, however old it is; age only decides
+  // whether to also refresh it in the background (TILE_REFRESH_MS, 30 days).
+  // A refresh that fails leaves the cached copy in place — nothing here ever
+  // evicts a tile, so a visited area keeps rendering on any network. (The
+  // same policy the worldgen IndexedDB layer applies to the decoded bytes;
+  // this cache is the HTTP-level half of it.)
   if (isTileRequest(url)) {
     event.respondWith((async () => {
       const cache = await caches.open(TILE_CACHE);
       const hit = await cache.match(req);
-      if (hit) return hit;
+      if (hit) {
+        const stamped = Date.parse(hit.headers.get('date') || '') || 0;
+        if (Date.now() - stamped > TILE_REFRESH_MS) {
+          // Background revalidate; failures are swallowed and the hit stands.
+          event.waitUntil(fetch(req).then((resp) => {
+            if (resp && resp.ok) return cache.put(req, resp.clone());
+          }).catch(() => {}));
+        }
+        return hit;
+      }
       try {
         const resp = await fetch(req);
         // Only cache successful responses. 4xx/5xx pass through uncached.
