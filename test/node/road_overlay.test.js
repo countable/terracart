@@ -25,6 +25,8 @@ function makeGfx() {
     moveTo(x, y) { this._cur.pts.push({ x, y }); },
     lineTo(x, y) { this._cur.pts.push({ x, y }); },
     strokePath() { this.paths.push(this._cur); this._cur = null; },
+    phase: null,
+    texturePhase(x, y) { this.phase = { x, y }; },
     get lines() {
       const segs = [];
       for (const p of this.paths)
@@ -113,14 +115,18 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes earth brown at 31% opacity', () => {
+test('road overlay: strokes muted earth brown at 31% opacity', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
-  assert.eq(style.c, 0x6b4a2f, 'colour is the earth brown');
+  assert.eq(style.c, 0x614b3a, 'colour is the muted earth brown');
   assert.eq(style.a, 0.31, 'alpha is 31%');
+  // Desaturated, not merely darkened: the colour keeps its brightness but its
+  // channels sit closer together than a saturated brown's would.
+  const r = 0x61, g = 0x4b, b = 0x3a;
+  assert.lt((r - b) / (r + b), 0.28, 'low chroma for its lightness');
 });
 
 // ── Width by class ────────────────────────────────────────────────────────
@@ -146,14 +152,29 @@ test('road overlay: a residential street is stroked at its real 5 m width', () =
 });
 
 test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
-  assert.eq(widthOfWay({ class: 'motorway' }),  px(12), 'motorway');
-  assert.eq(widthOfWay({ class: 'trunk' }),     px(12), 'trunk');
-  assert.eq(widthOfWay({ class: 'primary' }),   px(10), 'primary');
+  // The large tier carries a ×1.5 emphasis on top of its measured width (see
+  // the next test); the mid classes are drawn at their true width.
+  assert.eq(widthOfWay({ class: 'motorway' }),  px(12) * 1.5, 'motorway');
+  assert.eq(widthOfWay({ class: 'trunk' }),     px(12) * 1.5, 'trunk');
+  assert.eq(widthOfWay({ class: 'primary' }),   px(10) * 1.5, 'primary');
   assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
   assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
   // A motorway is wider than a game cell — it spills past the single-cell band
   // the rasterizer gives it, which is the whole point of drawing true widths.
   assert.gt(12, WorldGen.CELL_M, 'a motorway is wider than a game cell');
+});
+
+test('road overlay: the large tier is stroked 50% wider than its measured width', () => {
+  // Exactly worldgen's ROAD_LG classes get the emphasis — nothing below them.
+  for (const cls of ['motorway', 'trunk', 'primary'])
+    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })) * 1.5, cls);
+  for (const cls of ['secondary', 'tertiary', 'street', 'service', 'pedestrian',
+                     'track', 'cycleway', 'footway', 'pier'])
+    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })), cls);
+  // The boost must not invert the hierarchy: a boosted primary still outweighs
+  // a secondary, and the secondary keeps its lead over a street.
+  assert.lt(widthOfWay({ class: 'secondary' }), widthOfWay({ class: 'primary' }), 'primary > secondary');
+  assert.lt(widthOfWay({ class: 'street' }), widthOfWay({ class: 'secondary' }), 'secondary > street');
 });
 
 test('road overlay: footways and cycleways are person-wide, not road-wide', () => {
@@ -165,9 +186,13 @@ test('road overlay: footways and cycleways are person-wide, not road-wide', () =
 
 test('road overlay: widths come from the rasterizer\'s own table', () => {
   // One source of truth — the overlay must not drift from WorldGen.roadWidthM.
+  // Large classes carry the fixed ×1.5 emphasis over that shared width; every
+  // other class is drawn at exactly what the table says.
+  const LARGE = new Set(['motorway', 'trunk', 'primary']);
   for (const cls of ['motorway', 'primary', 'secondary', 'tertiary', 'street',
                      'service', 'pedestrian', 'track', 'cycleway', 'footway', 'pier']) {
-    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })), cls);
+    const want = px(WorldGen.roadWidthM({ class: cls })) * (LARGE.has(cls) ? 1.5 : 1);
+    assert.eq(widthOfWay({ class: cls }), want, cls);
   }
 });
 
@@ -236,6 +261,28 @@ test('road overlay: sub-cell movement scrolls the container, not the geometry', 
   RoadOverlay.draw(scene);
   assert.eq(scene.roadGeomGfx.lines[0][0], 176, 'snapped x1 unchanged');
   assert.eq(scene.roadGeomContainer.x, -16, 'container carries the sub-cell offset');
+});
+
+// ── Grain ─────────────────────────────────────────────────────────────────
+// The grain itself is painted by the canvas adapter (no DOM here), but the
+// phase it's given is computed in the shared rebuild path, so the anchoring
+// is testable: it's the screen position the world origin projects to.
+
+test('road overlay: the grain is phased to the world, not the screen', () => {
+  clearTiles();
+  putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
+  const still = makeOverlayScene();
+  RoadOverlay.draw(still);
+  assert.eq(still.roadGeomGfx.phase.x, 176, 'world origin is under the player');
+  assert.eq(still.roadGeomGfx.phase.y, 176, 'ditto vertically');
+  // Two cells east: the phase must travel exactly as far as the geometry did,
+  // or the texture swims across the roads as the player walks.
+  const moved = makeOverlayScene({ playerM: { x: 10, y: 0 } });
+  RoadOverlay.draw(moved);
+  assert.eq(moved.roadGeomGfx.phase.x, 112, 'phase shifted by two cells');
+  assert.eq(moved.roadGeomGfx.phase.x - still.roadGeomGfx.phase.x,
+            moved.roadGeomGfx.lines[0][0] - still.roadGeomGfx.lines[0][0],
+            'phase and geometry moved together');
 });
 
 // ── Feature selection ─────────────────────────────────────────────────────

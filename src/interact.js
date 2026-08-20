@@ -174,6 +174,7 @@ function tooFar(ctx, x, y) {
       if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
     }
     scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    scene.hapticReject?.();
     return true;
   }
   // Fallback (helpers somehow unavailable): legacy Euclidean foot→cell-centre gate.
@@ -181,6 +182,7 @@ function tooFar(ctx, x, y) {
     ? reachRadiusM(scene) : REACH_FAR_M;
   if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
     scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    scene.hapticReject?.();
     return true;
   }
   return false;
@@ -785,11 +787,15 @@ const TAP_HANDLERS = [
         const treasure = WILD_TREASURE[wp.crop];
         if (treasure && Math.random() < treasure.chance) {
           scene.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${treasure.bonus}`;
+          bonus = ` ✨${ITEM_BY_ID[treasure.bonus]?.name || treasure.bonus}`;
         }
         persistSave(save);
-        if (bonus) scene.flashLoot(`${outId}${bonus}`, '#ff8aff', 1, outId);
-        else scene.flashLoot(`+1 ${outId}`, undefined, 1, outId);
+        // Display NAMES, never raw ids — every other loot toast resolves the
+        // name first (QC_RULES §4), so this path used to be the one that
+        // flashed "+1 longgrass" instead of "+1 Long grass".
+        const outName = ITEM_BY_ID[outId]?.name || outId;
+        if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
+        else scene.flashLoot(`+1 ${outName}`, undefined, 1, outId);
         // Rare shiny flora — 10× money + a discovery point, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);

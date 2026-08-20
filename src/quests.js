@@ -200,6 +200,18 @@ Object.assign(Quests, {
     this._ss(save).dismissed = true;
   },
 
+  // Undo a dismissal — the ☰ menu's "Show objectives" entry. Dismissing used to
+  // be one tap on a 13px × and permanently ended the ladder for that save, with
+  // nothing anywhere to bring it back.
+  starterShow(save) {
+    this._ss(save).dismissed = false;
+  },
+  // Is the ladder dismissed but not actually finished? Only then is there
+  // anything for "Show objectives" to restore.
+  starterDismissed(save) {
+    return !!this._ss(save).dismissed && !this.starterAllDone(save);
+  },
+
   // Mark the whole ladder finished without walking it — used to keep the chip
   // off the screen of a save that predates the starter chain, and by the
   // sandbox, where the player is plainly not a beginner.
