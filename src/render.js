@@ -56,6 +56,10 @@ const Render = {};
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
+// Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
+// the places are, not a call to action, and anything brisk turns a street of
+// POIs into a strobe.
+const POI_HALO_PERIOD_S = 4.5;
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -174,11 +178,11 @@ Render.drawCells = function drawCells(scene) {
   //   - PATH:                             frame 3 — single small pebble
   const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
   const PATH_FRAME = 3;
-  // Cobble tiles (road cluster + path pebble alike) draw at 77% opacity so the
+  // Cobble tiles (road cluster + path pebble alike) draw at 67% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
   // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
   // scattered stone.
-  const COBBLE_ALPHA = 0.77;
+  const COBBLE_ALPHA = 0.67;
   const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
   const PATH = 8;
   const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
@@ -510,12 +514,12 @@ Render.drawCells = function drawCells(scene) {
                      : (type === PATH ? PATH_FRAME : null);
         if (frame != null && !isTilled) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
-          // pebble — sit inside their cell and have been stepped down 10% again
-          // (per playtest), centred on the same point: roads at 0.89 of a cell
-          // and paths at 0.81. The PIER plank is not one of them and keeps cell
-          // size: its art tiles edge-to-edge across adjacent pier cells, and any
-          // resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.89 : CELL_PX * 0.81);
+          // pebble — sit inside their cell and have been stepped down another
+          // 10% (per playtest), centred on the same point: roads at 0.80 of a
+          // cell and paths at 0.73. The PIER plank is not one of them and keeps
+          // cell size: its art tiles edge-to-edge across adjacent pier cells,
+          // and any resize opens a seam.
+          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.80 : CELL_PX * 0.73);
           // Named-path stones that the player has tapped / stepped onto
           // pick up a blue tint to signal progress. _isPathStoneActive
           // is null-safe (returns false in test mode or before save state
@@ -539,7 +543,7 @@ Render.drawCells = function drawCells(scene) {
           cs.setTexture(isPier ? 'pier' : 'cobble', frame);
           // Alpha is set on every draw, not just for the translucent kinds:
           // pool slots are reused across cell types, so a slot that carried a
-          // cobble last frame would keep 0.85 on a pier plank the next.
+          // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
           cs.setFrame(frame)
             .setDisplaySize(size, size)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
@@ -1756,6 +1760,31 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
+  // POI halos — a slow, subtle breath of light under every POI that still has
+  // something in it, so places read as places from across the map without
+  // shouting. Its own layer under the pads, so a pad's concrete slab covers the
+  // halo's centre and what's left is a glow spilling out around the slab. Each
+  // POI breathes on its own phase, hashed from its id — in lockstep a whole
+  // street would throb as one, which reads as a bug rather than as ambience.
+  const haloT = performance.now() / 1000;
+  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestOpened(o));
+  Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
+    const { o, dx, dy } = item;
+    const { sx, sy } = project(dx, dy);
+    setTextureIfDifferent(s, 'halo_poi');
+    // Stable per-POI phase in [0, 1) from the id — no RNG, so a halo doesn't
+    // jump phase when its tile reloads.
+    let h = 0;
+    const id = String(o.id || '');
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    const wave = 0.5 + 0.5 * Math.sin((haloT / POI_HALO_PERIOD_S + (h % 1000) / 1000) * Math.PI * 2);
+    const size = CELL_PX * (1.5 + 0.25 * wave);
+    s.setOrigin(0.5, 0.5)
+     .setDisplaySize(size, size)
+     .setAlpha(0.10 + 0.10 * wave)
+     .setPosition(Math.round(sx), Math.round(sy));
+  });
+
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape } = item;
     const { sx, sy } = project(dx, dy);

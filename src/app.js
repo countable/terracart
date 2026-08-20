@@ -145,6 +145,14 @@ const DEBUG_SPEED_MUL = 10;
 // sprite. For its minute the player walks as if they had an amulet of this
 // tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
 // twice as hard (interact.js). The Speed potion stands in a tier higher still.
+// Straying from your real position, in cells. Inside this ring stick walking is
+// cheap (you're pottering around the spot you're actually standing on) and the
+// character reads normally; outside it the walk costs full price and the
+// character darkens the further out they get.
+const NEAR_GPS_CELLS = 3;
+const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// How long the stick must sit idle before the character walks itself home.
+const WALK_HOME_IDLE_MS = 3000;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
@@ -655,7 +663,7 @@ class MapScene extends Phaser.Scene {
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
-    // the rasterizer turned into road/path cells, as a brown band @ 19%. Sits
+    // the rasterizer turned into road/path cells, as a brown band @ 31%. Sits
     // above the terrain + cobbles so it reads as an overlay ON the map, and
     // below the plant/object sprites so it never paints over a tree or house.
     // (The plant/object/creature layer is worldContainer, added below.)
@@ -664,6 +672,10 @@ class MapScene extends Phaser.Scene {
     // canvas (round caps, one flat alpha over the whole network) and adds the
     // resulting image to this container on its first pass.
     this.roadGeomContainer = this.add.container(0, 0);
+    // POI halos — the slow glow under every live POI (render.js). Its own layer,
+    // added before the pads, so a halo always sits UNDER the concrete slab no
+    // matter which pool happened to allocate its sprites first.
+    this.poiHaloContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -787,6 +799,7 @@ class MapScene extends Phaser.Scene {
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
+    this.poiHaloPool = [];    // slow pulsing glow under each live POI (render.js)
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
@@ -821,6 +834,28 @@ class MapScene extends Phaser.Scene {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
+    // Soft round halos — a glow that fades from the centre out, baked once and
+    // reused for every pulsing aura: the player's warning auras (out of energy,
+    // strayed far from the GPS) and the slow breath that marks a POI. Baked in
+    // their own COLOURS rather than baked white and tinted, because setTint()
+    // is a no-op under the Phaser Canvas fallback and a colourless warning halo
+    // says nothing. 64×64; every user scales it to the size it wants.
+    const bakeHalo = (key, color, peak) => {
+      if (this.textures.exists(key)) return;
+      const hg = this.make.graphics({ x: 0, y: 0, add: false });
+      const C = 32, rings = 16;
+      for (let i = rings; i >= 1; i--) {
+        const t = i / rings;               // 1 at the rim, → 0 at the centre
+        // Quadratic falloff: a soft cloud rather than a flat disc with an edge.
+        hg.fillStyle(color, peak * (1 - t) * (1 - t));
+        hg.fillCircle(C, C, 30 * t);
+      }
+      hg.generateTexture(key, 64, 64);
+      hg.destroy();
+    };
+    bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
+    bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
+    bakeHalo('halo_poi',  0xffe066, 0.22);   // the slow breath under a POI
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
     // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
@@ -859,6 +894,7 @@ class MapScene extends Phaser.Scene {
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
+    this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
@@ -982,6 +1018,15 @@ class MapScene extends Phaser.Scene {
       .setAlpha(0.4)
       .setDepth(10)
       .play('idle-down')
+      .setVisible(false)
+      .setMask(mask);
+    // Warning halo behind the player: red when the tank is empty, near-black
+    // when the stick has walked them a long way off the GPS. Pulses so it reads
+    // as a live warning rather than a smudge under the sprite. Depth 9.7 puts
+    // it under the character (10) and over the footprint trail (9).
+    this.playerHalo = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'halo_red')
+      .setOrigin(0.5, 0.5)
+      .setDepth(9.7)
       .setVisible(false)
       .setMask(mask);
     // GPS ghost — a translucent stand-in at your REAL (GPS) position, shown
@@ -2283,6 +2328,8 @@ class MapScene extends Phaser.Scene {
     // plain walk toward the target.
     // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
     if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
+    // Stick idle for a few seconds → walk back to where you really are.
+    else this._driftHome(dt);
     // Keyboard → steer the target directly, free, no offset.
     this._steerTarget(vx, vy, speedMul, dt);
     this._followStep(dt);
@@ -2342,6 +2389,7 @@ class MapScene extends Phaser.Scene {
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
+    this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
     // save object is mutated by reference, so the next persistSave (or the
@@ -3657,6 +3705,18 @@ class MapScene extends Phaser.Scene {
     this._followPaused = false;
     if (this.targetGhost) this.targetGhost.setVisible(false);
   }
+  // How far the character is standing from the player's REAL position, in
+  // metres. That gap is what stick walking buys and what the map's warnings are
+  // about: cheap steering close to home, a darkening character further out, and
+  // the walk back when you let go. Measured body-to-fix when there's a fix; with
+  // no GPS at all the accumulated stick offset is the only notion of "away".
+  _gpsAwayM() {
+    if (this.gpsM) {
+      return Math.hypot(this.playerM.x - this.gpsM.x, this.playerM.y - this.gpsM.y);
+    }
+    const o = this._manualOffsetM;
+    return Math.hypot(o.x, o.y);
+  }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
   // steering nothing, and treating that as steering would animate the player
@@ -3729,12 +3789,17 @@ class MapScene extends Phaser.Scene {
     // wobbles (and briefly points backwards) frame to frame, which showed up
     // as the sprite flickering between walk and idle and flipping direction.
     this._stickHeading = { x: vx / n, y: vy / n };
+    this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
-    // whole pip every ~7 cells instead of rounding up to one per cell.
+    // whole pip every ~7 cells instead of rounding up to one per cell. Close to
+    // your real position it's a fifth of that: pottering around the block you're
+    // actually standing on shouldn't cost what striking out across town does,
+    // and the discount is what makes the stick usable for lining up a tap.
     this._steerDistAccrue += Math.hypot(dx, dy);
-    const costPerCell = steerEnergyCost(relics);
+    const near = this._gpsAwayM() <= NEAR_GPS_CELLS * this.cellM;
+    const costPerCell = steerEnergyCost(relics) * (near ? NEAR_GPS_COST_MUL : 1);
     while (this._steerDistAccrue >= this.cellM) {
       this._steerDistAccrue -= this.cellM;
       this._steerCostAccrue += costPerCell;
@@ -3745,6 +3810,77 @@ class MapScene extends Phaser.Scene {
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
+    }
+  }
+  // Let go of the stick and, after a few seconds, the character walks itself
+  // back to where you actually are. Stick walking builds up an offset from the
+  // GPS (see _steerManual); this bleeds that offset back toward zero, dragging
+  // the walk target home with it so _followStep walks the body there at its
+  // own pace. Free — you're returning to reality, not spending a trip.
+  //
+  // Only on the surface, only while a fix is actually driving (a keyboard
+  // takeover owns the target outright), and never mid-wheel: standing still to
+  // chop a tree fifty metres out is being busy, not being idle.
+  _driftHome(dt) {
+    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return;
+    if (this._workProgress || this._stickPushed()) return;
+    if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
+    const off = this._manualOffsetM;
+    const mag = Math.hypot(off.x, off.y);
+    if (mag < 0.01) return;
+    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * dt);
+    const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
+    off.x += dx; off.y += dy;
+    if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
+    this._targetM.x += dx;
+    this._targetM.y += dy;
+    this._followPaused = false;
+  }
+  // Two states the player needs to feel without reading a number, both painted
+  // on the character itself: an EMPTY TANK (nothing works until you rest) and
+  // being FAR from where you actually are (the walk home is long and every step
+  // out there is at full price). Each tints the sprite and lights a pulsing
+  // halo behind it — red for empty, near-black for far — so the warning reads
+  // at a glance in the corner of the eye. Empty wins when both are true: it's
+  // the one that stops you doing anything.
+  //
+  // The far-tint is graded, not a switch: the character dims steadily from the
+  // edge of the near ring out to DARK_FULL_CELLS, so the drift outward is
+  // visible while it's happening rather than snapping at a threshold.
+  _updatePlayerAura() {
+    const DARK_FULL_CELLS = 10;     // fully dimmed by here
+    const DIM_FLOOR = 0.45;         // darkest the character gets
+    const away = this._gpsAwayM();
+    const nearM = NEAR_GPS_CELLS * this.cellM;
+    const spent = (this.save.energy ?? 0) <= 0;
+    const far = away > nearM;
+    // Pulse: a slow breath, faster and deeper for the empty-tank warning.
+    const t = performance.now() / 1000;
+    const periodS = spent ? 1.2 : 2.0;
+    const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
+    if (spent || far) {
+      let tint = 0xffffff;
+      if (spent) {
+        tint = 0xff6b6b;
+      } else {
+        const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
+        const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
+        tint = (v << 16) | (v << 8) | v;
+      }
+      this.player.setTint(tint);
+      const key = spent ? 'halo_red' : 'halo_dark';
+      if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
+      // Strength follows the same k as the tint for the far case, so a halo
+      // never shouts before the character has visibly dimmed.
+      const strength = spent ? 1 : Math.min(1, (away - nearM) / (nearM * 2));
+      this.playerHalo
+        .setDisplaySize(38 + 6 * wave, 38 + 6 * wave)
+        .setAlpha((0.25 + 0.35 * wave) * strength)
+        .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY)
+        .setVisible(true);
+    } else {
+      this.player.clearTint();
+      if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
   }
   // Move the body one frame toward the target through open cells, mining a wall
