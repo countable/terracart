@@ -955,18 +955,18 @@ function makeRoundPadTexture(scene, key) {
   // just the two stone fills. (It used to be ringed in bright cyan, which
   // drew the eye to the slab instead of to the POI standing on it.) The
   // darker side face is the only thing separating plinth from top slab.
-  // Both tones are essentially WHITE with a slight blue cast (the top slab
-  // is only a few points of blue off pure white), so the pad reads as a
-  // clean pale plinth against the map's greens and browns rather than as a
-  // grey disc. The side face keeps the same hue a shade deeper so the
+  // Both tones are the TREASURE blue-white (spec §UI COLOUR LANGUAGE — the
+  // world's rewards are blue-white, the player's controls are gold), so the
+  // pad reads as a clean pale plinth marking a place worth opening rather
+  // than as a grey disc. The side face is the same hue a shade deeper so the
   // pedestal still reads at the low alpha the pad renders at.
   // Side face first: the same rounded rect shifted down by `depth`.
   roundRectPath(ctx, x, y + depth, w, h, radius);
-  ctx.fillStyle = '#dde5f2';
+  ctx.fillStyle = '#dde5f2';                // UI_TREASURE, one step deeper
   ctx.fill();
   // Top slab.
   roundRectPath(ctx, x, y, w, h, radius);
-  ctx.fillStyle = '#f4f8ff';
+  ctx.fillStyle = UI_TREASURE;
   ctx.fill();
   // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
   // faint "beveled flagstone" feel the old shape pads had.
