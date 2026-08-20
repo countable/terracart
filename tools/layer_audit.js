@@ -58,7 +58,6 @@ const GROUND = [
   'cobbleContainer',   // road / path stones
   'letterContainer',   // road name lettering
   'roadGeomContainer',
-  'poiHaloContainer',
   'padContainer',      // treasure plinths
   'shadowContainer',
   'atmosGroundGfx',    // biome haze over the ground
@@ -68,6 +67,15 @@ const GROUND = [
 // purpose: reach dims the ground, distance (atmosFalloffGfx) dims the sprites.
 const SPRITES = ['worldContainer', 'rampartFrontGfx', 'towerContainer'];
 
+// poiHaloContainer is a DELIBERATE exception to both rules above: it draws
+// the POI ring "ping" (render.js), whose entire job is to read as a place
+// from across the map — not to darken outside reach like ordinary ground
+// decoration. So it sits ABOVE reachGfx (unlike GROUND) but still BELOW the
+// standing sprites and atmosFalloffGfx (unlike SPRITES), so it keeps fading
+// with sheer distance without being crushed by the binary in-reach dim. See
+// the comment at its creation in MapScene.create() for the full story.
+const HALO = ['poiHaloContainer'];
+
 const CHECKS = [
   {
     name: 'layers: the display list is actually parseable',
@@ -76,7 +84,7 @@ const CHECKS = [
       if (layers.length < 15) {
         throw new Error(`only found ${layers.length} display layers — the scanner is broken`);
       }
-      const missing = [...GROUND, ...SPRITES, 'reachGfx', 'atmosFalloffGfx']
+      const missing = [...GROUND, ...SPRITES, ...HALO, 'reachGfx', 'atmosFalloffGfx']
         .filter((n) => idx(layers, n) < 0);
       if (missing.length) {
         throw new Error(`layers not found in create(): ${missing.join(', ')}`);
@@ -122,6 +130,32 @@ const CHECKS = [
     },
   },
   {
+    name: 'layers: the POI halo stays above the lighting layer',
+    run: () => {
+      const layers = displayLayers();
+      const lit = idx(layers, 'reachGfx');
+      const below = HALO.filter((n) => idx(layers, n) < lit);
+      if (below.length) {
+        throw new Error(`${below.join(', ')} draw BELOW the lighting layer, so the out-of-reach dim ` +
+          'would crush the POI ping everywhere except right under the player — the one ground ' +
+          'element deliberately exempt from that dim. Move it above reachGfx in MapScene.create().');
+      }
+    },
+  },
+  {
+    name: 'layers: the POI halo stays below the sprites and the distance falloff',
+    run: () => {
+      const layers = displayLayers();
+      const fall = idx(layers, 'atmosFalloffGfx');
+      const above = HALO.filter((n) => idx(layers, n) > fall || SPRITES.some((s) => idx(layers, n) > idx(layers, s)));
+      if (above.length) {
+        throw new Error(`${above.join(', ')} draw above the standing sprites or atmosFalloffGfx — ` +
+          'the halo is exempt from the reach dim, not from distance falloff or from sitting under ' +
+          'the chest it marks.');
+      }
+    },
+  },
+  {
     name: 'layers: the reach passes paint onto the lighting layer, not the terrain',
     run: () => {
       const src = fs.readFileSync(path.resolve(ROOT, 'src/render.js'), 'utf8');
@@ -143,4 +177,4 @@ const CHECKS = [
   },
 ];
 
-module.exports = { CHECKS, displayLayers, GROUND, SPRITES };
+module.exports = { CHECKS, displayLayers, GROUND, SPRITES, HALO };

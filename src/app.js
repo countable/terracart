@@ -768,10 +768,6 @@ class MapScene extends Phaser.Scene {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
-    // POI halos — the slow glow under every live POI (render.js). Its own layer,
-    // added before the pads, so a halo always sits UNDER the concrete slab no
-    // matter which pool happened to allocate its sprites first.
-    this.poiHaloContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -788,9 +784,11 @@ class MapScene extends Phaser.Scene {
     // LIGHTING — the out-of-reach dim, the underground torch wash, the
     // low-energy pink tint and the white reach outline. It sits here, ABOVE
     // every piece of ground decoration (biome seams, cobbles, road letters,
-    // POI halos, treasure pads, shadows, the haze) and BELOW the standing
-    // sprites, because "outside the lit area" has to mean the whole ground
-    // goes dark — not just the flat terrain fill.
+    // treasure pads, shadows, the haze) and BELOW the standing sprites,
+    // because "outside the lit area" has to mean the whole ground goes dark —
+    // not just the flat terrain fill. POI halos are the one ground element
+    // that sits ABOVE this layer instead — see the note where
+    // poiHaloContainer is created just below, right after this one.
     //
     // These passes used to live in cellGfx, the bottom-most layer, so the dim
     // could only reach the base colour: biome BOUNDARIES in particular stayed
@@ -800,6 +798,20 @@ class MapScene extends Phaser.Scene {
     // full contrast on purpose — see the note on atmosGroundGfx above — and
     // distance, not reach, is what dims them, via atmosFalloffGfx.
     this.reachGfx = this.add.graphics();
+    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
+    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
+    // every other ground layer gets. A halo's whole job is to read as a place
+    // "from across the map" (see render.js's POI-halo comment); crushing it
+    // under the same dim that swallows biome seams and cobbles defeats that —
+    // most of the visible grid sits outside the small reach radius at any
+    // moment, so the ping would only ever show right under the player's feet.
+    // It's still below worldContainer (so it doesn't draw over the chest
+    // itself) and below atmosFalloffGfx (so it still fades with sheer
+    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
+    // ring's own texture is a transparent-centred band, so drawing it above
+    // padContainer here (instead of below, as before) doesn't hide the pad —
+    // the ring just crosses over the slab's rim as it expands.
+    this.poiHaloContainer = this.add.container(0, 0);
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them

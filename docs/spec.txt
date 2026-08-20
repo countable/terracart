@@ -510,10 +510,13 @@ CHESTS (POI-driven)
    or "Leave for later" (chest kept; it remembers its exact roll in
    save.chestHold so you can't re-roll for something better).
  - opened chests stay open + dimmed and persist (save.opened).
- - every UNOPENED POI pings a slow, subtle ring under it — a thick outline
+ - every UNOPENED POI pings a slow, subtle ring around it — a thick outline
    that expands outward and fades, not a filled disc (~4.5 s per pulse,
    phase hashed off the POI id so a street doesn't throb in unison) —
-   ambience that marks where the places are, drawn under the concrete pad.
+   ambience that marks where the places are. Deliberately exempt from the
+   out-of-reach dim that darkens other ground decoration (tools/layer_audit.js
+   pins this) so it stays legible across the whole visible map, not just the
+   small radius around the player.
  - every POI's concrete pad (and its mini variant, see below) is tinted an
    electric light blue — punchier than the rest of the blue-white treasure
    family — since the pad is the one surface that has to carry "a place
