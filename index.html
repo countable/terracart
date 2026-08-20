@@ -335,6 +335,82 @@
       margin: 0 0 14px; text-align: center;
       font: 700 17px ui-monospace, monospace; color: var(--gold);
     }
+    /* Auto-walk-home demo strip at the top of the card: the player sprite
+       walking (Walk.png row 2, the "side" row — the art faces RIGHT unflipped,
+       same as _playDirected assumes) heading toward a still GPS ghost.
+       Both are 32x32 frames drawn at exactly 2x so the pixel grid stays
+       square. */
+    #howto .demo { margin: 0 0 16px; }
+    /* Stage + labels share one column track list, so each caption sits exactly
+       under its sprite without any nudging. */
+    #howto .demo .stage, #howto .demo .labels {
+      display: grid; grid-template-columns: 64px 44px 64px;
+      gap: 8px; justify-content: center; align-items: center;
+    }
+    /* The sprites are drawn on GRASS in the game, and the ghost is carried by
+       its transparency — over the card's near-black box a 0.6-alpha figure
+       just reads as a dark smudge. Standing them on the world's own grass
+       colour (COLORS[0] in app.js) is both truer to what the player is about
+       to see and the only background the ghost reads against. */
+    #howto .demo .stage {
+      background: #479757; border-radius: 8px; padding: 6px 10px;
+    }
+    #howto .demo .labels {
+      margin-top: 4px; color: #8d8d8d; text-align: center;
+      font: 400 10px ui-monospace, monospace;
+    }
+    #howto .demo .sprite {
+      width: 64px; height: 64px;
+      image-rendering: pixelated;
+      background-repeat: no-repeat;
+    }
+    /* Walk.png is 192x96 (6 cols x 3 rows of 32px) -> 384x192 at 2x. Row 2
+       ("side") sits at y=64 in the sheet, so -128px at 2x. The 6-step cycle
+       runs at the scene's own 10 fps walk rate (6 frames / 0.6s). */
+    #howto .demo .walker {
+      background-image: url("assets/Character/Walk.png");
+      background-size: 384px 192px;
+      background-position: 0 -128px;
+      animation: howto-walk 0.6s steps(6) infinite;
+    }
+    @keyframes howto-walk {
+      from { background-position:    0 -128px; }
+      to   { background-position: -384px -128px; }
+    }
+    /* The GPS ghost, matching what the scene draws: Idle.png frame 0
+       (idle-down, so it faces the player walking in), multiplied by the same
+       cool tint 0x7ec8ff at the same 0.6 alpha. The tint is a MULTIPLY over
+       the art, then masked back to the art's own alpha — without the mask the
+       colour layer would fill the whole 64px box with flat blue instead of
+       tinting the character. Idle.png is 128x96 -> 256x192 at 2x. */
+    #howto .demo .ghost {
+      background-image: linear-gradient(#7ec8ff, #7ec8ff),
+                        url("assets/Character/Idle.png");
+      background-size: 64px 64px, 256px 192px;
+      background-position: 0 0, 0 0;
+      background-blend-mode: multiply;
+      -webkit-mask-image: url("assets/Character/Idle.png");
+              mask-image: url("assets/Character/Idle.png");
+      -webkit-mask-size: 256px 192px;
+              mask-size: 256px 192px;
+      -webkit-mask-position: 0 0;
+              mask-position: 0 0;
+      opacity: 0.6;
+    }
+    /* A slow drift along the bearing — the walk home is automatic and
+       unhurried, and a static arrow between two figures reads as a label
+       rather than a movement. */
+    #howto .demo-arrow { flex: 0 0 auto; animation: howto-drift 1.8s ease-in-out infinite; }
+    @keyframes howto-drift {
+      0%, 100% { transform: translateX(-3px); }
+      50%      { transform: translateX(3px); }
+    }
+    /* Motion here is decoration — the walk cycle and the drift both say what
+       the captions and the "Stick" entry already say in words. */
+    @media (prefers-reduced-motion: reduce) {
+      #howto .demo .walker, #howto .demo-arrow { animation: none; }
+    }
+
     /* One-sentence concept line above the two mechanics. This card sets up
        what the game IS; the objective chip (quests.js STARTER_CHAIN) teaches
        the verbs, so nothing here repeats a ladder step. */
@@ -454,6 +530,25 @@
   <div id="howto" style="display:none">
     <div class="box">
       <h2>How to play</h2>
+      <!-- The one mechanic a still picture explains better than a sentence:
+           the character walking itself back to where the GPS says you really
+           are. Both figures are the game's OWN sprites at the same scale and
+           transparency the scene draws them at, so the card is showing the
+           thing the player will see rather than an illustration of it.
+           aria-hidden: the "Stick" entry below carries the same content in
+           words, so a screen reader gets it there instead of from two
+           unlabelled boxes. -->
+      <div class="demo" aria-hidden="true">
+        <div class="stage">
+          <div class="sprite walker"></div>
+          <svg class="demo-arrow" viewBox="0 0 44 14" width="44" height="14">
+            <path d="M0 7h30M28 1.5 40 7 28 12.5z" fill="#ffd24a" stroke="#ffd24a"
+                  stroke-width="2.5" stroke-linejoin="round"/>
+          </svg>
+          <div class="sprite ghost"></div>
+        </div>
+        <div class="labels"><span>you</span><span></span><span>your GPS</span></div>
+      </div>
       <p class="lead">Your real neighbourhood is the map. Walk to move your
          farmer &mdash; WASD on a computer &mdash; and rebuild it.</p>
       <dl>
