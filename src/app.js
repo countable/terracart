@@ -230,6 +230,14 @@ const WALK_HOME_IDLE_MS = 3000;
 const WALK_HOME_HINT_IDLE_MS = 5000;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
+// Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
+// tier used for stick-walking to a fixed high number), coffee is a common
+// crop, not a rare potion — so it just gives a caffeine-buzz +1 tier for 3
+// minutes, stacking additively on top of whatever tier is already in play
+// (worn amulet, Dragon, or the Speed potion), capped at the same ceiling
+// those top out at so a coffee can't out-tier the rarest buff.
+const COFFEE_AMULET_BOOST = 1;
+const COFFEE_BUFF_MS = 3 * 60 * 1000;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -4133,6 +4141,11 @@ class MapScene extends Phaser.Scene {
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
       tier = Math.max(tier, SPEED_POTION_AMULET_TIER);
     }
+    // Coffee ADDS a tier rather than overriding to one — a caffeine buzz on
+    // top of whatever's already active, not a replacement for it.
+    if ((this.save.coffeeUntil ?? 0) > Date.now()) {
+      tier = Math.min(SPEED_POTION_AMULET_TIER, tier + COFFEE_AMULET_BOOST);
+    }
     return { amulet: { tier } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
@@ -5484,6 +5497,9 @@ class MapScene extends Phaser.Scene {
     } else if (sel.id === 'rainberry') {
       const watered = this.waterCropsWithin(20);
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+    } else if (sel.id === 'coffee') {
+      this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
+      extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
     persistSave(this.save);
     this.buildInventoryDOM();
