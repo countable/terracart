@@ -711,11 +711,22 @@ GEAR: RELICS & ARMOR
    standing is nearly free), OUTSIDE it you pay full price and the character
    TINTS DARKER the further out you go, with a black pulsing halo behind. At
    0 energy the character tints RED with a red pulsing halo instead (that
-   warning wins when both apply). Let the stick sit idle for 3 s and the
-   character WALKS ITSELF HOME — the offset bleeds back to zero at stick pace,
-   free of charge; any push restarts the timer. Surface only, and never while
-   a work wheel is running (standing still to chop a tree is being busy, not
-   idle). Two things borrow a tier rather
+   warning wins when both apply). Let the stick sit idle for WALK_HOME_IDLE_MS
+   (700 ms) and the character WALKS ITSELF HOME — the offset bleeds back to
+   zero at stick pace, free of charge; any push restarts the timer. Surface
+   only, and never while a work wheel is running (standing still to chop a tree
+   is being busy, not idle).
+   That delay is a DEBOUNCE (so lifting a thumb to reposition it doesn't send
+   the character trotting off), not a pause. It was 3000 ms, which measured as
+   three full seconds of the character doing nothing after release — walk 43 m
+   out, let go, and the offset sat frozen for 3.1 s before covering the whole
+   way back in 2.9 s. All of the sluggishness was in the wait; the walk itself
+   was never slow. At 700 ms the return begins at 0.8 s and is home by 3.7 s.
+   The lead-line hint (WALK_HOME_HINT_IDLE_MS, 2000 ms) must stay LONGER than
+   the walk's delay — it announces a walk, so it can't precede one — but not so
+   much longer that an ordinary return finishes before it is due, which is what
+   happened when the walk dropped to 700 ms and the hint stayed at 5000 ms.
+   walk_home.test.js pins both bounds. Two things borrow a tier rather
    than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
    damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
    walking (debug)" toggle drops the stamina cost to nothing and with it the

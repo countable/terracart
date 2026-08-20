@@ -108,6 +108,21 @@ try {
   ctx.isTillable = (type) => !nonTillable.has(type);
 }
 
+// The walk-home timings live in app.js too. Lift them the same way, so the
+// tests below assert on the REAL numbers rather than a copy that would quietly
+// drift the moment someone retunes the feel.
+{
+  const src = readSrc('app.js');
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    ctx[name] = parseInt(m[1], 10);
+  }
+}
+
 // The inventory category tabs are declared in app.js (which needs Phaser, so it
 // can't load here). Lift the {key, label, sym} triples straight out of the
 // source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
@@ -129,6 +144,39 @@ try {
     process.exit(2);
   }
   ctx.INV_CATS = cats;
+}
+
+// The cash-storefront offer path must derive every roll behind an offer from
+// the shop's hour bucket (shopRng), never Math.random — otherwise closing and
+// reopening the modal re-rolls what the shop sells, which is exactly the bug
+// where a player could reopen a fort until it offered a relic and then reopen
+// until the price came up cheap. app.js needs Phaser so it can't load here;
+// lift the two method bodies as text (same trick as NON_TILLABLE / INV_CATS /
+// _carveStarterPlot above) so shops_math.test.js asserts on the real shipping
+// source rather than a transcription that could drift.
+{
+  const src = readSrc('app.js');
+  const grab = (head, mustContain) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${head.trim()} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    const bodyStart = at + head.length;
+    const end = src.indexOf('\n  }\n', bodyStart);
+    if (end < 0) {
+      console.error(`Could not find the end of ${head.trim()} — update run.js`);
+      process.exit(2);
+    }
+    const body = src.slice(bodyStart, end);
+    if (!mustContain.test(body)) {
+      console.error(`${head.trim()} no longer looks like the offer path — update run.js`);
+      process.exit(2);
+    }
+    return body;
+  };
+  ctx.SHOP_INTERACT_SRC   = grab('  shopInteract(sx, sy, house) {\n', /< 0\.10/);
+  ctx.BUILD_SHOP_OFFER_SRC = grab('  buildShopOffer(id, baseValue, opts = {}) {\n', /buyPrice\(/);
 }
 
 // The starter plot (_carveStarterPlot) is pure grid math — no Phaser, no
