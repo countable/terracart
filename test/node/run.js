@@ -219,6 +219,14 @@ for (const f of testFiles) {
   }
 }
 
+// ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
+// File-level checks that index.html and sw.js still agree about what the app
+// is made of. Runs in plain node scope (fs), like the sprite audit above.
+{
+  const shell = require('../../tools/shell_audit.js');
+  for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
   let pass = 0, fail = 0;
