@@ -925,17 +925,26 @@ class MapScene extends Phaser.Scene {
     // Nested 1px strokes rather than a gradient fill: Phaser's Graphics has no
     // gradient primitive, and 1px rings cost nothing to bake once (the
     // viewport never moves, so this is drawn exactly once in create()).
-    // Quadratic falloff over 14px, peaking at 15% black on the outermost ring
-    // — deliberately light, because the outer cell ring is where objects first
-    // appear as the player walks toward them and must stay readable.
+    // Quadratic falloff over 14px. The outer 4px now ramp to near-opaque so
+    // art that overhangs the mask FADES out instead of being sliced mid-pixel
+    // (bottom-row houses were cut cleanly in half — UX audit §15); inside that
+    // lip the ramp stays light, because the outer cell ring is where objects
+    // first appear as the player walks toward them and must stay readable.
     // Unmasked and depth 90: above every world container (all depth 0) and
     // below the work-progress wheel (95) + flash text (100+), which are UI and
     // shouldn't be dimmed.
     const vignette = this.add.graphics().setDepth(90);
     const VIG_PX = 14;
+    const VIG_LIP = 4;                       // outermost rings that go opaque
     for (let i = 0; i < VIG_PX; i++) {
       const t = 1 - i / VIG_PX;              // 1 at the rim → 0 inward
-      vignette.lineStyle(1, 0x000000, 0.15 * t * t);
+      // Rim lip: 0.92 → 0.15 across VIG_LIP rings, then the original soft
+      // quadratic for the rest. Without the lip a sprite crossing the mask
+      // ended on a hard cut; with it the last few pixels read as a fade.
+      const a = i < VIG_LIP
+        ? 0.92 - (0.92 - 0.15) * (i / VIG_LIP)
+        : 0.15 * t * t;
+      vignette.lineStyle(1, 0x000000, a);
       vignette.strokeRect(
         this.viewLeft + i + 0.5, this.viewTop + i + 0.5,
         this.viewSize - 2 * i - 1, this.viewSize - 2 * i - 1,
@@ -1489,6 +1498,48 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Tiles ===
+  // What the ⚡ chip does when tapped (UX audit §20): "how do I refill this?"
+  // is the obvious gesture and it did nothing. Says where energy comes from,
+  // and how much this save's armor allows.
+  showEnergyHelp() {
+    const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
+    const { wrap, box, mount } = this.makeModalShell('energy-help',
+      { maxWidth: 300, textAlign: 'left', onClose: () => {} });
+    const h = document.createElement('div');
+    h.style.cssText = 'font:700 14px ui-monospace,monospace;color:var(--green);'
+      + 'margin-bottom:8px;text-align:center;';
+    h.textContent = `Energy  ${cur} / ${max}`;
+    box.appendChild(h);
+    const body = document.createElement('div');
+    body.style.cssText = 'font:12px/1.5 ui-monospace,monospace;color:#ddd;';
+    body.innerHTML =
+      'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
+      + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
+      + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
+      + '• <b>Armor</b> — each piece raises the cap (currently ' + max + ').';
+    box.appendChild(body);
+    const close = document.createElement('button');
+    close.textContent = 'Got it';
+    close.style.cssText =
+      'display:block;width:100%;margin-top:12px;padding:11px 14px;border-radius:7px;'
+      + 'border:0;background:var(--gold-dark);color:#1a1612;cursor:pointer;'
+      + 'font:700 13px ui-monospace,monospace;';
+    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(close);
+    mount();
+  }
+
+  // Short vibration on tap outcomes. An outdoor phone game in sunlight can't
+  // rely on a 12px flash label alone (UX audit §18), so a tap that lands and a
+  // tap that's rejected feel different. Off is remembered in the save; the API
+  // is absent on desktop and iOS Safari, hence the optional call.
+  haptic(ms) {
+    if (this.save?.haptics === false) return;
+    try { navigator.vibrate?.(ms); } catch (_) {}
+  }
+  hapticOk()     { this.haptic(15); }
+  hapticReject() { this.haptic(40); }
+
   showBanner(on) {
     this.banner.style.display = on ? 'block' : 'none';
     // Wire tap-to-retry once: drop the failed tiles so the next ensureTiles
@@ -2879,10 +2930,18 @@ class MapScene extends Phaser.Scene {
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
-    g.fillStyle(0x000000, 0.55);
-    g.fillCircle(cx, cy, R + 1);
+    // Darker disc + an unfilled track ring behind the arc: a thin white arc on
+    // its own was low-contrast in a leafy scene and gave no sense of how far
+    // round the wheel had to go (UX audit §20). The track shows the whole
+    // journey, the gold arc shows the part that's done.
+    g.fillStyle(0x000000, 0.72);
+    g.fillCircle(cx, cy, R + 2);
+    g.lineStyle(3, 0xffffff, 0.22);
+    g.beginPath();
+    g.arc(cx, cy, R, 0, Math.PI * 2, false);
+    g.strokePath();
     if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.9);
+      g.lineStyle(3, 0xffe066, 0.95);
       g.beginPath();
       g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
       g.strokePath();
@@ -4369,6 +4428,9 @@ class MapScene extends Phaser.Scene {
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
   flashLoot(text, color = '#ffe066', dwellMul = 1, itemId = null, iconEl = null) {
     const x = this.viewCenterX, y = this.viewCenterY - 90;
+    // Every "you got something" goes through here, so it's the one place a
+    // success buzz needs wiring (UX audit §18).
+    this.hapticOk();
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
     // every icon sheet be preloaded into Phaser textures (egg / milk /
@@ -5960,10 +6022,36 @@ class MapScene extends Phaser.Scene {
           'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
           + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
           + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
+        // Icons alone told you nothing: three unlabelled sprites and a
+        // distance, so you couldn't tell what a run needed, what it paid, or
+        // which of five rows you could actually complete. Name every item,
+        // show how many of each you're carrying against the one needed, and
+        // price the set.
         const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
+        const names = h.wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
+        const have = h.wanted.map(id => Inventory.count(this.save, id));
+        const ready = have.every(n => n >= 1);
+        // Say what's MISSING rather than printing a have/need ratio per item —
+        // "5/1 Coal 5/1 Wood" parses as arithmetic, not as an answer to "can I
+        // do this run?".
+        const missing = h.wanted
+          .filter((id, i) => have[i] < 1)
+          .map(id => ITEM_BY_ID[id]?.name || id);
+        const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
+        const setPrice = Math.max(1, Math.round(
+          h.wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
         row.innerHTML =
-          `<span style="flex:1;display:flex;align-items:center;gap:4px;">${icons}</span>`
-          + `<span style="opacity:.7;white-space:nowrap;">${Math.round(h.dist)}m ›</span>`;
+          `<span style="flex:1;min-width:0;">`
+          + `<span style="display:flex;align-items:center;gap:4px;">${icons}`
+          + `<b style="font-weight:700;">${names}</b></span>`
+          + `<span style="display:block;font-size:11px;margin-top:2px;`
+          + `color:${ready ? 'var(--green)' : '#ddd'};opacity:${ready ? '1' : '.75'};">`
+          + `${stock}</span></span>`
+          + `<span style="white-space:nowrap;text-align:right;">`
+          + `<b style="color:var(--gold);">+$${setPrice}</b><br>`
+          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`;
+        // A row you can complete right now reads as ready.
+        if (ready) row.style.borderColor = '#4a8c4a';
         row.addEventListener('click', (e) => {
           e.stopPropagation();
           this.setDeliveryCompass(h.id, h.x, h.y);
@@ -5973,6 +6061,16 @@ class MapScene extends Phaser.Scene {
         box.appendChild(row);
       }
     }
+    // Every other modal ends in a button; this one was backdrop-tap only, on a
+    // box that fills most of the width.
+    const close = document.createElement('button');
+    close.textContent = 'Close';
+    close.style.cssText =
+      'display:block;width:100%;margin-top:10px;padding:11px 14px;border-radius:7px;'
+      + 'border:0;background:var(--gold-dark);color:#1a1612;cursor:pointer;'
+      + 'font:700 13px ui-monospace,monospace;';
+    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(close);
     mount();
   }
 
@@ -6165,9 +6263,12 @@ class MapScene extends Phaser.Scene {
     // the items individually. Drives both the modal display and the payout.
     const setPrice = Math.max(1, Math.round(
       wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
+    // Name the goods rather than showing bare ~20px icons against 13px body
+    // text, and say what the stepper counts.
+    const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
-      cost: `${q}× [ ${setIcons} ]`,
+      cost: `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
       canAfford: true,
     });
     const first = fmt(1);
@@ -7696,7 +7797,7 @@ class MapScene extends Phaser.Scene {
         const b = document.createElement('button');
         b.textContent = label;
         b.style.cssText =
-          'width:40px;height:34px;border-radius:6px;font:700 20px ui-monospace,monospace;cursor:pointer;' +
+          'width:44px;height:44px;border-radius:6px;font:700 20px ui-monospace,monospace;cursor:pointer;' +
           'background:transparent;color:#ddd;border:2px solid #555;line-height:1;';
         return b;
       };
@@ -8066,7 +8167,7 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(102px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    tabs.style.cssText = 'position:fixed;bottom:calc(104px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
       const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
@@ -8074,7 +8175,7 @@ class MapScene extends Phaser.Scene {
       tab.dataset.cat = c.key;
       tab.title = c.label;
       tab.style.cssText =
-        'position:relative;flex:1 1 0;min-width:0;height:36px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;' +
         (active
@@ -8099,6 +8200,10 @@ class MapScene extends Phaser.Scene {
         'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
         (active ? 'color:#ffe066;' : 'color:#999;');
       tab.appendChild(caption);
+      // An EMPTY tab reads as empty: without this a fresh save's Relics and
+      // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
+      // §20). The active tab always stays full strength — you're looking at it.
+      if (!count && !active) tab.style.opacity = '0.45';
       // Tiny count pip so the player can see at a glance which tabs hold gear.
       if (count > 0) {
         const pip = document.createElement('span');
@@ -8118,10 +8223,12 @@ class MapScene extends Phaser.Scene {
     bar.id = 'inv';
     bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
 
-    const makeBtn = (txt, onclick, w = 28) => {
+    // 40×44, not 28×42: this is a one-handed outdoor game and the pager sat
+    // well under the 44px guideline (QC/UX audit §13).
+    const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
       b.textContent = txt;
-      b.style.cssText = `width:${w}px;height:42px;background:#222a;border:2px solid #555;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
+      b.style.cssText = `width:${w}px;height:44px;background:#222a;border:2px solid #555;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
     };
@@ -8182,7 +8289,10 @@ class MapScene extends Phaser.Scene {
             this.refreshInventoryHighlight();
           });
         } else {
-          slot.textContent = '·';
+          // Empty gear well — no glyph. '·' is reserved for MISSING ART
+          // (QC_RULES §1); using it here made five empty slots read as five
+          // broken icons on a fresh save.
+          slot.textContent = '';
           slot.style.cursor = 'default';
         }
       } else if (p < itemList.length) {
@@ -8209,7 +8319,7 @@ class MapScene extends Phaser.Scene {
         // which a shop reads as buy intent. dataset.slot = -1.
         slot.dataset.slot = -1;
         slot.title = 'empty';
-        slot.textContent = '·';
+        slot.textContent = '';
         slot.addEventListener('click', (e) => {
           e.stopPropagation();
           this.save.selSlot = -1;
@@ -8217,8 +8327,8 @@ class MapScene extends Phaser.Scene {
           this.refreshInventoryHighlight();
         });
       } else {
-        // Filler beyond the list — inert.
-        slot.textContent = '·';
+        // Filler beyond the list — inert, and blank for the same reason.
+        slot.textContent = '';
         slot.style.cursor = 'default';
       }
       bar.appendChild(slot);

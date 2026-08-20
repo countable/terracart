@@ -174,6 +174,7 @@ function tooFar(ctx, x, y) {
       if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
     }
     scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    scene.hapticReject?.();
     return true;
   }
   // Fallback (helpers somehow unavailable): legacy Euclidean foot→cell-centre gate.
@@ -181,6 +182,7 @@ function tooFar(ctx, x, y) {
     ? reachRadiusM(scene) : REACH_FAR_M;
   if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
     scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+    scene.hapticReject?.();
     return true;
   }
   return false;

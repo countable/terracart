@@ -184,13 +184,15 @@
       font: 700 16px ui-monospace, monospace;
       pointer-events: none; z-index: 7;
     }
+    /* Tappable: "how do I refill this?" is the obvious gesture and it used to
+       do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
       position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
       right: calc(var(--phone-right, 0px) + 88px);
       background: #000a; color: var(--green); padding: 4px 10px;
       border: 2px solid #4a8c4a; border-radius: 8px;
       font: 700 14px ui-monospace, monospace;
-      pointer-events: none; z-index: 7;
+      pointer-events: auto; cursor: pointer; z-index: 7;
       display: flex; flex-direction: column; gap: 3px; align-items: stretch;
     }
     /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
@@ -432,6 +434,7 @@
       <!-- Only shown when the objective ladder has been dismissed but isn't
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
+      <button id="toggle-haptics">Vibration: on</button>
       <button id="move-home">Move Home here</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
@@ -666,6 +669,39 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
+    });
+    // Vibration toggle (UX audit §18). Label tracks the save both before the
+    // scene exists (read localStorage) and after each click.
+    (function wireHaptics() {
+      const btn = document.getElementById('toggle-haptics');
+      if (!btn) return;
+      const read = () => {
+        const sc = window.__scene;
+        if (sc && sc.save) return sc.save.haptics !== false;
+        try {
+          const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+          const slot = reg && reg.slots.find(s => s.id === reg.active);
+          const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
+          return !d || d.haptics !== false;
+        } catch { return true; }
+      };
+      const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sc = window.__scene;
+        if (sc && sc.save) {
+          sc.save.haptics = !(sc.save.haptics !== false);
+          if (typeof persistSave === 'function') persistSave(sc.save);
+          if (sc.save.haptics) sc.hapticOk?.();
+        }
+        paint();
+      });
+      paint();
+    })();
+    document.getElementById('energy')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sc = window.__scene;
+      if (sc && sc.showEnergyHelp) sc.showEnergyHelp();
     });
     document.getElementById('show-objectives').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1184,7 +1220,7 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=12"></script>
+  <script src="src/util.js?v=13"></script>
   <script src="src/sprite_layout.js?v=5"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=1"></script>
@@ -1204,10 +1240,10 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=2"></script>
-  <script src="src/interactables.js?v=7"></script>
-  <script src="src/interact.js?v=222"></script>
-  <script src="src/render.js?v=285"></script>
+  <script src="src/quests.js?v=3"></script>
+  <script src="src/interactables.js?v=8"></script>
+  <script src="src/interact.js?v=223"></script>
+  <script src="src/render.js?v=286"></script>
   <script src="src/road_overlay.js?v=4"></script>
   <script src="src/assets.js?v=176"></script>
   <script src="src/sandbox.js?v=36"></script>
@@ -1229,7 +1265,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=376';
+      const APP_SRC = 'src/app.js?v=378';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
