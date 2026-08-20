@@ -54,6 +54,21 @@
   regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
   it into `src/sprite_layout.js`.
 
+- **The creature "crown" rule (work wheel).** Creatures are exempt from the
+  one-cell rule above (they're feet-anchored moving actors), but the
+  work-progress wheel drawn over one is not free-floating: its centre sits on
+  that kind's **crown** — the top row of its visible art at rest — so half the
+  ring covers the body and half is clear sky, at any animal size. It's derived,
+  not tuned: the per-kind draw geometry (frame, scale, foot origin, constant
+  float, trimmed art rows) lives in **`src/sprite_layout.js`** › `CREATURE_ART`,
+  which `render.js` draws from and `app.js` places the wheel from via
+  `creatureWheelDy(kind)`. Never re-tune the wheel with a flat px offset — one
+  number can't fit a chicken and a cow, which is how it ended up 4px above the
+  chicken and down at a perched crow's feet.
+  **Audit it:** `node tools/sprite_audit.js` (also in `node test/node/run.js`)
+  re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
+  art or a wheel has left its crown.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

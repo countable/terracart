@@ -50,6 +50,7 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
+  'sprite_layout.js',
   'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
@@ -219,6 +220,14 @@ for (const f of testFiles) {
     ctx.__tests.push({ name: `sprite seat (one-cell rule): ${sc.name}`, fn: () => {
       const r = audit.evaluate(sc);
       if (r.error) throw new Error(r.error);
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // Creatures skip the seat rule but own the wheel crown rule — same audit,
+  // same PNG decode, so a resized creature sheet can't strand its work wheel.
+  for (const kind of Object.keys(audit.CREATURE_SHEETS)) {
+    ctx.__tests.push({ name: `creature wheel (crown rule): ${kind}`, fn: () => {
+      const r = audit.evaluateCreature(kind);
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }

@@ -3115,16 +3115,20 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
     const cx = Math.round(screen.x);
-    // Wheels over a CREATURE — a capture (wp.flee) or a monster fight (wp.track)
-    // — sit on a sprite drawn taller than the static targets (rock / tree /
-    // crop) the base offset was tuned for, so they read as overlapping the
-    // body. Lift those 4 px, and a capture a further 10 on top: its target is
-    // fleeing, so the wheel wants to clear the animal outright rather than hug
-    // it. Base is -7 (was -9: everything but the capture wheel sits 2 px
-    // lower now); the capture wheel's own extra went 5 → 10 so it nets 3 px
-    // HIGHER than before rather than 2 lower with the rest.
-    const overCreature = !!(wp.flee || wp.track);
-    const cy = Math.round(screen.y) - 7 - (overCreature ? 4 : 0) - (wp.flee ? 10 : 0);
+    // Static targets (rock / tree / crop / fish) sit in their cell, so a flat
+    // -7 puts the wheel on them. A CREATURE can't use a flat offset: the
+    // animals are drawn feet-anchored at wildly different sizes, so the one
+    // number that hugged a cow's head floated ~4 px clear above a chicken and
+    // sat down at a perched crow's feet. Wheels over a creature — a capture
+    // (wp.flee) or a hunt (wp.track) — are placed by the crown rule instead
+    // (SpriteLayout.creatureWheelDy): centred on the top row of that kind's
+    // art, half the ring over the body and half in clear sky. That subsumes
+    // the old per-case fudges, including the capture wheel's extra lift for
+    // "clear the fleeing animal" — it clears it by construction now.
+    const creature = wp.flee || wp.track || null;
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
+    const cy = Math.round(screen.y) + Math.round(dyWheel);
     const R = 9;
     const g = this._workProgressGfx;
     g.clear();
