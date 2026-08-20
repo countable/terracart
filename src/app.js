@@ -654,25 +654,27 @@ class MapScene extends Phaser.Scene {
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
     this.borderContainer.add(this.borderGfx);
     this.terrainContainer = this.add.container(0, 0);
+    // Original OSM road geometry (road_overlay.js) — the raw vector linework
+    // the rasterizer turned into road/path cells, as a muted brown band. Sits
+    // above the terrain + biome borders but BELOW the cobbles: the linework is
+    // the evidence of what the rasterizer was AIMING at, so the stones it
+    // actually laid have to read on top of it, not through it. Anything above
+    // the cobble is likewise above this — road labels, plants, objects.
+    // Scrolled each frame for the sub-cell offset, like the border layer.
+    // Only the container is made here: road_overlay.js draws into an offscreen
+    // canvas (round caps, one flat alpha over the whole network) and adds the
+    // resulting image to this container on its first pass.
+    this.roadGeomContainer = this.add.container(0, 0);
     // Cobblestone overlay sprites for road/path/pier cells. Sits ABOVE the
     // noise + border layers, so biome speckle and the wavy zone borders never
-    // paint over the road surface, and BELOW the road-label layer.
+    // paint over the road surface, above the OSM linework overlay, and BELOW
+    // the road-label layer.
     this.cobbleContainer = this.add.container(0, 0);
     // Road-name letters render WITH the road stones (just above the cobble),
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
-    // Original OSM road geometry (road_overlay.js) — the raw vector linework
-    // the rasterizer turned into road/path cells, as a brown band @ 31%. Sits
-    // above the terrain + cobbles so it reads as an overlay ON the map, and
-    // below the plant/object sprites so it never paints over a tree or house.
-    // (The plant/object/creature layer is worldContainer, added below.)
-    // Scrolled each frame for the sub-cell offset, like the border layer.
-    // Only the container is made here: road_overlay.js draws into an offscreen
-    // canvas (round caps, one flat alpha over the whole network) and adds the
-    // resulting image to this container on its first pass.
-    this.roadGeomContainer = this.add.container(0, 0);
     // POI halos — the slow glow under every live POI (render.js). Its own layer,
     // added before the pads, so a halo always sits UNDER the concrete slab no
     // matter which pool happened to allocate its sprites first.
@@ -780,10 +782,14 @@ class MapScene extends Phaser.Scene {
       // Linux, Cambria on Windows — so the one label in the game that should
       // look like a map label rendered differently on every device, at
       // different widths. Same stack the shop-ready plaque already pins.
+      // Alpha 0.88, not the old 0.72: at three-quarter alpha the dark ink
+      // washed toward its own pale halo and the street name read as a smudge
+      // rather than as lettering. Still short of full opacity so it stays
+      // map-printed rather than stamped on.
       const t = this.add.text(0, 0, '', {
         font: fontSerif('bold 10px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
-      }).setOrigin(0.5, 0.5).setAlpha(0.72).setDepth(0).setVisible(false);
+      }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
       this.letterPool.push(t);
     }
