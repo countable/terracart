@@ -109,5 +109,50 @@
     return Math.max(1, Math.ceil(baseValue * (lo + r() * (hi - lo))));
   }
 
-  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, readiness, rng, buyPrice };
+  // ── Roadside stands ──────────────────────────────────────────────────
+  // A stand (the coffee cart, the fruit stall, the fishmonger) is a fresh
+  // producer selling its own goods, not a village shop restocking from a
+  // wholesaler — so it undercuts the listed price rather than marking it up.
+  // It used to charge exactly par, which read as expensive for what is meant
+  // to be the cheap, friendly way to get hold of an ingredient.
+  //
+  // The discount has a hard floor: THE PLAYER MUST NEVER BE ABLE TO BUY FROM A
+  // STAND AND SELL AT A PROFIT. That floor is not a constant, because the sell
+  // side is not either — the Sword relic scales selling from 0.5× base up to
+  // 1.0× at tier 7 (sellMultiplier, items.js). A flat "stands are 25% off"
+  // would be free money the moment a player carried a tier-4 sword: buy at
+  // 0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN
+  // sell price and stays a margin above it, and the discount quietly shrinks
+  // as their sword improves:
+  //
+  //     no sword (sell 0.50)  →  pay 0.75   (25% off par)
+  //     sword T4 (sell 0.79)  →  pay 0.84   (16% off par)
+  //     sword T7 (sell 1.00)  →  pay 1.00   (par — break-even, as before)
+  //
+  // Capped at par so a maxed-out player is never charged MORE than the listed
+  // price; at that point buying and reselling is exactly break-even, which is
+  // what it already was. Every combination is pinned in shops_math.test.js.
+  //
+  // What actually guarantees the invariant is the TRACKING — pricing off
+  // sellMultiplier rather than off a constant. The margin below is headroom on
+  // top of that, so a later tweak to either curve doesn't land exactly on the
+  // line; setting it to 0 still yields break-even, never profit.
+  const STAND_BUY_MUL = 0.75;      // best case: what a stand charges off par
+  const STAND_ARB_MARGIN = 0.05;   // headroom above resale, not the guarantee
+
+  // The multiplier a stand applies to an item's listed value, for these relics.
+  function standBuyMul(relics) {
+    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(relics) : 0.5;
+    return Math.min(1, Math.max(STAND_BUY_MUL, sellMul + STAND_ARB_MARGIN));
+  }
+
+  // Cash price to buy ONE unit at a stand. Ceil (not round) so the rounding
+  // always favours the stand — rounding down could hand back the very penny of
+  // arbitrage the margin exists to prevent on a cheap item.
+  function standPrice(save, baseValue) {
+    return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
+  }
+
+  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, readiness, rng, buyPrice,
+                     STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

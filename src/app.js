@@ -5657,28 +5657,35 @@ class MapScene extends Phaser.Scene {
 
   // Produce stand = a roadside MARKET (not a one-shot chest). It sells the
   // produce its awning advertises (loot.js produceStandFor → { item, frame })
-  // at PAR VALUE — exactly PRICES[item] per unit, with no shop markup (the
-  // 1.2–3.0× buyPrice ramp is for restocking village shops; a fresh produce
-  // stall is a flat, fair price). Repeatable: a quantity stepper lets the
-  // player buy as many as they can afford and carry, and the stall is never
-  // marked save.opened.
+  // BELOW par — a fresh stall undercuts the listed price rather than applying
+  // the 1.2–3.0× buyPrice ramp, which is for restocking village shops. How far
+  // below is ShopsMath.standPrice's business: the discount is capped by what
+  // the player could resell for, so a stand can never be an arbitrage pump.
+  // Repeatable: a quantity stepper lets the player buy as many as they can
+  // afford and carry, and the stall is never marked save.opened.
   presentMarketStandOffer(sx, sy, o, stand) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
     const id = stand.item;
     const item = ITEM_BY_ID[id];
-    const unitPrice = Math.max(1, PRICES[id] ?? 1);    // par value, no markup
+    const unitPrice = ShopsMath.standPrice(this.save, PRICES[id] ?? 1);
+    const listPrice = Math.max(1, PRICES[id] ?? 1);
     const iconHTML = this.iconSpanHTML(id);
     const itemName = item?.name || id;
     // Cap the stepper at what the player can both afford AND fit in their bag.
     const money = () => this.save.money ?? 0;
     const room  = () => { const r = this.invRoomFor(id); return r === Infinity ? 99 : r; };
     const maxQty = Math.max(1, Math.min(room(), Math.max(1, Math.floor(money() / unitPrice))));
+    // Show what the stall is knocking off, so the discount reads as a deal
+    // rather than as an arbitrary number. Suppressed at par (a maxed-out sword
+    // pushes the price back up to the listed value — see ShopsMath.standPrice).
+    const saved = (listPrice - unitPrice);
     const fmt = (q) => {
       const total = unitPrice * q;
       return {
         get: `${iconHTML} ${itemName} ×${q}`,
-        cost: `$${total}`,
+        cost: saved > 0 ? `$${total} <span style="opacity:.6">(save $${saved * q})</span>`
+                        : `$${total}`,
         canAfford: money() >= total && q <= room(),
       };
     };
