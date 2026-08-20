@@ -56,6 +56,10 @@ const Render = {};
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
+// Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
+// the places are, not a call to action, and anything brisk turns a street of
+// POIs into a strobe.
+const POI_HALO_PERIOD_S = 4.5;
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -1756,6 +1760,31 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
+  // POI halos — a slow, subtle breath of light under every POI that still has
+  // something in it, so places read as places from across the map without
+  // shouting. Its own layer under the pads, so a pad's concrete slab covers the
+  // halo's centre and what's left is a glow spilling out around the slab. Each
+  // POI breathes on its own phase, hashed from its id — in lockstep a whole
+  // street would throb as one, which reads as a bug rather than as ambience.
+  const haloT = performance.now() / 1000;
+  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestOpened(o));
+  Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
+    const { o, dx, dy } = item;
+    const { sx, sy } = project(dx, dy);
+    setTextureIfDifferent(s, 'halo_poi');
+    // Stable per-POI phase in [0, 1) from the id — no RNG, so a halo doesn't
+    // jump phase when its tile reloads.
+    let h = 0;
+    const id = String(o.id || '');
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    const wave = 0.5 + 0.5 * Math.sin((haloT / POI_HALO_PERIOD_S + (h % 1000) / 1000) * Math.PI * 2);
+    const size = CELL_PX * (1.5 + 0.25 * wave);
+    s.setOrigin(0.5, 0.5)
+     .setDisplaySize(size, size)
+     .setAlpha(0.10 + 0.10 * wave)
+     .setPosition(Math.round(sx), Math.round(sy));
+  });
+
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape } = item;
     const { sx, sy } = project(dx, dy);
