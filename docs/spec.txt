@@ -817,11 +817,64 @@ SAVED GAMES (slots)
    reset per-slot. Listed newest-played first in the menu.
 
 ================================================================================
-HUD (debug)
+HUD
 ================================================================================
- - top-left: lat, lon, GPS state (wasd|waiting|live); line 2: current MVT tile
-   coords, loaded tile count, caught count, planted plot count. Not styled for
-   production; useful for testing.
+COLOUR LAW — gold means "you can touch this"
+ - Gold/yellow is the interaction colour and nothing else may claim it. Every
+   CONTROL wears it: the menu, the walking stick, inventory tabs and slots,
+   the pager, the action buttons, the objective chip's close button. A control
+   at REST wears brass (dim, unlit gold); SELECTED/ACTIVE lights to full gold.
+ - Anything that only REPORTS is ink, never gold: bone for what you read (item
+   name, objective title), dust for what you only glance at (the GPS line,
+   objective body copy). The selected-item name used to be gold, which put the
+   loudest "touch me" colour in the HUD on the one thing down there you can't.
+ - The energy readout is a GAUGE, so it stays on its own green -> amber -> red
+   scale and claims no gold. Its mid-warning used to be the interaction gold.
+ - ONE deliberate exception: the money chip is gold because it counts actual
+   gold. Currency is the subject matter there, not an affordance (the chip is
+   pointer-events:none).
+ - The same law runs from the other side in the world palette: no terrain
+   colour is allowed into the yellow band (see COLORS in src/app.js).
+
+CHROME — salvaged field kit
+ - One --chrome-* token vocabulary in index.html paints every persistent HUD
+   surface, so they read as parts of one machine. The machine is SALVAGE:
+   warm olive-brown weathered steel, dusty (not white) lit edges, and a faint
+   brushed scuff layer. Panels are dark metal with a lit top lip and a cast
+   shadow; controls are RAISED with a gradient face; anything that HOLDS
+   something (item slots, the energy track) is SUNK. The tokens are paint
+   only — no widths, borders or padding — so adding chrome cannot move an
+   element.
+
+VERTICAL BUDGET (fitGame -> layOutVertically, index.html)
+ - Three bands share the screen height and only the middle one is the game:
+   TOP_CHROME (106px: money/energy row + objective chip), the map, and
+   INV_CLUSTER (148px: category tabs + item bar + name + action buttons).
+ - The game box used to be pinned to top:0 with the HUD pinned to the viewport
+   bottom, so ALL the slack landed in one unmeasured place. That read very
+   differently per device: an iPhone SE had the walking stick sitting 84px ON
+   TOP of the map while a tall desktop window had a 195px hole under it.
+ - Now the scale is capped by BOTH the phone-column width and the band that is
+   actually left, and the slack is spent in priority order: the walking stick's
+   room first, then a breathing margin (<=28px) under the objective chip.
+ - The stick is placed by fitGame into --stick-bottom: centred in the gap
+   between the map and the tabs when it fits there, otherwise tucked just above
+   the tabs, overlaying the map's bottom corner. Occluding a corner of the
+   world beats occluding the inventory, and the stick never reaches the map's
+   centre, where the player is drawn.
+ - tools/layout_audit.js lifts layOutVertically out of the page and pins these
+   invariants across eight real device sizes.
+
+CLUTTER
+ - The "no GPS — use the stick or WASD to move" line is a lesson, not a status:
+   it retires the moment the player first steers by hand (session-scoped, so a
+   fresh load offers it again). "waiting for GPS…" is live status and stays
+   until a fix lands.
+ - The pager (◀ ▶ and the page plate) is only built when a category actually
+   spans more than one page.
+ - Full developer readout — lat, lon, GPS state (wasd|waiting|live), current
+   MVT tile coords, loaded tile count, caught count, planted plot count — sits
+   behind ☰ › Developer, on one line at the bottom. Not styled for production.
 
 ================================================================================
 ARCHITECTURE: STANDARDIZED MODULES
