@@ -256,6 +256,69 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one
+// screen out from the anchor and decides which wooden relic is inside it. Pure
+// grid + seeded-rng math, but it lives on the Phaser scene class — lift the
+// method body as text (same trick as _carveStarterPlot above) plus the two
+// constants and VIEW_CELLS it reads, so the test drives the REAL placer and the
+// REAL slot list rather than a transcription that could drift.
+{
+  const src = readSrc('app.js');
+  const head = '  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _placeStarterRelicChest in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _placeStarterRelicChest — update run.js');
+    process.exit(2);
+  }
+  const body = src.slice(bodyStart, end);
+  const consts = ['VIEW_CELLS', 'STARTER_RELIC_TIER'];
+  let decls = '';
+  for (const name of consts) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `const ${name} = ${m[1]};\n`;
+    ctx[name] = parseInt(m[1], 10);
+  }
+  const slots = src.match(/const STARTER_RELIC_SLOTS = (\[[^\]]*\]);/);
+  if (!slots) {
+    console.error('Could not find STARTER_RELIC_SLOTS in src/app.js — update run.js');
+    process.exit(2);
+  }
+  decls += `const STARTER_RELIC_SLOTS = ${slots[1]};\n`;
+  // The trail layer above it — same lift, because the thing worth testing is
+  // that the crates come down ALONG the route the chest placer hands back.
+  const trailHead = '  _placeStarterTrail(entry, tx, ty) {\n';
+  const trailAt = src.indexOf(trailHead);
+  if (trailAt < 0) {
+    console.error('Could not find _placeStarterTrail in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const trailBodyStart = trailAt + trailHead.length;
+  const trailEnd = src.indexOf('\n  }\n', trailBodyStart);
+  if (trailEnd < 0) {
+    console.error('Could not find the end of _placeStarterTrail — update run.js');
+    process.exit(2);
+  }
+  const trailBody = src.slice(trailBodyStart, trailEnd);
+  vm.runInContext(
+    decls
+    + `globalThis.placeStarterTrail = function (entry, tx, ty) {\n${trailBody}\n};\n`
+    + 'globalThis.STARTER_RELIC_SLOTS = STARTER_RELIC_SLOTS;\n'
+    + 'globalThis.STARTER_RELIC_TIER = STARTER_RELIC_TIER;\n'
+    + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
+    + `globalThis.placeStarterRelicChest = function (entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n${body}\n};`,
+    ctx, { filename: 'placeStarterRelicChest.js' });
+}
+
 // The road-geometry overlay must keep stroking its bands with the same width
 // function worldgen stamps its no-spawn road mask from — a private copy there
 // would let a way be DRAWN wider than the ground the spawners keep clear, which
@@ -311,6 +374,22 @@ for (const f of testFiles) {
   } catch (e) {
     console.error(`Failed to load ${f}:\n`, e && e.stack || e);
     process.exit(2);
+  }
+}
+
+// ── Wooden relic art (the spawn relic chest's pool) ───────────────────────
+// STARTER_RELIC_SLOTS names the slots the spawn chest can hand out, and the
+// thing that makes each of them a WOODEN relic is that tier-1 art exists for
+// it. That's a claim about files on disk, so it's checked against the shipped
+// PNGs here in node scope (the vm sandbox has no fs) rather than trusted.
+{
+  for (const slot of (ctx.STARTER_RELIC_SLOTS || [])) {
+    ctx.__tests.push({ name: `spawn relic chest: wooden art ships for ${slot}`, fn: () => {
+      const rel = ctx.gearAssetPath('relic', slot, ctx.STARTER_RELIC_TIER);
+      if (!rel) throw new Error(`no gear asset path for relic/${slot}/T${ctx.STARTER_RELIC_TIER}`);
+      if (!/1\. Wood/.test(rel)) throw new Error(`${slot} T1 art is not wooden-tier art: ${rel}`);
+      if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
+    } });
   }
 }
 

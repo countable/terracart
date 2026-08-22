@@ -110,7 +110,7 @@ const HomeArea = {
   // ring", and a bare or parkland spawn can put it a long walk away. The audit
   // counts any down-staircase already standing in the area, so this adds a
   // second entrance only when the neighbourhood didn't supply one.
-  QUOTA: { tree: 50, rock: 50, wreck: 2, ladder: 1 },
+  QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1 },
   // Of that quota, how many must sit inside the pocket as the visible example.
   // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
   // and rocks, so however lush the surrounding neighbourhood is, a player

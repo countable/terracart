@@ -461,6 +461,18 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // (see starterSmithSlots) as the player's bootstrap tools.
 const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
+// Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
+// out. Every one of these ships art in the `1. Wood` tier folder, which is what
+// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
+// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
+// to forge one below T2), and the ring is the wizard tower's exclusive gift on
+// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
+// Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
+// jackpot: it makes the player's first swing 3× quicker and leaves every finer
+// tier to be bought, forged or looted.
+const STARTER_RELIC_TIER = 1;
+
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
@@ -1902,6 +1914,21 @@ class MapScene extends Phaser.Scene {
       const TNAME = {};
       for (const k in T) TNAME[T[k]] = k;
       const out = [];
+      // LAYOUT first. There is no console on a phone, and the whole UI scale is
+      // derived from the viewport (index.html fitGame / layOutVertically), so
+      // "the UI looks zoomed out" is unanswerable without these numbers — iOS
+      // Safari in particular changes innerHeight as its toolbar collapses,
+      // which moves the scale with it.
+      try {
+        const g = document.getElementById('game');
+        const m = g && getComputedStyle(g).transform.match(/matrix\(([-\d.]+)/);
+        const vv = window.visualViewport;
+        out.push(`layout: inner=${window.innerWidth}x${window.innerHeight}`
+          + (vv ? ` visual=${Math.round(vv.width)}x${Math.round(vv.height)}` : '')
+          + ` dpr=${window.devicePixelRatio} scale=${m ? (+m[1]).toFixed(4) : '?'}`
+          + ` standalone=${!!(window.navigator.standalone
+              || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))}`);
+      } catch (_) {}
       out.push(`tile ${key}  cell(${Math.floor(cx)},${Math.floor(cy)})  depth=${this.depth}`);
       // Location / GPS status — explains why the world might be pinned to the
       // Kelowna home origin instead of following the player's real GPS. Any of
@@ -2327,11 +2354,17 @@ class MapScene extends Phaser.Scene {
   // of the rarity picker. (No free scarecrow — it's sold at the forced
   // scarecrow shop, the next house out past the starter blacksmith.)
   //
-  // Crates seat along the nearest road so the onboarding reads "follow the
-  // breadcrumbs along the kerb"; with no road within 15 cells they fall back
-  // to a tight ring around the anchor. Runs from spawnInTile when the tile
-  // holding the anchor rasterizes, and from _setStarterCratesAt when the
-  // anchor resolves after the tile already spawned.
+  // The crates are a TRAIL, and a trail leads somewhere: they are laid along
+  // the walked route from the anchor to the relic chest one screen out, evenly
+  // spaced, so each is in view from the one before and the last hands the
+  // player the chest. They used to seat along whichever road happened to be
+  // nearest — breadcrumbs along the kerb, pointing at nothing in particular,
+  // which is still the fallback for a spawn where no chest could be seated at
+  // all; a tight ring round the anchor is the last resort.
+  //
+  // Runs from spawnInTile when the tile holding the anchor rasterizes, and
+  // from _setStarterCratesAt when the anchor resolves after the tile already
+  // spawned.
   _placeStarterTrail(entry, tx, ty) {
     const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
     if (!anchor || entry._starterTrail) return;
@@ -2350,6 +2383,42 @@ class MapScene extends Phaser.Scene {
       !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const spawnIX = Math.floor((anchor.x - tx0) / this.cellM);
     const spawnIY = Math.floor((anchor.y - ty0) / this.cellM);
+    // Clear the immediate anchor area of natural mineralrocks and procedural
+    // forest fill so the starter crates aren't visually competing with debris
+    // the player can't open. 10-cell Chebyshev radius (~50 m) around it.
+    // EXCEPTION: real-world detected trees (the player's actual yard / street
+    // trees — flagged `individual` or carrying a DeepForest crown_color/size)
+    // are kept, so the home reads like the real neighbourhood instead of a
+    // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
+    // forest-grove trees get cleared near the anchor.
+    //
+    // Runs BEFORE anything is seated: the trail is laid across this ground, so
+    // it has to be looking at the pocket as the player will find it. Clearing
+    // afterwards meant the seater dodged debris that was about to be deleted.
+    const CLEAR_R = 10;
+    const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
+    const _isRealTree = (o) =>
+      (o.kind === 'tree' || o.kind === 'fruittree') &&
+      (o.individual || o.crown_color || o.size);
+    const _nearSpawn = (wx, wy) => {
+      const oIx = Math.floor((wx - tx0) / this.cellM);
+      const oIy = Math.floor((wy - ty0) / this.cellM);
+      return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
+    };
+    entry.objects = entry.objects.filter(o =>
+      _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
+    // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
+    // any within the tutorial pocket too so spawn is free of pickable scrub.
+    if (Array.isArray(entry.wildplants)) {
+      entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
+    }
+    // Cells with something standing on them — a crate seated on top of a tree
+    // reads as a bug whichever one the renderer draws second.
+    const occupied = new Set();
+    const cellKeyAt = (wx, wy) =>
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM);
+    for (const o of entry.objects) occupied.add(cellKeyAt(o.x, o.y));
+    for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
     // BFS from the anchor cell for the nearest road cell within 15 cells.
     let roadCell = null;
     const visited = new Set();
@@ -2409,7 +2478,69 @@ class MapScene extends Phaser.Scene {
       usedSeats.add(cx + ',' + cy);
       placedIdx.add(i);
     };
-    if (roadCell) {
+    // ── The trail proper: breadcrumbs that lead somewhere ──────────────────
+    // The relic chest goes down first, because it is the DESTINATION. It sits
+    // one screen out (see _placeStarterRelicChest), which is precisely far
+    // enough to be off the opening screen — so a player who is only told "look
+    // around" never learns it is there. The crates are then laid along the
+    // walked route to it, evenly spaced: walk to the crate you can see, and
+    // from there the next one is in view, and the last one puts the chest in
+    // view. That is the whole onboarding read — a trail with something at the
+    // end of it, rather than four boxes scattered down whichever street
+    // happened to be nearest.
+    const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+    const trailPath = trail && trail.path;
+    if (trailPath && trailPath.length > COUNT) {
+      const TRAIL_GAP = 2;            // Chebyshev spacing between crates on the route
+      // A crate takes the route cell itself where it legally can, and steps one
+      // cell off it where it can't — the street, the trailer moat and occupied
+      // cells are all out, and dropping the crate over them would break the
+      // chain the player is following.
+      const seatOK = (cx, cy) => {
+        if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
+        const t = entry.grid[cy * N + cx];
+        if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
+        if (onRoadBand(cx, cy)) return false;
+        if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
+        return !inTrailerMoat(cx, cy);
+      };
+      const L = trailPath.length - 1;         // steps from the anchor to the chest
+      let lastSeat = null;
+      for (let i = 0; i < COUNT; i++) {
+        // The crates divide the walk into COUNT+1 equal legs, so the first sits
+        // a few steps from the door and the last just short of the chest, with
+        // no leg long enough to lose the thread. Distance from the anchor is
+        // measured ALONG the route, not across it: a route that bends round a
+        // pond still spaces its crates by how far the player actually walks.
+        const want = Math.round(((i + 1) * L) / (COUNT + 1));
+        let seat = null;
+        for (let off = 0; off <= 3 && !seat; off++) {
+          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
+            const p = trailPath[at];
+            if (!p) continue;
+            for (const [adx, ady] of [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]) {
+              const cx = p.cx + adx, cy = p.cy + ady;
+              if (!seatOK(cx, cy)) continue;
+              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
+                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
+              seat = { cx, cy }; break;
+            }
+            if (seat) break;
+          }
+        }
+        if (!seat) continue;
+        seatCrate(seat.cx, seat.cy, i);
+        lastSeat = seat;
+      }
+    }
+    // Fallback: no chest to lead to (a spawn with no legal ground anywhere in
+    // the band — mid-river, or walled in by buildings), so there is no route to
+    // lay crates along. Fall back to the kerb walk this trail used to be: seat
+    // them on the shoulders of the nearest road, which at least reads as
+    // breadcrumbs even though it leads nowhere in particular. Only when NOTHING
+    // was seated above — a half-laid trail is topped up by the ring below
+    // instead, which never double-seats a loot index.
+    if (roadCell && placedIdx.size === 0) {
       // BFS-collect connected road cells from the nearest road cell, in
       // nearest-first order, then seat crates on walkable, non-road
       // neighbours spaced at least MIN_GAP apart. Following the road's
@@ -2484,36 +2615,155 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // Clear the immediate anchor area of natural mineralrocks and procedural
-    // forest fill so the starter crates aren't visually competing with debris
-    // the player can't open. 10-cell Chebyshev radius (~50 m) around it.
-    // EXCEPTION: real-world detected trees (the player's actual yard / street
-    // trees — flagged `individual` or carrying a DeepForest crown_color/size)
-    // are kept, so the home reads like the real neighbourhood instead of a
-    // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
-    // forest-grove trees get cleared near the anchor.
-    const CLEAR_R = 10;
-    const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
-    const _isRealTree = (o) =>
-      (o.kind === 'tree' || o.kind === 'fruittree') &&
-      (o.individual || o.crown_color || o.size);
-    const _nearSpawn = (wx, wy) => {
-      const oIx = Math.floor((wx - tx0) / this.cellM);
-      const oIy = Math.floor((wy - ty0) / this.cellM);
-      return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
-    };
-    entry.objects = entry.objects.filter(o =>
-      _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
-    // Wild rockfruit / debris (entry.wildplants) is its own stream — clear
-    // any within the tutorial pocket too so spawn is free of pickable scrub.
-    if (Array.isArray(entry.wildplants)) {
-      entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
-    }
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+  }
+
+  // A treasure chest one screen out from the spawn anchor, holding one random
+  // WOODEN (T1) relic. Returns { chest, path } — the walked route from the
+  // anchor to it (anchor first, chest last, one 4-connected step per entry) is
+  // what _placeStarterTrail lays the crate breadcrumbs along — or null when
+  // there is nowhere legal to put it.
+  //
+  // The supply crates hand a new player materials; nothing hands them a TOOL.
+  // Every relic is otherwise bought or forged, so the opening hour is spent
+  // bare-handed at 9 s a swing — a wooden one is 3× quicker (toolDurationMs) —
+  // and which tool it is decides what that hour can even be spent on. So this
+  // is a real treasure chest, not another supply crate: no `crate` flag, so it
+  // renders as the trunk with its tier gem rather than a box, and it disappears
+  // when opened. Its id carries the `chest_start_` stamp, so the gold onboarding
+  // arrow (_nearestStarterCrate) will point the way to it like any other.
+  //
+  // "A screen away": the view is VIEW_CELLS across with the player in the middle
+  // of it, so a chest VIEW_CELLS cells out is just past the edge of the opening
+  // screen — a walk in some direction, not something already in frame — and
+  // clear of the CLEAR_R tutorial pocket that gets stripped bare around the
+  // anchor. It takes the first ring from there out with a free cell (searching
+  // to RELIC_MAX_R), so a spawn hemmed in by water or buildings still gets it —
+  // and only ever a cell the anchor can be WALKED to, since a chest at the end
+  // of a trail is no use across a river.
+  //
+  // Which slot and which direction are both derived from the frozen anchor
+  // through a seeded rng, never Math.random: a tile rebuild has to reproduce
+  // the same chest, in the same cell, with the same relic in it — a player who
+  // walked off and came back to find a different reward waiting would be
+  // watching the world re-roll itself. The id is keyed off the tile (not the
+  // cell) for the same reason save.opened keys off it: an opened chest must
+  // stay opened even if a future rebuild ever seats it one cell over.
+  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const grid = entry.grid;
+    if (!grid || typeof WorldGen === 'undefined') return null;
+    const N = entry.cellsPerEdge;
+    entry.objects = entry.objects || [];
+    const id = `chest_start_relic_${tx}_${ty}`;
+    if (entry.objects.some(o => o.id === id)) return null;   // already seated
+    // Ring band: one screen out, widening only as far as the starter home's
+    // own ring reaches so the chest can never end up somewhere that reads as
+    // "another neighbourhood" instead of "just off the opening screen".
+    const RELIC_MIN_R = VIEW_CELLS;
+    const RELIC_MAX_R = (typeof HomeArea !== 'undefined' ? HomeArea.RING_MAX_CELLS : 16);
+    // Cells already spoken for — a crate seat, or anything standing on the
+    // tile. Nothing but the chest may share the cell it seats on.
+    const taken = new Set(usedSeats || []);
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const markTaken = (wx, wy) => taken.add(
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    for (const o of entry.objects) markTaken(o.x, o.y);
+    for (const w of (entry.wildplants || [])) markTaken(w.x, w.y);
+    // The shared spawn rule — walkable, off anyone's road BAND (not merely off
+    // the one cell per way the grid paints), out of the back gardens. A chest
+    // in the street is the bug this mask exists to stop.
+    const spawnOpts = { roadMask: entry.roadMask };
+    const cellKey = (cx, cy) => cx + ',' + cy;
+    // ── The walk there ──────────────────────────────────────────────────
+    // Flood out from the anchor over ground a ROUTE may be drawn across. This
+    // is not a collision test — the surface has none (_cellBlocked), the player
+    // can walk anywhere — it is about what a trail may cross: stepping over a
+    // street is ordinary, so roads are in; wading a river or strolling through
+    // someone's living room is not, so water and buildings are out. Every cell
+    // it reaches carries the step it was reached FROM, which is what turns the
+    // chosen chest cell into a walked route the crate trail can be laid along
+    // (see _placeStarterTrail).
+    const UNCROSSABLE = new Set([3 /* WATER */, 9 /* BUILDING */,
+      11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+    // A few cells of slack past the band, so a route that has to bend round a
+    // pond or a block to reach the far side of the ring still gets found.
+    const FLOOD_R = RELIC_MAX_R + 4;
+    const cameFrom = new Map([[cellKey(spawnIX, spawnIY), null]]);
+    const flood = [[spawnIX, spawnIY]];
+    for (let head = 0; head < flood.length; head++) {
+      const [cx, cy] = flood[head];
+      for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + ddx, ny = cy + ddy;
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        if (Math.max(Math.abs(nx - spawnIX), Math.abs(ny - spawnIY)) > FLOOD_R) continue;
+        const k = cellKey(nx, ny);
+        if (cameFrom.has(k)) continue;
+        if (UNCROSSABLE.has(grid[ny * N + nx])) continue;
+        cameFrom.set(k, [cx, cy]);
+        flood.push([nx, ny]);
+      }
+    }
+    // A cell the flood never reached is somewhere the player would have to
+    // swim or trespass to get to — no trail can lead there, so it is no place
+    // for the chest at the end of one.
+    const free = (cx, cy) => !taken.has(cellKey(cx, cy)) &&
+      cameFrom.has(cellKey(cx, cy)) &&
+      WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
+    const rng = WorldGen.makeRng(
+      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
+    const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    // Nearest ring first; within a ring, a seeded pick so the chest isn't
+    // always due east of every spawn in the game. Ring cells are collected in
+    // a fixed scan order, so the pick is reproducible.
+    let seat = null;
+    for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
+      const ring = [];
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          const cx = spawnIX + dx, cy = spawnIY + dy;
+          if (free(cx, cy)) ring.push({ cx, cy });
+        }
+      }
+      if (ring.length) seat = ring[Math.floor(rng() * ring.length)];
+    }
+    // Nothing seated: every ring cell in reach is water, road, floor or taken —
+    // or, on a spawn right against a tile seam, off the edge of the only grid
+    // this pass can read. A tile is ~220 cells across and the band is 16, so a
+    // seam only ever costs the arcs on that side; the rest of the compass still
+    // answers, which is why this stays clamped to the anchor's own tile rather
+    // than reaching across seams the way _provisionStarterHome has to.
+    if (!seat) return null;
+    // Snap to the canonical global cell centre, the basis seatCrate and every
+    // cell tap share (the tile-relative basis drifts off it — see seatCrate).
+    const rawX = tx0 + (seat.cx + 0.5) * this.cellM;
+    const rawY = ty0 + (seat.cy + 0.5) * this.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+    const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+    const chest = {
+      kind: 'chest', x: wmx, y: wmy, id,
+      // Named so it draws a label: the whole point is that the player can see
+      // there is something worth the walk once it comes into view.
+      name: 'Old Chest',
+      // Opens through the standard chest path (interactables.js), which reads
+      // fixedLoot and — for a gear payload — reconciles it against what the
+      // player already owns before equipping.
+      fixedLoot: { kind: 'relic', slot, tier: STARTER_RELIC_TIER },
+    };
+    entry.objects.push(chest);
+    if (usedSeats) usedSeats.add(seat.cx + ',' + seat.cy);
+    // Hand back the walk, anchor first, chest last — one 4-connected step per
+    // entry. The caller lays the crate trail along it.
+    const path = [];
+    for (let at = [seat.cx, seat.cy]; at; at = cameFrom.get(cellKey(at[0], at[1]))) {
+      path.push({ cx: at[0], cy: at[1] });
+    }
+    path.reverse();
+    return { chest, path };
   }
 
   // A guaranteed 2x2 patch of tillable grass near the spawn anchor.

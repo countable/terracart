@@ -76,8 +76,30 @@ ONBOARDING (the first session)
    The starter ladder is INDEPENDENT of the castle QUEST_CHAIN — the vault gate
    reads Quests.allDone(), which walks the castle chain alone. Do not merge them.
  - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
-   while the ladder runs. The crate trail seeds out to 15 cells but the viewport
-   is only VIEW_CELLS across, so without it most of the trail is invisible.
+   while the ladder runs. The trail runs a full screen out but the viewport is
+   only VIEW_CELLS across, so without it the far end is invisible.
+ - THE CRATE TRAIL: the four supply crates are laid along the walked ROUTE from
+   spawn to the relic chest, dividing it into five evenly spaced stops (four
+   crates, then the chest). Each stop is in view from the one before, so the
+   trail is followable: walk to the crate you can see and the next one appears.
+   The route is a 4-connected flood from the anchor over ground a trail may
+   cross — roads yes (people cross streets), water and buildings no — so it
+   bends round a pond or a block instead of pointing through it. Crates seat on
+   the route cell itself where that is legal ground (never the road band, never
+   the trailer moat, never on top of something) and one cell off it where it
+   isn't. Fallbacks: the old kerb walk along the nearest road when no chest
+   could be seated at all, then a tight ring round the anchor.
+ - THE RELIC CHEST: one real treasure chest (the trunk sprite, not a supply
+   crate) seats a screen away from spawn — VIEW_CELLS cells out, so just past
+   the edge of the opening view and clear of the cleared tutorial pocket — and
+   only ever on a cell the anchor can be walked to, since a chest at the end of
+   a trail is no use across a river. It holds ONE random wooden (T1) relic.
+   The crates hand out materials; this is the only thing that hands out a TOOL,
+   and bare-handed work is 3x slower than wooden. Slot and bearing are both derived from the frozen spawn anchor, so a
+   tile rebuild reproduces the same chest with the same relic in the same cell.
+   Its id carries the `chest_start_` stamp, so the crate compass points at it
+   too. Never a downgrade: the payload is reconciled against what the player
+   already owns (reconcileRelicOffer), same as any other gear roll.
  - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
    ladder's plant step — it otherwise fires on exactly the tap a beginner makes
    and silently deletes the plot they just paid energy for.
@@ -549,10 +571,11 @@ TREASURE MARKS (X on the ground)
  - claim by tapping the cell the X is drawn on (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
- - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real
-   kind:'chest' objects carrying a `fixedLoot` payload (potato seed + wood +
-   rockfruit), opened via the standard chest modal but with no rarity roll —
-   near spawn and clears a tutorial pocket of
+ - sources: the STARTER TILE seeds a trail of 4 fixed "starter crates" — real
+   kind:'chest' objects carrying a `fixedLoot` payload (9 each of wood,
+   rockfruit, rockfruit seed and potato seed), opened via the standard chest
+   modal but with no rarity roll — laid along the route to the relic chest a
+   screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside named paths. Residential X's only
    spawn near a road.
@@ -567,12 +590,22 @@ PATH STONES
    "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
    grey, so a walked path visibly lights up as you go. Claiming plays a brief
    scale-pop on that exact stone so it reads as an event, not a silent swap.
-   Only ~50% of path cells draw a decorative pebble sprite AT ALL (a stone on
-   every single 7m cell read as a paved strip, not scattered stepping
-   stones) — a PURELY decorative, permanent per-cell roll: claiming still
-   counts toward the path whether or not that cell ever had a visible stone,
-   and a cell that rolled no stone stays bare even once claimed (it never
-   pops one in — that would read as a bug, not as "lighting up").
+   Not every path cell draws a decorative pebble sprite (a stone on every
+   single 7m cell read as a paved strip, not scattered stepping stones).
+   WHICH cells keep one is GEOMETRIC: only those the way actually runs
+   THROUGH — at least one full cell width of path inside the cell, measured
+   by worldgen's accumulateLineSpan and published per tile as `pathCross`.
+   A cell the path merely clips the corner of, or ends just inside, stays
+   bare. (The measurement is the SUM over every path way in the cell, so a
+   junction where two ways each cut a corner can still qualify — which is
+   where a stone belongs.) This REPLACED a per-cell density hash, which had
+   no idea where the path was: it put stones on corner-clipped cells and
+   left gaps mid-run. Tiles rasterized before `pathCross` existed fall back
+   to that hash so a cached tile doesn't go bare.
+   Still PURELY decorative: claiming counts toward the path whether or not
+   that cell ever had a visible stone, and a cell with no stone stays bare
+   even once claimed (it never pops one in — that would read as a bug, not
+   as "lighting up").
    Every 10 consecutive claimed stones on the same named path awards 1 coin
    (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)

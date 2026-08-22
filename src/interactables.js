@@ -74,6 +74,32 @@ function gatherLuck(save, slots) {
   return out;
 }
 
+// A chest's HARDCODED payload → the reward shape pickReward would have
+// returned, so both kinds of chest leave the handler down the same paths.
+//
+// Two payload shapes exist. `{id, qty}` is a stack of an item (the four spawn
+// supply crates). `{kind:'relic'|'armor', slot, tier}` is a piece of gear (the
+// spawn relic chest's wooden tool) — and gear cannot simply be handed over the
+// way an item can: the player may already be wearing something better in that
+// slot by the time they open it, and equipping the fixed payload regardless
+// would DOWNGRADE them for opening a chest. reconcileRelicOffer is the rule
+// the rest of the game settles that with (walk the slot up from what's owned,
+// cash out to gold along the way), so a fixed gear payload goes through it too
+// — meaning the payload names the FLOOR of what the chest is worth, not a
+// promise that this exact tier is what comes out.
+function fixedChestReward(fixedLoot, save) {
+  if (!fixedLoot) return null;
+  if (fixedLoot.kind === 'relic' || fixedLoot.kind === 'armor') {
+    const offer = { kind: fixedLoot.kind, slot: fixedLoot.slot, tier: fixedLoot.tier, jackpot: 0 };
+    if (fixedLoot.kind === 'relic' && typeof reconcileRelicOffer === 'function') {
+      const out = reconcileRelicOffer(offer, save, Math.random);
+      if (out) { out.consolation = 0; return out; }
+    }
+    return offer;
+  }
+  return { kind: 'item', id: fixedLoot.id, qty: fixedLoot.qty, consolation: 0 };
+}
+
 const INTERACTABLES = {
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
@@ -335,12 +361,12 @@ const INTERACTABLES = {
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
-        // Starter chests carry a fixed payload (5 wood / 5 rockfruit / 9 potato
-        // seeds) so the first restoration loop is deterministic — skip the
-        // rarity picker and synthesize the same item shape it returns, then fall
-        // through to the normal item/modal path below.
+        // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,
+        // or the spawn relic chest's wooden tool) so the first restoration loop
+        // is deterministic — skip the rarity picker and synthesize the same
+        // shape it returns, then fall through to the normal paths below.
         : (o.fixedLoot
-            ? { kind: 'item', id: o.fixedLoot.id, qty: o.fixedLoot.qty, consolation: 0 }
+            ? fixedChestReward(o.fixedLoot, save)
             : (stand
                 ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
                 : ((typeof pickReward === 'function')
