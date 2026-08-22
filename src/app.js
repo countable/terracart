@@ -2297,6 +2297,27 @@ class MapScene extends Phaser.Scene {
       out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${originSrc})`);
       out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} sandbox=${!!this._sandboxMode}`);
       out.push(`homePending=${!!this._homeCapturePending} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
+      // Starter-trail forensics — which mode the trail pass took when it last
+      // ran this session (recorded in _placeStarterTrail), plus a live census
+      // of every starter chest actually in the cache and whether the save has
+      // it opened. Together these answer "why are there no crates along my
+      // road" from a phone, which nothing else on screen can.
+      try {
+        const sca = this.save && this.save.starterCratesAt;
+        out.push('trail anchor: ' + (sca ? `(${Math.round(sca.x)},${Math.round(sca.y)})m` : 'NOT SET')
+          + `  salt=${this.save && this.save.relicSalt != null ? this.save.relicSalt : 'none'}`);
+        out.push('trail: ' + (this._trailDebug || '(pass has not run this session)'));
+        const openedIds = new Set((this.save && this.save.opened) || []);
+        const rows2 = [];
+        if (WorldGen.tileCache) for (const [, e2] of WorldGen.tileCache) {
+          for (const o of ((e2 && e2.objects) || [])) {
+            if (o.kind !== 'chest' || !String(o.id).startsWith('chest_start')) continue;
+            rows2.push(`${o.id}@(${Math.round(o.x)},${Math.round(o.y)})m`
+              + (openedIds.has(o.id) ? ' OPENED' : ''));
+          }
+        }
+        out.push('starter chests: ' + (rows2.join('; ') || 'NONE IN CACHE'));
+      } catch (_) {}
       out.push(`playerM=(${Math.round(this.playerM.x)},${Math.round(this.playerM.y)})`);
       const tgt = this._targetM
         ? `(${Math.round(this._targetM.x)},${Math.round(this._targetM.y)}) d=${Math.round(Math.hypot(this._targetM.x - this.playerM.x, this._targetM.y - this.playerM.y))}m`
@@ -2786,6 +2807,12 @@ class MapScene extends Phaser.Scene {
       !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const spawnIX = Math.floor((anchor.x - tx0) / this.cellM);
     const spawnIY = Math.floor((anchor.y - ty0) / this.cellM);
+    // Forensics for the ☰ Dump-tile readout (dumpTileDebug): which mode this
+    // pass took and why, one compact line recorded as it runs. The trail has
+    // three fallbacks, so "the crates aren't where the objective said" is
+    // unanswerable from a phone without this — costs nothing the pass wasn't
+    // already computing.
+    const dbg = [`anchor(${spawnIX},${spawnIY}) tile ${tx}/${ty}`];
     // Clear the immediate anchor area of natural mineralrocks and procedural
     // forest fill so the starter crates aren't visually competing with debris
     // the player can't open. 10-cell Chebyshev radius (~50 m) around it.
@@ -2839,6 +2866,9 @@ class MapScene extends Phaser.Scene {
         if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
       }
     }
+    dbg.push(roadCell
+      ? `road@(${roadCell.cx},${roadCell.cy}) d=${Math.max(Math.abs(roadCell.cx - spawnIX), Math.abs(roadCell.cy - spawnIY))} t=${entry.grid[roadCell.cy * N + roadCell.cx]}`
+      : 'no road/path within 15');
     // Loot in the order the crates are seated — nearest the door first — which
     // is deliberately the LADDER's order of need, not the tidiest reading of
     // the list. STARTER_CHAIN goes open a crate → till → SOW A SEED → rebuild a
@@ -2975,8 +3005,11 @@ class MapScene extends Phaser.Scene {
         kerbPath.reverse();          // nearest the door first, the chest end last
       }
     }
+    dbg.push(`roadNear=${roadNear} kerb=${kerbPath ? kerbPath.length : 0}`
+      + ` chestWant=${chestWant ? chestWant.cx + ',' + chestWant.cy : 'none'}`);
     const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
     const trailPath = trail && trail.path;
+    dbg.push(trail ? `chest ok route=${trailPath ? trailPath.length : 0}` : 'CHEST NOT SEATED');
     if (kerbPath && kerbPath.length > 1) {
       // Mode 1: crates down the kerb. Same packing as the route spread — the
       // near TRAIL_SPAN of the walk, distance measured ALONG the road — but
@@ -3124,6 +3157,8 @@ class MapScene extends Phaser.Scene {
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
+    dbg.push(`crates=${placedIdx.size}/${COUNT}`);
+    this._trailDebug = dbg.join(' | ');
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._revealStarterTrail(entry, tx, ty, spawnIX, spawnIY);
