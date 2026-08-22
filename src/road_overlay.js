@@ -109,12 +109,19 @@
   // for rail) — so the texture only MODULATES light/dark, never introduces a
   // new hue. That's what keeps a cobbled road the same warm brown it always
   // was instead of a grey stone pattern pasted over a brown band.
+  //
+  // Each stone is an IRREGULAR polygon, not a circle — a perfect circle with
+  // a centred highlight/shadow pair is the standard way to draw a glossy
+  // sphere, so the first version of this (round + a highlight dot on one
+  // side, a shadow dot on the other) read as a tray of bubbles instead of
+  // paving. A lumpy 6–8-sided outline plus a plain dark edge stroke (no
+  // gloss) is what actually reads as a small flat stone.
   const STONE_TILE_PX = 32;          // repeat every cell
   const STONE_COLS = 4, STONE_ROWS = 4;    // small stones — a 4×4 grid per tile
-  const STONE_GROUT_ALPHA = 0.16;  // dark wash first — the seams between stones
-  const STONE_FACE_ALPHA  = 0.14;  // lighter fill over most of each stone
-  const STONE_HILITE_ALPHA = 0.22; // small bright fleck, upper-left of each stone
-  const STONE_SHADOW_ALPHA = 0.20; // small dark fleck, lower-right — gives it a curve
+  const STONE_GROUT_ALPHA = 0.16;    // dark wash first — the seams between stones
+  const STONE_EDGE_ALPHA = 0.30;     // dark outline stroke around each stone
+  const STONE_FACE_ALPHA_MIN = 0.06; // per-stone face tone varies within this
+  const STONE_FACE_ALPHA_MAX = 0.16; // range so neighbours don't read identical
   let stoneCanvas;
   function stoneTile() {
     if (stoneCanvas !== undefined) return stoneCanvas;
@@ -134,30 +141,36 @@
     // texture's side-face bevel uses.
     cx.fillStyle = `rgba(0,0,0,${STONE_GROUT_ALPHA})`;
     cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
+    cx.lineWidth = 1;
     const cellW = STONE_TILE_PX / STONE_COLS, cellH = STONE_TILE_PX / STONE_ROWS;
     for (let row = 0; row < STONE_ROWS; row++) {
       for (let col = 0; col < STONE_COLS; col++) {
-        // Jitter each stone's centre + radius a little so the grid doesn't
-        // read as one perfectly uniform tile once it repeats across a road.
+        // Jitter each stone's centre a little so the grid doesn't read as one
+        // perfectly uniform tile once it repeats across a road.
         const jx = (rnd() - 0.5) * cellW * 0.3;
         const jy = (rnd() - 0.5) * cellH * 0.3;
-        const r = Math.min(cellW, cellH) * 0.36 * (0.85 + rnd() * 0.3);
         const px = col * cellW + cellW / 2 + jx;
         const py = row * cellH + cellH / 2 + jy;
+        const r = Math.min(cellW, cellH) * 0.42;
+        // Lumpy outline: N vertices at a jittered radius, not a circle.
+        const sides = 6 + Math.floor(rnd() * 3);
         cx.beginPath();
-        cx.arc(px, py, r, 0, Math.PI * 2);
-        cx.fillStyle = `rgba(255,255,255,${STONE_FACE_ALPHA})`;
+        for (let i = 0; i < sides; i++) {
+          const ang = (i / sides) * Math.PI * 2;
+          const rr = r * (0.7 + rnd() * 0.45);
+          const vx = px + Math.cos(ang) * rr, vy = py + Math.sin(ang) * rr;
+          if (i === 0) cx.moveTo(vx, vy); else cx.lineTo(vx, vy);
+        }
+        cx.closePath();
+        // Flat face — no gradient, no gloss — at a per-stone alpha so
+        // neighbouring stones read as separately-set pavers.
+        const faceAlpha = STONE_FACE_ALPHA_MIN + rnd() * (STONE_FACE_ALPHA_MAX - STONE_FACE_ALPHA_MIN);
+        cx.fillStyle = `rgba(255,255,255,${faceAlpha})`;
         cx.fill();
-        // Highlight + shadow on opposite corners, so each pebble reads as
-        // faintly domed rather than a flat painted disc.
-        cx.beginPath();
-        cx.arc(px - r * 0.3, py - r * 0.3, r * 0.4, 0, Math.PI * 2);
-        cx.fillStyle = `rgba(255,255,255,${STONE_HILITE_ALPHA})`;
-        cx.fill();
-        cx.beginPath();
-        cx.arc(px + r * 0.3, py + r * 0.3, r * 0.4, 0, Math.PI * 2);
-        cx.fillStyle = `rgba(0,0,0,${STONE_SHADOW_ALPHA})`;
-        cx.fill();
+        // A plain dark edge, not a shadow blob, is what separates one stone
+        // from the next.
+        cx.strokeStyle = `rgba(0,0,0,${STONE_EDGE_ALPHA})`;
+        cx.stroke();
       }
     }
     stoneCanvas = c;
