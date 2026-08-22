@@ -104,6 +104,9 @@ function walkHomeScene(awayM, opts = {}) {
     _targetM: { x: awayM, y: 0 },
     _gpsManualOverride: false,
     _workProgress: null,
+    // The wheel gate reads _busyWheel (an AUTO wheel — auto-mining — doesn't
+    // count as busy), so the stub answers the same question the scene does.
+    _busyWheel() { const wp = this._workProgress; return (wp && !wp.auto) ? wp : null; },
     _stickPushed: () => false,
     _walkRelics: () => [],
     _lastStickT: Date.now() - (opts.idleMs ?? (WALK_HOME_IDLE_MS + WALK_HOME_RAMP_MS + 500)),
