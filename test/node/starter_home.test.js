@@ -303,6 +303,29 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
     assert.eq(added(rebuilt).map(o => o.id).sort().join(','), before, 'still there');
   });
 
+  test('starter home seating: a wooded spawn still gets its pocket pair', () => {
+    // The reported bug, end to end: trees and rocks already in the ring meant
+    // nothing at all was seated, so the cleared pocket around Home stayed bare.
+    const scene = makeScene();
+    const objs = [];
+    for (let i = 0; i < 12; i++) objs.push({ kind: 'tree', species: 'oak', id: `wt${i}`,
+      x: (SPAWN + 12 + (i % 4)) * CELL_M, y: (SPAWN + i - 6) * CELL_M });
+    for (let i = 0; i < 5; i++)  objs.push({ kind: 'mineralrock', yieldTier: 4, requiredTier: 3,
+      id: `wr${i}`, x: (SPAWN - 13 - i) * CELL_M, y: (SPAWN + i) * CELL_M });
+    const entry = makeEntry(T.GRASS, objs);
+    run(scene, entry);
+    const seated = added(entry);
+    const inPocket = seated.filter(o => cellsOut(o) <= SH_HA.POCKET_CELLS);
+    assert.eq(inPocket.filter(o => o.kind === 'tree').length, 1, 'a tree in sight of Home');
+    assert.eq(inPocket.filter(o => o.kind === 'mineralrock').length, 1, 'and a rock');
+    for (const o of inPocket) {
+      assert.gte(cellsOut(o), SH_HA.TOKEN_MIN_CELLS - 0.5, `${o.id} not right in the doorway`);
+    }
+    // The quota was already met out there, so no extra ring stock is added.
+    assert.eq(seated.filter(o => o.kind === 'tree').length, 1, 'no surplus trees');
+    assert.eq(seated.filter(o => o.kind === 'mineralrock').length, 1, 'no surplus rocks');
+  });
+
   test('starter home seating: only the tile holding the anchor plans', () => {
     // A neighbour tile sees the anchor outside its bounds; it must not start a
     // second, competing provision.
@@ -324,4 +347,54 @@ test('starter home: the player\'s own Home never counts as a wreck to rebuild', 
   assert.truthy(SH_HA.isStarterWreck(home, 'some_other_house'), 'a neighbour still counts');
   const p = SH_HA.planStarterProvision([home], 0, 0, SH_CELL_M, { homeId: 'starter_trailer' });
   assert.eq(p.need.wreck, SH_HA.QUOTA.wreck, 'Home provisions no part of the wreck quota');
+});
+
+// ── The wooded-spawn bugs ─────────────────────────────────────────────────
+// Both of these shipped once and were caught by a player: on a spawn with
+// trees and rocks already in the ring, the quota was satisfied out there, so
+// (a) no token was placed and the CLEARED pocket around Home stayed bare —
+// nothing to chop or mine in sight of the front door — and (b) every unusable
+// natural in range was queued for downgrade, flattening a wooded street into
+// saplings to supply four of them.
+
+// A lush spawn: plenty out in the ring, nothing in the cleared pocket.
+const shWooded = () => {
+  const objs = [];
+  for (let i = 0; i < 12; i++) objs.push(shAt(12 + (i % 5), { kind: 'tree', species: 'oak', id: `wt${i}`, y: i * SH_CELL_M }));
+  for (let i = 0; i < 5; i++)  objs.push(shAt(13 + i, { kind: 'mineralrock', yieldTier: 4, requiredTier: 3, id: `wr${i}`, y: -i * SH_CELL_M }));
+  return objs;
+};
+
+test('starter home: a lush ring still owes the pocket its token pair', () => {
+  const p = SH_HA.planStarterProvision(shWooded(), 0, 0, SH_CELL_M, {});
+  assert.eq(p.need.tree, 0, 'the ring covers the tree quota');
+  assert.eq(p.need.rock, 0, 'and the rock quota');
+  assert.truthy(p.tokens.tree, 'but the cleared pocket still needs a tree');
+  assert.truthy(p.tokens.rock, 'and a rock');
+});
+
+test('starter home: taming is capped at the shortfall, not the whole street', () => {
+  const objs = shWooded();
+  const p = SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {});
+  assert.eq(p.downgrade.length, SH_HA.QUOTA.tree + SH_HA.QUOTA.rock,
+    'exactly the quota is tamed');
+  assert.lt(p.downgrade.length, objs.length, 'the rest of the neighbourhood is left alone');
+  // And what survives untouched really is still full-tier woodland.
+  for (const o of p.downgrade) SH_HA.makeStarterUsable(o);
+  const untouched = objs.filter(o => o.kind === 'tree' && !SH_HA.isStarterTree(o));
+  assert.gt(untouched.length, 0, 'real trees remain real trees');
+});
+
+test('starter home: the nearest usable candidates are the ones tamed', () => {
+  // Taming should reach for what the player will walk past first.
+  const objs = [];
+  for (let i = 0; i < 8; i++) {
+    objs.push(shAt(SH_HA.RING_MAX_CELLS - i, { kind: 'tree', species: 'oak', id: `d${i}` }));
+  }
+  const p = SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {});
+  const tamedIds = new Set(p.downgrade.map(o => o.id));
+  // d7 is closest (RING_MAX-7), d0 furthest — the closest QUOTA.tree win.
+  for (let i = 0; i < SH_HA.QUOTA.tree; i++) {
+    assert.truthy(tamedIds.has(`d${7 - i}`), `d${7 - i} is among the nearest and should be tamed`);
+  }
 });

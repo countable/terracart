@@ -94,7 +94,15 @@ const HomeArea = {
   // wherever it stands.
   QUOTA: { tree: 4, rock: 3, wreck: 2 },
   // Of that quota, how many must sit inside the pocket as the visible example.
+  // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
+  // and rocks, so however lush the surrounding neighbourhood is, a player
+  // standing at their own front door can otherwise see nothing to chop or
+  // mine. The token pair is what the first two lessons are performed on.
   TOKEN: { tree: 1, rock: 1 },
+  // ...but not right against the door. The trailer's art spills into all eight
+  // neighbouring cells and the crate trail seats from 2 cells out, so a token
+  // any closer reads as clutter in the doorway rather than scenery.
+  TOKEN_MIN_CELLS: 4,
 
   // A tree a player with NO axe can fell: small + softwood is tier 0 via
   // util.js treeAxeReqTier (size 'small' = 1, pine shifts −1). Deliberately
@@ -182,15 +190,14 @@ const HomeArea = {
   //   opts.homeId  the player's Home house id, so it isn't counted as a wreck
   planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
     const homeId = opts && opts.homeId;
-    const inArea = [];
-    for (const o of (objects || [])) {
-      const d = this.cellsFromAnchor(o.x, o.y, anchorX, anchorY, cellM);
-      if (d <= this.RING_MAX_CELLS) inArea.push({ o, d });
-    }
-    const downgrade = [];
     const have = { tree: 0, rock: 0, wreck: 0 };
     const pocket = { tree: 0, rock: 0 };
-    for (const { o, d } of inArea) {
+    // Tameable-but-currently-unusable naturals, kept with their distance so
+    // the nearest can be preferred below.
+    const candidates = { tree: [], rock: [] };
+    for (const o of (objects || [])) {
+      const d = this.cellsFromAnchor(o.x, o.y, anchorX, anchorY, cellM);
+      if (d > this.RING_MAX_CELLS) continue;
       if (o.kind === 'house') {
         if (this.isStarterWreck(o, homeId)) have.wreck++;
         continue;
@@ -199,26 +206,39 @@ const HomeArea = {
       const isRock = o.kind === 'mineralrock';
       if (!isTree && !isRock) continue;
       const kind = isTree ? 'tree' : 'rock';
-      const usable = isTree ? this.isStarterTree(o) : this.isStarterRock(o);
-      // An unusable natural becomes usable rather than being counted against
-      // us — that is the whole "modify, don't crowd" rule. But only if it CAN
-      // be: an untameable one (a shiny tree) is scenery as far as the quota is
-      // concerned, so it neither gets downgraded nor counts as provision.
-      if (!usable) {
-        if (!this.canBeStarterUsable(o)) continue;
-        downgrade.push(o);
+      if (isTree ? this.isStarterTree(o) : this.isStarterRock(o)) {
+        have[kind]++;
+        if (d <= this.POCKET_CELLS) pocket[kind]++;
+      } else if (this.canBeStarterUsable(o)) {
+        // Untameable ones (a shiny tree) are skipped entirely — they are
+        // scenery as far as the quota is concerned.
+        candidates[kind].push({ o, d });
       }
-      have[kind]++;
-      if (d <= this.POCKET_CELLS) pocket[kind]++;
     }
-    const need = {
-      tree:  Math.max(0, this.QUOTA.tree  - have.tree),
-      rock:  Math.max(0, this.QUOTA.rock  - have.rock),
-      wreck: Math.max(0, this.QUOTA.wreck - have.wreck),
-    };
+    // Tame ONLY as many as the quota is short by, nearest first. Taming every
+    // unusable tree in range would flatten a wooded street into saplings to
+    // supply four of them — the opposite of "home looks like the player's
+    // actual neighbourhood".
+    const downgrade = [];
+    for (const kind of ['tree', 'rock']) {
+      const short = Math.max(0, this.QUOTA[kind] - have[kind]);
+      if (!short) continue;
+      candidates[kind].sort((a, b) => a.d - b.d);
+      for (const c of candidates[kind].slice(0, short)) {
+        downgrade.push(c.o);
+        have[kind]++;
+        if (c.d <= this.POCKET_CELLS) pocket[kind]++;
+      }
+    }
     return {
       downgrade,
-      need,
+      need: {
+        tree:  Math.max(0, this.QUOTA.tree  - have.tree),
+        rock:  Math.max(0, this.QUOTA.rock  - have.rock),
+        wreck: Math.max(0, this.QUOTA.wreck - have.wreck),
+      },
+      // Independent of `need`: a lush neighbourhood can satisfy the whole
+      // quota out in the ring and still leave the cleared pocket empty.
       tokens: {
         tree: pocket.tree < this.TOKEN.tree,
         rock: pocket.rock < this.TOKEN.rock,
