@@ -1,4 +1,4 @@
-// _starterGuidanceGoal — the gold starter arrow's per-step target.
+// _starterGuidanceGoal — the (light-green) starter arrow's per-step target.
 //
 // Patch-history motivation: every ladder step past "Break ground" used to aim
 // the arrow at the nearest unopened `chest_start_*`. Once the supply crates

@@ -2812,7 +2812,7 @@ class MapScene extends Phaser.Scene {
     // reached "select a seed from your bag" with an empty bag while the seeds
     // sat at the far end of the trail. Wood (5 per plain house, and what
     // unseals a fort) rides at the far end instead, arriving about when step 4
-    // asks for it — and the gold arrow, which always points at the nearest
+    // asks for it — and the green arrow, which always points at the nearest
     // unopened crate, now agrees with the chip instead of contradicting it.
     const STARTER_LOOT = [
       { id: 'potato_seed',    qty: 9 },
@@ -3807,7 +3807,7 @@ class MapScene extends Phaser.Scene {
     // cell is inside the masked map rect, the arrow stops being a bearing and
     // becomes clutter parked on the world — and because it parks on a FIXED
     // ring (dist, ~4.4 cells) while the target slides in toward it, the two
-    // meet: the gold triangle lands squarely on the first supply crate on the
+    // meet: the compass triangle lands squarely on the first supply crate on the
     // opening screen, hiding the very thing it is pointing at, and pointing
     // past it. Reproduced at 390×844, 360×640 and 768×1024 on a fresh save.
     //
@@ -3852,7 +3852,7 @@ class MapScene extends Phaser.Scene {
     return best;
   }
 
-  // Where the gold starter arrow points for the ACTIVE ladder step: the space
+  // Where the green starter arrow points for the ACTIVE ladder step: the space
   // the chip is actually talking about, not a generic breadcrumb.
   //
   //   chest   → nearest unopened starter crate (the relic chest included)
@@ -4266,8 +4266,12 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Starter guidance — a GOLD arrow toward whatever the ACTIVE ladder step
-    // actually wants, shown only while the first-session ladder is running.
+    // Starter guidance — a LIGHT-GREEN arrow toward whatever the ACTIVE ladder
+    // step actually wants, shown only while the first-session ladder is
+    // running. Green is the tutorial's colour: the chip's step tag, the
+    // step-complete toast and this arrow all wear --green (#a7ffb0), so
+    // everything the ladder owns reads as one system — and the arrow can't be
+    // confused with the gold facing triangle on the player.
     //
     // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
     // chip says to open one, the carved plot for "Break ground", and the
@@ -4288,7 +4292,7 @@ class MapScene extends Phaser.Scene {
         const pWX = this.startWorldM.x + this.playerM.x;
         const pWY = this.startWorldM.y + this.playerM.y;
         if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
-          this._drawEdgeCompass(goal.x, goal.y, 0xffd24a, 0.9);
+          this._drawEdgeCompass(goal.x, goal.y, 0xa7ffb0, 0.9);
         }
       }
     }
@@ -5952,8 +5956,10 @@ class MapScene extends Phaser.Scene {
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
   // and it needs the ghost on screen, which is the game's own test for "far
-  // enough off your real position to matter". Ghost blue, so the line, the
-  // ghost it points at and the idea of "where you really are" are one colour.
+  // enough off your real position to matter". White and translucent — quieter
+  // than the coloured compasses (the green tutorial arrow, the magenta pairy
+  // blink): this is ambient "on my way" information, not a call to action, and
+  // white doesn't claim membership of any of the game's colour languages.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -6004,10 +6010,10 @@ class MapScene extends Phaser.Scene {
         g.strokePath();
       }
     };
-    stroke(segs, 3.5, 0x0a1420, 0.25);
-    stroke(head, 3.5, 0x0a1420, 0.3);
-    stroke(segs, 2, 0x7ec8ff, 0.55);
-    stroke(head, 2, 0x7ec8ff, 0.9);
+    stroke(segs, 3.5, 0x0a1420, 0.22);
+    stroke(head, 3.5, 0x0a1420, 0.26);
+    stroke(segs, 2, 0xffffff, 0.42);
+    stroke(head, 2, 0xffffff, 0.7);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and

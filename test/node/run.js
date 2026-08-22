@@ -340,7 +340,7 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
-// The gold starter arrow's per-step target (_starterGuidanceGoal) is pure
+// The green starter arrow's per-step target (_starterGuidanceGoal) is pure
 // save + tileCache math on the scene class. Lift it — alongside the three
 // helpers it calls — into an object of methods a test can graft onto a scene
 // stub (same trick as __walkHome above), so starter_arrow.test.js drives the

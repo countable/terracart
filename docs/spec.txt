@@ -75,7 +75,9 @@ ONBOARDING (the first session)
    state lives in save.starter.
    The starter ladder is INDEPENDENT of the castle QUEST_CHAIN — the vault gate
    reads Quests.allDone(), which walks the castle chain alone. Do not merge them.
- - STARTER COMPASS: a gold edge arrow toward the ACTIVE ladder step's own
+ - STARTER COMPASS: a light-green edge arrow (--green, the tutorial's
+   colour — same as the chip's step tag and the step-complete toast) toward
+   the ACTIVE ladder step's own
    space while the ladder runs (_starterGuidanceGoal): the nearest unopened
    crate for step 1 (the trail runs a full screen out but the viewport is only
    VIEW_CELLS across, so without a bearing the far end is invisible), the
