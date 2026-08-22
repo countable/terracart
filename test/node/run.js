@@ -146,6 +146,36 @@ try {
   ctx.INV_CATS = cats;
 }
 
+// The starter-home provisioner seats the wood / rock / wreck a new player needs
+// onto real cells and freezes the result. It's pure grid + save math, but it
+// lives on the Phaser scene class, so lift both methods out as text (same trick
+// as _carveStarterPlot below) and expose them for a test to .call() with a
+// scene stub — exercising the real shipping code instead of a copy of it.
+{
+  const src = readSrc('app.js');
+  const grab = (head) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${head.trim()} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    const bodyStart = at + head.length;
+    const end = src.indexOf('\n  }\n', bodyStart);
+    if (end < 0) {
+      console.error(`Could not find the end of ${head.trim()} — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(bodyStart, end);
+  };
+  const objBody = grab('  _starterHomeObject(rec) {\n');
+  const provBody = grab('  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n');
+  vm.runInContext(
+    'globalThis.StarterHomeMethods = {\n'
+    + '  _starterHomeObject(rec) {\n' + objBody + '\n  },\n'
+    + '  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n' + provBody + '\n  },\n'
+    + '};', ctx, { filename: 'starterHome.js' });
+}
+
 // The cash-storefront offer path must derive every roll behind an offer from
 // the shop's hour bucket (shopRng), never Math.random — otherwise closing and
 // reopening the modal re-rolls what the shop sells, which is exactly the bug
