@@ -11,7 +11,7 @@
 // the real fort.png / house frame widths.
 const CELL_M = 7, CELL_PX = 32;
 const FORT_W = 214;          // assets/Objects/Houses/fort.png is 214×154
-const FORT_BASE = 0.35, HOUSE_BASE = 0.6;
+const FORT_BASE = 0.28, HOUSE_BASE = 0.6;
 const fortScale  = (area) => houseArtScale(area, FORT_W, FORT_BASE, true,  CELL_M, CELL_PX);
 const houseScale = (area, w = 72) => houseArtScale(area, w, HOUSE_BASE, false, CELL_M, CELL_PX);
 // Drawn width of the art, in cells — what the player actually sees.
@@ -42,14 +42,15 @@ test('houseArtScale: a fort grows with its footprint', () => {
   assert.gt(fortScale(800), fortScale(500), '800 > 500');
 });
 
-test('houseArtScale: a fort is capped at ~4.3 cells wide', () => {
+test('houseArtScale: a fort is capped at ~3.5 cells wide', () => {
   // Without the cap a 20000 m² polygon would draw a 20-cell roof — wider than
   // the 11-cell viewport. The cap itself is deliberately well under half the
   // viewport too: an earlier ~7-cell cap (FORT_MAX_SCALE 1.05) still read as
-  // screen-filling rather than as a landmark you could see around.
+  // screen-filling rather than as a landmark you could see around, and the
+  // ~4.3-cell cap (0.65) that followed still read ~25% too big.
   const huge = fortScale(20000);
   assert.eq(huge, fortScale(200000), 'cap holds for any size above it');
-  assert.inRange(cellsWide(huge, FORT_W), 4.0, 4.7, 'capped roof width in cells');
+  assert.inRange(cellsWide(huge, FORT_W), 3.2, 3.7, 'capped roof width in cells');
 });
 
 test('houseArtScale: a fort roof never exceeds its own footprint', () => {

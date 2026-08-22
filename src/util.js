@@ -282,12 +282,19 @@ function setOf(arr) {
 //
 // FORT_MAX_SCALE was originally 1.05 (~7 cells / 49 m wide) — nearly two-thirds
 // of the 11-cell viewport, which read as oversized rather than as a landmark
-// you could still see around. 0.65 (~4.3 cells / 30 m) still reads as clearly
-// bigger than an ordinary house, just not screen-filling.
+// you could still see around. Then 0.65 (~4.3 cells / 30 m), which still read
+// ~25% too big; now 0.52 (~3.5 cells / 24 m) — clearly bigger than an ordinary
+// house, just not looming.
 //
 // Buildings with no area (the synthetic starter trailer, sandbox houses) and
 // unmeasurable frames keep the baseline untouched.
-const FORT_MAX_SCALE = 0.65;
+const FORT_MAX_SCALE = 0.52;
+// Forts draw at this fraction of exact footprint fill. Exact fill (1.0) read
+// ~25% too big in play, so the whole fort curve — baseline (0.28 in render.js,
+// was 0.35), footprint fit, and FORT_MAX_SCALE (was 0.65) — is shrunk ×0.8.
+// The growth rationale above still holds; the roof just keeps a small brick
+// margin inside its footprint instead of covering it edge to edge.
+const FORT_FIT = 0.8;
 // Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
 // polygon, the roof never draws narrower than this. Unfloored, a sub-cell
 // footprint shrank the art toward half a cell, which read as yard clutter
@@ -301,7 +308,7 @@ const HOUSE_MIN_CELLS = 1.2;
 function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
   if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
   const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
-  if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, fit));
+  if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, FORT_FIT * fit));
   const floor = cellPx > 0 ? (HOUSE_MIN_CELLS * cellPx) / frameW : 0;
   return Math.min(base, Math.max(fit, floor));
 }

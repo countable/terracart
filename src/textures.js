@@ -29,9 +29,9 @@ const CASTLE_STONE = (() => {
 
 // --- Water animation timing ---
 // 8 phases × 220ms ≈ a 1.8s loop in which the highlight bands drift one full
-// band-period (7-9px) downward — roughly 4px/s, ambience rather than a
-// current you'd race. 8 phases ≈ 1px per step at those periods, so the drift
-// reads as smooth motion, not a two-frame flicker.
+// band-period (8px) downward — roughly 4.5px/s, ambience rather than a
+// current you'd race. 8 phases over an 8px period = exactly 1px per step, so
+// the drift reads as smooth motion, not a two-frame flicker.
 const WATER_ANIM_PHASES = 8;
 const WATER_ANIM_MS = 220;
 
@@ -295,13 +295,18 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
   // pattern. `phaseFrac` (0..1) slides the bands downward by that fraction of
   // one band-period; a full unit brings the pattern back to itself, so the
   // WATER_ANIM_PHASES baked frames loop seamlessly. Everything is driven by
-  // the same rng call sequence regardless of phase, so the depth specks (and
-  // the per-variant gap/start) hold still while only the bands move.
+  // the same rng call sequence regardless of phase, so the depth specks hold
+  // still while only the bands move.
   ctx.clearRect(0, 0, size, size);
+  // The band grid is FIXED across variants and divides the tile exactly:
+  // period 8 into a 32px cell, no per-variant start offset. Both are what
+  // keep the animation continuous at tile edges — every water cell's crests
+  // sit on the same rows and step in lockstep, so a crest leaving one cell's
+  // bottom edge is the same crest entering the next cell's top edge. (The old
+  // random 7-9px period + random start made each cell its own misaligned
+  // grid, and crests visibly popped in at the top of every tile.)
   const bandH = 2;
-  const gap = 5 + Math.floor(rng() * 3);   // 5-7 px between bands
-  const startY = Math.floor(rng() * gap);
-  const period = gap + bandH;
+  const period = 8;                        // must divide `size` for the wrap below
   const off = Math.round(phaseFrac * period);
   // Horizontal variation — a gentle sine swell plus one broken-crest window
   // where the band drops out. Both are SHARED by every band in the tile: a
@@ -316,16 +321,19 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
   const gapStart = Math.floor(rng() * size);            // broken-crest window (wraps)
   const gapLen = 4 + Math.floor(rng() * 5);             // 4-8 px of open water
   const xPhase = phaseFrac * Math.PI * 2;   // one wavelength per loop — seamless
-  // Start one period above the tile so the band scrolling in from the top
-  // edge is already there; rows pushed past either edge just clip.
-  for (let y = startY - period + off; y < size; y += period) {
+  // 1px row with toroidal y-wrap: a crest pushed past either edge re-enters
+  // on the opposite side (consistent with the band grid, since period divides
+  // size), so bands scroll through the tile without clipping flat at y=0.
+  const row = (x, y, style) => {
+    ctx.fillStyle = style;
+    ctx.fillRect(x, ((y % size) + size) % size, 1, 1);
+  };
+  for (let y = off; y < size + off; y += period) {
     for (let x = 0; x < size; x++) {
       if ((x - gapStart + size) % size < gapLen) continue;
       const yy = y + Math.round(Math.sin(x * 2 * Math.PI / waveLen + wavePhase + xPhase) * waveAmp);
-      ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
-      ctx.fillRect(x, yy, 1, bandH);
-      ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
-      ctx.fillRect(x, yy, 1, 1);
+      for (let r = 0; r < bandH; r++) row(x, yy + r, 'rgba(150,200,205,0.26)'); // dull crest band
+      row(x, yy, 'rgba(205,225,225,0.12)');                                    // faint leading edge
     }
   }
   // Subtle dark depth specks.
