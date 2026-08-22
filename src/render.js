@@ -669,7 +669,7 @@ Render.drawCells = function drawCells(scene) {
       const iy2 = ((Math.floor(wcy) % N) + N) % N;
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
-        mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        mEntry = WorldGen.tileCache.get(WorldGen.tileKey(tx2, ty2));
         mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
         // Unmapped veil, per tile: 1 while the tile's grid isn't in hand, then
         // a fade the first time the renderer sees it loaded. The stamp lives
@@ -905,7 +905,7 @@ Render.drawCells = function drawCells(scene) {
       if (isTilled) {
         const N3 = scene.cellsPerTile;
         const t3x = Math.floor(absCellIX / N3), t3y = Math.floor(absCellIY / N3);
-        const e3 = WorldGen.tileCache.get(`${WorldGen.Z}/${t3x}/${t3y}`);
+        const e3 = WorldGen.tileCache.get(WorldGen.tileKey(t3x, t3y));
         _tilledUnderRoad = !!(e3 && e3.roadMask
           && e3.roadMask[(absCellIY - t3y * N3) * N3 + (absCellIX - t3x * N3)]);
       }
@@ -965,7 +965,7 @@ Render.drawCells = function drawCells(scene) {
             const typ = Math.floor(absCellIY / N);
             const lix = absCellIX - txp * N;
             const liy = absCellIY - typ * N;
-            const e = WorldGen.tileCache.get(`${WorldGen.Z}/${txp}/${typ}`);
+            const e = WorldGen.tileCache.get(WorldGen.tileKey(txp, typ));
             const u = e && e.pathUnder && e.pathUnder[`${lix}_${liy}`];
             if (u != null && BIOME_TEX[u]) baseType = u;
           }
@@ -1011,7 +1011,7 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(wcyL / scene.cellsPerTile);
           const ix2 = Math.floor(wcxL - tx2 * scene.cellsPerTile);
           const iy2 = Math.floor(wcyL - ty2 * scene.cellsPerTile);
-          const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx2, ty2));
           const info = entry && entry.roadLabels && entry.roadLabels[`${ix2}_${iy2}`];
           if (info) {
             // Anchored at the cell centre; the word overhangs neighbouring
@@ -1602,7 +1602,7 @@ Render.drawCells = function drawCells(scene) {
     const tpc = scene.playerToWorldCell();
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tpc.tx + dtx}/${tpc.ty + dty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tpc.tx + dtx, tpc.ty + dty));
         if (!entry) continue;
         drawX(entry.treasure);
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
@@ -1805,7 +1805,7 @@ Render.drawObjects = function drawObjects(scene) {
   const pc = scene.playerToWorldCell();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
       if (entry.objects) {
         for (const o of entry.objects) {
@@ -3156,7 +3156,7 @@ Render.drawObjects = function drawObjects(scene) {
   const _coinNow = Date.now();
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry || !entry.coinDrops || entry.coinDrops.length === 0) continue;
       // Filter-out expired coins by rewriting the array in place.
       let w = 0;

@@ -2229,7 +2229,6 @@ class MapScene extends Phaser.Scene {
   // the rasteriser painted under the player.
   dumpTileDebug() {
     try {
-      const Z = WorldGen.Z;
       // Optional name search: scan EVERY loaded tile for features whose name
       // contains a substring (case-insensitive) and report the exact layer +
       // class/subclass each came in as. This is how we locate a specific
@@ -2261,7 +2260,7 @@ class MapScene extends Phaser.Scene {
         return;
       }
       const { tx, ty, cx, cy } = this.playerToWorldCell();
-      const key = `${Z}/${tx}/${ty}`;
+      const key = WorldGen.tileKey(tx, ty);
       const entry = WorldGen.tileCache && WorldGen.tileCache.get(key);
       const T = WorldGen.T || {};
       const TNAME = {};
@@ -2732,7 +2731,7 @@ class MapScene extends Phaser.Scene {
     if (typeof persistSave === 'function') persistSave(sv);
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
-    const e = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
   }
 
@@ -3537,7 +3536,7 @@ class MapScene extends Phaser.Scene {
       // pass driven by one tile still lands its neighbours' share immediately
       // instead of waiting for those tiles to rebuild.
       const otx = Math.floor(rec.x / this.tileEdgeM), oty = Math.floor(rec.y / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${otx}/${oty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
       if (!e || !e.objects) return;
       for (const o of e.objects) if (o.id === rec.id) return;
       e.objects.push(this._starterHomeObject(rec));
@@ -3630,7 +3629,7 @@ class MapScene extends Phaser.Scene {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return grid[cy * N + cx];
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${ntx}/${nty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || !e.grid || (e.status && e.status !== 'ready')) return null;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
@@ -3647,7 +3646,7 @@ class MapScene extends Phaser.Scene {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return entry.roadMask ? entry.roadMask[cy * N + cx] : 0;
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${ntx}/${nty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || !e.roadMask) return 0;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
@@ -5139,7 +5138,7 @@ class MapScene extends Phaser.Scene {
       });
       if (wildCrows < 1) {
         const pc = this.playerToWorldCell();
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
         if (entry && entry.creatures) {
           // Spawn 12 m away in a random direction so the crow is just
           // off-screen; it flies toward the nearest crop next tick.
@@ -5739,7 +5738,7 @@ class MapScene extends Phaser.Scene {
         const ty = Math.floor(ncy / this.cellsPerTile);
         const ix = Math.floor(ncx - tx * this.cellsPerTile);
         const iy = Math.floor(ncy - ty * this.cellsPerTile);
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
         if (!entry || !entry.grid) continue;
         const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
         // Skip roads (any tier), path, and buildings — those are overlays.
@@ -5806,7 +5805,7 @@ class MapScene extends Phaser.Scene {
     const cellM = this.cellM;
     const tx = Math.floor(poi.x / tileEdgeM);
     const ty = Math.floor(poi.y / tileEdgeM);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) {
       // Tile evicted between render and tap — shouldn't happen since the
       // chest sprite is in view, but bail rather than crash.
@@ -5878,7 +5877,7 @@ class MapScene extends Phaser.Scene {
   // passage is re-opened whenever this tile is regenerated (_applyDugWalls).
   digCaveWall(tx, ty, ix, iy, cellIX, cellIY) {
     const N = this.cellsPerTile;
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (entry && entry.grid) entry.grid[iy * N + ix] = 24;   // CAVE_FLOOR
     this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
     this.save.dugWalls = [...this.dugWallSet];
@@ -6499,7 +6498,7 @@ class MapScene extends Phaser.Scene {
     const tx = Math.floor(wx / TILE_PX), ty = Math.floor(wy / TILE_PX);
     const ix = Math.floor((wx - tx * TILE_PX) / cps);
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     const loaded = !!(entry && entry.grid);
     // Road-band flag. The terrain grid under-reports roads (QC rules: a way
     // rasterizes exactly ONE cell wide however wide its drawn band really
@@ -8187,7 +8186,7 @@ class MapScene extends Phaser.Scene {
     const tileReadyAt = (offMx, offMy) => {
       const tx = Math.floor((this.originPx.x + (anchor.x + offMx) / this.mPerPx) / WorldGen.TILE_PX);
       const ty = Math.floor((this.originPx.y + (anchor.y + offMy) / this.mPerPx) / WorldGen.TILE_PX);
-      const t = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      const t = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       return t && (!t.status || t.status === 'ready');
     };
     for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
@@ -8273,7 +8272,7 @@ class MapScene extends Phaser.Scene {
     const obj = this._starterTrailerObj;
     const tx = Math.floor((obj.x / this.mPerPx) / WorldGen.TILE_PX);
     const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
     let present = false;
     for (const o of entry.objects) { if (o.id === obj.id) { present = true; break; } }
@@ -9278,7 +9277,7 @@ class MapScene extends Phaser.Scene {
   // Per-tile keying keeps the data structure bounded and means a path
   // crossing N tiles offers up to N rewards (one per tile completed).
   _isPathStoneActive(tx, ty, ix, iy) {
-    const tileKey = `${WorldGen.Z}/${tx}/${ty}`;
+    const tileKey = WorldGen.tileKey(tx, ty);
     const tile = this.save.pathStones && this.save.pathStones[tileKey];
     if (!tile) return false;
     const entry = WorldGen.tileCache.get(tileKey);
@@ -9300,7 +9299,7 @@ class MapScene extends Phaser.Scene {
   // spam on every step over an already-claimed stone). Fires the path-
   // completion reward when this activation closes out the named path.
   _activatePathStone(tx, ty, ix, iy) {
-    const tileKey = `${WorldGen.Z}/${tx}/${ty}`;
+    const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
     if (!entry || !entry.pathNames) return false;
     // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment

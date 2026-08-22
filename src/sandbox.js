@@ -675,7 +675,7 @@
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const tx = centreTX + dtx, ty = centreTY + dty;
-        const key = `${WorldGen.Z}/${tx}/${ty}`;
+        const key = WorldGen.tileKey(tx, ty);
         if (WorldGen.tileCache.has(key)) continue;
         const isCentre = (dtx === 0 && dty === 0);
         const entry = makeTileEntry({
@@ -704,7 +704,7 @@
     // Plant a treasure X one cell north of spawn (tap that cell — treasure is
     // cell-bounded like every non-fauna target) so the tester can verify
     // treasure-tap loot without hunting for one.
-    const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
     if (centreEntry && !centreEntry.treasure) {
       centreEntry.treasure = {
         id: `sandbox_treasure_${centreTX}_${centreTY}`,
@@ -770,7 +770,7 @@
     scene.tilledSet = new Set();
     scene.placedRockSet = new Set();
     save.restoredHouses = save.restoredHouses || {};
-    const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
     // Helpers ────────────────────────────────────────────────────────────────
     // Absolute cell of (dx, dy) inside a named scene.
@@ -887,7 +887,7 @@
     // ── An extra treasure-X on the SW neighbour tile, at the seam with the
     //    centre tile (each tile entry holds only ONE `treasure` slot, and the
     //    in-reach one north of spawn already used the centre tile's slot).
-    const swKey = `${WorldGen.Z}/${centreTX - 1}/${centreTY + 1}`;
+    const swKey = WorldGen.tileKey(centreTX - 1, centreTY + 1);
     const swEntry = WorldGen.tileCache.get(swKey);
     if (swEntry && !swEntry.treasure) {
       const cellIX = cellsPerEdge - 2, cellIY = 1;

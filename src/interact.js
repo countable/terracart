@@ -848,7 +848,7 @@ const TAP_HANDLERS = [
     const pc = scene.playerToWorldCell();
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
         if (!entry || !entry.coinDrops) continue;
         const now = Date.now();
         for (let i = 0; i < entry.coinDrops.length; i++) {
@@ -1049,7 +1049,7 @@ const TAP_HANDLERS = [
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     // Spread the flock around the tap point so they don't all stack on one
     // pixel. Tight ~1.2m cluster keeps them in the same cell visually but
     // still gives wanderCreatures distinct starting positions.
@@ -1456,7 +1456,7 @@ const TAP_HANDLERS = [
       // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.
       const tEdge = scene.tileEdgeM;
       const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       if (entry) {
         entry.objects = entry.objects || [];
         if (!entry.objects.some(o => o.id === id)) {

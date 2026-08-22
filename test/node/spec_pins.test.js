@@ -285,6 +285,26 @@ test('#8 shopType: address-digit routing matches documented digit rules', () => 
 // only in a browser with a stale localStorage key.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FINDING #10 — app.js's CELL_PX is a standalone literal, not sourced from
+// SpriteLayout.CELL_PX
+//
+// app.js declares `const CELL_PX = 32;` independently of the authoritative
+// export SpriteLayout.CELL_PX (=32). app.js loads LAST in the browser, so an
+// alias (`const CELL_PX = SpriteLayout.CELL_PX;`) would be safe there — but
+// run.js lifts CELL_PX out of app.js headlessly with a numeric-literal regex
+// (`const CELL_PX = ([\d.]+);`, see the walk-home-timings block above), and an
+// alias would no longer match that pattern, breaking the headless suite.
+// So the literal stays, and this pin catches drift instead: `CELL_PX` here is
+// that same regex-lifted value straight from src/app.js (run.js sets it as a
+// global, same as WALK_M_S etc. above); it must equal SpriteLayout.CELL_PX.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('#10 app.js CELL_PX literal matches SpriteLayout.CELL_PX', () => {
+  assert.eq(CELL_PX, SpriteLayout.CELL_PX,
+    'app.js\'s CELL_PX literal (lifted from source by run.js) must equal the authoritative SpriteLayout.CELL_PX — update both together if the cell size ever changes');
+});
+
 test('#9 index.html\'s hardcoded save-key fallback matches save.js\'s constants', () => {
   // Hand-mirrored from index.html readActiveSaveRaw() — keep these two
   // literals equal to what's actually written there.

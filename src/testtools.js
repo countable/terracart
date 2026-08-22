@@ -234,7 +234,7 @@
       // Find any rock cell in the start tile.
       const N = s.cellsPerTile;
       const pc = s.playerToWorldCell();
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       let target = null;
       for (let iy = 0; iy < N && !target; iy++) {
         for (let ix = 0; ix < N; ix++) {
@@ -338,7 +338,7 @@
       // / player plots are reliable starts.
       const N = s.cellsPerTile;
       const pc = s.playerToWorldCell();
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       let cellIX = -1, cellIY = -1;
       for (let r = 1; r < 10 && cellIX < 0; r++) {
         for (let dy = -r; dy <= r && cellIX < 0; dy++) {
