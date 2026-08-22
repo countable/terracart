@@ -250,28 +250,25 @@ const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
-// it doesn't send the character trotting back the instant you let go. It was
-// 3000 ms, which is long enough to read as the character ignoring you: let go
-// after walking 40 m out and the offset sat frozen for three full seconds
-// before anything moved (measured), then covered the whole way back in under
-// three. All of the sluggishness was in the wait, none of it in the walk.
+// it doesn't send the character trotting back the instant you let go. Long
+// enough that stopping to look around, line up a tap, or shift your grip is
+// simply standing still; short enough that a player who has genuinely finished
+// walking isn't left waiting on a character that won't come back.
 //
-// A FLAT timer cannot satisfy both ends of this. Dropping it to 700 ms fixed
-// the "takes forever to start" complaint and immediately created the opposite
-// one: players nudge themselves along in short pushes, and any gap longer than
-// the timer had the character lurching back against them mid-manoeuvre. Driven
-// with a realistic 500 ms push / 900 ms pause pattern, 700 ms spent 23% of the
-// player's forward travel walking backwards across 7 direction reversals; at
-// 3000 ms it was 0% and 0.
+// It has been both too long and too short. At 3000 ms it read as the character
+// ignoring you. Chasing that, it went to 700 ms and then 500 ms, which is a
+// hair-trigger: players nudge themselves along in short pushes, and every beat
+// between pushes started a return, so the character was forever leaning back
+// against the direction of travel. 5000 ms is the number playtesting settled
+// on — past the longest natural gap between two deliberate stick pushes, so the
+// walk home only ever starts when the player has actually stopped.
 //
-// So the timer only decides when the return BEGINS, and it begins gently: the
+// The timer only decides when the return BEGINS, and it begins gently: the
 // speed eases in over WALK_HOME_RAMP_MS below rather than switching on at full
-// pace. A push that comes a moment after release loses almost nothing (the
-// return has barely moved), while a player who has genuinely stopped sees the
-// walk under way immediately and at full pace shortly after. The cliff is what
-// made a flat value feel wrong in one direction or the other; there isn't one
-// any more.
-const WALK_HOME_IDLE_MS = 500;
+// pace, so even a push that lands just after the timer expires gives up almost
+// no ground. That ramp is what keeps a longer debounce from feeling like a
+// cliff in the other direction.
+const WALK_HOME_IDLE_MS = 5000;
 // How long the walk home takes to reach full pace once it starts. Squared, so
 // the first fraction of a second is nearly stationary — that is what stops an
 // interrupted nudge from reading as the character fighting you — and the last
@@ -284,9 +281,10 @@ const WALK_HOME_RAMP_MS = 1100;
 //
 // It has to stay LONGER than the walk's own delay (or the lead line appears
 // before there's a walk to lead) but not so much longer that it never shows:
-// at the old 5000 ms against a 700 ms walk, a typical return was over before
-// the hint was due, so the hint only ever appeared on very long journeys home.
-const WALK_HOME_HINT_IDLE_MS = 2000;
+// a typical return is over in a couple of seconds, so a hint that waits much
+// past the walk's start only ever appears on very long journeys home. Tracks
+// WALK_HOME_IDLE_MS — it is that plus a beat and a half.
+const WALK_HOME_HINT_IDLE_MS = 6500;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
@@ -737,10 +735,6 @@ class MapScene extends Phaser.Scene {
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
-    // Opened supply crate — the "looted" marker a low-tier crate leaves behind.
-    // Its key was referenced by the renderer long before anything created it,
-    // so every opened crate drew Phaser's __MISSING placeholder.
-    makeOpenCrateTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
     // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
     // 'props' sheet, which reads as a hand-painted grass tuft consistent
@@ -4796,7 +4790,7 @@ class MapScene extends Phaser.Scene {
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
-  // first couple of seconds need no explaining to the player who just let go),
+  // first moments need no explaining to the player who just let go),
   // and it needs the ghost on screen, which is the game's own test for "far
   // enough off your real position to matter". Ghost blue, so the line, the
   // ghost it points at and the idea of "where you really are" are one colour.
