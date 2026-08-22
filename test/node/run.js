@@ -123,6 +123,26 @@ try {
   }
 }
 
+// The monster table and the defeat bounty derived from it are pure data + pure
+// math, but they live in app.js (which needs Phaser). Lift the whole block as
+// text — same trick as above — so the reward tests below run the REAL table and
+// the REAL formula rather than a copy that would drift the first time a kind is
+// added or a number retuned.
+{
+  const src = readSrc('app.js');
+  const start = src.indexOf('const MONSTERS = {');
+  const endMark = 'function isMonster(kind)';
+  const end = src.indexOf('\n', src.indexOf(endMark));
+  if (start < 0 || end < 0) {
+    console.error('Could not find the MONSTERS / bounty block in src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(src.slice(start, end + 1)
+    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, monsterBounty,'
+    + ' MONSTER_COIN_PER_HP, MONSTER_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
+    ctx, { filename: 'monsters.js' });
+}
+
 // The inventory category tabs are declared in app.js (which needs Phaser, so it
 // can't load here). Lift the {key, label, sym} triples straight out of the
 // source text — same trick as NON_TILLABLE above — so the tab-chrome tests can

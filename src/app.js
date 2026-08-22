@@ -199,6 +199,32 @@ const MONSTERS = {
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
+
+// --- Defeat bounty -------------------------------------------------------
+// A cave monster used to drop NOTHING: you paid the work wheel and the energy
+// it drained off you and got a flash message, so the only rational play was to
+// walk around every monster you met. Now a kill pays coins, always.
+//
+// The bounty is DERIVED from `hp` — the same number that sets the wheel length
+// — rather than hand-tuned per kind, so a tougher foe can never quietly pay
+// less than an easier one, and a kind added to MONSTERS is priced the moment
+// it has stats. Roughly a coin per 5 HP, floored at 1:
+//   purple slime 6hp → $1 · cave slime 15hp → $3 · archer 18hp → $4 · goblin 25hp → $5
+// Depth adds a slow climb on top (a coin per 3 levels down) so descending pays
+// for itself even where the same kinds keep spawning.
+const MONSTER_COIN_PER_HP  = 1 / 5;
+const MONSTER_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
+function monsterBounty(kind, depth) {
+  const m = MONSTERS[kind];
+  if (!m) return 0;
+  return Math.max(1, Math.round(m.hp * MONSTER_COIN_PER_HP))
+       + Math.floor(Math.max(0, depth || 0) * MONSTER_DEPTH_BONUS);
+}
+// Chance a defeated monster ALSO drops a buried-treasure roll — literally the
+// same pickReward('treasure:default') payout digging an X gives, so the rare
+// drop needs no table of its own and can't drift from the one players already
+// know. Deliberately small: the coins are the wage, this is the surprise.
+const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 
