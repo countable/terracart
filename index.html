@@ -595,6 +595,17 @@
     #bootload.indet .fill { animation: bootbreathe 1.2s ease-in-out infinite alternate; }
     @keyframes bootbreathe { from { width: 6%; } to { width: 24%; } }
     #bootload .cap { margin-top: 10px; font-size: 12px; opacity: .8; }
+    /* Modal sprite icons whose sheet PNG is still fetching (treasure / trade
+       / forge ceremonies): a soft pulsing plate holds the icon's footprint
+       instead of seconds of blank space. IconNet (app.js) strips the class
+       the moment the sheet decodes, which also clears the plate colour so it
+       can't show through the sprite's transparent pixels. */
+    .px-icon.icon-loading {
+      background-color: #2a2620;
+      border-radius: 4px;
+      animation: iconpulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes iconpulse { from { opacity: .45; } to { opacity: .95; } }
     /* First-load story intro — shown once, right after the safety splash,
        only when there is no prior intro flag (fresh save). Mirrors the
        safety box styling. */
