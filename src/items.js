@@ -4,14 +4,14 @@
 //
 // Depends on:
 //   nothing external. Pure data + a small lookup helper. Must load BEFORE
-//   loot.js (loot weights reference SEED_TIER/FLOWER_SEEDS) and app.js.
+//   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
 //   SPRING_CROPS_COLS, CROP_SPRITE, inventoryIconSource
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
-//   SEED_TIER, FLOWER_SEEDS  (loot tier config; co-located with the crops they describe)
+//   SEED_TIER  (loot tier config; co-located with the crops it describes)
 
 // Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
@@ -714,7 +714,6 @@ const ENERGY_COST = {
   rockPlace: 1,
   catch: 9,              // bare-handed; Wood bug net → 3, Frost → 1 (effectiveCatchCost)
   fish: 9,               // bare-handed cast; Wood rod → 3, Frost → 1 (effectiveFishCost)
-  pickup: 0,             // wildplants — free
   chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
                          // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
@@ -890,8 +889,8 @@ function maxEnergyFromArmor(armor) {
 // 3 → 1 across tiers 1..7 (so t1=3, t4=2, t7=1). The in-between tiers come out
 // fractional; callers run the result through probEnergy() to turn that
 // expectation into an actual integer spend.
-function toolEnergyExpected(tier) {
-  if (!tier) return 9;                 // bare hands
+function toolEnergyExpected(tier, bareCost = 9) {
+  if (!tier) return bareCost;          // bare hands — caller's ENERGY_COST entry
   return 3 - (tier - 1) / 3;           // tiers 1..7 ramp 3 → 1
 }
 // Probabilistic rounding: spend floor(cost) most of the time and ceil(cost) the
@@ -907,14 +906,14 @@ function probEnergy(cost, rng) {
 // (The in-world handler additionally surcharges rocks that out-tier your pick —
 // this is the at-or-above-tier baseline.)
 function effectivePickCost(relics, rng) {
-  return probEnergy(toolEnergyExpected(relics?.pick?.tier || 0), rng);
+  return probEnergy(toolEnergyExpected(relics?.pick?.tier || 0, ENERGY_COST.rockBreak), rng);
 }
 // Energy to fell a tree: the shared 9/3/1 tool curve × the tree's size
 // multiplier (small/medium/full → ×1/2/4). So bare-handed = 9/18/36, a Wood axe
 // = 3/6/12, a Frost axe = 1/2/4. `o` is the tree object (drives treeWoodMul).
 function effectiveChopCost(relics, o, rng) {
   const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
-  return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0) * sizeMul, rng);
+  return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0, ENERGY_COST.chop) * sizeMul, rng);
 }
 // Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
 // ALSO shortens the catch wheel (see toolDurationMs).
@@ -980,10 +979,6 @@ function toolDurationMs(relics, slot) {
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
 function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
-// Ring relic: +5% per tier to upgrade loot tier (1→2 or 2→3) on chests.
-function ringTierBoost(relics) {
-  return relics?.ring ? 0.05 * relics.ring.tier : 0;
-}
 // Amulet relic: powers STICK WALKING — steering yourself somewhere other than
 // where the GPS says you are. The stick is always there and always works; the
 // amulet is purely an upgrade to it, so both functions answer for a bare hand
@@ -1051,8 +1046,6 @@ function buyMarkupRange(relics) {
 const SEED_TIER = Object.fromEntries(
   Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
 );
-// Flowers — used by the 'flora' chest category to restrict its T3 picks.
-const FLOWER_SEEDS = new Set(['iceflower_seed', 'fireflower_seed', 'sunflower_seed']);
 
 // Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
 // so the places that hand out seeds — trader barter, treasure X, and cash

@@ -848,7 +848,7 @@ const TAP_HANDLERS = [
     const pc = scene.playerToWorldCell();
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx + dtx}/${pc.ty + dty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
         if (!entry || !entry.coinDrops) continue;
         const now = Date.now();
         for (let i = 0; i < entry.coinDrops.length; i++) {
@@ -1049,7 +1049,7 @@ const TAP_HANDLERS = [
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     // Spread the flock around the tap point so they don't all stack on one
     // pixel. Tight ~1.2m cluster keeps them in the same cell visually but
     // still gives wanderCreatures distinct starting positions.
@@ -1201,7 +1201,7 @@ const TAP_HANDLERS = [
     };
     const stageHoldMs = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
-    if (p.watered_t && sinceWater >= stageHoldMs && (p.stage ?? 0) < MAX_GROWTH_STAGE) {
+    if (p.watered_t && sinceWater >= stageHoldMs && !Crops.isMature(p)) {
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       ctx.dirty = true;
@@ -1214,7 +1214,7 @@ const TAP_HANDLERS = [
       scene.flash(`🌱 ${stageReadout()} — water it`, sx, sy);
       return true;
     }
-    if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {
+    if (Crops.isMature(p)) {
       if (!scene.spendEnergy(ENERGY_COST?.harvest ?? 0, sx, sy)) return true;
       save.planted.splice(plantedIdx, 1);
       scene.tilledSet.delete(cellKey);
@@ -1386,9 +1386,10 @@ const TAP_HANDLERS = [
       : (save.relics?.pick ? 4000 : 9000);
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
-      const qty = randInt(1, 3);
-      scene.addToInv('rockfruit', qty);
-      if (Math.random() < 0.20) scene.addToInv('coal', 1);
+      // Cave walls take the shared BASE table (interactables.js
+      // plainRockBaseDrop) — no ring/amulet luck applied, unlike the
+      // mineralrock isPlain branch, which layers its own luck on top.
+      const qty = plainRockBaseDrop(scene);
       persistSave(save);
       const item = ITEM_BY_ID['rockfruit'];
       scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
@@ -1402,7 +1403,7 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell)) return false;
-    const flavor = TERRAIN_FLAVOR[cell.underRoad ? 7 : cell.type] || '·';
+    const flavor = TERRAIN_FLAVOR[cell.underRoad ? TERRAIN.ROAD : cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},
@@ -1455,7 +1456,7 @@ const TAP_HANDLERS = [
       // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.
       const tEdge = scene.tileEdgeM;
       const tx = Math.floor(cwmx / tEdge), ty = Math.floor(cwmy / tEdge);
-      const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       if (entry) {
         entry.objects = entry.objects || [];
         if (!entry.objects.some(o => o.id === id)) {
@@ -1568,8 +1569,9 @@ function interactTap(scene, sx, sy) {
   // so the reachable area is symmetric around what the user perceives as "the player".
   const pWorldY = scene.startWorldM.y + scene.playerM.y + scene.feetOffsetM;
   // Player's CELL centre — the basis the visual reach outline in render.js
-  // uses, and what every REACH_FAR_M / REACH_CELL_M "too far" gate measures
-  // distance from. Uses the FEET position (pWorldY already includes
+  // uses, and what the legacy Euclidean "too far" fallback in tooFar()
+  // (reachRadiusM / REACH_FAR_M) measures distance from. Uses the FEET
+  // position (pWorldY already includes
   // feetOffsetM) so the reach box snaps to a new row exactly when the
   // sprite's feet cross a cell gridline — matches what the player sees on
   // screen. Earlier this used the BODY position, which made the box jump

@@ -23,13 +23,7 @@
   // Per-shop sub-hour offset (FNV-1a on the id, mod 1h) so two shops don't
   // rotate at the same wall-clock minute.
   function bucketOffset(houseId) {
-    let h = 2166136261 >>> 0;
-    const s = String(houseId);
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) % HOUR;
+    return fnv1a(houseId) % HOUR;
   }
 
   // The integer hour-bucket index this house is in right now.
@@ -62,6 +56,28 @@
     return cur;
   }
 
+  // Garbage-collect stale-bucket entries out of save.shopState. render.js polls
+  // readiness for every house it draws (even a house never once shopped at
+  // gets an entry the first time its pip is painted), and nothing ever deleted
+  // one, so the map grew by one entry per house EVER SEEN and never shrank.
+  // Deleting a stale entry is lossless: it's exactly the predecessor
+  // bucketState() already treats as dead and replaces with a fresh
+  // { bucket, deals: 0, rerolls: 0 } the next time that house is touched, so
+  // pruning it now costs nothing that wasn't already going to be rerolled.
+  // Returns the number of entries removed.
+  function pruneShopState(save, now = Date.now()) {
+    if (!save || !save.shopState) return 0;
+    let n = 0;
+    for (const id of Object.keys(save.shopState)) {
+      const cur = save.shopState[id];
+      if (!cur || cur.bucket !== bucket(id, now)) {
+        delete save.shopState[id];
+        n++;
+      }
+    }
+    return n;
+  }
+
   // Snapshot readiness: ready when a new deal would be accepted now; else
   // waitMin = wall-clock minutes until the next bucket. `cap` is supplied by the
   // caller (dealCap with the scene's isStarterBlacksmith flag).
@@ -90,14 +106,7 @@
       h ^= lane.charCodeAt(i);
       h = Math.imul(h, 16777619) >>> 0;
     }
-    let s = h;
-    return () => {
-      s = (Math.imul(s, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return makeRng32(h);
   }
 
   // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
@@ -153,6 +162,6 @@
     return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
   }
 
-  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, readiness, rng, buyPrice,
+  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, rng, buyPrice,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

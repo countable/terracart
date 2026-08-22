@@ -27,9 +27,11 @@
 //     startWorldM, playerM, cellM, cellsPerTile, depth,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helper: playerToWorldCell()
-//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM;
+//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM,
+//                 WorldGen.PATH_CLASSES, WorldGen.tileKey;
 //                 per-tile `entry.layers` (the raw decoded MVT layers),
 //                 `entry.tileEdgeM`, and `entry.grid` (for the keep-out pass)
+//   sprite_layout.js — SpriteLayout.CELL_PX
 //   app.js consts — CELL_PX
 //
 // Exports as globals:
@@ -54,9 +56,10 @@
   const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
 
-  // Same class list worldgen's classifyLine uses to paint T.PATH cells — kept
-  // in sync so a way that rasterizes as a footpath also overlays as one.
-  const PATH_CLASSES = new Set(['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps']);
+  // Same class list worldgen's classifyLine uses to paint T.PATH cells —
+  // WorldGen.PATH_CLASSES itself, so a way that rasterizes as a footpath also
+  // overlays as one and the two lists can't drift apart.
+  const PATH_CLASSES = WorldGen.PATH_CLASSES;
 
   // Rail is not road. It arrives in the same `transportation` layer and the
   // rasterizer has no tier for it, so a railway lands on the map as an
@@ -134,7 +137,7 @@
   // side, a shadow dot on the other) read as a tray of bubbles instead of
   // paving. A lumpy 6–8-sided outline plus a plain dark edge stroke (no
   // gloss) is what actually reads as a small flat stone.
-  const STONE_TILE_PX = 32;          // repeat every cell
+  const STONE_TILE_PX = SpriteLayout.CELL_PX; // repeat every cell
   const STONE_COLS = 4, STONE_ROWS = 4;    // small stones — a 4×4 grid per tile
   const STONE_GROUT_ALPHA = 0.16;    // dark wash first — the seams between stones
   const STONE_EDGE_ALPHA = 0.30;     // dark outline stroke around each stone
@@ -419,7 +422,7 @@
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const tx = pc.tx + dtx, ty = pc.ty + dty;
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
         if (!entry || !entry.layers || !entry.tileEdgeM) continue;
         tiles.push({ tx, ty, entry });
         ready += `${dtx}${dty}|`;
@@ -466,7 +469,7 @@
         const tx = Math.floor(acx / N), ix = acx - tx * N;
         if (tx !== curTX || ty !== curTY) {
           curTX = tx; curTY = ty;
-          const e = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+          const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
           curGrid = (e && e.grid) || null;
         }
         if (!curGrid) continue;

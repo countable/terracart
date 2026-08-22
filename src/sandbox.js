@@ -48,6 +48,7 @@
 // Dependencies (globals):
 //   WorldGen — Z, tileCache, cellsPerEdgeForLat, tileEdgeMeters, makeRng
 //   ITEMS / RELIC_DEFS / ARMOR_DEFS / maxEnergyFromArmor — for the test kit
+//   fnv1a (util.js) — shared FNV-1a hash, for the flora-placer's seed
 //
 // Exports as a global:
 //   Sandbox.detect()       → bool
@@ -540,7 +541,7 @@
       occupied.add(key(ix, iy));
     }
     for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
-    const hashStr = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+    const hashStr = (s) => fnv1a(s);   // shared FNV-1a (util.js)
     const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
     const place = (ix, iy, crop, t) => {
       const kk = key(ix, iy);
@@ -674,7 +675,7 @@
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const tx = centreTX + dtx, ty = centreTY + dty;
-        const key = `${WorldGen.Z}/${tx}/${ty}`;
+        const key = WorldGen.tileKey(tx, ty);
         if (WorldGen.tileCache.has(key)) continue;
         const isCentre = (dtx === 0 && dty === 0);
         const entry = makeTileEntry({
@@ -703,7 +704,7 @@
     // Plant a treasure X one cell north of spawn (tap that cell — treasure is
     // cell-bounded like every non-fauna target) so the tester can verify
     // treasure-tap loot without hunting for one.
-    const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
     if (centreEntry && !centreEntry.treasure) {
       centreEntry.treasure = {
         id: `sandbox_treasure_${centreTX}_${centreTY}`,
@@ -769,7 +770,7 @@
     scene.tilledSet = new Set();
     scene.placedRockSet = new Set();
     save.restoredHouses = save.restoredHouses || {};
-    const centreEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${centreTX}/${centreTY}`);
+    const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
     // Helpers ────────────────────────────────────────────────────────────────
     // Absolute cell of (dx, dy) inside a named scene.
@@ -886,7 +887,7 @@
     // ── An extra treasure-X on the SW neighbour tile, at the seam with the
     //    centre tile (each tile entry holds only ONE `treasure` slot, and the
     //    in-reach one north of spawn already used the centre tile's slot).
-    const swKey = `${WorldGen.Z}/${centreTX - 1}/${centreTY + 1}`;
+    const swKey = WorldGen.tileKey(centreTX - 1, centreTY + 1);
     const swEntry = WorldGen.tileCache.get(swKey);
     if (swEntry && !swEntry.treasure) {
       const cellIX = cellsPerEdge - 2, cellIY = 1;

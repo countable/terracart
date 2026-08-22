@@ -10,7 +10,9 @@
 //
 // Findings not reachable without a bridge:
 //   #8  shopSellBonus — function was removed from shops.js entirely;
-//       Shops namespace exposes only shopType/shopLabel/shopTint/shopInk/toRoman.
+//       Shops namespace exposes only shopType/shopInk/toRoman (shopLabel and
+//       shopTint were themselves later removed as dead code — render.js
+//       never called either).
 //       No bridging needed — its absence IS the finding (never wired, now gone).
 
 // ─── Deterministic PRNG (mulberry32, copied from loot.test.js) ───────────────
@@ -213,8 +215,9 @@ test('#7 T2 chest relic path resolves via rollGearUpgrade (relic or armor or gol
 // specialty bonus." The audit referenced Shops.shopSellBonus (shops.js:71-77)
 // defining gem +100% / produce +50% / trader +25%.
 //
-// Current shops.js: the Shops namespace exposes only shopType, shopLabel,
-// shopTint, shopInk, toRoman. shopSellBonus is not defined anywhere in the
+// Current shops.js: the Shops namespace exposes only shopType, shopInk,
+// toRoman (shopLabel/shopTint have since been deleted as dead code —
+// render.js never called them). shopSellBonus is not defined anywhere in the
 // loaded module set.
 //
 // SPEC BUG (audit #8): specialty sell bonus is defined but was never wired into
@@ -232,10 +235,13 @@ test('#8 Shops namespace: shopSellBonus is absent (function was removed)', () =>
 
 test('#8 Shops namespace exposes exactly the expected surface (no sell-bonus entry)', () => {
   const exposed = Object.keys(Shops).sort();
-  // The known exported keys from shops.js IIFE global.Shops = { ... }
+  // The known exported keys from shops.js IIFE global.Shops = { ... }.
+  // shopLabel/shopTint were dropped entirely (dead code — render.js
+  // deliberately reimplements both off the resolved house role instead of
+  // the address digit these read; see the comment atop shops.js).
   assert.truthy(exposed.includes('shopType'),  'shopType present');
-  assert.truthy(exposed.includes('shopLabel'), 'shopLabel present');
-  assert.truthy(exposed.includes('shopTint'),  'shopTint present');
+  assert.falsy(exposed.includes('shopLabel'),  'shopLabel removed (dead code)');
+  assert.falsy(exposed.includes('shopTint'),   'shopTint removed (dead code)');
   assert.truthy(exposed.includes('shopInk'),   'shopInk present');
   assert.truthy(exposed.includes('toRoman'),   'toRoman present');
   assert.falsy(exposed.includes('shopSellBonus'), 'shopSellBonus is absent from Shops');
@@ -252,4 +258,61 @@ test('#8 shopType: address-digit routing matches documented digit rules', () => 
   assert.eq(Shops.shopType(makeHouse(8)),  'trader',     'digit 8 → trader');
   assert.eq(Shops.shopType(makeHouse(5)),  null,         'digit 5 → null (no specialty)');
   assert.eq(Shops.shopType(makeHouse(0)),  null,         'digit 0 → null');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINDING #9 — index.html's boot-time save-key fallback can silently drift
+// from save.js's real constants
+//
+// index.html's inline readActiveSaveRaw() (~line 1399) runs at PARSE time,
+// before save.js has loaded, so it can't call into save.js — it hardcodes its
+// own copies of the two localStorage keys instead: 'terracart.saves' (the slot
+// registry, ~line 1401) and 'terracart.save.v4' (the legacy/default slot's
+// data key, the `key` fallback at ~line 1402). save.js:22,24 defines the same
+// two strings as SAVES_KEY / SAVE_VERSION_KEY. Nothing ties the two copies
+// together, so a future version bump (v4 → v5) that only touches save.js
+// would leave index.html quietly reading the WRONG key before the scene even
+// boots.
+//
+// The vm sandbox this suite runs in has no fs/require (see the comments in
+// mvt.test.js and spawn_roads.test.js), so this test can't open index.html and
+// diff it live the way SHOP_INTERACT_SRC etc. do for app.js (those are lifted
+// by run.js, in plain node scope, before the sandbox exists). Instead the
+// index.html literals are hand-mirrored below, tagged with the line they come
+// from, and checked against save.js's REAL (live, loaded-from-source)
+// constants — so bumping SAVE_VERSION_KEY/SAVES_KEY without updating BOTH
+// index.html and this mirror fails the suite immediately, loudly, instead of
+// only in a browser with a stale localStorage key.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINDING #10 — app.js's CELL_PX is a standalone literal, not sourced from
+// SpriteLayout.CELL_PX
+//
+// app.js declares `const CELL_PX = 32;` independently of the authoritative
+// export SpriteLayout.CELL_PX (=32). app.js loads LAST in the browser, so an
+// alias (`const CELL_PX = SpriteLayout.CELL_PX;`) would be safe there — but
+// run.js lifts CELL_PX out of app.js headlessly with a numeric-literal regex
+// (`const CELL_PX = ([\d.]+);`, see the walk-home-timings block above), and an
+// alias would no longer match that pattern, breaking the headless suite.
+// So the literal stays, and this pin catches drift instead: `CELL_PX` here is
+// that same regex-lifted value straight from src/app.js (run.js sets it as a
+// global, same as WALK_M_S etc. above); it must equal SpriteLayout.CELL_PX.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('#10 app.js CELL_PX literal matches SpriteLayout.CELL_PX', () => {
+  assert.eq(CELL_PX, SpriteLayout.CELL_PX,
+    'app.js\'s CELL_PX literal (lifted from source by run.js) must equal the authoritative SpriteLayout.CELL_PX — update both together if the cell size ever changes');
+});
+
+test('#9 index.html\'s hardcoded save-key fallback matches save.js\'s constants', () => {
+  // Hand-mirrored from index.html readActiveSaveRaw() — keep these two
+  // literals equal to what's actually written there.
+  const INDEX_HTML_SAVES_KEY = 'terracart.saves';       // index.html ~line 1401
+  const INDEX_HTML_SAVE_KEY  = 'terracart.save.v4';     // index.html ~line 1402
+  assert.eq(SAVES_KEY, INDEX_HTML_SAVES_KEY,
+    'save.js SAVES_KEY must match index.html\'s hardcoded slot-registry key');
+  assert.eq(SAVE_VERSION_KEY, INDEX_HTML_SAVE_KEY,
+    'save.js SAVE_VERSION_KEY must match index.html\'s hardcoded fallback data key — '
+    + 'a version bump here MUST also update index.html\'s readActiveSaveRaw() and this pin');
 });

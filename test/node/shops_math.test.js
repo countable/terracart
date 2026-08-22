@@ -44,6 +44,49 @@ test('bucketState: creates a record and GCs a stale-bucket predecessor', () => {
   assert.eq(next.deals, 0, 'stale bucket GC’d → deals reset');
 });
 
+test('pruneShopState: deletes stale-bucket entries, keeps current-bucket ones', () => {
+  const save = { shopState: {} };
+  const stale = { id: 'stale-house' };
+  const fresh = { id: 'fresh-house' };
+  // Seed one record in the CURRENT bucket for each id at t=0…
+  ShopsMath.bucketState(save, stale, 0);
+  ShopsMath.bucketState(save, fresh, 0);
+  assert.truthy(save.shopState['stale-house'], 'stale house has a record before pruning');
+  assert.truthy(save.shopState['fresh-house'], 'fresh house has a record before pruning');
+  // …then prune as of an hour later: `stale` is now in a different bucket
+  // (its bucket() has advanced), `fresh` is re-touched at the same moment so
+  // its bucket has ALSO advanced — bucketState below re-derives it fresh.
+  const later = ShopsMath.HOUR * 3;
+  // Re-derive `fresh`'s record for the later moment so it's genuinely current
+  // at prune time (mirrors a shop the player is actively looking at).
+  ShopsMath.bucketState(save, fresh, later);
+  const removed = ShopsMath.pruneShopState(save, later);
+  assert.eq(removed, 1, 'exactly the stale entry was removed');
+  assert.falsy(save.shopState['stale-house'], 'stale-bucket entry pruned');
+  assert.truthy(save.shopState['fresh-house'], 'current-bucket entry survives');
+});
+
+test('pruneShopState: lossless — a pruned entry rerolls to the exact same shape bucketState would have replaced it with', () => {
+  const save = { shopState: {} };
+  const house = { id: 'h-lossless' };
+  ShopsMath.bucketState(save, house, 0).deals = 3;   // simulate a used-up hour
+  const later = ShopsMath.HOUR * 5;
+  // What bucketState's own stale-replace path would produce, untouched by pruning.
+  const saveA = { shopState: { ...save.shopState } };
+  const viaReplace = ShopsMath.bucketState(saveA, house, later);
+  // What pruning first, then touching, produces.
+  ShopsMath.pruneShopState(save, later);
+  assert.falsy(save.shopState['h-lossless'], 'pruned before the re-touch');
+  const viaPrune = ShopsMath.bucketState(save, house, later);
+  assert.eq(JSON.stringify(viaPrune), JSON.stringify(viaReplace),
+    'pruning then recreating matches bucketState\'s own stale-replace exactly');
+});
+
+test('pruneShopState: no-op on an empty or missing shopState', () => {
+  assert.eq(ShopsMath.pruneShopState({}), 0, 'no shopState at all');
+  assert.eq(ShopsMath.pruneShopState({ shopState: {} }), 0, 'empty shopState');
+});
+
 test('readiness: ready until the cap, then reports a positive waitMin', () => {
   const save = {};
   const fort = { id: 'fortB', tier: 11 };

@@ -84,7 +84,6 @@ const ASSETS = {
   // Maple (32 wide). Each tree spans a 32px column; slicing at 16 split every
   // tree in half (the odd 16px frame was just the right half of a tree).
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 32, frameHeight: 48 },
-  cherry_tree:  { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Cherry Tree.png',  frameWidth: 32, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 32, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
   // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are

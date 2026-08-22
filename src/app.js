@@ -388,6 +388,10 @@ const WALK_HOME_RAMP_MS = 1100;
 // past the walk's start only ever appears on very long journeys home. Tracks
 // WALK_HOME_IDLE_MS — it is that plus a beat and a half.
 const WALK_HOME_HINT_IDLE_MS = 6500;
+// Shared unit for the consumable-buff durations below (reach/speed/shield
+// potion, dragon powder, coffee, pairy compass) so a duration reads as a
+// count of minutes instead of a repeated 60 * 1000 literal.
+const MINUTE_MS = 60 * 1000;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
@@ -397,7 +401,7 @@ const SPEED_POTION_AMULET_TIER = 9;
 // (worn amulet, Dragon, or the Speed potion), capped at the same ceiling
 // those top out at so a coffee can't out-tier the rarest buff.
 const COFFEE_AMULET_BOOST = 1;
-const COFFEE_BUFF_MS = 3 * 60 * 1000;
+const COFFEE_BUFF_MS = 3 * MINUTE_MS;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -414,7 +418,7 @@ if (typeof window !== 'undefined') {
 // own cell also spilled into the neighbouring ones. Creatures still use a
 // per-kind drawn-sprite box in interact.js — they move and aren't cell-bound.
 // Outer "too far" gate. Matches the visual reach outline drawn by drawCells
-// (scene.REACH_CELL_M). Distance is measured from the player's CELL CENTRE
+// (coords.js reachRadiusM). Distance is measured from the player's CELL CENTRE
 // (not their feet) — same basis as the visual — so any cell shown inside the
 // reach outline is tappable, regardless of where in the cell the player stands.
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
@@ -854,6 +858,15 @@ class MapScene extends Phaser.Scene {
       },
       loadSave()
     );
+    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
+    // re-derive, the history cap, and the data migrations (inv string→object,
+    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
+    // review seed) — live in savemigrate.js so they're testable headlessly.
+    // Returns true iff a real data migration changed something and the save
+    // should be re-persisted now. Runs before any in-memory Set is mirrored off
+    // a save array below, so the HISTORY_CAP trim above actually sticks — build
+    // a mirror from the pre-trim array and the next rewrite un-trims it.
+    const needsMigrationPersist = SaveMigrate.migrate(this.save);
     this.save.opened = this.save.opened || [];
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
@@ -882,13 +895,6 @@ class MapScene extends Phaser.Scene {
     // everything else stays location-stable. Math.random is right here —
     // this IS the save's identity, not world state.
     if (this.save.relicSalt == null) this.save.relicSalt = (Math.random() * 0x100000000) >>> 0;
-    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
-    // re-derive, the history cap, and the data migrations (inv string→object,
-    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
-    // review seed) — live in savemigrate.js so they're testable headlessly.
-    // Returns true iff a real data migration changed something and the save
-    // should be re-persisted now.
-    const needsMigrationPersist = SaveMigrate.migrate(this.save);
     // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
     // treated as "the player was resting" — pro-rated 100% per hour, capped at
     // maxEnergy (re-derived in migrate above). Skipped in test mode so the
@@ -952,10 +958,7 @@ class MapScene extends Phaser.Scene {
     // reach centres on the player. ~2.6m.
     this.feetOffsetM = (14 / CELL_PX) * this.cellM;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades. This field
-    // is retained as the legacy 3-cell constant for any external reference but
-    // is NO LONGER read by the reach gate.
-    this.REACH_CELL_M = 16;   // legacy: √(5²+15²)+ε ≈ the old fixed 3-cell reach.
+    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
     // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
@@ -2134,7 +2137,7 @@ class MapScene extends Phaser.Scene {
   // and how much this save's armor allows.
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
-    const { wrap, box, mount } = this.makeModalShell('energy-help',
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
       { maxWidth: 300, textAlign: 'left', onClose: () => {}, kind: 'energy' });
     const h = document.createElement('div');
     h.style.cssText = 'font:700 14px ui-monospace,monospace;color:var(--green);'
@@ -2149,12 +2152,9 @@ class MapScene extends Phaser.Scene {
       + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
       + '• <b>Armor</b> — each piece raises the cap (currently ' + max + ').';
     box.appendChild(body);
-    const close = document.createElement('button');
-    close.textContent = 'Got it';
-    close.style.cssText =
-      'display:block;width:100%;margin-top:12px;padding:11px 14px;border-radius:7px;'
-      + 'border:0;background:var(--gold-dark);color:#1a1612;cursor:pointer;'
-      + 'font:700 13px ui-monospace,monospace;';
+    const close = mkBtn('Got it');
+    close.style.marginTop = '12px';
+    close.style.width = '100%';
     close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     box.appendChild(close);
     mount();
@@ -2229,7 +2229,6 @@ class MapScene extends Phaser.Scene {
   // the rasteriser painted under the player.
   dumpTileDebug() {
     try {
-      const Z = WorldGen.Z;
       // Optional name search: scan EVERY loaded tile for features whose name
       // contains a substring (case-insensitive) and report the exact layer +
       // class/subclass each came in as. This is how we locate a specific
@@ -2261,7 +2260,7 @@ class MapScene extends Phaser.Scene {
         return;
       }
       const { tx, ty, cx, cy } = this.playerToWorldCell();
-      const key = `${Z}/${tx}/${ty}`;
+      const key = WorldGen.tileKey(tx, ty);
       const entry = WorldGen.tileCache && WorldGen.tileCache.get(key);
       const T = WorldGen.T || {};
       const TNAME = {};
@@ -2753,7 +2752,7 @@ class MapScene extends Phaser.Scene {
     if (typeof persistSave === 'function') persistSave(sv);
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
-    const e = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
   }
 
@@ -3572,7 +3571,7 @@ class MapScene extends Phaser.Scene {
       // pass driven by one tile still lands its neighbours' share immediately
       // instead of waiting for those tiles to rebuild.
       const otx = Math.floor(rec.x / this.tileEdgeM), oty = Math.floor(rec.y / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${otx}/${oty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
       if (!e || !e.objects) return;
       for (const o of e.objects) if (o.id === rec.id) return;
       e.objects.push(this._starterHomeObject(rec));
@@ -3665,7 +3664,7 @@ class MapScene extends Phaser.Scene {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return grid[cy * N + cx];
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${ntx}/${nty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || !e.grid || (e.status && e.status !== 'ready')) return null;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
@@ -3682,7 +3681,7 @@ class MapScene extends Phaser.Scene {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return entry.roadMask ? entry.roadMask[cy * N + cx] : 0;
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${ntx}/${nty}`);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || !e.roadMask) return 0;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
@@ -4811,21 +4810,9 @@ class MapScene extends Phaser.Scene {
     const dps = Combat.meleeDps(this.save.relics);
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
-    this._workProgressIcon?.remove();
-    this._workProgressIcon = null;
     // The wheel is a health bar now, so the tool badge is the one place left
     // that still says what you're hitting it WITH.
-    const slot = this.save.relics?.sword ? 'sword' : null;
-    if (slot) {
-      const html = this.gearIconHTML('relic', slot, this.save.relics[slot].tier || 1, 16);
-      if (html) {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
-        el.innerHTML = html;
-        document.body.appendChild(el);
-        this._workProgressIcon = el;
-      }
-    }
+    this._setWorkProgressIcon(this.save.relics?.sword ? 'sword' : null);
     this._workProgress = {
       worldX: victim.x, worldY: victim.y,
       combat: victim,
@@ -4910,20 +4897,27 @@ class MapScene extends Phaser.Scene {
   // wander/flee AI does — track just re-anchors the wheel over it and cancels if
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
+    this._setWorkProgressIcon(toolSlot);
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
+  }
+  // Swap the small tool badge shown beside a work-progress wheel: remove
+  // whatever badge is up, then (if `toolSlot` is equipped and has an icon)
+  // build the fixed-position DOM element and stash it as _workProgressIcon so
+  // the next call — or cancelWorkProgress — can remove it in turn. Shared by
+  // every wheel starter (combat, mine/chop/fish, catch) so the DOM/cssText
+  // can't drift between them.
+  _setWorkProgressIcon(toolSlot) {
     this._workProgressIcon?.remove();
     this._workProgressIcon = null;
-    if (toolSlot) {
-      const tier = this.save.relics?.[toolSlot]?.tier || 1;
-      const html = this.gearIconHTML('relic', toolSlot, tier, 16);
-      if (html) {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
-        el.innerHTML = html;
-        document.body.appendChild(el);
-        this._workProgressIcon = el;
-      }
-    }
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
+    if (!toolSlot) return;
+    const tier = this.save.relics?.[toolSlot]?.tier || 1;
+    const html = this.gearIconHTML('relic', toolSlot, tier, 16);
+    if (!html) return;
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    this._workProgressIcon = el;
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
@@ -4933,19 +4927,7 @@ class MapScene extends Phaser.Scene {
   startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null, energyRefund = 0) {
     creature._beingCaught = true;
     const t = performance.now();
-    this._workProgressIcon?.remove();
-    this._workProgressIcon = null;
-    if (toolSlot) {
-      const tier = this.save.relics?.[toolSlot]?.tier || 1;
-      const html = this.gearIconHTML('relic', toolSlot, tier, 16);
-      if (html) {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
-        el.innerHTML = html;
-        document.body.appendChild(el);
-        this._workProgressIcon = el;
-      }
-    }
+    this._setWorkProgressIcon(toolSlot);
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
       energyRefund, startT: t, _lastT: t, flee: creature, onFail,
@@ -5191,7 +5173,7 @@ class MapScene extends Phaser.Scene {
       });
       if (wildCrows < 1) {
         const pc = this.playerToWorldCell();
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${pc.tx}/${pc.ty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
         if (entry && entry.creatures) {
           // Spawn 12 m away in a random direction so the crow is just
           // off-screen; it flies toward the nearest crop next tick.
@@ -5791,7 +5773,7 @@ class MapScene extends Phaser.Scene {
         const ty = Math.floor(ncy / this.cellsPerTile);
         const ix = Math.floor(ncx - tx * this.cellsPerTile);
         const iy = Math.floor(ncy - ty * this.cellsPerTile);
-        const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
         if (!entry || !entry.grid) continue;
         const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
         // Skip roads (any tier), path, and buildings — those are overlays.
@@ -5858,7 +5840,7 @@ class MapScene extends Phaser.Scene {
     const cellM = this.cellM;
     const tx = Math.floor(poi.x / tileEdgeM);
     const ty = Math.floor(poi.y / tileEdgeM);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) {
       // Tile evicted between render and tap — shouldn't happen since the
       // chest sprite is in view, but bail rather than crash.
@@ -5930,7 +5912,7 @@ class MapScene extends Phaser.Scene {
   // passage is re-opened whenever this tile is regenerated (_applyDugWalls).
   digCaveWall(tx, ty, ix, iy, cellIX, cellIY) {
     const N = this.cellsPerTile;
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (entry && entry.grid) entry.grid[iy * N + ix] = 24;   // CAVE_FLOOR
     this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
     this.save.dugWalls = [...this.dugWallSet];
@@ -6435,7 +6417,15 @@ class MapScene extends Phaser.Scene {
     // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
     // to refund (it just cancels the dig). The spend lands at the dig instant.
     this.startWorkProgress(wx, wy, () => {
-      this.spendEnergy(cost, this.viewCenterX, this.viewCenterY);
+      // Energy can have drained mid-wheel (monsters chip away at it during the
+      // up-to-9s dig) even though the gate above passed at start — re-check at
+      // completion and bail with no dig/loot if it no longer affords, same as
+      // every other spendEnergy bail (flash already fired inside spendEnergy).
+      if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY)) {
+        this._followPaused = true;   // out of energy — stop chewing the wall
+        this._autoMineKey = null;
+        return;
+      }
       this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
       const qty = randInt(1, 3);
       this.addToInv('rockfruit', qty);
@@ -6543,7 +6533,7 @@ class MapScene extends Phaser.Scene {
     const tx = Math.floor(wx / TILE_PX), ty = Math.floor(wy / TILE_PX);
     const ix = Math.floor((wx - tx * TILE_PX) / cps);
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     const loaded = !!(entry && entry.grid);
     // Road-band flag. The terrain grid under-reports roads (QC rules: a way
     // rasterizes exactly ONE cell wide however wide its drawn band really
@@ -7368,7 +7358,7 @@ class MapScene extends Phaser.Scene {
   drinkReachPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.reachPotionUntil = Date.now() + 60 * 1000;
+    this.save.reachPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
       '✨ You drink the Potion of Reach',
       'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
@@ -7394,7 +7384,7 @@ class MapScene extends Phaser.Scene {
   drinkSpeedPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.speedPotionUntil = Date.now() + 60 * 1000;
+    this.save.speedPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
       'You drink the Potion of Speed',
       'Your legs blaze — tier-9 amulet walking for one minute.',
@@ -7404,7 +7394,7 @@ class MapScene extends Phaser.Scene {
   drinkShieldPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.shieldPotionUntil = Date.now() + 60 * 1000;
+    this.save.shieldPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
       'You drink the Potion of Shielding',
       'A shimmering barrier wraps you — monster damage halved for one minute.',
@@ -7427,7 +7417,7 @@ class MapScene extends Phaser.Scene {
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
-    this._dragonUntil = Date.now() + 60 * 1000;
+    this._dragonUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
       'Scales erupt across your skin — you ARE a dragon for one minute: dragon legs on the stick, and every blow lands twice as hard.',
@@ -7474,7 +7464,7 @@ class MapScene extends Phaser.Scene {
       const target = this.findNearestUnopenedChest();
       if (target) {
         this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Date.now() + 5 * 60 * 1000 };
+          until: Date.now() + 5 * MINUTE_MS };
         extra = `\n🧭 chest compass: 5 min`;
       } else {
         extra = `\n🧭 no chests nearby`;
@@ -7692,7 +7682,7 @@ class MapScene extends Phaser.Scene {
       // the formula is cheap to evaluate without re-deriving game balance.
       const base = def.blurb || '';
       if (slot === 'bags' && tierOrZero > 0 && typeof stackCapForBags === 'function') {
-        return `${base} (cap ${stackCapForBags({ tier: tierOrZero })})`;
+        return `${base} (cap ${Inventory.stackCap(this.save)})`;
       }
       if (slot === 'rod' && tierOrZero > 0) {
         const skunk = Math.max(0.20, 0.55 - tierOrZero * 0.05);
@@ -8231,7 +8221,7 @@ class MapScene extends Phaser.Scene {
     const tileReadyAt = (offMx, offMy) => {
       const tx = Math.floor((this.originPx.x + (anchor.x + offMx) / this.mPerPx) / WorldGen.TILE_PX);
       const ty = Math.floor((this.originPx.y + (anchor.y + offMy) / this.mPerPx) / WorldGen.TILE_PX);
-      const t = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+      const t = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       return t && (!t.status || t.status === 'ready');
     };
     for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
@@ -8317,7 +8307,7 @@ class MapScene extends Phaser.Scene {
     const obj = this._starterTrailerObj;
     const tx = Math.floor((obj.x / this.mPerPx) / WorldGen.TILE_PX);
     const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
-    const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
     let present = false;
     for (const o of entry.objects) { if (o.id === obj.id) { present = true; break; } }
@@ -8547,7 +8537,7 @@ class MapScene extends Phaser.Scene {
   // Delivery list overlay: tap a row to aim the white waypoint arrow at that
   // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
   openDeliveryMenu() {
-    const { wrap, box, mount } = this.makeModalShell('delivery-menu',
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('delivery-menu',
       { maxWidth: 320, textAlign: 'left', onClose: () => {}, kind: 'delivery' });
     // No title line — the kind header already says DELIVERY.
     const houses = this.knownDeliveryHouses();
@@ -8604,12 +8594,9 @@ class MapScene extends Phaser.Scene {
     }
     // Every other modal ends in a button; this one was backdrop-tap only, on a
     // box that fills most of the width.
-    const close = document.createElement('button');
-    close.textContent = 'Close';
-    close.style.cssText =
-      'display:block;width:100%;margin-top:10px;padding:11px 14px;border-radius:7px;'
-      + 'border:0;background:var(--gold-dark);color:#1a1612;cursor:pointer;'
-      + 'font:700 13px ui-monospace,monospace;';
+    const close = mkBtn('Close');
+    close.style.marginTop = '10px';
+    close.style.width = '100%';
     close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     box.appendChild(close);
     mount();
@@ -9325,7 +9312,7 @@ class MapScene extends Phaser.Scene {
   // Per-tile keying keeps the data structure bounded and means a path
   // crossing N tiles offers up to N rewards (one per tile completed).
   _isPathStoneActive(tx, ty, ix, iy) {
-    const tileKey = `${WorldGen.Z}/${tx}/${ty}`;
+    const tileKey = WorldGen.tileKey(tx, ty);
     const tile = this.save.pathStones && this.save.pathStones[tileKey];
     if (!tile) return false;
     const entry = WorldGen.tileCache.get(tileKey);
@@ -9347,7 +9334,7 @@ class MapScene extends Phaser.Scene {
   // spam on every step over an already-claimed stone). Fires the path-
   // completion reward when this activation closes out the named path.
   _activatePathStone(tx, ty, ix, iy) {
-    const tileKey = `${WorldGen.Z}/${tx}/${ty}`;
+    const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
     if (!entry || !entry.pathNames) return false;
     // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment
@@ -10709,10 +10696,6 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // How many more of `id` would fit right now (0 = full for that item).
-  // Mirrors addToInv's single-stack-per-id cap so a caller can detect overflow
-  // BEFORE committing — the chest open uses it to offer "leave it for later"
-  // instead of silently dropping loot that won't fit.
   // How many more of `id` would fit right now (0 = full for that item).
   // Thin wrapper over Inventory.roomFor — the stack/cap math lives in
   // inventory.js (headlessly tested). Used by the chest open to detect overflow

@@ -43,6 +43,18 @@ test('pickReward: treasure context also yields a valid reward', () => {
   assert.truthy(r && REWARD_KINDS.has(r.kind), 'treasure produced a valid reward');
 });
 
+test('reconcileRelicOffer: armor kind reconciles against save.armor, never downgrades', () => {
+  // Fixed-payload armor chests (interactables.js fixedChestReward) must not
+  // hand back a lower tier than what's already equipped.
+  const save = { relics: {}, armor: { helmet: { tier: 4 } } };
+  const upgrade = reconcileRelicOffer({ kind: 'armor', slot: 'helmet', tier: 6, jackpot: 0 }, save, () => 0.99);
+  assert.eq(upgrade.kind, 'armor', 'a real upgrade is handed over as armor');
+  assert.eq(upgrade.tier, 6, 'upgrade keeps the rolled tier');
+  const dupe = reconcileRelicOffer({ kind: 'armor', slot: 'helmet', tier: 2, jackpot: 0 }, save, () => 0.99);
+  assert.truthy(dupe.kind === 'armor' || dupe.kind === 'gold', 'never a bare relic kind for an armor offer');
+  assert.truthy(dupe.tier >= 4, 'never resolves below the tier already equipped');
+});
+
 test('pickReward: the ring nudges loot rarer on average (statistical, large N)', () => {
   // Ring luck lowers qtyP so chain steps tier-up more often. Over many rolls the
   // mean item tier with a T7 ring should not be LOWER than with no ring. Uses a

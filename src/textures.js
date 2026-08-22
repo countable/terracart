@@ -1076,82 +1076,14 @@ function makeRoundPadTexture(scene, key) {
   tex.refresh();
 }
 
-// Build a texture for one shape. Round shapes get the dedicated rounded pad;
-// any (legacy) multi-cell shape is drawn cell-by-cell with only its outer
-// perimeter stroked.
+// Build a texture for one shape. Every shape is round (see PAD_SHAPES above),
+// so this just dispatches to the dedicated rounded-pad drawer.
 function makePadShapeTexture(scene, shapeKey) {
   const key = `pad_${shapeKey}`;
   if (scene.textures.exists(key)) return;
   const shape = PAD_SHAPES[shapeKey];
   if (!shape) return;
-  if (shape.round) { makeRoundPadTexture(scene, key); return; }
-  const W = shape.cols * PAD_CELL, H = shape.rows * PAD_CELL;
-  const tex = scene.textures.createCanvas(key, W, H);
-  const ctx = tex.getContext();
-  ctx.clearRect(0, 0, W, H);
-  const occ = new Set(shape.cells.map(c => `${c[0]},${c[1]}`));
-  // Body fill — slightly mottled by overlaying a darker bottom band.
-  ctx.fillStyle = '#b2b2b2';
-  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL, PAD_CELL, PAD_CELL);
-  // Per-cell subtle shading: a light top edge + dark bottom edge gives the
-  // slabs a faint "beveled flagstone" feel without losing the unified outline.
-  ctx.fillStyle = 'rgba(255,255,255,0.07)';
-  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL, PAD_CELL, 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.10)';
-  for (const [c, r] of shape.cells) ctx.fillRect(c * PAD_CELL, r * PAD_CELL + PAD_CELL - 2, PAD_CELL, 2);
-  // Faint grout lines between adjacent cells so you can read the tile count.
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (const [c, r] of shape.cells) {
-    const x0 = c * PAD_CELL, y0 = r * PAD_CELL;
-    if (occ.has(`${c + 1},${r}`)) { ctx.moveTo(x0 + PAD_CELL, y0 + 1); ctx.lineTo(x0 + PAD_CELL, y0 + PAD_CELL - 1); }
-    if (occ.has(`${c},${r + 1}`)) { ctx.moveTo(x0 + 1, y0 + PAD_CELL); ctx.lineTo(x0 + PAD_CELL - 1, y0 + PAD_CELL); }
-  }
-  ctx.stroke();
-  // Outer perimeter outline — lighter than the body and rounded at outer corners.
-  // Each outside-facing edge is drawn as a shortened segment (leaving a corner gap)
-  // with a small quarter-arc joining adjacent edges at each convex corner cell.
-  // Cells where the corner is concave (e.g. inside angle of the cross) keep their
-  // straight intersection.
-  const RADIUS = 5;                      // corner radius in px (PAD_CELL is typically ~16)
-  ctx.strokeStyle = '#c2c2c2';           // lighter than the previous '#6e6e6e'
-  ctx.lineWidth = 1.5;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  const r = Math.min(RADIUS, PAD_CELL / 2 - 1);
-  for (const [c, ro] of shape.cells) {
-    const x0 = c * PAD_CELL, y0 = ro * PAD_CELL;
-    const N = !occ.has(`${c},${ro - 1}`);
-    const E = !occ.has(`${c + 1},${ro}`);
-    const S = !occ.has(`${c},${ro + 1}`);
-    const W = !occ.has(`${c - 1},${ro}`);
-    ctx.beginPath();
-    // Top edge — trimmed by the corner radius on each outside-corner side.
-    if (N) {
-      const xL = x0 + (W ? r : 0), xR = x0 + PAD_CELL - (E ? r : 0);
-      ctx.moveTo(xL, y0); ctx.lineTo(xR, y0);
-    }
-    if (E) {
-      const yT = y0 + (N ? r : 0), yB = y0 + PAD_CELL - (S ? r : 0);
-      ctx.moveTo(x0 + PAD_CELL, yT); ctx.lineTo(x0 + PAD_CELL, yB);
-    }
-    if (S) {
-      const xL = x0 + (W ? r : 0), xR = x0 + PAD_CELL - (E ? r : 0);
-      ctx.moveTo(xL, y0 + PAD_CELL); ctx.lineTo(xR, y0 + PAD_CELL);
-    }
-    if (W) {
-      const yT = y0 + (N ? r : 0), yB = y0 + PAD_CELL - (S ? r : 0);
-      ctx.moveTo(x0, yT); ctx.lineTo(x0, yB);
-    }
-    // Convex corner arcs (both adjacent edges are outside-facing).
-    if (N && E) { ctx.moveTo(x0 + PAD_CELL - r, y0); ctx.arcTo(x0 + PAD_CELL, y0, x0 + PAD_CELL, y0 + r, r); }
-    if (E && S) { ctx.moveTo(x0 + PAD_CELL, y0 + PAD_CELL - r); ctx.arcTo(x0 + PAD_CELL, y0 + PAD_CELL, x0 + PAD_CELL - r, y0 + PAD_CELL, r); }
-    if (S && W) { ctx.moveTo(x0 + r, y0 + PAD_CELL); ctx.arcTo(x0, y0 + PAD_CELL, x0, y0 + PAD_CELL - r, r); }
-    if (W && N) { ctx.moveTo(x0, y0 + r); ctx.arcTo(x0, y0, x0 + r, y0, r); }
-    ctx.stroke();
-  }
-  tex.refresh();
+  makeRoundPadTexture(scene, key);
 }
 
 function makeAllPadShapes(scene) {

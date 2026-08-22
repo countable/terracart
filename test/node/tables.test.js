@@ -49,6 +49,18 @@ test('ITEM_BY_ID: registry is keyed by id and self-consistent', () => {
   assert.eq(ITEM_BY_ID['potato_seed']?.kind, 'seed', 'seed kind tagged');
 });
 
+test('ITEMS_BY_CLASS_TIER: never surfaces a shiny variant', () => {
+  // Shiny animals are a 5% wild-catch-only bonus (10× value) — a chest that
+  // rolls the 'animal' class must never be able to hand one out directly.
+  for (const [cls, byT] of Object.entries(ITEMS_BY_CLASS_TIER)) {
+    for (const [t, ids] of Object.entries(byT)) {
+      for (const id of ids) {
+        assert.truthy(!ITEM_BY_ID[id]?.shiny, `${cls} T${t} pool excludes shiny ${id}`);
+      }
+    }
+  }
+});
+
 test('TIER_BY_NUM: material tiers are named 1..7', () => {
   for (let t = 1; t <= 7; t++) {
     assert.truthy(TIER_BY_NUM[t]?.name, `tier ${t} has a name`);

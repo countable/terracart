@@ -15,6 +15,8 @@
 //   pickReward(key, save, rng)        → { kind:'item'|'relic'|'armor'|'gold', … }
 //                                        (chest contexts roll relic OR armor via rollGearUpgrade)
 //   reconcileRelicOffer(rolled, save, rng) → walk-up ladder for dupes
+//                                             (relic by default; pass rolled.kind
+//                                             'armor' for an armor slot)
 //   weightedPick(map, rng)            → string key (small helper, reused on balancing page)
 
 (function (global) {
@@ -129,6 +131,13 @@
     // 'level' of the shop: plain/market/trader = mid (1-2 steps), forts
     // and blacksmiths a bit higher, castle highest (relic-only).
     //
+    // NOT reached from the shipped game — house/trader/blacksmith UIs build
+    // their own offers (app.js buildShopOffer / buildRelicOffer), so these
+    // 'shop:*' rows never get pickReward'd in play. Their consumer is
+    // tools/balancing.html, which iterates every LOOT_CONTEXTS key (including
+    // these) to simulate "what would this shop give me" for tuning. Kept
+    // deliberately — do not flag as dead code.
+    //
     // singleItem: true forces qty=1 (except seeds, which ship in packs).
     // Live animals are only sold by traders — buying a live chicken from
     // a corner market doesn't read right; only the wandering merchant
@@ -163,6 +172,11 @@
   // Build ITEMS_BY_CLASS_TIER once. Two-level map: kind → tier → [ids].
   // Skips relics (they live in RELIC_DEFS and span every tier 1..7 per slot).
   // Skips items missing a numeric baseTier (defensive — see items.js fill-in).
+  // Skips `shiny: true` variants — those are a 5% wild-catch-only bonus with
+  // its own 10× value balancing (see items.js awardShinyBonus / catchCreature
+  // in app.js). They must never be reachable through the class/tier pool, or
+  // any chest with animal weight can hand one out directly, bypassing both
+  // the acquisition odds and the value multiplier that assume it's rare.
   // ────────────────────────────────────────────────────────────────
   // ITEMS / RELIC_DEFS are declared with `const` at the top of items.js, so
   // they live on the global lexical scope but NOT on `window`. Reach them
@@ -178,6 +192,7 @@
   function buildClassTierIndex() {
     const out = {};
     for (const it of _ITEMS) {
+      if (it.shiny) continue;
       const cls = it.kind;
       const t = it.baseTier;
       if (!cls || typeof t !== 'number') continue;
@@ -243,27 +258,33 @@
   }
 
   // ────────────────────────────────────────────────────────────────
-  // Walk-up ladder for relics the player already owns. Pure upside — at each
+  // Walk-up ladder for gear the player already owns. Pure upside — at each
   // rung above the owned tier, coin flip between cashing out at half the
   // gearPrice or climbing one rung. Stopping condition is "first cash-out OR
-  // reach T7." Reaching T7 always returns the relic itself (no cash-out).
+  // reach T7." Reaching T7 always returns the gear itself (no cash-out).
   // The {jackpot} flag is propagated unchanged so the caller can still draw
   // fanfare even when the result is gold.
+  // `rolled.kind` selects relic (default) vs armor — armor slots live in
+  // save.armor rather than save.relics, and get the SAME walk-up treatment
+  // (fixedChestReward routes a fixed armor payload through here too, so a
+  // future `kind: 'armor'` starter chest can't downgrade equipped armor).
   // ────────────────────────────────────────────────────────────────
   function reconcileRelicOffer(rolled, save, rng) {
+    const kind = rolled.kind || 'relic';
     const slot = rolled.slot;
     let t = rolled.tier;
-    const owned = save?.relics?.[slot]?.tier ?? 0;
-    if (t > owned) return { kind: 'relic', slot, tier: t, jackpot: rolled.jackpot || 0 };
+    const ownedTable = kind === 'armor' ? save?.armor : save?.relics;
+    const owned = ownedTable?.[slot]?.tier ?? 0;
+    if (t > owned) return { kind, slot, tier: t, jackpot: rolled.jackpot || 0 };
     t = owned;
     const priceFor = (tier) => (typeof _gearPrice === 'function')
-      ? _gearPrice('relic', slot, tier) : 0;
+      ? _gearPrice(kind, slot, tier) : 0;
     // Slot already maxed at T7: there's nothing to climb to, so cash out
     // consolation gold rather than handing back a useless duplicate relic.
     if (t >= 7) {
       return {
         kind: 'gold',
-        slot, tier: 7,
+        slot, tier: 7, gearKind: kind,
         amount: Math.max(1, Math.floor(priceFor(7) / 2)),
         jackpot: rolled.jackpot || 0,
       };
@@ -272,15 +293,15 @@
       if (rng() < RARITY_TUNING.walkUpStepP) {
         return {
           kind: 'gold',
-          slot, tier: t,
+          slot, tier: t, gearKind: kind,
           amount: Math.max(1, Math.floor(priceFor(t) / 2)),
           jackpot: rolled.jackpot || 0,
         };
       }
       t += 1;
     }
-    // Climbed all the way without cashing out — hand over the T7 relic.
-    return { kind: 'relic', slot, tier: 7, jackpot: rolled.jackpot || 0 };
+    // Climbed all the way without cashing out — hand over the T7 gear.
+    return { kind, slot, tier: 7, jackpot: rolled.jackpot || 0 };
   }
 
   // ────────────────────────────────────────────────────────────────
