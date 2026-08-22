@@ -1202,7 +1202,13 @@ const TAP_HANDLERS = [
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       ctx.dirty = true;
-      scene.flash('🌱 Watered.', sx, sy);
+      // This branch GREW the plant and cleared its watering — it did not water
+      // it, which is what it used to say. Report the stage it just reached and
+      // that it wants water again, the same shape the two branches below use.
+      // (Rarely seen: the scene's once-a-second advanceGrowth tick normally
+      // gets here first, so this only fires on a tap inside that window or
+      // after the tab was backgrounded. Wrong either way.)
+      scene.flash(`🌱 ${stageReadout()} — water it`, sx, sy);
       return true;
     }
     if ((p.stage ?? 0) >= MAX_GROWTH_STAGE) {

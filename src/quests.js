@@ -149,7 +149,15 @@ const STARTER_CHAIN = [
   {
     id: 's5_harvest', event: 'harvest',
     title: 'Bring in the crop',
-    body: 'Your seed grows a stage every 15 minutes. Tap it when it is ripe.',
+    // Says the LOOP, because the loop is what the player has to know. The old
+    // copy — "grows a stage every 15 minutes, tap it when it is ripe" — read
+    // as one wait: sow, come back, harvest. What actually happens is four
+    // rounds of tap-to-water plus a 15-minute hold each (Crops.advanceGrowth
+    // only advances a WATERED plant, and clears the watering as it does), so a
+    // player who took the old line at its word came back to a plant that had
+    // not moved and no explanation of why.
+    body: 'Tap the plant to water it. It grows a stage 15 min later, then '
+        + 'wants watering again — four times over to ripe.',
     reward: { money: 5 },
   },
   {

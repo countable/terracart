@@ -28,6 +28,43 @@ scope here. The scene's grey-brown cast in the screenshots is the fixture
 Priorities: **P1** breaks or badly degrades the opening for real players;
 **P2** is visibly wrong and cheap to fix; **P3** is polish.
 
+## Status
+
+Eight of these have been fixed and re-verified in the browser; the findings
+below are kept as written, because the reasoning is what the code comments now
+point back at.
+
+| | Finding | State |
+|---|---|---|
+| §1 | Growth copy — step 5's body, and the stage-advance flash | **fixed** (copy half; the one-hour pacing is still open) |
+| §2 | Short viewport collapses the first screen | **fixed** — a portrait prompt, not a layout. See below |
+| §3 | Dragon Powder test seed in every new bag | **fixed** — now a Developer-menu button |
+| §4 | Step-1 celebration hidden behind the reward modal | **fixed** |
+| §5 | Supply crates open as TREASURE | **fixed** — a `supplies` modal kind |
+| §6 | Guidance arrow parks on the crate it points at | **fixed** |
+| §7 | `$0` money chip over the story slides | **fixed** — `body.booting` |
+| §8 | Fresh save opens on an empty tab | **fixed** |
+| §9–§16 | Wood under "Ores", the ladder yo-yo, the fog edge, … | open |
+
+**§2 did not get the fix this document first proposed.** Flooring the column
+width was tried and measured: at 844×390 the fixed chrome is 254 px, so a
+390 px-wide column wants a 390 px-tall map and cannot fit a 390 px-tall
+viewport — the floor just moves the damage, pushing the HUD onto the map and
+burying the player under the inventory bar. There is no scale that works. So
+the game now says so: below the height that can carry a `PHONE_MIN` column it
+shows a "turn your phone upright" card, which matches the `"orientation":
+"portrait"` the manifest has always declared (an installed PWA is locked and
+never reaches this state; only the plain browser tab, which the manifest does
+not govern, was left rendering the mess). It clears itself on rotation, and
+"Show it anyway" is there for anyone who wants the cramped layout. A real
+landscape layout — HUD beside the map rather than above and below it — is still
+the answer if landscape is ever meant to be a first-class way to play.
+
+One correction to §1 as first written: the `🌱 Watered.` flash is on a branch
+the player rarely reaches, because the scene's once-a-second `advanceGrowth`
+tick normally advances the plant before any tap can. It was wrong and is fixed,
+but the substantive half of §1 is the chip copy and the pacing, not that flash.
+
 ---
 
 ## P1 — Breaks the opening
