@@ -140,6 +140,54 @@
   const STONE_EDGE_ALPHA = 0.30;     // dark outline stroke around each stone
   const STONE_FACE_ALPHA_MIN = 0.06; // per-stone face tone varies within this
   const STONE_FACE_ALPHA_MAX = 0.16; // range so neighbours don't read identical
+  // ── Rough edges ──────────────────────────────────────────────────────────
+  // A stroked band ends in a perfectly clean vector edge, which reads as tape
+  // laid over the map rather than a surface worn into it. The roughness is a
+  // silhouette nibble, done in two stroke passes at commit time:
+  //   1. the whole network is stroked at its TRUE width — the outer
+  //      EDGE_FRINGE_PX of that stroke is the sacrificial fringe;
+  //   2. a pre-baked noise tile is pattern-filled over the canvas with
+  //      destination-out, eating random bites out of everything;
+  //   3. the network is stroked AGAIN at width − EDGE_FRINGE_PX, repairing
+  //      every interior pixel. The bites survive only in the outer fringe, so
+  //      the edge meanders between the full and the reduced width.
+  // The nibble works INWARD from the true width on purpose: the drawn band
+  // never exceeds WorldGen.roadOverlayWidthM, so the ground drawn as road
+  // stays inside the ground the no-spawn road mask covers (QC rule).
+  // Cost: one extra stroke pass + one pattern fill, only on the rare rebuilds
+  // (cell crossings / tile loads) — nothing per frame. The noise tile is
+  // world-phased exactly like the cobbles, so the bites sit still on the road
+  // instead of crawling along the edge as the player walks.
+  const EDGE_FRINGE_PX = 3;          // ~1.5px per side — subtle, not torn
+  const EDGE_NOISE_COVERAGE = 0.45;  // fraction of the fringe eaten
+  let edgeNoiseCanvas;
+  function edgeNoiseTile() {
+    if (edgeNoiseCanvas !== undefined) return edgeNoiseCanvas;
+    edgeNoiseCanvas = null;
+    if (typeof document === 'undefined') return edgeNoiseCanvas;
+    const c = document.createElement('canvas');
+    c.width = c.height = STONE_TILE_PX;
+    const cx = c.getContext('2d');
+    if (!cx) return edgeNoiseCanvas;
+    // Fixed seed, same reason as the stones: identical bites every session.
+    let seed = 0x9e3779b9;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    // 2×2 blocks, not per-pixel speckle: single-pixel noise erodes the fringe
+    // into grey fuzz, while coarser bites leave an edge that visibly meanders.
+    // A few 1px singles on top break the blockiness.
+    cx.fillStyle = '#000';   // colour is irrelevant to destination-out; alpha is the knife
+    for (let by = 0; by < STONE_TILE_PX; by += 2) {
+      for (let bx = 0; bx < STONE_TILE_PX; bx += 2) {
+        if (rnd() < EDGE_NOISE_COVERAGE) cx.fillRect(bx, by, 2, 2);
+      }
+    }
+    for (let i = 0; i < 48; i++) {
+      cx.fillRect(Math.floor(rnd() * STONE_TILE_PX), Math.floor(rnd() * STONE_TILE_PX), 1, 1);
+    }
+    edgeNoiseCanvas = c;
+    return edgeNoiseCanvas;
+  }
+
   let stoneCanvas;
   function stoneTile() {
     if (stoneCanvas !== undefined) return stoneCanvas;
@@ -237,41 +285,84 @@
     // re-blurs them differently on every rebuild. Whole pixels keep the
     // cobblestones as crisp as the rest of the art.
     const wrap = (v) => ((Math.round(v) % STONE_TILE_PX) + STONE_TILE_PX) % STONE_TILE_PX;
+    // The pass is RECORDED rather than stroked immediately: the rough-edge
+    // nibble needs the whole network twice (fringe pass, then the narrower
+    // repair pass — see "Rough edges" above), so commit() replays the buffer.
+    // rebuild()'s calling contract is unchanged — the tests' recording stub
+    // and this adapter see the exact same one-pass sequence.
+    let ops = [];      // { w, c, pts: [x0,y0, x1,y1, …] } per stroked path
+    let erases = [];   // [x, y, w, h] keep-out holes, applied after all paint
+    let curStyle = { w: 1, c: ROAD_COLOR };
+    let curPts = null;
+    // World-phased pattern fill (stones and edge noise share the anchoring):
+    // translating by the phase pins the tile to the world, and the fill runs a
+    // tile wider on every side to cover what the shift pushes off the canvas.
+    const patternFill = (pattern, composite) => {
+      ctx.save();
+      ctx.globalCompositeOperation = composite;
+      ctx.fillStyle = pattern;
+      ctx.translate(phaseX, phaseY);
+      ctx.fillRect(-STONE_TILE_PX, -STONE_TILE_PX, size + STONE_TILE_PX * 2, size + STONE_TILE_PX * 2);
+      ctx.restore();
+    };
+    // One replay of the recorded network. `widthDelta` widens (fringe) or
+    // narrows (repair) every path; the floor keeps a hairline way from
+    // vanishing outright in the repair pass.
+    const strokeAll = (widthDelta) => {
+      for (const op of ops) {
+        ctx.lineWidth = Math.max(1, op.w + widthDelta);
+        ctx.strokeStyle = cssOf(op.c);
+        ctx.beginPath();
+        ctx.moveTo(op.pts[0], op.pts[1]);
+        for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
+        ctx.stroke();
+      }
+    };
+    let edgeNoisePattern;
     const target = {
-      clear() { ctx.clearRect(0, 0, size, size); },
+      clear() { ops = []; erases = []; curPts = null; ctx.clearRect(0, 0, size, size); },
       // The alpha is carried by the IMAGE (see above), so the stroke itself is
       // always opaque; the colour is the caller's (earth for roads, slate for
       // rail) and the alpha argument is deliberately ignored here.
-      lineStyle(w, c) { ctx.lineWidth = w; ctx.strokeStyle = cssOf(c == null ? ROAD_COLOR : c); },
-      beginPath() { ctx.beginPath(); },
-      moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
-      lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
-      strokePath() { ctx.stroke(); },
-      // Punch a cell-sized hole in what's been drawn so far. Used for the
-      // water / building keep-out; clearRect rather than a destination-out
-      // fill so the hole is exact and costs nothing to composite.
-      eraseRect(x, y, w, h) { ctx.clearRect(x - originX, y - originY, w, h); },
+      lineStyle(w, c) { curStyle = { w, c: c == null ? ROAD_COLOR : c }; },
+      beginPath() { curPts = []; },
+      moveTo(x, y) { curPts.push(x - originX, y - originY); },
+      lineTo(x, y) { curPts.push(x - originX, y - originY); },
+      strokePath() {
+        if (curPts && curPts.length >= 4) ops.push({ w: curStyle.w, c: curStyle.c, pts: curPts });
+        curPts = null;
+      },
+      // Punch a cell-sized hole in the finished band. Recorded and applied
+      // after both stroke passes — an immediate clearRect would be repainted
+      // by the repair pass; clearRect rather than a destination-out fill so
+      // the hole is exact and costs nothing to composite.
+      eraseRect(x, y, w, h) { erases.push([x - originX, y - originY, w, h]); },
       // Screen position the world origin projected to this pass — the stone
       // pattern is anchored there, so it sits still on the road while the road moves.
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() {
+        ctx.clearRect(0, 0, size, size);
+        // Fringe pass at true width, then eat random bites out of everything…
+        strokeAll(0);
+        if (edgeNoisePattern === undefined) {
+          const tile = edgeNoiseTile();
+          edgeNoisePattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
+        }
+        if (edgeNoisePattern && ops.length) {
+          patternFill(edgeNoisePattern, 'destination-out');
+          // …and repair the interior: the bites survive only in the outer
+          // EDGE_FRINGE_PX of each band, which is the rough edge.
+          strokeAll(-EDGE_FRINGE_PX);
+        }
+        // Land only, and never over a floor.
+        for (const [x, y, w, h] of erases) ctx.clearRect(x, y, w, h);
         if (stonePattern === undefined) {
           const tile = stoneTile();
           stonePattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
         }
-        if (stonePattern) {
-          ctx.save();
-          // source-atop keeps the stones inside what's already drawn, so they
-          // never leak off the ways into empty canvas.
-          ctx.globalCompositeOperation = 'source-atop';
-          ctx.fillStyle = stonePattern;
-          // The pattern rides the current transform, so translating by the
-          // phase moves the stones with the world. Fill a tile wider on every
-          // side to cover what that shift pushes off the canvas.
-          ctx.translate(phaseX, phaseY);
-          ctx.fillRect(-STONE_TILE_PX, -STONE_TILE_PX, size + STONE_TILE_PX * 2, size + STONE_TILE_PX * 2);
-          ctx.restore();
-        }
+        // source-atop keeps the stones inside what's already drawn — the
+        // nibbled silhouette included — so they never leak off the ways.
+        if (stonePattern) patternFill(stonePattern, 'source-atop');
         tex.refresh();
       },
     };
