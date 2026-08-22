@@ -431,10 +431,10 @@
     }
   }
   // Visit every cell a polyline covers when stamped as a disk of radius
-  // widthCells/2 along Bresenham segments. Shared by the terrain paint
-  // (paintLine) and the road-footprint mask (stampMaskLine) so the two can
-  // never disagree about WHICH cells a way covers — only about how wide the
-  // way is drawn.
+  // widthCells/2 along Bresenham segments. Used by the terrain paint
+  // (paintLine). The road-footprint mask (stampMaskLine below) used to share
+  // this walk, but it now stamps from the exact drawn-band geometry instead —
+  // the centerline walk can't see a band spilling into a neighbouring cell.
   //
   // Vertices map to the cell that CONTAINS them — floor(), the same rule
   // snapCell / spawnDebris use, and the same answer paintPolygon's
@@ -525,11 +525,77 @@
   // Flag every cell a way's drawn band covers in a 0/1 mask. Same traversal as
   // paintLine, but it writes no terrain — a masked cell keeps its biome (and
   // stays walkable); it is only barred from hosting a spawn. See roadMask.
+  // ── Road-footprint mask stamping ──────────────────────────────────────────
+  // The mask must cover the ground the overlay DRAWS, and the overlay strokes
+  // each way as a continuous band `widthCells` wide in world space — not as a
+  // run of whole cells. So the mask is stamped from exact band coverage: every
+  // cell whose square the thickened segment (a capsule of radius widthCells/2,
+  // round caps like the canvas stroke) overlaps. The previous stamp walked
+  // Bresenham cells around the way's CENTERLINE at a rounded whole-cell width,
+  // so a band running near a cell boundary spilled drawn asphalt into a cell
+  // the mask never marked — and that cell stayed tillable and spawnable.
+  function segPointDist2(ax, ay, bx, by, px, py) {
+    const dx = bx - ax, dy = by - ay;
+    const l2 = dx * dx + dy * dy;
+    let t = l2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+    t = t < 0 ? 0 : (t > 1 ? 1 : t);
+    const qx = ax + t * dx - px, qy = ay + t * dy - py;
+    return qx * qx + qy * qy;
+  }
+  // Liang-Barsky clip: does the (unthickened) segment pass through — or touch —
+  // the rect? Touching counts: a way running exactly along a cell boundary
+  // draws half its band into each side, so both cells are covered.
+  function segCrossesRect(ax, ay, bx, by, x0, y0, x1, y1) {
+    const dx = bx - ax, dy = by - ay;
+    let t0 = 0, t1 = 1;
+    const clip = (p, q) => {
+      if (p === 0) return q >= 0;
+      const r = q / p;
+      if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+      else       { if (r < t0) return false; if (r < t1) t1 = r; }
+      return true;
+    };
+    return clip(-dx, ax - x0) && clip(dx, x1 - ax) && clip(-dy, ay - y0) && clip(dy, y1 - ay);
+  }
+  // Does the segment's drawn band overlap the unit cell at (cx, cy)? Exact:
+  // overlap iff the segment-to-square distance is under halfW. Both shapes are
+  // convex, so that distance is attained at a vertex of one against the other —
+  // the corner/endpoint checks cover every non-crossing case, and the crossing
+  // test covers distance zero. Strictly `<`: a band that only TOUCHES the cell
+  // edge covers none of its area, so a street centred in its own cell doesn't
+  // leak mask onto its shoulders.
+  function bandCoversCell(ax, ay, bx, by, halfW, cx, cy) {
+    if (segCrossesRect(ax, ay, bx, by, cx, cy, cx + 1, cy + 1)) return true;
+    const r2 = halfW * halfW;
+    if (segPointDist2(ax, ay, bx, by, cx,     cy)     < r2) return true;
+    if (segPointDist2(ax, ay, bx, by, cx + 1, cy)     < r2) return true;
+    if (segPointDist2(ax, ay, bx, by, cx,     cy + 1) < r2) return true;
+    if (segPointDist2(ax, ay, bx, by, cx + 1, cy + 1) < r2) return true;
+    const endInRange = (px, py) => {
+      const ex = Math.max(cx - px, px - (cx + 1), 0);
+      const ey = Math.max(cy - py, py - (cy + 1), 0);
+      return ex * ex + ey * ey < r2;
+    };
+    return endInRange(ax, ay) || endInRange(bx, by);
+  }
+  // widthCells is FRACTIONAL — the caller passes roadOverlayWidthM / cellWidthM
+  // unrounded, so a 2 m footpath masks exactly the cells its 2 m band overlaps.
   function stampMaskLine(mask, w, h, line, widthCells, mvtToCell) {
-    forEachLineCell(line, widthCells, mvtToCell, (cx, cy) => {
-      if (cx < 0 || cy < 0 || cx >= w || cy >= h) return;
-      mask[cy * w + cx] = 1;
-    });
+    const halfW = Math.max(0, widthCells / 2);
+    for (let i = 1; i < line.length; i++) {
+      const ax = line[i - 1].x * mvtToCell, ay = line[i - 1].y * mvtToCell;
+      const bx = line[i].x * mvtToCell,     by = line[i].y * mvtToCell;
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - halfW));
+      const x1 = Math.min(w - 1, Math.floor(Math.max(ax, bx) + halfW));
+      const y0 = Math.max(0, Math.floor(Math.min(ay, by) - halfW));
+      const y1 = Math.min(h - 1, Math.floor(Math.max(ay, by) + halfW));
+      for (let cy = y0; cy <= y1; cy++) {
+        for (let cx = x0; cx <= x1; cx++) {
+          if (mask[cy * w + cx]) continue;
+          if (bandCoversCell(ax, ay, bx, by, halfW, cx, cy)) mask[cy * w + cx] = 1;
+        }
+      }
+    }
   }
   // `allow`, when given, vetoes individual cells — the traversal still walks
   // the whole way, but only the cells it approves are painted. Footpaths use it
@@ -1213,7 +1279,11 @@
     // reads as sitting in the road, which is precisely the bug that kept
     // coming back: the spawn filters were checking terrain, and terrain wasn't
     // the question. This mask IS the question. It changes no terrain — masked
-    // cells keep their biome and stay walkable — it only bars spawns.
+    // cells keep their biome and stay walkable — it only bars spawns and
+    // tilling (app.js isTillableCell reads it as cell.underRoad). Stamped from
+    // exact band coverage (see stampMaskLine): a cell counts as road ground
+    // the moment the drawn band overlaps ANY of it, so a street hugging a cell
+    // boundary claims both cells it draws over.
     const roadMask = new Uint8Array(w * h);
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
     // Reduced to the pathCross mask below once every way has been walked.
@@ -1742,8 +1812,11 @@
           // rasterizer is about to paint. This is the mask the spawn filters
           // read; see roadMask above.
           {
-            const maskCells = Math.max(1, Math.round(roadOverlayWidthM(f.tags) / cellWidthM));
-            for (const line of f.geom) stampMaskLine(roadMask, w, h, line, maskCells, mvtToCell);
+            // Fractional width, no rounding: the stamp is an exact coverage
+            // test, so the mask lands on precisely the cells the band draws
+            // over — including a cell the band only spills partway into.
+            const widthCells = roadOverlayWidthM(f.tags) / cellWidthM;
+            for (const line of f.geom) stampMaskLine(roadMask, w, h, line, widthCells, mvtToCell);
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,

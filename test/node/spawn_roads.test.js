@@ -108,6 +108,52 @@ test('roadMask: a 5 m street masks no more than the cell it paints', () => {
   assert.eq(roadMask[11 * CPE + col], 0, 'both shoulders');
 });
 
+// The band is a CONTINUOUS stroke, not a run of whole cells — a way running
+// near a cell boundary draws asphalt into a cell its centerline never enters.
+// Those partially-covered cells must mask too (they're what made "tilled soil
+// overlapping the road" possible: underRoad is read straight off this mask).
+test('roadMask: a street straddling a cell boundary masks both cells it draws over', () => {
+  // 5 m band down the boundary between columns 19 and 20 → 2.5 m of asphalt
+  // in each. Only one of them can ever be PAINTED road; both must be masked.
+  const layers = [
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'residential' }, geom: [wholeTile()] },
+    ] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'minor' },
+        geom: [[{ x: 20 * CELL_MVT, y: 0 }, { x: 20 * CELL_MVT, y: EXTENT }]] },
+    ] },
+  ];
+  const { roadMask } = WorldGen.rasterizeTile(layers, CPE, 0, 0, TILE_EDGE_M);
+  const row = 30;
+  assert.eq(roadMask[row * CPE + 19], 1, 'west side of the boundary masked');
+  assert.eq(roadMask[row * CPE + 20], 1, 'east side masked — the band covers 2.5 m of it');
+  assert.eq(roadMask[row * CPE + 18], 0, 'one cell further west is open ground');
+  assert.eq(roadMask[row * CPE + 21], 0, 'one cell further east too');
+});
+
+test('roadMask: a footpath hugging a cell edge masks the neighbour its band spills into', () => {
+  // 2 m footway centred half a metre west of the boundary between columns 40
+  // and 41: its band reaches 0.5 m across the line, so column 41 shows drawn
+  // path and must refuse tilling/spawns even though the way never enters it.
+  const wayX = (41 - 0.5 / 7) * CELL_MVT;
+  const layers = [
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'residential' }, geom: [wholeTile()] },
+    ] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'footway' },
+        geom: [[{ x: wayX, y: 0 }, { x: wayX, y: EXTENT }]] },
+    ] },
+  ];
+  const { roadMask } = WorldGen.rasterizeTile(layers, CPE, 0, 0, TILE_EDGE_M);
+  const row = 30;
+  assert.eq(roadMask[row * CPE + 40], 1, 'the cell carrying the way is masked');
+  assert.eq(roadMask[row * CPE + 41], 1, 'the neighbour the band spills into is masked');
+  assert.eq(roadMask[row * CPE + 39], 0, 'the band stops 1 m short of the west neighbour');
+  assert.eq(roadMask[row * CPE + 42], 0, 'two cells east is open ground');
+});
+
 test('roadMask: parking aisles are masked even though they paint no terrain', () => {
   const { grid, roadMask } = rasterize();
   const i = 20 * CPE + 50;
