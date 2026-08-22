@@ -100,7 +100,17 @@ const HomeArea = {
   // What must be reachable on foot before the ladder can be completed.
   // Counted across the pocket AND the ring together — a tree is a tree
   // wherever it stands.
-  QUOTA: { tree: 50, rock: 50, wreck: 2 },
+  //
+  // `ladder` is a WAY DOWN — one cave entrance in the home area, so a new
+  // player always has the underground within sight of home instead of having
+  // to stumble across a mine mouth. It is a quota of ONE, not fifty: worldgen
+  // scatters entrances at ~30% per residential rock cluster with a per-tile
+  // guarantee (see maybePlaceCaveEntrance), so most spawns already have one
+  // somewhere on the tile — but "somewhere on a 222-cell tile" is not "in the
+  // ring", and a bare or parkland spawn can put it a long walk away. The audit
+  // counts any down-staircase already standing in the area, so this adds a
+  // second entrance only when the neighbourhood didn't supply one.
+  QUOTA: { tree: 50, rock: 50, wreck: 2, ladder: 1 },
   // Of that quota, how many must sit inside the pocket as the visible example.
   // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
   // and rocks, so however lush the surrounding neighbourhood is, a player
@@ -203,7 +213,7 @@ const HomeArea = {
   planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
     const homeId = opts && opts.homeId;
     const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
-    const have = { tree: 0, rock: 0, wreck: 0 };
+    const have = { tree: 0, rock: 0, wreck: 0, ladder: 0 };
     const pocket = { tree: 0, rock: 0 };
     // Tameable-but-currently-unusable naturals, kept with their distance so
     // the nearest can be preferred below.
@@ -213,6 +223,13 @@ const HomeArea = {
       if (d > radius) continue;
       if (o.kind === 'house') {
         if (this.isStarterWreck(o, homeId)) have.wreck++;
+        continue;
+      }
+      // A way DOWN only. The up-staircase every cave level carries at the home
+      // cell (app.js _ensureHomeUpStair) is not an entrance — counting it would
+      // convince the audit the surface already has a mine mouth.
+      if (o.kind === 'staircase') {
+        if (o.dir === 'down') have.ladder++;
         continue;
       }
       const isTree = o.kind === 'tree' || o.kind === 'fruittree';
@@ -246,9 +263,10 @@ const HomeArea = {
     return {
       downgrade,
       need: {
-        tree:  Math.max(0, this.QUOTA.tree  - have.tree),
-        rock:  Math.max(0, this.QUOTA.rock  - have.rock),
-        wreck: Math.max(0, this.QUOTA.wreck - have.wreck),
+        tree:   Math.max(0, this.QUOTA.tree   - have.tree),
+        rock:   Math.max(0, this.QUOTA.rock   - have.rock),
+        wreck:  Math.max(0, this.QUOTA.wreck  - have.wreck),
+        ladder: Math.max(0, this.QUOTA.ladder - have.ladder),
       },
       // Independent of `need`: a lush neighbourhood can satisfy the whole
       // quota out in the ring and still leave the cleared pocket empty.

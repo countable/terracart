@@ -2639,6 +2639,12 @@ class MapScene extends Phaser.Scene {
     if (rec.k === 'rock') {
       return { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
     }
+    // A cave entrance on the surface. Same shape maybePlaceCaveEntrance emits,
+    // so it descends through the ordinary staircase path and loadCaveTile
+    // mirrors an up-stair onto the level below it like any other mine mouth.
+    if (rec.k === 'ladder') {
+      return { kind: 'staircase', dir: 'down', depth: 0, ...base };
+    }
     // A plain small house, so _houseRole draws it as a wreck until the player
     // restores it — which is exactly what step 4 of the ladder asks for. The
     // address decides its post-restore shop role the same way a real one's does.
@@ -2964,6 +2970,19 @@ class MapScene extends Phaser.Scene {
       tokensWanted++;
       if (seatOrWiden('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
     }
+    const ringCells = bandCells(R0, R1);
+    // The way down, seated in the RING and seated FIRST. It's a landmark, not
+    // scenery: one of a hundred entries in the round-robin below would get
+    // whatever cell was left over after the trees and rocks had their pick,
+    // which for a hemmed-in spawn means the far end of the escalated band.
+    // Taking its cell before the queue runs keeps it a short walk out.
+    // Its own bearing (due north) so it doesn't land in the same
+    // neighbourhood as the token pair or read as part of the scenery.
+    let ladderWanted = 0;
+    if (plan.need.ladder > 0) {
+      ladderWanted = 1;
+      seatOrWiden('ladder', ringCells, -Math.PI / 2);
+    }
     // Round-robin the kinds into the queue before assigning bearings, so each
     // direction out of home offers a mix rather than a wedge of all-trees.
     const queue = [];
@@ -2971,11 +2990,10 @@ class MapScene extends Phaser.Scene {
     for (let n = 0; queue.length < plan.need.tree + plan.need.rock + plan.need.wreck; n++) {
       for (const [kind, count] of pools) if (n < count) queue.push(kind);
     }
-    const ringCells = bandCells(R0, R1);
     for (let i = 0; i < queue.length; i++) {
       seatOrWiden(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
     }
-    const wanted = tokensWanted + queue.length;
+    const wanted = tokensWanted + ladderWanted + queue.length;
 
     // Freeze BOTH halves — what was added and what was tamed. Without the
     // second, a rebuild regenerates the naturals at full tier and the home

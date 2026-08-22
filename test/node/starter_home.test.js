@@ -115,7 +115,34 @@ test('starter home: a bare spawn owes the player the whole quota', () => {
   assert.eq(p.need.tree, SH_HA.QUOTA.tree, 'trees');
   assert.eq(p.need.rock, SH_HA.QUOTA.rock, 'rocks');
   assert.eq(p.need.wreck, SH_HA.QUOTA.wreck, 'wrecks');
+  assert.eq(p.need.ladder, SH_HA.QUOTA.ladder, 'and a way down');
   assert.truthy(p.tokens.tree && p.tokens.rock, 'and both pocket tokens');
+});
+
+// ── The way down ──────────────────────────────────────────────────────────
+// A new player should have the underground within sight of home. Worldgen
+// scatters cave entrances at ~30% per residential rock cluster with a per-tile
+// guarantee, but "somewhere on a 222-cell tile" is not "in the ring" — so the
+// home area audits for one of its own.
+
+test('starter home: a cave entrance already in the area is not doubled up', () => {
+  const p = shPlan([shAt(12, { kind: 'staircase', dir: 'down', id: 'sd' })]);
+  assert.eq(p.need.ladder, 0, 'the neighbourhood already supplies the way down');
+});
+
+test('starter home: an entrance out past the home area does not count', () => {
+  // The per-tile guarantee can drop one anywhere on a ~222-cell tile. A mine
+  // mouth a quarter-mile away is not a way down "at home".
+  const p = shPlan([shAt(SH_HA.RING_MAX_CELLS + 5, { kind: 'staircase', dir: 'down', id: 'sd' })]);
+  assert.eq(p.need.ladder, SH_HA.QUOTA.ladder, 'still owed one in the ring');
+});
+
+test('starter home: an up-staircase is not an entrance', () => {
+  // Every cave level carries an up-stair at the home cell (_ensureHomeUpStair).
+  // Counting it would convince the audit the surface has a mine mouth it
+  // hasn't got — and the player would have no way down at all.
+  const p = shPlan([shAt(12, { kind: 'staircase', dir: 'up', id: 'su' })]);
+  assert.eq(p.need.ladder, SH_HA.QUOTA.ladder, 'an exit is not an entrance');
 });
 
 test('starter home: a rich neighbourhood is left alone', () => {
@@ -239,6 +266,47 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
       if (o.kind === 'mineralrock') assert.truthy(SH_HA.isStarterRock(o), `${o.id} breakable bare-handed`);
       if (o.kind === 'house') assert.truthy(SH_HA.isStarterWreck(o), `${o.id} is a rebuildable wreck`);
     }
+  });
+
+  test('starter home seating: a bare tile gets exactly one way down, in the ring', () => {
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const stairs = added(entry).filter(o => o.kind === 'staircase');
+    assert.eq(stairs.length, 1, 'one entrance, not none and not a field of them');
+    assert.eq(stairs[0].dir, 'down', 'it descends');
+    assert.eq(stairs[0].depth, 0, 'and it stands on the surface');
+    const d = cellsOut(stairs[0]);
+    assert.inRange(d, SH_HA.RING_MIN_CELLS, SH_HA.RING_MAX_CELLS,
+      'seated in the resource ring — a short walk out, not in the tidy pocket');
+  });
+
+  test('starter home seating: the entrance survives a rebuild', () => {
+    // The frozen record is what re-injects it when the tile rasterizes again;
+    // a way down that vanished on reload would be worse than never having one.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const before = added(entry).find(o => o.kind === 'staircase');
+    assert.truthy(before, 'seated on the first pass');
+    assert.truthy(scene.save.starterHome.placed.some(r => r.k === 'ladder'), 'frozen on the save');
+    const rebuilt = makeEntry();
+    run(scene, rebuilt);
+    const after = added(rebuilt).filter(o => o.kind === 'staircase');
+    assert.eq(after.length, 1, 'exactly one after the rebuild');
+    assert.eq(after[0].id, before.id, 'the same entrance, not a new one beside it');
+    assert.eq(after[0].x, before.x, 'in the same place');
+    assert.eq(after[0].y, before.y, 'in the same place');
+  });
+
+  test('starter home seating: a neighbourhood with its own entrance gets no second one', () => {
+    const scene = makeScene();
+    const own = { kind: 'staircase', dir: 'down', depth: 0, id: 'osm_stair',
+      x: (SPAWN + 12.5) * CELL_M, y: (SPAWN + 0.5) * CELL_M };
+    const entry = makeEntry(T.GRASS, [own]);
+    run(scene, entry);
+    const stairs = entry.objects.filter(o => o.kind === 'staircase');
+    assert.eq(stairs.length, 1, 'the one worldgen already placed');
+    assert.eq(stairs[0].id, 'osm_stair', 'and it is that one');
+    assert.falsy(scene.save.starterHome.placed.some(r => r.k === 'ladder'), 'nothing synthesized');
   });
 
   test('starter home seating: one tree and one rock land in the pocket, the rest outside', () => {
@@ -554,8 +622,12 @@ test('starter home: the nearest usable candidates are the ones tamed', () => {
     const scene = makeSeaScene(), entry = makeSea(25);
     scene._provisionStarterHome(entry, 0, 0, SPAWN, SPAWN, new Set());
     const got = seated(entry);
-    assert.eq(got.length, SH_HA.QUOTA.tree + SH_HA.QUOTA.rock + SH_HA.QUOTA.wreck,
-      'the full quota is still supplied');
+    // Summed off QUOTA rather than spelled out, so adding a kind to the quota
+    // (the `ladder` entrance was the one that caught this) doesn't read as a
+    // failure here. The pocket tokens come OUT of the tree/rock quota — they
+    // decrement `need` — so the total is exactly the quota.
+    const quotaTotal = Object.values(SH_HA.QUOTA).reduce((a, b) => a + b, 0);
+    assert.eq(got.length, quotaTotal, 'the full quota is still supplied');
     assert.eq(got.filter(o => o.kind === 'house').length, SH_HA.QUOTA.wreck,
       'including the wrecks the ladder needs');
     for (const o of got) {
