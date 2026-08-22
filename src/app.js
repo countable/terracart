@@ -479,6 +479,156 @@ const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'swor
 // tier to be bought, forged or looted.
 const STARTER_RELIC_TIER = 1;
 
+// ── Icon-sheet loading indicator + prewarm ──────────────────────────────────
+// Modal item/gear icons are <span>s that CSS-clip a sheet PNG via
+// background-image. A sheet that isn't in the browser cache yet paints
+// NOTHING for the whole fetch — on a slow line the treasure ceremony opened
+// on seconds of blank space where the reward should be. IconNet fixes that
+// twice over:
+//   1. INDICATOR — renderItemIcon / gearIconHTML tag any icon whose sheet
+//      isn't known-loaded with .icon-loading (a soft pulsing plate holding
+//      the icon's footprint; CSS in index.html) + data-iconsrc. A single
+//      MutationObserver spots those spans as modals insert them, probes the
+//      URL with an Image(), and strips the plate from every span showing
+//      that sheet the moment it decodes. Probe and background-image share
+//      the HTTP cache, so the swap is atomic — no double fetch.
+//   2. PREWARM — a few seconds after boot (deliberately after the map tiles
+//      have had first claim on the connection) every modal-only sheet is
+//      trickled into the cache two at a time, so by the first chest the
+//      plate never shows at all. ~110 small PNGs, idle bandwidth only.
+const IconNet = {
+  _loaded: new Set(),    // URLs known decoded + cached this session
+  _loading: new Map(),   // URL → [afterFns] while a probe is in flight
+  ready(url) { return this._loaded.has(url); },
+  // Probe `url`; when it settles (load OR error — a 404 must not pulse
+  // forever), mark it, clear the placeholder from every current span showing
+  // it, then run `after` (the prewarm queue's pump).
+  probe(url, after) {
+    if (this._loaded.has(url)) { after?.(); return; }
+    const waiters = this._loading.get(url);
+    if (waiters) { if (after) waiters.push(after); return; }
+    this._loading.set(url, after ? [after] : []);
+    const img = new Image();
+    const settle = () => {
+      const fns = this._loading.get(url) || [];
+      this._loading.delete(url);
+      this._loaded.add(url);
+      try {
+        document.querySelectorAll('.px-icon.icon-loading').forEach((el) => {
+          if (el.dataset.iconsrc === url) el.classList.remove('icon-loading');
+        });
+      } catch (_) { /* headless / detached DOM */ }
+      for (const fn of fns) fn();
+    };
+    img.onload = settle;
+    img.onerror = settle;
+    img.src = url;
+  },
+  // Watch the whole document for freshly inserted pending icons — modals are
+  // built as HTML strings in a dozen call sites, so one observer here beats
+  // a scan call in every one of them. Modals appear a few times a minute at
+  // most; the per-mutation work is a matches/querySelectorAll pair.
+  observe() {
+    if (this._obs || typeof MutationObserver === 'undefined' || !document.body) return;
+    this._obs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (!n || n.nodeType !== 1) continue;
+          const els = n.matches?.('.px-icon[data-iconsrc]')
+            ? [n]
+            : (n.querySelectorAll ? n.querySelectorAll('.px-icon[data-iconsrc]') : []);
+          for (const el of els) {
+            const url = el.dataset.iconsrc;
+            if (this._loaded.has(url)) el.classList.remove('icon-loading');
+            else this.probe(url);
+          }
+        }
+      }
+    });
+    this._obs.observe(document.body, { childList: true, subtree: true });
+  },
+  // Trickle a URL list into the cache, two fetches in flight at a time so a
+  // burst of ~60 requests can't compete with tile loads or gameplay.
+  prewarm(urls) {
+    const queue = urls.filter((u) => u && !this._loaded.has(u) && !this._loading.has(u));
+    let idx = 0, active = 0;
+    const pump = () => {
+      while (active < 2 && idx < queue.length) {
+        active++;
+        this.probe(queue[idx++], () => { active--; pump(); });
+      }
+    };
+    pump();
+  },
+};
+if (typeof document !== 'undefined' && document.body) IconNet.observe();
+
+// ── Item icon sheet table ───────────────────────────────────────────────────
+// PNG sheet metadata for renderItemIcon's CSS-clip icons. Module scope so
+// IconNet's prewarmer can enumerate every sheet URL (and so the table isn't
+// rebuilt on every icon render). Adding a new icon sheet is one entry here
+// plus a row in MINERAL_ICON_SHEET (items.js) — a hardcoded if-else here once
+// silently fell through to Crops.png for any unknown sheet, so a request like
+// { sheet: 'gems', frame: 4 } rendered as rainberry stage 4.
+const ICON_SHEETS = {
+  crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
+  springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
+  gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
+  coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+  // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
+  // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
+  // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
+  // Without this entry, every bar fell through to crops.png frame 0 and
+  // rendered as a grass sprout in smith trade modals.
+  bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
+  // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
+  icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
+  icon_milk:   { url: 'assets/Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
+  // Orchard fruit — 32×16 each (frame 0 = whole fruit).
+  icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
+  icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
+  // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
+  // smallmouth bass icon (same family, just smaller fiction).
+  icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
+  icon_bass:       { url: 'assets/Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
+  icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
+  icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
+  icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+  // Consumables + wilderness drops.
+  icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
+  icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+  // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
+  icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
+  // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
+  // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+  icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
+  icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
+  // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
+  // cowrie used as the inventory icon.
+  shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
+  // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
+  // (top-left grass tuft) backs the longgrass inventory icon now
+  // that the procedural sprite has been retired.
+  props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+  // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
+  // is the brown leather boot used as the fishing-junk inventory icon.
+  pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
+  // wood — 48×16, 3 frames. MINERAL_ICON_SHEET.wood points here. In
+  // practice wood always renders via the baked ITEM_DATA_URLS snapshot
+  // (which alpha-keys the white bg), so this entry is a fallback: if the
+  // bake ever fails it renders wood (white bg and all) instead of
+  // silently falling through to SHEETS.crops → a grass sprout.
+  wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
+};
+
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
@@ -3420,7 +3570,15 @@ class MapScene extends Phaser.Scene {
   update(_, dtMs) {
     // First frame = the world is on screen: retire the boot loading overlay.
     // Any tiles still fetching show as the unmapped shimmer from here on.
-    if (!this._bootStatusDone) { this._bootStatusDone = true; window.__bootStatus?.(1); }
+    if (!this._bootStatusDone) {
+      this._bootStatusDone = true;
+      window.__bootStatus?.(1);
+      // Prewarm the modal-only icon sheets once the boot rush is over — 4s
+      // gives the first map tiles and Phaser's own assets first claim on the
+      // connection. See IconNet for why (treasure-modal icons were blank for
+      // the whole first-fetch on slow lines).
+      if (!window.__TEST_MODE) setTimeout(() => this._prewarmModalIcons(), 4000);
+    }
     // Keep body.modal-open honest every frame. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
@@ -8761,79 +8919,25 @@ class MapScene extends Phaser.Scene {
     const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
     let css = null;
+    // Network-fetched sheet URL backing this icon, if any — a data-URL bake
+    // paints instantly, but a sheet PNG that isn't in the browser cache yet
+    // leaves the span BLANK for however long the fetch takes (seconds on a
+    // slow line — most visible as an empty hole in the treasure ceremony).
+    // IconNet turns that hole into a pulsing placeholder plate; see below.
+    let netUrl = null;
     if (dataUrl) {
       css = base + `background-image:url('${dataUrl}');background-size:${sizePx}px ${sizePx}px;`;
     } else if (src) {
-      // Sheet table — adding a new icon sheet is one entry here plus a row
-      // in MINERAL_ICON_SHEET (items.js). The previous hardcoded if-else
-      // silently fell through to Crops.png for any unknown sheet, so a
-      // request like { sheet: 'gems', frame: 4 } rendered as rainberry
-      // stage 4 (the "berry bush" the user reported on sapphire offers).
-      const SHEETS = {
-        crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
-        springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
-        gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
-        coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
-        // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
-        // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
-        // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
-        // Without this entry, every bar fell through to crops.png frame 0 and
-        // rendered as a grass sprout in smith trade modals.
-        bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
-        // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
-        icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
-        icon_milk:   { url: 'assets/Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
-        // Orchard fruit — 32×16 each (frame 0 = whole fruit).
-        icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
-        // smallmouth bass icon (same family, just smaller fiction).
-        icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
-        icon_bass:       { url: 'assets/Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
-        icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
-        icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
-        icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
-        // Consumables + wilderness drops.
-        icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
-        icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
-        // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
-        icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
-        // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
-        // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
-        icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
-        icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
-        icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
-        icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
-        // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
-        // cowrie used as the inventory icon.
-        shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
-        // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
-        // (top-left grass tuft) backs the longgrass inventory icon now
-        // that the procedural sprite has been retired.
-        props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
-        // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
-        // is the brown leather boot used as the fishing-junk inventory icon.
-        pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
-        // wood — 48×16, 3 frames. MINERAL_ICON_SHEET.wood points here. In
-        // practice wood always renders via the baked ITEM_DATA_URLS snapshot
-        // (which alpha-keys the white bg), so this entry is a fallback: if the
-        // bake ever fails it renders wood (white bg and all) instead of
-        // silently falling through to SHEETS.crops → a grass sprout.
-        wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
-      };
-      const sheet = SHEETS[src.sheet] || SHEETS.crops;
+      // Sheet table — ICON_SHEETS, module scope above the class: shared with
+      // IconNet's prewarmer, and not rebuilt on every icon render.
+      const sheet = ICON_SHEETS[src.sheet] || ICON_SHEETS.crops;
       const col = src.frame % sheet.cols;
       const row = Math.floor(src.frame / sheet.cols);
       const scale = sizePx / 16;
       css = base + `background-image:url('${sheet.url}');`
         + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
+      if (!IconNet.ready(sheet.url)) netUrl = sheet.url;
     }
     // Shiny variants tint the base sprite warm-gold with a sheen.
     if (css && item && item.shiny) {
@@ -8844,6 +8948,10 @@ class MapScene extends Phaser.Scene {
       const el = document.createElement('span');
       if (css) {
         el.style.cssText = css;
+        if (netUrl) {
+          el.className = 'px-icon icon-loading';
+          el.dataset.iconsrc = netUrl;
+        }
       } else {
         // No sprite source resolved — show a neutral placeholder, never an
         // item-emoji (every catalogued item has a real sprite; a bare dot
@@ -8854,12 +8962,35 @@ class MapScene extends Phaser.Scene {
       return el;
     }
     // Inline string form (used inside modal cost/get text).
-    if (css) return `<span style="${css}"></span>`;
+    if (css) {
+      return netUrl
+        ? `<span class="px-icon icon-loading" data-iconsrc="${netUrl}" style="${css}"></span>`
+        : `<span style="${css}"></span>`;
+    }
     return '?';
   }
 
   iconSpanHTML(itemId, sizePx = 20) {
     return this.renderItemIcon(itemId, sizePx, 'inline');
+  }
+
+  // Every PNG a DOM modal can ask for outside the Phaser preloader: the
+  // CSS-clip icon sheets (ICON_SHEETS) plus each gear slot's per-tier art.
+  // Handed to IconNet.prewarm shortly after boot (see update()) so the
+  // treasure / trade / forge modals open with their icons already cached.
+  _prewarmModalIcons() {
+    const urls = new Set();
+    for (const s of Object.values(ICON_SHEETS)) urls.add(s.url);
+    for (const kind of ['relic', 'armor']) {
+      const defs = kind === 'relic' ? RELIC_DEFS : ARMOR_DEFS;
+      for (const slot of Object.keys(defs)) {
+        for (const tier of Object.keys(TIER_BY_NUM)) {
+          const p = gearAssetPath(kind, slot, Number(tier));
+          if (p) urls.add(p);
+        }
+      }
+    }
+    IconNet.prewarm([...urls]);
   }
 
   // Canonical relic / armor icon renderer — used by BOTH the Stats modal and
@@ -9218,7 +9349,11 @@ class MapScene extends Phaser.Scene {
     const col = frame % sheetCols;
     const row = Math.floor(frame / sheetCols) % sheetRows;
     const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
-    return `<span style="display:inline-block;vertical-align:middle;`
+    // Gear PNGs load only when a modal first shows them — never through the
+    // Phaser preloader — so on a cold cache the icon is blank for the whole
+    // fetch. IconNet holds the footprint with a pulsing plate until it lands.
+    const net = IconNet.ready(path) ? '' : ` class="px-icon icon-loading" data-iconsrc="${path}"`;
+    return `<span${net} style="display:inline-block;vertical-align:middle;`
       + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
       + `background-position:-${col * sizePx}px -${row * sizePx}px;"></span>`;
