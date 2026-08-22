@@ -2139,7 +2139,7 @@ class MapScene extends Phaser.Scene {
     //                            + low-density random across all tiles.
     //  2) entry.parkingTreasures — one per OSM parking-lot POI (worldgen).
     //  3) entry.extraTreasures   — per-tile random scatter (new). Every tile
-    //                            rolls for 2–5 X marks dropped on random
+    //                            rolls for 4–10 X marks dropped on random
     //                            walkable cells, so X's feel like a regular
     //                            ambient reward instead of a once-a-walk find.
     // All three render + interact through the same code path.
@@ -2174,9 +2174,10 @@ class MapScene extends Phaser.Scene {
       // Cheap no-op once the plan is done.
       this._provisionStarterHome(entry, tx, ty);
     }
-    if (!isStarterTile && rng() < 1 / 4) {
-      // Bumped from 1/200 to 1/4 — combined with the scatter below, players
-      // see X's frequently instead of stumbling onto one a session.
+    if (!isStarterTile && rng() < 1 / 2) {
+      // 1/200 → 1/4 → 1/2. Combined with the scatter below, players see X's
+      // frequently instead of stumbling onto one a session. This stream caps
+      // at ONE mark per tile however it rolls, so the probability IS its yield.
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -2188,14 +2189,14 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
-    // Extra scatter: 2–5 X's per tile on random walkable cells. Each gets a
-    // stable id derived from its cell so save.foundTreasures persists across
-    // reloads. Failed placement attempts (water/building cells) just drop
-    // that slot — small scatter variance is fine.
+    // Extra scatter: 4–10 X's per tile on random walkable cells (doubled from
+    // 2–5). Each gets a stable id derived from its cell so save.foundTreasures
+    // persists across reloads. Failed placement attempts (water/building cells)
+    // just drop that slot — small scatter variance is fine.
     // Skip the extra-X scatter in test mode — the unified treasure handler
     // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
     // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = window.__TEST_MODE ? 0 : (2 + Math.floor(rng() * 4));
+    const EXTRA_X_COUNT = window.__TEST_MODE ? 0 : (4 + Math.floor(rng() * 7));
     for (let k = 0; k < EXTRA_X_COUNT; k++) {
       let placed = false;
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
@@ -2222,11 +2223,14 @@ class MapScene extends Phaser.Scene {
       }
     }
     if (pathCells.length > 0) {
-      // 2-4 bonus X marks per tile that has any path. Capped by path
-      // density so a tile with one stub doesn't get spammed.
+      // 4-8 bonus X marks per tile that has any path (doubled from 2-4).
+      // Capped by path density so a tile with one stub doesn't get spammed —
+      // the cap doubles with the count (one per 2 path cells, was one per 4),
+      // otherwise a thin-path tile clamps at the old number and the extra
+      // marks never appear.
       const PATH_BONUS_COUNT = Math.min(
-        2 + Math.floor(rng() * 3),
-        Math.max(1, Math.floor(pathCells.length / 4))
+        4 + Math.floor(rng() * 5),
+        Math.max(1, Math.floor(pathCells.length / 2))
       );
       const NEIGHBOURS = [[1,0],[-1,0],[0,1],[0,-1]];
       for (let k = 0; k < PATH_BONUS_COUNT; k++) {
