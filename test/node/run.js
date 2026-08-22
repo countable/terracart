@@ -190,6 +190,11 @@ try {
 // text — same trick as above — so the reward tests below run the REAL table and
 // the REAL formula rather than a copy that would drift the first time a kind is
 // added or a number retuned.
+//
+// The block includes app.js's `Combat.registerMonsters(MONSTERS)` call, which
+// is what lets the bounty ask Combat how much HP a kind has: without it every
+// monster would fall through to the fauna ladder's default and the coins would
+// be measured against the wrong numbers here but not in the game.
 {
   const src = readSrc('app.js');
   const start = src.indexOf('const MONSTERS = {');
@@ -199,9 +204,15 @@ try {
     console.error('Could not find the MONSTERS / bounty block in src/app.js — update run.js');
     process.exit(2);
   }
-  vm.runInContext(src.slice(start, end + 1)
-    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, monsterBounty,'
-    + ' MONSTER_COIN_PER_HP, MONSTER_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
+  const block = src.slice(start, end + 1);
+  if (!/Combat\.registerMonsters\(MONSTERS\)/.test(block)) {
+    console.error('The lifted MONSTERS block no longer registers the table with combat.js — '
+      + 'move the registration back beside the table, or update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(block
+    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty,'
+    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
     ctx, { filename: 'monsters.js' });
 }
 

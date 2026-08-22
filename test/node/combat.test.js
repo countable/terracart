@@ -20,13 +20,19 @@
 //     including at range, where the compass heading is coarse.
 //
 // The monster stat table lives in app.js, which this headless runner doesn't
-// load, so a synthetic one is registered here — the same seam app.js uses.
-
-Combat.registerMonsters({
-  cave_slime:   { name: 'Cave Slime',   hp: 15 },
-  purple_slime: { name: 'Purple Slime', hp: 6  },
-  goblin:       { name: 'Goblin',       hp: 25 },
-});
+// load — but run.js lifts the table out as text and registers it through the
+// same seam app.js uses, so the REAL one is already in hand here.
+//
+// This file used to register a synthetic three-kind copy instead. Every test
+// file shares one vm scope and this one loads early, so that copy overwrote the
+// real registration for the whole suite, and any later test that asked Combat
+// how much HP a monster had got an answer from a hand-written stand-in. Assert
+// the real table arrived rather than replacing it.
+if (!MONSTERS || !MONSTERS.goblin) throw new Error('run.js did not lift the MONSTERS table');
+if (Combat.creatureMaxHp('goblin') !== MONSTERS.goblin.hp) {
+  throw new Error('combat.js is not answering from the real MONSTERS table — '
+    + 'run.js must register it, and nothing may register a copy over it');
+}
 
 const COMBAT_CELL_M = 7;
 

@@ -576,9 +576,23 @@ COMBAT
    the same way a sword swing does. Both rings sit on the kind's CROWN (the
    creature-wheel rule — see CLAUDE.md).
  - Dragon Powder doubles damage for its minute — melee and shots alike.
- - Defeating an enemy pays what it always paid: a monster's coin bounty (plus a
-   1-in-10 buried-treasure roll), a quest tick, and a flash. Combat costs no
-   energy; your time and your aim are the price.
+ - DEFEATING AN ENEMY PAYS GOLD — every enemy, not just the cave monsters. The
+   bounty is derived from the kind's HP (a coin per 5 HP, floored at 1) plus a
+   coin per 3 levels of depth, so a tougher foe can never pay less than an
+   easier one and a hostile kind is priced the moment it has stats: purple
+   slime $1, surface / cave slime $3, goblin archer $4, goblin $5. "Enemy" is
+   Combat.isEnemyKind — the things that attack you — which is what puts the
+   SURFACE SLIME on the wage; it fights you and eats your crops, and for a long
+   time killing one paid nothing. Crow and deer are game, not enemies: they pay
+   in feathers and meat. On top of the wage, one in ten CAVE MONSTERS also drops
+   a buried-treasure roll (a hoard is something you turn up underground). A kill
+   also ticks any kill quest and flashes. Combat costs no energy; your time and
+   your aim are the price.
+ - EVERY route to a dead creature pays the same, because they all funnel through
+   resolveDefeat — the tap-hunt wheel, the combat wheel, a killing bow/staff
+   shot, and a PET's kill. That last one used to carry its own copy of the
+   payout, so a dog finishing off a slime skipped the bounty, the quest tick,
+   the treasure roll and the shiny fanfare.
 
 ================================================================================
 CHESTS (POI-driven)
