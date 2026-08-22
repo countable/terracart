@@ -14,7 +14,7 @@
 //   app.js       — MapScene methods (flash, flashLoot, addToInv, shopInteract,
 //                  catchCreature, screenToWorldMeters, cellAt, worldMetersToAbsCell,
 //                  absCellCenterMeters, buildInventoryDOM);
-//                  module-level helpers (distM2, isTillable);
+//                  module-level helpers (distM2, isTillable, isTillableCell);
 //                  the REACH_FAR_M fallback for the player-reach gate.
 //   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
 //                  cellInReach (tap targeting is cell-bounded, see below)
@@ -336,7 +336,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
-        isTillable(cell.type) && !scene.tilledSet.has(cellKey) &&
+        isTillableCell(cell) && !scene.tilledSet.has(cellKey) &&
         (!extraGuard || extraGuard(ctx)) &&
         !save.planted.some(p => inPlantedCell(p, cwmx, cwmy, 0.1)))) {
     return false;
@@ -1043,7 +1043,7 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!(item && item.kind === 'animal' && (sel.count ?? 0) > 0)) return false;
-    if (!isTillable(cell.type)) {
+    if (!isTillableCell(cell)) {
       scene.flash("can't release here", sx, sy);
       return true;
     }
@@ -1399,11 +1399,13 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2b) Tap non-tillable terrain → flavor label.
+  // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in
+  // the grid, asphalt on screen — see isTillableCell) lands here too and
+  // reads as road, matching what the player is looking at.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
-    if (isTillable(cell.type)) return false;
-    const flavor = TERRAIN_FLAVOR[cell.type] || '·';
+    if (isTillableCell(cell)) return false;
+    const flavor = TERRAIN_FLAVOR[cell.underRoad ? 7 : cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},

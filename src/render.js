@@ -720,7 +720,19 @@ Render.drawCells = function drawCells(scene) {
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
       // the tilled flag from under a live plant produces an "occupied: crop" orphan.
-      if (isTilled && !isTillable(type)) {
+      // Road-BAND cells heal away too: tilling now consults the roadMask
+      // (app.js isTillableCell), so soil tilled in the middle of a street
+      // under the old type-only rule shouldn't keep rendering there. The mask
+      // lookup runs only for cells actually marked tilled — a handful at most.
+      let _tilledUnderRoad = false;
+      if (isTilled) {
+        const N3 = scene.cellsPerTile;
+        const t3x = Math.floor(absCellIX / N3), t3y = Math.floor(absCellIY / N3);
+        const e3 = WorldGen.tileCache.get(`${WorldGen.Z}/${t3x}/${t3y}`);
+        _tilledUnderRoad = !!(e3 && e3.roadMask
+          && e3.roadMask[(absCellIY - t3y * N3) * N3 + (absCellIX - t3x * N3)]);
+      }
+      if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
         const hasPlant = scene.save.planted.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);

@@ -448,6 +448,13 @@ const COLORS = {
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
+// The full "can this CELL take a hoe / placement / released animal" test:
+// soil-ish terrain AND no drawn road band over it. A cell's terrain says
+// "grass" for most of the ground a road actually covers (see cellAt's
+// underRoad note), so type-only checks let players till the middle of a
+// street. Takes a cellAt() result; a stub cell without underRoad (tests)
+// behaves exactly like the old type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
 // Building interior cells — small house, fort, civic slab. Used for the
 // "rest inside to recover energy" loop (slow, opt-in regen while indoors).
 const BUILDING_TYPES = new Set([9, 11, 12]);
@@ -5687,7 +5694,14 @@ class MapScene extends Phaser.Scene {
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
     const loaded = !!(entry && entry.grid);
-    return { tx, ty, ix, iy, loaded, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
+    // Road-band flag. The terrain grid under-reports roads (QC rules: a way
+    // rasterizes exactly ONE cell wide however wide its drawn band really
+    // is), so "is this ground road" must come from entry.roadMask — stamped
+    // from the same WorldGen.roadOverlayWidthM the overlay strokes with.
+    // Checking road TERRAIN alone is the bug, not the fix.
+    const underRoad = !!(loaded && entry.roadMask
+      && entry.roadMask[iy * this.cellsPerTile + ix]);
+    return { tx, ty, ix, iy, loaded, underRoad, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn

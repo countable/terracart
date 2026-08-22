@@ -110,6 +110,10 @@ try {
   // the same parsed set so handlers that gate on it can be driven headlessly.
   const nonTillable = new Set(ctx.NON_TILLABLE_CODES);
   ctx.isTillable = (type) => !nonTillable.has(type);
+  // …and isTillableCell (also app.js): the cell-level test that additionally
+  // refuses cells under a drawn road band (cellAt's roadMask-derived
+  // underRoad flag). Mirrors the app.js one-liner exactly.
+  ctx.isTillableCell = (cell) => ctx.isTillable(cell.type) && !cell.underRoad;
 }
 
 // The walk-home timings live in app.js too. Lift them the same way, so the

@@ -184,6 +184,50 @@ test('flavor handler: flashes the terrain label, not a dot', () => {
   }
 });
 
+// ── Road-band cells are not tillable ────────────────────────────────────────
+// The terrain grid under-reports roads (QC rules: a way rasterizes ONE cell
+// wide however wide its drawn band is), so a cell can read "grass" while the
+// screen shows asphalt. cellAt (app.js) now carries a roadMask-derived
+// `underRoad` flag and the tillable gate is isTillableCell, not the type-only
+// isTillable. Since `flavor` is pinned BEFORE `till` (ordering test above),
+// flavor consuming the tap on an underRoad cell is what proves the hoe can
+// never reach it.
+
+test('flavor handler: a grass cell under a road band is NOT tillable — tap reads as road', () => {
+  const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const seen = [];
+  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const ctx = makeCtx(scene, {});
+  ctx.cell = { type: TERRAIN.GRASS, underRoad: true };
+  assert.truthy(flavor.try(ctx), 'flavor consumes the tap — till never runs');
+  assert.eq(seen[0], TERRAIN_FLAVOR[TERRAIN.ROAD],
+    'the label matches what the player sees (the drawn road), not the grid grass');
+});
+
+test('flavor handler: the same grass cell without the road band still tills', () => {
+  const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const scene = makeScene();
+  const ctx = makeCtx(scene, {});
+  ctx.cell = { type: TERRAIN.GRASS, underRoad: false };
+  assert.falsy(flavor.try(ctx), 'flavor passes — the tap falls through to till');
+  // And a cellAt-shaped stub with no underRoad field at all (older tests,
+  // sandbox scenes) behaves identically to the old type-only check.
+  ctx.cell = { type: TERRAIN.GRASS };
+  assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
+});
+
+test('release handler: animals cannot be released onto a road-band cell', () => {
+  const release = TAP_HANDLERS.find(h => h.name === 'release');
+  const seen = [];
+  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const save = { inv: [{ id: 'chicken', count: 4 }], selSlot: 0, released: [] };
+  const ctx = Object.assign(makeCtx(scene, save), { cwmx: 0, cwmy: 0 });
+  ctx.cell = { type: TERRAIN.GRASS, underRoad: true };
+  assert.truthy(release.try(ctx), 'release consumes the tap');
+  assert.eq(seen[0], "can't release here", 'refused on the road band');
+  assert.eq(save.inv[0].count, 4, 'no animal consumed');
+});
+
 test('TAP_HANDLERS: plant precedes till (seed-in-hand beats un-till)', () => {
   const iPlant = HANDLER_NAMES.indexOf('plant');
   const iTill  = HANDLER_NAMES.indexOf('till');
