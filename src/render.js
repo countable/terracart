@@ -1408,9 +1408,9 @@ Render.drawObjects = function drawObjects(scene) {
   scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   // Extra cull reach for house sprites — half the widest building art that can
-  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 0.65 is
-  // 4.34 cells wide, so 2.2 cells of roof either side of the centroid covers
-  // it). Pinned by test/node/house_scale.test.js.
+  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 0.52 is
+  // ~3.5 cells wide, so 2.2 cells of roof either side of the centroid covers it
+  // with margin). Pinned by test/node/house_scale.test.js.
   const HOUSE_PAD_M = 2.2 * scene.cellM;
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
   const pWorldY = scene.startWorldM.y + scene.playerM.y;
@@ -1699,7 +1699,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Baseline sprite scale per role. Fort PNG is ~3× the others — scaled down so
   // it still reads as a building, not a wall. Plain / blacksmith / trader /
   // trailer / wizard share 0.6 so they look like neighbours from one village.
-  const _houseBaseScale = (o) => (_houseRole(o) === 'fort' ? 0.35 : 0.6);
+  // (Fort was 0.35; the whole fort curve is ×0.8 — see FORT_FIT in util.js —
+  // because forts read ~25% too big.)
+  const _houseBaseScale = (o) => (_houseRole(o) === 'fort' ? 0.28 : 0.6);
   // Size the roof against the building's OWN footprint — houses shrink to fit,
   // forts also grow into a big one. The rule itself (and why forts differ) is
   // houseArtScale in util.js; this only reads the art's real frame width and
