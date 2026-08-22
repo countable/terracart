@@ -360,6 +360,9 @@ Render.drawCells = function drawCells(scene) {
   if (gf !== g) gf.clear();
   if (gb !== g && gb !== gf) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
+  // One clock read per pass for the animated biome textures (water) — every
+  // cell must sample the same instant or a pass could straddle a phase step.
+  const texNow = (typeof performance !== 'undefined') ? performance.now() : Date.now();
   const pc = scene.playerToWorldCell();
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
   const _wBaseY = pc.cy + pc.ty * scene.cellsPerTile;
@@ -706,7 +709,18 @@ Render.drawCells = function drawCells(scene) {
             if (u != null && BIOME_TEX[u]) baseType = u;
           }
           const spec = BIOME_TEX[baseType];
-          if (spec) texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
+          if (spec) {
+            texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
+            // Animated biome (water/pier): pick the pre-baked phase frame from
+            // the wall clock. setTexture already runs on this sprite every
+            // frame, so a time-varying key costs nothing extra — the phases
+            // were rasterized once at startup (textures.js makeBiomeTextures).
+            // All cells share the clock, so the water drifts as one body.
+            if (spec.animPhases) {
+              const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
+              if (p) texKey += `p${p}`;
+            }
+          }
         }
         if (texKey) {
           if (texFrame !== undefined) ns.setTexture(texKey, texFrame);
