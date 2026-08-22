@@ -12,7 +12,7 @@ played: walked the crate trail, opened all four supply crates, tilled the
 starter plot. Repeated at 390×844, 360×640, 768×1024, 844×390 and 1280×800.
 `node test/node/run.js` was green throughout; the browser harness was not run.
 Every finding was re-verified after merging the fog-of-war / boot-overlay work
-from `origin/main` (810/810 green on the merged tree); line references point at
+from `origin/main` (864/864 green on the merged tree); line references point at
 the merged code.
 
 **One caveat on the world.** `tiles.openfreemap.org` is unreachable from this
@@ -85,23 +85,32 @@ is unusable. Measured:
 | inventory tabs | truncated to `Se… Pr… An… Re… Ar… Or… It…` |
 | slot row | runs past the column's right edge, last slot clipped |
 
-The cause is in `layOutVertically` (`index.html:977-1008`). The caller passes a
-width-derived floor — `Math.max(sByMinW, sByMaxW)` (`index.html:1066`), i.e.
-"never narrower than PHONE_MIN=390" — but the function immediately discards it:
+The cause is in `layOutVertically` (`index.html:1004-1050`). The caller passes a
+width-derived floor — `Math.max(sByMinW, sByMaxW)` (`index.html:1117`), i.e.
+"never narrower than PHONE_MIN=390" — and the function then discards it, because
+the landscape branch passes `fillWidth: false`:
 
 ```js
 const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
-const s = Math.min(sByWidth, band / MAP_H_GAME);   // ← no floor
+const maxS = (band + (TOP_CHROME - TOP_ROW)) / (MAP_H_GAME - CELL_GAME);
+const s = Math.min(sByWidth, fillWidth ? maxS : band / MAP_H_GAME);   // ← no floor
 ```
 
 At `vh = 390` the band is ~165px, so `s ≈ 0.47` and the column lands at 165px —
 well under `PHONE_MIN`. Every fixed-size HUD piece (chip, tabs, slot row, stick)
 is sized for a 390–430px column and no longer fits.
 
-**Fix.** Give the scale a floor and let `#frame`'s `overflow:hidden` clip, or
-detect that the vertical budget can't afford a phone-width column and lay the
-HUD out beside the map instead of under it. Either way `PHONE_MIN` should mean
-something in the landscape branch, since that is what it was introduced for.
+The `fillWidth` parameter that landed while this review was being written is
+the same diagnosis, applied to the portrait branch only: *"letting the height
+shrink a PHONE is exactly the bug this parameter fixes."* Re-measured after that
+change and the numbers above are unchanged — a short **landscape** viewport
+still takes the un-floored path.
+
+**Fix.** Give the landscape branch a floor too — either `fillWidth: true` (and
+let `#frame`'s `overflow:hidden` clip), or a `Math.max(sByMinW, …)` on the
+result — or detect that the vertical budget can't afford a phone-width column
+and lay the HUD out beside the map instead of under it. Either way `PHONE_MIN`
+should mean something in the branch it was introduced for.
 
 ### 3. Every new player's bag starts with a dev test item
 
@@ -157,7 +166,7 @@ clear screen.
 
 Opening the first crate shows **💎 TREASURE / Wood / × 9**. The chip called
 them "supply crates" one line earlier, they render as the humble box sprite
-precisely to read as supplies (`src/app.js:2686-2692`), and 9 wood is not
+precisely to read as supplies (`src/app.js:2688-2694`), and 9 wood is not
 treasure. Spending the blue-white treasure ceremony (spec §UI COLOUR LANGUAGE)
 on the tutorial's material handout devalues it for the actual treasure — the
 relic chest at the end of the same trail, which is the trail's payoff.
@@ -236,7 +245,7 @@ nothing and stops the lie.
 
 ### 10. Slide 2's "remains of your neighbourhood" are three intact cottages
 
-`STORY_SLIDES[1]` (`index.html:1475-1481`) pairs *"…to see the remains of your
+`STORY_SLIDES[1]` (`index.html:1526-1533`) pairs *"…to see the remains of your
 neighbourhood. Time to rebuild!"* with three copies of
 `assets/Objects/Houses/Wreck.png` — which renders as a tidy gingerbread cottage
 with a green roof, flowers and mushrooms. Nothing about it reads as ruined, and
@@ -269,7 +278,7 @@ walk instead of reversing it. Either keeps the trail's shape intact.
 
 ### 12. "Welcome to Pocket Acres" arrives third
 
-The greeting card is shown *after* both story slides (`index.html:1611-1628` —
+The greeting card is shown *after* both story slides (`index.html:1671-1680` —
 deliberate, so the CTA never interrupts the story). The consequence is that the
 player is welcomed to the game two screens after it started, and the card has to
 carry the title, the tagline, the safety warning and the permission CTA at once.
