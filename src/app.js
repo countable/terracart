@@ -2413,8 +2413,10 @@ class MapScene extends Phaser.Scene {
       entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
     }
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
-    // ladder's "Break ground" step needs.
+    // ladder's "Break ground" step needs, then the wood / rock / wreck the
+    // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+    this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
   }
 
   // A guaranteed 2x2 patch of tillable grass near the spawn anchor.
@@ -2522,6 +2524,184 @@ class MapScene extends Phaser.Scene {
     const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
     const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
     this.save.starterPlotAt = { x: wmx, y: wmy };
+    if (typeof persistSave === 'function') persistSave(this.save);
+  }
+
+  // Rebuild one frozen starter-home record into a world object. Kept beside
+  // the placer so the shape written to the save and the shape pushed into a
+  // tile can't drift — the record IS the object, minus its position basis.
+  _starterHomeObject(rec) {
+    const base = { x: rec.x, y: rec.y, id: rec.id, _synthetic: true };
+    if (rec.k === 'tree') {
+      return { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+    }
+    if (rec.k === 'rock') {
+      return { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+    }
+    // A plain small house, so _houseRole draws it as a wreck until the player
+    // restores it — which is exactly what step 4 of the ladder asks for. The
+    // address decides its post-restore shop role the same way a real one's does.
+    return { kind: 'house', ...base, tier: WorldGen.T.BUILDING, address: rec.address || 0 };
+  }
+
+  // Make sure the starter ladder has something to teach WITH.
+  //
+  // The ladder assumes the world around spawn can carry it: wood to chop,
+  // rock to mine, a wreck to rebuild. The real map promises none of that. A
+  // parkland or rural spawn can have no OSM buildings at all, so step 4
+  // ("Rebuild a neighbour") can never fire and the crates' wood and stone have
+  // nothing to be spent on. A downtown spawn has the opposite problem: trees
+  // everywhere, every one of them a large hardwood wanting a Gold axe.
+  //
+  // The POLICY — what counts, what a beginner can actually harvest, and how
+  // much is required — lives in home.js (HomeArea.planStarterProvision), which
+  // is pure and headless-testable. This method only does what needs a tile:
+  // seating the shortfall on real cells and freezing the result.
+  //
+  // Placement follows the same split the tutorial pocket already establishes:
+  // the pocket stays tidy for the crate trail and the soil plot, apart from one
+  // token tree and one token rock so the first thing to chop and mine is in
+  // sight of Home; everything else seats in the ring just outside it.
+  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const grid = entry.grid;
+    if (!grid || typeof HomeArea === 'undefined' || typeof WorldGen === 'undefined') return;
+    // Same gate as the starter plot: provision only while the ladder is still
+    // guiding someone, but once frozen keep re-applying forever, so a player
+    // who finishes it doesn't watch their home dissolve back into bare map.
+    if (!this.save.starterHome &&
+        (typeof Quests === 'undefined' || Quests.starterHidden(this.save))) return;
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    entry.objects = entry.objects || [];
+
+    // ── Re-apply what is already frozen ────────────────────────────────
+    // Every tile does this for the records that land inside it, so an item
+    // seated across a tile seam is that neighbour's job to inject — the same
+    // division of labour _carveStarterPlot uses for the soil plot.
+    const inThisTile = (wx, wy) =>
+      wx >= tx0 && wx < tx0 + this.tileEdgeM && wy >= ty0 && wy < ty0 + this.tileEdgeM;
+    const present = new Set();
+    for (const o of entry.objects) if (o.id) present.add(o.id);
+    const inject = (rec) => {
+      if (!inThisTile(rec.x, rec.y) || present.has(rec.id)) return;
+      entry.objects.push(this._starterHomeObject(rec));
+      present.add(rec.id);
+    };
+    const frozen = this.save.starterHome;
+    if (frozen) {
+      for (const rec of (frozen.placed || [])) inject(rec);
+      // A tamed natural is regenerated at its original tier on every rebuild,
+      // so the downgrade has to be re-applied or the player's one choppable
+      // street tree turns back into a hardwood on the next reload.
+      const tamed = new Set(frozen.tamed || []);
+      if (tamed.size) {
+        for (const o of entry.objects) if (o.id && tamed.has(o.id)) HomeArea.makeStarterUsable(o);
+      }
+      return;
+    }
+
+    // ── First pass: audit, then fill only the gaps ─────────────────────
+    // Only the tile holding the anchor can see the home area, so only it
+    // plans. (The ring reaches 16 cells and a tile is ~222, so the area sits
+    // inside one tile except right on a seam — where the audit simply sees
+    // less of the neighbourhood and errs toward providing a little extra.)
+    if (spawnIX < 0 || spawnIX >= N || spawnIY < 0 || spawnIY >= N) return;
+    const anchorX = tx0 + (spawnIX + 0.5) * this.cellM;
+    const anchorY = ty0 + (spawnIY + 0.5) * this.cellM;
+    const plan = HomeArea.planStarterProvision(entry.objects, anchorX, anchorY, this.cellM,
+      { homeId: this.save.starterShopId });
+
+    // Modify the unusable naturals standing here rather than crowding more in
+    // beside them: the player's own street tree stays their street tree, it
+    // just stops demanding an axe they will not own for hours.
+    const tamed = [];
+    for (const o of plan.downgrade) {
+      if (HomeArea.makeStarterUsable(o) && o.id) tamed.push(o.id);
+    }
+
+    // Cells nothing may be seated on: the street, anyone's floor, water and
+    // the decking over it, and the cave layers. Mirrors the starter plot's
+    // UNPAINTABLE set — the difference is that a plot REPLACES a cell whereas
+    // an object has to stand on one, so bare rock is fine for both.
+    const BLOCKED = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
+      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
+      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
+      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    const key = (cx, cy) => cx + ',' + cy;
+    const taken = new Set();
+    const mark = (wx, wy) => taken.add(key(
+      Math.floor((wx - tx0) / this.cellM), Math.floor((wy - ty0) / this.cellM)));
+    for (const o of entry.objects) mark(o.x, o.y);
+    for (const w of (entry.wildplants || [])) mark(w.x, w.y);
+    // The soil plot is a 2x2 the player is about to till — keep it clear.
+    const plot = this.save.starterPlotAt;
+    if (plot && Number.isFinite(plot.x)) {
+      const pcx = Math.floor((plot.x - tx0) / this.cellM);
+      const pcy = Math.floor((plot.y - ty0) / this.cellM);
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) taken.add(key(pcx + dx, pcy + dy));
+    }
+    // Nothing goes in the Home trailer's moat (clearHomeTrailerOverlap would
+    // sweep it away) or on a crate seat.
+    const free = (cx, cy) => {
+      if (cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
+      if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
+      if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
+      return !BLOCKED.has(grid[cy * N + cx]);
+    };
+
+    // Ring scan, nearest first, in a fixed order — no RNG, so a rebuild that
+    // somehow reached this path again would reach the same answer.
+    const placed = [];
+    const seat = (kind, rMin, rMax) => {
+      for (let r = rMin; r <= rMax; r++) {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+            const cx = spawnIX + dx, cy = spawnIY + dy;
+            if (!free(cx, cy)) continue;
+            // Keep the seeded items a couple of cells apart so they read as
+            // scenery rather than a stockpile.
+            let tooClose = false;
+            for (const p of placed) {
+              if (Math.max(Math.abs(p.cx - cx), Math.abs(p.cy - cy)) < 2) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+            const raw = { x: tx0 + (cx + 0.5) * this.cellM, y: ty0 + (cy + 0.5) * this.cellM };
+            // Snap to the canonical global cell centre, the basis every tap
+            // and every other placed object uses (see seatCrate).
+            const abs = worldMetersToAbsCell(this, raw.x, raw.y);
+            const c = absCellCenterMeters(this, abs.cellIX, abs.cellIY);
+            const rec = { k: kind, x: c.x, y: c.y, cx, cy,
+              id: `starter_${kind}_${abs.cellIX}_${abs.cellIY}` };
+            if (kind === 'tree') rec.variant = 1 + ((abs.cellIX ^ abs.cellIY) & 3);
+            if (kind === 'wreck') {
+              rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
+            }
+            taken.add(key(cx, cy));
+            placed.push(rec);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    // The token pair goes in the pocket (2 cells out, clear of the trailer
+    // moat); everything else in the ring outside it.
+    const POCKET = HomeArea.POCKET_CELLS;
+    const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
+    if (plan.tokens.tree && plan.need.tree > 0 && seat('tree', 2, POCKET)) plan.need.tree--;
+    if (plan.tokens.rock && plan.need.rock > 0 && seat('rock', 2, POCKET)) plan.need.rock--;
+    for (let i = 0; i < plan.need.tree; i++)  seat('tree', R0, R1);
+    for (let i = 0; i < plan.need.rock; i++)  seat('rock', R0, R1);
+    for (let i = 0; i < plan.need.wreck; i++) seat('wreck', R0, R1);
+
+    // Freeze BOTH halves — what was added and what was tamed. Without the
+    // second, a rebuild regenerates the naturals at full tier and the home
+    // area silently gets harder.
+    for (const rec of placed) { delete rec.cx; delete rec.cy; }
+    this.save.starterHome = { v: 1, placed, tamed };
+    for (const rec of placed) inject(rec);
     if (typeof persistSave === 'function') persistSave(this.save);
   }
 

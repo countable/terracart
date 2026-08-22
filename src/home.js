@@ -61,4 +61,168 @@ const HomeArea = {
     if (size === 'bush') return fallbackSpecies;
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
   },
+
+  // ── Starter provisioning ──────────────────────────────────────────────
+  // The starter ladder assumes the world around spawn can actually teach it:
+  // something to chop, something to mine, and a wreck to rebuild. The real
+  // world does not promise any of that. A parkland or rural spawn can have no
+  // OSM buildings at all — no wreck means step 4 ("Rebuild a neighbour") can
+  // never fire, and with no blacksmith there is nothing to spend the crates'
+  // wood and stone on. A downtown spawn has the opposite problem: plenty of
+  // trees, all of them large hardwoods needing a Gold axe the player will not
+  // own for hours.
+  //
+  // So the home area is AUDITED against a quota and only the shortfall is
+  // synthesized. What the real neighbourhood already provides is kept — the
+  // point is that home looks like the player's actual street, not a stamped
+  // homestead.
+  //
+  // Geometry, in CELLS from the spawn anchor:
+  //   0..POCKET_CELLS   the cleared tutorial pocket (app.js CLEAR_R). Kept
+  //                     clean so the crate trail and the starter soil plot
+  //                     read without competing scenery — EXCEPT one token
+  //                     tree and one token rock, so the first thing a player
+  //                     learns to chop and mine is in plain sight from Home.
+  //   RING_MIN..RING_MAX  where the rest goes: visible from spawn, a short
+  //                     walk out, and clear of the pocket's tidy look.
+  POCKET_CELLS: 10,
+  RING_MIN_CELLS: 11,
+  RING_MAX_CELLS: 16,
+
+  // What must be reachable on foot before the ladder can be completed.
+  // Counted across the pocket AND the ring together — a tree is a tree
+  // wherever it stands.
+  QUOTA: { tree: 4, rock: 3, wreck: 2 },
+  // Of that quota, how many must sit inside the pocket as the visible example.
+  TOKEN: { tree: 1, rock: 1 },
+
+  // A tree a player with NO axe can fell: small + softwood is tier 0 via
+  // util.js treeAxeReqTier (size 'small' = 1, pine shifts −1). Deliberately
+  // not a bush — a bush renders as scrub, and the point is to show the player
+  // what a choppable TREE looks like.
+  STARTER_TREE: { species: 'pine', size: 'small' },
+  // A rock bare hands can break: interactables.js treats yieldTier <= 1 as
+  // "plain rock" and skips the pick gate entirely.
+  STARTER_ROCK: { yieldTier: 1, requiredTier: 1 },
+
+  // Can a beginner actually harvest this, with the empty relic set they start
+  // with? Both read the SHIPPING gate helpers rather than re-deriving them, so
+  // a change to the axe ladder or the pick gate can't silently leave the
+  // starter area full of things that look usable and aren't.
+  isStarterTree(o) {
+    if (!o || (o.kind !== 'tree' && o.kind !== 'fruittree')) return false;
+    return (typeof treeAxeReqTier === 'function') ? treeAxeReqTier(o) === 0 : false;
+  },
+  isStarterRock(o) {
+    if (!o || o.kind !== 'mineralrock') return false;
+    return (o.yieldTier || 1) <= 1;
+  },
+  // A house the ladder's "Rebuild a neighbour" step can be performed on: a
+  // plain small house, which renders as a wreck until it is restored. Forts
+  // (11) and civic slabs (12) never wreck, so they don't count — and neither
+  // does HOME, which is a plain house by tier but renders as the trailer and
+  // can never be restored (render.js _houseRole returns 'trailer' for it). A
+  // player standing next to their own front door has no wreck to rebuild.
+  isStarterWreck(o, homeId) {
+    if (!o || o.kind !== 'house') return false;
+    if (homeId && o.id === homeId) return false;
+    return o.tier == null || o.tier === 9;
+  },
+
+  // Would makeStarterUsable() actually succeed on this? Answered by trying it
+  // on a COPY rather than by re-deriving the rules, so it cannot disagree with
+  // the real thing. Not everything can be tamed: a SHINY tree is pinned to the
+  // Gold-axe tier by its id (util.js treeAxeReqTier checks isShiny first), so
+  // no amount of respeciating it helps — and one standing near spawn must not
+  // be counted as the player's choppable tree.
+  canBeStarterUsable(o) {
+    if (!o) return false;
+    const probe = { ...o };
+    this.makeStarterUsable(probe);
+    return (probe.kind === 'mineralrock') ? this.isStarterRock(probe) : this.isStarterTree(probe);
+  },
+
+  // Bring a real tree/rock down to something a beginner can work, IN PLACE.
+  // Preferred over adding another one beside it: the player's own street tree
+  // stays their street tree, it just isn't a Gold-axe hardwood any more.
+  // Returns true if the object was changed.
+  makeStarterUsable(o) {
+    if (!o) return false;
+    if (o.kind === 'tree' || o.kind === 'fruittree') {
+      if (this.isStarterTree(o)) return false;
+      o.species = this.STARTER_TREE.species;
+      o.size = this.STARTER_TREE.size;
+      return true;
+    }
+    if (o.kind === 'mineralrock') {
+      if (this.isStarterRock(o)) return false;
+      o.yieldTier = this.STARTER_ROCK.yieldTier;
+      o.requiredTier = this.STARTER_ROCK.requiredTier;
+      return true;
+    }
+    return false;
+  },
+
+  // Distance from the spawn anchor in CELLS (Chebyshev — the same metric the
+  // pocket clearing and the crate seating use, so the three agree on "near").
+  cellsFromAnchor(x, y, anchorX, anchorY, cellM) {
+    return Math.max(Math.abs(x - anchorX), Math.abs(y - anchorY)) / cellM;
+  },
+
+  // THE AUDIT. Given the objects already in the home area, work out what is
+  // missing. Pure — no scene, no tile, no RNG — so the whole policy is
+  // testable headlessly and app.js is left with just the seating.
+  //
+  // Returns:
+  //   downgrade  objects to run makeStarterUsable() on (unusable naturals
+  //              standing in the area — modify rather than crowd)
+  //   need       how many of each to synthesize, after counting what is
+  //              usable and what the downgrades will make usable
+  //   tokens     whether the pocket still lacks its example tree / rock
+  //   opts.homeId  the player's Home house id, so it isn't counted as a wreck
+  planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
+    const homeId = opts && opts.homeId;
+    const inArea = [];
+    for (const o of (objects || [])) {
+      const d = this.cellsFromAnchor(o.x, o.y, anchorX, anchorY, cellM);
+      if (d <= this.RING_MAX_CELLS) inArea.push({ o, d });
+    }
+    const downgrade = [];
+    const have = { tree: 0, rock: 0, wreck: 0 };
+    const pocket = { tree: 0, rock: 0 };
+    for (const { o, d } of inArea) {
+      if (o.kind === 'house') {
+        if (this.isStarterWreck(o, homeId)) have.wreck++;
+        continue;
+      }
+      const isTree = o.kind === 'tree' || o.kind === 'fruittree';
+      const isRock = o.kind === 'mineralrock';
+      if (!isTree && !isRock) continue;
+      const kind = isTree ? 'tree' : 'rock';
+      const usable = isTree ? this.isStarterTree(o) : this.isStarterRock(o);
+      // An unusable natural becomes usable rather than being counted against
+      // us — that is the whole "modify, don't crowd" rule. But only if it CAN
+      // be: an untameable one (a shiny tree) is scenery as far as the quota is
+      // concerned, so it neither gets downgraded nor counts as provision.
+      if (!usable) {
+        if (!this.canBeStarterUsable(o)) continue;
+        downgrade.push(o);
+      }
+      have[kind]++;
+      if (d <= this.POCKET_CELLS) pocket[kind]++;
+    }
+    const need = {
+      tree:  Math.max(0, this.QUOTA.tree  - have.tree),
+      rock:  Math.max(0, this.QUOTA.rock  - have.rock),
+      wreck: Math.max(0, this.QUOTA.wreck - have.wreck),
+    };
+    return {
+      downgrade,
+      need,
+      tokens: {
+        tree: pocket.tree < this.TOKEN.tree,
+        rock: pocket.rock < this.TOKEN.rock,
+      },
+    };
+  },
 };
