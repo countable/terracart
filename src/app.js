@@ -2710,8 +2710,16 @@ class MapScene extends Phaser.Scene {
       if (Math.abs(+parts[1] - atx2) > 1 || Math.abs(+parts[2] - aty2) > 1) continue;
       collect(e.objects);
     }
+    // Audit as far out as an earlier pass had to reach. Without this, anything
+    // seated in the escalated band sits outside the default audit radius, so
+    // the next pass sees the quota unmet and provisions it all over again.
+    let auditR = HomeArea.RING_MAX_CELLS;
+    for (const rec of ((frozen && frozen.placed) || [])) {
+      const d = HomeArea.cellsFromAnchor(rec.x, rec.y, anchorX, anchorY, this.cellM);
+      if (d > auditR) auditR = Math.ceil(d);
+    }
     const plan = HomeArea.planStarterProvision(areaObjects, anchorX, anchorY, this.cellM,
-      { homeId: this.save.starterShopId });
+      { homeId: this.save.starterShopId, radiusCells: auditR });
 
     // Modify the unusable naturals standing here rather than crowding more in
     // beside them: the player's own street tree stays their street tree, it
@@ -2870,16 +2878,26 @@ class MapScene extends Phaser.Scene {
     const POCKET = HomeArea.POCKET_CELLS;
     const TOKEN0 = HomeArea.TOKEN_MIN_CELLS;
     const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
+    // Widen the search when the band can't take something. A spawn on a pier or
+    // a riverbank has most of its ring in water; an all-water spawn used to
+    // seat nothing at all, leaving no wreck to rebuild and the ladder
+    // unfinishable. Built lazily — the wide band is only paid for if needed.
+    let wideCells = null;
+    const seatOrWiden = (kind, cells, bearing) => {
+      if (seatAt(kind, cells, bearing)) return true;
+      if (!wideCells) wideCells = bandCells(R0, HomeArea.RING_MAX_ESCALATED_CELLS);
+      return seatAt(kind, wideCells, bearing);
+    };
     const pocketCells = bandCells(TOKEN0, POCKET);
     // Opposite sides of the doorway, so one doesn't hide behind the other.
     let tokensWanted = 0, tokensSeated = 0;
     if (plan.tokens.tree) {
       tokensWanted++;
-      if (seatAt('tree', pocketCells, 0)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
+      if (seatOrWiden('tree', pocketCells, 0)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
     }
     if (plan.tokens.rock) {
       tokensWanted++;
-      if (seatAt('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
+      if (seatOrWiden('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
     }
     // Round-robin the kinds into the queue before assigning bearings, so each
     // direction out of home offers a mix rather than a wedge of all-trees.
@@ -2890,7 +2908,7 @@ class MapScene extends Phaser.Scene {
     }
     const ringCells = bandCells(R0, R1);
     for (let i = 0; i < queue.length; i++) {
-      seatAt(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
+      seatOrWiden(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
     }
     const wanted = tokensWanted + queue.length;
 

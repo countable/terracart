@@ -88,6 +88,14 @@ const HomeArea = {
   POCKET_CELLS: 10,
   RING_MIN_CELLS: 11,
   RING_MAX_CELLS: 16,
+  // How far the search may reach when the ring band itself cannot supply the
+  // quota — a spawn on a pier, a riverbank, a marina, or inside a solid block
+  // of buildings, where most of the band is water or floor and simply has
+  // nowhere to stand anything. Rather than silently under-supplying (the old
+  // behaviour: an all-water spawn seated NOTHING, so there was no wreck to
+  // rebuild and the ladder could not be finished), the band widens outward
+  // until it finds ground. ~280 m — a walk, but a reachable one.
+  RING_MAX_ESCALATED_CELLS: 40,
 
   // What must be reachable on foot before the ladder can be completed.
   // Counted across the pocket AND the ring together — a tree is a tree
@@ -187,9 +195,14 @@ const HomeArea = {
   //   need       how many of each to synthesize, after counting what is
   //              usable and what the downgrades will make usable
   //   tokens     whether the pocket still lacks its example tree / rock
-  //   opts.homeId  the player's Home house id, so it isn't counted as a wreck
+  //   opts.homeId       the player's Home house id, so it isn't counted as a wreck
+  //   opts.radiusCells  how far out to look (default RING_MAX_CELLS). Widens
+  //                     when an earlier pass had to escalate past the band to
+  //                     find ground, so what it seated out there still counts
+  //                     and the quota isn't provisioned twice.
   planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
     const homeId = opts && opts.homeId;
+    const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
     const have = { tree: 0, rock: 0, wreck: 0 };
     const pocket = { tree: 0, rock: 0 };
     // Tameable-but-currently-unusable naturals, kept with their distance so
@@ -197,7 +210,7 @@ const HomeArea = {
     const candidates = { tree: [], rock: [] };
     for (const o of (objects || [])) {
       const d = this.cellsFromAnchor(o.x, o.y, anchorX, anchorY, cellM);
-      if (d > this.RING_MAX_CELLS) continue;
+      if (d > radius) continue;
       if (o.kind === 'house') {
         if (this.isStarterWreck(o, homeId)) have.wreck++;
         continue;
