@@ -3852,6 +3852,96 @@ class MapScene extends Phaser.Scene {
     return best;
   }
 
+  // Where the gold starter arrow points for the ACTIVE ladder step: the space
+  // the chip is actually talking about, not a generic breadcrumb.
+  //
+  //   chest   → nearest unopened starter crate (the relic chest included)
+  //   till    → the carved 2x2 starter plot
+  //   plant   → the tilled-but-empty soil — or the crates while the bag holds
+  //             no seed, since the seeds are in them (nearest crate first)
+  //   restore → the nearest wreck — or the crates while the bag can't pay the
+  //             restore cost, since the materials are in them
+  //   harvest → the nearest crop the player planted
+  //   sell    → Home (selling only happens there)
+  //
+  // Every step past "Break ground" used to fall back to the crates. That read
+  // fine while the crates spread across the whole walk, but once they packed
+  // into its first few cells (TRAIL_SPAN) a player opened all four early —
+  // leaving the RELIC CHEST as the only unopened `chest_start_*`, a full
+  // screen away. So for most of the ladder the one arrow on screen pointed at
+  // the horizon while the chip asked them to tap their soil, their crop, a
+  // wreck or their own house, all of which are near spawn: the arrow did not
+  // point at the intended space. Each unresolvable target still falls back to
+  // the crates, which remain worth collecting.
+  _starterGuidanceGoal(step) {
+    const sv = this.save;
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const nearest = (pts) => {
+      let best = null, bestD2 = Infinity;
+      for (const p of pts) {
+        if (!p || !Number.isFinite(p.x)) continue;
+        const dx = p.x - pWX, dy = p.y - pWY, d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; best = p; }
+      }
+      return best;
+    };
+    // starterPlotAt is the top-left cell centre; aim at the 2x2's middle.
+    const plotMiddle = () => (sv.starterPlotAt && Number.isFinite(sv.starterPlotAt.x))
+      ? { x: sv.starterPlotAt.x + this.cellM / 2, y: sv.starterPlotAt.y + this.cellM / 2 }
+      : null;
+    switch (step.event) {
+      case 'till':
+        return plotMiddle() || this._nearestStarterCrate();
+      case 'plant': {
+        // An empty seed pocket means the crates are the step's real errand —
+        // the nearest one is seeded first (STARTER_LOOT's order of need).
+        const hasSeed = (sv.inv || []).some(s =>
+          s && (s.count || 0) > 0 && ITEM_BY_ID[s.id]?.kind === 'seed');
+        if (!hasSeed) return this._nearestStarterCrate() || plotMiddle();
+        // The soil the chip says to tap: tilled cells nothing is planted in.
+        const plantedCells = new Set((sv.planted || []).map(p => {
+          const c = worldMetersToAbsCell(this, p.x, p.y);
+          return cellKeyFromAbsCell(c.cellIX, c.cellIY);
+        }));
+        const open = [];
+        for (const key of (this.tilledSet || [])) {
+          if (plantedCells.has(key)) continue;
+          const [ix, iy] = key.split('_').map(Number);
+          open.push(absCellCenterMeters(this, ix, iy));
+        }
+        return nearest(open) || plotMiddle() || this._nearestStarterCrate();
+      }
+      case 'restore': {
+        // While the bag can't pay a wreck's flat restore price and crates
+        // remain unopened, the materials are in the crates — point there.
+        const cost = this._wreckRestoreCost(null);
+        if (Inventory.count(sv, cost.id) < cost.qty) {
+          const crate = this._nearestStarterCrate();
+          if (crate) return crate;
+        }
+        const wrecks = [];
+        for (const e of WorldGen.tileCache.values()) {
+          for (const o of (e.objects || [])) {
+            if (this._isHouseWreck(o)) wrecks.push(o);
+          }
+        }
+        return nearest(wrecks) || this._nearestStarterCrate();
+      }
+      case 'harvest':
+        return nearest(sv.planted || []) || this._nearestStarterCrate();
+      case 'sell': {
+        // Home is the trailer at the frozen trail anchor; startWorldM until a
+        // home capture moved it (same resolution rule as _slimeFreeZone).
+        const a = (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x))
+          ? sv.starterCratesAt : this.startWorldM;
+        return (a && Number.isFinite(a.x)) ? { x: a.x, y: a.y } : this._nearestStarterCrate();
+      }
+      default:
+        return this._nearestStarterCrate();
+    }
+  }
+
   // === Tick ===
   update(_, dtMs) {
     // First frame = the world is on screen: retire the boot loading overlay.
@@ -4179,28 +4269,21 @@ class MapScene extends Phaser.Scene {
     // Starter guidance — a GOLD arrow toward whatever the ACTIVE ladder step
     // actually wants, shown only while the first-session ladder is running.
     //
-    // Step 1 points at the nearest unopened supply crate: the crates are the
-    // game's designed opening breadcrumb but most of the trail seeds outside
-    // the viewport, so without a bearing the player is told to follow a trail
-    // they cannot see. Step 2 ("Break ground") points at the starter plot
-    // instead — it used to keep pointing at a crate, which is not tillable, so
-    // the arrow was leading the player away from the one thing the chip was
-    // asking them to do. Later steps happen wherever the player made them
-    // happen, so they fall back to the crates (still worth collecting).
+    // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
+    // chip says to open one, the carved plot for "Break ground", and the
+    // tilled soil / the nearest wreck / the crop / Home for the steps that
+    // happen at those places. Everything past step 2 used to fall back to the
+    // nearest unopened `chest_start_*`, which — once the crates packed into
+    // the first few cells of the walk (TRAIL_SPAN) — was the relic chest a
+    // screen away for the whole rest of the ladder: the one arrow on screen
+    // led AWAY from the space the chip was asking the player to tap.
     //
     // Retires itself the moment the ladder finishes or is dismissed, and stops
     // pointing once the player is on top of the target (it is in reach by
     // then, and the arrow would only cover the sprite).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
-      const plot = this.save.starterPlotAt;
-      let goal = null;
-      if (step?.event === 'till' && plot && Number.isFinite(plot.x)) {
-        // starterPlotAt is the top-left cell centre; aim at the 2x2's middle.
-        goal = { x: plot.x + this.cellM / 2, y: plot.y + this.cellM / 2 };
-      } else {
-        goal = this._nearestStarterCrate();
-      }
+      const goal = step ? this._starterGuidanceGoal(step) : null;
       if (goal) {
         const pWX = this.startWorldM.x + this.playerM.x;
         const pWY = this.startWorldM.y + this.playerM.y;
