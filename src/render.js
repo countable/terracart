@@ -220,7 +220,7 @@ const _WAVE_TABLE = (() => {
 // Flat-only terrain types (no tileset art) get rounded corners at zone
 // boundaries. Module-level: the membership never changes, and drawCells runs
 // every frame — rebuilding a 12-element Set 60 times a second bought nothing.
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
 // Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
 // contain art. Each road tier picks ONE frame so the same road class reads
 // visually consistent across cells; different tiers look distinct.
@@ -230,6 +230,22 @@ const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // 
 //   - PATH:                             frame 3 — single small pebble
 const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
 const PATH_FRAME = 3;
+// Fog of war — the wash over land the player has never visited.
+//
+// Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
+// That dim is deliberately tinted so unlit ground still reads as this biome
+// after dark; fog is the opposite claim — it is the absence of information,
+// and colouring it would say "here is a forest you haven't been to" when the
+// point is that the player doesn't know that yet.
+//
+// 0.8 leaves the terrain faintly legible as shape rather than blacking it out,
+// so the world reads as continuous and the revealed region has an edge to it.
+// Note it STACKS with the distance falloff (FALLOFF_A 0.90 at the viewport
+// corner, drawn on the layer just below): out at the corners, fogged and
+// explored ground are both close to black and the fog edge is only really
+// legible in the mid-field. Retune the pair together if that ever matters.
+const FOG_COLOR = 0x000000;
+const FOG_ALPHA = 0.8;
 // Scratch buffers for drawCells' per-frame ring scan, reused across frames.
 // Allocated on first use rather than at parse time because their size derives
 // from VIEW_CELLS, which app.js defines and which therefore is not readable
@@ -237,6 +253,27 @@ const PATH_FRAME = 3;
 // read, so carrying them between frames is safe.
 let _ringTypes  = null;
 let _ringOwners = null;
+// Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
+// tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
+// the survey-line shimmer — the tile-loading indicator); values in between =
+// the tile JUST landed and the fog is fading off the freshly revealed ground.
+let _ringVeil = null;
+// Render-only pseudo-terrain for cells whose tile isn't loaded yet. Never
+// written into a tile's grid — spawners, movement and interaction all read
+// the real grid, so this can't leak into gameplay. COLORS[30] is the fog
+// base; BIOME_TEX[30] the animated shimmer.
+const UNMAPPED_T = 30;
+// How long the fog takes to fade off a tile once its grid arrives. The stamp
+// lives on the tile entry (first frame the renderer SEES it loaded), so the
+// reveal happens exactly once per cache entry, at the loading frontier.
+const UNMAPPED_REVEAL_MS = 600;
+// Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
+// triples for the veil pass on the lighting layer.
+const _fadeRects = [];
+// Parallel ring of fog-of-war bits (1 = the player has been here). Read in the
+// same scan as the terrain types, off the same cached tile run — see the fog
+// note in the ring loop.
+let _ringSeen   = null;
 
 // ── Atmosphere ───────────────────────────────────────────────────────────────
 // Which biome is the player actually IN? The viewport routinely straddles three
@@ -414,20 +451,23 @@ Render.drawCells = function drawCells(scene) {
   const RING = VIEW_CELLS + 4;
   if (!_ringTypes || _ringTypes.length !== RING * RING) {
     _ringTypes  = new Int8Array(RING * RING);
+    _ringSeen   = new Int8Array(RING * RING);
     // Parallel ring of building ownership. 0 = no building; otherwise
     // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
     // and tileSalt distinguishes tiles so two buildings that happen to share a
     // local id in different tiles never read as "the same building".
     _ringOwners = new Int32Array(RING * RING);
+    _ringVeil   = new Float32Array(RING * RING);
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
+  const seen   = _ringSeen;
   // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
   // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
   // resolve to the same one. Hold the last tile (and its salt, which depends
   // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
   // the Map for all 225 cells on every frame.
-  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0;
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0, mFog = null;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -442,19 +482,43 @@ Render.drawCells = function drawCells(scene) {
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
         mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        // Fog rides along on the SAME tile run as the terrain. The scan is
+        // row-major over a 15x15 ring that spans at most a 2x2 block of tiles,
+        // so this resolves ~4 masks per frame rather than 225 — the fog costs
+        // one array index per cell and no extra lookups at all. (Fog.maskFor
+        // is keyed by tile only; it is deliberately independent of the tile
+        // CACHE, which evicts and re-rasterises — see src/fog.js.)
+        mFog = (typeof Fog !== 'undefined') ? Fog.maskFor(tx2, ty2) : null;
         mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
+        // Unmapped veil, per tile: 1 while the tile's grid isn't in hand, then
+        // a fade the first time the renderer sees it loaded. The stamp lives
+        // on the cache entry, so a tile reveals once and stays revealed.
+        if (mEntry && mEntry.grid) {
+          if (!mEntry._mappedAtMs) mEntry._mappedAtMs = texNow;
+          mVeil = Math.max(0, 1 - (texNow - mEntry._mappedAtMs) / UNMAPPED_REVEAL_MS);
+        } else {
+          mVeil = 1;
+        }
       }
       const e2 = mEntry;
-      types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
+      // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
+      // that's the tile-loading indicator; see the _ringVeil comment above).
+      types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
+      _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
+      // No mask for a tile means the player has never set foot in it: fogged.
+      seen[r * RING + c] = mFog ? Fog.bit(mFog, iy2 * N + ix2) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
+  const SEEN = (c, r) => seen[(r + 2) * RING + (c + 2)];
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
+  const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
+  _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
   const CORNER_R = 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
@@ -491,6 +555,14 @@ Render.drawCells = function drawCells(scene) {
       }
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+
+      // Mid-reveal cell: its tile just loaded, so the real terrain paints
+      // below and the fog fades off it on the lighting layer (drawn there so
+      // the veil covers borders / cobbles / noise, not just the base fill).
+      {
+        const veil = VEIL(col, row);
+        if (veil > 0 && veil < 1) _fadeRects.push(sx, sy, veil);
+      }
 
       // Per-corner rounding: a corner rounds only when both orthogonal neighbors AND the
       // diagonal are a different type (avoids notches between two already-square zones).
@@ -648,7 +720,19 @@ Render.drawCells = function drawCells(scene) {
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
       // the tilled flag from under a live plant produces an "occupied: crop" orphan.
-      if (isTilled && !isTillable(type)) {
+      // Road-BAND cells heal away too: tilling now consults the roadMask
+      // (app.js isTillableCell), so soil tilled in the middle of a street
+      // under the old type-only rule shouldn't keep rendering there. The mask
+      // lookup runs only for cells actually marked tilled — a handful at most.
+      let _tilledUnderRoad = false;
+      if (isTilled) {
+        const N3 = scene.cellsPerTile;
+        const t3x = Math.floor(absCellIX / N3), t3y = Math.floor(absCellIY / N3);
+        const e3 = WorldGen.tileCache.get(`${WorldGen.Z}/${t3x}/${t3y}`);
+        _tilledUnderRoad = !!(e3 && e3.roadMask
+          && e3.roadMask[(absCellIY - t3y * N3) * N3 + (absCellIX - t3x * N3)]);
+      }
+      if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
         const hasPlant = scene.save.planted.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
@@ -794,42 +878,25 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(absCellIY / N2);
           active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
         }
-        // Sparse PATH decoration: a footpath is meant to read as scattered
-        // stepping stones, not a continuous paved strip, so most path cells
-        // draw no pebble at all.
-        //
-        // WHICH cells keep one is geometric, not random: only those the path
-        // actually runs THROUGH — at least one full cell width of way inside
-        // the cell (worldgen's pathCross, measured by accumulateLineSpan). A
-        // cell the path merely clips the corner of, or stops just inside,
-        // stays bare. That puts the stones ON the line of the path instead of
-        // scattering them off it, which is what a random density could never
-        // do: it dropped stones on corner-clipped cells and left gaps in the
-        // middle of a straight run.
-        //
-        // This is PURELY decorative: claiming (walking/tapping) still tracks
-        // the cell toward the named path's completion whether or not it ever
-        // had a visible stone, so dropping the sprite costs nothing
-        // gameplay-side. It must NOT depend on `active` — a claimed cell
-        // popping a stone into existence that wasn't there a moment ago reads
-        // as a bug, not as "lighting up."
-        //
-        // Tiles rasterized before pathCross existed don't carry it; those fall
-        // back to the old deterministic density hash so a cached tile keeps
-        // drawing something sensible instead of going bare.
+        // Sparse PATH decoration: a deterministic chunk of path cells
+        // (PATH_STONE_DENSITY_PCT) never draw a pebble at all, claimed or
+        // not — a footpath is meant to read as scattered stepping stones,
+        // not a continuous paved strip. This sits ON TOP of the geometric
+        // rule in worldgen: a cell is only PATH at all where the way really
+        // crosses it (pathCross), and this then thins the stones along what
+        // survives. This is PURELY decorative: claiming (walking/tapping)
+        // still tracks that cell toward the named path's completion
+        // regardless of whether it ever had a visible stone, so dropping the
+        // sprite here costs nothing gameplay-side. The roll must NOT depend
+        // on `active` — a claimed cell popping a stone into existence that
+        // wasn't there a moment ago read as a bug, not as "lighting up."
+        // Hashed off the abs cell (distinct multipliers from the
+        // noise-variant hash above) so presence is stable across
+        // frames/reloads and uncorrelated with the ground texture variant.
         let showStone = frame != null && !isTilled;
         if (showStone && type === PATH) {
-          const N3  = scene.cellsPerTile;
-          const tx3 = Math.floor(absCellIX / N3);
-          const ty3 = Math.floor(absCellIY / N3);
-          const e3  = WorldGen.tileCache.get(`${WorldGen.Z}/${tx3}/${ty3}`);
-          const pc  = e3 && e3.pathCross;
-          if (pc) {
-            showStone = pc[(absCellIY - ty3 * N3) * N3 + (absCellIX - tx3 * N3)] === 1;
-          } else {
-            const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
-            showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
-          }
+          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
+          showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
         }
         if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
@@ -1138,6 +1205,13 @@ Render.drawCells = function drawCells(scene) {
   // rather than throwing.
   const gr = scene.reachGfx || g;
   if (gr !== g) gr.clear();
+  // Unmapped-tile reveal: fog fading off cells whose tile arrived within the
+  // last UNMAPPED_REVEAL_MS (collected in the cell loop above). Painted first
+  // on this layer so the reach dim and outline read on top of the reveal.
+  for (let i = 0; i < _fadeRects.length; i += 3) {
+    gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
+    gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
+  }
   const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
   gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
@@ -1360,6 +1434,80 @@ Render.drawCells = function drawCells(scene) {
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
         if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
       }
+    }
+  }
+
+  // ── Fog of war ────────────────────────────────────────────────────────────
+  // Land the player has never been to is washed FOG_ALPHA black. Two things
+  // about this pass are load-bearing:
+  //
+  // 1. THE LAYER. It paints into fogGfx, which sits at the very top of the
+  //    world display list — above the sprites, above the rim haze and the
+  //    distance falloff, above the labels. Every darkening pass before it had
+  //    to learn the same lesson the hard way: the out-of-reach dim started life
+  //    in cellGfx and could only reach the base terrain fill (biome seams read
+  //    as glowing lines in the dark), and the distance falloff had to move
+  //    above the sprites for the same reason (objects at the rim stayed lit and
+  //    read as stickers on dark ground). Fog is the strongest claim of the lot
+  //    — "you have not been here" — so it covers everything the world draws,
+  //    including the POI name tablets, which are otherwise crisp UI and would
+  //    happily announce the name of a shop the player has never found.
+  //
+  // 2. THE DIRTY GATE. The fog image is identical frame to frame until the
+  //    player crosses a cell (borderDirty — the same signal the biome-seam
+  //    layer uses) or something is newly revealed (Fog.revision). Between
+  //    crossings the container just SCROLLS by the sub-cell fraction, exactly
+  //    as borderContainer does, so the rects are laid out in whole cells with
+  //    no fracX baked in. That turns ~169 fillRects per frame into ~169 per
+  //    second of walking. The 1-cell halo the whole pass renders (-1..
+  //    VIEW_CELLS) is what keeps the scroll from exposing an unfogged edge.
+  if (scene.fogGfx && scene.fogContainer) {
+    scene.fogContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    const fogRev = (typeof Fog !== 'undefined') ? Fog.revision : 0;
+    // Underground has its own darkness (the torch bubble) and no persistent
+    // map to explore, so fog is a surface feature. Clear once on descent rather
+    // than leaving the last surface frame frozen over the cave.
+    const fogOn = depth === 0;
+    // ...and one more input: the UNMAPPED VEIL. A cell whose tile hasn't
+    // arrived is already drawn as the animated survey-line fog that says
+    // "loading", and stacking 80% black on that would smother the one thing it
+    // exists to show. So a fully veiled cell is left alone and picked up as
+    // ordinary fog the moment its tile lands. That handover happens mid-fade,
+    // on no cell crossing of its own, so while anything on screen is still
+    // veiled the pass stays dirty and rebuilds each frame — a few frames at
+    // the loading frontier, which is exactly the window where the image is
+    // genuinely changing.
+    if (borderDirty || fogRev !== scene._fogRev || fogOn !== scene._fogWasOn
+        || scene._fogVeiled) {
+      scene._fogRev = fogRev;
+      scene._fogWasOn = fogOn;
+      let stillVeiled = false;
+      const fg2 = scene.fogGfx;
+      fg2.clear();
+      if (fogOn) {
+        fg2.fillStyle(FOG_COLOR, FOG_ALPHA);
+        // Merge each row's fogged cells into horizontal RUNS before filling.
+        // The fogged region is contiguous by nature (you reveal a disc as you
+        // walk), so a typical frame collapses from ~169 rects to under 13.
+        for (let row = -1; row <= VIEW_CELLS; row++) {
+          let runStart = null;
+          for (let col = -1; col <= VIEW_CELLS + 1; col++) {
+            // The extra column past the end is a sentinel: it is never fogged,
+            // so it always closes an open run without duplicating the flush.
+            const veil = col <= VIEW_CELLS ? VEIL(col, row) : 0;
+            if (veil > 0) stillVeiled = true;
+            const fogged = col <= VIEW_CELLS && veil < 1 && !SEEN(col, row);
+            if (fogged) { if (runStart === null) runStart = col; continue; }
+            if (runStart === null) continue;
+            const ox = runStart - half, oy = row - half;
+            fg2.fillRect(scene.viewCenterX + ox * CELL_PX,
+                         scene.viewCenterY + oy * CELL_PX,
+                         (col - runStart) * CELL_PX, CELL_PX);
+            runStart = null;
+          }
+        }
+      }
+      scene._fogVeiled = stillVeiled;
     }
   }
 };

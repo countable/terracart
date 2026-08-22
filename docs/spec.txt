@@ -638,20 +638,26 @@ PATH STONES
    "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
    grey, so a walked path visibly lights up as you go. Claiming plays a brief
    scale-pop on that exact stone so it reads as an event, not a silent swap.
-   Not every path cell draws a decorative pebble sprite (a stone on every
-   single 7m cell read as a paved strip, not scattered stepping stones).
-   WHICH cells keep one is GEOMETRIC: only those the way actually runs
-   THROUGH — at least one full cell width of path inside the cell, measured
-   by worldgen's accumulateLineSpan and published per tile as `pathCross`.
-   A cell the path merely clips the corner of, or ends just inside, stays
-   bare. (The measurement is the SUM over every path way in the cell, so a
-   junction where two ways each cut a corner can still qualify — which is
-   where a stone belongs.) This REPLACED a per-cell density hash, which had
-   no idea where the path was: it put stones on corner-clipped cells and
-   left gaps mid-run. Tiles rasterized before `pathCross` existed fall back
-   to that hash so a cached tile doesn't go bare.
-   Still PURELY decorative: claiming counts toward the path whether or not
-   that cell ever had a visible stone, and a cell with no stone stays bare
+ - WHICH CELLS ARE PATH AT ALL is geometric. A cell becomes PATH only where
+   at least one full cell width of way lies inside it — the path runs THROUGH
+   the cell rather than clipping its corner or stopping just inside. Measured
+   by worldgen's accumulateLineSpan (an exact grid traversal, not sampling:
+   a straight orthogonal crossing measures exactly 1.0, a corner-to-corner
+   diagonal sqrt(2)) in a PRE-PASS over every footpath before any painting,
+   since a cell's total is the SUM over all path ways touching it — so a
+   junction where two ways each cut a corner still qualifies. A clipped cell
+   keeps its own biome and stays tillable, spawnable and unclaimable, because
+   there is no path there.
+   ONE EXEMPTION: the connectivity elbow. forEachLineCell stamps an extra cell
+   on each diagonal step so a width-1 line stays 4-connected (the renderer
+   draws orthogonal arms only). Its span is ~0 by construction, so gating it
+   deletes it — a 45-degree footpath measured 31 orphaned cells of 65. It sits
+   between two cells the line genuinely crosses and is always painted.
+ - Of the cells that ARE path, only ~50% draw a decorative pebble sprite (a
+   stone on every single 7m cell read as a paved strip, not scattered stepping
+   stones) — a PURELY decorative, permanent per-cell roll on top of the
+   geometry above: claiming still counts toward the path whether or not that
+   cell ever had a visible stone, and a cell that rolled no stone stays bare
    even once claimed (it never pops one in — that would read as a bug, not
    as "lighting up").
    Every 10 consecutive claimed stones on the same named path awards 1 coin
@@ -1061,6 +1067,83 @@ DIALOGS
    every kind exists in MODAL_KINDS, and no caller fills both halves of a
    trade with the same text.
 
+FOG OF WAR
+ - Land the player has NEVER WALKED is washed 80% black (render.js FOG_ALPHA).
+   Walking reveals a disc of Fog.REVEAL_CELLS (3 cells, ~21 m) around the
+   player; what is revealed stays revealed, per save, forever.
+ - The radius has a HARD CEILING at the viewport half-width. The view is
+   VIEW_CELLS (11) wide, so the player sees 5 cells in every direction: reveal
+   5 or more and every cell is revealed the instant it becomes visible — the
+   fog would still be computed and still be stored and never once be seen. At
+   3 (the reach radius: you reveal what you could have reached out and touched)
+   a 2-cell band of fog rims the view, so walking a street reveals the street
+   and leaves the land either side dark until you go there. fog.test.js pins
+   the bound against the real VIEW_CELLS.
+ - The wash is PURE BLACK, not the biome-tinted `atmos.dim` the out-of-reach
+   wash uses. That dim says "this biome, unlit"; fog says "you don't know", and
+   colouring it would describe terrain the player hasn't seen. It STACKS with
+   the distance falloff (0.90 at the viewport corner), so out at the corners
+   fogged and explored ground are both near black and the fog edge reads
+   mainly in the mid-field — retune the pair together, never the alpha alone.
+ - LAYER: fogContainer is LAST in the display list — above the ground, the
+   lighting dim, the sprites, the rim haze, the distance falloff, the POI name
+   tablets and the tier diamonds. Fog is the strongest claim of any darkening
+   pass, and a label poking through it would name a shop the player has never
+   found. (The player, the GPS ghost and the footprint trail set explicit
+   depths and stay above it — they are the player's own kit, not world
+   information.) Surface only: underground has the torch bubble instead, and
+   a cave walk must not reveal the surface cells above it.
+ - STORAGE is one BIT per cell, packed per tile (src/fog.js), zero-run coded
+   and base64'd into save.fog = { w, tiles: { "tx/ty": blob } }. The Set-of-
+   "ix_iy"-strings shape every other per-cell fact uses (tilled, picked,
+   opened) is wrong here: those are dozens of cells, fog is thousands. Measured
+   over a 5 km walk at a 228-cell tile edge (49°N): 2.1 KB of save across 4
+   tiles, against 25.4 KB of raw bitsets and ~68 KB as a string Set that keeps
+   growing per cell. A fully saturated tile is the bounded worst case at
+   10.1 KB (base64 overhead on a mask the run coder can't help). save.fog
+   records the width it was built at; a save from a different cells-per-tile is
+   DROPPED rather than mis-indexed.
+ - flush() caches the encoded blob per tile and drops it only when a bit is
+   set, so the once-per-7 m save writes re-code the one or two tiles the player
+   is standing across instead of all 64 loaded ones. A reload seeds that cache
+   from the blobs it read, so the first flush of a session re-codes nothing.
+ - The masks live in fog.js's own Map, deliberately NOT on the WorldGen tile
+   cache entries beside `grid` / `roadMask`. Those are derived world state —
+   loadTile LRU-prunes at 64 tiles and re-rasterises every 30 days, and either
+   would silently wipe the player's exploration history.
+ - COST: the reveal bails unless the player changed CELL (once per 7 m), and
+   the renderer rebuilds only on that crossing or when Fog.revision moves —
+   between crossings fogContainer just SCROLLS by the sub-cell fraction, the
+   same trick the biome-seam layer uses. The fog bits are read in the ring scan
+   that already resolves the terrain types, off the same cached tile run (~4
+   mask lookups a frame, not 225), and each row's fogged cells are merged into
+   horizontal runs, so a rebuild is typically under 13 fillRects.
+ - The ONBOARDING TRAIL is revealed when it is laid (_revealStarterTrail), and
+   this is not optional. The starter trail is a SIGHTLINE CHAIN — walk to the
+   crate you can see, and from there the next is in view, and the last puts the
+   relic chest in view — and _placeStarterTrail seats it on the nearest road,
+   BFS'ing up to 15 cells from the home anchor. The walk reveals 3. Shipping
+   fog without this left every starter crate under the 80% wash on a fresh
+   save, with the quest pointing at a road nobody could see. HOME_REVEAL_CELLS
+   (10) covers the tutorial pocket the seater clears — the player's own block,
+   which they are not discovering — and TRAIL_REVEAL_CELLS (5) rings each crate
+   and the relic chest, found by the same `chest_start_` id stamp the gold
+   onboarding arrow keys off. Deliberately NOT one blanket radius around the
+   anchor: that would reveal map in every direction, including the way the
+   trail does not go. starter_relic.test.js drives the real fog lift against
+   the real seater, so moving either can't re-hide the trail.
+ - Fog DEFERS to the UNMAPPED VEIL. A cell whose map tile hasn't arrived is
+   already drawn as the animated survey-line fog that means "loading"; stacking
+   the 80% wash on that would smother the one thing it exists to show. A fully
+   veiled cell is left alone and becomes ordinary fog the moment its tile
+   lands. That handover happens mid-fade on no cell crossing of its own, so
+   while anything on screen is still veiled the fog pass stays dirty and
+   rebuilds every frame — a few frames at the loading frontier, which is
+   exactly the window where the image is genuinely changing.
+ - tools/layer_audit.js pins the layer above every world layer AND checks the
+   pass paints onto fogGfx rather than the terrain graphics — the same bug that
+   left biome seams glowing outside the reach bubble, one layer up.
+
 TEXTURES
  - EVERY opened chest VANISHES, crates included — there is no "looted" sprite.
    An opened low-tier / starter crate used to stay on the map as an open-lid
@@ -1122,16 +1205,33 @@ VERTICAL BUDGET (fitGame -> layOutVertically, index.html)
    bottom, so ALL the slack landed in one unmeasured place. That read very
    differently per device: an iPhone SE had the walking stick sitting 84px ON
    TOP of the map while a tall desktop window had a 195px hole under it.
- - Now the scale is capped by BOTH the phone-column width and the band that is
-   actually left, and the slack is spent in priority order: the walking stick's
-   room first, then a breathing margin (<=28px) under the objective chip.
+ - Now the scale is capped by the phone-column width, and the slack is spent in
+   priority order: the walking stick's room first, then a breathing margin
+   (<=28px) under the objective chip.
+ - ON A PHONE THE WIDTH WINS. A portrait viewport narrower than the column cap
+   always fills edge to edge; only a viewport WIDER than a phone column (tablet
+   portrait, desktop) gets gutters. Capping the scale by the leftover band as
+   well is the bug that put black bars down both sides of an ordinary iOS
+   Safari session and shrank the whole HUD with them: the band drops below the
+   width fit as soon as vh - 254 < vw, which is what a 393x630 viewport (a
+   393-wide phone with the tab bar showing) is. Nothing in the code has to
+   change for it to happen — only the browser's toolbars.
+ - What gives instead is the VERTICAL budget, in this order: the map slides up
+   under the objective chip (never past TOP_ROW, 44px — the money/energy row is
+   never covered, the chip retires itself), then at most one ring of cells
+   tucks under the inventory. A viewport too short for even that shrinks the
+   column after all, so the degenerate case degrades instead of burying the
+   map. Desktop emulation keeps the old height cap: it never promised to fill
+   a window it is only simulating a phone inside.
  - The stick is placed by fitGame into --stick-bottom: centred in the gap
    between the map and the tabs when it fits there, otherwise tucked just above
    the tabs, overlaying the map's bottom corner. Occluding a corner of the
    world beats occluding the inventory, and the stick never reaches the map's
    centre, where the player is drawn.
  - tools/layout_audit.js lifts layOutVertically out of the page and pins these
-   invariants across eight real device sizes.
+   invariants across eight real device sizes AND the same phones as a browser
+   sees them (innerHeight with the toolbars on screen — 80-120px shorter, and
+   the case the gutter bug lived in).
 
 CLUTTER
  - The "no GPS — use the stick or WASD to move" line is a lesson, not a status:

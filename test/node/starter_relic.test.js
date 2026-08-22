@@ -241,6 +241,11 @@
       // own tests; stub them so this one is about the trail alone.
       _carveStarterPlot() {},
       _provisionStarterHome() {},
+      // The fog lift is NOT stubbed — it is the real method. Fog of war hid
+      // this entire trail when it shipped, so "no crate is laid under fog" is
+      // a property of the trail, checked below against the real seater.
+      _revealStarterTrail: revealStarterTrail,
+      depth: 0,
     }, over));
   }
   const srTrail = (entry, scene) => {
@@ -339,6 +344,49 @@
       assert.falsy(roadMask[cell.cy * N + cell.cx], `${o.id} is off the road band`);
       assert.falsy(entry.grid[cell.cy * N + cell.cx] === T.ROAD, `${o.id} is off road terrain`);
     }
+  });
+
+  // ── Fog of war over the trail ─────────────────────────────────────────
+  // The trail is a SIGHTLINE CHAIN: walk to the crate you can see, and from
+  // there the next one is in view, and the last one puts the relic chest in
+  // view. Fog of war reveals 3 cells around the walking player and this seater
+  // reaches up to 15 from the anchor, so shipping the two together left every
+  // crate under an 80% black wash on a brand-new save — the quest said the
+  // crates were "along the road nearby" and the road was invisible.
+  //
+  // This drives the REAL fog lift against the REAL seater, so the two can't
+  // drift: retune either radius, or move the seater further out, and it fails.
+  test('starter trail: no crate is laid under fog', () => {
+    Fog.init({}, N);
+    const entry = srEntry();
+    const scene = srTrailScene();
+    const { crates, chest } = srTrail(entry, scene);
+    assert.eq(crates.length, 4, 'the trail seated, so there is something to check');
+    for (const o of [...crates, chest]) {
+      const c = srCell(o);
+      assert.eq(Fog.seen(0, 0, c.cx, c.cy), true,
+        `${o.id} stands on revealed ground, not under the fog wash`);
+      // ...and it reads as sitting ON ground rather than punched out of the
+      // dark: the cells immediately around it are revealed too.
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        assert.eq(Fog.seen(0, 0, c.cx + dx, c.cy + dy), true,
+          `the ground beside ${o.id} is revealed`);
+      }
+    }
+  });
+
+  test('starter trail: revealing it does not hand over the whole map', () => {
+    // The counterpart bound — walking is still what opens the world up.
+    Fog.init({}, N);
+    const entry = srEntry();
+    srTrail(entry, srTrailScene());
+    let revealed = 0;
+    for (let cy = 0; cy < N; cy++) {
+      for (let cx = 0; cx < N; cx++) if (Fog.seen(0, 0, cx, cy)) revealed++;
+    }
+    assert.lt(revealed / (N * N), 0.5,
+      'the starting reveal should be a neighbourhood, not the tile');
+    assert.gt(revealed, 0, 'and it should reveal something');
   });
 
   test('starter trail: a rebuild lays the same trail again', () => {

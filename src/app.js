@@ -259,6 +259,18 @@ const DEBUG_SPEED_MUL = 10;
 // cheap (you're pottering around the spot you're actually standing on) and the
 // character reads normally; outside it the walk costs full price and the
 // character darkens the further out they get.
+// Fog of war: how much of the starting neighbourhood is known ground before
+// the player has walked a step. See _revealStarterTrail — the onboarding trail
+// is a sightline chain (walk to the crate you can see, and the next is in
+// view), and the walk's own 3-cell reveal cannot carry that on a fresh save.
+//
+// HOME is the tutorial pocket _placeStarterTrail clears and curates (CLEAR_R,
+// 10 cells): the player's own block, which they are not discovering. TRAIL is
+// the margin around each crate and the relic chest, wide enough that a crate
+// reads as sitting on ground rather than punched out of the dark, and narrow
+// enough that the map still opens up by being walked rather than by spawning.
+const HOME_REVEAL_CELLS = 10;
+const TRAIL_REVEAL_CELLS = 5;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
@@ -436,6 +448,12 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
+  // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
+  // darker than every real biome so "beyond the charted world" reads as the
+  // same visual language as the distance dim; textures.js drives the animated
+  // survey-line shimmer over it (BIOME_TEX[30]).
+  30: 0x2b2926,
 };
 
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
@@ -444,6 +462,13 @@ const COLORS = {
 // 23 = PIER (wooden walkway over water) — walkable but not soil.
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
+// The full "can this CELL take a hoe / placement / released animal" test:
+// soil-ish terrain AND no drawn road band over it. A cell's terrain says
+// "grass" for most of the ground a road actually covers (see cellAt's
+// underRoad note), so type-only checks let players till the middle of a
+// street. Takes a cellAt() result; a stub cell without underRoad (tests)
+// behaves exactly like the old type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
 // Building interior cells — small house, fort, civic slab. Used for the
 // "rest inside to recover energy" loop (slow, opt-in regen while indoors).
 const BUILDING_TYPES = new Set([9, 11, 12]);
@@ -487,10 +512,166 @@ const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'swor
 // tier to be bought, forged or looted.
 const STARTER_RELIC_TIER = 1;
 
+// ── Icon-sheet loading indicator + prewarm ──────────────────────────────────
+// Modal item/gear icons are <span>s that CSS-clip a sheet PNG via
+// background-image. A sheet that isn't in the browser cache yet paints
+// NOTHING for the whole fetch — on a slow line the treasure ceremony opened
+// on seconds of blank space where the reward should be. IconNet fixes that
+// twice over:
+//   1. INDICATOR — renderItemIcon / gearIconHTML tag any icon whose sheet
+//      isn't known-loaded with .icon-loading (a soft pulsing plate holding
+//      the icon's footprint; CSS in index.html) + data-iconsrc. A single
+//      MutationObserver spots those spans as modals insert them, probes the
+//      URL with an Image(), and strips the plate from every span showing
+//      that sheet the moment it decodes. Probe and background-image share
+//      the HTTP cache, so the swap is atomic — no double fetch.
+//   2. PREWARM — a few seconds after boot (deliberately after the map tiles
+//      have had first claim on the connection) every modal-only sheet is
+//      trickled into the cache two at a time, so by the first chest the
+//      plate never shows at all. ~110 small PNGs, idle bandwidth only.
+const IconNet = {
+  _loaded: new Set(),    // URLs known decoded + cached this session
+  _loading: new Map(),   // URL → [afterFns] while a probe is in flight
+  ready(url) { return this._loaded.has(url); },
+  // Probe `url`; when it settles (load OR error — a 404 must not pulse
+  // forever), mark it, clear the placeholder from every current span showing
+  // it, then run `after` (the prewarm queue's pump).
+  probe(url, after) {
+    if (this._loaded.has(url)) { after?.(); return; }
+    const waiters = this._loading.get(url);
+    if (waiters) { if (after) waiters.push(after); return; }
+    this._loading.set(url, after ? [after] : []);
+    const img = new Image();
+    const settle = () => {
+      const fns = this._loading.get(url) || [];
+      this._loading.delete(url);
+      this._loaded.add(url);
+      try {
+        document.querySelectorAll('.px-icon.icon-loading').forEach((el) => {
+          if (el.dataset.iconsrc === url) el.classList.remove('icon-loading');
+        });
+      } catch (_) { /* headless / detached DOM */ }
+      for (const fn of fns) fn();
+    };
+    img.onload = settle;
+    img.onerror = settle;
+    img.src = url;
+  },
+  // Watch the whole document for freshly inserted pending icons — modals are
+  // built as HTML strings in a dozen call sites, so one observer here beats
+  // a scan call in every one of them. Modals appear a few times a minute at
+  // most; the per-mutation work is a matches/querySelectorAll pair.
+  observe() {
+    if (this._obs || typeof MutationObserver === 'undefined' || !document.body) return;
+    this._obs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (!n || n.nodeType !== 1) continue;
+          const els = n.matches?.('.px-icon[data-iconsrc]')
+            ? [n]
+            : (n.querySelectorAll ? n.querySelectorAll('.px-icon[data-iconsrc]') : []);
+          for (const el of els) {
+            const url = el.dataset.iconsrc;
+            if (this._loaded.has(url)) el.classList.remove('icon-loading');
+            else this.probe(url);
+          }
+        }
+      }
+    });
+    this._obs.observe(document.body, { childList: true, subtree: true });
+  },
+  // Trickle a URL list into the cache, two fetches in flight at a time so a
+  // burst of ~60 requests can't compete with tile loads or gameplay.
+  prewarm(urls) {
+    const queue = urls.filter((u) => u && !this._loaded.has(u) && !this._loading.has(u));
+    let idx = 0, active = 0;
+    const pump = () => {
+      while (active < 2 && idx < queue.length) {
+        active++;
+        this.probe(queue[idx++], () => { active--; pump(); });
+      }
+    };
+    pump();
+  },
+};
+if (typeof document !== 'undefined' && document.body) IconNet.observe();
+
+// ── Item icon sheet table ───────────────────────────────────────────────────
+// PNG sheet metadata for renderItemIcon's CSS-clip icons. Module scope so
+// IconNet's prewarmer can enumerate every sheet URL (and so the table isn't
+// rebuilt on every icon render). Adding a new icon sheet is one entry here
+// plus a row in MINERAL_ICON_SHEET (items.js) — a hardcoded if-else here once
+// silently fell through to Crops.png for any unknown sheet, so a request like
+// { sheet: 'gems', frame: 4 } rendered as rainberry stage 4.
+const ICON_SHEETS = {
+  crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
+  springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
+  gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
+  coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+  // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
+  // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
+  // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
+  // Without this entry, every bar fell through to crops.png frame 0 and
+  // rendered as a grass sprout in smith trade modals.
+  bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
+  // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
+  icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
+  icon_milk:   { url: 'assets/Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
+  // Orchard fruit — 32×16 each (frame 0 = whole fruit).
+  icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
+  icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
+  icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
+  // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
+  // smallmouth bass icon (same family, just smaller fiction).
+  icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
+  icon_bass:       { url: 'assets/Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
+  icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
+  icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
+  icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+  // Consumables + wilderness drops.
+  icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
+  icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
+  // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
+  icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
+  // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
+  // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+  icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
+  icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
+  // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
+  // cowrie used as the inventory icon.
+  shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
+  // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
+  // (top-left grass tuft) backs the longgrass inventory icon now
+  // that the procedural sprite has been retired.
+  props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+  // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
+  // is the brown leather boot used as the fishing-junk inventory icon.
+  pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
+  // wood — 48×16, 3 frames. MINERAL_ICON_SHEET.wood points here. In
+  // practice wood always renders via the baked ITEM_DATA_URLS snapshot
+  // (which alpha-keys the white bg), so this entry is a fallback: if the
+  // bake ever fails it renders wood (white bg and all) instead of
+  // silently falling through to SHEETS.crops → a grass sprout.
+  wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
+};
+
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
   preload() {
+    // Boot loading overlay (index.html #bootload). Asset fetches are the long
+    // pole of a cold boot, so the Phaser loader's own progress drives the bar:
+    // 0→0.85 here, 0.9 as create() builds the world, 1 on the first update()
+    // frame (which fades the overlay out and hands off to the in-world
+    // unmapped-tile shimmer for whatever tiles are still loading).
+    this.load.on('progress', (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…'));
     this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
@@ -576,6 +757,7 @@ class MapScene extends Phaser.Scene {
   }
 
   create() {
+    window.__bootStatus?.(0.9, 'Surveying the neighbourhood…');
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
@@ -664,6 +846,11 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
+    // Fog of war — load the explored-cell masks. Keyed by tile and sized by
+    // cellsPerTile, so it has to come after that is known and before the first
+    // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
+    // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
+    Fog.init(this.save, this.cellsPerTile);
     // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
     // visual feet sit ~14px below the sprite centre (same anchor as the
     // footprint dot). The reach is cell-quantised and centres on the CELL the
@@ -968,6 +1155,22 @@ class MapScene extends Phaser.Scene {
     this.labelContainer = this.add.container(0, 0);
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
+    // FOG OF WAR — the wash over cells the player has never visited. The very
+    // top of the world display list, above EVERYTHING the world draws: ground,
+    // the lighting dim, the sprites, the rim haze, the distance falloff, the
+    // POI name tablets and the tier diamonds. That is the point of it — "you
+    // have not been here" has to beat every other pass, and a label or a tier
+    // pip poking through the fog would announce the contents of a place the
+    // player has not found yet. (Everything drawn ABOVE this is deliberately
+    // not world: the vignette, the work wheel and flash text all set an
+    // explicit depth, which floats them clear of the insertion-ordered layers.)
+    //
+    // A CONTAINER, like borderContainer, because the fog only changes when the
+    // player crosses a cell: render.js rebuilds the rects on that crossing and
+    // scrolls this by the sub-cell fraction in between. See the fog pass there.
+    this.fogContainer = this.add.container(0, 0);
+    this.fogGfx = this.add.graphics();
+    this.fogContainer.add(this.fogGfx);
 
     // Legacy terrain sprite pool — ground art is fully procedural now, so this
     // is empty. Kept as a defined property so render.js's defensive length check
@@ -1198,6 +1401,7 @@ class MapScene extends Phaser.Scene {
     this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
+    this.fogContainer.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
@@ -1889,6 +2093,27 @@ class MapScene extends Phaser.Scene {
     const cx = (wx - tx * tilePx) / cellPxSize;
     const cy = (wy - ty * tilePx) / cellPxSize;
     return { tx, ty, cx, cy };
+  }
+
+  // Fog of war — mark the ground under and around the player as explored.
+  //
+  // Called every frame before drawCells, and free on all but a handful of them:
+  // Fog.reveal bails immediately unless the player has changed CELL, which is
+  // once per 7 m walked. Only when something is genuinely newly revealed does
+  // it touch the save (persistSave already coalesces writes at 500 ms) or move
+  // Fog.revision, which is the renderer's dirty gate.
+  //
+  // Underground has no fog (see the fog pass in render.js), so don't record a
+  // cave walk as surface exploration — the cave's cell indices are the SURFACE
+  // ones, and revealing them would hand the player the map above them.
+  _revealFog() {
+    if (this.depth !== 0) return;
+    const pc = this.playerToWorldCell();
+    const ix = pc.tx * this.cellsPerTile + Math.floor(pc.cx);
+    const iy = pc.ty * this.cellsPerTile + Math.floor(pc.cy);
+    if (!Fog.reveal(ix, iy)) return;
+    Fog.flush(this.save);
+    persistSave(this.save);
   }
 
   // Debug: dump what worldgen actually produced for the tile under the player,
@@ -2643,6 +2868,47 @@ class MapScene extends Phaser.Scene {
     // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+    this._revealStarterTrail(entry, tx, ty, spawnIX, spawnIY);
+  }
+
+  // Lift the fog off the onboarding trail the moment it is laid.
+  //
+  // The trail is a SIGHTLINE CHAIN, and that is the whole of its design: walk
+  // to the crate you can see, and from there the next one is in view, and the
+  // last one puts the relic chest in view. Fog of war reveals 3 cells around
+  // the player and the trail reaches up to 15 from the anchor, so shipping the
+  // two together left every crate under an 80% black wash on a brand-new save
+  // — the quest said "supply crates were left along the road nearby" and the
+  // road was invisible. A chain of landmarks nobody can see is not a chain.
+  //
+  // So the pocket the player starts in is known ground: their own block, plus
+  // a disc around each thing the trail seated. Deliberately NOT a blanket
+  // radius around the anchor — that would reveal map in every direction,
+  // including the way the trail does not go. Following the crates is what
+  // opens the map up; this only makes the crates themselves findable.
+  _revealStarterTrail(entry, tx, ty, spawnIX, spawnIY) {
+    if (typeof Fog === 'undefined' || this.depth !== 0) return;
+    const N = entry.cellsPerEdge;
+    const abs = (cx, cy) => ({ ix: tx * N + cx, iy: ty * N + cy });
+    // Home: the tutorial pocket _placeStarterTrail has just cleared and
+    // curated. The player lives here; they are not discovering it.
+    const home = abs(spawnIX, spawnIY);
+    let changed = Fog.revealDisc(home.ix, home.iy, HOME_REVEAL_CELLS);
+    // ...and each crate / the relic chest, with enough margin that the crate
+    // reads as sitting on ground rather than punched out of the dark. Found by
+    // id rather than threaded through the seater: `chest_start_` is already the
+    // stamp the onboarding arrow (_nearestStarterCrate) keys off, so the two
+    // can't disagree about what the trail consists of.
+    for (const o of (entry.objects || [])) {
+      if (!o.id || !String(o.id).startsWith('chest_start_')) continue;
+      const cx = Math.floor((o.x - tx * this.tileEdgeM) / this.cellM);
+      const cy = Math.floor((o.y - ty * this.tileEdgeM) / this.cellM);
+      const a = abs(cx, cy);
+      if (Fog.revealDisc(a.ix, a.iy, TRAIL_REVEAL_CELLS)) changed = true;
+    }
+    if (!changed) return;
+    Fog.flush(this.save);
+    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // A treasure chest one screen out from the spawn anchor, holding one random
@@ -3428,6 +3694,17 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // First frame = the world is on screen: retire the boot loading overlay.
+    // Any tiles still fetching show as the unmapped shimmer from here on.
+    if (!this._bootStatusDone) {
+      this._bootStatusDone = true;
+      window.__bootStatus?.(1);
+      // Prewarm the modal-only icon sheets once the boot rush is over — 4s
+      // gives the first map tiles and Phaser's own assets first claim on the
+      // connection. See IconNet for why (treasure-modal icons were blank for
+      // the whole first-fetch on slow lines).
+      if (!window.__TEST_MODE) setTimeout(() => this._prewarmModalIcons(), 4000);
+    }
     // Keep body.modal-open honest every frame. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
@@ -3795,6 +4072,7 @@ class MapScene extends Phaser.Scene {
     // foes actually are this frame) and BEFORE the wheel, which is where melee
     // damage lands.
     this._combatTick(dt);
+    this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
     this.drawObjects();
@@ -5761,7 +6039,14 @@ class MapScene extends Phaser.Scene {
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
     const entry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx}/${ty}`);
     const loaded = !!(entry && entry.grid);
-    return { tx, ty, ix, iy, loaded, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
+    // Road-band flag. The terrain grid under-reports roads (QC rules: a way
+    // rasterizes exactly ONE cell wide however wide its drawn band really
+    // is), so "is this ground road" must come from entry.roadMask — stamped
+    // from the same WorldGen.roadOverlayWidthM the overlay strokes with.
+    // Checking road TERRAIN alone is the bug, not the fix.
+    const underRoad = !!(loaded && entry.roadMask
+      && entry.roadMask[iy * this.cellsPerTile + ix]);
+    return { tx, ty, ix, iy, loaded, underRoad, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
@@ -9090,79 +9375,25 @@ class MapScene extends Phaser.Scene {
     const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
     let css = null;
+    // Network-fetched sheet URL backing this icon, if any — a data-URL bake
+    // paints instantly, but a sheet PNG that isn't in the browser cache yet
+    // leaves the span BLANK for however long the fetch takes (seconds on a
+    // slow line — most visible as an empty hole in the treasure ceremony).
+    // IconNet turns that hole into a pulsing placeholder plate; see below.
+    let netUrl = null;
     if (dataUrl) {
       css = base + `background-image:url('${dataUrl}');background-size:${sizePx}px ${sizePx}px;`;
     } else if (src) {
-      // Sheet table — adding a new icon sheet is one entry here plus a row
-      // in MINERAL_ICON_SHEET (items.js). The previous hardcoded if-else
-      // silently fell through to Crops.png for any unknown sheet, so a
-      // request like { sheet: 'gems', frame: 4 } rendered as rainberry
-      // stage 4 (the "berry bush" the user reported on sapphire offers).
-      const SHEETS = {
-        crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
-        springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
-        gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
-        coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
-        // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
-        // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
-        // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
-        // Without this entry, every bar fell through to crops.png frame 0 and
-        // rendered as a grass sprout in smith trade modals.
-        bars:        { url: 'assets/Icons/RPG icons/Extras/Bars and ores.png', cols: 16, srcW: 256, srcH: 64 },
-        // Animal produce — 32×16 (2 frames). frame 0 = standalone item.
-        icon_egg:    { url: 'assets/Icons/Food Icons/Chicken Egg.png',        cols: 2,  srcW: 32,  srcH: 16  },
-        icon_milk:   { url: 'assets/Icons/Food Icons/Small Cow Milk.png',     cols: 2,  srcW: 32,  srcH: 16  },
-        // Orchard fruit — 32×16 each (frame 0 = whole fruit).
-        icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
-        icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_orange:  { url: 'assets/Icons/Food Icons/Orange.png',            cols: 2,  srcW: 32,  srcH: 16  },
-        icon_coconut: { url: 'assets/Icons/Food Icons/Coconut.png',           cols: 2,  srcW: 32,  srcH: 16  },
-        // Fish — 64×16 (4 frames). No dedicated minnow art — reuse the
-        // smallmouth bass icon (same family, just smaller fiction).
-        icon_minnow:     { url: 'assets/Icons/Fish/Sea/Smallmouth Bass.png',    cols: 4, srcW: 64, srcH: 16 },
-        icon_bass:       { url: 'assets/Icons/Fish/River/Large Mouth Bass.png', cols: 4, srcW: 64, srcH: 16 },
-        icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
-        icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
-        icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
-        // Consumables + wilderness drops.
-        icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
-        icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
-        // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
-        icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
-        // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
-        // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
-        icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
-        icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
-        icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
-        icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
-        // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
-        // cowrie used as the inventory icon.
-        shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
-        // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
-        // (top-left grass tuft) backs the longgrass inventory icon now
-        // that the procedural sprite has been retired.
-        props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
-        // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
-        // is the brown leather boot used as the fishing-junk inventory icon.
-        pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
-        // wood — 48×16, 3 frames. MINERAL_ICON_SHEET.wood points here. In
-        // practice wood always renders via the baked ITEM_DATA_URLS snapshot
-        // (which alpha-keys the white bg), so this entry is a fallback: if the
-        // bake ever fails it renders wood (white bg and all) instead of
-        // silently falling through to SHEETS.crops → a grass sprout.
-        wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
-      };
-      const sheet = SHEETS[src.sheet] || SHEETS.crops;
+      // Sheet table — ICON_SHEETS, module scope above the class: shared with
+      // IconNet's prewarmer, and not rebuilt on every icon render.
+      const sheet = ICON_SHEETS[src.sheet] || ICON_SHEETS.crops;
       const col = src.frame % sheet.cols;
       const row = Math.floor(src.frame / sheet.cols);
       const scale = sizePx / 16;
       css = base + `background-image:url('${sheet.url}');`
         + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
+      if (!IconNet.ready(sheet.url)) netUrl = sheet.url;
     }
     // Shiny variants tint the base sprite warm-gold with a sheen.
     if (css && item && item.shiny) {
@@ -9173,6 +9404,10 @@ class MapScene extends Phaser.Scene {
       const el = document.createElement('span');
       if (css) {
         el.style.cssText = css;
+        if (netUrl) {
+          el.className = 'px-icon icon-loading';
+          el.dataset.iconsrc = netUrl;
+        }
       } else {
         // No sprite source resolved — show a neutral placeholder, never an
         // item-emoji (every catalogued item has a real sprite; a bare dot
@@ -9183,12 +9418,35 @@ class MapScene extends Phaser.Scene {
       return el;
     }
     // Inline string form (used inside modal cost/get text).
-    if (css) return `<span style="${css}"></span>`;
+    if (css) {
+      return netUrl
+        ? `<span class="px-icon icon-loading" data-iconsrc="${netUrl}" style="${css}"></span>`
+        : `<span style="${css}"></span>`;
+    }
     return '?';
   }
 
   iconSpanHTML(itemId, sizePx = 20) {
     return this.renderItemIcon(itemId, sizePx, 'inline');
+  }
+
+  // Every PNG a DOM modal can ask for outside the Phaser preloader: the
+  // CSS-clip icon sheets (ICON_SHEETS) plus each gear slot's per-tier art.
+  // Handed to IconNet.prewarm shortly after boot (see update()) so the
+  // treasure / trade / forge modals open with their icons already cached.
+  _prewarmModalIcons() {
+    const urls = new Set();
+    for (const s of Object.values(ICON_SHEETS)) urls.add(s.url);
+    for (const kind of ['relic', 'armor']) {
+      const defs = kind === 'relic' ? RELIC_DEFS : ARMOR_DEFS;
+      for (const slot of Object.keys(defs)) {
+        for (const tier of Object.keys(TIER_BY_NUM)) {
+          const p = gearAssetPath(kind, slot, Number(tier));
+          if (p) urls.add(p);
+        }
+      }
+    }
+    IconNet.prewarm([...urls]);
   }
 
   // Canonical relic / armor icon renderer — used by BOTH the Stats modal and
@@ -9547,7 +9805,11 @@ class MapScene extends Phaser.Scene {
     const col = frame % sheetCols;
     const row = Math.floor(frame / sheetCols) % sheetRows;
     const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
-    return `<span style="display:inline-block;vertical-align:middle;`
+    // Gear PNGs load only when a modal first shows them — never through the
+    // Phaser preloader — so on a cold cache the icon is blank for the whole
+    // fetch. IconNet holds the footprint with a pulsing plate until it lands.
+    const net = IconNet.ready(path) ? '' : ` class="px-icon icon-loading" data-iconsrc="${path}"`;
+    return `<span${net} style="display:inline-block;vertical-align:middle;`
       + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
       + `background-position:-${col * sizePx}px -${row * sizePx}px;"></span>`;
