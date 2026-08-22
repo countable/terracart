@@ -2699,41 +2699,65 @@ class MapScene extends Phaser.Scene {
       return !BLOCKED.has(grid[cy * N + cx]);
     };
 
-    // Ring scan, nearest first, in a fixed order — no RNG, so a rebuild that
-    // somehow reached this path again would reach the same answer.
+    // Seating spreads items around the COMPASS, not along one edge. The
+    // obvious ring scan (for dy… for dx… take the first free cell) walks the
+    // ring's cells in order and so drops every item on its north row, two
+    // cells apart: a player who walked north tripped over all of them and one
+    // who walked any other direction found nothing at all. Instead each item
+    // gets a target bearing, evenly spaced around the circle, and takes the
+    // free cell closest to it — so setting off in any direction runs into
+    // something. Fixed order, no RNG: a rebuild reaching this path again would
+    // reach the same answer.
     const placed = [];
-    const seat = (kind, rMin, rMax) => {
+    // Every free cell in a radius band, with its bearing from the anchor.
+    const bandCells = (rMin, rMax) => {
+      const out = [];
       for (let r = rMin; r <= rMax; r++) {
         for (let dy = -r; dy <= r; dy++) {
           for (let dx = -r; dx <= r; dx++) {
             if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
             const cx = spawnIX + dx, cy = spawnIY + dy;
             if (!free(cx, cy)) continue;
-            // Keep the seeded items a couple of cells apart so they read as
-            // scenery rather than a stockpile.
-            let tooClose = false;
-            for (const p of placed) {
-              if (Math.max(Math.abs(p.cx - cx), Math.abs(p.cy - cy)) < 2) { tooClose = true; break; }
-            }
-            if (tooClose) continue;
-            const raw = { x: tx0 + (cx + 0.5) * this.cellM, y: ty0 + (cy + 0.5) * this.cellM };
-            // Snap to the canonical global cell centre, the basis every tap
-            // and every other placed object uses (see seatCrate).
-            const abs = worldMetersToAbsCell(this, raw.x, raw.y);
-            const c = absCellCenterMeters(this, abs.cellIX, abs.cellIY);
-            const rec = { k: kind, x: c.x, y: c.y, cx, cy,
-              id: `starter_${kind}_${abs.cellIX}_${abs.cellIY}` };
-            if (kind === 'tree') rec.variant = 1 + ((abs.cellIX ^ abs.cellIY) & 3);
-            if (kind === 'wreck') {
-              rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
-            }
-            taken.add(key(cx, cy));
-            placed.push(rec);
-            return true;
+            out.push({ cx, cy, r, bearing: Math.atan2(dy, dx) });
           }
         }
       }
-      return false;
+      return out;
+    };
+    const seatAt = (kind, cells, bearing) => {
+      let best = null, bestScore = Infinity;
+      for (const c of cells) {
+        if (c.used) continue;
+        // Keep the seeded items a couple of cells apart so they read as
+        // scenery rather than a stockpile.
+        let tooClose = false;
+        for (const p of placed) {
+          if (Math.max(Math.abs(p.cx - c.cx), Math.abs(p.cy - c.cy)) < 2) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+        let da = Math.abs(c.bearing - bearing);
+        if (da > Math.PI) da = 2 * Math.PI - da;
+        // Direction dominates; among cells pointing the same way, take the
+        // nearer one so the player meets it sooner.
+        const score = da * 100 + c.r;
+        if (score < bestScore) { bestScore = score; best = c; }
+      }
+      if (!best) return false;
+      best.used = true;
+      const raw = { x: tx0 + (best.cx + 0.5) * this.cellM, y: ty0 + (best.cy + 0.5) * this.cellM };
+      // Snap to the canonical global cell centre, the basis every tap and
+      // every other placed object uses (see seatCrate).
+      const abs = worldMetersToAbsCell(this, raw.x, raw.y);
+      const c = absCellCenterMeters(this, abs.cellIX, abs.cellIY);
+      const rec = { k: kind, x: c.x, y: c.y, cx: best.cx, cy: best.cy,
+        id: `starter_${kind}_${abs.cellIX}_${abs.cellIY}` };
+      if (kind === 'tree') rec.variant = 1 + ((abs.cellIX ^ abs.cellIY) & 3);
+      if (kind === 'wreck') {
+        rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
+      }
+      taken.add(key(best.cx, best.cy));
+      placed.push(rec);
+      return true;
     };
 
     // The token pair goes in the pocket; everything else in the ring outside
@@ -2745,15 +2769,25 @@ class MapScene extends Phaser.Scene {
     const POCKET = HomeArea.POCKET_CELLS;
     const TOKEN0 = HomeArea.TOKEN_MIN_CELLS;
     const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
-    if (plan.tokens.tree && seat('tree', TOKEN0, POCKET)) {
+    const pocketCells = bandCells(TOKEN0, POCKET);
+    // Opposite sides of the doorway, so one doesn't hide behind the other.
+    if (plan.tokens.tree && seatAt('tree', pocketCells, 0)) {
       plan.need.tree = Math.max(0, plan.need.tree - 1);
     }
-    if (plan.tokens.rock && seat('rock', TOKEN0, POCKET)) {
+    if (plan.tokens.rock && seatAt('rock', pocketCells, Math.PI)) {
       plan.need.rock = Math.max(0, plan.need.rock - 1);
     }
-    for (let i = 0; i < plan.need.tree; i++)  seat('tree', R0, R1);
-    for (let i = 0; i < plan.need.rock; i++)  seat('rock', R0, R1);
-    for (let i = 0; i < plan.need.wreck; i++) seat('wreck', R0, R1);
+    // Round-robin the kinds into the queue before assigning bearings, so each
+    // direction out of home offers a mix rather than a wedge of all-trees.
+    const queue = [];
+    const pools = [['tree', plan.need.tree], ['rock', plan.need.rock], ['wreck', plan.need.wreck]];
+    for (let n = 0; queue.length < plan.need.tree + plan.need.rock + plan.need.wreck; n++) {
+      for (const [kind, count] of pools) if (n < count) queue.push(kind);
+    }
+    const ringCells = bandCells(R0, R1);
+    for (let i = 0; i < queue.length; i++) {
+      seatAt(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
+    }
 
     // Freeze BOTH halves — what was added and what was tamed. Without the
     // second, a rebuild regenerates the naturals at full tier and the home
