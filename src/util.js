@@ -63,10 +63,29 @@ const MAPLE_VISUAL_MUL = 0.90;
 // other species at those sizes — knock an extra 10% off those two classes
 // only (stacks on MAPLE_VISUAL_MUL). Visual-only, like the factor above.
 const MAPLE_BIG_VISUAL_MUL = 0.90;
+// Per-species canopy base — the scale a tree of that species draws at with no
+// crown/size information. Maple's sheet is drawn smaller inside its frame, so
+// its base is larger; that difference is a SPRITE-SHEET fact, not a size one,
+// which is why treeSizeClass divides it back out before thresholding.
+function treeSpeciesBaseScale(o) {
+  return (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+}
+// Maple-sheet growth stage: the maple sheet (also the fallback for a tree with
+// no species) draws 1=sprout, 2=young, 3=mature off `variant`, so a size-less
+// maple's DRAWN size is its growth stage, not its canopy scale. render.js picks
+// the frame with this same function so the art and the size class can't drift.
+function treeUsesGrowthSheet(o) {
+  return !o.size && (!o.species || o.species === 'maple');
+}
+function treeGrowthStage(o) {
+  const v = Math.round(Number(o && o.variant));
+  // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
+  return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;
+}
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
 // shrink. treeSizeClass thresholds against this so the size tiers stay stable.
 function treeBaseScale(o) {
-  const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+  const base = treeSpeciesBaseScale(o);
   // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
   // sprite tiers, which the "tier harvesting by size" gating reads back via
   // treeSizeClass. Prefer it over the continuous crown_m scale.
@@ -101,12 +120,19 @@ function treeSizeClass(o) {
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
-  // Size-less trees (OSM / procedural forest) fall back to the canopy scale —
-  // the pre-maple-shrink value so a maple still classes 'full' off its 0.85.
-  const s = treeBaseScale(o);
-  if (s >= 0.85) return 'full';
-  if (s >= 0.62) return 'medium';
-  return 'small';
+  // Size-less trees (OSM / procedural forest) fall back to the canopy scale.
+  // Threshold the CROWN MULTIPLIER, not the raw scale: dividing the species
+  // base back out means a size-less tree classes off its crown alone, the same
+  // for every species. Thresholding the raw scale instead used to read maple's
+  // larger sheet base (0.85 vs 0.62) as a larger TREE, so every size-less maple
+  // classed 'full' — and with the hardwood +1 on top, a sapling-sized maple
+  // demanded the same Gold axe as a large one.
+  const mul = treeBaseScale(o) / treeSpeciesBaseScale(o);
+  let cls = mul >= 1.37 ? 'full' : mul >= 1 ? 'medium' : 'small';
+  // A maple-sheet tree draws its growth stage, so cap the class by what's
+  // actually on screen — a sprout/young frame can't gate like a mature canopy.
+  if (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) cls = 'small';
+  return cls;
 }
 // Species shifts the felling difficulty on top of the size class. Pine is a
 // SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
@@ -251,16 +277,31 @@ function setOf(arr) {
 // Held at the baseline those drew the same ~2.3-cell roof as a 19 m fort, and
 // the footprint read as a field of bare brick with a toy building parked in the
 // middle. Growing the art to its own footprint fixes that; FORT_MAX_SCALE stops
-// a huge polygon filling the screen with one roof (3× the 0.35 fort baseline is
-// ~7 cells / 49 m wide). The game runs pixelArt:true, so the upscale stays
-// crisp rather than blurring.
+// a huge polygon filling the screen with one roof. The game runs pixelArt:true,
+// so the upscale stays crisp rather than blurring.
+//
+// FORT_MAX_SCALE was originally 1.05 (~7 cells / 49 m wide) — nearly two-thirds
+// of the 11-cell viewport, which read as oversized rather than as a landmark
+// you could still see around. 0.65 (~4.3 cells / 30 m) still reads as clearly
+// bigger than an ordinary house, just not screen-filling.
 //
 // Buildings with no area (the synthetic starter trailer, sandbox houses) and
 // unmeasurable frames keep the baseline untouched.
-const FORT_MAX_SCALE = 1.05;
+const FORT_MAX_SCALE = 0.65;
+// Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
+// polygon, the roof never draws narrower than this. Unfloored, a sub-cell
+// footprint shrank the art toward half a cell, which read as yard clutter
+// rather than a dwelling. Expressed in cells (not scale) so it lands the same
+// on every frame width — the base house frame is 72 px, the wreck 80 px. Kept
+// under the 0.6-baseline width (72 × 0.6 / 32 = 1.35 cells) so bigger houses
+// still draw bigger, and paired with the 2-cell footprint bias in worldgen's
+// assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored roof has a pad to
+// stand on.
+const HOUSE_MIN_CELLS = 1.2;
 function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
   if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
   const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
   if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, fit));
-  return Math.min(base, fit);
+  const floor = cellPx > 0 ? (HOUSE_MIN_CELLS * cellPx) / frameW : 0;
+  return Math.min(base, Math.max(fit, floor));
 }

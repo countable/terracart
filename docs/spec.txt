@@ -398,7 +398,12 @@ CHOPPING
    diverge:
      * SIZE CLASS: bush / small / medium / full (large). Detected DeepForest
        trees carry a discrete crown class; size-less OSM/procedural trees fall
-       back to their canopy scale. Required axe tier climbs one step per size:
+       back to their canopy scale — thresholded on the CROWN MULTIPLIER, with
+       the per-species sheet base divided back out, so "maple draws at 0.85 and
+       birch at 0.62" can't read as a bigger tree. A size-less MAPLE-sheet tree
+       also draws a growth stage (sprout/young/mature off `variant`), so its
+       class is capped by the stage on screen: a sprout gates like a small tree,
+       not like a mature canopy. Required axe tier climbs one step per size:
        bush = bare hands (0), small = Wood (1), medium = Copper (2), full =
        Iron (3). Wood yield scales by SIZE: bush/small ×1, medium ×2, full ×4
        (the 2-3 base × the multiplier).
@@ -510,10 +515,13 @@ CHESTS (POI-driven)
    or "Leave for later" (chest kept; it remembers its exact roll in
    save.chestHold so you can't re-roll for something better).
  - opened chests stay open + dimmed and persist (save.opened).
- - every UNOPENED POI pings a slow, subtle ring under it — a thick outline
+ - every UNOPENED POI pings a slow, subtle ring around it — a thick outline
    that expands outward and fades, not a filled disc (~4.5 s per pulse,
    phase hashed off the POI id so a street doesn't throb in unison) —
-   ambience that marks where the places are, drawn under the concrete pad.
+   ambience that marks where the places are. Deliberately exempt from the
+   out-of-reach dim that darkens other ground decoration (tools/layer_audit.js
+   pins this) so it stays legible across the whole visible map, not just the
+   small radius around the player.
  - every POI's concrete pad (and its mini variant, see below) is tinted an
    electric light blue — punchier than the rest of the blue-white treasure
    family — since the pad is the one surface that has to carry "a place
@@ -553,10 +561,17 @@ TREASURE MARKS (X on the ground)
 PATH STONES
 ================================================================================
  - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity while
-   unclaimed cobbles sit at 57%, so a walked path lights up as you go. Every 10 consecutive claimed stones on the
-   same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
-   than 10 pays nothing).
+   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
+   recoloured treasure blue-white (not just less see-through — a genuinely
+   different, lit-looking stone, since a plain alpha bump barely read as
+   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
+   grey, so a walked path visibly lights up as you go. Claiming plays a brief
+   scale-pop on that exact stone so it reads as an event, not a silent swap.
+   Only ~50% of UNCLAIMED path cells draw a decorative pebble at all (a stone
+   on every single 7m cell read as a paved strip, not scattered stepping
+   stones); every CLAIMED cell always draws, so the lit trail never has gaps.
+   Every 10 consecutive claimed stones on the same named path awards 1 coin
+   (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
    fires a one-time completion reward via the unified rarity picker (lowtier
    chest curve at tier 4), shown with the chest reward fanfare. This is on top

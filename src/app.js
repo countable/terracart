@@ -790,10 +790,6 @@ class MapScene extends Phaser.Scene {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
-    // POI halos — the slow glow under every live POI (render.js). Its own layer,
-    // added before the pads, so a halo always sits UNDER the concrete slab no
-    // matter which pool happened to allocate its sprites first.
-    this.poiHaloContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -810,9 +806,11 @@ class MapScene extends Phaser.Scene {
     // LIGHTING — the out-of-reach dim, the underground torch wash, the
     // low-energy pink tint and the white reach outline. It sits here, ABOVE
     // every piece of ground decoration (biome seams, cobbles, road letters,
-    // POI halos, treasure pads, shadows, the haze) and BELOW the standing
-    // sprites, because "outside the lit area" has to mean the whole ground
-    // goes dark — not just the flat terrain fill.
+    // treasure pads, shadows, the haze) and BELOW the standing sprites,
+    // because "outside the lit area" has to mean the whole ground goes dark —
+    // not just the flat terrain fill. POI halos are the one ground element
+    // that sits ABOVE this layer instead — see the note where
+    // poiHaloContainer is created just below, right after this one.
     //
     // These passes used to live in cellGfx, the bottom-most layer, so the dim
     // could only reach the base colour: biome BOUNDARIES in particular stayed
@@ -822,6 +820,20 @@ class MapScene extends Phaser.Scene {
     // full contrast on purpose — see the note on atmosGroundGfx above — and
     // distance, not reach, is what dims them, via atmosFalloffGfx.
     this.reachGfx = this.add.graphics();
+    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
+    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
+    // every other ground layer gets. A halo's whole job is to read as a place
+    // "from across the map" (see render.js's POI-halo comment); crushing it
+    // under the same dim that swallows biome seams and cobbles defeats that —
+    // most of the visible grid sits outside the small reach radius at any
+    // moment, so the ping would only ever show right under the player's feet.
+    // It's still below worldContainer (so it doesn't draw over the chest
+    // itself) and below atmosFalloffGfx (so it still fades with sheer
+    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
+    // ring's own texture is a transparent-centred band, so drawing it above
+    // padContainer here (instead of below, as before) doesn't hide the pad —
+    // the ring just crosses over the slab's rim as it expands.
+    this.poiHaloContainer = this.add.container(0, 0);
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1040,6 +1052,37 @@ class MapScene extends Phaser.Scene {
       }
       rg.generateTexture('halo_poi', 64, 64);
       rg.destroy();
+    }
+    // Activated path-stone art. A claimed stone used to just jump to full
+    // opacity — the same grey pebble, only less see-through, which barely
+    // read as "claimed" next to the unclaimed ones. Bake a genuinely
+    // recoloured copy of the same frame (source-atop clips the tint to the
+    // stone's own silhouette, then a multiply pass re-lays the original
+    // shading on top so it still reads as carved stone, not a flat sticker)
+    // instead of setTint(), which is a no-op under the Phaser Canvas
+    // fallback — see the halo note above. Treasure blue-white (spec §UI
+    // COLOUR LANGUAGE): a claimed stone is progress toward a world reward
+    // (the path's coin milestones + completion chest), the same family as
+    // the POI pad/halo it shares that meaning with.
+    if (!this.textures.exists('cobble_path_active')) {
+      const srcFrame = this.textures.getFrame('cobble', PATH_FRAME);
+      if (srcFrame && typeof document !== 'undefined') {
+        const img = srcFrame.source.image;
+        const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
+        const cvs = document.createElement('canvas');
+        cvs.width = cw; cvs.height = ch;
+        const cctx = cvs.getContext('2d');
+        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        cctx.globalCompositeOperation = 'source-atop';
+        cctx.fillStyle = '#bfe8ff';
+        cctx.fillRect(0, 0, cw, ch);
+        cctx.globalCompositeOperation = 'multiply';
+        cctx.globalAlpha = 0.75;
+        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        cctx.globalAlpha = 1;
+        cctx.globalCompositeOperation = 'source-over';
+        this.textures.addCanvas('cobble_path_active', cvs);
+      }
     }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
@@ -6115,7 +6158,13 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
-    if (!shopType && Math.random() < 0.10) {
+    // SEEDED, not Math.random: this coin decides WHAT the shop is selling, so
+    // an unseeded flip let the player reopen a fort until it came up relic.
+    // Its own lane, so it can't consume a roll the offer itself needs.
+    // (house is always a real object from the tap dispatch, but everything
+    // around here is written null-tolerant, so keep the unseeded fallback.)
+    const swapRoll = house?.id ? this.shopRng(house, 'relicswap')() : Math.random();
+    if (!shopType && swapRoll < 0.10) {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
@@ -6149,7 +6198,7 @@ class MapScene extends Phaser.Scene {
     // Every cash storefront (markets + generic houses) buys for money now;
     // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
     // above). buildShopOffer always returns a cash offer.
-    const offer = this.buildShopOffer(id, baseValue);
+    const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
       this.flash('no deal', sx, sy);
       return;
@@ -7416,6 +7465,18 @@ class MapScene extends Phaser.Scene {
     const rec = tileStones[name] = tileStones[name] || { stones: [], done: false };
     if (rec.done || rec.stones.includes(cellKey)) return false;
     rec.stones.push(cellKey);
+    // Record a short-lived "just claimed" flash for render.js's cobble pass
+    // (see PATH_STONE_FLASH_MS there) — a little scale-pop plays on this
+    // exact cell so claiming a stone reads as an event, not just a silent
+    // opacity change next frame. Keyed by ABS cell so it survives the
+    // tx/ty → tile-local conversion above. Pruned here (not every frame) —
+    // activations are rare enough that this map never grows unbounded.
+    this._pathStoneFlashes = this._pathStoneFlashes || new Map();
+    const flashNow = performance.now();
+    for (const [k, t] of this._pathStoneFlashes) {
+      if (flashNow - t > 1000) this._pathStoneFlashes.delete(k);
+    }
+    this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
     // Spec §PATH STONES: every 10 claimed stones on the same named path awards
     // 1 coin (a 30-stone path pays 3 total; fewer than 10 pays nothing). Pay
     // each 10-stone milestone exactly once as the player walks it. This is in
@@ -7927,7 +7988,14 @@ class MapScene extends Phaser.Scene {
   buildShopOffer(id, baseValue, opts = {}) {
     // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
-    const cashCost = ShopsMath.buyPrice(this.save, baseValue);
+    // Seed the markup roll off the shop's hour bucket when we know which shop
+    // is asking. buyPrice spans 1.2x-3.0x base, so on Math.random the player
+    // could close and reopen the modal until the price came up cheap — the
+    // markup is part of the offer, and the offer holds for the hour.
+    const priceRng = (opts.house && opts.house.id)
+      ? this.shopRng(opts.house, 'price')
+      : undefined;
+    const cashCost = ShopsMath.buyPrice(this.save, baseValue, priceRng);
     return {
       kind: 'money',
       label: `$${cashCost}`,

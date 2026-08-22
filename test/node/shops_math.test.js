@@ -182,3 +182,127 @@ test('standPrice: floors at $1 and never returns a fractional price', () => {
     }
   }
 });
+
+// ── Reopening a shop must not re-roll what it sells ────────────────────────
+// The bug: a fort's offer had two unseeded Math.random() calls behind it — the
+// 10% "sell a relic instead" coin, and the 1.2×–3.0× cash markup. Both sat in
+// the tap handler, so closing and reopening the modal re-rolled them: the
+// player could reopen a fort until it offered a relic, then reopen until the
+// price came up cheap. Everything else about the offer was already derived
+// from the hour bucket, which is what shops_math promises at the top of the
+// file — "the same shop in the same hour shows the same offer".
+//
+// These model an OPEN as "derive the offer from the seeded lanes", the way
+// shopInteract now does, and deliberately do NOT reset save.shopState between
+// opens — persisting it is exactly what the real flow does.
+
+// One "open" of a cash storefront: the relic-swap coin and the marked-up price.
+function openShop(save, house, now) {
+  return {
+    swap: ShopsMath.rng(save, house, 'relicswap', now)() < 0.10,
+    price: ShopsMath.buyPrice(save, 100, ShopsMath.rng(save, house, 'price', now)),
+  };
+}
+
+test('shop offer: reopening within the hour re-derives the identical offer', () => {
+  const save = { offerSalt: 7, relics: {} };
+  const fort = { id: 'h_4343959_8778563', kind: 'house', tier: 11 };
+  const first = openShop(save, fort, 0);
+  for (let open = 0; open < 25; open++) {
+    const again = openShop(save, fort, 0);
+    assert.eq(again.swap, first.swap, `open ${open}: relic-swap coin must not re-roll`);
+    assert.eq(again.price, first.price, `open ${open}: price must not re-roll`);
+  }
+});
+
+test('shop offer: it still holds as the hour advances, and turns over at the bucket', () => {
+  const save = { offerSalt: 7, relics: {} };
+  const fort = { id: 'fort-A', kind: 'house', tier: 11 };
+  const off = ShopsMath.bucketOffset(fort.id);
+  const bucketEnd = HOUR - off;                  // this shop's own rotation moment
+  const first = openShop(save, fort, 0);
+  // Anywhere inside the bucket, the offer is the same one.
+  for (const t of [1, 1000, Math.floor(bucketEnd / 2), bucketEnd - 1]) {
+    const mid = openShop(save, fort, t);
+    assert.eq(mid.swap, first.swap, `t=${t}: same offer inside the hour`);
+    assert.eq(mid.price, first.price, `t=${t}: same price inside the hour`);
+  }
+  // Over the boundary it is allowed to change — and for this shop it does.
+  const next = openShop(save, fort, bucketEnd);
+  assert.truthy(next.price !== first.price || next.swap !== first.swap,
+    'the offer turns over at the hour boundary');
+});
+
+test('shop offer: spending a fort\'s 5 deals does not reshuffle the offer', () => {
+  // A fort allows 5 deals an hour. Recording a deal bumps cur.deals, which must
+  // not feed the offer seed — otherwise buying once would re-roll the rest.
+  const save = { offerSalt: 3, relics: {} };
+  const fort = { id: 'fort-B', kind: 'house', tier: 11 };
+  const first = openShop(save, fort, 0);
+  for (let deal = 1; deal <= ShopsMath.dealCap(fort); deal++) {
+    ShopsMath.bucketState(save, fort, 0).deals = deal;
+    const after = openShop(save, fort, 0);
+    assert.eq(after.swap, first.swap, `after ${deal} deals: swap unchanged`);
+    assert.eq(after.price, first.price, `after ${deal} deals: price unchanged`);
+  }
+});
+
+test('shop offer: two forts in the same hour make their own independent offers', () => {
+  // Stability must come from the seed, not from the offer being constant.
+  const save = { offerSalt: 11, relics: {} };
+  const prices = new Set();
+  for (let i = 0; i < 12; i++) {
+    prices.add(openShop(save, { id: 'fort-' + i, kind: 'house', tier: 11 }, 0).price);
+  }
+  assert.gt(prices.size, 1, 'different shops price the same item differently');
+});
+
+test('shop offer: a paid re-roll is still the one thing that CAN change it', () => {
+  const save = { offerSalt: 5, relics: {} };
+  const fort = { id: 'fort-C', kind: 'house', tier: 11 };
+  const first = openShop(save, fort, 0);
+  ShopsMath.bucketState(save, fort, 0).rerolls += 1;
+  const rerolled = openShop(save, fort, 0);
+  assert.truthy(rerolled.price !== first.price || rerolled.swap !== first.swap,
+    're-roll pivots the seed lane');
+});
+
+// ── The call sites, pinned against the real app.js source ─────────────────
+// The tests above pin what shops_math PROMISES. They cannot catch the bug that
+// actually shipped, which was in the CALLER: shopInteract rolled the relic-swap
+// coin and buildShopOffer rolled the markup with bare Math.random, bypassing
+// the seeded lanes entirely. run.js lifts both method bodies out of src/app.js
+// (app.js needs Phaser, so it can't be loaded here) so these assert on the
+// shipping source.
+
+test('shop source: the relic-swap coin is seeded, not Math.random', () => {
+  const src = SHOP_INTERACT_SRC;
+  // The 10% coin that decides whether a fort sells a relic instead of stock.
+  const line = src.split('\n').find(l => l.includes('< 0.10'));
+  assert.truthy(line, 'found the relic-swap coin');
+  assert.truthy(/shopRng\(/.test(src.slice(0, src.indexOf(line) + line.length)),
+    'the swap roll comes off shopRng');
+  assert.falsy(/Math\.random\(\)\s*<\s*0\.10/.test(src),
+    'a bare Math.random() must not decide what the shop sells');
+});
+
+test('shop source: the markup roll is seeded off the shop bucket', () => {
+  const src = BUILD_SHOP_OFFER_SRC;
+  assert.truthy(/shopRng\(/.test(src), 'buildShopOffer reaches for the seeded rng');
+  // buyPrice(save, baseValue, rng) — the third argument is the whole point;
+  // without it the call falls back to Math.random and the price re-rolls.
+  const call = src.match(/buyPrice\(([^)]*)\)/);
+  assert.truthy(call, 'found the buyPrice call');
+  assert.eq(call[1].split(',').length, 3, 'buyPrice is passed an explicit rng');
+});
+
+test('shop source: no NEW unseeded randomness creeps into the offer path', () => {
+  // Forward-looking guard rather than a regression catcher — unlike the two
+  // pins above, this one also held before the fix. Exactly one Math.random is
+  // expected in this stretch: the documented fallback for a null house on the
+  // swap coin. Anything else rolled between picking the item and presenting it
+  // would re-roll on reopen, so seed it or update this pin deliberately.
+  const stock = SHOP_INTERACT_SRC.slice(SHOP_INTERACT_SRC.indexOf('// Markets skip'));
+  const hits = stock.match(/Math\.random\(\)/g) || [];
+  assert.eq(hits.length, 1, `unseeded rolls in the offer path: ${hits.length}`);
+});

@@ -359,12 +359,12 @@ test('road overlay: a tile with no rasterized grid is simply not punched', () =>
   assert.truthy(scene.roadGeomGfx.lines.length > 0, 'the way is still drawn');
 });
 
-// ── Grain ─────────────────────────────────────────────────────────────────
-// The grain itself is painted by the canvas adapter (no DOM here), but the
-// phase it's given is computed in the shared rebuild path, so the anchoring
-// is testable: it's the screen position the world origin projects to.
+// ── Cobblestone ──────────────────────────────────────────────────────────
+// The stone texture itself is painted by the canvas adapter (no DOM here),
+// but the phase it's given is computed in the shared rebuild path, so the
+// anchoring is testable: it's the screen position the world origin projects to.
 
-test('road overlay: the grain is phased to the world, not the screen', () => {
+test('road overlay: the cobblestone texture is phased to the world, not the screen', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const still = makeOverlayScene();
