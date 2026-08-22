@@ -554,10 +554,17 @@ COMBAT
               NOT pick a target: you aim by turning. 4.5 cells/s, 8-cell range.
      staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range, fired half a beat
               off the bow so carrying both reads as an alternating patter.
-   A shot carries one second of its own tier's melee-equivalent damage, so a
-   bow of tier N landing every shot matches a sword of tier N — the aiming is
-   the cost. Bow and staff no longer speed the melee wheel; the shots are what
-   they contribute. (They still speed the crow/deer HUNT wheel.)
+   RANGED IS PRICED PER LOADOUT. A shot carries one second of its tier's
+   melee-equivalent damage SPLIT ACROSS THE RANGED SLOTS, so your whole ranged
+   kit — bow and staff both, landing every shot — equals ONE sword of that tier,
+   and either one alone is worth half of it. Shots fire themselves at anything
+   on screen, from seven or eight cells, while you walk, needing neither a tap
+   nor the reach the melee wheel needs; and the slots stack. At full melee rate
+   each, that was two swords' worth of damage for no input, on top of the sword.
+   The divisor is the NUMBER OF RANGED SLOTS, not a tuned fraction, so a third
+   ranged weapon would re-price the other two rather than inflate the total.
+   Bow and staff no longer speed the melee wheel; the shots are what they
+   contribute. (They still speed the crow/deer HUNT wheel.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating

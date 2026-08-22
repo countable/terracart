@@ -21,10 +21,21 @@
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
 // `toolDurationMs × hp/15` ms on a target, so the damage per second that
 // reproduces it exactly is `15000 / toolDurationMs` — see `dpsForDurationMs`.
-// One shot carries one second of that same rate, so a bow of tier N landing
-// every shot does exactly what a sword of tier N does in melee. Everything
-// below is derived from that one identity; nothing here is a magic number
-// picked to feel right.
+// That rate is the MELEE rung, and everything below is derived from it;
+// nothing here is a magic number picked to feel right.
+//
+// RANGED IS PRICED PER LOADOUT, NOT PER WEAPON. A shot used to carry a full
+// second of its tier's melee rate, which made a bow of tier N the equal of a
+// sword of tier N — with the aiming meant to be the cost. It isn't much of a
+// cost: shots fire THEMSELVES once a second at anything on screen, from seven
+// or eight cells away, while you keep walking, and they need neither a tap nor
+// the reach the melee wheel needs. And the slots STACK — bow and staff fire
+// independently, so a player carrying both was landing two swords' worth of
+// damage for no input at all, on top of whatever the sword itself was doing.
+// So the rate is now split across the ranged slots: your WHOLE ranged loadout,
+// landing every shot, equals one melee weapon of its tier. That divisor is
+// RANGED_SLOTS.length rather than a tuned fraction, so adding a third ranged
+// weapon re-prices the other two instead of inflating the total again.
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -120,10 +131,15 @@
   const HIT_RADIUS_CELLS = 0.9;
 
   // Damage per shot: one second of that weapon tier's melee-equivalent rate,
-  // fired once a second. An empty slot fires nothing at all.
+  // SPLIT across the ranged slots, fired once a second — see the loadout note
+  // at the top of the file. An empty slot fires nothing at all.
+  //
+  // The floor of 1 is what keeps a wooden weapon firing at all once the split
+  // and the rounding are through; it only ever binds on rungs whose full rate
+  // is already under two per second.
   function shotDamage(relics, slot) {
     if (!relics || !relics[slot]) return 0;
-    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot));
+    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) / RANGED_SLOTS.length;
     return Math.max(1, Math.round(perSecond * FIRE_INTERVAL_MS / 1000));
   }
 
