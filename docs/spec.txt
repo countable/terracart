@@ -1014,6 +1014,83 @@ DIALOGS
    every kind exists in MODAL_KINDS, and no caller fills both halves of a
    trade with the same text.
 
+FOG OF WAR
+ - Land the player has NEVER WALKED is washed 80% black (render.js FOG_ALPHA).
+   Walking reveals a disc of Fog.REVEAL_CELLS (3 cells, ~21 m) around the
+   player; what is revealed stays revealed, per save, forever.
+ - The radius has a HARD CEILING at the viewport half-width. The view is
+   VIEW_CELLS (11) wide, so the player sees 5 cells in every direction: reveal
+   5 or more and every cell is revealed the instant it becomes visible — the
+   fog would still be computed and still be stored and never once be seen. At
+   3 (the reach radius: you reveal what you could have reached out and touched)
+   a 2-cell band of fog rims the view, so walking a street reveals the street
+   and leaves the land either side dark until you go there. fog.test.js pins
+   the bound against the real VIEW_CELLS.
+ - The wash is PURE BLACK, not the biome-tinted `atmos.dim` the out-of-reach
+   wash uses. That dim says "this biome, unlit"; fog says "you don't know", and
+   colouring it would describe terrain the player hasn't seen. It STACKS with
+   the distance falloff (0.90 at the viewport corner), so out at the corners
+   fogged and explored ground are both near black and the fog edge reads
+   mainly in the mid-field — retune the pair together, never the alpha alone.
+ - LAYER: fogContainer is LAST in the display list — above the ground, the
+   lighting dim, the sprites, the rim haze, the distance falloff, the POI name
+   tablets and the tier diamonds. Fog is the strongest claim of any darkening
+   pass, and a label poking through it would name a shop the player has never
+   found. (The player, the GPS ghost and the footprint trail set explicit
+   depths and stay above it — they are the player's own kit, not world
+   information.) Surface only: underground has the torch bubble instead, and
+   a cave walk must not reveal the surface cells above it.
+ - STORAGE is one BIT per cell, packed per tile (src/fog.js), zero-run coded
+   and base64'd into save.fog = { w, tiles: { "tx/ty": blob } }. The Set-of-
+   "ix_iy"-strings shape every other per-cell fact uses (tilled, picked,
+   opened) is wrong here: those are dozens of cells, fog is thousands. Measured
+   over a 5 km walk at a 228-cell tile edge (49°N): 2.1 KB of save across 4
+   tiles, against 25.4 KB of raw bitsets and ~68 KB as a string Set that keeps
+   growing per cell. A fully saturated tile is the bounded worst case at
+   10.1 KB (base64 overhead on a mask the run coder can't help). save.fog
+   records the width it was built at; a save from a different cells-per-tile is
+   DROPPED rather than mis-indexed.
+ - flush() caches the encoded blob per tile and drops it only when a bit is
+   set, so the once-per-7 m save writes re-code the one or two tiles the player
+   is standing across instead of all 64 loaded ones. A reload seeds that cache
+   from the blobs it read, so the first flush of a session re-codes nothing.
+ - The masks live in fog.js's own Map, deliberately NOT on the WorldGen tile
+   cache entries beside `grid` / `roadMask`. Those are derived world state —
+   loadTile LRU-prunes at 64 tiles and re-rasterises every 30 days, and either
+   would silently wipe the player's exploration history.
+ - COST: the reveal bails unless the player changed CELL (once per 7 m), and
+   the renderer rebuilds only on that crossing or when Fog.revision moves —
+   between crossings fogContainer just SCROLLS by the sub-cell fraction, the
+   same trick the biome-seam layer uses. The fog bits are read in the ring scan
+   that already resolves the terrain types, off the same cached tile run (~4
+   mask lookups a frame, not 225), and each row's fogged cells are merged into
+   horizontal runs, so a rebuild is typically under 13 fillRects.
+ - The ONBOARDING TRAIL is revealed when it is laid (_revealStarterTrail), and
+   this is not optional. The starter trail is a SIGHTLINE CHAIN — walk to the
+   crate you can see, and from there the next is in view, and the last puts the
+   relic chest in view — and _placeStarterTrail seats it on the nearest road,
+   BFS'ing up to 15 cells from the home anchor. The walk reveals 3. Shipping
+   fog without this left every starter crate under the 80% wash on a fresh
+   save, with the quest pointing at a road nobody could see. HOME_REVEAL_CELLS
+   (10) covers the tutorial pocket the seater clears — the player's own block,
+   which they are not discovering — and TRAIL_REVEAL_CELLS (5) rings each crate
+   and the relic chest, found by the same `chest_start_` id stamp the gold
+   onboarding arrow keys off. Deliberately NOT one blanket radius around the
+   anchor: that would reveal map in every direction, including the way the
+   trail does not go. starter_relic.test.js drives the real fog lift against
+   the real seater, so moving either can't re-hide the trail.
+ - Fog DEFERS to the UNMAPPED VEIL. A cell whose map tile hasn't arrived is
+   already drawn as the animated survey-line fog that means "loading"; stacking
+   the 80% wash on that would smother the one thing it exists to show. A fully
+   veiled cell is left alone and becomes ordinary fog the moment its tile
+   lands. That handover happens mid-fade on no cell crossing of its own, so
+   while anything on screen is still veiled the fog pass stays dirty and
+   rebuilds every frame — a few frames at the loading frontier, which is
+   exactly the window where the image is genuinely changing.
+ - tools/layer_audit.js pins the layer above every world layer AND checks the
+   pass paints onto fogGfx rather than the terrain graphics — the same bug that
+   left biome seams glowing outside the reach bubble, one layer up.
+
 TEXTURES
  - EVERY opened chest VANISHES, crates included — there is no "looted" sprite.
    An opened low-tier / starter crate used to stay on the map as an open-lid

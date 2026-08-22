@@ -558,6 +558,54 @@
       background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; font-weight: 400; padding: 8px 18px;
     }
+    /* Boot loading overlay — on screen from the very first paint (static
+       HTML, no JS needed to show it), so a cold load reads as the game
+       arriving instead of a black page. Sits UNDER the safety / story /
+       locating overlays (z 100-101): on a first run those carry the wait, and
+       this one takes over the moment they clear if the game isn't ready yet.
+       Driven by window.__bootStatus (script near the boot gate below):
+       indeterminate pulse while the module scripts stream in, then app.js's
+       real asset progress, then a fade on the first rendered frame. */
+    #bootload {
+      position: fixed; inset: 0; z-index: 90;
+      background: #0d0c0a;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      transition: opacity .45s ease;
+    }
+    #bootload.done { opacity: 0; pointer-events: none; }
+    #bootload .box {
+      max-width: 260px; width: 100%; text-align: center;
+      font: 14px ui-monospace, monospace; color: #fff;
+    }
+    #bootload .title {
+      font: 700 18px ui-monospace, monospace; color: var(--gold);
+      letter-spacing: .06em; margin-bottom: 16px;
+    }
+    #bootload .bar {
+      height: 10px; border: 1px solid var(--gold-dark); border-radius: 6px;
+      overflow: hidden; background: #1a1612; padding: 1px;
+    }
+    #bootload .fill {
+      height: 100%; width: 6%; background: var(--gold-dark); border-radius: 4px;
+      transition: width .25s ease;
+    }
+    /* No real number yet (scripts still streaming) — breathe instead of lying
+       still. Replaced by the true asset fraction as soon as app.js reports. */
+    #bootload.indet .fill { animation: bootbreathe 1.2s ease-in-out infinite alternate; }
+    @keyframes bootbreathe { from { width: 6%; } to { width: 24%; } }
+    #bootload .cap { margin-top: 10px; font-size: 12px; opacity: .8; }
+    /* Modal sprite icons whose sheet PNG is still fetching (treasure / trade
+       / forge ceremonies): a soft pulsing plate holds the icon's footprint
+       instead of seconds of blank space. IconNet (app.js) strips the class
+       the moment the sheet decodes, which also clears the plate colour so it
+       can't show through the sprite's transparent pixels. */
+    .px-icon.icon-loading {
+      background-color: #2a2620;
+      border-radius: 4px;
+      animation: iconpulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes iconpulse { from { opacity: .45; } to { opacity: .95; } }
     /* First-load story intro — shown once, right after the safety splash,
        only when there is no prior intro flag (fresh save). Mirrors the
        safety box styling. */
@@ -799,6 +847,16 @@
     </div>
   </details>
   <div id="hud"></div>
+  <!-- Boot loading overlay. Deliberately NOT a .game-modal: it isn't a dialog
+       (nothing to answer, nothing to dismiss) and must not trip the
+       modal-open HUD gate. See the #bootload CSS for the full story. -->
+  <div id="bootload" class="indet" aria-hidden="true">
+    <div class="box">
+      <div class="title">POCKET ACRES</div>
+      <div class="bar"><div class="fill" id="bootload-fill"></div></div>
+      <div class="cap" id="bootload-cap">Packing the wagon…</div>
+    </div>
+  </div>
   <div id="safety" class="game-modal">
     <div class="box">
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
@@ -1733,9 +1791,10 @@
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=7"></script>
   <script src="src/coords.js?v=120"></script>
+  <script src="src/fog.js?v=2"></script>
   <script src="src/biome_profiles.js?v=6"></script>
   <script src="src/worldgen.js?v=214"></script>
-  <script src="src/textures.js?v=169"></script>
+  <script src="src/textures.js?v=170"></script>
   <script src="src/save.js?v=115"></script>
   <script src="src/items.js?v=195"></script>
   <script src="src/inventory.js?v=2"></script>
@@ -1751,13 +1810,52 @@
   <script src="src/quests.js?v=3"></script>
   <script src="src/interactables.js?v=10"></script>
   <script src="src/interact.js?v=224"></script>
-  <script src="src/render.js?v=308"></script>
+  <script src="src/render.js?v=310"></script>
   <script src="src/road_overlay.js?v=9"></script>
   <script src="src/assets.js?v=176"></script>
   <script src="src/sandbox.js?v=37"></script>
   <script src="src/testtools.js?v=8"></script>
   <script src="src/geo.js?v=1"></script>
   <script>
+    // ── Boot loading overlay ────────────────────────────────────────────
+    // Progress plumbing for #bootload. app.js drives it through
+    // window.__bootStatus(frac, label): the Phaser loader's progress maps to
+    // 0→0.85 ("Unpacking supplies…"), create() reports 0.9 ("Surveying the
+    // neighbourhood…"), and the first update() frame sends 1 — the world is
+    // on screen, so the overlay fades and any still-loading map tiles show
+    // as the in-world unmapped shimmer instead. A watchdog re-armed on every
+    // report fades the overlay anyway if the boot dies, so a broken load can
+    // never trap the player behind an opaque screen.
+    (function () {
+      const el = document.getElementById('bootload');
+      if (!el) return;
+      if (window.__TEST_MODE) { el.remove(); return; }
+      const fill = document.getElementById('bootload-fill');
+      const cap = document.getElementById('bootload-cap');
+      let gone = false, watchdog = null;
+      function vanish() {
+        if (gone) return;
+        gone = true;
+        clearTimeout(watchdog);
+        el.classList.add('done');
+        setTimeout(() => el.remove(), 600);   // past the .45s opacity fade
+      }
+      function arm() { clearTimeout(watchdog); watchdog = setTimeout(vanish, 30000); }
+      window.__bootStatus = function (frac, label) {
+        if (gone) return;
+        el.classList.remove('indet');
+        if (typeof frac === 'number') {
+          fill.style.width = Math.max(6, Math.min(100, frac * 100)) + '%';
+        }
+        if (label) cap.textContent = label;
+        // Let the bar visibly reach full before fading — an instant vanish
+        // at 100% reads as the bar never getting there.
+        if (frac >= 1) setTimeout(vanish, 250);
+        else arm();
+      };
+      arm();
+    })();
+
     // ─── Boot gate ────────────────────────────────────────────────────────
     // app.js freezes the world's projection origin at parse time (START_LAT /
     // START_LON, read from save.home), so on a brand-new save that origin
@@ -1773,7 +1871,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=416';
+      const APP_SRC = 'src/app.js?v=419';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

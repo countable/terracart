@@ -76,6 +76,18 @@ const SPRITES = ['worldContainer', 'rampartFrontGfx', 'towerContainer'];
 // the comment at its creation in MapScene.create() for the full story.
 const HALO = ['poiHaloContainer'];
 
+// Fog of war sits at the very TOP of the world display list. Every darkening
+// pass before it had to learn the same lesson: a dim only reaches what is
+// BELOW it (the out-of-reach wash started in cellGfx and left the biome seams
+// glowing; the distance falloff had to move above the sprites so rim objects
+// stopped reading as stickers on dark ground). Fog makes the strongest claim of
+// the three — "you have not been here" — so it must cover the sprites AND the
+// label layer, which is otherwise crisp UI and would name a shop the player has
+// never found.
+const FOG = 'fogContainer';
+const BELOW_FOG = [...GROUND, ...SPRITES, ...HALO,
+  'reachGfx', 'atmosFalloffGfx', 'atmosRimGfx', 'labelContainer', 'tierGfx'];
+
 const CHECKS = [
   {
     name: 'layers: the display list is actually parseable',
@@ -84,8 +96,7 @@ const CHECKS = [
       if (layers.length < 15) {
         throw new Error(`only found ${layers.length} display layers — the scanner is broken`);
       }
-      const missing = [...GROUND, ...SPRITES, ...HALO, 'reachGfx', 'atmosFalloffGfx']
-        .filter((n) => idx(layers, n) < 0);
+      const missing = [...BELOW_FOG, FOG].filter((n) => idx(layers, n) < 0);
       if (missing.length) {
         throw new Error(`layers not found in create(): ${missing.join(', ')}`);
       }
@@ -156,6 +167,39 @@ const CHECKS = [
     },
   },
   {
+    name: 'layers: the fog covers every world layer, labels included',
+    run: () => {
+      const layers = displayLayers();
+      const fog = idx(layers, FOG);
+      const above = BELOW_FOG.filter((n) => idx(layers, n) > fog);
+      if (above.length) {
+        throw new Error(`${above.join(', ')} draw ABOVE the fog layer, so they stay fully lit ` +
+          'over land the player has never visited. A label or tier pip poking through the fog ' +
+          'gives away a place that has not been found yet; a sprite doing it is the same bug ' +
+          'that left biome seams glowing outside the reach bubble. Move fogContainer last in ' +
+          'MapScene.create().');
+      }
+    },
+  },
+  {
+    name: 'layers: the fog pass paints onto the fog layer, not the terrain',
+    run: () => {
+      const src = fs.readFileSync(path.resolve(ROOT, 'src/render.js'), 'utf8');
+      const start = src.indexOf('if (scene.fogGfx && scene.fogContainer)');
+      if (start < 0) throw new Error('render.js no longer routes the fog pass through a fog layer');
+      // Bound the block at the end of drawCells (the only `\n};` at column 0
+      // after it) — slicing to EOF would sweep in every later draw function.
+      const end = src.indexOf('\n};', start);
+      if (end < 0) throw new Error('could not find the end of the fog block in render.js');
+      const block = src.slice(start, end);
+      const stray = block.match(/(?<![\w.])g\.(fillRect|fillStyle)/g);
+      if (stray) {
+        throw new Error(`${stray.length} fog pass(es) paint onto the terrain layer — they would ` +
+          'only darken the base fill, leaving every sprite and label lit.');
+      }
+    },
+  },
+  {
     name: 'layers: the reach passes paint onto the lighting layer, not the terrain',
     run: () => {
       const src = fs.readFileSync(path.resolve(ROOT, 'src/render.js'), 'utf8');
@@ -177,4 +221,4 @@ const CHECKS = [
   },
 ];
 
-module.exports = { CHECKS, displayLayers, GROUND, SPRITES, HALO };
+module.exports = { CHECKS, displayLayers, GROUND, SPRITES, HALO, FOG, BELOW_FOG };
