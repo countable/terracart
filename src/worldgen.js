@@ -454,9 +454,9 @@
       const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
       const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
       let err = dx + dy;
-      const stamp = (cx, cy) => {
+      const stamp = (cx, cy, isElbow) => {
         for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
-          if (ox * ox + oy * oy <= r * r) visit(cx + ox, cy + oy);
+          if (ox * ox + oy * oy <= r * r) visit(cx + ox, cy + oy, isElbow);
         }
       };
       while (true) {
@@ -471,7 +471,7 @@
         // disconnected squares (the renderer draws orthogonal arms only).
         // Stamp the x-stepped intermediate cell too so every diagonal step
         // becomes a real L-elbow in the grid.
-        if (stepX && stepY) stamp(x0, y0 - sy);
+        if (stepX && stepY) stamp(x0, y0 - sy, true);
       }
     }
   }
@@ -531,9 +531,14 @@
       mask[cy * w + cx] = 1;
     });
   }
-  function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under) {
-    forEachLineCell(line, widthCells, mvtToCell,
-      (cx, cy) => paintCell(grid, w, h, cx, cy, type, under));
+  // `allow`, when given, vetoes individual cells — the traversal still walks
+  // the whole way, but only the cells it approves are painted. Footpaths use it
+  // to skip cells they merely clip (see pathCross).
+  function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under, allow) {
+    forEachLineCell(line, widthCells, mvtToCell, (cx, cy, isElbow) => {
+      if (allow && !allow(cx, cy, isElbow)) return;
+      paintCell(grid, w, h, cx, cy, type, under);
+    });
   }
 
   // Post-paint erosion for merged pavement blobs.
@@ -1321,6 +1326,43 @@
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
 
+    // PRE-PASS: measure how far every footpath runs through each cell, BEFORE
+    // any painting. A cell only becomes PATH where a way genuinely crosses it
+    // (see pathCross below), and its total can't be known until every way has
+    // been walked — a cell two ways each clip is crossed by their sum. Doing
+    // this inside the paint loop would judge each cell on the ways seen so far.
+    {
+      const tl = layersByName['transportation'];
+      if (tl) {
+        for (const f of tl.features) {
+          if (f.type !== 2 || !f.geom) continue;
+          if (f.tags && f.tags.service === 'parking_aisle') continue;   // never painted
+          if (classifyLine('transportation', f.tags) !== T.PATH) continue;
+          for (const line of f.geom) accumulateLineSpan(pathSpan, w, h, line, mvtToCell);
+        }
+      }
+    }
+    // A cell earns PATH terrain only where at least one full cell width of way
+    // lies inside it — the path runs THROUGH the cell rather than clipping its
+    // corner or stopping just inside. A clipped cell keeps its own biome: it
+    // stays tillable, spawnable and unclaimable, because there is no path
+    // there. The epsilon keeps a perfectly straight orthogonal crossing (1.0 in
+    // theory) from being rejected by float wobble.
+    const pathCross = new Uint8Array(w * h);
+    for (let i = 0; i < pathCross.length; i++) {
+      if (pathSpan[i] >= PATH_CROSS_MIN_CELLS - 1e-3) pathCross[i] = 1;
+    }
+    // ELBOWS ARE EXEMPT. forEachLineCell stamps one extra cell on each diagonal
+    // step so a width-1 line stays 4-connected — the renderer draws orthogonal
+    // arms only, so without it consecutive cells touch at a corner and the path
+    // reads as disconnected squares. That cell is a connectivity device, not
+    // ground the way crosses, so its span is ~0 by construction and judging it
+    // on span deletes it: measured on a 45-degree footpath, 31 of 65 cells were
+    // left with no 4-connected neighbour. It sits between two cells the line
+    // genuinely runs through, so it is always painted.
+    const pathCrossAt = (cx, cy, isElbow) => isElbow ||
+      (cx >= 0 && cy >= 0 && cx < w && cy < h && pathCross[cy * w + cx] === 1);
+
     for (const name of order) {
       const layer = layersByName[name];
       if (!layer) continue;
@@ -1676,11 +1718,6 @@
           {
             const maskCells = Math.max(1, Math.round(roadOverlayWidthM(f.tags) / cellWidthM));
             for (const line of f.geom) stampMaskLine(roadMask, w, h, line, maskCells, mvtToCell);
-            // Footpaths also record how far they run through each cell, which
-            // is what decides whether the cell earns a cobble (see pathCross).
-            if (t === T.PATH) {
-              for (const line of f.geom) accumulateLineSpan(pathSpan, w, h, line, mvtToCell);
-            }
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,
@@ -1703,7 +1740,10 @@
           // cells. Piers record nothing — they're never eroded and their plank
           // sprite fully covers the cell.
           const under = t === T.PATH ? pathUnder : (t === T.PIER ? undefined : roadUnder);
-          for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell, under);
+          // A footpath paints only the cells it actually crosses; roads and
+          // piers paint every cell they touch, as before.
+          const allow = t === T.PATH ? pathCrossAt : null;
+          for (const line of f.geom) paintLine(grid, w, h, line, t, wCells, mvtToCell, under, allow);
         } else if (f.type === 1 && name === 'poi') {
           // POI points → a generic chest (single sprite, no themed subkinds).
           // Only spawn for "useful" POI classes.  Parking POIs are diverted to treasure marks instead.
@@ -2545,19 +2585,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    // Reduce the accumulated path lengths to the mask the renderer reads: a
-    // cell earns a cobble only where a footpath runs THROUGH it — at least one
-    // full cell width of path inside the cell. A corner clip, or a way that
-    // ends just inside, falls short and stays bare. Note this is the SUM over
-    // every path way in the cell, so a junction where two paths each cut a
-    // corner can still qualify — which is what you want at a crossroads.
-    // The epsilon keeps a perfectly straight orthogonal crossing (exactly 1.0
-    // in theory) from being rejected by float wobble.
-    const pathCross = new Uint8Array(w * h);
-    for (let i = 0; i < pathCross.length; i++) {
-      if (pathSpan[i] >= PATH_CROSS_MIN_CELLS - 1e-3) pathCross[i] = 1;
-    }
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, pathCross };
+    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
   }
 
   function tileEdgeMeters(lat) {

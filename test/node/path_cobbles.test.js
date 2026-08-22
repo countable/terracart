@@ -111,39 +111,57 @@ function pcRasterize() {
   ], CPE, 0, 0, TILE_EDGE_M);
 }
 
-test('path cobbles: the rasterizer publishes a pathCross mask', () => {
-  const e = pcRasterize();
-  assert.truthy(e.pathCross, 'entry carries the mask');
-  assert.eq(e.pathCross.length, CPE * CPE, 'one entry per cell');
+test('path cells: a path crossing the tile paints its cells', () => {
+  const { grid } = pcRasterize();
+  let painted = 0;
+  for (let cx = 12; cx <= 52; cx++) if (grid[20 * CPE + cx] === T.PATH) painted++;
+  assert.gt(painted, 20, 'the way that crosses the tile really is painted');
 });
 
-test('path cobbles: a path crossing the tile marks its cells', () => {
-  const { grid, pathCross } = pcRasterize();
-  let painted = 0, marked = 0;
+test('path cells: a stub that barely enters a cell paints nothing', () => {
+  // A third of a cell of footway is not a crossing, so the cell keeps the park
+  // it was drawn over — it stays tillable and spawnable, because no path runs
+  // through it. This is the whole point: those cells used to become PATH.
+  const { grid } = pcRasterize();
+  assert.eq(grid[50 * CPE + 30], T.PARK, 'the clipped cell is still parkland');
+});
+
+test('path cells: a diagonal path stays 4-connected', () => {
+  // The gate very nearly broke this. forEachLineCell stamps an extra elbow
+  // cell on each diagonal step because the renderer draws orthogonal arms
+  // only — without it consecutive cells touch at a corner and the path reads
+  // as disconnected squares. That elbow is a connectivity device, not ground
+  // the way crosses, so its measured span is ~0 and the gate deleted it:
+  // a 45-degree footpath came out as 31 orphaned cells of 65.
+  const e = WorldGen.rasterizeTile([
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' },
+      geom: [whole()] }] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'path' }, geom: [pcLine([[8, 8], [40, 40]])] },
+      { type: 2, tags: { class: 'path' }, geom: [pcLine([[8, 55], [50, 48]])] },
+    ] },
+  ], CPE, 0, 0, TILE_EDGE_M);
+  const g = e.grid;
+  const isP = (x, y) => x >= 0 && y >= 0 && x < CPE && y < CPE && g[y * CPE + x] === T.PATH;
+  let n = 0, orphan = 0;
+  for (let y = 0; y < CPE; y++) {
+    for (let x = 0; x < CPE; x++) {
+      if (!isP(x, y)) continue;
+      n++;
+      if (!isP(x - 1, y) && !isP(x + 1, y) && !isP(x, y - 1) && !isP(x, y + 1)) orphan++;
+    }
+  }
+  assert.gt(n, 40, 'the diagonal paths were painted');
+  assert.eq(orphan, 0, 'and every path cell has a 4-connected neighbour');
+});
+
+test('path cells: nothing off the line becomes path', () => {
+  const { grid } = pcRasterize();
+  assert.eq(grid[2 * CPE + 2], T.PARK, 'a far corner of the park is untouched');
+  // Neither row either side of the crossing path picks up stray cells.
   for (let cx = 12; cx <= 52; cx++) {
-    if (grid[20 * CPE + cx] === T.PATH) {
-      painted++;
-      if (pathCross[20 * CPE + cx] === 1) marked++;
-    }
+    assert.truthy(grid[18 * CPE + cx] !== T.PATH, `row 18 col ${cx} is not path`);
+    assert.truthy(grid[22 * CPE + cx] !== T.PATH, `row 22 col ${cx} is not path`);
   }
-  assert.gt(painted, 20, 'the path really was painted across the tile');
-  assert.eq(marked, painted, 'and every cell it runs through earns a cobble');
-});
-
-test('path cobbles: a stub that barely enters a cell earns nothing', () => {
-  const { pathCross } = pcRasterize();
-  assert.eq(pathCross[50 * CPE + 30], 0, 'a third of a cell is not a crossing');
-});
-
-test('path cobbles: cells with no path at all stay unmarked', () => {
-  const { grid, pathCross } = pcRasterize();
-  for (let i = 0; i < pathCross.length; i++) {
-    if (pathCross[i] === 1) {
-      assert.truthy(grid[i] === T.PATH || grid[i] === T.ROAD || grid[i] === T.ROAD_MD
-        || grid[i] === T.ROAD_LG || grid[i] === T.PARK,
-        `marked cell ${i} has terrain ${grid[i]}`);
-    }
-  }
-  assert.eq(pathCross[2 * CPE + 2], 0, 'a far corner of the park is bare');
 });
 })();
