@@ -201,6 +201,16 @@
     body.modal-open #money,
     body.modal-open #energy { opacity: 0.25; pointer-events: none; }
     body.modal-open #objective { display: none !important; }
+    /* Before the scene exists there is nothing true to put in the top chips —
+       the markup's "$0" / "⚡100/100" are placeholders, and on a fresh save
+       they sit over the whole opening story before the world boots ($0 then
+       becoming $50 in front of the player). Hidden, not dimmed: dimming is
+       body.modal-open's job and it cannot reach this stretch, since the class
+       is toggled from the scene's update loop. Scoped to the chips alone: what
+       else is on screen during boot is #bootload's business, and nothing here
+       should be adding a second opinion about it.
+       MapScene.updateHUD removes the class on its first real paint. */
+    body.booting #hud-row { visibility: hidden; }
     /* Tile-fetch failure. Tappable — a captive portal / blocked host / 5xx all
        leave navigator.onLine true, so this is the only thing on screen telling
        the player why the world is an empty green field. */
@@ -547,6 +557,31 @@
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
+    /* Viewport too SHORT to carry the game's column — see fitGame's
+       syncTooShort(). Above every other overlay (z 103): whatever else is on
+       screen, none of it is laid out correctly underneath this, so this is the
+       one thing worth reading. */
+    #tooshort {
+      position: fixed; inset: 0; z-index: 103;
+      background: rgba(0, 0, 0, 0.92);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #tooshort .box {
+      max-width: 340px; background: #1a1612; color: #fff;
+      border: 2px solid var(--gold-dark); border-radius: 12px;
+      padding: 22px 20px; text-align: center;
+      font: 14px ui-monospace, monospace; line-height: 1.45;
+    }
+    #tooshort .glyph { font-size: 34px; line-height: 1; margin-bottom: 12px; }
+    #tooshort p { margin: 0 0 14px; }
+    #tooshort .sub { font-size: 12px; opacity: .75; }
+    #tooshort button {
+      background: transparent; color: var(--gold-dark);
+      border: 1px solid #6b5a2c; border-radius: 8px;
+      padding: 10px 18px; font: 400 13px ui-monospace, monospace; cursor: pointer;
+      min-height: 44px;
+    }
     #safety p, #locating p { margin: 0 0 18px; }
     #safety button, #locating button {
       background: var(--gold-dark); color: #1a1612; border: 0;
@@ -771,7 +806,9 @@
     #howto button.secondary[hidden] { display: none; }
   </style>
 </head>
-<body>
+<!-- `booting` hides the money/energy row until the scene has a real balance to
+     put in it; MapScene.updateHUD drops the class on the first paint. -->
+<body class="booting">
   <div id="frame">
     <div id="game">
       <div id="banner">can't reach the map — tap to retry</div>
@@ -836,6 +873,7 @@
           <button id="debug-road-geom">Road geometry: on</button>
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
+          <button id="debug-dragon-powder">Give Dragon Powder</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -855,6 +893,19 @@
       <div class="title">POCKET ACRES</div>
       <div class="bar"><div class="fill" id="bootload-fill"></div></div>
       <div class="cap" id="bootload-cap">Packing the wagon…</div>
+    </div>
+  </div>
+  <!-- Shown when the viewport is too short to lay the game out — see
+       syncTooShort() in the fitGame block below. Carries .game-modal so the
+       bottom HUD cluster is gated off behind it like any other dialog. -->
+  <div id="tooshort" class="game-modal">
+    <div class="box">
+      <div class="glyph" aria-hidden="true">📱</div>
+      <p><strong>Turn your phone upright.</strong></p>
+      <p>Pocket Acres is played in portrait — there isn't room for the map and
+         your bag side by side.</p>
+      <p class="sub">On a computer, make the window taller.</p>
+      <button id="tooshort-ignore" type="button">Show it anyway</button>
     </div>
   </div>
   <div id="safety" class="game-modal">
@@ -1069,6 +1120,52 @@
       root.style.setProperty('--view-h',   Math.max(0, viewH) + 'px');
     }
 
+    // Is there enough HEIGHT to lay the game out at all?
+    //
+    // The portrait branch below fills the width and lets the map bleed a
+    // little under the chrome, so a short PHONE degrades gracefully. The
+    // landscape / desktop branch cannot do that — it is a simulated phone
+    // column floating in a window, and it sizes itself from the vertical
+    // budget with no floor. Under that budget the column shrinks without
+    // limit: an 844×390 viewport (a phone turned sideways) produced a 160px
+    // column, with the objective chip wrapped to three lines across the top
+    // third of the map, the movement stick parked mid-play-field, the
+    // inventory tabs truncated to two characters each and the item row running
+    // off the side.
+    //
+    // Flooring the width does not rescue it — it was tried and measured. The
+    // fixed chrome is TOP_CHROME + INV_CLUSTER = 254px, so a 390px-wide column
+    // wants a 390px-tall map and simply cannot fit inside a 390px-tall
+    // viewport; forcing the width just moves the damage, burying the player
+    // under the inventory bar. There is no scale that works.
+    //
+    // So say so. The manifest already declares `"orientation": "portrait"` —
+    // an INSTALLED PWA is locked and never reaches this state; it is the plain
+    // browser tab, which the manifest doesn't govern, that was left to render
+    // the mess. The threshold is exactly the one the layout already names: the
+    // height cannot carry a PHONE_MIN column.
+    //
+    // Not a dead end — it clears itself the moment the viewport can carry the
+    // game again (fitGame re-runs on resize and orientationchange), and
+    // "Show it anyway" is there for anyone who would rather have the cramped
+    // layout than the card. Portrait never sees it.
+    let __tooShortIgnored = false;
+    function syncTooShort(portrait, vh) {
+      const el = document.getElementById('tooshort');
+      if (!el) return;
+      const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
+      const tooShort = !portrait && !__tooShortIgnored && band < PHONE_MIN;
+      el.style.display = tooShort ? 'flex' : 'none';
+    }
+    document.getElementById('tooshort-ignore')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      __tooShortIgnored = true;
+      // Only for as long as this viewport lasts: rotating back to portrait and
+      // then sideways again is a fresh decision, not a standing one.
+      window.addEventListener('resize', () => { __tooShortIgnored = false; }, { once: true });
+      fitGame();
+    });
+
     function fitGame() {
       const W = BOX_W, H = BOX_H;
       const vw = window.innerWidth;
@@ -1076,6 +1173,7 @@
       const portrait = vw < vh;
       const g = document.getElementById('game');
       if (!g) return;
+      syncTooShort(portrait, vh);
       const root = document.documentElement;
       if (portrait) {
         // CLAMP the column's WIDTH the way landscape does. Unbounded, an iPad
@@ -1321,6 +1419,17 @@
       scene.updateRelicRow?.();
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    // Dragon Powder on demand. This used to be a one-shot grant in the scene's
+    // boot path, which meant every brand-new save opened with a tier-3
+    // transform consumable as the only thing in its bag. Same affordance,
+    // behind the Developer disclosure where it can't reach a real first run.
+    document.getElementById('debug-dragon-powder').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.addToInv?.('dragon_powder', 1);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -1569,16 +1678,22 @@
       render();
       overlay.style.display = 'flex';
     }
-    // Is one of the boot overlays (story slides / safety CTA / locating) still
-    // on screen? #howto sits above all of them in z-order, so anything shown
-    // while one is up lands on top of it — the reason the how-to card queues
-    // rather than showing the moment app.js asks for it.
+    // Is one of the boot overlays (story slides / safety CTA / locating), or
+    // the too-short card, still on screen? #howto sits above all but the last
+    // of them in z-order, so anything shown while one is up lands on top of it
+    // — the reason the how-to card queues rather than showing the moment
+    // app.js asks for it. (#tooshort is ABOVE #howto, which is the same
+    // problem the other way up: the card would be hidden behind it and
+    // silently marked seen.)
     function introOverlayUp() {
-      for (const id of ['story', 'safety', 'locating']) {
+      for (const id of ['story', 'safety', 'locating', 'tooshort']) {
         const el = document.getElementById(id);
-        // Dismissed overlays are removed outright; #safety is also display:none'd
-        // for the duration of the story, and #locating starts hidden.
-        if (el && el.style.display !== 'none') return true;
+        // Tests what actually RENDERS rather than the inline style: dismissed
+        // overlays are removed outright (null here), #safety is display:none'd
+        // for the duration of the story and #locating starts hidden — but
+        // #tooshort is hidden by a STYLESHEET rule until syncTooShort gives it
+        // an inline one, and an inline-style test reads that as "showing".
+        if (el && el.getClientRects().length > 0) return true;
       }
       return false;
     }
@@ -1807,9 +1922,9 @@
   <script src="src/shops.js?v=4"></script>
   <script src="src/rarity.js?v=26"></script>
   <script src="src/loot.js?v=141"></script>
-  <script src="src/quests.js?v=3"></script>
-  <script src="src/interactables.js?v=10"></script>
-  <script src="src/interact.js?v=224"></script>
+  <script src="src/quests.js?v=4"></script>
+  <script src="src/interactables.js?v=11"></script>
+  <script src="src/interact.js?v=225"></script>
   <script src="src/render.js?v=310"></script>
   <script src="src/road_overlay.js?v=9"></script>
   <script src="src/assets.js?v=176"></script>
@@ -1871,7 +1986,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=419';
+      const APP_SRC = 'src/app.js?v=420';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

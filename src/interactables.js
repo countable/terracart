@@ -414,6 +414,12 @@ const INTERACTABLES = {
       const lootQty = result.qty;
       const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
       const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : UI_TREASURE;
+      // A starter supply crate is not treasure. `o.crate` is the same test the
+      // renderer uses to draw the box sprite instead of the tier-2 trunk, and
+      // the same one the label pass uses to keep its name horizontal — so the
+      // ceremony now agrees with both. Everything else, the spawn relic chest
+      // included, keeps the treasure header.
+      const rewardKind = o.crate ? 'supplies' : 'treasure';
       // Chest loot gets the full ceremony modal — quick-feedback flashLoot is
       // reserved for X-marks / harvest / mining (cheap repeating rewards).
       const iconHTML = scene.iconSpanHTML ? scene.iconSpanHTML(lootId, 64) : '';
@@ -425,7 +431,7 @@ const INTERACTABLES = {
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
         scene.showChestRewardModal({
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
             : 'Your bag is full.',
@@ -451,7 +457,8 @@ const INTERACTABLES = {
       markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
-      scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor });
+      scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
+                                   kind: rewardKind });
       return true;
     },
   },

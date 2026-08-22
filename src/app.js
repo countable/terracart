@@ -126,11 +126,21 @@ const TOAST_TIER = {
 // it still carries that. Callers may override the label for a one-off outcome
 // ("MILL LANE complete") and keep the kind's icon; see showChestRewardModal.
 //
+// `supplies` exists because the tutorial's own material handout was opening as
+// TREASURE: the objective chip calls them supply crates, they render as the
+// humble box sprite precisely so they read as supplies, and then 9 wood
+// arrived under a diamond. Spending the treasure ceremony there costs it its
+// meaning for the thing at the end of the same trail that IS treasure — the
+// spawn relic chest. The COLOUR stays blue-white either way: both are things
+// the world gives the player (spec §UI COLOUR LANGUAGE). Only the word and the
+// hero icon change.
+//
 // Keys are referenced by every modal call site and pinned by
 // tools/modal_audit.js, which fails the build if a dialog opens without one.
 const MODAL_KINDS = {
   quest:    { icon: '🏰', label: 'Quest'     },   // castle quest board
   treasure: { icon: '💎', label: 'Treasure'  },   // chests, boxes, loot ceremonies
+  supplies: { icon: '🧰', label: 'Supplies'  },   // the starter crates' handout — see below
   trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
   shop:     { icon: '🪙', label: 'Shop'      },   // buying and selling for money
   trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
@@ -799,16 +809,21 @@ class MapScene extends Phaser.Scene {
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
 
-    // TEST SEED: drop one Dragon Powder into the bag the first time this build
-    // runs, so the transform can be tried without finding one in the wild.
-    // Guarded by a one-shot save flag so it isn't re-granted after it's used.
-    // The flag is versioned (…Powder) so saves that got the earlier
-    // dragon_potion still receive the renamed item once; drop the dead
-    // dragon_potion slot left over from that build at the same time.
+    // Drop the dead dragon_potion slot left over from the build that renamed
+    // it to dragon_powder. A migration, not a grant: it only ever REMOVES a
+    // stack no handler can spend any more.
+    //
+    // This used to also push one dragon_powder into the bag ("TEST SEED", so
+    // the transform could be tried without finding one in the wild). That ran
+    // on a brand-new save too, which made a tier-8 transform consumable the
+    // first and ONLY thing in a new player's bag — the sole count pip on the
+    // opening screen, on a tab the fresh-save default doesn't even show, and
+    // flatly against the starter crates' premise that the bag starts empty.
+    // The dev affordance it existed for is now the ☰ › Developer › "Give
+    // Dragon Powder" button, which is where a dev affordance belongs.
     if (!this.save.gotDragonTestPowder) {
       this.save.gotDragonTestPowder = true;
       this.save.inv = (this.save.inv || []).filter(s => !s || s.id !== 'dragon_potion');
-      this.save.inv.push({ id: 'dragon_powder', count: 1 });
       persistSave(this.save);
     }
 
@@ -1600,6 +1615,7 @@ class MapScene extends Phaser.Scene {
     this.hud = document.getElementById('hud');
     this.moneyEl = document.getElementById('money');
     this.banner = document.getElementById('banner');
+    this._settleInvCatOnBoot();
     this.buildInventoryDOM();
 
     // First-session objective chip. A save that predates the starter ladder is
@@ -3619,6 +3635,14 @@ class MapScene extends Phaser.Scene {
   // lives here once instead of being re-derived (identically) at each site.
   // Returns the distance to the target in metres so callers can decide when
   // "close enough" retires their arrow.
+  //
+  // Draws NOTHING for a target already inside the viewport (see below). That
+  // is deliberately here and not at the call sites: it is a fact about what an
+  // edge compass is for, not a policy any one caller owns, and the callers'
+  // own retire rules (the delivery waypoint's 1.2 cells, the starter arrow's
+  // 1.5) are about clearing their STATE, which still happens on their own
+  // terms. The return value is unchanged either way, so that logic is
+  // untouched.
   _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
@@ -3627,6 +3651,20 @@ class MapScene extends Phaser.Scene {
     if (!(mag > 0.001)) return mag;
     const ux = dxM / mag, uy = dyM / mag;
     const dist = Math.min(this.viewSize / 2 - 18, 140);
+    // An edge compass is for a target you CANNOT SEE. Once the target's own
+    // cell is inside the masked map rect, the arrow stops being a bearing and
+    // becomes clutter parked on the world — and because it parks on a FIXED
+    // ring (dist, ~4.4 cells) while the target slides in toward it, the two
+    // meet: the gold triangle lands squarely on the first supply crate on the
+    // opening screen, hiding the very thing it is pointing at, and pointing
+    // past it. Reproduced at 390×844, 360×640 and 768×1024 on a fresh save.
+    //
+    // Half a cell of inset so a target sitting right on the mask edge — drawn
+    // half-clipped, easy to miss — still gets its arrow.
+    const sx = ((targetWX - pWX) / this.cellM) * CELL_PX;
+    const sy = ((targetWY - pWY) / this.cellM) * CELL_PX;
+    const half = this.viewSize / 2 - CELL_PX / 2;
+    if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
     const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
@@ -6154,6 +6192,15 @@ class MapScene extends Phaser.Scene {
     if (this.moneyEl) {
       const money = `$${this.save.money ?? 0}`;
       if (this._moneyDOM !== money) { this._moneyDOM = money; this.moneyEl.textContent = money; }
+      // The chip now holds a real balance, so it can be shown. Until this
+      // point body.booting keeps the whole top row off screen: the markup
+      // ships "$0" and "⚡100/100" as placeholder text, and on a fresh save the
+      // scene does not exist for the whole opening story — so the first thing
+      // a new player read was a money chip saying $0, which then became $50
+      // the moment the world came up. (body.modal-open, which dims these two
+      // for a dialog, cannot cover that stretch: it is toggled from the
+      // scene's own update loop, and there is no scene yet.)
+      document.body.classList.remove('booting');
     }
     this.updateEnergyDOM();
     this.updateRelicRow();
@@ -6304,9 +6351,52 @@ class MapScene extends Phaser.Scene {
     if (typeof Quests === 'undefined') return;
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
+    // Bank the step NOW — the money and the advanced ladder are earned whether
+    // or not the player ever looks at the celebration.
     if (done.reward?.money) addMoney(this.save, done.reward.money);
     persistSave(this.save);
     this.buildInventoryDOM();
+    this._celebrateStarterStep(done);
+  }
+
+  // Say that a starter step just completed: a green toast at the view centre
+  // and a 1400 ms hold on the objective chip.
+  //
+  // Always QUEUED, never played inline, because the first step of the ladder —
+  // the one EVERY player completes first — fires from inside the chest
+  // handler, one line before it opens the reward modal. Both halves of the
+  // celebration then played underneath that card: the toast clipped to a
+  // sliver at the modal's top edge, and the chip hold (which body.modal-open
+  // hides outright) expiring before the player had tapped through. They came
+  // back to a chip reading 2/6 with nothing having acknowledged step 1.
+  //
+  // Testing "is a modal open?" right here does NOT work and was the first
+  // attempt: at that moment the reward modal has not been created and
+  // body.modal-open still says no. So the decision waits a frame, for
+  // _installModalPadGate's sync to have looked at the real DOM — that sync
+  // owns the flush. With no dialog in the way the delay is one frame, which
+  // is not perceptible; with one, the cheer waits for it to close.
+  //
+  // Gated on ANY modal rather than on the chest path specifically, so
+  // restoring a wreck (its own ceremony) and any future step that completes
+  // behind a dialog get the same treatment without their call sites knowing.
+  _celebrateStarterStep(done) {
+    (this._pendingStarterCheers = this._pendingStarterCheers || []).push(done);
+  }
+
+  _flushStarterCheers() {
+    const queued = this._pendingStarterCheers;
+    if (!queued || !queued.length) return;
+    this._pendingStarterCheers = [];
+    // Only the LAST one gets the full ceremony: two cheers racing for the same
+    // chip means the first is overwritten mid-hold anyway, and stacking their
+    // toasts on one frame just makes an unreadable pile. The rest are already
+    // banked; the chip resync at the end of the play shows where the ladder
+    // actually stands.
+    this._playStarterCheer(queued[queued.length - 1]);
+  }
+
+  _playStarterCheer(done) {
     this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +$${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
@@ -9182,12 +9272,21 @@ class MapScene extends Phaser.Scene {
     const sync = () => {
       const any = [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
+      // Nothing covering the screen — so anything the starter ladder is
+      // holding can be said now. See _celebrateStarterStep: cheers always
+      // queue and this is the only thing that plays them, which is why the
+      // test is "no modal" rather than "a modal just closed". At the instant a
+      // step completes the answer is not yet knowable: the chest handler
+      // credits the step one line BEFORE it opens the reward modal, so at that
+      // point no modal exists and none of this class's state has been updated
+      // for the one that is about to. One frame later it has.
+      if (!any) this._flushStarterCheers();
     };
     this._modalPadObserver = new MutationObserver(sync);
     // makeModalShell appends its wrap as a direct child of #game…
     if (gameEl) this._modalPadObserver.observe(gameEl, { childList: true });
     // …and the static overlays just flip their own style, so watch that.
-    for (const id of ['story', 'safety', 'locating', 'howto']) {
+    for (const id of ['story', 'safety', 'locating', 'howto', 'tooshort']) {
       const el = document.getElementById(id);
       if (el) this._modalPadObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
     }
@@ -9877,6 +9976,29 @@ class MapScene extends Phaser.Scene {
   }
   // Switch the active type tab and re-anchor the selection to that tab's first
   // entry (or empty). Used by the tab buttons.
+  // Land the inventory on a tab that has something in it — ONCE, at boot.
+  //
+  // save.invCat defaults to 'seed' and otherwise persists whatever tab was
+  // last open. Either can point somewhere empty on the screen the player
+  // arrives at: a fresh save opens on Seeds with nothing in it, and a
+  // returning one opens on the tab it was left on, which may have been emptied
+  // since. Both read as "my bag is broken" on the one screen that has no
+  // history to explain it.
+  //
+  // Deliberately boot-only, NOT part of buildInventoryDOM: mid-session an open
+  // empty tab is a CHOICE (the player tapped it, or just spent the last of a
+  // stack and wants to see that), and re-homing under them there would be the
+  // UI arguing with the tap they just made. At boot there is no such choice to
+  // respect. addToInv already handles the other direction — a new stack pulls
+  // its own tab forward.
+  _settleInvCatOnBoot() {
+    const has = (c) => (c.gear ? this.gearEntriesForCat(c.key) : this.invEntriesForCat(c.key)).length > 0;
+    const cur = INV_CAT_BY_KEY[this.save.invCat];
+    if (cur && has(cur)) return;               // already showing something
+    const stocked = INV_CATS.find(has);
+    if (stocked) this.selectInvCat(stocked.key);   // persists + reconciles selection
+  }
+
   selectInvCat(catKey) {
     if (!INV_CAT_BY_KEY[catKey]) return;
     this.save.invCat = catKey;
