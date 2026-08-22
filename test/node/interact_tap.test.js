@@ -228,7 +228,7 @@ test('release handler: animals cannot be released onto a road-band cell', () => 
   assert.eq(save.inv[0].count, 4, 'no animal consumed');
 });
 
-test('TAP_HANDLERS: plant precedes till (seed-in-hand beats un-till)', () => {
+test('TAP_HANDLERS: plant precedes till (a tilled cell is planted, not re-tilled)', () => {
   const iPlant = HANDLER_NAMES.indexOf('plant');
   const iTill  = HANDLER_NAMES.indexOf('till');
   assert.truthy(iPlant < iTill, 'plant before till');

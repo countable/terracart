@@ -104,3 +104,47 @@ test('migrate: the discovery counter folds into a cap-exempt badge stack', () =>
   assert.eq('discovery' in zero, false, 'zero counter dropped');
   assert.eq(zero.inv.find((s) => s.id === 'discovery'), undefined, 'no empty badge stack');
 });
+
+// ── Dating a save (the first-day grace period) ──────────────────────────────
+// app.js keeps the starting area free of slimes for a save's first day, so it
+// has to know when the save started. A save that predates the field must not be
+// handed a fresh day one every time it loads.
+
+test('migrate: a brand-new save is dated now', () => {
+  const save = {};
+  const before = Date.now();
+  assert.truthy(SaveMigrate.migrate(save), 'stamping is real data — it persists');
+  assert.gte(save.startedAt, before, 'dated at load');
+  assert.falsy(save.startedAt > Date.now(), 'and not in the future');
+});
+
+test('migrate: a save that has been PLAYED is dated to the past, not to today', () => {
+  // The bug this guards: stamping every undated save with today's date gives a
+  // veteran a permanent first day — a fresh grace period on every load.
+  for (const played of [{ tilled: ['1,1'] }, { planted: [{}] }, { opened: ['chest_1'] },
+                        { restoredHouses: { h1: 1 } }, { money: 999 }]) {
+    const save = { ...played };
+    SaveMigrate.migrate(save);
+    assert.eq(save.startedAt, 0, `a save with ${Object.keys(played)[0]} is dated long past`);
+  }
+});
+
+test('migrate: a date already on the save is never rewritten', () => {
+  const save = { startedAt: 12345 };
+  SaveMigrate.migrate(save);
+  assert.eq(save.startedAt, 12345, 'the save keeps the day it started');
+  // Including across a session where the player has since played.
+  const veteran = { startedAt: 999, tilled: ['1,1'] };
+  SaveMigrate.migrate(veteran);
+  assert.eq(veteran.startedAt, 999, 'playing does not re-date it');
+});
+
+test('hasPlayed: the tells are marks only a player could leave', () => {
+  assert.falsy(SaveMigrate.hasPlayed({}), 'an empty save has not been played');
+  assert.falsy(SaveMigrate.hasPlayed(null), 'nor a missing one');
+  assert.falsy(SaveMigrate.hasPlayed({ tilled: [], planted: [], opened: [] }),
+    'nor one with the fields present but empty');
+  assert.truthy(SaveMigrate.hasPlayed({ tilled: ['1,1'] }), 'broken ground');
+  assert.truthy(SaveMigrate.hasPlayed({ opened: ['c'] }), 'an opened chest');
+  assert.truthy(SaveMigrate.hasPlayed({ restoredHouses: { h: 1 } }), 'a restored neighbour');
+});

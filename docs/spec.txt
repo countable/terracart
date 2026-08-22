@@ -104,9 +104,14 @@ ONBOARDING (the first session)
    Its id carries the `chest_start_` stamp, so the crate compass points at it
    too. Never a downgrade: the payload is reconciled against what the player
    already owns (reconcileRelicOffer), same as any other gear roll.
- - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
-   ladder's plant step — it otherwise fires on exactly the tap a beginner makes
-   and silently deletes the plot they just paid energy for.
+ - NO SLIMES AT HOME ON DAY ONE. For the save's first 24h (save.startedAt) the
+   fauna spawner seats no slime within SLIME_FREE_CELLS (20) of the starting
+   anchor — the whole area the first day asks a player to walk. Day one is the
+   one day they have no weapon, no relic and an empty bag, and a slime on the
+   tutorial plot is the ladder being interrupted rather than a fight. It is a
+   spawn rule, not a cull: the tile keeps its slime count (the cell is
+   re-rolled), the rest of the map is unchanged, and it expires. Baked in at
+   tile-build time, so nothing pops into being when the clock runs out.
  - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
    rather than being told to go till their first cell.
 
@@ -352,7 +357,8 @@ INTERACTION MODEL
     13)  planted cell → harvest / advance / water / nag
     14)  refill watering can from a WATER cell
     15)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
-    16)  tilled empty cell + seed → plant; tilled empty cell + no seed → un-till
+    16)  tilled empty cell + seed → plant; with no seed selected it says so and
+         LEAVES THE SOIL ALONE (the un-till toggle is gone — see FARMING LOOP)
     17)  untilled tillable cell → till it
     18)  non-tillable terrain → flavour label (water / building / road / path)
  - the auto-till fallthrough refuses to till any cell occupied by a wildplant,
@@ -370,6 +376,14 @@ FARMING LOOP
      1) tap untilled tillable cell → TILL (brown tint). Costs 2 energy (Hoe
         relic: each tier shaves cost and adds a per-tier chance of free tilling).
      2) tap tilled empty cell with a seed selected → PLANT (consumes 1 seed).
+        With nothing plantable selected the tap only says "Select a seed from
+        your bag first." — soil is NEVER un-tilled by tapping it. That toggle
+        existed until Aug 2026 and fired on exactly the tap a beginner makes
+        (break ground, tap it to ask what now), handing the plot they had just
+        paid energy for back to grass under a message that read like progress.
+        It was first suppressed during the ladder's planting step, which was
+        the tell that the behaviour was wrong rather than its timing: soil is
+        never in the way, so there is nothing an undo is for.
      3) tap planted dry cell → WATER (darker tint).
      4) tap the watered cell after the stage hold → ADVANCE one stage (dry
         again). Each stage needs one watering then a 15-min hold
@@ -528,7 +542,9 @@ CREATURES
    aversion). Pick it back up any time.
  - CROWS additionally try to destroy nearby crops over time — scarecrows and
    defeating them are the counters.
- - SLIMES are an energy-leeching PEST (50/tile, every natural biome). They ooze
+ - SLIMES are an energy-leeching PEST (50/tile, every natural biome) — except
+   within 20 cells of the starting anchor during a save's FIRST DAY, which is
+   kept clear of them (see ONBOARDING). They ooze
    in slow hopping drifts and are lazily drawn toward the player (~half their
    hops amble your way). A slime within 1 cell (~5m, adjacent) drains 3 energy
    per second, surfaced as one throttled "🟢 slime drained N⚡" flash (see the

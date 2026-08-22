@@ -588,7 +588,6 @@ const PLAY_TIPS = [
   'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  'Tap a tilled empty cell with no seed selected to un-till it.',
   'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
   // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks are buried in car parks — every parking lot hides one.',
@@ -715,7 +714,6 @@ const ENERGY_COST = {
   rockPlace: 1,
   catch: 9,              // bare-handed; Wood bug net → 3, Frost → 1 (effectiveCatchCost)
   fish: 9,               // bare-handed cast; Wood rod → 3, Frost → 1 (effectiveFishCost)
-  unTill: 0,
   pickup: 0,             // wildplants — free
   chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
                          // (see effectiveChopCost). small/medium/full = ×1/2/4.

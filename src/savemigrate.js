@@ -155,8 +155,45 @@
         if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsPersist = true; }
       }
     }
+    // Date the save (see stampStartedAt) — the first-day grace period reads it.
+    if (stampStartedAt(save)) needsPersist = true;
     return needsPersist;
   }
 
-  root.SaveMigrate = { migrate };
+  // Has this save been PLAYED, or is it a fresh start?
+  //
+  // The tell is any mark the player could only have left themselves: broken
+  // ground, a planted crop, an opened chest, a restored neighbour, or a purse
+  // that has moved off the starting figure. Used for two things that both have
+  // to treat a veteran's save as what it is rather than as a new game: retiring
+  // the starter ladder on a save that predates it (app.js), and dating a save
+  // that predates `startedAt` (below) — which decides whether the first-day
+  // grace period is still running.
+  function hasPlayed(save) {
+    if (!save) return false;
+    return (save.tilled?.length ?? 0) > 0
+        || (save.planted?.length ?? 0) > 0
+        || (save.opened?.length ?? 0) > 0
+        || Object.keys(save.restoredHouses || {}).length > 0
+        || (typeof STARTING_MONEY === 'number'
+            && (save.money ?? STARTING_MONEY) !== STARTING_MONEY);
+  }
+
+  // When this save started, in epoch ms. Read by the first-day grace period
+  // (app.js — the starting area holds no slimes on day one), so it has to be
+  // honest about age: a save that predates the field and has been PLAYED is
+  // dated to the epoch (long past, no grace), and only one that has never been
+  // touched is dated to now. Stamping every legacy save with today's date would
+  // hand a veteran a fresh first day every time the field was added.
+  //
+  // Kept out of migrate()'s backfill block on purpose: this is real data, not a
+  // default, so it forces a persist — the date has to be the same on the next
+  // load or "day one" would follow the player around.
+  function stampStartedAt(save, nowMs) {
+    if (!save || Number.isFinite(save.startedAt)) return false;
+    save.startedAt = hasPlayed(save) ? 0 : (nowMs ?? Date.now());
+    return true;
+  }
+
+  root.SaveMigrate = { migrate, hasPlayed, stampStartedAt };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

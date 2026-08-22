@@ -229,6 +229,7 @@ for (const m of Object.values(MONSTERS)) {
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
+
 // combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
 // before this file so headless tests can use it without Phaser. It needs the
 // monster stats to answer "is this an enemy" and "how much HP", so hand the
@@ -279,6 +280,26 @@ function enemyBounty(kind, depth) {
 const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
+// ── Day one is slime-free at home ────────────────────────────────────────
+// A slime sits on your crops and drains 3 energy a second, and day one is the
+// one day a player has nothing to answer it with: no weapon, no relic, an
+// empty bag and a ladder telling them to stand still and till. Meeting one in
+// the first hour is not a fight, it is the tutorial being interrupted — so for
+// the save's FIRST DAY the fauna spawner seats no slime anywhere near the
+// starting anchor. It is a spawn rule, not a cull: the same number of slimes
+// spawn per tile, they just land outside the home area (the count is preserved
+// by retrying the cell, see tryPlace), and the rest of the map is as it always
+// was — walk a couple of hundred metres and there they are.
+//
+// Baked into the tile at build time, so a tile built during the grace period
+// keeps its clear home area until it is rebuilt: no slime pops into being at
+// the player's feet the moment the clock runs out.
+const FIRST_DAY_MS = 24 * 60 * 60 * 1000;
+// Chebyshev radius of the amnesty, in cells. The starter home's own ring
+// reaches 16 (HomeArea.RING_MAX_CELLS) and the relic chest sits at 11, so this
+// covers everything the first day asks a player to walk to, plus a few cells
+// so a slime isn't spawned right on the edge of it.
+const SLIME_FREE_CELLS = 20;
 // How long a wounded enemy keeps its floating health ring after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
 // feedback for a hit would be the foe eventually vanishing — but a ring that
@@ -1690,13 +1711,7 @@ class MapScene extends Phaser.Scene {
     // they have played at all: any tilled ground, any restored house, any
     // opened chest, or money moved off the starting purse.
     if (typeof Quests !== 'undefined' && !this.save.starter) {
-      const playedAlready =
-        (this.save.tilled?.length ?? 0) > 0 ||
-        (this.save.planted?.length ?? 0) > 0 ||
-        (this.save.opened?.length ?? 0) > 0 ||
-        Object.keys(this.save.restoredHouses || {}).length > 0 ||
-        (this.save.money ?? STARTING_MONEY) !== STARTING_MONEY;
-      if (playedAlready) Quests.starterSkipAll(this.save);
+      if (SaveMigrate.hasPlayed(this.save)) Quests.starterSkipAll(this.save);
     }
     document.getElementById('objective-hide')
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
@@ -2391,10 +2406,17 @@ class MapScene extends Phaser.Scene {
           iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
         })),
     };
+    // Day one holds no slimes at home (see FIRST_DAY_MS). Resolved once per
+    // tile build; null once the grace has lapsed, which is the common case.
+    const slimeFree = this._slimeFreeZone(tx, ty);
     const tryPlace = (kindWant, classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
+        // `continue`, not `return`: the slime is re-rolled onto another cell
+        // rather than dropped, so the amnesty moves slimes out of the starting
+        // area without thinning the tile's population.
+        if (kindStr === 'slime' && slimeFree && slimeFree.has(cx, cy)) continue;
         const t = entry.grid[cy * N + cx];
         if (classesOK.has(t)) {
           // Residential cells are private yards — only spawn near a public anchor.
@@ -2626,6 +2648,33 @@ class MapScene extends Phaser.Scene {
       return sv.starterCratesAt;
     }
     return null;  // unresolved — frozen on home-capture reload or Home adoption
+  }
+
+  // The first-day slime amnesty around home, in cells of the tile being built
+  // — or null when it has lapsed (or there is no anchor to measure from yet).
+  // See FIRST_DAY_MS / SLIME_FREE_CELLS. The centre is returned in TILE-LOCAL
+  // cells and is free to be negative or past the tile's edge: a tile a few
+  // hundred metres away simply never has a cell inside the box, which is what
+  // makes the amnesty work across tile seams without a special case.
+  _slimeFreeZone(tx, ty) {
+    const sv = this.save;
+    if (!sv || !Number.isFinite(sv.startedAt)) return null;   // undated save: no grace
+    if (Date.now() - sv.startedAt >= FIRST_DAY_MS) return null;
+    // The frozen trail anchor is where the player actually started; startWorldM
+    // is the projection origin, which is the same thing until a save's home
+    // capture puts them somewhere else (see _starterTrailAnchor).
+    const a = (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x))
+      ? sv.starterCratesAt : this.startWorldM;
+    if (!a || !Number.isFinite(a.x)) return null;
+    const cx = Math.floor((a.x - tx * this.tileEdgeM) / this.cellM);
+    const cy = Math.floor((a.y - ty * this.tileEdgeM) / this.cellM);
+    // `has` travels with the zone so the spawner and the tests ask the same
+    // question of the same object — the containment rule can't be restated
+    // (and mis-stated) at the call site.
+    return {
+      cx, cy, r: SLIME_FREE_CELLS,
+      has: (ix, iy) => Math.max(Math.abs(ix - cx), Math.abs(iy - cy)) <= SLIME_FREE_CELLS,
+    };
   }
 
   // Freeze the starter-trail anchor (idempotent — a save keeps its first

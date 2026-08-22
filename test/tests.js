@@ -359,9 +359,12 @@ test('tilling an empty grass cell adds it to tilledSet', (scene) => {
   assert.gt(scene.save.tilled.length, 0, 'save.tilled persisted');
 });
 
-test('tapping a tilled cell again un-tills it (no seed selected)', (scene) => {
-  // Reuse the cell tilled in the previous test. Convert the saved key
-  // (abs tile-pixel-basis cell index) back to world meters via scene helper.
+test('tapping a tilled cell with no seed leaves the soil alone', (scene) => {
+  // This used to un-till. It fired on exactly the tap a beginner makes — break
+  // ground, tap it to ask what now — and handed back the plot they had just
+  // paid energy for. Reuse the cell tilled in the previous test. Convert the
+  // saved key (abs tile-pixel-basis cell index) back to world meters via the
+  // scene helper.
   assert.gt(scene.tilledSet.size, 0, 'precondition: at least one tilled cell');
   const cellKey = [...scene.tilledSet][0];
   const [cellIX, cellIY] = cellKey.split('_').map(Number);
@@ -369,7 +372,7 @@ test('tapping a tilled cell again un-tills it (no seed selected)', (scene) => {
   teleport(scene, c.x, c.y);
   scene.save.inv = [];
   tapWorld(scene, c.x, c.y);
-  assert.falsy(scene.tilledSet.has(cellKey), 'cell un-tilled');
+  assert.truthy(scene.tilledSet.has(cellKey), 'cell still tilled');
 });
 
 test('water cells are blocked from tilling', (scene) => {

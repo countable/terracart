@@ -340,6 +340,41 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The first-day slime amnesty (_slimeFreeZone) decides whether a save is still
+// inside its first day and, if so, which cells of a tile hold no slime. Pure
+// save + grid math on the scene class, so lift it the same way, along with the
+// two constants it reads.
+{
+  const src = readSrc('app.js');
+  const head = '  _slimeFreeZone(tx, ty) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _slimeFreeZone in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _slimeFreeZone — update run.js');
+    process.exit(2);
+  }
+  let decls = '';
+  for (const name of ['FIRST_DAY_MS', 'SLIME_FREE_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `const ${name} = ${m[1]};\n`;
+  }
+  vm.runInContext(
+    decls
+    + 'globalThis.FIRST_DAY_MS = FIRST_DAY_MS;\n'
+    + 'globalThis.SLIME_FREE_CELLS = SLIME_FREE_CELLS;\n'
+    + `globalThis.slimeFreeZone = function (tx, ty) {\n${src.slice(bodyStart, end)}\n};`,
+    ctx, { filename: 'slimeFreeZone.js' });
+}
+
 // The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one
 // screen out from the anchor and decides which wooden relic is inside it. Pure
 // grid + seeded-rng math, but it lives on the Phaser scene class — lift the

@@ -133,12 +133,15 @@ test('isolation: the two ladders keep their state in separate save keys', () => 
   assert.eq(save.quests.step, 1, 'castle state in save.quests');
 });
 
-// ── The un-till trap ────────────────────────────────────────────────────────
+// ── Tilled soil is never undone by a tap ────────────────────────────────────
 //
-// Tapping tilled soil with nothing selected un-tills it. That is a real,
-// documented toggle — but during the ladder's "plant a seed" step it fires on
-// exactly the tap a confused beginner makes, silently undoing the till they
-// just paid energy for and calling it 'Soil loosened.'. These pin the guard.
+// Tapping tilled soil with nothing selected USED to un-till it. It was a real,
+// documented toggle, and it fired on exactly the tap a confused beginner makes:
+// they break ground, tap it to ask what now, and the plot they just paid energy
+// for silently goes back to grass under a message ('Soil loosened.') that reads
+// like progress. It was first suppressed during the ladder's planting step and
+// then removed outright — soil is never in the way, so there was nothing the
+// undo was for. These pin that a seedless tap only ever instructs.
 
 const plantHandler = () => TAP_HANDLERS.find((h) => h.name === 'plant');
 
@@ -165,24 +168,31 @@ test('plant: mid-ladder, a seedless tap on tilled soil instructs instead of un-t
   assert.truthy(/seed/i.test(flashes.join(' ')), `names the missing seed, got: ${flashes.join(' ')}`);
 });
 
-test('plant: outside the ladder, a seedless tap still un-tills', () => {
+test('plant: past the ladder, a seedless tap STILL leaves the soil alone', () => {
+  // The un-till used to live here, gated to players the ladder had finished
+  // with. A veteran's plot is worth no less than a beginner's.
   const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
   Quests.starterSkipAll(save);
 
   const flashes = [];
   const ctx = tilledCtx(save, flashes);
   assert.eq(plantHandler().try(ctx), true, 'tap is consumed');
-  assert.falsy(ctx.scene.tilledSet.has('7,7'), 'soil is un-tilled — the toggle still works');
-  assert.truthy(/un-till/i.test(flashes.join(' ')), `says what happened, got: ${flashes.join(' ')}`);
+  assert.truthy(ctx.scene.tilledSet.has('7,7'), 'soil survives');
+  assert.eq(ctx.dirty, false, 'and nothing was changed to persist');
+  assert.truthy(/seed/i.test(flashes.join(' ')), `names the missing seed, got: ${flashes.join(' ')}`);
 });
 
-test('plant: the un-till message does not dress a removal up as progress', () => {
-  const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
-  Quests.starterSkipAll(save);
-  const flashes = [];
-  plantHandler().try(tilledCtx(save, flashes));
-  assert.falsy(/loosened/i.test(flashes.join(' ')),
-    'no success-sounding wording for an action that deleted the plot');
+test('plant: nothing in the game undoes a till by tapping it', () => {
+  // Any selection that is not plantable lands in the same branch — a mineral,
+  // a tool, an animal. None of them may cost the player their ground.
+  for (const id of ['wood', 'rockfruit', 'chicken']) {
+    const save = { inv: [{ id, count: 3 }], selSlot: 0, tilled: ['7,7'], planted: [] };
+    Quests.starterSkipAll(save);
+    const flashes = [];
+    const ctx = tilledCtx(save, flashes);
+    assert.eq(plantHandler().try(ctx), true, `tap consumed holding ${id}`);
+    assert.truthy(ctx.scene.tilledSet.has('7,7'), `soil survives holding ${id}`);
+  }
 });
 
 // ── Inventory category tabs ─────────────────────────────────────────────────

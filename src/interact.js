@@ -1402,31 +1402,24 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2c) Tilled empty cell: with seed → plant; otherwise → un-till.
+  // 2c) Tilled empty cell: with a seed → plant. Without one, say so.
+  //
+  // Tapping tilled soil with nothing selected used to UN-TILL it, handing the
+  // ground back to grass. It never earned its keep: the tap that fires it is
+  // the same tap a player makes to ask "what now?" of a plot they have just
+  // spent energy breaking, so the commonest way to meet the feature was to
+  // lose the plot to it — and it was already suppressed during the ladder's
+  // planting step for exactly that reason, which is the tell that the
+  // behaviour was wrong rather than the timing. Soil is never in the way
+  // (anything plantable can be planted on it, and it costs nothing to leave),
+  // so there is nothing to undo. The tap now only ever says what is missing.
   { name: 'plant', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
-      // While the starter ladder is still asking for a first planting, DON'T
-      // un-till: the player has just spent energy breaking this ground and is
-      // tapping it to find out what happens next. Silently undoing it — and
-      // calling that 'Soil loosened.' — reads as success and teaches nothing.
-      // Tell them what's missing instead, and leave the soil alone.
-      const learning = typeof Quests !== 'undefined'
-        && !Quests.starterHidden(save)
-        && Quests.starterCurrent(save)?.event === 'plant';
-      if (learning) {
-        scene.flash('Select a seed from your bag first.', sx, sy);
-        return true;
-      }
-      scene.tilledSet.delete(cellKey);
-      save.tilled = [...scene.tilledSet];
-      ctx.dirty = true;
-      // Name the action taken, not just its texture — "Soil loosened" sounds
-      // like progress when what actually happened is the tilled plot going away.
-      scene.flash('Un-tilled (no seed selected).', sx, sy);
+      scene.flash('Select a seed from your bag first.', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
