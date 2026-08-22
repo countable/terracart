@@ -210,6 +210,25 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
   for (const k of ['tree', 'rock', 'wreck']) assert.gt(SH_HA.QUOTA[k], 0, `${k} quota`);
 });
 
+test('starter home: a rolled synthetic find keeps its slot and its tier', () => {
+  // An earlier pass seated this rock and deliberately rolled it ore-bearing.
+  // The audit must treat it as provisioned — not seat a replacement beside it,
+  // and never hand it to makeStarterUsable to be flattened back to plain.
+  const ore = shAt(12, { kind: 'mineralrock', yieldTier: 3, requiredTier: 2,
+    id: 'starter_rock_x', _synthetic: true });
+  const bigTree = shAt(13, { kind: 'tree', species: 'pine', size: 'medium',
+    id: 'starter_tree_x', _synthetic: true });
+  const plan = shPlan([ore, bigTree]);
+  assert.eq(plan.need.rock, SH_HA.QUOTA.rock - 1, 'the rolled rock fills its quota slot');
+  assert.eq(plan.need.tree, SH_HA.QUOTA.tree - 1, 'the rolled tree fills its quota slot');
+  assert.falsy(plan.downgrade.includes(ore), 'the find is never downgraded back to plain');
+  assert.falsy(plan.downgrade.includes(bigTree), 'nor the bigger tree');
+  // The same objects WITHOUT the synthetic stamp are the real neighbourhood,
+  // and stay downgrade candidates exactly as before.
+  const wild = shPlan([shAt(12, { kind: 'mineralrock', yieldTier: 3, requiredTier: 2, id: 'wild' })]);
+  assert.truthy(wild.downgrade.some(o => o.id === 'wild'), 'a real ore rock can still be tamed');
+});
+
 // ── The seating half, against the real shipping method ────────────────────
 // _provisionStarterHome lives on the Phaser scene class; run.js lifts it out
 // so these drive the actual code that ships, not a transcription. It turns the
@@ -258,14 +277,102 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
     assert.eq(scene.save.starterHome.placed.length, objs.length, 'every placement recorded');
   });
 
-  test('starter home seating: everything it seats is usable by a beginner', () => {
+  test('starter home seating: mostly beginner-usable, with the occasional better find', () => {
+    // The ring fill rolls rarity like a real deposit (WorldGen.rollSurfaceRockTier
+    // for rocks; the same ~10% share grows a tree a size up), so the home area
+    // holds the occasional ore-bearing rock or bigger tree instead of a hundred
+    // identical props. The GUARANTEE that survives: plain, bare-hands items stay
+    // the strong majority, every rolled rock keeps the deposit's pick pairing,
+    // and every rolled tree is a bigger home softwood — a payday, not a wall.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const objs = added(entry);
+    const trees = objs.filter(o => o.kind === 'tree');
+    const rocks = objs.filter(o => o.kind === 'mineralrock');
+    const plainTrees = trees.filter(o => SH_HA.isStarterTree(o));
+    const plainRocks = rocks.filter(o => SH_HA.isStarterRock(o));
+    assert.gt(plainTrees.length, trees.length * 0.6, 'bare-hands trees stay the strong majority');
+    assert.gt(plainRocks.length, rocks.length * 0.6, 'bare-hands rocks stay the strong majority');
+    // A quota of 50+50 at a ~10% roll makes an all-plain outcome astronomically
+    // unlikely — and the roll is seeded, so this fixture's answer never flakes.
+    assert.gt(trees.length + rocks.length - plainTrees.length - plainRocks.length, 0,
+      'at least one better find actually rolled');
+    for (const o of rocks) {
+      if (SH_HA.isStarterRock(o)) continue;
+      assert.inRange(o.yieldTier, 2, 7, `${o.id} rolled a real deposit tier`);
+      assert.eq(o.requiredTier, Math.max(1, o.yieldTier - 1),
+        `${o.id} keeps the deposit's pick pairing`);
+    }
+    for (const o of trees) {
+      if (SH_HA.isStarterTree(o)) continue;
+      assert.truthy(o.size === 'medium' || o.size === 'large', `${o.id} grew a size up`);
+      assert.eq(o.species, SH_HA.STARTER_TREE.species,
+        `${o.id} stays the home softwood`);
+    }
+    for (const o of objs) {
+      if (o.kind === 'house') assert.truthy(SH_HA.isStarterWreck(o), `${o.id} is a rebuildable wreck`);
+    }
+  });
+
+  test('starter home seating: the pocket tokens never roll — the lessons stay bare-handed', () => {
+    // The token pair is what the first chop and the first mine are performed
+    // on; a token that rolled ore would gate the tutorial behind a pick the
+    // player cannot own yet.
     const scene = makeScene(), entry = makeEntry();
     run(scene, entry);
     for (const o of added(entry)) {
+      if (cellsOut(o) > SH_HA.POCKET_CELLS) continue;
       if (o.kind === 'tree') assert.truthy(SH_HA.isStarterTree(o), `${o.id} choppable bare-handed`);
       if (o.kind === 'mineralrock') assert.truthy(SH_HA.isStarterRock(o), `${o.id} breakable bare-handed`);
-      if (o.kind === 'house') assert.truthy(SH_HA.isStarterWreck(o), `${o.id} is a rebuildable wreck`);
     }
+  });
+
+  test('starter home seating: a rolled find survives the freeze and the rebuild', () => {
+    // The roll happens ONCE, at seat time, and is frozen into the record — a
+    // rebuild must reproduce the same rock at the same tier, not re-roll the
+    // world under the player's feet.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const rolled = added(entry).filter(o =>
+      (o.kind === 'mineralrock' && !SH_HA.isStarterRock(o)) ||
+      (o.kind === 'tree' && !SH_HA.isStarterTree(o)));
+    assert.gt(rolled.length, 0, 'this fixture rolled at least one better find');
+    const before = JSON.stringify(rolled.map(o => [o.id, o.yieldTier, o.requiredTier, o.size]));
+    // Rebuild: a fresh entry, same frozen save — everything re-injects from
+    // the records.
+    const entry2 = makeEntry();
+    run(scene, entry2);
+    const again = new Map(added(entry2).map(o => [o.id, o]));
+    const after = JSON.stringify(rolled.map(o => {
+      const r = again.get(o.id);
+      return r ? [r.id, r.yieldTier, r.requiredTier, r.size] : null;
+    }));
+    assert.eq(after, before, 'same finds, same tiers, same sizes');
+  });
+
+  test('surface deposit roll: the shared odds are a plain majority with a real ore tail', () => {
+    // WorldGen.rollSurfaceRockTier is the single source the residential
+    // deposits and the starter provisioner both draw from. Pin its shape:
+    // ~90% plain (SURFACE_PLAIN_ROCK_P), every ore tier reachable, and the
+    // requiredTier = yieldTier − 1 pairing the mining gate expects.
+    const rng = WorldGen.makeRng(0xDEADBEE);
+    const seen = new Array(8).fill(0);
+    let plain = 0;
+    const DRAWS = 20000;
+    for (let i = 0; i < DRAWS; i++) {
+      const t = WorldGen.rollSurfaceRockTier(rng);
+      assert.eq(t.requiredTier, Math.max(1, t.yieldTier - 1), 'pick pairing holds');
+      seen[t.yieldTier]++;
+      if (t.yieldTier <= 1) plain++;
+    }
+    const plainFrac = plain / DRAWS;
+    assert.inRange(plainFrac, WorldGen.SURFACE_PLAIN_ROCK_P - 0.02,
+      WorldGen.SURFACE_PLAIN_ROCK_P + 0.05, `plain stays the majority (${plainFrac})`);
+    for (let tier = 2; tier <= 7; tier++) {
+      assert.gt(seen[tier], 0, `tier ${tier} is reachable`);
+    }
+    // Rarer tiers stay rarer: copper outnumbers the frost end.
+    assert.gt(seen[2], seen[7], 'the tail actually tapers');
   });
 
   test('starter home seating: a bare tile gets exactly one way down, in the ring', () => {

@@ -656,6 +656,32 @@
     return Math.max(0.30, 0.50 - 0.05 * (depth - 1));
   }
 
+  // Ore-subset tier weights for a SURFACE deposit — the residential/yard table
+  // (see the T.RESIDENTIAL cluster spawn, which reads this same array). Applies
+  // to the ~10% of rolls that aren't plain rock (caveRockP(0) above): copper
+  // (T2) is 0.25 of the subset, so copper-bearing rock is ~2.5% of all surface
+  // rocks, tapering to T7 at ~0.3%.
+  const SURFACE_ROCK_TIER_WEIGHTS = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
+  // One surface-deposit rarity roll, shared so anything seeding rocks by hand
+  // (the starter home provisioner in app.js) gets the exact odds a real
+  // residential deposit gets. Same draw shape as _pushMineralrock: the plain
+  // split first, then the weighted tier pick — two rng() draws for an ore
+  // roll, one for a plain one. Returns { yieldTier, requiredTier } with the
+  // requiredTier = yieldTier − 1 pairing the mining gate expects (plain rock
+  // is { 1, 1 }: bare hands, drops stone).
+  function rollSurfaceRockTier(rng) {
+    if (rng() < caveRockP(0)) return { yieldTier: 1, requiredTier: 1 };
+    let totalW = 0;
+    for (const w of SURFACE_ROCK_TIER_WEIGHTS) totalW += w;
+    const r = rng() * totalW;
+    let yieldTier = 7, acc = 0;
+    for (let i = 0; i < SURFACE_ROCK_TIER_WEIGHTS.length; i++) {
+      acc += SURFACE_ROCK_TIER_WEIGHTS[i];
+      if (r <= acc) { yieldTier = i + 1; break; }
+    }
+    return { yieldTier, requiredTier: Math.max(1, yieldTier - 1) };
+  }
+
   const idbName = 'mapgame-tiles';
   let idb;
   function openIDB() {
@@ -1655,7 +1681,7 @@
               // ~0.10 × 0.25 ≈ 2.5 % of all surface rocks. Underground the same
               // shape is reused with a smaller plain fraction (richer with
               // depth) but plain rock always stays the majority (see caveRockP).
-              const weights = [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
+              const weights = SURFACE_ROCK_TIER_WEIGHTS;   // shared with rollSurfaceRockTier
               const { tierW, totalW } = cumWeights(weights);
               // 25..40 rocks per cluster: residential rocks survive the
               // road-adjacency filter at a lower rate, so input must overshoot.
@@ -3928,6 +3954,11 @@
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).
     paintLine,
+    // The surface-deposit rarity roll + its plain fraction — shared with the
+    // starter home provisioner (app.js) so a hand-seeded starter rock gets the
+    // exact odds a real residential deposit gets, and exported for the
+    // headless tests that pin those odds.
+    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0),
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The
