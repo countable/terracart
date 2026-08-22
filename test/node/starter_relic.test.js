@@ -344,25 +344,46 @@
     }
   });
 
-  test('starter trail: a road very near home takes the crates onto its shoulder', () => {
+  test('starter trail: a road very near home takes the whole trail onto its kerb', () => {
     // A street 3 cells from the doorstep — inside NEAR_ROAD_CELLS. The chip
     // says "supply crates were left along the road nearby", so when there
-    // really is a road nearby the crates keep its word: every one seats on
-    // the kerb (beside the road, never on it) instead of spreading down the
-    // walk to the chest. The chest still goes down as the destination.
+    // really is a road nearby the trail keeps its word: every crate seats on
+    // the kerb (beside the road, never on it), walking outward, and the relic
+    // chest sits on the kerb too, at the END of the line — the crates still
+    // lead somewhere.
     const entry = srEntry();
     const ROAD_X = SPAWN + 3;
     for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
     const { crates, chest } = srTrail(entry);
     assert.eq(crates.length, 4, 'all four crates seated');
     assert.truthy(chest, 'the relic chest is still the destination');
-    for (const c of crates) {
-      const cell = srCell(c);
+    const onShoulder = (o, what) => {
+      const cell = srCell(o);
       assert.falsy(entry.grid[cell.cy * N + cell.cx] === T.ROAD,
-        `${c.id} is beside the road, not in the street`);
-      const onShoulder = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
-        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.ROAD);
-      assert.truthy(onShoulder, `${c.id} sits on the road's shoulder`);
+        `${what} is beside the road, not in the street`);
+      assert.truthy([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.ROAD),
+        `${what} sits on the road's shoulder`);
+    };
+    for (const c of crates) onShoulder(c, c.id);
+    onShoulder(chest, 'the chest');
+    // The chest ENDS the line: about a screen out (its road cell is a full
+    // screen; the shoulder may sit one cell nearer), with every crate between
+    // the door and it, stepping outward in the order the arrow visits them.
+    const anchor = { cx: SPAWN, cy: SPAWN };
+    const chestCell = srCell(chest);
+    const chestOut = srCheb(chestCell, anchor);
+    assert.gte(chestOut, VIEW_CELLS - 1, `the chest is about a screen out (${chestOut})`);
+    // Each crate sits before the chest and closes on it — the line walks one
+    // way down the kerb. (Distance to the CHEST, not from the anchor: on a
+    // kerb line the anchor distance is dominated by the sideways offset to
+    // the road, so it can tie between neighbouring crates.)
+    let prevToGo = Infinity;
+    for (const c of crates) {
+      const toGo = srCheb(srCell(c), chestCell);
+      assert.gt(toGo, 0, `${c.id} sits before the chest on the line`);
+      assert.lt(toGo, prevToGo, `${c.id} is closer to the chest than the one before`);
+      prevToGo = toGo;
     }
   });
 

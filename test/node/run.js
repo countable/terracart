@@ -427,7 +427,7 @@ try {
 // REAL slot list rather than a transcription that could drift.
 {
   const src = readSrc('app.js');
-  const head = '  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n';
+  const head = '  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {\n';
   const at = src.indexOf(head);
   if (at < 0) {
     console.error('Could not find _placeStarterRelicChest in src/app.js — update run.js');
@@ -503,7 +503,7 @@ try {
     + 'globalThis.STARTER_RELIC_SLOTS = STARTER_RELIC_SLOTS;\n'
     + 'globalThis.STARTER_RELIC_TIER = STARTER_RELIC_TIER;\n'
     + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
-    + `globalThis.placeStarterRelicChest = function (entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n${body}\n};`,
+    + `globalThis.placeStarterRelicChest = function (entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {\n${body}\n};`,
     ctx, { filename: 'placeStarterRelicChest.js' });
 }
 

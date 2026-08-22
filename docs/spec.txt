@@ -91,24 +91,32 @@ ONBOARDING (the first session)
    a screen away: the one arrow on screen led AWAY from the space the chip was
    asking the player to tap. Unresolvable targets still fall back to the
    crates.
- - THE CRATE TRAIL: the four supply crates are laid along the walked ROUTE from
-   spawn to the relic chest, evenly spaced across the NEAR part of it
-   (TRAIL_SPAN = 0.55) — roughly 2, 3, 5 and 6 cells out with the chest at 11.
-   All four are met early, while a new player is still learning what a crate
-   is, and the walk out to the chest is the clear stretch at the end. Each stop
-   is in view from the one before, so the trail is followable: walk to the
-   crate you can see and the next one appears.
+ - THE CRATE TRAIL: the four supply crates are laid along the walk from spawn
+   to the relic chest, evenly spaced across the NEAR part of it (TRAIL_SPAN =
+   0.55) — roughly 2, 3, 5 and 6 cells out with the chest at 11. All four are
+   met early, while a new player is still learning what a crate is, and the
+   walk out to the chest is the clear stretch at the end. Each stop is in view
+   from the one before, so the trail is followable: walk to the crate you can
+   see and the next one appears.
+   WHAT the walk is depends on the ground. A road or path passing very near
+   the anchor (NEAR_ROAD_CELLS, 6) takes the whole trail onto its kerb: the
+   crates seat down the road's shoulder walking outward — the chip says
+   "supply crates were left along the road nearby", and the trail keeps its
+   word — and the relic chest seats on the shoulder at the END of the line,
+   about a screen out, so the crates still lead somewhere. Otherwise the walk
+   is a 4-connected flood route from the anchor to the ring-seated chest, over
+   ground a trail may cross — roads yes (people cross streets), water and
+   buildings no — so it bends round a pond or a block instead of pointing
+   through it.
    Contents run in the LADDER's order of need, nearest first — seeds (step 3
    sows one), then rockfruit and wood (step 4 rebuilds with them). The nearest
    crate held the wood until Aug 2026, which sent a player who followed the
    chip to "sow a seed" with an empty bag while the seeds sat at the far end.
-   The route is a 4-connected flood from the anchor over ground a trail may
-   cross — roads yes (people cross streets), water and buildings no — so it
-   bends round a pond or a block instead of pointing through it. Crates seat on
-   the route cell itself where that is legal ground (never the road band, never
-   the trailer moat, never on top of something) and one cell off it where it
-   isn't. Fallbacks: the old kerb walk along the nearest road when no chest
-   could be seated at all, then a tight ring round the anchor.
+   Crates seat on legal ground only (never the road band, never the trailer
+   moat, never on top of something): on the kerb, always a shoulder cell; on a
+   flood route, the route cell itself or one cell off it. Fallbacks: an
+   undirected kerb walk along the nearest road when neither line seated
+   anything, then a tight ring round the anchor.
  - THE RELIC CHEST: one real treasure chest (the trunk sprite, not a supply
    crate) seats a screen away from spawn — VIEW_CELLS cells out, so just past
    the edge of the opening view and clear of the cleared tutorial pocket — and

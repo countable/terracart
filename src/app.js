@@ -2741,11 +2741,13 @@ class MapScene extends Phaser.Scene {
   // The crates are a TRAIL, and where they lie depends on the ground:
   //
   //   1. A road or path passing VERY NEAR the anchor (within NEAR_ROAD_CELLS)
-  //      wins. The crates seat along its shoulder, nearest-first — the chip
-  //      says "supply crates were left along the road nearby", and when there
-  //      is a road nearby the trail keeps its word. The relic chest still goes
-  //      down one screen out as the destination; the gold arrow walks the
-  //      player crate to crate and hands them the chest last either way.
+  //      wins. The whole trail moves onto the kerb: the crates seat down the
+  //      road's shoulder walking outward — the chip says "supply crates were
+  //      left along the road nearby", and when there is a road nearby the
+  //      trail keeps its word — and the relic chest seats on the shoulder at
+  //      the END of that line, about a screen out, so the line of crates
+  //      still leads somewhere. The gold arrow walks the player crate to
+  //      crate and hands them the chest last either way.
   //   2. Otherwise they are laid along the walked route from the anchor to
   //      that chest, evenly spaced, so each is in view from the one before
   //      and the last puts the chest in view.
@@ -2884,41 +2886,115 @@ class MapScene extends Phaser.Scene {
     // one screen out (see _placeStarterRelicChest), which is precisely far
     // enough to be off the opening screen — so a player who is only told "look
     // around" never learns it is there. The crates are then laid along the
-    // walked route to it, evenly spaced: walk to the crate you can see, and
-    // from there the next one is in view, and the last one puts the chest in
-    // view. That is the whole onboarding read — a trail with something at the
-    // end of it, rather than four boxes scattered down whichever street
-    // happened to be nearest.
-    const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
-    const trailPath = trail && trail.path;
-    // A road or path within NEAR_ROAD_CELLS of the anchor takes the crates
-    // instead (mode 1 above): skip the route spread so the kerb walk below —
-    // which runs whenever nothing has been seated — lays all four along the
-    // shoulder. roadCell came back nearest-first from the BFS, so its distance
-    // IS the road's distance.
+    // walk to it, evenly spaced: walk to the crate you can see, and from there
+    // the next one is in view, and the last one puts the chest in view. That
+    // is the whole onboarding read — a trail with something at the end of it,
+    // rather than four boxes scattered down whichever street happened to be
+    // nearest. On a kerb spawn (mode 1) the walk IS the road: the crates seat
+    // down its shoulder and the chest ends the line, on the kerb like them.
+    //
+    // How much of the walk the crates occupy. They sit in the NEAR part of
+    // it rather than spread the whole way: a new player should meet all four
+    // early, while they are still learning what a crate even is, and then
+    // have a clear stretch of walking left to the chest at the end. Spread
+    // evenly over the whole route the last crate landed a step or two short
+    // of the chest, which made the supplies feel like something to hike for.
+    const TRAIL_SPAN = 0.55;
+    const TRAIL_GAP = 1;            // Chebyshev spacing between crates on the route
+    // Where a crate (or the kerb chest) may stand — the street, the trailer
+    // moat and occupied cells are all out, and dropping one over them would
+    // break the chain the player is following.
+    const seatOK = (cx, cy) => {
+      if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
+      const t = entry.grid[cy * N + cx];
+      if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
+      if (onRoadBand(cx, cy)) return false;
+      if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
+      return !inTrailerMoat(cx, cy);
+    };
+    // A road or path within NEAR_ROAD_CELLS of the anchor takes the trail
+    // (mode 1 above). roadCell came back nearest-first from the BFS, so its
+    // distance IS the road's distance.
     const roadNear = !!roadCell &&
       Math.max(Math.abs(roadCell.cx - spawnIX), Math.abs(roadCell.cy - spawnIY)) <= NEAR_ROAD_CELLS;
-    if (!roadNear && trailPath && trailPath.length > COUNT) {
-      // How much of the walk the crates occupy. They sit in the NEAR part of
-      // it rather than spread the whole way: a new player should meet all four
-      // early, while they are still learning what a crate even is, and then
-      // have a clear stretch of walking left to the chest at the end. Spread
-      // evenly over the whole route the last crate landed a step or two short
-      // of the chest, which made the supplies feel like something to hike for.
-      const TRAIL_SPAN = 0.55;
-      const TRAIL_GAP = 1;            // Chebyshev spacing between crates on the route
-      // A crate takes the route cell itself where it legally can, and steps one
-      // cell off it where it can't — the street, the trailer moat and occupied
-      // cells are all out, and dropping the crate over them would break the
-      // chain the player is following.
-      const seatOK = (cx, cy) => {
-        if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
-        const t = entry.grid[cy * N + cx];
-        if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
-        if (onRoadBand(cx, cy)) return false;
-        if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
-        return !inTrailerMoat(cx, cy);
+    // The kerb line: walk the road outward from the cell nearest the door
+    // until it is about a screen from the anchor, and note the shoulder there
+    // — that is where the chest goes, so the line of crates ends at it. BFS
+    // over connected road cells, so a bending or branching street is followed
+    // by its shape; the first cell reached a screen out picks the direction
+    // the road actually goes somewhere. A road that ends short still ends the
+    // line with the chest, as long as it at least clears the tidy pocket —
+    // shorter than that and there is no line worth ending (kerbPath stays
+    // null and the route spread below takes over).
+    let kerbPath = null, chestWant = null;
+    if (roadNear) {
+      const shoulderFor = (cx, cy) => {
+        for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+          if (seatOK(cx + adx, cy + ady)) return { cx: cx + adx, cy: cy + ady };
+        }
+        return null;
       };
+      const from = new Map([[roadCell.cx + ',' + roadCell.cy, null]]);
+      const rq = [[roadCell.cx, roadCell.cy]];
+      let target = null, far = null, farSh = null, farD = -1;
+      for (let head = 0; head < rq.length && head < 600 && !target; head++) {
+        const [cx, cy] = rq[head];
+        const d = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
+        const sh = shoulderFor(cx, cy);
+        if (sh && d > farD) { farD = d; far = [cx, cy]; farSh = sh; }
+        if (sh && d >= VIEW_CELLS) { target = [cx, cy]; chestWant = sh; break; }
+        for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + ddx, ny = cy + ddy;
+          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+          const k = nx + ',' + ny;
+          if (from.has(k)) continue;
+          if (!ROAD_TYPES.has(entry.grid[ny * N + nx])) continue;
+          from.set(k, [cx, cy]);
+          rq.push([nx, ny]);
+        }
+      }
+      if (!target && far &&
+          farD >= (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 10)) {
+        target = far; chestWant = farSh;
+      }
+      if (target) {
+        kerbPath = [];
+        for (let at = target; at; at = from.get(at[0] + ',' + at[1])) {
+          kerbPath.push({ cx: at[0], cy: at[1] });
+        }
+        kerbPath.reverse();          // nearest the door first, the chest end last
+      }
+    }
+    const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
+    const trailPath = trail && trail.path;
+    if (kerbPath && kerbPath.length > 1) {
+      // Mode 1: crates down the kerb. Same packing as the route spread — the
+      // near TRAIL_SPAN of the walk, distance measured ALONG the road — but
+      // every seat is a shoulder cell: beside the street, never in it.
+      const L = kerbPath.length - 1;
+      let lastSeat = null;
+      for (let i = 0; i < COUNT; i++) {
+        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
+        let seat = null;
+        for (let off = 0; off <= 3 && !seat; off++) {
+          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
+            const p = kerbPath[at];
+            if (!p) continue;
+            for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+              const cx = p.cx + adx, cy = p.cy + ady;
+              if (!seatOK(cx, cy)) continue;
+              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
+                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
+              seat = { cx, cy }; break;
+            }
+            if (seat) break;
+          }
+        }
+        if (!seat) continue;
+        seatCrate(seat.cx, seat.cy, i);
+        lastSeat = seat;
+      }
+    } else if (trailPath && trailPath.length > COUNT) {
       const L = trailPath.length - 1;         // steps from the anchor to the chest
       let lastSeat = null;
       for (let i = 0; i < COUNT; i++) {
@@ -2927,7 +3003,8 @@ class MapScene extends Phaser.Scene {
         // the chest at 11, and no leg is long enough to lose the thread.
         // Distance is measured ALONG the route, not across it: a route that
         // bends round a pond still spaces its crates by how far the player
-        // actually walks.
+        // actually walks. A crate takes the route cell itself where it
+        // legally can, and steps one cell off it where it can't.
         const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
         let seat = null;
         for (let off = 0; off <= 3 && !seat; off++) {
@@ -2949,16 +3026,13 @@ class MapScene extends Phaser.Scene {
         lastSeat = seat;
       }
     }
-    // The kerb walk: seat the crates on the shoulders of the nearest road,
-    // following its shape. Two ways in here:
-    //   - the road passes very near the anchor (roadNear — the preferred
-    //     mode 1: the route spread above was skipped so the crates land
-    //     alongside the road, as the chip promises), or
-    //   - no chest could be seated at all (a spawn with no legal ground in
-    //     the band — mid-river, walled in by buildings), so there is no route
-    //     to lay crates along and the kerb at least reads as breadcrumbs.
-    // Only when NOTHING was seated above — a half-laid trail is topped up by
-    // the ring below instead, which never double-seats a loot index.
+    // Undirected kerb walk — the last road-shaped resort: neither the kerb
+    // line nor the route spread seated anything (no chest could go down, or
+    // every shoulder along the line was blocked), so seat the crates on the
+    // shoulders of the nearest road nearest-first, which at least reads as
+    // breadcrumbs even though it leads nowhere in particular. Only when
+    // NOTHING was seated above — a half-laid trail is topped up by the ring
+    // below instead, which never double-seats a loot index.
     if (roadCell && placedIdx.size === 0) {
       // BFS-collect connected road cells from the nearest road cell, in
       // nearest-first order, then seat crates on walkable, non-road
@@ -3116,7 +3190,7 @@ class MapScene extends Phaser.Scene {
   // watching the world re-roll itself. The id is keyed off the tile (not the
   // cell) for the same reason save.opened keys off it: an opened chest must
   // stay opened even if a future rebuild ever seats it one cell over.
-  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
     const grid = entry.grid;
     if (!grid || typeof WorldGen === 'undefined') return null;
     const N = entry.cellsPerEdge;
@@ -3179,10 +3253,17 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(
       ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
     const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    // A caller may nominate the seat — the kerb trail (mode 1 in
+    // _placeStarterTrail) wants the chest at the end of the crate line, on
+    // the road's shoulder. Honoured only if it passes the same legality the
+    // ring scan enforces (walkable from the anchor, the shared spawn rule,
+    // unclaimed), so a bad hint falls back to the ring below rather than
+    // seating the chest across a river or in the street.
+    let seat = null;
+    if (seatWant && free(seatWant.cx, seatWant.cy)) seat = { cx: seatWant.cx, cy: seatWant.cy };
     // Nearest ring first; within a ring, a seeded pick so the chest isn't
     // always due east of every spawn in the game. Ring cells are collected in
     // a fixed scan order, so the pick is reproducible.
-    let seat = null;
     for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
       const ring = [];
       for (let dy = -r; dy <= r; dy++) {
