@@ -303,13 +303,30 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
   const startY = Math.floor(rng() * gap);
   const period = gap + bandH;
   const off = Math.round(phaseFrac * period);
+  // Horizontal variation — a gentle sine swell plus one broken-crest window
+  // where the band drops out. Both are SHARED by every band in the tile: a
+  // per-band shape can't survive the loop (after one full cycle band k sits
+  // exactly where band k+1 was, so any k-keyed difference would pop at the
+  // wrap). Cells hash-pick between the variants, and the wave slides one full
+  // wavelength sideways per loop, so the water still varies across cells and
+  // shimmers diagonally rather than reading as ruled lines.
+  const waveLen = size / (1 + Math.floor(rng() * 2));   // 1-2 waves per tile (x-periodic)
+  const wavePhase = rng() * Math.PI * 2;
+  const waveAmp = 0.8 + rng() * 0.7;                    // ~1px swell
+  const gapStart = Math.floor(rng() * size);            // broken-crest window (wraps)
+  const gapLen = 4 + Math.floor(rng() * 5);             // 4-8 px of open water
+  const xPhase = phaseFrac * Math.PI * 2;   // one wavelength per loop — seamless
   // Start one period above the tile so the band scrolling in from the top
   // edge is already there; rows pushed past either edge just clip.
   for (let y = startY - period + off; y < size; y += period) {
-    ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
-    ctx.fillRect(0, y, size, bandH);
-    ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
-    ctx.fillRect(0, y, size, 1);
+    for (let x = 0; x < size; x++) {
+      if ((x - gapStart + size) % size < gapLen) continue;
+      const yy = y + Math.round(Math.sin(x * 2 * Math.PI / waveLen + wavePhase + xPhase) * waveAmp);
+      ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
+      ctx.fillRect(x, yy, 1, bandH);
+      ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
+      ctx.fillRect(x, yy, 1, 1);
+    }
   }
   // Subtle dark depth specks.
   for (let i = 0; i < 4; i++) {
