@@ -57,6 +57,10 @@ const FILES = [
   'sprite_layout.js',
   'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
+  // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
+  // design (the monster stat table is registered from app.js at boot, and
+  // combat.test.js registers a synthetic one), so it runs headless.
+  'combat.js',
   'interact.js',
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
   'quests.js',

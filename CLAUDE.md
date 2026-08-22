@@ -97,6 +97,26 @@
   re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
   art, if a wheel has left its seating, or if any ring floats above a crown it
   is tall enough to sit on.
+  **The combat health ring obeys the same rule.** The ring over a wounded enemy
+  (`_drawEnemyHealth` / `_strokeHealthRing` in `app.js`) is the same ring at the
+  same radius on the same seating — it calls `creatureWheelDy` too. Don't give
+  it an offset or a radius of its own.
+
+- **Combat is HIT POINTS, and the numbers are derived.** Fighting an enemy is
+  not a timer any more: `src/combat.js` owns one HP pool per foe that the melee
+  wheel, bow/staff shots and a pet's teeth all drain. The damage rates are NOT
+  tuned — they're pinned to the old timed wheel by the identity
+  `dps = 15000 / toolDurationMs`, so a weapon tier still kills a given foe in
+  exactly the time it used to, and one shot carries one second of that rate.
+  If a fight feels wrong, change `TOOL_DURATION_MS` or the kind's `hp`; adding a
+  fudge factor in combat.js breaks the correspondence the tests pin.
+  **"Enemy" is narrower than "defeatable".** Enemies (`Combat.isEnemy`) are the
+  wild slime and the cave monsters — things that attack you. Crow and deer are
+  GAME: nothing auto-fires at them and no shot may hit them, or hunting stops
+  being a choice. A sapphire-tamed slime (`released_*`) is a pet, never a
+  target. **When you add a hostile kind, put it in the monster table** — that
+  registration is what makes it an enemy everywhere at once.
+  **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
 
 ## Testing
 

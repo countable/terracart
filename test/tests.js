@@ -2098,11 +2098,15 @@ test('defeat: a weapon shortens the queue; finishing it removes the crow + drops
   }
 });
 
-test('defeat: slime → finishing the queue removes it with no drop; weapon tier shortens it', (scene) => {
+// A slime is an ENEMY, not game: tapping it opens the HP-driven COMBAT wheel
+// rather than a timer (see COMBAT in the spec). The wheel has no duration to
+// assert — it ends when the slime's hit points do — so this drives the hit
+// points instead.
+test('defeat: slime tap opens the COMBAT wheel; draining its HP removes it, no drop', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: { tier: 2 }, staff: null, bugnet: null };
+                        sword: null, bow: null, staff: null, bugnet: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2112,14 +2116,118 @@ test('defeat: slime → finishing the queue removes it with no drop; weapon tier
   entry.creatures.push(slime);
   try {
     tapWorld(scene, pWX, pWY);
-    assert.truthy(scene._workProgress, 'tapping a slime starts the queue');
-    assert.eq(scene._workProgress.durationMs, 2500, 'tier-2 weapon → 2.5s queue');
-    scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
-    scene._drawWorkProgress();
-    assert.truthy(scene.save.caught.includes(slime.id), 'slime removed when the queue finishes');
+    assert.truthy(scene._workProgress, 'tapping a slime starts a wheel');
+    assert.eq(scene._workProgress.combat, slime, 'and it is the COMBAT wheel, on the slime');
+    assert.eq(Combat.hpFraction(slime), 1, 'the ring starts at full health');
+    assert.falsy(scene.save.caught.includes(slime.id), 'not dead while it has HP left');
+    // Land a killing blow the way a bow shot or a sword swing would.
+    scene._damageEnemy(slime, Combat.creatureMaxHp('slime'));
+    assert.truthy(scene.save.caught.includes(slime.id), 'slime removed when its HP runs out');
+    assert.falsy(scene._workProgress, 'and the wheel clears itself');
     assert.eq((scene.save.inv || []).length, 0, 'slime drops nothing');
   } finally {
     entry.creatures.pop();
+    scene._workProgress = null;
+  }
+});
+
+// ── Bow / staff auto-fire ───────────────────────────────────────────────────
+// The ranged weapons no longer wait to be pointed at anything by a tap: while
+// an enemy is on screen they loose a shot a second along the COMPASS heading.
+test('combat: a bow auto-fires at an on-screen enemy, along the compass', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: { tier: 1 }, staff: null, bugnet: null };
+  scene.save.caught = scene.save.caught || [];
+  scene._workProgress = null;
+  scene._shots = []; scene._nextShotT = {};
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  // Four cells due EAST — on screen, and dead ahead of the heading below.
+  const foe = { x: pWX + 4 * scene.cellM, y: pWY, kind: 'slime', id: 'test_foe_' + Date.now() };
+  entry.creatures.push(foe);
+  const facing0 = scene.facing;
+  try {
+    scene.facing = { x: 1, y: 0 };
+    scene._combatTick(1 / 60);                      // first sighting arms the cadence
+    assert.eq(scene._shots.length, 0, 'no shot on the very first frame');
+    scene._nextShotT.bow = performance.now() - 1;   // a second has "passed"
+    scene._combatTick(1 / 60);
+    assert.eq(scene._shots.length, 1, 'one shot loosed');
+    assert.eq(scene._shots[0].damage, Combat.shotDamage(scene.save.relics, 'bow'),
+      'carrying the wood bow\'s damage');
+    assert.gt(scene._shots[0].vx, 0.99, 'flying east — where the compass points');
+    // Fly it into the foe.
+    for (let i = 0; i < 600 && scene._shots.length; i++) scene._combatTick(1 / 60);
+    assert.lt(Combat.hpFraction(foe), 1, 'the shot hurt it');
+  } finally {
+    scene.facing = facing0;
+    entry.creatures.pop();
+    scene._shots = []; scene._nextShotT = {};
+    scene._workProgress = null;
+  }
+});
+
+test('combat: nothing auto-fires at GAME or at a tamed slime', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: { tier: 7 }, staff: null, bugnet: null };
+  scene.save.caught = scene.save.caught || [];
+  scene._workProgress = null;
+  scene._shots = []; scene._nextShotT = {};
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const deer = { x: pWX + 2 * scene.cellM, y: pWY, kind: 'deer', id: 'test_deer_' + Date.now() };
+  const pet  = { x: pWX + 3 * scene.cellM, y: pWY, kind: 'slime', id: 'released_slime_' + Date.now() };
+  entry.creatures.push(deer, pet);
+  const facing0 = scene.facing;
+  try {
+    scene.facing = { x: 1, y: 0 };
+    for (let i = 0; i < 10; i++) {
+      scene._nextShotT.bow = performance.now() - 1;   // keep the bow ready to fire
+      scene._combatTick(1 / 60);
+    }
+    assert.eq(scene._shots.length, 0, 'a deer and a pet slime are not targets');
+    assert.eq(Combat.hpFraction(deer), 1, 'the deer is untouched — hunting stays a tap');
+    assert.eq(Combat.hpFraction(pet), 1, 'the tamed slime is untouched');
+  } finally {
+    scene.facing = facing0;
+    entry.creatures.pop(); entry.creatures.pop();
+    scene._shots = []; scene._nextShotT = {};
+    scene._workProgress = null;
+  }
+});
+
+// ── Sword auto-engage ───────────────────────────────────────────────────────
+test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.caught = scene.save.caught || [];
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  scene._shots = []; scene._nextShotT = {};
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const near = { x: pWX + scene.cellM, y: pWY, kind: 'slime', id: 'test_near_' + Date.now() };
+  const far  = { x: pWX + 2 * scene.cellM, y: pWY, kind: 'slime', id: 'test_far_' + Date.now() };
+  entry.creatures.push(far, near);       // pushed far-first so "nearest" is a real choice
+  try {
+    scene._combatTick(1 / 60);
+    assert.truthy(scene._workProgress, 'the sword picked a fight on its own');
+    assert.eq(scene._workProgress.combat, near, 'with the NEAREST foe');
+    assert.truthy(scene._workProgress.auto, 'flagged auto — it must stay weightless');
+    // An auto fight must not eat the player's taps, or walking past a slime
+    // would lock the game up until the slime died.
+    assert.falsy(scene._busyWheel(), 'an auto wheel is not a BUSY wheel');
+    const guard = TAP_HANDLERS.find(h => h.name === 'work-progress');
+    assert.falsy(guard.try({ scene, save: scene.save }), 'and it does not swallow taps');
+  } finally {
+    entry.creatures.pop(); entry.creatures.pop();
+    scene._shots = []; scene._nextShotT = {};
     scene._workProgress = null;
   }
 });

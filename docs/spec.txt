@@ -200,13 +200,20 @@ MOVEMENT & REACH
      bare hands (tier 0) 9s · Wood 3s · Copper 2.5s · Iron 2s · Gold 1.3s ·
      Platinum 0.8s · Crimson 0.5s · Frost 0.3s   (bare hands = 3× wooden)
    This single table governs chopping (Axe), mining (Pick), worked foraging
-   (Pick/Axe), animal catching (Bug Net) and pest defeating (weapon);
-   per-activity sections below only note their unique drops / energy / tool,
-   not the timing. EXCEPTION — fishing: the cast time is LOCKED at 9s bare /
-   3s with ANY rod; rod tier improves the catch table, skunk rate and energy
-   per cast, never the cast rate (see FISHING). The tool in use is shown during the action. You wait it
+   (Pick/Axe), animal catching (Bug Net) and HUNTING game (crow / deer, sped by
+   any weapon relic); per-activity sections below only note their unique drops /
+   energy / tool, not the timing. EXCEPTION — fishing: the cast time is LOCKED
+   at 9s bare / 3s with ANY rod; rod tier improves the catch table, skunk rate
+   and energy per cast, never the cast rate (see FISHING). The tool in use is
+   shown during the action. You wait it
    out; tapping anywhere cancels it (and refunds any pre-charged energy). The
    first 150ms is swallowed so the launching tap can't immediately cancel.
+ - COMBAT WHEEL: fighting an ENEMY (see COMBAT) uses the same ring, read the
+   other way round — the arc is the foe's REMAINING HIT POINTS and drains as
+   you hurt it, green > amber > red. There is no duration: the fight ends when
+   the hit points do. Damage rates are derived from the work-wheel ladder above
+   (a weapon deals 15/durationSeconds HP per second), so a given weapon tier
+   still kills a given foe in exactly the time the old timed wheel took.
 
 ================================================================================
 ENERGY & FOOD
@@ -492,11 +499,15 @@ CREATURES
        1 egg (chicken) / 1 milk (cow). 1-hour per-animal cooldown. A recently
        PETTED animal has a 50% chance to double the yield.
      * any other food → YUCK (wasted bite, no result).
- - PESTS — crow / deer / slime = DEFEAT via the work wheel (NOT caught). Tapping
-   starts it; a weapon relic (sword / bow / staff) speeds it (see WORK WHEEL).
-   Finishing it removes the creature and drops
-   its product (crow → feather, deer → meat; slimes drop nothing). Pests do NOT
-   flee during the wheel.
+ - PESTS — crow / deer / slime = DEFEAT (NOT caught). Finishing removes the
+   creature and drops its product (crow → feather, deer → meat; slimes drop
+   nothing). They do NOT flee during the wheel. The two halves differ:
+     * GAME (crow / deer) — a HUNT. Tap to start the timed work wheel; ANY
+       weapon relic (sword / bow / staff) speeds it by tier (see WORK WHEEL).
+       Game is not an enemy: nothing auto-fires at it and no shot can hit it,
+       so a hunt is always something you chose.
+     * ENEMIES (slime, and every cave monster) — see COMBAT. Tapping one starts
+       the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it (chickens
    release as a flock of 4; others one at a time). Released animals persist in
    save.released and re-spawn at their spot.
@@ -511,9 +522,46 @@ CREATURES
    in slow hopping drifts and are lazily drawn toward the player (~half their
    hops amble your way). A slime within 1 cell (~5m, adjacent) drains 3 energy
    per second, surfaced as one throttled "🟢 slime drained N⚡" flash (see the
-   fauna section). Not catchable or feedable, but
-   DEFEATABLE via the work wheel (a weapon speeds it) — or just walk away to
-   shake a swarm.
+   fauna section). Not catchable or feedable, but an ENEMY (see COMBAT) — so
+   they can be shot, auto-engaged and defeated, or just walked away from.
+
+================================================================================
+COMBAT
+================================================================================
+ - ENEMIES are the things that attack YOU: the wild SLIME on the surface and
+   every cave MONSTER underground. Crow and deer are GAME, not enemies — see
+   CREATURES. A slime tamed with a sapphire is a pet and is never a target.
+ - HIT POINTS. Every enemy has HP (monster table; surface slime 15). Damage
+   from any source drains the one pool, and an enemy left alone heals back to
+   full after 20 minutes without a hit. HP is in-memory: a foe you softened up
+   is whole again next session.
+ - THE THREE WEAPONS DO DIFFERENT THINGS.
+     sword  — MELEE. Drains HP while the combat wheel runs, at
+              15/durationSeconds HP per second off the WORK WHEEL ladder (bare
+              hands = the 9s tier-0 rung, so you can always fight). Owning one
+              also AUTO-ENGAGES: the nearest enemy in reach is picked up
+              without a tap. An auto-engaged fight is deliberately weightless —
+              it does not swallow taps, root the character, or block the walk
+              home, and it breaks off silently when the foe leaves reach.
+     bow    — RANGED. While at least one enemy is ON SCREEN it looses one shot
+              per second along the COMPASS heading. Shots do NOT home and do
+              NOT pick a target: you aim by turning. 4.5 cells/s, 8-cell range.
+     staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range, fired half a beat
+              off the bow so carrying both reads as an alternating patter.
+   A shot carries one second of its own tier's melee-equivalent damage, so a
+   bow of tier N landing every shot matches a sword of tier N — the aiming is
+   the cost. Bow and staff no longer speed the melee wheel; the shots are what
+   they contribute. (They still speed the crow/deer HUNT wheel.)
+ - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
+   green > amber > red, and there is no time limit — the fight ends when the HP
+   does. An enemy hurt in the last 4 seconds also carries a small floating
+   health ring of its own, so a shot from across the screen reports its damage
+   the same way a sword swing does. Both rings sit on the kind's CROWN (the
+   creature-wheel rule — see CLAUDE.md).
+ - Dragon Powder doubles damage for its minute — melee and shots alike.
+ - Defeating an enemy pays what it always paid: a monster's coin bounty (plus a
+   1-in-10 buried-treasure roll), a quest tick, and a flash. Combat costs no
+   energy; your time and your aim are the price.
 
 ================================================================================
 CHESTS (POI-driven)
@@ -741,9 +789,14 @@ GEAR: RELICS & ARMOR
      ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
               wizard tower's Inner Light, tier = inner-light/reach level
      amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
-     sword  — raises sell prices (0.5× → 1.0× at Frost)
-     bow    — lowers buy prices (T7 = par)
-     staff  — pure hunting weapon (speeds the pest-defeat wheel; no price effect)
+     sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
+              auto-engages the nearest enemy in reach); raises sell prices
+              (0.5× → 1.0× at Frost)
+     bow    — RANGED weapon (auto-fires 1 shot/s along the compass while an
+              enemy is on screen); lowers buy prices (T7 = par)
+     staff  — RANGED weapon (as the bow, half a beat offset, shorter reach);
+              no price effect
+     (all three still speed the crow/deer HUNT wheel by tier — see WORK WHEEL)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
    needed and no separate mode. It walks the character somewhere OTHER than

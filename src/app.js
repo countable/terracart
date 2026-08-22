@@ -227,6 +227,20 @@ function monsterBounty(kind, depth) {
 const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
+// How long a wounded enemy keeps its floating health ring after the last hit.
+// A bow shot lands from clear across the screen, so without this the only
+// feedback for a hit would be the foe eventually vanishing — but a ring that
+// never faded would clutter a cave full of monsters you shot once.
+const ENEMY_HEALTH_RING_MS = 4000;
+// Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
+// every creature and the player use), so without this they'd skim the ground
+// under the bodies they hit.
+const SHOT_DRAW_LIFT_PX = 10;
+// combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
+// before this file so headless tests can use it without Phaser. It needs the
+// monster stats to answer "is this an enemy" and "how much HP", so hand the
+// table over — by REFERENCE, so a kind added above is a foe there immediately.
+Combat.registerMonsters(MONSTERS);
 
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
@@ -1559,6 +1573,15 @@ class MapScene extends Phaser.Scene {
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this.compassDeg = null; // degrees clockwise from north, or null if no sensor
+    // Bow / staff shots in flight (see _combatTick). Drawn just above the
+    // facing arrow — a shot travels along that arrow, so it has to read as
+    // coming off the tip rather than sliding under it.
+    this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
+    this._shots = [];
+    this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
+    // Health rings over recently-hurt enemies. Under the work wheel (95) so a
+    // foe you are actually swinging at keeps the brighter ring on top.
+    this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Footprint trail — small 50% grey dots dropped as the player moves, each
     // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
@@ -4044,6 +4067,11 @@ class MapScene extends Phaser.Scene {
     }
 
     this.wanderCreatures();
+    // Fight tick — bow/staff auto-fire, shots in flight, sword auto-engage.
+    // Runs AFTER the creatures have moved (so shots resolve against where the
+    // foes actually are this frame) and BEFORE the wheel, which is where melee
+    // damage lands.
+    this._combatTick(dt);
     this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
@@ -4090,6 +4118,311 @@ class MapScene extends Phaser.Scene {
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
     if (Crops.advanceGrowth(this.save)) persistSave(this.save);
+  }
+
+  // ── COMBAT ───────────────────────────────────────────────────────────────
+  // Per-frame fight tick: pick up the enemies on screen, let the bow and staff
+  // loose their shots along the compass, fly the shots already out, and — if
+  // you carry a sword — engage the nearest foe without being asked. The maths
+  // (what counts as an enemy, damage per shot, shot flight) all lives in
+  // combat.js; this method is the scene glue.
+  _combatTick(dt) {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const now = performance.now();
+    // "On screen" = inside the drawn viewport, measured as a box rather than a
+    // radius because the viewport IS a box: a foe in the corner is visible and
+    // must count. Half a cell of margin so one stepping in at the edge starts
+    // drawing fire the moment it appears rather than a cell later.
+    const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
+    const enemies = [];
+    WorldGen.forEachItem('creatures', (c) => {
+      if (!Combat.isEnemy(c)) return;
+      if (this.save.caught?.includes(c.id)) return;
+      if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
+      enemies.push(c);
+    });
+
+    const relics = this.save.relics || {};
+    // Dragon Powder doubles attack damage for its minute (same buff the melee
+    // wheel reads), so a dragon's arrows hit twice as hard too.
+    const dmgMul = this.isDragonActive() ? 2 : 1;
+
+    // ── Bow / staff: one shot a second, along the COMPASS heading ──────────
+    // They do not home and they do not pick a target: the shot goes where you
+    // are facing, so aiming is turning. Firing is gated on an enemy being on
+    // screen — otherwise every walk across town would be trailing arrows.
+    if (enemies.length) {
+      for (const slot of Combat.RANGED_SLOTS) {
+        if (!relics[slot]) continue;
+        const due = this._nextShotT[slot];
+        if (due == null) {
+          // First sighting: stagger this slot's opening shot by its phase so a
+          // player carrying both weapons gets an alternating patter.
+          this._nextShotT[slot] = now + Combat.SHOT[slot].phaseMs;
+          continue;
+        }
+        if (now < due) continue;
+        this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        const shot = Combat.spawnShot(slot, px, py, this.facing, this.cellM,
+                                      Combat.shotDamage(relics, slot) * dmgMul);
+        if (shot) this._shots.push(shot);
+      }
+    } else {
+      // Nothing to shoot at — re-arm, so the next foe to walk on screen is shot
+      // at almost immediately instead of waiting out a cadence that has been
+      // ticking away in an empty street.
+      this._nextShotT = {};
+    }
+
+    if (this._shots.length) {
+      this._shots = Combat.stepShots(this._shots, dt, enemies,
+        Combat.HIT_RADIUS_CELLS * this.cellM,
+        (enemy, shot) => this._damageEnemy(enemy, shot.damage));
+    }
+    this._drawShots();
+
+    // ── Sword: auto-engage ─────────────────────────────────────────────────
+    // Carrying a sword means you no longer have to tap the slime that is
+    // already chewing on you: the nearest enemy IN REACH is picked up on its
+    // own. The wheel is flagged `auto`, which is what keeps it from behaving
+    // like a tapped action — it doesn't swallow taps, hold the body still, or
+    // block the walk home (see _busyWheel).
+    if (relics.sword && !this._workProgress && enemies.length) {
+      let best = null, bestD2 = Infinity;
+      for (const c of enemies) {
+        const fc = worldMetersToAbsCell(this, c.x, c.y);
+        if (!cellInReach(this, fc.cellIX, fc.cellIY)) continue;
+        const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
+        if (d2 < bestD2) { bestD2 = d2; best = c; }
+      }
+      if (best) this.startCombat(best, { auto: true });
+    }
+
+    this._drawEnemyHealth(enemies);
+  }
+
+  // Shots in flight, drawn as a short streak along their own heading so the
+  // direction they're travelling is legible at a glance (a dot would just read
+  // as a floating pixel).
+  _drawShots() {
+    const g = this.projGfx;
+    if (!g) return;
+    g.clear();
+    for (const s of this._shots) {
+      const spec = Combat.SHOT[s.slot];
+      const head = this.worldMetersToScreen(s.x, s.y);
+      // Shots travel between FOOT positions (that's where the player and every
+      // creature are anchored), but drawing them down at ankle height would
+      // have them skim under the bodies they're hitting. Lift the streak to
+      // roughly chest height so it leaves the archer and crosses the foe.
+      const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
+      // The tail trails a fixed number of SCREEN pixels back along the
+      // heading — the streak is a readability device, not a world-space
+      // object, so it shouldn't grow or shrink with the projection.
+      g.lineStyle(spec.widthPx, spec.color, 0.9);
+      g.beginPath();
+      g.moveTo(Math.round(hx - s.vx * spec.lenPx), Math.round(hy - s.vy * spec.lenPx));
+      g.lineTo(hx, hy);
+      g.strokePath();
+    }
+  }
+
+  // A health ring over every enemy hurt in the last few seconds — the same
+  // ring the combat wheel draws, at the same radius and on the same crown
+  // seating, so a bow shot from across the street reports its damage exactly
+  // the way a sword swing does. The wheel's own target is skipped: it draws
+  // its own, brighter, on top.
+  _drawEnemyHealth(enemies) {
+    const g = this.enemyHealthGfx;
+    if (!g) return;
+    g.clear();
+    const now = performance.now();
+    const engaged = this._workProgress?.combat || null;
+    for (const c of enemies) {
+      if (c === engaged) continue;
+      if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
+      const screen = this.worldMetersToScreen(c.x, c.y);
+      this._strokeHealthRing(g, Math.round(screen.x),
+        Math.round(screen.y) + Math.round(this._creatureWheelDy(c.kind)),
+        Combat.hpFraction(c), 0.5, 0.2);
+    }
+  }
+
+  // Where a wheel/ring centres over a creature — the crown rule, in one place
+  // so the combat ring and the work wheel can't seat differently.
+  _creatureWheelDy(kind) {
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    return SL ? SL.creatureWheelDy(kind) : -7;
+  }
+
+  // The health ring itself: a faint full-HP track with the REMAINING hit
+  // points stroked over it, tinted green → amber → red on the way down. Shared
+  // by the combat wheel and the floating rings so one edit moves both — and
+  // deliberately the same radius (SpriteLayout.CREATURE_WHEEL_R) and the same
+  // transparency budget as the work wheel it grew out of, which was already
+  // walked back twice for hiding the sprite it reports on.
+  _strokeHealthRing(g, cx, cy, frac, arcAlpha, backAlpha) {
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
+    g.fillStyle(0x000000, backAlpha);
+    g.fillCircle(cx, cy, R + 1);
+    g.lineStyle(3, 0xffffff, 0.155);
+    g.beginPath();
+    g.arc(cx, cy, R, 0, Math.PI * 2, false);
+    g.strokePath();
+    if (frac > 0) {
+      g.lineStyle(3, Combat.healthColor(frac), arcAlpha);
+      g.beginPath();
+      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac, false);
+      g.strokePath();
+    }
+  }
+
+  // The WORK wheel's ring: an arc that fills with progress toward finishing the
+  // job (chop / mine / fish / hunt / catch), over a faint full-circle track so
+  // it shows how far there is still to go and not just how much is done
+  // (UX audit §20).
+  //
+  // The wheel sits ON the thing being worked, so its alphas have been walked
+  // back twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
+  // then a flat 0.1 off each — backing 0.34, arc 0.62, tool icon 0.7 (that one
+  // set on the DOM element in startWorkProgress / startCatchProgress). At full
+  // strength it hid the very sprite it was reporting progress against. The
+  // track is thinned in step with the arc (×0.62/0.72) rather than by the flat
+  // 0.1, which would have all but erased it.
+  _strokeWorkRing(g, cx, cy, progress) {
+    // Radius comes from the same table that PLACES the wheel — the crown
+    // seating clears the outer edge (R + 1, the backing disc), so a resize here
+    // without one there would put the ring back in the sky.
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
+    g.fillStyle(0x000000, 0.34);
+    g.fillCircle(cx, cy, R + 1);
+    g.lineStyle(3, 0xffffff, 0.155);
+    g.beginPath();
+    g.arc(cx, cy, R, 0, Math.PI * 2, false);
+    g.strokePath();
+    if (progress > 0) {
+      g.lineStyle(3, 0xffffff, 0.62);
+      g.beginPath();
+      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
+      g.strokePath();
+    }
+  }
+
+  // Apply damage to an enemy from any source (a shot, or the melee wheel).
+  // Returns true if that blow killed it. `_hurtUntilT` is what keeps the
+  // floating health ring up for a few seconds after the hit; `_lastDamagedT`
+  // feeds the existing 20-minute regen in wanderCreatures, so a foe you wound
+  // and abandon does heal back up.
+  _damageEnemy(c, amount) {
+    if (!(amount > 0)) return false;
+    const left = Combat.damage(c, amount);
+    c._lastDamagedT = Date.now();
+    c._hurtUntilT = performance.now() + ENEMY_HEALTH_RING_MS;
+    if (left > 0) return false;
+    if (this._workProgress?.combat === c) this.cancelWorkProgress();
+    this.resolveDefeat(c);
+    return true;
+  }
+
+  // Start (or re-target) the COMBAT wheel on an enemy. Unlike the timed work
+  // wheel this one is driven by the target's HP: the ring is its health bar,
+  // melee drains it every frame, and bow/staff shots drain the same pool — so
+  // an arrow landing mid-swing visibly shortens the fight.
+  //
+  // `durationMs` is still filled in, with the kill time at the CURRENT melee
+  // rate and WITHOUT the dragon bonus. Nothing reads it as a deadline (HP ends
+  // the fight), but the orphaned-wheel watchdog in _drawWorkProgress does, and
+  // since every other damage source only makes the fight shorter, that
+  // estimate is a true upper bound.
+  startCombat(victim, opts = {}) {
+    const dps = Combat.meleeDps(this.save.relics);
+    const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
+    const now = performance.now();
+    this._workProgressIcon?.remove();
+    this._workProgressIcon = null;
+    // The wheel is a health bar now, so the tool badge is the one place left
+    // that still says what you're hitting it WITH.
+    const slot = this.save.relics?.sword ? 'sword' : null;
+    if (slot) {
+      const html = this.gearIconHTML('relic', slot, this.save.relics[slot].tier || 1, 16);
+      if (html) {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
+        el.innerHTML = html;
+        document.body.appendChild(el);
+        this._workProgressIcon = el;
+      }
+    }
+    this._workProgress = {
+      worldX: victim.x, worldY: victim.y,
+      combat: victim,
+      track: victim,              // reuse the hunt wheel's follow + escape abort
+      auto: !!opts.auto,
+      onComplete: () => this.resolveDefeat(victim),
+      durationMs: estMs,
+      energyRefund: 0,
+      startT: now, _lastT: now,
+    };
+  }
+
+  // The kill payload — drops, bounty, quest tick, shiny fanfare. Every route
+  // to a dead creature funnels through here (the tap-hunt wheel in interact.js,
+  // the combat wheel, and a killing bow/staff shot) so they can't pay out
+  // differently.
+  resolveDefeat(victim) {
+    const save = this.save;
+    save.caught = save.caught || [];
+    if (save.caught.includes(victim.id)) return;
+    save.caught.push(victim.id);
+    const dropId = victim.kind === 'crow' ? 'crow_feather'
+                 : victim.kind === 'deer' ? 'meat'
+                 : null;
+    if (dropId) {
+      this.addToInv(dropId, 1);
+      const item = ITEM_BY_ID[dropId];
+      this.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+    } else if (isMonster(victim.kind)) {
+      // Every kill pays a bounty (monsterBounty — derived from the kind's HP
+      // plus a depth climb), and one in ten also drops a buried-treasure roll:
+      // the same table an X pays, so a lucky kill reads as finding one. The
+      // gold is the reliable part — before this a monster dropped nothing at
+      // all and the only sane play was to walk around it.
+      const coins = (typeof monsterBounty === 'function')
+        ? monsterBounty(victim.kind, this.depth) : 0;
+      if (coins > 0) addMoney(save, coins);
+      const name = MONSTERS[victim.kind].name;
+      this.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+        this.viewCenterX, this.viewCenterY - 60);
+      if (Math.random() < MONSTER_TREASURE_CHANCE) {
+        grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
+      }
+    } else {
+      this.flash('🟢 slime defeated', this.viewCenterX, this.viewCenterY - 60);
+    }
+    if (typeof Quests !== 'undefined') {
+      const qDone = Quests.onKill(save, victim.kind);
+      if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
+    }
+    persistSave(save);
+    // Rare shiny deer / crow — hunted fauna drop their product (meat /
+    // feather), so there's no live shiny animal to keep, but the shiny find
+    // still pays the 10× money + discovery bonus with fanfare.
+    if (victim.shiny && dropId) {
+      this.awardShinyBonus(victim.kind, this.viewCenterX, this.viewCenterY - 60);
+    }
+  }
+
+  // The wheel that BLOCKS things — taps, the body's footsteps, the walk home.
+  // An auto-engaged combat wheel is not one of those: the sword picks fights
+  // on its own, so if it also froze the character and ate every tap, walking
+  // past a slime would lock the game up until the slime died. So it fights in
+  // the background and the player keeps playing.
+  _busyWheel() {
+    const wp = this._workProgress;
+    return (wp && !wp.auto) ? wp : null;
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
@@ -4263,17 +4596,36 @@ class MapScene extends Phaser.Scene {
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
+          const wasAuto = wp.auto;
           this.cancelWorkProgress();
-          if (this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
+          // An AUTO-engaged sword fight breaks off constantly — you walk, the
+          // foe drifts, the reach diamond shrinks as energy drains. That's
+          // normal, not a failed hunt, so it says nothing; a hunt or a fight
+          // you actually chose still reports the getaway.
+          if (!wasAuto && this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
           return;
         }
       } else {
         wp._outSinceT = null;
       }
     }
+    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee
+    // damage lands every frame at the sword's rate (bare hands at the tier-0
+    // rung), and bow/staff shots drain the same pool from _damageEnemy — so a
+    // fight you started with a swing can be finished by an arrow.
+    if (wp.combat) {
+      const c = wp.combat;
+      // Killed by something else mid-swing (a shot, a tame dog) — nothing left
+      // to fight, and the kill has already paid out.
+      if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
+      const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
+      wp._lastT = now;
+      const dps = Combat.meleeDps(this.save.relics) * (this.isDragonActive() ? 2 : 1);
+      if (this._damageEnemy(c, dps * dt)) return;   // _damageEnemy clears the wheel + pays out
+    }
     const dur = wp.durationMs || 3000;
     const elapsed = now - wp.startT;
-    if (elapsed >= dur) {
+    if (!wp.combat && elapsed >= dur) {
       const cb = wp.onComplete;
       this.cancelWorkProgress();
       cb();
@@ -4296,36 +4648,15 @@ class MapScene extends Phaser.Scene {
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
     const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
-    // Ring radius comes from the same table that PLACES the wheel — the crown
-    // seating clears the outer edge (R + 1, the backing disc below), so a
-    // resize here without one there would put the ring back in the sky.
-    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
     const g = this._workProgressGfx;
     g.clear();
-    // The wheel sits ON the thing being worked, so it has been walked back
-    // twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
-    // then a flat 0.1 off each alpha — backing 0.34, arc 0.62, tool icon 0.7
-    // (the icon's is set on the DOM element in startWorkProgress /
-    // startCatchProgress). At full strength it hid the very sprite it was
-    // reporting progress against.
-    g.fillStyle(0x000000, 0.34);
-    g.fillCircle(cx, cy, R + 1);
-    // Unfilled TRACK ring behind the arc, so the wheel shows how far there is
-    // still to go and not just how much is done (UX audit §20). Kept faint —
-    // it adds the missing information without walking back the transparency
-    // above, which is the point of that pass. Thinned in step with the arc
-    // (×0.62/0.72) rather than by the flat 0.1, which would have all but
-    // erased it.
-    g.lineStyle(3, 0xffffff, 0.155);
-    g.beginPath();
-    g.arc(cx, cy, R, 0, Math.PI * 2, false);
-    g.strokePath();
-    if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.62);
-      g.beginPath();
-      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
-      g.strokePath();
-    }
+    // Two rings, one geometry. A COMBAT wheel is a HEALTH BAR — the arc is what
+    // the foe has LEFT and drains as you hurt it, tinted green → amber → red. A
+    // work wheel keeps the original meaning: the arc FILLS with progress toward
+    // finishing the job. Both are stroked at the same radius on the same crown
+    // seating, so only the meaning of the arc differs.
+    if (wp.combat) this._strokeHealthRing(g, cx, cy, Combat.hpFraction(wp.combat), 0.85, 0.34);
+    else this._strokeWorkRing(g, cx, cy, progress);
     if (this._workProgressIcon) {
       const gameEl = document.getElementById('game');
       const gr = gameEl.getBoundingClientRect();
@@ -4525,10 +4856,11 @@ class MapScene extends Phaser.Scene {
             if (dx * dx + dy * dy <= 64) pp.canBoost = true;
           }
         }
-        // HP healing: if 20 min since last damage, restore to max.
-        const HP_MAX = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
+        // HP healing: if 20 min since last damage, restore to max. Max comes
+        // from Combat.creatureMaxHp so a monster wounded by an arrow heals back
+        // to ITS hit points, not the 10-HP fallback a local table gave it.
         if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
-          c._hp = HP_MAX[c.kind] ?? 10;
+          c._hp = Combat.creatureMaxHp(c.kind);
           c._lastDamagedT = null;
         }
 
@@ -4593,9 +4925,12 @@ class MapScene extends Phaser.Scene {
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
           const FIGHT_R2 = (1.5 * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
-            const HP_MAX = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
-            tgt._hp = (tgt._hp ?? HP_MAX[tgt.kind] ?? 8) - 1;
-            c._hp   = (c._hp   ?? HP_MAX[c.kind]   ?? 20) - 1;
+            // One HP table for every fight in the game (combat.js) — a slime a
+            // dog has been worrying shows the damage on the player's health
+            // ring too, and finishing it off with an arrow is that much less
+            // work.
+            tgt._hp = Combat.damage(tgt, 1);
+            c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
             // Push prey away from pet; force immediate direction-change.
@@ -5306,7 +5641,7 @@ class MapScene extends Phaser.Scene {
     // once the offset is actually being bled off.
     this._driftingHome = false;
     if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return;
-    if (this._workProgress || this._stickPushed()) return;
+    if (this._busyWheel() || this._stickPushed()) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
     // TOO FAR TO WALK — place the body instead. Past GPS_SNAP_M the gap is the
     // same thing a jumped fix treats as travel the player never made on foot,
@@ -5479,7 +5814,9 @@ class MapScene extends Phaser.Scene {
     if (!this._targetM) { this._playDirected(this.player, 'idle'); return; }
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
     // hold position until it resolves so the body doesn't wander off its work.
-    if (this._workProgress) { this._playDirected(this.player, 'idle'); return; }
+    // An AUTO-engaged sword fight is exempt — you didn't ask for it, so it must
+    // not root you to the spot (see _busyWheel).
+    if (this._busyWheel()) { this._playDirected(this.player, 'idle'); return; }
     // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
     if (this._followPaused) { this._playDirected(this.player, 'idle'); return; }
     // Steering? Then the walk animation follows the STICK, not the step vector
@@ -5647,6 +5984,12 @@ class MapScene extends Phaser.Scene {
     // diverge until the player steers or the next GPS fix lands.
     if (this._workProgress && this._autoMineKey) this.cancelWorkProgress();
     this._autoMineKey = null;
+    // A fight doesn't follow you up the stairs: drop any auto-engaged wheel and
+    // the shots still in the air, or they'd carry on against a foe on a level
+    // you just left.
+    if (this._workProgress?.combat) this.cancelWorkProgress();
+    this._shots = [];
+    this._nextShotT = {};
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
     this.ensureTilesAround().catch(() => {});
@@ -5661,6 +6004,8 @@ class MapScene extends Phaser.Scene {
     this._passingOut = true;
     if (this._workProgress) this.cancelWorkProgress();
     this._autoMineKey = null;
+    this._shots = [];              // nothing you loosed down there follows you up
+    this._nextShotT = {};
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);
