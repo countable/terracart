@@ -197,10 +197,14 @@ MOVEMENT & REACH
    defeat a pest / catch an animal) shows a circular progress wheel at the spot.
    The matching tool relic's TIER sets the duration — it only SPEEDS the work,
    it NEVER gates it (no exceptions, no tool-or-tier gates):
-     bare hands (tier 0) 9s · Wood 4s · Copper 2.5s · Iron 2s · Gold 1.3s ·
-     Platinum 0.8s · Crimson 0.5s · Frost 0.3s   (bare hands = 2.25× wooden)
-   Wood was 3s until Aug 2026 — a third of bare hands put the ladder's biggest
-   step at its bottom rung and left wood/copper/iron nearly indistinguishable.
+     bare hands (tier 0) 9s · Wood 4s · Copper 2.6s · Iron 1.69s · Gold 1.1s ·
+     Platinum 0.71s · Crimson 0.46s · Frost 0.3s   (bare hands = 2.25× wooden)
+   The seven tiers are a GEOMETRIC ladder: each is ~1.54× faster than the one
+   below, i.e. the two pinned ends (wood 4s, frost 0.3s) spread evenly over six
+   steps. Retuned Aug 2026 — wood was 3s and the rungs between were hand-picked,
+   which left copper→iron at 1.25× (an upgrade that read as no upgrade) right
+   where a new player lives. Bare hands is NOT a rung on that curve: it's the
+   always-possible floor, deliberately a wide 2.25× below wood.
    This single table governs chopping (Axe), mining (Pick), worked foraging
    (Pick/Axe), animal catching (Bug Net) and HUNTING game (crow / deer, sped by
    any weapon relic); per-activity sections below only note their unique drops /

@@ -521,7 +521,7 @@ function runInteractable(ctx, o) {
   const cost = def.energy ? def.energy(save, o) : 0;
   const durMs = (typeof toolDurationMs === 'function')
     ? toolDurationMs(save.relics, def.tool)
-    : (save.relics?.[def.tool] ? 3000 : 9000);
+    : (save.relics?.[def.tool] ? 4000 : 9000);
   if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
   // cost is passed through as the refund amount if the player cancels mid-work.
   scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);

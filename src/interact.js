@@ -311,7 +311,7 @@ function startToolWork(ctx, x, y, relicSlot, energyCost, onComplete) {
   const { scene, save, sx, sy } = ctx;
   const durMs = (typeof toolDurationMs === 'function')
     ? toolDurationMs(save.relics, relicSlot)
-    : (save.relics?.[relicSlot] ? 3000 : 9000);
+    : (save.relics?.[relicSlot] ? 4000 : 9000);
   if (energyCost && !scene.spendEnergy(energyCost, sx, sy)) return true;
   scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0, relicSlot);
   return true;
@@ -567,9 +567,12 @@ const TAP_HANDLERS = [
       const weaponSlot = weaponTier > 0 ? bestWeapon : null;
       // Weapon uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
+      // The fallback (items.js not loaded yet) walks the same geometric curve
+      // rather than a straight line, so a load-order stumble can't hand out a
+      // ladder with a different SHAPE from the real one.
       const durMs = (typeof toolDurationMs === 'function')
         ? toolDurationMs(r, weaponSlot)
-        : (weaponTier > 0 ? Math.max(300, 3000 - (weaponTier - 1) * 450) : 9000);
+        : (weaponTier > 0 ? Math.round(4000 * Math.pow(300 / 4000, (weaponTier - 1) / 6)) : 9000);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
       // kind. (Enemies never reach here, and neither slimes nor monsters ever
@@ -750,7 +753,7 @@ const TAP_HANDLERS = [
     // catch bare-handed too — no tool gate.
     let catchMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'bugnet')
-      : (save.relics?.bugnet ? 3000 : 9000);
+      : (save.relics?.bugnet ? 4000 : 9000);
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at 2× speed) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
@@ -1369,7 +1372,7 @@ const TAP_HANDLERS = [
     if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
     const durMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(save.relics, 'pick')
-      : (save.relics?.pick ? 3000 : 9000);
+      : (save.relics?.pick ? 4000 : 9000);
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
       const qty = randInt(1, 3);
@@ -1512,7 +1515,7 @@ const TAP_HANDLERS = [
     // cells till in HALF the time (spec §cells). Energy is pre-spent and refunds
     // if the player cancels the wheel.
     let tillMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 3000 : 9000);
+      ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 4000 : 9000);
     // Global 2× tilling speed-up — applied on top of the tool-tier ladder and
     // the grassland half-time below, so every till is twice as fast everywhere.
     tillMs = Math.round(tillMs / 2);

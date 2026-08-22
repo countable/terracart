@@ -79,7 +79,7 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
-  toolDurationMs, effectivePickCost, effectiveChopCost,
+  toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,

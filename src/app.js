@@ -5945,7 +5945,7 @@ class MapScene extends Phaser.Scene {
     }
     const durMs = (typeof toolDurationMs === 'function')
       ? toolDurationMs(this.save.relics, 'pick')
-      : (this.save.relics?.pick ? 3000 : 9000);
+      : (this.save.relics?.pick ? 4000 : 9000);
     this._autoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
     // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
     // to refund (it just cancels the dig). The spend lands at the dig instant.

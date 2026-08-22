@@ -14,6 +14,24 @@ test('toolDurationMs: tier ladder 9s bare → 0.3s frost', () => {
   }
 });
 
+// The ladder is GEOMETRIC — every rung ~1.54× the one below (TIER_STEP), so no
+// upgrade is a dud. The ladder it replaced wandered from 1.25× (copper→iron,
+// which read as no upgrade at all) to 1.67×, so this pins the SHAPE, not just
+// the endpoints: an edit that flattens one rung to make a tier "feel right"
+// fails here rather than shipping.
+test('toolDurationMs: every rung is ~1.5× the one below it', () => {
+  for (let t = 2; t <= 7; t++) {
+    const step = TOOL_DURATION_MS[t - 1] / TOOL_DURATION_MS[t];
+    assert.lt(Math.abs(step - TIER_STEP), 0.03,
+      `tier ${t - 1}→${t} steps ${step.toFixed(3)}×, want ~${TIER_STEP.toFixed(3)}×`);
+  }
+  // Both ends stay where they were tuned; the curve between them is derived.
+  assert.eq(TOOL_DURATION_MS[1], 4000, 'wood end pinned');
+  assert.eq(TOOL_DURATION_MS[7], 300, 'frost end pinned');
+  // Bare hands is NOT on the curve — it's the always-possible floor at 9s.
+  assert.eq(toolDurationMs({}, 'pick') / TOOL_DURATION_MS[1], 2.25, 'bare hands = 2.25× wood');
+});
+
 test('effectivePickCost: cheaper as the pick tier climbs', () => {
   const bare = effectivePickCost({});
   const t7 = effectivePickCost({ pick: { tier: 7 } });

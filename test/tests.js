@@ -2362,18 +2362,20 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
   assert.eq(invCount(scene, 'rockfruit'), 3, 'rockfruit refunded to inv');
 });
 
-// PICK / TOOL DURATION — tier curve for rock-break work-wheel.
-// Bare hands 9s (2.25× wood), wood 4s, then down to a 300ms frost floor.
-test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 4s → iron 2s → frost 0.3s)', () => {
+// PICK / TOOL DURATION — tier curve for rock-break work-wheel. A geometric
+// ladder: ~1.54× per rung between the pinned wood (4s) and frost (0.3s) ends.
+// Bare hands sits off the curve at 9s, a deliberate 2.25× below wood.
+// (test/node/tables.test.js pins the RATIO; this pins the concrete numbers.)
+test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 4s → frost 0.3s)', () => {
   if (typeof pickDurationMs !== 'function') return;
   assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (2.25× wood)');
   assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
   assert.eq(pickDurationMs({ pick: { tier: 1 } }), 4000, 'wood pick → 4s');
-  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2500, 'copper → 2.5s');
-  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 2000, 'iron → 2s');
-  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 1300, 'gold → 1.3s');
-  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 800,  'platinum → 0.8s');
-  assert.eq(pickDurationMs({ pick: { tier: 6 } }), 500,  'crimson → 0.5s');
+  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2600, 'copper → 2.6s');
+  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 1690, 'iron → 1.69s');
+  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 1100, 'gold → 1.1s');
+  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 710,  'platinum → 0.71s');
+  assert.eq(pickDurationMs({ pick: { tier: 6 } }), 460,  'crimson → 0.46s');
   assert.eq(pickDurationMs({ pick: { tier: 7 } }), 300,  'frost → 0.3s');
 });
 
