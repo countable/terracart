@@ -2616,7 +2616,9 @@ Render.drawObjects = function drawObjects(scene) {
   // from its id — in lockstep a whole street would throb as one, which reads
   // as a bug rather than as ambience.
   const haloT = performance.now() / 1000;
-  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestOpened(o));
+  // Loose supply crates (o.crate, no poiClass) are excluded for the same
+  // reason they get no pad: a transient pickup is not a place.
+  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate && !_chestOpened(o));
   Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
