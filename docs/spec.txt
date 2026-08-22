@@ -78,6 +78,16 @@ ONBOARDING (the first session)
  - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
    while the ladder runs. The crate trail seeds out to 15 cells but the viewport
    is only VIEW_CELLS across, so without it most of the trail is invisible.
+ - THE RELIC CHEST: one real treasure chest (the trunk sprite, not a supply
+   crate) seats a screen away from spawn — VIEW_CELLS cells out, so just past
+   the edge of the opening view and clear of the cleared tutorial pocket —
+   holding ONE random wooden (T1) relic. The crates hand out materials; this is
+   the only thing that hands out a TOOL, and bare-handed work is 3x slower than
+   wooden. Slot and bearing are both derived from the frozen spawn anchor, so a
+   tile rebuild reproduces the same chest with the same relic in the same cell.
+   Its id carries the `chest_start_` stamp, so the crate compass points at it
+   too. Never a downgrade: the payload is reconciled against what the player
+   already owns (reconcileRelicOffer), same as any other gear roll.
  - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
    ladder's plant step — it otherwise fires on exactly the tap a beginner makes
    and silently deletes the plot they just paid energy for.
@@ -549,10 +559,11 @@ TREASURE MARKS (X on the ground)
  - claim by tapping the cell the X is drawn on (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
- - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real
-   kind:'chest' objects carrying a `fixedLoot` payload (potato seed + wood +
-   rockfruit), opened via the standard chest modal but with no rarity roll —
-   near spawn and clears a tutorial pocket of
+ - sources: the STARTER TILE seeds a trail of 4 fixed "starter crates" — real
+   kind:'chest' objects carrying a `fixedLoot` payload (9 each of wood,
+   rockfruit, rockfruit seed and potato seed), opened via the standard chest
+   modal but with no rarity roll — near spawn, plus the relic chest a screen
+   out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside named paths. Residential X's only
    spawn near a road.
@@ -727,31 +738,33 @@ GEAR: RELICS & ARMOR
    TINTS DARKER the further out you go, with a black pulsing halo behind. At
    0 energy the character tints RED with a red pulsing halo instead (that
    warning wins when both apply). Let the stick sit idle for WALK_HOME_IDLE_MS
-   (700 ms) and the character WALKS ITSELF HOME — the offset bleeds back to
+   (5000 ms) and the character WALKS ITSELF HOME — the offset bleeds back to
    zero at stick pace, free of charge; any push restarts the timer. Surface
    only, and never while a work wheel is running (standing still to chop a tree
    is being busy, not idle).
    That delay is a DEBOUNCE (so lifting a thumb to reposition it doesn't send
-   the character trotting off), not a pause. It was 3000 ms, which measured as
-   three full seconds of the character doing nothing after release — walk 43 m
-   out, let go, and the offset sat frozen for 3.1 s before covering the whole
-   way back in 2.9 s. All of the sluggishness was in the wait; the walk itself
-   was never slow.
-   A FLAT timer cannot satisfy both ends of this, and 700 ms proved it: players
-   nudge themselves along in short pushes, and any gap longer than the timer had
-   the character walking BACK against them. Driven with a realistic 500 ms push
-   / 900 ms pause pattern, 700 ms spent 23% of the player's forward travel going
-   backwards across 7 direction reversals (3000 ms: 0% and 0). So the timer only
-   decides when the return BEGINS, and it begins gently — the speed eases in
-   over WALK_HOME_RAMP_MS (1100 ms, squared) instead of switching on at full
-   pace. An interrupted nudge gives up almost no ground; a real stop is under
-   way at 0.5 s and home in about 4.8 s. The same nudge pattern now measures 0%
-   backward travel. Removing the CLIFF is the fix; no single flat number is.
-   The lead-line hint (WALK_HOME_HINT_IDLE_MS, 2000 ms) must stay LONGER than
+   the character trotting off), not a pause, and it has been wrong in both
+   directions. At 3000 ms it measured as three full seconds of the character
+   doing nothing after release — walk 43 m out, let go, and the offset sat
+   frozen for 3.1 s before covering the whole way back in 2.9 s. Chasing that
+   took it to 700 ms and then 500 ms, which is a hair-trigger: players nudge
+   themselves along in short pushes, and any gap longer than the timer had the
+   character walking BACK against them (with a 500 ms push / 900 ms pause
+   pattern, 700 ms spent 23% of forward travel going backwards across 7
+   direction reversals). 5000 ms is where playtesting settled — past the longest
+   natural gap between two deliberate pushes, so the return only starts when
+   the player has actually stopped.
+   The timer decides only when the return BEGINS; it begins gently — the speed
+   eases in over WALK_HOME_RAMP_MS (1100 ms, squared) instead of switching on at
+   full pace. That ramp is what keeps a generous debounce from being a cliff in
+   the other direction: a push landing just past the timer gives up almost no
+   ground, while a real stop is at full walking pace about a second later.
+   The lead-line hint (WALK_HOME_HINT_IDLE_MS, 6500 ms) must stay LONGER than
    the walk's delay — it announces a walk, so it can't precede one — but not so
    much longer that an ordinary return finishes before it is due, which is what
-   happened when the walk dropped to 700 ms and the hint stayed at 5000 ms.
-   walk_home.test.js pins both bounds. Two things borrow a tier rather
+   happened when the walk dropped to 700 ms and the hint stayed at 5000 ms; it
+   tracks the debounce plus a beat and a half. walk_home.test.js pins both
+   bounds. Two things borrow a tier rather
    than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
    damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
    walking (debug)" toggle drops the stamina cost to nothing and with it the
@@ -974,15 +987,15 @@ DIALOGS
    trade with the same text.
 
 TEXTURES
- - An opened low-tier / starter crate stays on the map as a looted marker
-   (render.js _chestOpenMarker) drawn with the 'open_box' texture. That texture
-   never existed: nothing registered it, no PNG shipped, and Phaser resolved
-   the key to its __MISSING placeholder — so every looted crate rendered as a
-   checkerboard. It is now drawn procedurally (textures.js makeOpenCrateTexture)
-   at 16x16 to match Box_Single_16x16.png exactly, since the renderer scales
-   both by CRATE_SCALE and any other size would make the marker jump as the
-   crate opened. Its palette and its post/slat skeleton are lifted from the
-   closed crate's own pixels so the two read as one object in two states.
+ - EVERY opened chest VANISHES, crates included — there is no "looted" sprite.
+   An opened low-tier / starter crate used to stay on the map as an open-lid
+   marker: first with an 'open_box' texture that nothing registered (Phaser
+   resolved the key to its __MISSING checkerboard), then with a procedural
+   stand-in. The empty crate read as broken art either way, and an emptied crate
+   is worth less on the map than the clear cell under it, so render.js now
+   filters opened chests of every tier out of the render list identically. The
+   tap target is unaffected (interactables.js still flashes "Picked clean
+   already."), as are the POI pad and label, which persist via objList.
  - A texture key nothing creates fails SILENTLY — Phaser substitutes __MISSING
    rather than throwing. tools/shell_audit.js therefore checks both directions:
    every literal key RENDER_SPEC names is provided (by ASSETS, by a textures.js

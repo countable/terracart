@@ -199,6 +199,32 @@ const MONSTERS = {
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
+
+// --- Defeat bounty -------------------------------------------------------
+// A cave monster used to drop NOTHING: you paid the work wheel and the energy
+// it drained off you and got a flash message, so the only rational play was to
+// walk around every monster you met. Now a kill pays coins, always.
+//
+// The bounty is DERIVED from `hp` — the same number that sets the wheel length
+// — rather than hand-tuned per kind, so a tougher foe can never quietly pay
+// less than an easier one, and a kind added to MONSTERS is priced the moment
+// it has stats. Roughly a coin per 5 HP, floored at 1:
+//   purple slime 6hp → $1 · cave slime 15hp → $3 · archer 18hp → $4 · goblin 25hp → $5
+// Depth adds a slow climb on top (a coin per 3 levels down) so descending pays
+// for itself even where the same kinds keep spawning.
+const MONSTER_COIN_PER_HP  = 1 / 5;
+const MONSTER_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
+function monsterBounty(kind, depth) {
+  const m = MONSTERS[kind];
+  if (!m) return 0;
+  return Math.max(1, Math.round(m.hp * MONSTER_COIN_PER_HP))
+       + Math.floor(Math.max(0, depth || 0) * MONSTER_DEPTH_BONUS);
+}
+// Chance a defeated monster ALSO drops a buried-treasure roll — literally the
+// same pickReward('treasure:default') payout digging an X gives, so the rare
+// drop needs no table of its own and can't drift from the one players already
+// know. Deliberately small: the coins are the wage, this is the surprise.
+const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 
@@ -224,28 +250,25 @@ const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
-// it doesn't send the character trotting back the instant you let go. It was
-// 3000 ms, which is long enough to read as the character ignoring you: let go
-// after walking 40 m out and the offset sat frozen for three full seconds
-// before anything moved (measured), then covered the whole way back in under
-// three. All of the sluggishness was in the wait, none of it in the walk.
+// it doesn't send the character trotting back the instant you let go. Long
+// enough that stopping to look around, line up a tap, or shift your grip is
+// simply standing still; short enough that a player who has genuinely finished
+// walking isn't left waiting on a character that won't come back.
 //
-// A FLAT timer cannot satisfy both ends of this. Dropping it to 700 ms fixed
-// the "takes forever to start" complaint and immediately created the opposite
-// one: players nudge themselves along in short pushes, and any gap longer than
-// the timer had the character lurching back against them mid-manoeuvre. Driven
-// with a realistic 500 ms push / 900 ms pause pattern, 700 ms spent 23% of the
-// player's forward travel walking backwards across 7 direction reversals; at
-// 3000 ms it was 0% and 0.
+// It has been both too long and too short. At 3000 ms it read as the character
+// ignoring you. Chasing that, it went to 700 ms and then 500 ms, which is a
+// hair-trigger: players nudge themselves along in short pushes, and every beat
+// between pushes started a return, so the character was forever leaning back
+// against the direction of travel. 5000 ms is the number playtesting settled
+// on — past the longest natural gap between two deliberate stick pushes, so the
+// walk home only ever starts when the player has actually stopped.
 //
-// So the timer only decides when the return BEGINS, and it begins gently: the
+// The timer only decides when the return BEGINS, and it begins gently: the
 // speed eases in over WALK_HOME_RAMP_MS below rather than switching on at full
-// pace. A push that comes a moment after release loses almost nothing (the
-// return has barely moved), while a player who has genuinely stopped sees the
-// walk under way immediately and at full pace shortly after. The cliff is what
-// made a flat value feel wrong in one direction or the other; there isn't one
-// any more.
-const WALK_HOME_IDLE_MS = 500;
+// pace, so even a push that lands just after the timer expires gives up almost
+// no ground. That ramp is what keeps a longer debounce from feeling like a
+// cliff in the other direction.
+const WALK_HOME_IDLE_MS = 5000;
 // How long the walk home takes to reach full pace once it starts. Squared, so
 // the first fraction of a second is nearly stationary — that is what stops an
 // interrupted nudge from reading as the character fighting you — and the last
@@ -258,9 +281,10 @@ const WALK_HOME_RAMP_MS = 1100;
 //
 // It has to stay LONGER than the walk's own delay (or the lead line appears
 // before there's a walk to lead) but not so much longer that it never shows:
-// at the old 5000 ms against a 700 ms walk, a typical return was over before
-// the hint was due, so the hint only ever appeared on very long journeys home.
-const WALK_HOME_HINT_IDLE_MS = 2000;
+// a typical return is over in a couple of seconds, so a hint that waits much
+// past the walk's start only ever appears on very long journeys home. Tracks
+// WALK_HOME_IDLE_MS — it is that plus a beat and a half.
+const WALK_HOME_HINT_IDLE_MS = 6500;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
@@ -436,6 +460,18 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
 // (see starterSmithSlots) as the player's bootstrap tools.
 const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
+
+// Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
+// out. Every one of these ships art in the `1. Wood` tier folder, which is what
+// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
+// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
+// to forge one below T2), and the ring is the wizard tower's exclusive gift on
+// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
+// Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
+// jackpot: it makes the player's first swing 3× quicker and leaves every finer
+// tier to be bought, forged or looted.
+const STARTER_RELIC_TIER = 1;
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -711,10 +747,6 @@ class MapScene extends Phaser.Scene {
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
-    // Opened supply crate — the "looted" marker a low-tier crate leaves behind.
-    // Its key was referenced by the renderer long before anything created it,
-    // so every opened crate drew Phaser's __MISSING placeholder.
-    makeOpenCrateTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
     // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
     // 'props' sheet, which reads as a hand-painted grass tuft consistent
@@ -2128,7 +2160,7 @@ class MapScene extends Phaser.Scene {
     //                            + low-density random across all tiles.
     //  2) entry.parkingTreasures — one per OSM parking-lot POI (worldgen).
     //  3) entry.extraTreasures   — per-tile random scatter (new). Every tile
-    //                            rolls for 2–5 X marks dropped on random
+    //                            rolls for 4–10 X marks dropped on random
     //                            walkable cells, so X's feel like a regular
     //                            ambient reward instead of a once-a-walk find.
     // All three render + interact through the same code path.
@@ -2163,9 +2195,10 @@ class MapScene extends Phaser.Scene {
       // Cheap no-op once the plan is done.
       this._provisionStarterHome(entry, tx, ty);
     }
-    if (!isStarterTile && rng() < 1 / 4) {
-      // Bumped from 1/200 to 1/4 — combined with the scatter below, players
-      // see X's frequently instead of stumbling onto one a session.
+    if (!isStarterTile && rng() < 1 / 2) {
+      // 1/200 → 1/4 → 1/2. Combined with the scatter below, players see X's
+      // frequently instead of stumbling onto one a session. This stream caps
+      // at ONE mark per tile however it rolls, so the probability IS its yield.
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -2177,14 +2210,14 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
-    // Extra scatter: 2–5 X's per tile on random walkable cells. Each gets a
-    // stable id derived from its cell so save.foundTreasures persists across
-    // reloads. Failed placement attempts (water/building cells) just drop
-    // that slot — small scatter variance is fine.
+    // Extra scatter: 4–10 X's per tile on random walkable cells (doubled from
+    // 2–5). Each gets a stable id derived from its cell so save.foundTreasures
+    // persists across reloads. Failed placement attempts (water/building cells)
+    // just drop that slot — small scatter variance is fine.
     // Skip the extra-X scatter in test mode — the unified treasure handler
     // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
     // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = window.__TEST_MODE ? 0 : (2 + Math.floor(rng() * 4));
+    const EXTRA_X_COUNT = window.__TEST_MODE ? 0 : (4 + Math.floor(rng() * 7));
     for (let k = 0; k < EXTRA_X_COUNT; k++) {
       let placed = false;
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
@@ -2211,11 +2244,14 @@ class MapScene extends Phaser.Scene {
       }
     }
     if (pathCells.length > 0) {
-      // 2-4 bonus X marks per tile that has any path. Capped by path
-      // density so a tile with one stub doesn't get spammed.
+      // 4-8 bonus X marks per tile that has any path (doubled from 2-4).
+      // Capped by path density so a tile with one stub doesn't get spammed —
+      // the cap doubles with the count (one per 2 path cells, was one per 4),
+      // otherwise a thin-path tile clamps at the old number and the extra
+      // marks never appear.
       const PATH_BONUS_COUNT = Math.min(
-        2 + Math.floor(rng() * 3),
-        Math.max(1, Math.floor(pathCells.length / 4))
+        4 + Math.floor(rng() * 5),
+        Math.max(1, Math.floor(pathCells.length / 2))
       );
       const NEIGHBOURS = [[1,0],[-1,0],[0,1],[0,-1]];
       for (let k = 0; k < PATH_BONUS_COUNT; k++) {
@@ -2500,11 +2536,114 @@ class MapScene extends Phaser.Scene {
     if (Array.isArray(entry.wildplants)) {
       entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
     }
+    // One screen out from the pocket, the treasure chest with the player's
+    // first tool in it. Seated BEFORE the two passes below so its cell is in
+    // usedSeats (and its object in entry.objects) by the time they look for
+    // somewhere to put a tree, a rock or the soil plot.
+    this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+  }
+
+  // A treasure chest one screen out from the spawn anchor, holding one random
+  // WOODEN (T1) relic.
+  //
+  // The supply crates hand a new player materials; nothing hands them a TOOL.
+  // Every relic is otherwise bought or forged, so the opening hour is spent
+  // bare-handed at 9 s a swing — a wooden one is 3× quicker (toolDurationMs) —
+  // and which tool it is decides what that hour can even be spent on. So this
+  // is a real treasure chest, not another supply crate: no `crate` flag, so it
+  // renders as the trunk with its tier gem rather than a box, and it disappears
+  // when opened. Its id carries the `chest_start_` stamp, so the gold onboarding
+  // arrow (_nearestStarterCrate) will point the way to it like any other.
+  //
+  // "A screen away": the view is VIEW_CELLS across with the player in the middle
+  // of it, so a chest VIEW_CELLS cells out is just past the edge of the opening
+  // screen — a walk in some direction, not something already in frame — and
+  // clear of the CLEAR_R tutorial pocket that gets stripped bare around the
+  // anchor. It takes the first ring from there out with a free cell (searching
+  // to RELIC_MAX_R), so a spawn hemmed in by water or buildings still gets it.
+  //
+  // Which slot and which direction are both derived from the frozen anchor
+  // through a seeded rng, never Math.random: a tile rebuild has to reproduce
+  // the same chest, in the same cell, with the same relic in it — a player who
+  // walked off and came back to find a different reward waiting would be
+  // watching the world re-roll itself. The id is keyed off the tile (not the
+  // cell) for the same reason save.opened keys off it: an opened chest must
+  // stay opened even if a future rebuild ever seats it one cell over.
+  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const grid = entry.grid;
+    if (!grid || typeof WorldGen === 'undefined') return null;
+    const N = entry.cellsPerEdge;
+    entry.objects = entry.objects || [];
+    const id = `chest_start_relic_${tx}_${ty}`;
+    if (entry.objects.some(o => o.id === id)) return null;   // already seated
+    // Ring band: one screen out, widening only as far as the starter home's
+    // own ring reaches so the chest can never end up somewhere that reads as
+    // "another neighbourhood" instead of "just off the opening screen".
+    const RELIC_MIN_R = VIEW_CELLS;
+    const RELIC_MAX_R = (typeof HomeArea !== 'undefined' ? HomeArea.RING_MAX_CELLS : 16);
+    // Cells already spoken for — a crate seat, or anything standing on the
+    // tile. Nothing but the chest may share the cell it seats on.
+    const taken = new Set(usedSeats || []);
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const markTaken = (wx, wy) => taken.add(
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    for (const o of entry.objects) markTaken(o.x, o.y);
+    for (const w of (entry.wildplants || [])) markTaken(w.x, w.y);
+    // The shared spawn rule — walkable, off anyone's road BAND (not merely off
+    // the one cell per way the grid paints), out of the back gardens. A chest
+    // in the street is the bug this mask exists to stop.
+    const spawnOpts = { roadMask: entry.roadMask };
+    const free = (cx, cy) => !taken.has(cx + ',' + cy) &&
+      WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
+    const rng = WorldGen.makeRng(
+      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
+    const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    // Nearest ring first; within a ring, a seeded pick so the chest isn't
+    // always due east of every spawn in the game. Ring cells are collected in
+    // a fixed scan order, so the pick is reproducible.
+    let seat = null;
+    for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
+      const ring = [];
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          const cx = spawnIX + dx, cy = spawnIY + dy;
+          if (free(cx, cy)) ring.push({ cx, cy });
+        }
+      }
+      if (ring.length) seat = ring[Math.floor(rng() * ring.length)];
+    }
+    // Nothing seated: every ring cell in reach is water, road, floor or taken —
+    // or, on a spawn right against a tile seam, off the edge of the only grid
+    // this pass can read. A tile is ~220 cells across and the band is 16, so a
+    // seam only ever costs the arcs on that side; the rest of the compass still
+    // answers, which is why this stays clamped to the anchor's own tile rather
+    // than reaching across seams the way _provisionStarterHome has to.
+    if (!seat) return null;
+    // Snap to the canonical global cell centre, the basis seatCrate and every
+    // cell tap share (the tile-relative basis drifts off it — see seatCrate).
+    const rawX = tx0 + (seat.cx + 0.5) * this.cellM;
+    const rawY = ty0 + (seat.cy + 0.5) * this.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+    const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+    const chest = {
+      kind: 'chest', x: wmx, y: wmy, id,
+      // Named so it draws a label: the whole point is that the player can see
+      // there is something worth the walk once it comes into view.
+      name: 'Old Chest',
+      // Opens through the standard chest path (interactables.js), which reads
+      // fixedLoot and — for a gear payload — reconciles it against what the
+      // player already owns before equipping.
+      fixedLoot: { kind: 'relic', slot, tier: STARTER_RELIC_TIER },
+    };
+    entry.objects.push(chest);
+    if (usedSeats) usedSeats.add(seat.cx + ',' + seat.cy);
+    return chest;
   }
 
   // A guaranteed 2x2 patch of tillable grass near the spawn anchor.
@@ -4781,7 +4920,7 @@ class MapScene extends Phaser.Scene {
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
-  // first couple of seconds need no explaining to the player who just let go),
+  // first moments need no explaining to the player who just let go),
   // and it needs the ghost on screen, which is the game's own test for "far
   // enough off your real position to matter". Ghost blue, so the line, the
   // ghost it points at and the idea of "where you really are" are one colour.
