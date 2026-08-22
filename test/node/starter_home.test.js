@@ -326,6 +326,36 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
     assert.eq(seated.filter(o => o.kind === 'mineralrock').length, 1, 'no surplus rocks');
   });
 
+  test('starter home seating: the ring surrounds home, it is not a line', () => {
+    // The bug this guards: the obvious ring scan (for dy… for dx… take the
+    // first free cell) walks the ring in order and drops EVERY item on its
+    // north row two cells apart. Walking north tripped over all of them;
+    // walking any other direction found nothing. Measured on the real seater.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const ring = added(entry).filter(o => cellsOut(o) > SH_HA.POCKET_CELLS);
+    assert.gte(ring.length, 4, 'enough ring items to judge the spread');
+    const ys = new Set(ring.map(o => Math.round(o.y / CELL_M)));
+    const xs = new Set(ring.map(o => Math.round(o.x / CELL_M)));
+    assert.gt(ys.size, 1, 'not all on one row');
+    assert.gt(xs.size, 1, 'not all in one column');
+    // Every compass quadrant a player might set off in should hold something.
+    const quads = new Set(ring.map((o) => {
+      const dx = o.x / CELL_M - (SPAWN + 0.5), dy = o.y / CELL_M - (SPAWN + 0.5);
+      return (dy < 0 ? 'N' : 'S') + (dx < 0 ? 'W' : 'E');
+    }));
+    assert.gte(quads.size, 3, `ring spans ${quads.size} quadrants: ${[...quads].join(',')}`);
+  });
+
+  test('starter home seating: the two pocket tokens sit apart, not side by side', () => {
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const tok = added(entry).filter(o => cellsOut(o) <= SH_HA.POCKET_CELLS);
+    assert.eq(tok.length, 2, 'a tree and a rock');
+    const gap = Math.max(Math.abs(tok[0].x - tok[1].x), Math.abs(tok[0].y - tok[1].y)) / CELL_M;
+    assert.gte(gap, SH_HA.TOKEN_MIN_CELLS, 'placed on opposite sides of the door');
+  });
+
   test('starter home seating: only the tile holding the anchor plans', () => {
     // A neighbour tile sees the anchor outside its bounds; it must not start a
     // second, competing provision.
