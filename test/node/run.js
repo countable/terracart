@@ -543,6 +543,16 @@ for (const f of testFiles) {
   for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// ── Viewport-vignette audit (tools/vignette_audit.js) ─────────────────────
+// The map's rim fades differently on the two axes: the top and bottom keep the
+// near-opaque lip that stops overhanging art being sliced mid-pixel, while the
+// left and right — which ARE the screen edges on a phone — get the soft ramp
+// alone, so the vignette can't paint black bars down the sides again.
+{
+  const vignette = require('../../tools/vignette_audit.js');
+  for (const c of vignette.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
 // Scans app.js for showOfferModal callers that fill BOTH halves of the "you
 // get X for Y" dialog with the same text — which is how the castle quest
