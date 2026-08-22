@@ -24,6 +24,43 @@ const shOreRock   = (c, id) => shAt(c, { kind: 'mineralrock', yieldTier: 5, requ
 const shPlainRock = (c, id) => shAt(c, { kind: 'mineralrock', yieldTier: 1, requiredTier: 1, id: id || `r${c}` });
 const shHouse     = (c, id) => shAt(c, { kind: 'house', tier: 9, id: id || `h${c}` });
 
+// n objects spread around the ring band. Laying them out along one axis at
+// `12 + i` walks straight out of the home area once the quota is large, so
+// they must be placed by bearing and radius instead.
+function shInRing(n, make) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const r = SH_HA.RING_MIN_CELLS + (i % (SH_HA.RING_MAX_CELLS - SH_HA.RING_MIN_CELLS + 1));
+    // Walk the CHEBYSHEV ring, not a circle: at 45 degrees a circle of radius
+    // 11 rounds to offset 8, which is inside the pocket, not the ring band.
+    const per = 8 * r;
+    const t = Math.floor((i * per) / Math.max(1, n));
+    let cx, cy;
+    if (t < 2 * r)      { cx = -r + t;             cy = -r; }
+    else if (t < 4 * r) { cx = r;                  cy = -r + (t - 2 * r); }
+    else if (t < 6 * r) { cx = r - (t - 4 * r);    cy = r; }
+    else                { cx = -r;                 cy = r - (t - 6 * r); }
+    const o = make(i);
+    o.x = cx * SH_CELL_M;
+    o.y = cy * SH_CELL_M;
+    // A shiny tree is pinned to the Gold-axe tier and cannot be tamed, so one
+    // landing in a fixture quietly drops it from the count. Shift the id until
+    // it isn't shiny — the fixture is about quantity, not shiny handling.
+    for (let n = 0; o.kind === 'tree' && isShiny(o.id, SHINY_RATE.tree); n++) o.id += `_${n}`;
+    out.push(o);
+  }
+  return out;
+}
+// Run fn against a chosen quota. The capping and nearest-first RULES have to
+// hold whatever the shipped numbers are, and only bite when the neighbourhood
+// offers more candidates than the quota is short by — so they need a quota
+// small enough for that to be true.
+function shWithQuota(quota, fn) {
+  const real = SH_HA.QUOTA;
+  SH_HA.QUOTA = Object.assign({}, real, quota);
+  try { return fn(); } finally { SH_HA.QUOTA = real; }
+}
+
 // ── Classification ────────────────────────────────────────────────────────
 
 test('starter home: a small softwood is bare-hands, a large hardwood is not', () => {
@@ -82,10 +119,11 @@ test('starter home: a bare spawn owes the player the whole quota', () => {
 });
 
 test('starter home: a rich neighbourhood is left alone', () => {
-  const objs = [];
-  for (let i = 0; i < SH_HA.QUOTA.tree; i++)  objs.push(shSmallPine(12 + i, `t${i}`));
-  for (let i = 0; i < SH_HA.QUOTA.rock; i++)  objs.push(shPlainRock(12 + i, `k${i}`));
-  for (let i = 0; i < SH_HA.QUOTA.wreck; i++) objs.push(shHouse(13 + i, `w${i}`));
+  const objs = [
+    ...shInRing(SH_HA.QUOTA.tree,  (i) => shSmallPine(12, `t${i}`)),
+    ...shInRing(SH_HA.QUOTA.rock,  (i) => shPlainRock(12, `k${i}`)),
+    ...shInRing(SH_HA.QUOTA.wreck, (i) => shHouse(13, `w${i}`)),
+  ];
   const p = shPlan(objs);
   assert.eq(p.need.tree, 0, 'no trees needed');
   assert.eq(p.need.rock, 0, 'no rocks needed');
@@ -96,9 +134,10 @@ test('starter home: a rich neighbourhood is left alone', () => {
 test('starter home: unusable naturals are tamed, not supplemented', () => {
   // A downtown spawn: plenty of trees and rock, all of it out of a beginner's
   // reach. The right answer is to bring them down, not to add more beside them.
-  const objs = [];
-  for (let i = 0; i < SH_HA.QUOTA.tree; i++) objs.push(shBigMaple(12 + i, `t${i}`));
-  for (let i = 0; i < SH_HA.QUOTA.rock; i++) objs.push(shOreRock(12 + i, `k${i}`));
+  const objs = [
+    ...shInRing(SH_HA.QUOTA.tree, (i) => shBigMaple(12, `t${i}`)),
+    ...shInRing(SH_HA.QUOTA.rock, (i) => shOreRock(12, `k${i}`)),
+  ];
   const p = shPlan(objs);
   assert.eq(p.need.tree, 0, 'the hardwoods cover the tree quota once tamed');
   assert.eq(p.need.rock, 0, 'the ore covers the rock quota once tamed');
@@ -321,9 +360,9 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
     for (const o of inPocket) {
       assert.gte(cellsOut(o), SH_HA.TOKEN_MIN_CELLS - 0.5, `${o.id} not right in the doorway`);
     }
-    // The quota was already met out there, so no extra ring stock is added.
-    assert.eq(seated.filter(o => o.kind === 'tree').length, 1, 'no surplus trees');
-    assert.eq(seated.filter(o => o.kind === 'mineralrock').length, 1, 'no surplus rocks');
+    // Whatever the quota adds out in the ring, the pocket gets exactly its
+    // token pair — never a pile of them in the player's front garden.
+    assert.eq(inPocket.length, 2, 'the pocket holds the token pair and nothing more');
   });
 
   test('starter home seating: the ring surrounds home, it is not a line', () => {
@@ -354,6 +393,46 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
     assert.eq(tok.length, 2, 'a tree and a rock');
     const gap = Math.max(Math.abs(tok[0].x - tok[1].x), Math.abs(tok[0].y - tok[1].y)) / CELL_M;
     assert.gte(gap, SH_HA.TOKEN_MIN_CELLS, 'placed on opposite sides of the door');
+  });
+
+  test('starter home seating: a spawn near a tile seam still gets a ring all round', () => {
+    // The bug this guards: seating was clamped to the anchor's own tile, so a
+    // spawn within ring-distance of a seam lost that whole arc — measured on a
+    // real spawn at cell iy=213 of a 222-cell tile, the entire southern side
+    // came out bare. Worse, the quota was then satisfied by the directions it
+    // COULD reach, so no later pass ever wanted to fill the gap.
+    const scene = makeScene();
+    const NEAR_EDGE = N - 9;                      // 9 cells of room to the south
+    const south = makeEntry();                    // the tile across the seam
+    const key = `${WorldGen.Z}/0/1`;
+    WorldGen.tileCache.set(key, south);
+    try {
+      const entry = makeEntry();
+      scene.save.starterCratesAt = { x: (SPAWN + 0.5) * CELL_M, y: (NEAR_EDGE + 0.5) * CELL_M };
+      scene._provisionStarterHome(entry, 0, 0, SPAWN, NEAR_EDGE, new Set());
+      const mine = entry.objects.filter(o => String(o.id).startsWith('starter_'));
+      const theirs = south.objects.filter(o => String(o.id).startsWith('starter_'));
+      assert.gt(theirs.length, 0, 'items seated across the seam into the neighbour tile');
+      // And the arc really is southern: past the anchor tile's own bottom edge.
+      for (const o of theirs) {
+        assert.gt(o.y, N * CELL_M, `${o.id} lies south of the seam`);
+      }
+      assert.gt(mine.length, 0, 'the anchor tile still holds its share');
+    } finally {
+      WorldGen.tileCache.delete(key);
+    }
+  });
+
+  test('starter home seating: it waits for the map around spawn before planning', () => {
+    // Planning against half a map spends the whole quota on the reachable
+    // directions. With no neighbour tiles loaded and the anchor near an edge,
+    // the pass should defer rather than freeze a lopsided plan.
+    const scene = makeScene();
+    const entry = makeEntry();
+    scene.save.starterCratesAt = { x: (SPAWN + 0.5) * CELL_M, y: (N - 9 + 0.5) * CELL_M };
+    scene._provisionStarterHome(entry, 0, 0, SPAWN, N - 9, new Set());
+    assert.falsy(scene.save.starterHome, 'nothing frozen while the area is still streaming');
+    assert.eq(added(entry).length, 0, 'and nothing seated');
   });
 
   test('starter home seating: only the tile holding the anchor plans', () => {
@@ -396,7 +475,13 @@ const shWooded = () => {
 };
 
 test('starter home: a lush ring still owes the pocket its token pair', () => {
-  const p = SH_HA.planStarterProvision(shWooded(), 0, 0, SH_CELL_M, {});
+  // A ring that fully satisfies the quota, and a pocket that is empty because
+  // the clearing pass strips it. The tokens must still be owed.
+  const objs = [
+    ...shInRing(SH_HA.QUOTA.tree, (i) => shSmallPine(12, `lt${i}`)),
+    ...shInRing(SH_HA.QUOTA.rock, (i) => shPlainRock(12, `lk${i}`)),
+  ];
+  const p = shPlan(objs);
   assert.eq(p.need.tree, 0, 'the ring covers the tree quota');
   assert.eq(p.need.rock, 0, 'and the rock quota');
   assert.truthy(p.tokens.tree, 'but the cleared pocket still needs a tree');
@@ -405,9 +490,9 @@ test('starter home: a lush ring still owes the pocket its token pair', () => {
 
 test('starter home: taming is capped at the shortfall, not the whole street', () => {
   const objs = shWooded();
-  const p = SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {});
-  assert.eq(p.downgrade.length, SH_HA.QUOTA.tree + SH_HA.QUOTA.rock,
-    'exactly the quota is tamed');
+  const p = shWithQuota({ tree: 4, rock: 3 },
+    () => SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {}));
+  assert.eq(p.downgrade.length, 4 + 3, 'exactly the shortfall is tamed');
   assert.lt(p.downgrade.length, objs.length, 'the rest of the neighbourhood is left alone');
   // And what survives untouched really is still full-tier woodland.
   for (const o of p.downgrade) SH_HA.makeStarterUsable(o);
@@ -421,10 +506,13 @@ test('starter home: the nearest usable candidates are the ones tamed', () => {
   for (let i = 0; i < 8; i++) {
     objs.push(shAt(SH_HA.RING_MAX_CELLS - i, { kind: 'tree', species: 'oak', id: `d${i}` }));
   }
-  const p = SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {});
+  const WANT = 4;
+  const p = shWithQuota({ tree: WANT, rock: 0 },
+    () => SH_HA.planStarterProvision(objs, 0, 0, SH_CELL_M, {}));
   const tamedIds = new Set(p.downgrade.map(o => o.id));
-  // d7 is closest (RING_MAX-7), d0 furthest — the closest QUOTA.tree win.
-  for (let i = 0; i < SH_HA.QUOTA.tree; i++) {
+  assert.eq(tamedIds.size, WANT, 'only the shortfall is tamed');
+  // d7 is closest (RING_MAX-7), d0 furthest — the closest WANT should win.
+  for (let i = 0; i < WANT; i++) {
     assert.truthy(tamedIds.has(`d${7 - i}`), `d${7 - i} is among the nearest and should be tamed`);
   }
 });

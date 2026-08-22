@@ -92,7 +92,7 @@ const HomeArea = {
   // What must be reachable on foot before the ladder can be completed.
   // Counted across the pocket AND the ring together — a tree is a tree
   // wherever it stands.
-  QUOTA: { tree: 4, rock: 3, wreck: 2 },
+  QUOTA: { tree: 50, rock: 50, wreck: 2 },
   // Of that quota, how many must sit inside the pocket as the visible example.
   // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
   // and rocks, so however lush the surrounding neighbourhood is, a player
