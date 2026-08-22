@@ -1494,30 +1494,48 @@ class MapScene extends Phaser.Scene {
     // Nested 1px strokes rather than a gradient fill: Phaser's Graphics has no
     // gradient primitive, and 1px rings cost nothing to bake once (the
     // viewport never moves, so this is drawn exactly once in create()).
-    // Quadratic falloff over 14px. The outer 4px now ramp to near-opaque so
-    // art that overhangs the mask FADES out instead of being sliced mid-pixel
-    // (bottom-row houses were cut cleanly in half — UX audit §15); inside that
-    // lip the ramp stays light, because the outer cell ring is where objects
-    // first appear as the player walks toward them and must stay readable.
+    // Quadratic falloff over 14px, drawn as four separate edges because the
+    // top and bottom need a different rim from the left and right.
+    //
+    // The RIM LIP — the outer 4px ramped to near-opaque — exists so art that
+    // overhangs the mask FADES out instead of being sliced mid-pixel (bottom-
+    // row houses were cut cleanly in half — UX audit §15). That is a fix for a
+    // cut the player can SEE AGAINST THE PAGE, and only the top and bottom
+    // edges have a page to be seen against: they sit in the middle of the
+    // screen with the HUD chrome above and below them.
+    //
+    // The LEFT AND RIGHT EDGES ARE THE SCREEN EDGES. The box spans the whole
+    // viewport width on a phone, so those two rings are the outermost pixels
+    // of the display — and painting them near-black drew a ~4px black bar down
+    // both sides of the map that read, correctly, as the game not being full
+    // width. Nothing is sliced there that the bezel doesn't slice anyway, and
+    // sprites overhang far less sideways than they do vertically (art is
+    // centred in its cell horizontally, but seated at the cell's bottom).
+    // So those edges get the soft ramp alone — still a vignette, no bar.
+    //
     // Unmasked and depth 90: above every world container (all depth 0) and
     // below the work-progress wheel (95) + flash text (100+), which are UI and
     // shouldn't be dimmed.
     const vignette = this.add.graphics().setDepth(90);
     const VIG_PX = 14;
     const VIG_LIP = 4;                       // outermost rings that go opaque
+    // The soft ramp every edge gets: light enough that the outer cell ring
+    // stays readable, because that ring is where objects first appear as the
+    // player walks toward them.
+    const vigSoft = (i) => 0.15 * (1 - i / VIG_PX) ** 2;
+    // Top/bottom only: 0.92 → 0.15 across VIG_LIP rings, then the soft ramp.
+    const vigLip = (i) => (i < VIG_LIP
+      ? 0.92 - (0.92 - 0.15) * (i / VIG_LIP)
+      : vigSoft(i));
+    const x0 = this.viewLeft, y0 = this.viewTop, size = this.viewSize;
     for (let i = 0; i < VIG_PX; i++) {
-      const t = 1 - i / VIG_PX;              // 1 at the rim → 0 inward
-      // Rim lip: 0.92 → 0.15 across VIG_LIP rings, then the original soft
-      // quadratic for the rest. Without the lip a sprite crossing the mask
-      // ended on a hard cut; with it the last few pixels read as a fade.
-      const a = i < VIG_LIP
-        ? 0.92 - (0.92 - 0.15) * (i / VIG_LIP)
-        : 0.15 * t * t;
-      vignette.lineStyle(1, 0x000000, a);
-      vignette.strokeRect(
-        this.viewLeft + i + 0.5, this.viewTop + i + 0.5,
-        this.viewSize - 2 * i - 1, this.viewSize - 2 * i - 1,
-      );
+      // Horizontal edges run the full width so the corners stay closed.
+      vignette.lineStyle(1, 0x000000, vigLip(i));
+      vignette.lineBetween(x0, y0 + i + 0.5, x0 + size, y0 + i + 0.5);
+      vignette.lineBetween(x0, y0 + size - i - 0.5, x0 + size, y0 + size - i - 0.5);
+      vignette.lineStyle(1, 0x000000, vigSoft(i));
+      vignette.lineBetween(x0 + i + 0.5, y0 + VIG_LIP, x0 + i + 0.5, y0 + size - VIG_LIP);
+      vignette.lineBetween(x0 + size - i - 0.5, y0 + VIG_LIP, x0 + size - i - 0.5, y0 + size - VIG_LIP);
     }
 
     // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows

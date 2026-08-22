@@ -788,7 +788,6 @@
     #howto dt:first-child { margin-top: 0; }
     #howto dd { margin: 2px 0 0; color: #ddd; }
     /* Points at the objective chip rather than restating its steps. */
-    #howto .hint { margin: 0 0 16px; color: #bbb; font-size: 12px; }
     #howto button {
       display: block; width: 100%;
       background: var(--gold-dark); color: #1a1612; border: 0;
@@ -935,10 +934,13 @@
            are. Both figures are the game's OWN sprites at the same scale and
            transparency the scene draws them at, so the card is showing the
            thing the player will see rather than an illustration of it.
-           aria-hidden: the "Stick" entry below carries the same content in
-           words, so a screen reader gets it there instead of from two
-           unlabelled boxes. -->
-      <div class="demo" aria-hidden="true">
+           It used to be aria-hidden, because the "Stick" entry below said the
+           same thing in words and two unlabelled boxes would have read as
+           noise on top of it. That entry is gone now, so the figure carries
+           its own words: one label on the group, rather than a screen reader
+           picking its way through "you", a blank and "your GPS". -->
+      <div class="demo" role="img"
+           aria-label="Your farmer walking back to where your GPS says you are.">
         <div class="stage">
           <div class="sprite walker"></div>
           <svg class="demo-arrow" viewBox="0 0 44 14" width="44" height="14">
@@ -953,16 +955,9 @@
          farmer <span class="kbd-only">&mdash; WASD on a computer &mdash;</span>
          and rebuild it.</p>
       <dl>
-        <dt>Reach</dt>
-        <dd>Only the lit cells around you are in reach.</dd>
-        <dt>The stick</dt>
-        <dd>Drag it (bottom right) to reach past them. Straying costs &#9889;
-            &mdash; let go and it walks back.</dd>
         <dt>Energy</dt>
         <dd>Most actions cost &#9889;. Eat or rest to refill.</dd>
       </dl>
-      <p class="hint">The card at the top gives you one task at a time &mdash;
-         follow it for a guided first harvest.</p>
       <button id="howto-close" type="button">Got it</button>
       <button id="howto-skip" class="secondary" type="button">Skip the tutorial</button>
     </div>
@@ -2014,7 +2009,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=426';
+      const APP_SRC = 'src/app.js?v=427';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
