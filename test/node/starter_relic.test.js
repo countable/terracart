@@ -131,6 +131,37 @@
     assert.gt(bearings.size, 1, 'and so does the direction it sits in');
   });
 
+  test('spawn relic chest: a save reset rerolls the relic but never moves the chest', () => {
+    // The salt is the ONE per-save die (save.relicSalt): wiped with the save,
+    // so a reset draws a fresh opening relic instead of the same spawn rolling
+    // the same tool forever. It reaches the SLOT stream only — the seat stays
+    // purely location-keyed, so the chest and the trail laid to it sit where
+    // they always sat, whatever the salt says.
+    const slots = new Set();
+    let seat = null;
+    for (let salt = 1; salt <= 16; salt++) {
+      const chest = srPlace(srScene({ save: { relicSalt: salt } }), srEntry());
+      slots.add(chest.fixedLoot.slot);
+      const key = chest.x + ',' + chest.y + '/' + chest.id;
+      if (seat === null) seat = key;
+      assert.eq(key, seat, `salt ${salt} left the seat alone`);
+    }
+    assert.gt(slots.size, 1, `the salt reaches the roll (16 salts saw ${[...slots].join(',')})`);
+    // And within one save the roll is stable: same salt, same relic.
+    const again = srPlace(srScene({ save: { relicSalt: 7 } }), srEntry());
+    const first = srPlace(srScene({ save: { relicSalt: 7 } }), srEntry());
+    assert.eq(again.fixedLoot.slot, first.fixedLoot.slot, 'same salt, same relic');
+  });
+
+  test('spawn relic chest: a saltless save rolls exactly the legacy relic', () => {
+    // Test stubs and pre-salt saves carry no relicSalt; both must degrade to
+    // the old purely-location roll (salt 0 is the identity of the XOR mix),
+    // so shipping the salt rerolls nothing for a save that never had one.
+    const bare = srPlace(srScene({ save: {} }), srEntry());
+    const zero = srPlace(srScene({ save: { relicSalt: 0 } }), srEntry());
+    assert.eq(bare.fixedLoot.slot, zero.fixedLoot.slot, 'no salt behaves as salt 0');
+  });
+
   test('spawn relic chest: seating it twice does not stack a second one', () => {
     const scene = srScene(), entry = srEntry(), seats = new Set();
     srPlace(scene, entry, seats);

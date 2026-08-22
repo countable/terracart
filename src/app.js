@@ -872,6 +872,16 @@ class MapScene extends Phaser.Scene {
     // independently on each level. Re-applied to a cave tile's grid on load.
     this.save.dugWalls = this.save.dugWalls || [];
     this.dugWallSet = new Set(this.save.dugWalls);
+    // Per-save relic salt, mixed into the starter chest's SLOT roll (see
+    // _placeStarterRelicChest). World generation is deliberately seedless —
+    // everything hashes off location so the world survives tile eviction —
+    // which meant the opening relic was a fact about your house: reset as
+    // often as you liked, the same spawn rolled the same tool forever. The
+    // salt is the one per-save die: rolled once when a save first boots,
+    // persisted, and wiped with the save, so a reset rerolls the relic while
+    // everything else stays location-stable. Math.random is right here —
+    // this IS the save's identity, not world state.
+    if (this.save.relicSalt == null) this.save.relicSalt = (Math.random() * 0x100000000) >>> 0;
     // All one-time save-shape migrations — slot/default backfills, the maxEnergy
     // re-derive, the history cap, and the data migrations (inv string→object,
     // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
@@ -3250,9 +3260,21 @@ class MapScene extends Phaser.Scene {
     const free = (cx, cy) => !taken.has(cellKey(cx, cy)) &&
       cameFrom.has(cellKey(cx, cy)) &&
       WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
-    const rng = WorldGen.makeRng(
-      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
-    const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    const seed =
+      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0;
+    const rng = WorldGen.makeRng(seed);
+    // The SLOT rolls off its own stream with the per-save salt mixed in, so a
+    // save RESET rerolls which relic the chest holds. The SEAT stream (rng)
+    // stays purely location-keyed: the chest sits where it always sat, the
+    // trail geometry doesn't move, and a tile rebuild mid-save reproduces
+    // both — the salt lives in the save, so it is exactly as stable as the
+    // loot needs to be and no more. Salt 0 (test stubs, pre-salt saves at
+    // the moment of upgrade) degrades to the old purely-location roll.
+    const slotRng = WorldGen.makeRng((seed ^ (this.save?.relicSalt || 0)) >>> 0);
+    const slot = STARTER_RELIC_SLOTS[Math.floor(slotRng() * STARTER_RELIC_SLOTS.length)];
+    // The slot used to be drawn off `rng`; burn that draw so every chest laid
+    // by the old code keeps its seat under the new one.
+    rng();
     // A caller may nominate the seat — the kerb trail (mode 1 in
     // _placeStarterTrail) wants the chest at the end of the crate line, on
     // the road's shoulder. Honoured only if it passes the same legality the
