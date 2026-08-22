@@ -236,6 +236,13 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The road-geometry overlay must keep stroking its bands with the same width
+// function worldgen stamps its no-spawn road mask from — a private copy there
+// would let a way be DRAWN wider than the ground the spawners keep clear, which
+// is how rocks ended up sitting in the traffic. Hand the source text over so
+// spawn_roads.test.js can pin it (the vm sandbox has no require/fs).
+ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];

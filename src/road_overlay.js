@@ -92,20 +92,22 @@
   // they still read as ribbons barely wider than the residential streets
   // feeding them; the extra weight puts the road hierarchy back so the trunk
   // routes are legible at a glance. Everything else keeps its true width.
-  const LARGE_CLASSES = new Set(['motorway', 'trunk', 'primary']);
-  const LARGE_SCALE = 1.5;
+  // That weighting lives in WorldGen.roadOverlayWidthM, NOT here: worldgen
+  // stamps its no-spawn road mask from the same function, so the ground drawn
+  // as road and the ground barred from spawning are the same ground by
+  // construction. Widening a band here alone would put rocks back in the
+  // traffic.
 
-  // Stroke width for one way: its real-world carriageway width, drawn at the
+  // Stroke width for one way: the width it covers on the ground, drawn at the
   // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
   // residential street lands just inside the single cell the rasterizer paints
   // for it, and a 12 m motorway visibly spills past that cell on both sides —
-  // by half again as much once LARGE_SCALE is applied to the top tier.
+  // by half again as much once the large tier's weighting is applied.
   function widthPxFor(scene, tags) {
-    const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadWidthM === 'function')
-      ? WorldGen.roadWidthM(tags || {})
+    const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadOverlayWidthM === 'function')
+      ? WorldGen.roadOverlayWidthM(tags || {})
       : FALLBACK_WIDTH_M;
-    const scale = LARGE_CLASSES.has((tags && tags.class) || '') ? LARGE_SCALE : 1;
-    return Math.max(1, (m / scene.cellM) * CELL_PX * scale);
+    return Math.max(1, (m / scene.cellM) * CELL_PX);
   }
 
   // ── Cobblestone ──────────────────────────────────────────────────────────
