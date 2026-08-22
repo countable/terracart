@@ -9,6 +9,13 @@
   const CELL_M = 7;             // game cell size in meters
   const TILE_URL = 'https://tiles.openfreemap.org/planet/20260520_001001_pt/{z}/{x}/{y}.pbf';
 
+  // The tile cache key, spelled one way. `${Z}/${tx}/${ty}` is hand-built
+  // across this file and several others (app.js, render.js, …) — this is the
+  // one place that does it, exported as WorldGen.tileKey for the rest.
+  function tileKey(tx, ty) {
+    return `${Z}/${tx}/${ty}`;
+  }
+
   // Spatial-hash multipliers. The (HASH_MUL_X, HASH_MUL_Y) pair is the classic
   // 2D integer hash used to derive stable per-coordinate seeds (poly keys, tile
   // rng, addresses, satextract tree seeds). Renamed from bare literals — values
@@ -300,13 +307,23 @@
     if (layer === 'building') return T.BUILDING;
     return null;
   }
+  // The big ways — motorway / trunk / primary, exactly the ROAD_LG tier — are
+  // drawn half again as wide as their measured carriageway so the trunk
+  // network stays legible at map scale. See road_overlay.js. Declared here
+  // (ahead of classifyLine) so both the classifier and the width scaling
+  // below share this one Set.
+  const LARGE_ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary']);
+  // Walkable, non-vehicle way classes — footways, tracks, steps and the like.
+  // Shared with road_overlay.js (WorldGen.PATH_CLASSES) so the geometry
+  // overlay draws exactly the classes the terrain classifier calls T.PATH.
+  const PATH_CLASSES = new Set(['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps']);
   function classifyLine(layer, tags) {
     if (layer !== 'transportation') return null;
     const c = tags.class || '';
-    if (['motorway', 'trunk', 'primary'].includes(c)) return T.ROAD_LG;
+    if (LARGE_ROAD_CLASSES.has(c)) return T.ROAD_LG;
     if (['secondary', 'tertiary'].includes(c)) return T.ROAD_MD;
     if (['minor', 'service', 'street'].includes(c)) return T.ROAD;
-    if (['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps'].includes(c)) return T.PATH;
+    if (PATH_CLASSES.has(c)) return T.PATH;
     // Piers: wooden walkways over water. Painted as T.PIER so render.js can
     // overlay the plank sprite and walkability gates don't lump them in with
     // roads or treat them as water.
@@ -335,10 +352,8 @@
     if (c === 'footway' || c === 'path' || c === 'steps') return 2;
     return 3;
   }
-  // The big ways — motorway / trunk / primary, exactly the ROAD_LG tier — are
-  // drawn half again as wide as their measured carriageway so the trunk
-  // network stays legible at map scale. See road_overlay.js.
-  const LARGE_ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary']);
+  // LARGE_ROAD_CLASSES is declared above classifyLine; it's reused here to
+  // scale the same tier's carriageway width up for the overlay.
   const LARGE_ROAD_SCALE = 1.5;
   // The width, in metres, that a way actually COVERS on screen: its
   // carriageway width with the large tier's extra weight applied. One number,
@@ -650,7 +665,9 @@
   //   surface (depth 0) → 0.90 plain → 0.10 ore → ~2.5 % copper-bearing rock
   //   depth 1           → 0.50 plain → 0.50 ore → ~40 % copper, ~10 % rarer
   //   depth 2           → 0.45 plain → 0.55 ore  (balanced ore table kicks in)
-  //   depth 3+          → floors at 0.30 plain
+  //   depth 3           → 0.40 plain
+  //   depth 4           → 0.35 plain
+  //   depth 5+          → floors at 0.30 plain
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
     return Math.max(0.30, 0.50 - 0.05 * (depth - 1));
@@ -779,7 +796,7 @@
   // Background refresh of a stale record. Never throws, never deletes: on any
   // failure the existing cached bytes remain the tile's source of truth.
   function refreshTileBytes(x, y) {
-    const key = `${Z}/${x}/${y}`;
+    const key = tileKey(x, y);
     if (_tileRefreshing.has(key)) return;
     _tileRefreshing.add(key);
     fetch(tileUrlFor(x, y))
@@ -789,7 +806,7 @@
       .finally(() => _tileRefreshing.delete(key));
   }
   async function fetchTileBytes(x, y) {
-    const key = `${Z}/${x}/${y}`;
+    const key = tileKey(x, y);
     const cached = await idbGet(key);
     if (cached) {
       // Records written before the timestamp existed are bare Uint8Arrays.
@@ -1191,9 +1208,6 @@
 
   // Per-biome wild flora (kinds, densities, RNG salts) now lives in the central
   // BIOME_PROFILES registry (src/biome_profiles.js) — see BiomeProfiles.flora().
-  // DEBRIS_MIN/MAX remain here as spawnDebris' default density window.
-  const DEBRIS_MIN = 0.05;
-  const DEBRIS_MAX = 0.30;
 
   function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
@@ -1247,7 +1261,7 @@
     // density seed = polygon centroid → stable across reloads.
     // Each debris snaps to the CENTER of its 5m game cell (no jitter), and is keyed
     // by the cell's absolute (cellIX, cellIY) so the same cell is always the same id.
-    function spawnDebris(rings, crop, polyKey, dMin = DEBRIS_MIN, dMax = DEBRIS_MAX) {
+    function spawnDebris(rings, crop, polyKey, dMin, dMax) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
       const bb = bboxOf(rings);
@@ -1758,7 +1772,7 @@
           // Piers keep their measured width (their plank sprite fills the
           // whole cell, so coverage IS their width).
           const wCells = (t === T.PIER)
-            ? Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M))
+            ? Math.max(1, Math.round(roadWidthM(f.tags) / cellWidthM))
             : 1;
           // PATH records its under-biome in pathUnder (render draws it beneath
           // the sparse path pebbles); vehicle road tiers record theirs in the
@@ -2232,8 +2246,7 @@
       // drift per cell, which accumulates to ~1.5 m by the far edge of
       // a 50-cell tile — enough to put the rock's "lookup cell" one
       // column off from where it actually sits on the painted grid.
-      // Use the same basis the grid was painted with.
-      const _mrCellW = tileEdgeM / w;
+      // Use the same basis the grid was painted with (cellWidthM, above).
       // Houses are placed inside building footprints — always road-adjacent
       // by virtue of OSM data and never something the player wades into a
       // back yard for. Keep them exempt from the residential proximity
@@ -2247,8 +2260,8 @@
         pois: objects
           .filter(o => o.kind === 'chest')
           .map(o => ({
-            ix: Math.floor((o.x - tileOriginMx) / _mrCellW),
-            iy: Math.floor((o.y - tileOriginMy) / _mrCellW),
+            ix: Math.floor((o.x - tileOriginMx) / cellWidthM),
+            iy: Math.floor((o.y - tileOriginMy) / cellWidthM),
           })),
       };
       // A chest's cell is protected by the occupancy pass, but its render pad
@@ -2264,8 +2277,8 @@
       for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
         if (_mrSkipKind(o.kind)) continue;
-        const ix = Math.floor((o.x - tileOriginMx) / _mrCellW);
-        const iy = Math.floor((o.y - tileOriginMy) / _mrCellW);
+        const ix = Math.floor((o.x - tileOriginMx) / cellWidthM);
+        const iy = Math.floor((o.y - tileOriginMy) / cellWidthM);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile objects belong to a neighbour pass
         const here = grid[iy * w + ix];
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
@@ -2321,8 +2334,8 @@
       // drop a shrub or longgrass tuft onto a residential cell.)
       for (let i = wildplants.length - 1; i >= 0; i--) {
         const wp = wildplants[i];
-        const ix = Math.floor((wp.x - tileOriginMx) / _mrCellW);
-        const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
+        const ix = Math.floor((wp.x - tileOriginMx) / cellWidthM);
+        const iy = Math.floor((wp.y - tileOriginMy) / cellWidthM);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         const wtc = grid[iy * w + ix];
         if (_onRoadOrBuilding(wtc, ix, iy)) { wildplants.splice(i, 1); continue; }
@@ -2344,8 +2357,8 @@
       // paved.
       for (let i = parkingTreasures.length - 1; i >= 0; i--) {
         const t = parkingTreasures[i];
-        const ix = Math.floor((t.x - tileOriginMx) / _mrCellW);
-        const iy = Math.floor((t.y - tileOriginMy) / _mrCellW);
+        const ix = Math.floor((t.x - tileOriginMx) / cellWidthM);
+        const iy = Math.floor((t.y - tileOriginMy) / cellWidthM);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         const moved = relocateToSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts);
         if (!moved) { parkingTreasures.splice(i, 1); continue; }
@@ -2639,7 +2652,7 @@
     // on the right level. Underground levels take a separate code path.
     const depth = activeDepth;
     const tileCache = cacheFor(depth);
-    const key = `${Z}/${x}/${y}`;
+    const key = tileKey(x, y);
     if (!detached && tileCache.has(key)) return tileCache.get(key);
     if (depth > 0) return loadCaveTile(tileCache, depth, key, x, y, lat);
     // A failed build used to stay in the cache as a permanent 'loading' entry
@@ -3220,7 +3233,10 @@
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
             const rng = makeRng((osmId ^ 0xB005FACE) >>> 0);
-            const mPerLat = 110540, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+            // 111320 m/deg matches the app-wide METERS_PER_DEG_LAT (app.js);
+            // worldgen loads before app.js so it can't reference that constant
+            // directly, hence the local literal.
+            const mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
             for (let i = 0; i < 5; i++) {
               const ang = rng() * Math.PI * 2;
               const rad = 2 + rng() * 10;   // 2–12 m from the centroid
@@ -3561,7 +3577,7 @@
     return fetchOverpassBin(x, y, lat).then(async (bin) => {
       if (!bin) return false;
       const cache = cacheFor(0);
-      const key = `${Z}/${x}/${y}`;
+      const key = tileKey(x, y);
       let e = cache.get(key);
       // The bin can beat a slow MVT fetch: if the tile is still mid-build,
       // wait for it to settle before judging whether it missed the bin (its
@@ -3589,7 +3605,7 @@
   // and drop them all.
   async function rebuildTileWithBin(x, y, lat) {
     const cache = cacheFor(0);
-    const key = `${Z}/${x}/${y}`;
+    const key = tileKey(x, y);
     const prev = cache.get(key);
     if (!prev || prev.status !== 'ready') return false;
     _dedupSkipKey = key;
@@ -3893,7 +3909,7 @@
   // loadTile's own branch.
   loadTile.atDepth = async function (depth, x, y, lat) {
     const cache = cacheFor(depth);
-    const key = `${Z}/${x}/${y}`;
+    const key = tileKey(x, y);
     if (cache.has(key)) return cache.get(key);
     if (depth > 0) return loadCaveTile(cache, depth, key, x, y, lat);
     // Surface at a non-active depth: temporarily point activeDepth at 0 so the
@@ -3965,6 +3981,13 @@
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM,
+    // The road-class Sets classifyLine keys off — exported so road_overlay.js
+    // draws exactly the classes the terrain classifier treats as ROAD_LG/PATH,
+    // instead of hand-copying the lists.
+    LARGE_ROAD_CLASSES, PATH_CLASSES,
+    // `${Z}/${tx}/${ty}` — the tile cache key, built in one place so every
+    // caller (this file, app.js, render.js, …) spells it the same way.
+    tileKey,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.
