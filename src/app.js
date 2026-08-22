@@ -2135,7 +2135,14 @@ class MapScene extends Phaser.Scene {
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
-    } else if (rng() < 1 / 4) {
+    } else {
+      // Any tile arriving can complete a starter-home plan that was deferred
+      // (or left short) because the map around spawn was still streaming —
+      // this is what lets the arc across a tile seam get filled in at all.
+      // Cheap no-op once the plan is done.
+      this._provisionStarterHome(entry, tx, ty);
+    }
+    if (!isStarterTile && rng() < 1 / 4) {
       // Bumped from 1/200 to 1/4 — combined with the scatter below, players
       // see X's frequently instead of stumbling onto one a session.
       for (let attempt = 0; attempt < 16; attempt++) {
@@ -2623,6 +2630,16 @@ class MapScene extends Phaser.Scene {
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     entry.objects = entry.objects || [];
+    // Callable from any tile's spawn, not just the starter trail's own pass:
+    // without the spawn cell, derive it from the frozen anchor. It may land
+    // outside this tile, which is fine — everything below works in world space.
+    if (spawnIX == null || spawnIY == null) {
+      const a = this.save.starterCratesAt;
+      if (!a || !Number.isFinite(a.x)) return;
+      spawnIX = Math.floor((a.x - tx0) / this.cellM);
+      spawnIY = Math.floor((a.y - ty0) / this.cellM);
+    }
+    if (!usedSeats) usedSeats = new Set();
 
     // ── Re-apply what is already frozen ────────────────────────────────
     // Every tile does this for the records that land inside it, so an item
@@ -2633,9 +2650,20 @@ class MapScene extends Phaser.Scene {
     const present = new Set();
     for (const o of entry.objects) if (o.id) present.add(o.id);
     const inject = (rec) => {
-      if (!inThisTile(rec.x, rec.y) || present.has(rec.id)) return;
-      entry.objects.push(this._starterHomeObject(rec));
-      present.add(rec.id);
+      if (inThisTile(rec.x, rec.y)) {
+        if (present.has(rec.id)) return;
+        entry.objects.push(this._starterHomeObject(rec));
+        present.add(rec.id);
+        return;
+      }
+      // Seated across a seam: put it in whichever loaded tile owns it, so a
+      // pass driven by one tile still lands its neighbours' share immediately
+      // instead of waiting for those tiles to rebuild.
+      const otx = Math.floor(rec.x / this.tileEdgeM), oty = Math.floor(rec.y / this.tileEdgeM);
+      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${otx}/${oty}`);
+      if (!e || !e.objects) return;
+      for (const o of e.objects) if (o.id === rec.id) return;
+      e.objects.push(this._starterHomeObject(rec));
     };
     const frozen = this.save.starterHome;
     if (frozen) {
@@ -2643,11 +2671,17 @@ class MapScene extends Phaser.Scene {
       // A tamed natural is regenerated at its original tier on every rebuild,
       // so the downgrade has to be re-applied or the player's one choppable
       // street tree turns back into a hardwood on the next reload.
-      const tamed = new Set(frozen.tamed || []);
-      if (tamed.size) {
-        for (const o of entry.objects) if (o.id && tamed.has(o.id)) HomeArea.makeStarterUsable(o);
+      const wasTamed = new Set(frozen.tamed || []);
+      if (wasTamed.size) {
+        for (const o of entry.objects) if (o.id && wasTamed.has(o.id)) HomeArea.makeStarterUsable(o);
       }
-      return;
+      // A finished plan needs nothing more. An UNFINISHED one falls through to
+      // top itself up: the first pass runs while the neighbouring tiles are
+      // often still streaming, and a spawn near a tile seam can't seat into a
+      // tile that hasn't loaded — measured on a real spawn at cell iy=213 of a
+      // 222-cell tile, which left the whole southern arc bare. Later passes see
+      // more of the map. Bounded, so a genuinely hemmed-in spawn stops trying.
+      if (frozen.done || (frozen.tries || 0) >= 4) return;
     }
 
     // ── First pass: audit, then fill only the gaps ─────────────────────
@@ -2655,10 +2689,28 @@ class MapScene extends Phaser.Scene {
     // plans. (The ring reaches 16 cells and a tile is ~222, so the area sits
     // inside one tile except right on a seam — where the audit simply sees
     // less of the neighbourhood and errs toward providing a little extra.)
-    if (spawnIX < 0 || spawnIX >= N || spawnIY < 0 || spawnIY >= N) return;
     const anchorX = tx0 + (spawnIX + 0.5) * this.cellM;
     const anchorY = ty0 + (spawnIY + 0.5) * this.cellM;
-    const plan = HomeArea.planStarterProvision(entry.objects, anchorX, anchorY, this.cellM,
+    // Audit every loaded tile the home area touches. Reading this tile alone
+    // would miss both the neighbourhood across a seam and the items an earlier
+    // pass already seated there, and would re-provision them all over again.
+    const atx2 = Math.floor(tx0 / this.tileEdgeM), aty2 = Math.floor(ty0 / this.tileEdgeM);
+    const seen = new Set();
+    const areaObjects = [];
+    const collect = (list) => {
+      for (const o of (list || [])) {
+        if (o.id) { if (seen.has(o.id)) continue; seen.add(o.id); }
+        areaObjects.push(o);
+      }
+    };
+    collect(entry.objects);
+    for (const [k, e] of WorldGen.tileCache) {
+      if (!e || !e.objects) continue;
+      const parts = k.split('/');
+      if (Math.abs(+parts[1] - atx2) > 1 || Math.abs(+parts[2] - aty2) > 1) continue;
+      collect(e.objects);
+    }
+    const plan = HomeArea.planStarterProvision(areaObjects, anchorX, anchorY, this.cellM,
       { homeId: this.save.starterShopId });
 
     // Modify the unusable naturals standing here rather than crowding more in
@@ -2681,6 +2733,51 @@ class MapScene extends Phaser.Scene {
     const taken = new Set();
     const mark = (wx, wy) => taken.add(key(
       Math.floor((wx - tx0) / this.cellM), Math.floor((wy - ty0) / this.cellM)));
+    // Terrain lookup that CROSSES TILE SEAMS, in cells relative to the anchor
+    // tile. Seating used to be clamped to the anchor's own tile, so a spawn
+    // landing within ring-distance of a seam lost that whole arc — measured on
+    // a real spawn at cell iy=213 of a 222-cell tile, the entire southern side
+    // was unreachable and came out bare. A tile is only consulted once it has
+    // loaded; an unloaded neighbour reads as unusable rather than being
+    // guessed at, so nothing is ever seated into unseen water or road.
+    // Returns null when the cell can't be resolved.
+    const gridAt = (cx, cy) => {
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return grid[cy * N + cx];
+      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
+      const e = WorldGen.tileCache.get(`${WorldGen.Z}/${ntx}/${nty}`);
+      if (!e || !e.grid || (e.status && e.status !== 'ready')) return null;
+      const nN = e.cellsPerEdge;
+      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
+      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
+      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return null;
+      return e.grid[iy * nN + ix];
+    };
+    // The anchor's own tile has to be readable before anything can be planned.
+    if (gridAt(spawnIX, spawnIY) == null) return;
+    // And don't plan against HALF A MAP. Seating is spatial: a first pass that
+    // can only see the anchor's tile spends the whole quota on the directions
+    // it can reach and leaves the rest bare for good, because the quota is then
+    // satisfied and no later pass wants anything. So wait until every tile the
+    // ring reaches into has loaded. Bounded — a tile that never arrives must
+    // not leave the player with no starter resources at all.
+    this._starterHomeDefers = (this._starterHomeDefers || 0) + 1;
+    if (this._starterHomeDefers <= 8) {
+      const R = HomeArea.RING_MAX_CELLS;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        if (gridAt(spawnIX + dx * R, spawnIY + dy * R) == null) return;
+      }
+    }
+    // Occupancy from the anchor tile AND any loaded neighbour, so a seat can't
+    // land on a tree that belongs to the tile next door.
+    const atx = Math.floor(tx0 / this.tileEdgeM), aty = Math.floor(ty0 / this.tileEdgeM);
+    for (const [k, e] of WorldGen.tileCache) {
+      if (!e || !e.objects) continue;
+      const parts = k.split('/');
+      if (Math.abs(+parts[1] - atx) > 1 || Math.abs(+parts[2] - aty) > 1) continue;
+      for (const o of e.objects) mark(o.x, o.y);
+      for (const w of (e.wildplants || [])) mark(w.x, w.y);
+    }
     for (const o of entry.objects) mark(o.x, o.y);
     for (const w of (entry.wildplants || [])) mark(w.x, w.y);
     // The soil plot is a 2x2 the player is about to till — keep it clear.
@@ -2693,10 +2790,10 @@ class MapScene extends Phaser.Scene {
     // Nothing goes in the Home trailer's moat (clearHomeTrailerOverlap would
     // sweep it away) or on a crate seat.
     const free = (cx, cy) => {
-      if (cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
-      return !BLOCKED.has(grid[cy * N + cx]);
+      const t = gridAt(cx, cy);
+      return t != null && !BLOCKED.has(t);
     };
 
     // Seating spreads items around the COMPASS, not along one edge. The
@@ -2724,17 +2821,18 @@ class MapScene extends Phaser.Scene {
       }
       return out;
     };
+    // Cells within one step of something already seeded. Keeping this as a set
+    // makes the spacing test O(1): rescanning every placement for every
+    // candidate is quadratic, and at a quota of 50 each that alone cost most
+    // of a second on the tile that builds under the player.
+    const crowded = new Set();
     const seatAt = (kind, cells, bearing) => {
       let best = null, bestScore = Infinity;
       for (const c of cells) {
         if (c.used) continue;
         // Keep the seeded items a couple of cells apart so they read as
         // scenery rather than a stockpile.
-        let tooClose = false;
-        for (const p of placed) {
-          if (Math.max(Math.abs(p.cx - c.cx), Math.abs(p.cy - c.cy)) < 2) { tooClose = true; break; }
-        }
-        if (tooClose) continue;
+        if (crowded.has(key(c.cx, c.cy))) continue;
         let da = Math.abs(c.bearing - bearing);
         if (da > Math.PI) da = 2 * Math.PI - da;
         // Direction dominates; among cells pointing the same way, take the
@@ -2756,6 +2854,9 @@ class MapScene extends Phaser.Scene {
         rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
       }
       taken.add(key(best.cx, best.cy));
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) crowded.add(key(best.cx + dx, best.cy + dy));
+      }
       placed.push(rec);
       return true;
     };
@@ -2771,11 +2872,14 @@ class MapScene extends Phaser.Scene {
     const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
     const pocketCells = bandCells(TOKEN0, POCKET);
     // Opposite sides of the doorway, so one doesn't hide behind the other.
-    if (plan.tokens.tree && seatAt('tree', pocketCells, 0)) {
-      plan.need.tree = Math.max(0, plan.need.tree - 1);
+    let tokensWanted = 0, tokensSeated = 0;
+    if (plan.tokens.tree) {
+      tokensWanted++;
+      if (seatAt('tree', pocketCells, 0)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
     }
-    if (plan.tokens.rock && seatAt('rock', pocketCells, Math.PI)) {
-      plan.need.rock = Math.max(0, plan.need.rock - 1);
+    if (plan.tokens.rock) {
+      tokensWanted++;
+      if (seatAt('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
     }
     // Round-robin the kinds into the queue before assigning bearings, so each
     // direction out of home offers a mix rather than a wedge of all-trees.
@@ -2788,12 +2892,23 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i < queue.length; i++) {
       seatAt(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
     }
+    const wanted = tokensWanted + queue.length;
 
     // Freeze BOTH halves — what was added and what was tamed. Without the
     // second, a rebuild regenerates the naturals at full tier and the home
-    // area silently gets harder.
+    // area silently gets harder. Passes accumulate: a top-up keeps everything
+    // the earlier pass seated and adds only what it could not reach then.
     for (const rec of placed) { delete rec.cx; delete rec.cy; }
-    this.save.starterHome = { v: 1, placed, tamed };
+    const prev = this.save.starterHome;
+    this.save.starterHome = {
+      v: 1,
+      placed: (prev && prev.placed ? prev.placed : []).concat(placed),
+      tamed: [...new Set((prev && prev.tamed ? prev.tamed : []).concat(tamed))],
+      // Everything this pass set out to seat actually found a cell, so there
+      // is nothing for a later pass to finish.
+      done: placed.length >= wanted,
+      tries: ((prev && prev.tries) || 0) + 1,
+    };
     for (const rec of placed) inject(rec);
     if (typeof persistSave === 'function') persistSave(this.save);
   }
