@@ -578,12 +578,22 @@ PATH STONES
    "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
    grey, so a walked path visibly lights up as you go. Claiming plays a brief
    scale-pop on that exact stone so it reads as an event, not a silent swap.
-   Only ~50% of path cells draw a decorative pebble sprite AT ALL (a stone on
-   every single 7m cell read as a paved strip, not scattered stepping
-   stones) — a PURELY decorative, permanent per-cell roll: claiming still
-   counts toward the path whether or not that cell ever had a visible stone,
-   and a cell that rolled no stone stays bare even once claimed (it never
-   pops one in — that would read as a bug, not as "lighting up").
+   Not every path cell draws a decorative pebble sprite (a stone on every
+   single 7m cell read as a paved strip, not scattered stepping stones).
+   WHICH cells keep one is GEOMETRIC: only those the way actually runs
+   THROUGH — at least one full cell width of path inside the cell, measured
+   by worldgen's accumulateLineSpan and published per tile as `pathCross`.
+   A cell the path merely clips the corner of, or ends just inside, stays
+   bare. (The measurement is the SUM over every path way in the cell, so a
+   junction where two ways each cut a corner can still qualify — which is
+   where a stone belongs.) This REPLACED a per-cell density hash, which had
+   no idea where the path was: it put stones on corner-clipped cells and
+   left gaps mid-run. Tiles rasterized before `pathCross` existed fall back
+   to that hash so a cached tile doesn't go bare.
+   Still PURELY decorative: claiming counts toward the path whether or not
+   that cell ever had a visible stone, and a cell with no stone stays bare
+   even once claimed (it never pops one in — that would read as a bug, not
+   as "lighting up").
    Every 10 consecutive claimed stones on the same named path awards 1 coin
    (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)

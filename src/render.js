@@ -794,22 +794,42 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(absCellIY / N2);
           active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
         }
-        // Sparse PATH decoration: a deterministic chunk of path cells
-        // (PATH_STONE_DENSITY_PCT) never draw a pebble at all, claimed or
-        // not — a footpath is meant to read as scattered stepping stones,
-        // not a continuous paved strip. This is PURELY decorative: claiming
-        // (walking/tapping) still tracks that cell toward the named path's
-        // completion regardless of whether it ever had a visible stone, so
-        // dropping the sprite here costs nothing gameplay-side. The roll
-        // must NOT depend on `active` — a claimed cell popping a stone into
-        // existence that wasn't there a moment ago read as a bug, not as
-        // "lighting up." Hashed off the abs cell (distinct multipliers from
-        // the noise-variant hash above) so presence is stable across
-        // frames/reloads and uncorrelated with the ground texture variant.
+        // Sparse PATH decoration: a footpath is meant to read as scattered
+        // stepping stones, not a continuous paved strip, so most path cells
+        // draw no pebble at all.
+        //
+        // WHICH cells keep one is geometric, not random: only those the path
+        // actually runs THROUGH — at least one full cell width of way inside
+        // the cell (worldgen's pathCross, measured by accumulateLineSpan). A
+        // cell the path merely clips the corner of, or stops just inside,
+        // stays bare. That puts the stones ON the line of the path instead of
+        // scattering them off it, which is what a random density could never
+        // do: it dropped stones on corner-clipped cells and left gaps in the
+        // middle of a straight run.
+        //
+        // This is PURELY decorative: claiming (walking/tapping) still tracks
+        // the cell toward the named path's completion whether or not it ever
+        // had a visible stone, so dropping the sprite costs nothing
+        // gameplay-side. It must NOT depend on `active` — a claimed cell
+        // popping a stone into existence that wasn't there a moment ago reads
+        // as a bug, not as "lighting up."
+        //
+        // Tiles rasterized before pathCross existed don't carry it; those fall
+        // back to the old deterministic density hash so a cached tile keeps
+        // drawing something sensible instead of going bare.
         let showStone = frame != null && !isTilled;
         if (showStone && type === PATH) {
-          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
-          showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+          const N3  = scene.cellsPerTile;
+          const tx3 = Math.floor(absCellIX / N3);
+          const ty3 = Math.floor(absCellIY / N3);
+          const e3  = WorldGen.tileCache.get(`${WorldGen.Z}/${tx3}/${ty3}`);
+          const pc  = e3 && e3.pathCross;
+          if (pc) {
+            showStone = pc[(absCellIY - ty3 * N3) * N3 + (absCellIX - tx3 * N3)] === 1;
+          } else {
+            const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
+            showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+          }
         }
         if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
