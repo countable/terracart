@@ -2736,12 +2736,21 @@ class MapScene extends Phaser.Scene {
       return false;
     };
 
-    // The token pair goes in the pocket (2 cells out, clear of the trailer
-    // moat); everything else in the ring outside it.
+    // The token pair goes in the pocket; everything else in the ring outside
+    // it. The tokens are NOT conditional on the quota still being short: the
+    // pocket is deliberately cleared of trees and rocks, so a spawn in dense
+    // woodland can satisfy the whole quota out in the ring and still leave a
+    // player at their own front door with nothing in sight to chop or mine.
+    // If the quota did still want one, the token counts toward it.
     const POCKET = HomeArea.POCKET_CELLS;
+    const TOKEN0 = HomeArea.TOKEN_MIN_CELLS;
     const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
-    if (plan.tokens.tree && plan.need.tree > 0 && seat('tree', 2, POCKET)) plan.need.tree--;
-    if (plan.tokens.rock && plan.need.rock > 0 && seat('rock', 2, POCKET)) plan.need.rock--;
+    if (plan.tokens.tree && seat('tree', TOKEN0, POCKET)) {
+      plan.need.tree = Math.max(0, plan.need.tree - 1);
+    }
+    if (plan.tokens.rock && seat('rock', TOKEN0, POCKET)) {
+      plan.need.rock = Math.max(0, plan.need.rock - 1);
+    }
     for (let i = 0; i < plan.need.tree; i++)  seat('tree', R0, R1);
     for (let i = 0; i < plan.need.rock; i++)  seat('rock', R0, R1);
     for (let i = 0; i < plan.need.wreck; i++) seat('wreck', R0, R1);
