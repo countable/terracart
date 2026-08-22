@@ -303,20 +303,33 @@
 
   test('starter trail: no leg long enough to lose the thread', () => {
     // The whole point of a trail: from where you are standing, the next stop is
-    // in view. A leg longer than the viewport breaks the chain. The four crates
-    // and the chest are five evenly spaced stops along the walk, so the last
-    // crate lands within a step or two of the chest — that is arrival, not a
-    // pile-up, which is why only the crate-to-crate legs carry a minimum.
+    // in view. A leg longer than the viewport breaks the chain — and the last
+    // leg, from the final crate out to the chest, is the longest one by design
+    // (the crates pack into the near TRAIL_SPAN of the walk), so it is the one
+    // that has to be checked hardest.
     const entry = srEntry();
     const { crates, chest } = srTrail(entry);
     const stops = [{ cx: SPAWN, cy: SPAWN }, ...crates.map(srCell), srCell(chest)];
     for (let i = 1; i < stops.length; i++) {
       const gap = srCheb(stops[i], stops[i - 1]);
       assert.falsy(gap > VIEW_CELLS, `leg ${i} is ${gap} cells — further than one screen`);
-      if (i < stops.length - 1) {
-        assert.gte(gap, 2, `leg ${i} is ${gap} cells — crates piled up`);
-      }
+      assert.gte(gap, 1, `leg ${i} is ${gap} cells — two crates on one cell`);
     }
+  });
+
+  test('starter trail: the crates are met early, not strung out to the chest', () => {
+    // They pack into the near part of the walk so a new player meets all four
+    // while still learning what a crate is, and then has a clear stretch left
+    // to the chest. Spread over the whole route, the last one landed a step
+    // short of the chest and the supplies read as something to hike for.
+    const entry = srEntry();
+    const { crates, chest } = srTrail(entry);
+    const anchor = { cx: SPAWN, cy: SPAWN }, dest = srCell(chest);
+    const out = crates.map(c => srCheb(srCell(c), anchor));
+    const total = srCheb(dest, anchor);
+    assert.falsy(out[0] > 3, `the first crate is right there (${out[0]} cells out)`);
+    assert.falsy(out[out.length - 1] > total * 0.75,
+      `the last crate is still in the near part of the walk (${out[out.length - 1]}/${total})`);
   });
 
   test('starter trail: every crate stands on legal ground', () => {

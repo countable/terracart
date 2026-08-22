@@ -2869,7 +2869,14 @@ class MapScene extends Phaser.Scene {
     const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     const trailPath = trail && trail.path;
     if (trailPath && trailPath.length > COUNT) {
-      const TRAIL_GAP = 2;            // Chebyshev spacing between crates on the route
+      // How much of the walk the crates occupy. They sit in the NEAR part of
+      // it rather than spread the whole way: a new player should meet all four
+      // early, while they are still learning what a crate even is, and then
+      // have a clear stretch of walking left to the chest at the end. Spread
+      // evenly over the whole route the last crate landed a step or two short
+      // of the chest, which made the supplies feel like something to hike for.
+      const TRAIL_SPAN = 0.55;
+      const TRAIL_GAP = 1;            // Chebyshev spacing between crates on the route
       // A crate takes the route cell itself where it legally can, and steps one
       // cell off it where it can't — the street, the trailer moat and occupied
       // cells are all out, and dropping the crate over them would break the
@@ -2885,12 +2892,13 @@ class MapScene extends Phaser.Scene {
       const L = trailPath.length - 1;         // steps from the anchor to the chest
       let lastSeat = null;
       for (let i = 0; i < COUNT; i++) {
-        // The crates divide the walk into COUNT+1 equal legs, so the first sits
-        // a few steps from the door and the last just short of the chest, with
-        // no leg long enough to lose the thread. Distance from the anchor is
-        // measured ALONG the route, not across it: a route that bends round a
-        // pond still spaces its crates by how far the player actually walks.
-        const want = Math.round(((i + 1) * L) / (COUNT + 1));
+        // Evenly spaced across the near TRAIL_SPAN of the walk — so on a
+        // typical route the four sit at roughly 2, 3, 5 and 6 cells out with
+        // the chest at 11, and no leg is long enough to lose the thread.
+        // Distance is measured ALONG the route, not across it: a route that
+        // bends round a pond still spaces its crates by how far the player
+        // actually walks.
+        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
         let seat = null;
         for (let off = 0; off <= 3 && !seat; off++) {
           for (const at of (off === 0 ? [want] : [want - off, want + off])) {

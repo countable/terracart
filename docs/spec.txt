@@ -79,9 +79,12 @@ ONBOARDING (the first session)
    while the ladder runs. The trail runs a full screen out but the viewport is
    only VIEW_CELLS across, so without it the far end is invisible.
  - THE CRATE TRAIL: the four supply crates are laid along the walked ROUTE from
-   spawn to the relic chest, dividing it into five evenly spaced stops (four
-   crates, then the chest). Each stop is in view from the one before, so the
-   trail is followable: walk to the crate you can see and the next one appears.
+   spawn to the relic chest, evenly spaced across the NEAR part of it
+   (TRAIL_SPAN = 0.55) — roughly 2, 3, 5 and 6 cells out with the chest at 11.
+   All four are met early, while a new player is still learning what a crate
+   is, and the walk out to the chest is the clear stretch at the end. Each stop
+   is in view from the one before, so the trail is followable: walk to the
+   crate you can see and the next one appears.
    Contents run in the LADDER's order of need, nearest first — seeds (step 3
    sows one), then rockfruit and wood (step 4 rebuilds with them). The nearest
    crate held the wood until Aug 2026, which sent a player who followed the
