@@ -75,9 +75,20 @@ ONBOARDING (the first session)
    state lives in save.starter.
    The starter ladder is INDEPENDENT of the castle QUEST_CHAIN — the vault gate
    reads Quests.allDone(), which walks the castle chain alone. Do not merge them.
- - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
-   while the ladder runs. The trail runs a full screen out but the viewport is
-   only VIEW_CELLS across, so without it the far end is invisible.
+ - STARTER COMPASS: a gold edge arrow toward the ACTIVE ladder step's own
+   space while the ladder runs (_starterGuidanceGoal): the nearest unopened
+   crate for step 1 (the trail runs a full screen out but the viewport is only
+   VIEW_CELLS across, so without a bearing the far end is invisible), the
+   carved plot for "Break ground", the tilled-but-empty soil for "Sow a seed"
+   (or the crates while the bag holds no seed — the seeds are in them), the
+   nearest wreck for "Rebuild a neighbour" (or the crates while the bag can't
+   pay the restore price), the planted crop for "Bring in the crop", and Home
+   for "Cash out". Steps past "Break ground" used to all fall back to the
+   nearest unopened chest_start_*, which — once the crates packed into the
+   near TRAIL_SPAN of the walk and were all opened early — was the relic chest
+   a screen away: the one arrow on screen led AWAY from the space the chip was
+   asking the player to tap. Unresolvable targets still fall back to the
+   crates.
  - THE CRATE TRAIL: the four supply crates are laid along the walked ROUTE from
    spawn to the relic chest, evenly spaced across the NEAR part of it
    (TRAIL_SPAN = 0.55) — roughly 2, 3, 5 and 6 cells out with the chest at 11.

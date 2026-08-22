@@ -340,6 +340,36 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The gold starter arrow's per-step target (_starterGuidanceGoal) is pure
+// save + tileCache math on the scene class. Lift it — alongside the three
+// helpers it calls — into an object of methods a test can graft onto a scene
+// stub (same trick as __walkHome above), so starter_arrow.test.js drives the
+// REAL aiming rules: chip step X → the arrow points at X's own space, never a
+// leftover crate fallback.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+                   '_isHouseWreck(house) {', '_wreckRestoreCost(house) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__starterArrow = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_starterGuidanceGoal' });
+  for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_isHouseWreck', '_wreckRestoreCost']) {
+    if (typeof ctx.__starterArrow[k] !== 'function') {
+      console.error(`__starterArrow.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
 // The first-day slime amnesty (_slimeFreeZone) decides whether a save is still
 // inside its first day and, if so, which cells of a tile hold no slime. Pure
 // save + grid math on the scene class, so lift it the same way, along with the
