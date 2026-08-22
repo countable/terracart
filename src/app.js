@@ -1914,6 +1914,21 @@ class MapScene extends Phaser.Scene {
       const TNAME = {};
       for (const k in T) TNAME[T[k]] = k;
       const out = [];
+      // LAYOUT first. There is no console on a phone, and the whole UI scale is
+      // derived from the viewport (index.html fitGame / layOutVertically), so
+      // "the UI looks zoomed out" is unanswerable without these numbers — iOS
+      // Safari in particular changes innerHeight as its toolbar collapses,
+      // which moves the scale with it.
+      try {
+        const g = document.getElementById('game');
+        const m = g && getComputedStyle(g).transform.match(/matrix\(([-\d.]+)/);
+        const vv = window.visualViewport;
+        out.push(`layout: inner=${window.innerWidth}x${window.innerHeight}`
+          + (vv ? ` visual=${Math.round(vv.width)}x${Math.round(vv.height)}` : '')
+          + ` dpr=${window.devicePixelRatio} scale=${m ? (+m[1]).toFixed(4) : '?'}`
+          + ` standalone=${!!(window.navigator.standalone
+              || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))}`);
+      } catch (_) {}
       out.push(`tile ${key}  cell(${Math.floor(cx)},${Math.floor(cy)})  depth=${this.depth}`);
       // Location / GPS status — explains why the world might be pinned to the
       // Kelowna home origin instead of following the player's real GPS. Any of
