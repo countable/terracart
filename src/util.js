@@ -63,10 +63,29 @@ const MAPLE_VISUAL_MUL = 0.90;
 // other species at those sizes — knock an extra 10% off those two classes
 // only (stacks on MAPLE_VISUAL_MUL). Visual-only, like the factor above.
 const MAPLE_BIG_VISUAL_MUL = 0.90;
+// Per-species canopy base — the scale a tree of that species draws at with no
+// crown/size information. Maple's sheet is drawn smaller inside its frame, so
+// its base is larger; that difference is a SPRITE-SHEET fact, not a size one,
+// which is why treeSizeClass divides it back out before thresholding.
+function treeSpeciesBaseScale(o) {
+  return (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+}
+// Maple-sheet growth stage: the maple sheet (also the fallback for a tree with
+// no species) draws 1=sprout, 2=young, 3=mature off `variant`, so a size-less
+// maple's DRAWN size is its growth stage, not its canopy scale. render.js picks
+// the frame with this same function so the art and the size class can't drift.
+function treeUsesGrowthSheet(o) {
+  return !o.size && (!o.species || o.species === 'maple');
+}
+function treeGrowthStage(o) {
+  const v = Math.round(Number(o && o.variant));
+  // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
+  return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;
+}
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
 // shrink. treeSizeClass thresholds against this so the size tiers stay stable.
 function treeBaseScale(o) {
-  const base = (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+  const base = treeSpeciesBaseScale(o);
   // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
   // sprite tiers, which the "tier harvesting by size" gating reads back via
   // treeSizeClass. Prefer it over the continuous crown_m scale.
@@ -101,12 +120,19 @@ function treeSizeClass(o) {
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
-  // Size-less trees (OSM / procedural forest) fall back to the canopy scale —
-  // the pre-maple-shrink value so a maple still classes 'full' off its 0.85.
-  const s = treeBaseScale(o);
-  if (s >= 0.85) return 'full';
-  if (s >= 0.62) return 'medium';
-  return 'small';
+  // Size-less trees (OSM / procedural forest) fall back to the canopy scale.
+  // Threshold the CROWN MULTIPLIER, not the raw scale: dividing the species
+  // base back out means a size-less tree classes off its crown alone, the same
+  // for every species. Thresholding the raw scale instead used to read maple's
+  // larger sheet base (0.85 vs 0.62) as a larger TREE, so every size-less maple
+  // classed 'full' — and with the hardwood +1 on top, a sapling-sized maple
+  // demanded the same Gold axe as a large one.
+  const mul = treeBaseScale(o) / treeSpeciesBaseScale(o);
+  let cls = mul >= 1.37 ? 'full' : mul >= 1 ? 'medium' : 'small';
+  // A maple-sheet tree draws its growth stage, so cap the class by what's
+  // actually on screen — a sprout/young frame can't gate like a mature canopy.
+  if (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) cls = 'small';
+  return cls;
 }
 // Species shifts the felling difficulty on top of the size class. Pine is a
 // SOFTWOOD — one tier easier to fell than its size would imply. Maple is a

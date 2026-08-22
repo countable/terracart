@@ -398,7 +398,12 @@ CHOPPING
    diverge:
      * SIZE CLASS: bush / small / medium / full (large). Detected DeepForest
        trees carry a discrete crown class; size-less OSM/procedural trees fall
-       back to their canopy scale. Required axe tier climbs one step per size:
+       back to their canopy scale — thresholded on the CROWN MULTIPLIER, with
+       the per-species sheet base divided back out, so "maple draws at 0.85 and
+       birch at 0.62" can't read as a bigger tree. A size-less MAPLE-sheet tree
+       also draws a growth stage (sprout/young/mature off `variant`), so its
+       class is capped by the stage on screen: a sprout gates like a small tree,
+       not like a mature canopy. Required axe tier climbs one step per size:
        bush = bare hands (0), small = Wood (1), medium = Copper (2), full =
        Iron (3). Wood yield scales by SIZE: bush/small ×1, medium ×2, full ×4
        (the 2-3 base × the multiplier).

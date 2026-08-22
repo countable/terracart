@@ -1752,8 +1752,12 @@ Render.drawObjects = function drawObjects(scene) {
                 // standing tree never renders as a stump. Detected trees carry a
                 // real size class → always mature (frame 3); their variety comes
                 // from the size-class scale, not the growth-stage frame.
+                // treeGrowthStage (util.js) does the clamping, and treeSizeClass
+                // reads the SAME stage back for a size-less maple's axe tier —
+                // one function, so a sprout can't draw tiny and gate like a
+                // mature canopy.
                 if (o.size) return 3;
-                return Phaser.Math.Clamp(o.variant || 2, 1, 3);
+                return treeGrowthStage(o);
               },
               origin: (o) => {
                 if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
