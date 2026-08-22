@@ -79,6 +79,12 @@ const BIOME_TEX = {
   // Underground cave biome
   24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
   25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
+  // UNMAPPED (30) — render-only pseudo-terrain render.js stamps on cells whose
+  // map tile hasn't loaded yet (never appears in a tile's grid). The animated
+  // survey-line shimmer is the tile-loading indicator: dark fog with faint
+  // diagonal scan lines drifting through it, so a slow tile visibly reads as
+  // "being charted" instead of as fake grass that pops into streets.
+  30: { variants: 1, draw: drawUnmappedTex, animPhases: 8, animMs: 260 },
 };
 
 // Tilled soil is per-cell state (not a terrain class).
@@ -339,6 +345,33 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
   // Subtle dark depth specks.
   for (let i = 0; i < 4; i++) {
     ctx.fillStyle = 'rgba(0,20,50,0.18)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
+  }
+}
+
+function drawUnmappedTex(ctx, size, rng, phaseFrac = 0) {
+  // The "still charting this ground" shimmer for cells whose tile hasn't
+  // loaded (pseudo-terrain 30 above). Faint diagonal survey lines drift
+  // slowly across the dark fog base colour; the line grid is tile-periodic
+  // (spacing divides the tile size) and every unmapped cell shares the one
+  // variant and the one clock, so the pattern runs continuously across the
+  // whole unloaded area instead of breaking at each cell edge. Same
+  // pre-baked-phases scheme as water: `phaseFrac` slides the lines one grid
+  // period per loop, so the 8 frames loop seamlessly and cost nothing at
+  // runtime.
+  ctx.clearRect(0, 0, size, size);
+  const P = 8;                                   // diagonal line spacing; divides 32
+  const off = Math.round(phaseFrac * P);
+  ctx.fillStyle = 'rgba(200,210,220,0.07)';      // survey line — barely-there steel
+  for (let y = 0; y < size; y++) {
+    for (let x = (((off - y) % P) + P) % P; x < size; x += P) {
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  // Static specks — unexposed film grain. Same rng sequence every phase, so
+  // only the lines move.
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.20)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
   }
 }

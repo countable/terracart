@@ -220,7 +220,7 @@ const _WAVE_TABLE = (() => {
 // Flat-only terrain types (no tileset art) get rounded corners at zone
 // boundaries. Module-level: the membership never changes, and drawCells runs
 // every frame — rebuilding a 12-element Set 60 times a second bought nothing.
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
 // Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
 // contain art. Each road tier picks ONE frame so the same road class reads
 // visually consistent across cells; different tiers look distinct.
@@ -237,6 +237,23 @@ const PATH_FRAME = 3;
 // read, so carrying them between frames is safe.
 let _ringTypes  = null;
 let _ringOwners = null;
+// Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
+// tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
+// the survey-line shimmer — the tile-loading indicator); values in between =
+// the tile JUST landed and the fog is fading off the freshly revealed ground.
+let _ringVeil = null;
+// Render-only pseudo-terrain for cells whose tile isn't loaded yet. Never
+// written into a tile's grid — spawners, movement and interaction all read
+// the real grid, so this can't leak into gameplay. COLORS[30] is the fog
+// base; BIOME_TEX[30] the animated shimmer.
+const UNMAPPED_T = 30;
+// How long the fog takes to fade off a tile once its grid arrives. The stamp
+// lives on the tile entry (first frame the renderer SEES it loaded), so the
+// reveal happens exactly once per cache entry, at the loading frontier.
+const UNMAPPED_REVEAL_MS = 600;
+// Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
+// triples for the veil pass on the lighting layer.
+const _fadeRects = [];
 
 // ── Atmosphere ───────────────────────────────────────────────────────────────
 // Which biome is the player actually IN? The viewport routinely straddles three
@@ -419,6 +436,7 @@ Render.drawCells = function drawCells(scene) {
     // and tileSalt distinguishes tiles so two buildings that happen to share a
     // local id in different tiles never read as "the same building".
     _ringOwners = new Int32Array(RING * RING);
+    _ringVeil   = new Float32Array(RING * RING);
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
@@ -427,7 +445,7 @@ Render.drawCells = function drawCells(scene) {
   // resolve to the same one. Hold the last tile (and its salt, which depends
   // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
   // the Map for all 225 cells on every frame.
-  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0;
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -443,9 +461,21 @@ Render.drawCells = function drawCells(scene) {
         mTx = tx2; mTy = ty2;
         mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
         mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
+        // Unmapped veil, per tile: 1 while the tile's grid isn't in hand, then
+        // a fade the first time the renderer sees it loaded. The stamp lives
+        // on the cache entry, so a tile reveals once and stays revealed.
+        if (mEntry && mEntry.grid) {
+          if (!mEntry._mappedAtMs) mEntry._mappedAtMs = texNow;
+          mVeil = Math.max(0, 1 - (texNow - mEntry._mappedAtMs) / UNMAPPED_REVEAL_MS);
+        } else {
+          mVeil = 1;
+        }
       }
       const e2 = mEntry;
-      types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : 0;
+      // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
+      // that's the tile-loading indicator; see the _ringVeil comment above).
+      types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
+      _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
     }
@@ -455,6 +485,8 @@ Render.drawCells = function drawCells(scene) {
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
+  const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
+  _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
   const CORNER_R = 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
@@ -491,6 +523,14 @@ Render.drawCells = function drawCells(scene) {
       }
       const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
       const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+
+      // Mid-reveal cell: its tile just loaded, so the real terrain paints
+      // below and the fog fades off it on the lighting layer (drawn there so
+      // the veil covers borders / cobbles / noise, not just the base fill).
+      {
+        const veil = VEIL(col, row);
+        if (veil > 0 && veil < 1) _fadeRects.push(sx, sy, veil);
+      }
 
       // Per-corner rounding: a corner rounds only when both orthogonal neighbors AND the
       // diagonal are a different type (avoids notches between two already-square zones).
@@ -1121,6 +1161,13 @@ Render.drawCells = function drawCells(scene) {
   // rather than throwing.
   const gr = scene.reachGfx || g;
   if (gr !== g) gr.clear();
+  // Unmapped-tile reveal: fog fading off cells whose tile arrived within the
+  // last UNMAPPED_REVEAL_MS (collected in the cell loop above). Painted first
+  // on this layer so the reach dim and outline read on top of the reveal.
+  for (let i = 0; i < _fadeRects.length; i += 3) {
+    gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
+    gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
+  }
   const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
   gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {

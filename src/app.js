@@ -422,6 +422,12 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
+  // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
+  // darker than every real biome so "beyond the charted world" reads as the
+  // same visual language as the distance dim; textures.js drives the animated
+  // survey-line shimmer over it (BIOME_TEX[30]).
+  30: 0x2b2926,
 };
 
 // Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
@@ -477,6 +483,12 @@ class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
   preload() {
+    // Boot loading overlay (index.html #bootload). Asset fetches are the long
+    // pole of a cold boot, so the Phaser loader's own progress drives the bar:
+    // 0→0.85 here, 0.9 as create() builds the world, 1 on the first update()
+    // frame (which fades the overlay out and hands off to the in-world
+    // unmapped-tile shimmer for whatever tiles are still loading).
+    this.load.on('progress', (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…'));
     this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
     // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
@@ -562,6 +574,7 @@ class MapScene extends Phaser.Scene {
   }
 
   create() {
+    window.__bootStatus?.(0.9, 'Surveying the neighbourhood…');
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
@@ -3405,6 +3418,9 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // First frame = the world is on screen: retire the boot loading overlay.
+    // Any tiles still fetching show as the unmapped shimmer from here on.
+    if (!this._bootStatusDone) { this._bootStatusDone = true; window.__bootStatus?.(1); }
     // Keep body.modal-open honest every frame. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
