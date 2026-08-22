@@ -95,7 +95,7 @@ ONBOARDING (the first session)
    only ever on a cell the anchor can be walked to, since a chest at the end of
    a trail is no use across a river. It holds ONE random wooden (T1) relic.
    The crates hand out materials; this is the only thing that hands out a TOOL,
-   and bare-handed work is 3x slower than wooden. Slot and bearing are both derived from the frozen spawn anchor, so a
+   and bare-handed work costs 9s + 9 energy a swing where wooden costs 4s + 3. Slot and bearing are both derived from the frozen spawn anchor, so a
    tile rebuild reproduces the same chest with the same relic in the same cell.
    Its id carries the `chest_start_` stamp, so the crate compass points at it
    too. Never a downgrade: the payload is reconciled against what the player

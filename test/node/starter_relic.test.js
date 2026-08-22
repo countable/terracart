@@ -3,10 +3,10 @@
 // the relic over (src/interactables.js › fixedChestReward).
 //
 // Why it exists: the four supply crates give a new player materials, but
-// nothing gives them a TOOL. Bare-handed work is 9 s a swing and a wooden tool
-// is 3 s, so the first relic is the difference between the opening hour being
-// playable and being a chore — and every other relic in the game has to be
-// bought or forged first.
+// nothing gives them a TOOL. Bare-handed work is 9 s and 9 energy a swing; a
+// wooden tool is 4 s and 3, so the first relic is the difference between the
+// opening hour being playable and being a chore — and every other relic in the
+// game has to be bought or forged first.
 //
 // The placer lives on the Phaser scene class and is lifted out of src/app.js as
 // text by run.js, so these tests drive the real shipping code.
