@@ -230,12 +230,27 @@ const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // before anything moved (measured), then covered the whole way back in under
 // three. All of the sluggishness was in the wait, none of it in the walk.
 //
-// 700 ms is past the stick's own 170 ms spring-back and past any thumb
-// reposition, while still starting the return while the player is still
-// thinking about having released. Anything shorter twitches homeward mid-
-// manoeuvre; the tap/work-wheel cases don't rely on this at all — _driftHome
-// has explicit guards for a running wheel and for a held stick.
-const WALK_HOME_IDLE_MS = 700;
+// A FLAT timer cannot satisfy both ends of this. Dropping it to 700 ms fixed
+// the "takes forever to start" complaint and immediately created the opposite
+// one: players nudge themselves along in short pushes, and any gap longer than
+// the timer had the character lurching back against them mid-manoeuvre. Driven
+// with a realistic 500 ms push / 900 ms pause pattern, 700 ms spent 23% of the
+// player's forward travel walking backwards across 7 direction reversals; at
+// 3000 ms it was 0% and 0.
+//
+// So the timer only decides when the return BEGINS, and it begins gently: the
+// speed eases in over WALK_HOME_RAMP_MS below rather than switching on at full
+// pace. A push that comes a moment after release loses almost nothing (the
+// return has barely moved), while a player who has genuinely stopped sees the
+// walk under way immediately and at full pace shortly after. The cliff is what
+// made a flat value feel wrong in one direction or the other; there isn't one
+// any more.
+const WALK_HOME_IDLE_MS = 500;
+// How long the walk home takes to reach full pace once it starts. Squared, so
+// the first fraction of a second is nearly stationary — that is what stops an
+// interrupted nudge from reading as the character fighting you — and the last
+// stretch is at normal walking speed.
+const WALK_HOME_RAMP_MS = 1100;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
@@ -4330,7 +4345,14 @@ class MapScene extends Phaser.Scene {
     const mag = Math.hypot(off.x, off.y);
     if (mag < 0.01) return;
     this._driftingHome = true;
-    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * dt);
+    // Ease the return in (see WALK_HOME_RAMP_MS): squared ramp from the moment
+    // the idle timer expires, so an interrupted nudge gives up almost no ground
+    // while a real stop still gets home at walking pace.
+    const rampT = Math.min(1, (Date.now() - (this._lastStickT || 0) - WALK_HOME_IDLE_MS)
+                              / WALK_HOME_RAMP_MS);
+    const ease = rampT * rampT;
+    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * ease * dt);
+    if (step <= 0) return;
     const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
     off.x += dx; off.y += dy;
     if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };

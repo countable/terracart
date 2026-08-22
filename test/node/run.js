@@ -113,7 +113,7 @@ try {
 // drift the moment someone retunes the feel.
 {
   const src = readSrc('app.js');
-  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS']) {
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS']) {
     const m = src.match(new RegExp(`const ${name} = (\\d+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
