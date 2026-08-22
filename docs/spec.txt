@@ -567,9 +567,12 @@ PATH STONES
    "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
    grey, so a walked path visibly lights up as you go. Claiming plays a brief
    scale-pop on that exact stone so it reads as an event, not a silent swap.
-   Only ~50% of UNCLAIMED path cells draw a decorative pebble at all (a stone
-   on every single 7m cell read as a paved strip, not scattered stepping
-   stones); every CLAIMED cell always draws, so the lit trail never has gaps.
+   Only ~50% of path cells draw a decorative pebble sprite AT ALL (a stone on
+   every single 7m cell read as a paved strip, not scattered stepping
+   stones) — a PURELY decorative, permanent per-cell roll: claiming still
+   counts toward the path whether or not that cell ever had a visible stone,
+   and a cell that rolled no stone stays bare even once claimed (it never
+   pops one in — that would read as a bug, not as "lighting up").
    Every 10 consecutive claimed stones on the same named path awards 1 coin
    (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)

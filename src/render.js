@@ -780,16 +780,20 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(absCellIY / N2);
           active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
         }
-        // Sparse PATH decoration: skip a deterministic chunk of UNCLAIMED path
-        // cells (PATH_STONE_DENSITY_PCT) so a footpath reads as scattered
-        // stepping stones rather than a continuous paved strip. A CLAIMED
-        // stone always draws — once walked, it's the player's visible trail
-        // of progress, not decoration to thin out. Hashed off the abs cell
-        // (distinct multipliers from the noise-variant hash above) so
-        // presence is stable across frames/reloads and uncorrelated with the
-        // ground texture variant.
+        // Sparse PATH decoration: a deterministic chunk of path cells
+        // (PATH_STONE_DENSITY_PCT) never draw a pebble at all, claimed or
+        // not — a footpath is meant to read as scattered stepping stones,
+        // not a continuous paved strip. This is PURELY decorative: claiming
+        // (walking/tapping) still tracks that cell toward the named path's
+        // completion regardless of whether it ever had a visible stone, so
+        // dropping the sprite here costs nothing gameplay-side. The roll
+        // must NOT depend on `active` — a claimed cell popping a stone into
+        // existence that wasn't there a moment ago read as a bug, not as
+        // "lighting up." Hashed off the abs cell (distinct multipliers from
+        // the noise-variant hash above) so presence is stable across
+        // frames/reloads and uncorrelated with the ground texture variant.
         let showStone = frame != null && !isTilled;
-        if (showStone && type === PATH && !active) {
+        if (showStone && type === PATH) {
           const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
           showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
         }
