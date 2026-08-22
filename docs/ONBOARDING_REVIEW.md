@@ -10,8 +10,10 @@ overlapping findings are cross-referenced rather than repeated.
 driven from a wiped profile through story → safety → how-to → world, then
 played: walked the crate trail, opened all four supply crates, tilled the
 starter plot. Repeated at 390×844, 360×640, 768×1024, 844×390 and 1280×800.
-`node test/node/run.js` was green (770/770) throughout; the browser harness was
-not run.
+`node test/node/run.js` was green throughout; the browser harness was not run.
+Every finding was re-verified after merging the fog-of-war / boot-overlay work
+from `origin/main` (810/810 green on the merged tree); line references point at
+the merged code.
 
 **One caveat on the world.** `tiles.openfreemap.org` is unreachable from this
 environment, and `test/fixtures/*.pbf` is gitignored and absent, so the map came
@@ -40,7 +42,7 @@ the ladder says:
 
 That is not what the crop model does. `MAX_GROWTH_STAGE = 4`
 (`src/items.js:32`), and `Crops.advanceGrowth` only advances a plant whose
-`watered_t` is set — then **clears it** (`src/crops.js:44-51`):
+`watered_t` is set — then **clears it** (`src/crops.js:45-51`):
 
 ```js
 if (now - p.watered_t < STAGE_HOLD_MS) continue;
@@ -83,8 +85,8 @@ is unusable. Measured:
 | inventory tabs | truncated to `Se… Pr… An… Re… Ar… Or… It…` |
 | slot row | runs past the column's right edge, last slot clipped |
 
-The cause is in `layOutVertically` (`index.html:919-950`). The caller passes a
-width-derived floor — `Math.max(sByMinW, sByMaxW)` (`index.html:1008`), i.e.
+The cause is in `layOutVertically` (`index.html:977-1008`). The caller passes a
+width-derived floor — `Math.max(sByMinW, sByMaxW)` (`index.html:1066`), i.e.
 "never narrower than PHONE_MIN=390" — but the function immediately discards it:
 
 ```js
@@ -103,7 +105,7 @@ something in the landscape branch, since that is what it was introduced for.
 
 ### 3. Every new player's bag starts with a dev test item
 
-`src/app.js:627-637`:
+`src/app.js:802-812`:
 
 ```js
 // TEST SEED: drop one Dragon Powder into the bag the first time this build
@@ -117,7 +119,7 @@ player into a dragon for a minute (`src/items.js:505`). It is the first and
 only thing in a new player's bag, it is the reason the `Items` tab carries the
 only count pip on the opening screen (see §8), and it contradicts the starter
 crates' own premise: *"the player's first crops; inventory starts empty"*
-(`src/app.js:2350`).
+(`src/app.js:2568`).
 
 **Fix.** Gate it behind `DEBUG` / the Developer disclosure, or drop it. Nothing
 else in the opening depends on it.
@@ -136,7 +138,7 @@ markOpened();                       // → scene.questEvent('chest')
 scene.showChestRewardModal({ … });
 ```
 
-`questEvent` (`src/app.js:6014-6040`) does two things: a canvas `flashLoot`
+`questEvent` (`src/app.js:6303-6329`) does two things: a canvas `flashLoot`
 (`✅ Gather your supplies +$5`) at the view centre, and a 1400 ms green hold on
 the objective chip (`✓ Gather your supplies / Done — $5 earned.`). The reward
 modal then covers the view centre, and `body.modal-open` hides the chip — so
@@ -155,19 +157,19 @@ clear screen.
 
 Opening the first crate shows **💎 TREASURE / Wood / × 9**. The chip called
 them "supply crates" one line earlier, they render as the humble box sprite
-precisely to read as supplies (`src/app.js:2466-2472`), and 9 wood is not
+precisely to read as supplies (`src/app.js:2686-2692`), and 9 wood is not
 treasure. Spending the blue-white treasure ceremony (spec §UI COLOUR LANGUAGE)
 on the tutorial's material handout devalues it for the actual treasure — the
 relic chest at the end of the same trail, which is the trail's payoff.
 
 **Fix.** `showChestRewardModal` already supports a label override via `header`
-(`src/app.js:9385-9388`) — pass `header: 'SUPPLIES'` for `o.crate` chests.
+(`src/app.js:9650-9654`) — pass `header: 'SUPPLIES'` for `o.crate` chests.
 
 ### 6. The gold guidance arrow parks on top of the crate it is pointing at
 
-`_drawEdgeCompass` (`src/app.js:3345-3361`) parks the arrow on a **fixed ring**,
+`_drawEdgeCompass` (`src/app.js:3622-3638`) parks the arrow on a **fixed ring**,
 `min(viewSize/2 - 18, 140)` game px from the view centre, and the caller retires
-it only once the target is within `cellM * 1.5` (`src/app.js:3729`). Between
+it only once the target is within `cellM * 1.5` (`src/app.js:4017`). Between
 those two radii the arrow floats over the world at a fixed distance while the
 target slides toward it — and when they coincide, the arrow blots out the
 target completely.
@@ -206,11 +208,11 @@ scene being alive.
 
 ### 8. The fresh-save inventory opens on an empty tab
 
-`invCat` defaults to `'seed'` (`src/app.js:579`), but a fresh save's only item
+`invCat` defaults to `'seed'` (`src/app.js:754`), but a fresh save's only item
 is the Dragon Powder (§3), which files under `Items`. So the first inventory a
 new player sees is the **Seeds tab with nothing in it**, while the only count
 pip on screen is two tabs away. `addToInv` already switches tabs for a new stack
-(`src/app.js:9541-9548`) — the default just doesn't get the same treatment.
+(`src/app.js:9806-9813`) — the default just doesn't get the same treatment.
 
 **Fix.** Default `invCat` to the first category that has anything in it, falling
 back to `'seed'` when the bag is empty.
@@ -218,7 +220,7 @@ back to `'seed'` when the bag is empty.
 ### 9. Wood is filed under "Ores 💎"
 
 `{ id: 'wood', name: 'Wood', kind: 'mineral' }` (`src/items.js:434`), and
-`INV_CATS` maps `mineral → ores` (`src/app.js:160`). The first supply crate
+`INV_CATS` maps `mineral → ores` (`src/app.js:155-164`). The first supply crate
 hands the player 9 Wood — the material step 4 ("Rebuild a neighbour") then asks
 them to spend — and it lands in a tab labelled **Ores** behind a diamond icon.
 Step 4's copy says *"Ruined houses can be rebuilt with wood or stone"*, which
@@ -234,7 +236,7 @@ nothing and stops the lie.
 
 ### 10. Slide 2's "remains of your neighbourhood" are three intact cottages
 
-`STORY_SLIDES[1]` (`index.html:1417-1423`) pairs *"…to see the remains of your
+`STORY_SLIDES[1]` (`index.html:1475-1481`) pairs *"…to see the remains of your
 neighbourhood. Time to rebuild!"* with three copies of
 `assets/Objects/Houses/Wreck.png` — which renders as a tidy gingerbread cottage
 with a green roof, flowers and mushrooms. Nothing about it reads as ruined, and
@@ -247,7 +249,7 @@ what the sentence says.
 
 ### 11. The ladder walks the trail, then turns the player round
 
-`_placeStarterTrail` (`src/app.js:2346-2365`) is carefully built as a trail with
+`_placeStarterTrail` (`src/app.js:2564-2583`) is carefully built as a trail with
 a destination — crates evenly spaced along the walked route to the relic chest,
 "walk to the crate you can see, and from there the next one is in view, and the
 last one puts the chest in view."
@@ -267,7 +269,7 @@ walk instead of reversing it. Either keeps the trail's shape intact.
 
 ### 12. "Welcome to Pocket Acres" arrives third
 
-The greeting card is shown *after* both story slides (`index.html:1553-1562` —
+The greeting card is shown *after* both story slides (`index.html:1611-1628` —
 deliberate, so the CTA never interrupts the story). The consequence is that the
 player is welcomed to the game two screens after it started, and the card has to
 carry the title, the tagline, the safety warning and the permission CTA at once.
@@ -298,7 +300,7 @@ taller viewport?) rather than leaving it as slack.
 The card's own comment explains the design: it is shown from `create()` rather
 than in the story sequence *"by then the world is up, so the player can see the
 reach bubble and the tabs the card is describing behind it"*
-(`src/app.js:1440-1447`). In practice the card is **645 of 844 css px tall at
+(`src/app.js:1638-1645`). In practice the card is **645 of 844 css px tall at
 390×844** and fully covers the map rect — nothing of the reach bubble, the tabs
 or the objective chip is visible behind it. The closing line, *"The card at the
 top gives you one task at a time"*, refers to a chip the player cannot see while
@@ -309,12 +311,35 @@ the only card on screen is this one.
 about *which* card — and defer it to a small callout that fires once the how-to
 is dismissed and the chip is actually visible.
 
-### 15. Minor
+### 15. The new fog reads as a lighting fault on the first walk
+
+Noted as an observation on work that landed while this review was being written
+(`src/fog.js`, "Fog of war: 80% black over land the player has never walked").
+The onboarding trail is explicitly revealed, so the opening screen is clean —
+but the first walk out to the second crate already puts a hard-edged fog
+boundary on screen. Two things make it read as a bug rather than as unexplored
+land:
+
+- The edge is a crisp, **cell-aligned staircase** with no falloff: 80% black
+  butting directly against fully lit ground. Every other edge in the game is
+  softened deliberately — the viewport vignette, the inward noise nibble on
+  road bands — so this one reads as the odd one out.
+- **Objects inside the fog still draw at full detail**, merely dimmed.
+  Screenshotted: two mineral rocks perfectly legible inside the black band.
+  So the fog hides the terrain but not its contents, which is the opposite way
+  round from what "land you have never walked" implies, and reinforces the
+  "the lighting broke" reading.
+
+**Fix.** Fade the mask over a cell or two at the boundary (the same treatment
+the vignette gets), and either drop or heavily silhouette sprites on unseen
+cells so the dark band reads as unknown rather than unlit.
+
+### 16. Minor
 
 - The `Home` label draws over the trailer's body, and the GPS ghost stands
   inside the trailer's footprint at spawn — so the "you vs your GPS" idea the
   how-to card illustrates is invisible in the one place it is first true.
-- POI names hang vertically by design (`src/render.js:2380-2402`) and a long one
+- POI names hang vertically by design (`src/render.js:2536-2558`) and a long one
   is ~3 cells tall, so it sweeps across whatever is above it. On the walk out
   from spawn, "(Tourney Grounds)" ran straight through a chest two cells north
   of its own. Worth a length cap or a fade where it crosses a sprite.
