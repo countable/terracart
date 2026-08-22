@@ -556,10 +556,17 @@ TREASURE MARKS (X on the ground)
 PATH STONES
 ================================================================================
  - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity while
-   unclaimed cobbles sit at 57%, so a walked path lights up as you go. Every 10 consecutive claimed stones on the
-   same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
-   than 10 pays nothing).
+   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
+   recoloured treasure blue-white (not just less see-through — a genuinely
+   different, lit-looking stone, since a plain alpha bump barely read as
+   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
+   grey, so a walked path visibly lights up as you go. Claiming plays a brief
+   scale-pop on that exact stone so it reads as an event, not a silent swap.
+   Only ~50% of UNCLAIMED path cells draw a decorative pebble at all (a stone
+   on every single 7m cell read as a paved strip, not scattered stepping
+   stones); every CLAIMED cell always draws, so the lit trail never has gaps.
+   Every 10 consecutive claimed stones on the same named path awards 1 coin
+   (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
    fires a one-time completion reward via the unified rarity picker (lowtier
    chest curve at tier 4), shown with the chest reward fanfare. This is on top

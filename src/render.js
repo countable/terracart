@@ -72,6 +72,19 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
+// Percent chance an UNCLAIMED path cell draws a decorative stepping-stone
+// pebble at all. A stone on every single 7m path cell read as a continuous
+// paved strip rather than scattered stepping stones (and busier than the
+// dense ROAD cluster it's supposed to look sparser than). CLAIMED stones
+// always draw regardless of this roll — see the `active` check below — so
+// thinning this out never hides the player's actual progress.
+const PATH_STONE_DENSITY_PCT = 50;
+// A freshly claimed path stone gets a brief scale-pop instead of silently
+// jumping to full opacity next frame, so claiming reads as an event. Short
+// and snappy ("a little" animation, not a call to action) — see the ease
+// applied where PATH_STONE_FLASH_MS is consumed.
+const PATH_STONE_FLASH_MS = 450;
+const PATH_STONE_FLASH_BOUNCE = 0.4;
 
 function worldMetersToScreen(scene, wmx, wmy) {
   const pWorldX = scene.startWorldM.x + scene.playerM.x;
@@ -750,7 +763,36 @@ Render.drawCells = function drawCells(scene) {
         const frame = isPier ? PIER_FRAME
                      : isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
-        if (frame != null && !isTilled) {
+        // Named-path stones the player has tapped / stepped onto come up to
+        // FULL opacity and a recoloured "lit" texture (see cobble_path_active,
+        // baked in app.js) — the same stone, lit rather than a different
+        // material dropped into the path. _isPathStoneActive is null-safe
+        // (returns false in test mode or before save state exists), so this
+        // check is always cheap. PIER is excluded — piers are not named paths.
+        let active = false;
+        if (type === PATH && typeof scene._isPathStoneActive === 'function') {
+          // Cells outside the player's own tile fall back to the cell's
+          // tile coords — paths span tile seams, and we want the same answer
+          // on both sides of the boundary.
+          const N2  = scene.cellsPerTile;
+          const tx2 = Math.floor(absCellIX / N2);
+          const ty2 = Math.floor(absCellIY / N2);
+          active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
+        }
+        // Sparse PATH decoration: skip a deterministic chunk of UNCLAIMED path
+        // cells (PATH_STONE_DENSITY_PCT) so a footpath reads as scattered
+        // stepping stones rather than a continuous paved strip. A CLAIMED
+        // stone always draws — once walked, it's the player's visible trail
+        // of progress, not decoration to thin out. Hashed off the abs cell
+        // (distinct multipliers from the noise-variant hash above) so
+        // presence is stable across frames/reloads and uncorrelated with the
+        // ground texture variant.
+        let showStone = frame != null && !isTilled;
+        if (showStone && type === PATH && !active) {
+          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
+          showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+        }
+        if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
           // pebble — sit inside their cell and have been stepped down another
           // 20% (per playtest), centred on the same point: roads at 0.64 of a
@@ -761,33 +803,37 @@ Render.drawCells = function drawCells(scene) {
           // one of them and keeps cell size: its art tiles edge-to-edge across
           // adjacent pier cells, and any resize opens a seam.
           const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
-          // Named-path stones the player has tapped / stepped onto come up to
-          // FULL opacity — the same stone, lit rather than recoloured. It used
-          // to be a blue tint, which read as a different material dropped into
-          // the path instead of as a stone the player has claimed, and said
-          // nothing under the Phaser Canvas fallback where setTint is a no-op.
-          // _isPathStoneActive is null-safe (returns false in test mode or
-          // before save state exists), so this check is always cheap. PIER is
-          // excluded — piers are not named paths.
-          let active = false;
-          if (type === PATH && typeof scene._isPathStoneActive === 'function') {
-            // Cells outside the player's own tile fall back to the cell's
-            // tile coords — paths span tile seams, and we want the same answer
-            // on both sides of the boundary.
-            const N2  = scene.cellsPerTile;
-            const tx2 = Math.floor(absCellIX / N2);
-            const ty2 = Math.floor(absCellIY / N2);
-            active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
+          // A just-claimed stone gets a brief scale-pop (PATH_STONE_FLASH_MS)
+          // instead of silently jumping to its lit state next frame — claiming
+          // reads as an event. Pure transform, no extra sprite/pool, so it's
+          // renderer-agnostic like the recolour it plays over.
+          let flashMul = 1;
+          if (active && scene._pathStoneFlashes) {
+            const flashAt = scene._pathStoneFlashes.get(cellKeyFromAbsCell(absCellIX, absCellIY));
+            if (flashAt != null) {
+              const ft = (performance.now() - flashAt) / PATH_STONE_FLASH_MS;
+              if (ft < 1) {
+                const decay = (1 - ft) * (1 - ft);   // ease-out: snaps in, settles slowly
+                flashMul = 1 + PATH_STONE_FLASH_BOUNCE * decay;
+              }
+            }
           }
-          // Swap texture key — 'pier' for plank, 'cobble' for everything else.
-          // Pool sprites are created with the 'cobble' texture so reassign
-          // each frame; Phaser short-circuits if the key is already current.
-          cs.setTexture(isPier ? 'pier' : 'cobble', frame);
+          // Swap texture key — 'pier' for plank, 'cobble_path_active' for a
+          // claimed stone, 'cobble' for everything else. Pool sprites are
+          // created with the 'cobble' texture so reassign each frame; Phaser
+          // short-circuits if the key is already current.
+          const useActiveTex = active && scene.textures.exists('cobble_path_active');
+          if (useActiveTex) {
+            cs.setTexture('cobble_path_active');
+          } else {
+            cs.setTexture(isPier ? 'pier' : 'cobble', frame);
+            cs.setFrame(frame);
+          }
           // Alpha is set on every draw, not just for the translucent kinds:
           // pool slots are reused across cell types, so a slot that carried a
           // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
-          cs.setFrame(frame)
-            .setDisplaySize(size, size)
+          const dsize = size * flashMul;
+          cs.setDisplaySize(dsize, dsize)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
             .setAlpha(isPier || active ? 1 : COBBLE_ALPHA)

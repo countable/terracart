@@ -1049,6 +1049,37 @@ class MapScene extends Phaser.Scene {
       rg.generateTexture('halo_poi', 64, 64);
       rg.destroy();
     }
+    // Activated path-stone art. A claimed stone used to just jump to full
+    // opacity — the same grey pebble, only less see-through, which barely
+    // read as "claimed" next to the unclaimed ones. Bake a genuinely
+    // recoloured copy of the same frame (source-atop clips the tint to the
+    // stone's own silhouette, then a multiply pass re-lays the original
+    // shading on top so it still reads as carved stone, not a flat sticker)
+    // instead of setTint(), which is a no-op under the Phaser Canvas
+    // fallback — see the halo note above. Treasure blue-white (spec §UI
+    // COLOUR LANGUAGE): a claimed stone is progress toward a world reward
+    // (the path's coin milestones + completion chest), the same family as
+    // the POI pad/halo it shares that meaning with.
+    if (!this.textures.exists('cobble_path_active')) {
+      const srcFrame = this.textures.getFrame('cobble', PATH_FRAME);
+      if (srcFrame && typeof document !== 'undefined') {
+        const img = srcFrame.source.image;
+        const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
+        const cvs = document.createElement('canvas');
+        cvs.width = cw; cvs.height = ch;
+        const cctx = cvs.getContext('2d');
+        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        cctx.globalCompositeOperation = 'source-atop';
+        cctx.fillStyle = '#bfe8ff';
+        cctx.fillRect(0, 0, cw, ch);
+        cctx.globalCompositeOperation = 'multiply';
+        cctx.globalAlpha = 0.75;
+        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        cctx.globalAlpha = 1;
+        cctx.globalCompositeOperation = 'source-over';
+        this.textures.addCanvas('cobble_path_active', cvs);
+      }
+    }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
     // colour even under the Phaser Canvas renderer, where setTint() is a no-op.
@@ -7425,6 +7456,18 @@ class MapScene extends Phaser.Scene {
     const rec = tileStones[name] = tileStones[name] || { stones: [], done: false };
     if (rec.done || rec.stones.includes(cellKey)) return false;
     rec.stones.push(cellKey);
+    // Record a short-lived "just claimed" flash for render.js's cobble pass
+    // (see PATH_STONE_FLASH_MS there) — a little scale-pop plays on this
+    // exact cell so claiming a stone reads as an event, not just a silent
+    // opacity change next frame. Keyed by ABS cell so it survives the
+    // tx/ty → tile-local conversion above. Pruned here (not every frame) —
+    // activations are rare enough that this map never grows unbounded.
+    this._pathStoneFlashes = this._pathStoneFlashes || new Map();
+    const flashNow = performance.now();
+    for (const [k, t] of this._pathStoneFlashes) {
+      if (flashNow - t > 1000) this._pathStoneFlashes.delete(k);
+    }
+    this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
     // Spec §PATH STONES: every 10 claimed stones on the same named path awards
     // 1 coin (a 30-stone path pays 3 total; fewer than 10 pays nothing). Pay
     // each 10-stone milestone exactly once as the player walks it. This is in
