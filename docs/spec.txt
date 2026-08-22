@@ -1130,15 +1130,26 @@ DIALOGS
 FOG OF WAR
  - Land the player has NEVER WALKED is washed 80% black (render.js FOG_ALPHA).
    Walking reveals a disc of Fog.REVEAL_CELLS (3 cells, ~21 m) around the
-   player; what is revealed stays revealed, per save, forever.
- - The radius has a HARD CEILING at the viewport half-width. The view is
+   player PLUS two SWEEP ARMS — the row and column through the player, out to
+   Fog.REVEAL_ARM_CELLS (6 cells) either side; what is revealed stays
+   revealed, per save, forever.
+ - The disc radius has a HARD CEILING at the viewport half-width. The view is
    VIEW_CELLS (11) wide, so the player sees 5 cells in every direction: reveal
    5 or more and every cell is revealed the instant it becomes visible — the
    fog would still be computed and still be stored and never once be seen. At
-   3 (the reach radius: you reveal what you could have reached out and touched)
-   a 2-cell band of fog rims the view, so walking a street reveals the street
-   and leaves the land either side dark until you go there. fog.test.js pins
-   the bound against the real VIEW_CELLS.
+   3 (the reach radius: you reveal what you could have reached out and
+   touched), fog.test.js pins the bound against the real VIEW_CELLS.
+ - The SWEEP ARMS are pinned to EXACTLY one past the half-width (the view
+   scrolls by sub-cell fractions, so the outermost partially-visible column
+   sits a cell past it), and exist because the disc alone left a 2-cell band
+   of fog rimming the view — and on a phone the view's left and right edges
+   ARE the screen edges, so walking anywhere drew two near-black columns down
+   both sides of the display (fog stacked on the distance falloff), which
+   read as the app being letterboxed rather than as unexplored land. The arms
+   are the look-down-the-cross-street reveal: the rank you are on — and every
+   rank you have crossed — opens edge to edge, while land ahead of and
+   diagonal to you keeps its fog, so the frontier still reads as a frontier
+   and the screen never grows gutters.
  - The wash is PURE BLACK, not the biome-tinted `atmos.dim` the out-of-reach
    wash uses. That dim says "this biome, unlit"; fog says "you don't know", and
    colouring it would describe terrain the player hasn't seen. It STACKS with

@@ -5,6 +5,8 @@
 //
 // Exports as globals:
 //   Fog.REVEAL_CELLS      — reveal radius, in cells, around the player
+//   Fog.REVEAL_ARM_CELLS  — sweep-arm half-length: the row/column through the
+//                           player reveals this far to either side
 //   Fog.init(save, w)     — load the persisted masks; w = cellsPerTile
 //   Fog.reveal(ix, iy)    — reveal around the PLAYER's cell; true if anything changed
 //   Fog.revealDisc(ix, iy, r) — reveal an arbitrary disc (the onboarding trail)
@@ -43,10 +45,29 @@
   // still dark would be off-screen ones.
   //
   // 3 is the reach radius: you reveal what you could have reached out and
-  // touched. That leaves a 2-cell band of fog around the viewport edge, so
-  // walking down a street reveals the street and leaves the land either side of
-  // it dark until you go there — which is the whole point of the feature.
+  // touched.
   const REVEAL_CELLS = 3;
+
+  // The sweep arms: a step also reveals the ROW and COLUMN through the player,
+  // this far to either side — every cell of the 11-cell viewport's width, so
+  // the strip the player walks down opens up edge to edge.
+  //
+  // The disc alone left a 2-cell band of fog around the viewport edge, and on
+  // a phone that band IS the screen edge: walking anywhere painted two
+  // near-black columns down both sides of the display (fog 0.8 stacked on the
+  // distance falloff), which read as the app being letterboxed, not as
+  // unexplored land. The arms are the "look down the cross-street as you walk
+  // past" reveal: the rank you are ON clears to the screen edge — and so does
+  // every rank you have crossed — while everything ahead of and diagonal to
+  // you keeps its fog, so the frontier still reads as a frontier.
+  //
+  // Exactly (VIEW_CELLS + 1) / 2 (pinned in fog.test.js), NOT the half-width:
+  // the view scrolls by sub-cell fractions, so up to TWELVE columns intersect
+  // it and the outermost, partially-visible one is a cell PAST the half-width.
+  // At 5 that column kept its fog and drew a half-cell black sliver down one
+  // screen edge — the letterbox bug back at 1/4 scale. Shorter re-grows the
+  // side bands; longer reveals only wholly off-screen ground.
+  const REVEAL_ARM_CELLS = 6;
 
   // tileKey → Uint8Array bitset, one bit per cell of that tile, row-major.
   let _masks = new Map();
@@ -157,39 +178,59 @@
   // same ix/iy space drawCells and every save key use). The walk calls this
   // through reveal() at REVEAL_CELLS; the onboarding trail calls it directly
   // with its own radius (see _revealStarterTrail in app.js).
-  function revealDisc(cellIX, cellIY, R) {
-    if (!_w || !(R >= 0)) return false;
+  // Set one ABSOLUTE cell's bit; true if it was newly revealed. No revision
+  // bump — callers batch their cells and bump once per shape.
+  function revealCell(ax, ay) {
+    // Absolute cell → owning tile + local cell. Floor-div / floor-mod so
+    // negative world coordinates (west / north of the origin tile) land in
+    // the right tile instead of collapsing toward zero.
+    const tx = Math.floor(ax / _w), ty = Math.floor(ay / _w);
+    const ix = ax - tx * _w, iy = ay - ty * _w;
+    const i = iy * _w + ix;
+    const m = ensureMask(tx, ty);
+    const byte = i >> 3, mask = 1 << (i & 7);
+    if (m[byte] & mask) return false;
+    m[byte] |= mask;
+    _enc.delete(key(tx, ty));   // this tile's cached blob is now stale
+    return true;
+  }
+
+  // The raw disc, no revision bump — reveal() composes it with the arms and
+  // bumps once for the whole step (the revision is pinned to move exactly
+  // once per genuine reveal, however many cells the step touched).
+  function discCells(cellIX, cellIY, R) {
     const R2 = R * R;
     let changed = false;
     for (let dy = -R; dy <= R; dy++) {
       for (let dx = -R; dx <= R; dx++) {
         if (dx * dx + dy * dy > R2) continue;   // a disc, not a square
-        const ax = cellIX + dx, ay = cellIY + dy;
-        // Absolute cell → owning tile + local cell. Floor-div / floor-mod so
-        // negative world coordinates (west / north of the origin tile) land in
-        // the right tile instead of collapsing toward zero.
-        const tx = Math.floor(ax / _w), ty = Math.floor(ay / _w);
-        const ix = ax - tx * _w, iy = ay - ty * _w;
-        const i = iy * _w + ix;
-        const m = ensureMask(tx, ty);
-        const byte = i >> 3, mask = 1 << (i & 7);
-        if (!(m[byte] & mask)) {
-          m[byte] |= mask;
-          changed = true;
-          _enc.delete(key(tx, ty));   // this tile's cached blob is now stale
-        }
+        if (revealCell(cellIX + dx, cellIY + dy)) changed = true;
       }
     }
+    return changed;
+  }
+
+  function revealDisc(cellIX, cellIY, R) {
+    if (!_w || !(R >= 0)) return false;
+    const changed = discCells(cellIX, cellIY, R);
     if (changed) _revision++;
     return changed;
   }
 
-  // The walk-time entry point: reveal around the player. Cheap enough to call
-  // every frame — it bails unless the player has actually changed cell.
+  // The walk-time entry point: reveal around the player — the reach disc plus
+  // the two sweep arms (see REVEAL_ARM_CELLS). Cheap enough to call every
+  // frame — it bails unless the player has actually changed cell.
   function reveal(cellIX, cellIY) {
     if (cellIX === _lastIX && cellIY === _lastIY) return false;
+    if (!_w) return false;
     _lastIX = cellIX; _lastIY = cellIY;
-    return revealDisc(cellIX, cellIY, REVEAL_CELLS);
+    let changed = discCells(cellIX, cellIY, REVEAL_CELLS);
+    for (let d = -REVEAL_ARM_CELLS; d <= REVEAL_ARM_CELLS; d++) {
+      if (revealCell(cellIX + d, cellIY)) changed = true;
+      if (revealCell(cellIX, cellIY + d)) changed = true;
+    }
+    if (changed) _revision++;
+    return changed;
   }
 
   // save.fog = { w, tiles: { "tx/ty": "<rle+base64>" } }.
@@ -236,7 +277,7 @@
   }
 
   window.Fog = {
-    REVEAL_CELLS,
+    REVEAL_CELLS, REVEAL_ARM_CELLS,
     init, reveal, revealDisc, seen, maskFor, bit, flush,
     get revision() { return _revision; },
     get width() { return _w; },

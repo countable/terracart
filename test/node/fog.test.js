@@ -24,6 +24,17 @@ test('fog: the reveal radius stays INSIDE the viewport', () => {
   assert.lt(Fog.REVEAL_CELLS, (VIEW_CELLS - 1) / 2,
     'a reveal radius at or past the viewport half-width makes the fog invisible');
   assert.gt(Fog.REVEAL_CELLS, 0, 'a zero radius reveals only the cell underfoot');
+  // The sweep arms are pinned to EXACTLY one past the half-width: the view
+  // scrolls by sub-cell fractions, so up to VIEW_CELLS + 1 columns intersect
+  // it and the outermost, partially-visible one sits a cell past the
+  // half-width. Anything shorter re-grows the near-black band parked on the
+  // phone's screen edge that read as the app being letterboxed (at the
+  // half-width exactly, a half-cell sliver of it); anything longer reveals
+  // only wholly off-screen ground. The disc staying under the half-width is
+  // what keeps the fog visible at all; the arms clearing the walked rank to
+  // the screen edge is what keeps it off the screen edges.
+  assert.eq(Fog.REVEAL_ARM_CELLS, (VIEW_CELLS + 1) / 2,
+    'the sweep arms cover every column that can intersect the walked rank');
 });
 
 test('fog: nothing is revealed before the player walks', () => {
@@ -32,13 +43,19 @@ test('fog: nothing is revealed before the player walks', () => {
   assert.eq(Fog.maskFor(0, 0), null, 'an untouched tile allocates no mask at all');
 });
 
-test('fog: standing somewhere reveals a disc around it', () => {
+test('fog: standing somewhere reveals a disc plus the sweep arms', () => {
   fresh();
-  const R = Fog.REVEAL_CELLS;
+  const R = Fog.REVEAL_CELLS, ARM = Fog.REVEAL_ARM_CELLS;
   Fog.reveal(30, 30);
   assert.eq(Fog.seen(0, 0, 30, 30), true, 'the cell underfoot is revealed');
-  assert.eq(Fog.seen(0, 0, 30 + R, 30), true, 'and the cell at the radius, on-axis');
-  assert.eq(Fog.seen(0, 0, 30 + R + 1, 30), false, 'but not one past it');
+  assert.eq(Fog.seen(0, 0, 30 + R, 30), true, 'the cell at the disc radius, on-axis');
+  // On-axis the arm carries past the disc to the viewport edge — the walked
+  // row opens edge to edge (the phone letterbox fix), both axes.
+  assert.eq(Fog.seen(0, 0, 30 + ARM, 30), true, 'the arm reaches the viewport half-width');
+  assert.eq(Fog.seen(0, 0, 30, 30 + ARM), true, 'on the vertical axis too');
+  assert.eq(Fog.seen(0, 0, 30 + ARM + 1, 30), false, 'but not past the screen edge');
+  // The arms are one cell thick: a step off the axis is disc rules again.
+  assert.eq(Fog.seen(0, 0, 30 + R + 1, 30 + 1), false, 'off-axis, past the disc, stays fogged');
   // A disc, not a square: the far corner is R*sqrt(2) away, outside the radius.
   assert.eq(Fog.seen(0, 0, 30 + R, 30 + R), false, 'the corners of the box stay fogged');
 });
@@ -237,15 +254,20 @@ test('fog: the trail reveal is a margin, not a map', () => {
 });
 
 test('fog: revealDisc is the same primitive the walk uses', () => {
-  // reveal() is just revealDisc at REVEAL_CELLS plus the changed-cell debounce.
-  // If they ever diverge, the trail and the walk would disagree about what
-  // "revealed" means.
+  // reveal() is revealDisc at REVEAL_CELLS, plus the two sweep arms, plus the
+  // changed-cell debounce. Rebuild that exact shape out of revealDisc alone
+  // (a radius-0 disc is one cell) — if the two ever diverge, the trail and
+  // the walk would disagree about what "revealed" means.
   const a = fresh();
   Fog.reveal(50, 50);
   Fog.flush(a);
   const b = fresh();
   Fog.revealDisc(50, 50, Fog.REVEAL_CELLS);
+  for (let d = -Fog.REVEAL_ARM_CELLS; d <= Fog.REVEAL_ARM_CELLS; d++) {
+    Fog.revealDisc(50 + d, 50, 0);
+    Fog.revealDisc(50, 50 + d, 0);
+  }
   Fog.flush(b);
   assert.eq(a.fog.tiles['0/0'], b.fog.tiles['0/0'],
-    'a walk step and an explicit disc of the same radius reveal the same cells');
+    'a walk step reveals exactly its disc plus its two arms');
 });
