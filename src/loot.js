@@ -3,7 +3,10 @@
 // to one another and away from rendering / scene code.
 //
 // Depends on:
-//   items.js (SEED_TIER, FLOWER_SEEDS).
+//   items.js (SEED_TIER — tierInfo's fallback for raw seed ids). The 'flora'
+//   category below is just a POI-category label (florist/garden/garden_centre)
+//   consumed by rarity.js's classBias weighting — magical flower seeds are
+//   gated by BASE_TIER in items.js, not a dedicated flower-id set here.
 //
 // Exports as globals:
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName

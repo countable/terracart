@@ -91,13 +91,30 @@ function fixedChestReward(fixedLoot, save) {
   if (!fixedLoot) return null;
   if (fixedLoot.kind === 'relic' || fixedLoot.kind === 'armor') {
     const offer = { kind: fixedLoot.kind, slot: fixedLoot.slot, tier: fixedLoot.tier, jackpot: 0 };
-    if (fixedLoot.kind === 'relic' && typeof reconcileRelicOffer === 'function') {
+    // reconcileRelicOffer handles both gear kinds (rolled.kind picks the right
+    // save table — relics vs armor) — see rarity.js. Route BOTH here, not just
+    // relic, so a fixed armor payload can't downgrade equipped armor either.
+    if (typeof reconcileRelicOffer === 'function') {
       const out = reconcileRelicOffer(offer, save, Math.random);
       if (out) { out.consolation = 0; return out; }
     }
     return offer;
   }
   return { kind: 'item', id: fixedLoot.id, qty: fixedLoot.qty, consolation: 0 };
+}
+
+// Plain-rock base drop: 1-3 rockfruit + a 20% chance of one coal. Shared by
+// the mineralrock 'isPlain' branch below AND the cave-wall dig handler in
+// interact.js (loaded after this module, so the runtime reference is safe) —
+// both used to hardcode this table separately. Only the BASE table lives
+// here: mineralrock layers its own ring/amulet luck + bar-chance loop on top
+// afterward, while cave walls take the base table as-is (no luck applied) —
+// that split is deliberate, not an oversight, so don't fold the luck back in.
+function plainRockBaseDrop(scene) {
+  const qty = randInt(1, 3);
+  scene.addToInv('rockfruit', qty);
+  if (Math.random() < 0.20) scene.addToInv('coal', 1);
+  return qty;
 }
 
 const INTERACTABLES = {
@@ -190,11 +207,10 @@ const INTERACTABLES = {
       const isCave = o.caveVariant != null;
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {
-        // Plain rock — stone (1-3 rockfruit), coal on ~20%, plus a small
-        // per-tier chance (1/(2·t²) from copper) of cracking open a bar.
-        const qty = randInt(1, 3);
-        scene.addToInv('rockfruit', qty);
-        if (Math.random() < 0.20) scene.addToInv('coal', 1);
+        // Plain rock — stone (1-3 rockfruit), coal on ~20% (shared base table,
+        // see plainRockBaseDrop), plus a small per-tier chance (1/(2·t²) from
+        // copper) of cracking open a bar — ring-luck-scaled, on top of the base.
+        plainRockBaseDrop(scene);
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
           // Ring nudges the bar chance up (×(1+tierP)); ×1 when luck is off.
@@ -393,6 +409,9 @@ const INTERACTABLES = {
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: UI_TREASURE });
+        if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+          scene.flashJackpot(result.jackpot);
+        }
         return true;
       }
       if (result.kind === 'gold') {
@@ -407,6 +426,9 @@ const INTERACTABLES = {
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa' });
+        if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+          scene.flashJackpot(result.jackpot);
+        }
         return true;
       }
       // kind === 'item'
@@ -450,6 +472,9 @@ const INTERACTABLES = {
             } },
           ],
         });
+        if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+          scene.flashJackpot(result.jackpot);
+        }
         return true;
       }
       // Fits fully — take it and empty the chest.
@@ -459,6 +484,9 @@ const INTERACTABLES = {
       ctx.dirty = true;
       scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
                                    kind: rewardKind });
+      if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+        scene.flashJackpot(result.jackpot);
+      }
       return true;
     },
   },
