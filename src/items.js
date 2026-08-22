@@ -944,26 +944,38 @@ function effectiveTillCost(relics, rng) {
 }
 // Tool work-wheel duration. TIER 0 = BARE HANDS: every tool type works
 // bare-handed at 9s — so chop / mine / fish / defeat are always possible, only
-// slow. Per-tier times: wood 4s, copper 2.5s, iron 2s, gold 1.3s, platinum .8s,
-// crimson .5s, frost .3s. The bug net is the lone exception — butterflies still
-// need it (gated in the catch path). pickDurationMs is a back-compat alias.
+// slow. Per-tier times: wood 4s, copper 2.6s, iron 1.69s, gold 1.1s, platinum
+// .71s, crimson .46s, frost .3s. The bug net is the lone exception — butterflies
+// still need it (gated in the catch path). pickDurationMs is a back-compat alias.
 //
-// WOOD WAS 3s UNTIL AUG 2026. The spec ladder made tier 1 exactly a third of
-// bare hands, which put the game's single biggest jump at the bottom of the
-// ladder and then almost nothing above it: picking up your first relic TRIPLED
-// your rate, and the next two upgrades bought 20% and 50% on top of that. In
-// combat that reads as a wooden sword killing too fast — a slime is BASELINE_HP,
-// so kill time in seconds IS the duration here (see combat.js), and wood 3s vs
-// copper 2.5s vs iron 2s is not a ladder anyone can feel climbing. Wood moved
-// to 4s to open that low end up: bare→wood is now 2.25× instead of 3×, and
-// copper is a real 1.6× step rather than 1.2×. Nothing else on the ladder
-// moved — tiers 2-7 are tuned endpoints and bare hands stays at the 9s rung
-// every "you can always do it, slowly" fallback is written against.
-// The tier-1 time is shared by EVERY tool, so this slowed the wooden
-// axe/pick/hoe/rod by the same third. That is the accepted cost of not forking
-// a combat-only ladder; if the gathering tools need their own curve, give
+// THE RUNGS ARE GEOMETRIC: one tier is ~1.54× faster than the tier below it,
+// every step of the way. That is what "about 1.5× per tier" comes out as once
+// both ends are pinned — wood 4s to frost 0.3s is 13.33× across six steps, and
+// 13.33^(1/6) = 1.54 — so the ratio isn't a target that was dialled in, it's
+// the old ladder's own average made uniform. The numbers below are that curve
+// rounded to 10 ms; `TIER_STEP` and the ratio test in tables.test.js keep an
+// edit from quietly flattening a rung again.
+//
+// It replaces a hand-picked ladder (3000/2500/2000/1300/800/500/300) whose
+// steps wandered between 1.25× and 1.67×, and the flat spot was exactly where
+// a new player lives: copper→iron bought 25%, so the first three relics — the
+// only ones reachable in the opening hour — felt like the same tool. In combat
+// that's the loudest, because a slime is BASELINE_HP and so its kill time in
+// seconds IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
+// was a wooden sword killing nearly as fast as an iron one. Wood also moved 3s
+// → 4s in the same pass, which is what opens the bottom of the curve up.
+//
+// TIER 0 = BARE HANDS is deliberately NOT on this curve. It stays at 9s, the
+// rung every "you can always do it, only slowly" fallback is written against —
+// 2.25× wood, not 1.54×. Being toolless is meant to be a state you leave, not
+// the ladder's bottom step.
+//
+// One table serves EVERY tool, so re-shaping it re-shaped the wooden
+// axe/pick/hoe/rod alongside the sword. That's the accepted cost of not forking
+// a combat-only ladder; if the gathering tools ever need their own curve, give
 // combat its own table rather than bending this one back.
-const TOOL_DURATION_MS = { 1: 4000, 2: 2500, 3: 2000, 4: 1300, 5: 800, 6: 500, 7: 300 };
+const TIER_STEP = Math.pow(4000 / 300, 1 / 6);   // 1.5399… — the shape of the table below, which tables.test.js measures every rung against
+const TOOL_DURATION_MS = { 1: 4000, 2: 2600, 3: 1690, 4: 1100, 5: 710, 6: 460, 7: 300 };
 function toolDurationMs(relics, slot) {
   const eq = relics?.[slot];
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
