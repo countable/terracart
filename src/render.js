@@ -80,10 +80,11 @@ const POI_PAD_MINI_SCALE = 0.55;
 // thinning this out never hides the player's actual progress.
 const PATH_STONE_DENSITY_PCT = 50;
 // A freshly claimed path stone gets a brief scale-pop instead of silently
-// jumping to full opacity next frame, so claiming reads as an event. Short
-// and snappy ("a little" animation, not a call to action) — see the ease
-// applied where PATH_STONE_FLASH_MS is consumed.
-const PATH_STONE_FLASH_MS = 450;
+// jumping to full opacity next frame, so claiming reads as an event. 450ms
+// played and decayed almost before the eye caught it, so it's slower now —
+// still short, just actually visible. app.js's flash-prune window has to
+// stay comfortably above this or an activation would get pruned mid-animation.
+const PATH_STONE_FLASH_MS = 900;
 const PATH_STONE_FLASH_BOUNCE = 0.4;
 
 function worldMetersToScreen(scene, wmx, wmy) {
