@@ -618,6 +618,10 @@ const PLAY_TIPS = [
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Relic effects ─────────────────────────────────────────
   'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
+  'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
+  'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
+  'Arrows fly where the compass points, not at what you tap. Turn to aim.',
+  'The ring over a foe is its health, not a timer — green, then amber, then red.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
   'An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
@@ -776,15 +780,18 @@ const RELIC_DEFS = {
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
-  // Weapons. Sword raises sell values; Bow lowers buy prices. Staff is a
-  // pure hunting weapon — all three (sword/bow/staff) speed the pest-defeat
-  // wheel, but only the Bow bends buy prices.
+  // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
+  // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
+  // are ranged — they fire on their own, once a second along the compass, while
+  // an enemy is on screen. All three still speed the crow/deer hunt wheel by
+  // tier. On top of the fighting, the Sword raises sell values and the Bow
+  // lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'better sell prices' },
+             effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'better buy prices' },
+             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'a weapon for hunting pests' },
+             effectKey: 'hunt',          blurb: 'ranged: auto-shoots foes on screen' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
@@ -997,9 +1004,9 @@ function sellMultiplier(relics) {
   return 0.5 + (t / 7) * 0.5;
 }
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
-// share this discount, but it's been demoted to a pure combat weapon (it still
-// counts toward the sword/bow/staff hunt-speed max in interact.js); only the
-// Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
+// share this discount, but it's been demoted to a pure combat weapon (it's a
+// ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
+// max in interact.js); only the Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
 function bestWeaponTier(relics) {
   return relics?.bow?.tier || 0;
 }

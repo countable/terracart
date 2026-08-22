@@ -358,6 +358,11 @@ const TAP_HANDLERS = [
   { name: 'work-progress', try: (ctx) => {
     const wp = ctx.scene._workProgress;
     if (!wp) return false;
+    // An AUTO-engaged sword fight (combat.js / app.js _combatTick) is not an
+    // action the player started, so it must not eat their taps: fall through
+    // and let the tap do whatever it was going to do. Without this, walking
+    // past a slime would swallow every tap until the slime was dead.
+    if (wp.auto) return false;
     if (performance.now() - (wp.startT || 0) < 150) return true;   // swallow, don't cancel
     ctx.scene.abortWorkProgress();   // refund any up-front energy — bailing costs nothing
     return true;
@@ -508,17 +513,26 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED via a work
-    // queue rather than caught alive. A weapon (sword / bow / staff) speeds
-    // the kill up by tier; bare-handed still works but is a long slog. On
-    // completion the creature is removed from the world (marked caught) and
-    // drops its product if it has one (crow → feather, deer → meat; slimes
-    // drop nothing — they're just an energy pest). The defeat is FREE (no
-    // energy spent): your TIME at the work wheel IS the cost, which also means
-    // you can still kill the very slime that's draining you when low on energy.
+    // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED rather than
+    // caught alive, and the two halves now diverge (see combat.js):
+    //
+    //   ENEMIES (wild slime + every cave monster) fight on the HP-driven
+    //   COMBAT wheel. The ring is the foe's health, a sword (or bare hands)
+    //   drains it while the wheel runs, and bow/staff shots drain the same
+    //   pool — so a tap here is "close in and swing", not "start a timer".
+    //
+    //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
+    //   at them and no shot can hit them, so a hunt is still a deliberate tap,
+    //   still sped by ANY weapon's tier — a bow-only player can still bring
+    //   down a deer.
+    //
+    // Either way the defeat is FREE (no energy spent): your TIME is the cost,
+    // which also means you can still kill the very slime that's draining you
+    // when low on energy.
 
     // Secret: slime can be tamed with a sapphire (hinted only via book tips).
-    // Checked before DEFEAT_KINDS so the sapphire path wins over the work queue.
+    // Checked before the enemy branch below so the sapphire path wins over the
+    // combat wheel — otherwise you'd stab the slime you meant to befriend.
     if (target.kind === 'slime') {
       const selNow = getSelectedSlot(save);
       if (selNow?.id === 'sapphire' && (selNow.count ?? 0) > 0) {
@@ -537,9 +551,16 @@ const TAP_HANDLERS = [
       }
     }
 
-    const DEFEAT_KINDS = new Set(['slime', 'crow', 'deer']);
-    const _isMon = isMonster(target.kind);
-    if (DEFEAT_KINDS.has(target.kind) || _isMon) {
+    // ENEMIES (wild slime + every cave monster) go on the HP combat wheel —
+    // nothing to time, the fight is over when their hit points are.
+    if (Combat.isEnemy(target)) { scene.startCombat(target); return true; }
+
+    // HUNTING — crow and deer only. The old DEFEAT_KINDS set also held 'slime',
+    // which is an enemy now and never reaches here; it also matched a TAME
+    // 'released_' animal, so tapping the slime you'd just befriended with a
+    // sapphire killed it. A pet of any kind falls through to petting below.
+    const HUNT_KINDS = new Set(['crow', 'deer']);
+    if (!_isReleased && HUNT_KINDS.has(target.kind)) {
       const r = save.relics || {};
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
@@ -551,56 +572,18 @@ const TAP_HANDLERS = [
         : (weaponTier > 0 ? Math.max(300, 3000 - (weaponTier - 1) * 450) : 9000);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
-      // kind (slimes never spawn shiny, so this only ever hits crow/deer here).
-      // Underground monsters never go shiny; their HP (relative to the 15-HP
-      // slime baseline) scales the wheel instead, so a 25-HP goblin is a real
-      // slog and a 6-HP purple slime drops fast.
-      const hpMul = _isMon ? MONSTERS[target.kind].hp / 15
-                  : target.shiny ? 2 : 1;
+      // kind. (Enemies never reach here, and neither slimes nor monsters ever
+      // go shiny, so this is a crow/deer rule outright now.)
+      const hpMul = target.shiny ? 2 : 1;
       // Dragon Powder: 2× attack damage → the kill wheel finishes in half the
       // time during the 1-minute dragon form (see useDragonPowder in app.js).
       const dmgMul = (typeof scene.isDragonActive === 'function' && scene.isDragonActive()) ? 0.5 : 1;
       const victim = target;
-      const dropId = victim.kind === 'crow' ? 'crow_feather'
-                   : victim.kind === 'deer' ? 'meat'
-                   : null;
-      scene.startWorkProgress(victim.x, victim.y, () => {
-        save.caught.push(victim.id);
-        if (dropId) {
-          scene.addToInv(dropId, 1);
-          const item = ITEM_BY_ID[dropId];
-          scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
-        } else if (_isMon) {
-          // Every kill pays a bounty (monsterBounty — derived from the kind's
-          // HP plus a depth climb, see app.js), and one in ten also drops a
-          // buried-treasure roll: the same table an X pays, so a lucky kill
-          // reads as finding one. The gold is the reliable part — before this
-          // a monster dropped nothing at all and the only sane play was to
-          // walk around it.
-          const coins = (typeof monsterBounty === 'function')
-            ? monsterBounty(victim.kind, scene.depth) : 0;
-          if (coins > 0) addMoney(save, coins);
-          const name = MONSTERS[victim.kind].name;
-          scene.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
-            scene.viewCenterX, scene.viewCenterY - 60);
-          if (Math.random() < MONSTER_TREASURE_CHANCE) {
-            grantTreasureRoll(scene, save, scene.viewCenterX, scene.viewCenterY - 24, '💀');
-          }
-        } else {
-          scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
-        }
-        if (typeof Quests !== 'undefined') {
-          const qDone = Quests.onKill(save, victim.kind);
-          if (qDone) scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
-        }
-        persistSave(save);
-        // Rare shiny deer / crow — hunted fauna drop their product (meat /
-        // feather), so there's no live shiny animal to keep, but the shiny
-        // find still pays the 10× money + discovery bonus with fanfare.
-        if (victim.shiny && dropId) {
-          scene.awardShinyBonus(victim.kind, scene.viewCenterX, scene.viewCenterY - 60);
-        }
-      }, durMs * hpMul * dmgMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
+      // The kill payload (drops, bounty, quest tick, shiny fanfare) is shared
+      // with the combat wheel and with a killing bow/staff shot — it lives on
+      // the scene as resolveDefeat so all three routes pay out identically.
+      scene.startWorkProgress(victim.x, victim.y, () => scene.resolveDefeat(victim),
+        durMs * hpMul * dmgMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
