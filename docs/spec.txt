@@ -918,11 +918,11 @@ I just won?" without reading a word.
  - EXCEPTIONS, and they are deliberate:
      * ITEM RARITY tier colours (loot.js) still colour a reward's NAME — rarity
        is information the ceremony's blue-white frame doesn't carry.
-     * ENERGY drains green → AMBER (#e8963c) → red, and DANGER keeps red. The
-       mid step was gold until the HUD pass: an energy bar is a gauge, it
-       reports and cannot be pressed, so gold there was the control colour
-       sitting on a non-control. Amber keeps the traffic-light reading
-       without borrowing the affordance hue.
+     * ENERGY keeps green → gold → red as it drains; DANGER keeps red. This is
+       a deliberate exception to "gold = a control": the bar reports and cannot
+       be pressed. It was briefly moved to amber to obey the law strictly, and
+       moved back — the traffic-light reading is an idiom players already know,
+       and a gauge carries no affordance for the gold to be confused with.
      * Ceremonies that are NOT loot reuse the reward modal with their own
        accent (passing out = orange, restoring a wreck / unsealing a fort =
        green) so a construction never reads as treasure.
@@ -959,6 +959,24 @@ DIALOGS
  - tools/modal_audit.js pins all of the above: every dialog declares a kind,
    every kind exists in MODAL_KINDS, and no caller fills both halves of a
    trade with the same text.
+
+TEXTURES
+ - An opened low-tier / starter crate stays on the map as a looted marker
+   (render.js _chestOpenMarker) drawn with the 'open_box' texture. That texture
+   never existed: nothing registered it, no PNG shipped, and Phaser resolved
+   the key to its __MISSING placeholder — so every looted crate rendered as a
+   checkerboard. It is now drawn procedurally (textures.js makeOpenCrateTexture)
+   at 16x16 to match Box_Single_16x16.png exactly, since the renderer scales
+   both by CRATE_SCALE and any other size would make the marker jump as the
+   crate opened. Its palette and its post/slat skeleton are lifted from the
+   closed crate's own pixels so the two read as one object in two states.
+ - A texture key nothing creates fails SILENTLY — Phaser substitutes __MISSING
+   rather than throwing. tools/shell_audit.js therefore checks both directions:
+   every literal key RENDER_SPEC names is provided (by ASSETS, by a textures.js
+   canvas, or by an app.js preload), and every make*Texture in textures.js is
+   REACHABLE at boot (directly from app.js or via another maker — several are
+   internal helpers). Keys computed from data (a house's role, a tree's
+   species, a ground stack's item icon) are skipped rather than guessed at.
 
 ================================================================================
 HUD

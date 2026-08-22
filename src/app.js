@@ -696,6 +696,10 @@ class MapScene extends Phaser.Scene {
     makeTowerTexture(this);
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
+    // Opened supply crate — the "looted" marker a low-tier crate leaves behind.
+    // Its key was referenced by the renderer long before anything created it,
+    // so every opened crate drew Phaser's __MISSING placeholder.
+    makeOpenCrateTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by
     // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
     // 'props' sheet, which reads as a hand-painted grass tuft consistent
@@ -5258,8 +5262,13 @@ class MapScene extends Phaser.Scene {
     this._energyDOMMax = max;
     const pct = max > 0 ? cur / max : 0;
     // Green normally, yellow at/below 30%, red when critically low.
-    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#e8963c' : '#ff8a7a');
-    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8a5b23' : '#a04040');
+    // Green → GOLD → red. Gold is the interaction colour everywhere else in the
+    // HUD, and this gauge is not a control — it was briefly moved to amber for
+    // that reason. Reverted on the call that the traffic-light reading is worth
+    // more here than the strict colour law: a draining bar is an idiom players
+    // already know, and the gauge carries no affordance for gold to confuse.
+    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
+    el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
     if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }

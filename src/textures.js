@@ -876,6 +876,95 @@ function makePotOfGoldTexture(scene) {
   tex.refresh();
 }
 
+// ── Opened supply crate ─────────────────────────────────────────────────────
+// An opened low-tier / starter crate stays on the map as a "looted" marker
+// rather than vanishing (render.js _chestOpenMarker), and it asked for an
+// `open_box` texture to say so. That texture never existed: nothing registered
+// it and no PNG shipped, so Phaser resolved the key to __MISSING and every
+// looted crate drew the missing-texture placeholder.
+//
+// Drawn procedurally rather than added as art, the same way the tower and the
+// pot of gold are, and sized 16×16 to match Box_Single_16x16.png exactly — the
+// renderer scales both by CRATE_SCALE, so any other size would make the marker
+// jump as the crate opened.
+//
+// The palette is lifted from the closed crate's own pixels (its five wood tones
+// and its blue-grey outline), so the two read as the same object in two states
+// rather than as two different props.
+function makeOpenCrateTexture(scene) {
+  const KEY = 'open_box';
+  if (scene.textures.exists(KEY)) return;
+  const W = 16, H = 16;
+  const tex = scene.textures.createCanvas(KEY, W, H);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, W, H);
+
+  // Lifted from the closed crate's own pixels so the two states share one
+  // palette rather than looking like two different props.
+  const OUTLINE = '#3a3a50';   // the frame / outline blue-grey
+  const RIM     = '#46465e';
+  const WOOD_LT = '#d9a16a';
+  const WOOD    = '#d5935e';
+  const WOOD_MD = '#ca8854';
+  const WOOD_DK = '#b5754d';
+  const WOOD_DP = '#a85f46';
+  const POST    = '#916662';   // the crate's corner posts
+  const CAVITY  = '#241d2b';   // the empty inside, darker than the outline
+
+  // 1px fillRects, never strokes — a stroked path straddles the half-pixel and
+  // comes out soft, which is the QC rule for every pixel-art texture here.
+  const hline = (x0, x1, y, c) => { ctx.fillStyle = c; ctx.fillRect(x0, y, x1 - x0 + 1, 1); };
+  const vline = (x, y0, y1, c) => { ctx.fillStyle = c; ctx.fillRect(x, y0, 1, y1 - y0 + 1); };
+  const rect  = (x0, y0, x1, y1, c) => { ctx.fillStyle = c; ctx.fillRect(x0, y0, x1 - x0 + 1, y1 - y0 + 1); };
+
+  // The closed crate is built from CORNER POSTS at x0-2 / x13-15 with vertical
+  // seams at x3 and x12, and horizontal slats between them. The open one keeps
+  // that skeleton exactly, so the crate doesn't change shape when it opens —
+  // only its lid comes off and its inside goes dark.
+  const POST_L = [0, 2], POST_R = [13, 15], SEAM_L = 3, SEAM_R = 12;
+
+  // ── The lid, tipped back and resting against the crate ────────────────
+  // It overlaps the crate's top edge rather than floating above it, so it
+  // reads as hinged open instead of as a second object.
+  rect(3, 1, 12, 3, WOOD_DK);
+  hline(3, 12, 1, OUTLINE);
+  hline(4, 11, 2, WOOD_MD);          // lit face
+  vline(3, 1, 3, OUTLINE);
+  vline(12, 1, 3, OUTLINE);
+  vline(6, 2, 2, WOOD_DP);           // plank seams, matching the body's
+  vline(9, 2, 2, WOOD_DP);
+
+  // ── The crate body ────────────────────────────────────────────────────
+  rect(0, 4, 15, 15, WOOD);
+  hline(0, 15, 4, OUTLINE);          // open top edge
+  hline(0, 15, 15, OUTLINE);         // base
+  vline(0, 4, 15, OUTLINE);
+  vline(15, 4, 15, OUTLINE);
+
+  // Corner posts, as on the closed crate.
+  rect(POST_L[0] + 1, 5, POST_L[1], 14, POST);
+  rect(POST_R[0], 5, POST_R[1] - 1, 14, POST);
+
+  // The open mouth: a dark cavity between the posts, with the inner back wall
+  // catching a little light so it reads as depth rather than a hole.
+  rect(SEAM_L, 5, SEAM_R, 8, CAVITY);
+  hline(SEAM_L, SEAM_R, 5, RIM);     // lit inner back wall
+  vline(SEAM_L, 5, 8, OUTLINE);      // inner seams
+  vline(SEAM_R, 5, 8, OUTLINE);
+
+  // The near lip the player looks over, then the front slats — same horizontal
+  // banding the closed crate uses, so the two read as one object.
+  hline(SEAM_L, SEAM_R, 9, WOOD_LT);
+  rect(SEAM_L, 10, SEAM_R, 14, WOOD_MD);
+  hline(SEAM_L, SEAM_R, 10, WOOD_LT);
+  hline(SEAM_L, SEAM_R, 12, WOOD_DK);   // slat seam
+  hline(SEAM_L, SEAM_R, 14, WOOD_DP);   // shadowed base slat
+  vline(SEAM_L, 9, 14, WOOD_DK);        // vertical seams flanking the panel
+  vline(SEAM_R, 9, 14, WOOD_DP);
+
+  tex.refresh();
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     for (let v = 0; v < spec.variants; v++) {
