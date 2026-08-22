@@ -561,10 +561,20 @@ TREASURE MARKS (X on the ground)
 PATH STONES
 ================================================================================
  - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity while
-   unclaimed cobbles sit at 57%, so a walked path lights up as you go. Every 10 consecutive claimed stones on the
-   same named path awards 1 coin (a 30-stone path pays 3 coins total; fewer
-   than 10 pays nothing).
+   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
+   recoloured treasure blue-white (not just less see-through — a genuinely
+   different, lit-looking stone, since a plain alpha bump barely read as
+   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
+   grey, so a walked path visibly lights up as you go. Claiming plays a brief
+   scale-pop on that exact stone so it reads as an event, not a silent swap.
+   Only ~50% of path cells draw a decorative pebble sprite AT ALL (a stone on
+   every single 7m cell read as a paved strip, not scattered stepping
+   stones) — a PURELY decorative, permanent per-cell roll: claiming still
+   counts toward the path whether or not that cell ever had a visible stone,
+   and a cell that rolled no stone stays bare even once claimed (it never
+   pops one in — that would read as a bug, not as "lighting up").
+   Every 10 consecutive claimed stones on the same named path awards 1 coin
+   (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
    fires a one-time completion reward via the unified rarity picker (lowtier
    chest curve at tier 4), shown with the chest reward fanfare. This is on top
@@ -726,7 +736,17 @@ GEAR: RELICS & ARMOR
    three full seconds of the character doing nothing after release — walk 43 m
    out, let go, and the offset sat frozen for 3.1 s before covering the whole
    way back in 2.9 s. All of the sluggishness was in the wait; the walk itself
-   was never slow. At 700 ms the return begins at 0.8 s and is home by 3.7 s.
+   was never slow.
+   A FLAT timer cannot satisfy both ends of this, and 700 ms proved it: players
+   nudge themselves along in short pushes, and any gap longer than the timer had
+   the character walking BACK against them. Driven with a realistic 500 ms push
+   / 900 ms pause pattern, 700 ms spent 23% of the player's forward travel going
+   backwards across 7 direction reversals (3000 ms: 0% and 0). So the timer only
+   decides when the return BEGINS, and it begins gently — the speed eases in
+   over WALK_HOME_RAMP_MS (1100 ms, squared) instead of switching on at full
+   pace. An interrupted nudge gives up almost no ground; a real stop is under
+   way at 0.5 s and home in about 4.8 s. The same nudge pattern now measures 0%
+   backward travel. Removing the CLIFF is the fix; no single flat number is.
    The lead-line hint (WALK_HOME_HINT_IDLE_MS, 2000 ms) must stay LONGER than
    the walk's delay — it announces a walk, so it can't precede one — but not so
    much longer that an ordinary return finishes before it is due, which is what
@@ -911,11 +931,11 @@ I just won?" without reading a word.
  - EXCEPTIONS, and they are deliberate:
      * ITEM RARITY tier colours (loot.js) still colour a reward's NAME — rarity
        is information the ceremony's blue-white frame doesn't carry.
-     * ENERGY drains green → AMBER (#e8963c) → red, and DANGER keeps red. The
-       mid step was gold until the HUD pass: an energy bar is a gauge, it
-       reports and cannot be pressed, so gold there was the control colour
-       sitting on a non-control. Amber keeps the traffic-light reading
-       without borrowing the affordance hue.
+     * ENERGY keeps green → gold → red as it drains; DANGER keeps red. This is
+       a deliberate exception to "gold = a control": the bar reports and cannot
+       be pressed. It was briefly moved to amber to obey the law strictly, and
+       moved back — the traffic-light reading is an idiom players already know,
+       and a gauge carries no affordance for the gold to be confused with.
      * Ceremonies that are NOT loot reuse the reward modal with their own
        accent (passing out = orange, restoring a wreck / unsealing a fort =
        green) so a construction never reads as treasure.
@@ -952,6 +972,24 @@ DIALOGS
  - tools/modal_audit.js pins all of the above: every dialog declares a kind,
    every kind exists in MODAL_KINDS, and no caller fills both halves of a
    trade with the same text.
+
+TEXTURES
+ - An opened low-tier / starter crate stays on the map as a looted marker
+   (render.js _chestOpenMarker) drawn with the 'open_box' texture. That texture
+   never existed: nothing registered it, no PNG shipped, and Phaser resolved
+   the key to its __MISSING placeholder — so every looted crate rendered as a
+   checkerboard. It is now drawn procedurally (textures.js makeOpenCrateTexture)
+   at 16x16 to match Box_Single_16x16.png exactly, since the renderer scales
+   both by CRATE_SCALE and any other size would make the marker jump as the
+   crate opened. Its palette and its post/slat skeleton are lifted from the
+   closed crate's own pixels so the two read as one object in two states.
+ - A texture key nothing creates fails SILENTLY — Phaser substitutes __MISSING
+   rather than throwing. tools/shell_audit.js therefore checks both directions:
+   every literal key RENDER_SPEC names is provided (by ASSETS, by a textures.js
+   canvas, or by an app.js preload), and every make*Texture in textures.js is
+   REACHABLE at boot (directly from app.js or via another maker — several are
+   internal helpers). Keys computed from data (a house's role, a tree's
+   species, a ground stack's item icon) are skipped rather than guessed at.
 
 ================================================================================
 HUD

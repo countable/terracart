@@ -34,3 +34,46 @@ test('walk home: the hint is still reachable on an ordinary return', () => {
     'the hint lands so long after the walk starts that most returns end first');
   assert.gt(lag, 200, 'the hint should stay quieter than the walk, not simultaneous');
 });
+
+// ── The ramp ──────────────────────────────────────────────────────────────
+// Dropping the debounce to 700ms fixed "the character ignores me" and created
+// its mirror image: players nudge themselves along in short pushes, and any
+// gap longer than the timer had the character walking BACK against them. Driven
+// with a 500ms push / 900ms pause pattern, 23% of the player's forward travel
+// was spent going backwards across 7 direction reversals; at the old 3000ms it
+// was 0% and 0.
+//
+// The fix is to remove the cliff rather than to pick a better number: the timer
+// says when the return starts, and the speed eases in from nothing over the
+// ramp. An interrupted nudge gives up almost no ground; a real stop still gets
+// home at walking pace. The same pattern now measures 0% backward.
+
+test('walk home: the return eases in rather than switching on at full pace', () => {
+  assert.gt(WALK_HOME_RAMP_MS, 600,
+    'too short a ramp is a cliff again — the character lurches back between nudges');
+  assert.lt(WALK_HOME_RAMP_MS, 2500,
+    'too long a ramp and a genuine stop crawls home');
+});
+
+test('walk home: an ordinary pause between nudges stays nearly free', () => {
+  // What the player actually gives up if they pause and push again. The ramp is
+  // squared, so ground lost over a pause of `ms` is the integral of t^2 — a
+  // fraction of what a flat return would have taken.
+  const lost = (ms) => {
+    const t = Math.min(1, Math.max(0, ms - WALK_HOME_IDLE_MS) / WALK_HOME_RAMP_MS);
+    return (t ** 3) / 3;            // ∫t² dt, in units of ramp-length × full speed
+  };
+  const flat = (ms) => Math.max(0, ms - WALK_HOME_IDLE_MS) / WALK_HOME_RAMP_MS;
+  // A 900ms gap — a normal beat between two stick pushes.
+  assert.lt(lost(900), flat(900) * 0.25,
+    'a normal pause between nudges should cost a fraction of what a flat return would');
+});
+
+test('walk home: a real stop is still under way quickly', () => {
+  // The complaint that started this was three seconds of the character doing
+  // nothing. Whatever the ramp does, the walk must BEGIN well inside a second.
+  assert.lt(WALK_HOME_IDLE_MS, 900, 'the return must begin well inside a second');
+  // ...and reach full pace soon enough that the trip home is not a crawl.
+  assert.lt(WALK_HOME_IDLE_MS + WALK_HOME_RAMP_MS, 2200,
+    'full walking pace should arrive within a couple of seconds of release');
+});

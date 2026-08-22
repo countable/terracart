@@ -288,9 +288,20 @@ function setOf(arr) {
 // Buildings with no area (the synthetic starter trailer, sandbox houses) and
 // unmeasurable frames keep the baseline untouched.
 const FORT_MAX_SCALE = 0.65;
+// Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
+// polygon, the roof never draws narrower than this. Unfloored, a sub-cell
+// footprint shrank the art toward half a cell, which read as yard clutter
+// rather than a dwelling. Expressed in cells (not scale) so it lands the same
+// on every frame width — the base house frame is 72 px, the wreck 80 px. Kept
+// under the 0.6-baseline width (72 × 0.6 / 32 = 1.35 cells) so bigger houses
+// still draw bigger, and paired with the 2-cell footprint bias in worldgen's
+// assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored roof has a pad to
+// stand on.
+const HOUSE_MIN_CELLS = 1.2;
 function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
   if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
   const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
   if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, fit));
-  return Math.min(base, fit);
+  const floor = cellPx > 0 ? (HOUSE_MIN_CELLS * cellPx) / frameW : 0;
+  return Math.min(base, Math.max(fit, floor));
 }

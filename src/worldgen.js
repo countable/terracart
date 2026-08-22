@@ -587,10 +587,42 @@
   // a genuinely offline session doesn't rebuild on every call.
   const TILE_RETRY_MS = 3000;
   const _tileFailedAt = new Map();   // "z/x/y" → Date.now() of the last failure
-  // Set while rebuildTileWithBin is replacing a tile: the cross-tile chest
+  // Set while rebuildTileWithBin is replacing a tile: the cross-tile spawn
   // dedup skips this key so the rebuild doesn't dedupe against the very entry
   // it is about to replace.
   let _dedupSkipKey = null;
+
+  // Cross-tile spawn-dedup index: everything a newly-built tile's objects are
+  // checked against. One pass over the cache collects named chests (name →
+  // positions) and house positions.
+  //
+  // skipKey excludes that tile's own live entry while rebuildTileWithBin
+  // replaces it in place — the rebuild produces chests AND houses at exactly
+  // the coordinates of the copies it is about to swap out, so without the
+  // skip it dedupes against itself and drops them all. Houses learned this
+  // the hard way: the skip originally covered only the chest index, and every
+  // rebuilt tile (any tile whose Overpass bin landed after it rasterized)
+  // kept its painted building footprints but lost every house sprite —
+  // brick footings with nothing standing on them.
+  function collectDedupIndex(tileCache, skipKey) {
+    const byName = new Map();   // chest name → [{ x, y }]
+    const housePositions = [];
+    for (const [ek, e] of tileCache) {
+      if (!e || !e.objects) continue;
+      if (ek === skipKey) continue;
+      for (const p of e.objects) {
+        if (p.kind === 'chest' && p.name) {
+          const k = p.name.trim().toLowerCase();
+          let arr = byName.get(k);
+          if (!arr) { arr = []; byName.set(k, arr); }
+          arr.push({ x: p.x, y: p.y });
+        } else if (p.kind === 'house') {
+          housePositions.push({ x: p.x, y: p.y });
+        }
+      }
+    }
+    return { byName, housePositions };
+  }
 
   function tileUrlFor(x, y) {
     return TILE_URL.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
@@ -757,6 +789,9 @@
   //   3. any building still empty takes its single best-covered free cell,
   //      provided it covers FOOT_RESCUE_MIN of a cell in total, so a shed
   //      smaller than half a cell still exists instead of silently vanishing
+  //   3.5. a HOUSE (tier 9) left with a single cell takes one adjacent free
+  //      cell so its footprint is at least FOOT_HOUSE_MIN cells where space
+  //      allows — a 1-cell brick pad reads as clutter, not a dwelling
   // then a claim-aware tidy (notches / diagonal-only contacts / crumbs) that
   // may only take cells nobody claimed.
   //
@@ -767,6 +802,10 @@
   const FOOT_COVER_MIN   = 0.45;
   const FOOT_RECT_BONUS  = 1.3;
   const FOOT_RESCUE_MIN  = 0.15;   // total covered area, in cells
+  // Minimum footprint for a small (tier-9) house, in cells, when free space
+  // allows: a single brick cell under a roof reads as clutter rather than a
+  // dwelling, so a 1-cell house takes one adjacent free cell (see pass 3.5).
+  const FOOT_HOUSE_MIN   = 2;
 
   // Fraction (0..1) of cell (cx, cy) covered by `poly`, a ring already in CELL
   // units. Sutherland-Hodgman clip to the cell square, then shoelace — exact,
@@ -925,6 +964,39 @@
         if (!alt || cv.c > alt.c) alt = cv;
       }
       if (alt) claim({ x: alt.x, y: alt.y, i: o.it.i });
+    }
+
+    // Pass 3.5 — two-cell bias for houses (FOOT_HOUSE_MIN). A house that
+    // landed a single cell draws a roof shrunk toward one cell, which reads
+    // as yard clutter rather than a dwelling. Give it one orthogonally
+    // adjacent free cell when there is one: prefer the neighbour the polygon
+    // actually covers most, and a house wholly inside its one cell leans
+    // toward the side its centroid sits on. Claim-aware (never takes another
+    // building's cell) and processed in geometry-key order, so the result
+    // stays a pure function of the polygons — two tiles rasterizing the same
+    // seam-clipped house grow it the same way.
+    const growOrder = info
+      .filter(it => it.bp.tier === T.BUILDING
+                 && it.cells.length > 0 && it.cells.length < FOOT_HOUSE_MIN)
+      .sort((a, b) => a.key - b.key);
+    for (const it of growOrder) {
+      const [cx0, cy0] = it.cells[0];
+      let sx = 0, sy = 0;
+      for (const p of it.ring) { sx += p.x; sy += p.y; }
+      const rn = it.ring.length || 1;
+      const leanX = sx / rn - (cx0 + 0.5), leanY = sy / rn - (cy0 + 0.5);
+      let bestN = null, bestScore = -Infinity;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = cx0 + dx, y = cy0 + dy;
+        if (!inRange(x, y) || claimed(x, y)) continue;
+        let cov = 0;
+        for (const cv of it.covers) if (cv.x === x && cv.y === y) { cov = cv.c; break; }
+        // Cover dominates (it is ≤ 1, the lean term ≤ ~1 is scaled well under
+        // one cover step); the lean only decides between zero-cover neighbours.
+        const score = cov * 1000 + dx * leanX + dy * leanY;
+        if (score > bestScore) { bestScore = score; bestN = [x, y]; }
+      }
+      if (bestN) claim({ x: bestN[0], y: bestN[1], i: it.i });
     }
 
     // Pass 4 — shape cleanup, claim-aware. Same rules the old footprint tidy
@@ -2357,38 +2429,20 @@
       const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
-      // POIs duplicate across the four tiles meeting at that corner).
+      // POIs duplicate across the four tiles meeting at that corner), and any
+      // new house within HOUSE_DEDUP_M of an existing one — the same building
+      // can be duplicated across the 4 tiles meeting at its corner, producing
+      // 2-4 sprites for the same physical structure (no name available — OSM
+      // doesn't usually name dwellings).
       //
-      // Indexed by lowercased name to keep dedup O(new × matches) rather than
-      // O(new × total) — the prior triple-nested scan was quadratic across the
-      // entire tileCache for every tile load.
+      // Chests are indexed by lowercased name to keep dedup O(new × matches)
+      // rather than O(new × total) — the prior triple-nested scan was quadratic
+      // across the entire tileCache for every tile load.
       const DEDUP_M = 120;
       const DEDUP_M2 = DEDUP_M * DEDUP_M;
-      const byName = new Map();   // name → [{ x, y }]
-      for (const [ek, e] of tileCache) {
-        if (!e || !e.objects) continue;
-        if (ek === _dedupSkipKey) continue;   // rebuilding this tile — see rebuildTileWithBin
-        for (const p of e.objects) {
-          if (p.kind !== 'chest' || !p.name) continue;
-          const k = p.name.trim().toLowerCase();
-          let arr = byName.get(k);
-          if (!arr) { arr = []; byName.set(k, arr); }
-          arr.push({ x: p.x, y: p.y });
-        }
-      }
-      // Position index for houses — same building can be duplicated across the
-      // 4 tiles meeting at its corner, producing 2-4 sprites for the same
-      // physical structure. Dedup any new house within HOUSE_DEDUP_M of an
-      // existing one (no name available — OSM doesn't usually name dwellings).
       const HOUSE_DEDUP_M = 6;
       const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
-      const housePositions = [];
-      for (const e of tileCache.values()) {
-        if (!e || !e.objects) continue;
-        for (const p of e.objects) {
-          if (p.kind === 'house') housePositions.push({ x: p.x, y: p.y });
-        }
-      }
+      const { byName, housePositions } = collectDedupIndex(tileCache, _dedupSkipKey);
       const filteredObjects = [];
       for (const o of objects) {
         if (o.kind === 'chest' && o.name) {
@@ -3622,12 +3676,16 @@
     // for the headless footprint tests, which pin the no-overlap /
     // one-cell-each / order-independence invariants.
     assignBuildingFootprints, cellCoverFraction,
-    FOOT_COVER_MIN, FOOT_RECT_BONUS, FOOT_RESCUE_MIN,
+    FOOT_COVER_MIN, FOOT_RECT_BONUS, FOOT_RESCUE_MIN, FOOT_HOUSE_MIN,
     // Per-tile building tier mix — the classifier and the distribution floors
     // it gets corrected by. Exported so the headless tests can pin the floors
     // (and so the mix is tunable from one place).
     buildingTier, enforceBuildingDistribution,
     TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
+    // Cross-tile spawn dedup — exported so the headless tests can pin that a
+    // tile being rebuilt in place is excluded from its own dedup index (the
+    // bug that stripped every house sprite off rebuilt tiles).
+    collectDedupIndex,
     erodePavementBlobs,
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).

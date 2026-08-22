@@ -128,18 +128,38 @@ test('road overlay: an MVT line projects to screen at the map scale', () => {
   assert.eq(g.lines[1][3], 240, 'seg1 y2');
 });
 
-test('road overlay: strokes muted earth brown at 51% opacity', () => {
+test('road overlay: strokes muted, desaturated earth brown at 61% opacity', () => {
   clearTiles();
+  // No class tag → not a path, not rail → falls to the vehicle-road colour.
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
-  assert.eq(style.c, 0x614b3a, 'colour is the muted earth brown');
+  assert.eq(style.c, 0x3a322c, 'colour is the desaturated, darkened road earth');
   assert.eq(style.a, 0.61, 'alpha is 61%');
   // Desaturated, not merely darkened: the colour keeps its brightness but its
   // channels sit closer together than a saturated brown's would.
-  const r = 0x61, g = 0x4b, b = 0x3a;
+  const r = 0x3a, g = 0x32, b = 0x2c;
   assert.lt((r - b) / (r + b), 0.28, 'low chroma for its lightness');
+});
+
+test('road overlay: a footpath strokes lighter than a vehicle road', () => {
+  clearTiles();
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'footway' }),
+    line([{ x: 0, y: 8 }, { x: 16, y: 8 }], { class: 'residential' }),
+  ]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const byColour = {};
+  for (const p of scene.roadGeomGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
+  assert.eq(byColour[0x5c4b3f], 1, 'the footway keeps the lighter path earth');
+  assert.eq(byColour[0x3a322c], 1, 'the residential street is the darker road earth');
+  // The road colour must actually be darker (and less saturated) than the
+  // path colour, not just a different hue — that's the whole point of the
+  // split (spec: paved streets read as a harder surface than a dirt path).
+  const pathL = (0x5c + 0x4b + 0x3f) / 3, roadL = (0x3a + 0x32 + 0x2c) / 3;
+  assert.lt(roadL, pathL, 'road earth is darker than path earth');
 });
 
 // ── Width by class ────────────────────────────────────────────────────────
@@ -290,7 +310,7 @@ test('road overlay: railways are drawn in slate, not road earth', () => {
   const byColour = {};
   for (const p of scene.roadGeomGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
   assert.eq(byColour[0x565d69], 2, 'both rail classes stroke slate');
-  assert.eq(byColour[0x614b3a], 1, 'the street keeps the earth brown');
+  assert.eq(byColour[0x3a322c], 1, 'the street keeps the road earth');
 });
 
 test('road overlay: rail and road of the same width are stroked separately', () => {
@@ -359,12 +379,12 @@ test('road overlay: a tile with no rasterized grid is simply not punched', () =>
   assert.truthy(scene.roadGeomGfx.lines.length > 0, 'the way is still drawn');
 });
 
-// ── Grain ─────────────────────────────────────────────────────────────────
-// The grain itself is painted by the canvas adapter (no DOM here), but the
-// phase it's given is computed in the shared rebuild path, so the anchoring
-// is testable: it's the screen position the world origin projects to.
+// ── Cobblestone ──────────────────────────────────────────────────────────
+// The stone texture itself is painted by the canvas adapter (no DOM here),
+// but the phase it's given is computed in the shared rebuild path, so the
+// anchoring is testable: it's the screen position the world origin projects to.
 
-test('road overlay: the grain is phased to the world, not the screen', () => {
+test('road overlay: the cobblestone texture is phased to the world, not the screen', () => {
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const still = makeOverlayScene();

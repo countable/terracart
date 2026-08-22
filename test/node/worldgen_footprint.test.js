@@ -236,3 +236,56 @@ test('footprints: tidy never takes a cell from a neighbouring building', () => {
   assert.eq(norm(out[1]), '2,2', 'the plug keeps its cell');
   assert.falsy(cSet.has('2,2'), 'the C-shape did not tidy its way onto the plug');
 });
+
+// ─── 7. two-cell house bias (FOOT_HOUSE_MIN) ────────────────────────────────
+// A tier-9 house that lands a single cell reads as clutter — pass 3.5 gives it
+// one adjacent free cell. Other tiers, and houses with no free neighbour, are
+// left alone, and the growth must stay claim-aware and order-independent.
+
+const HOUSE_T = WorldGen.T.BUILDING;
+
+test('house bias: a sub-cell house grows to FOOT_HOUSE_MIN cells', () => {
+  const out = assign([poly([[2.2, 2.2], [2.8, 2.2], [2.8, 2.8], [2.2, 2.8]], 20, HOUSE_T)]);
+  assert.eq(out[0].length, WorldGen.FOOT_HOUSE_MIN, 'grew to the minimum');
+  const [[x0, y0], [x1, y1]] = out[0];
+  assert.eq(Math.abs(x0 - x1) + Math.abs(y0 - y1), 1, 'the added cell is orthogonally adjacent');
+});
+
+test('house bias: growth prefers the neighbour the polygon actually covers', () => {
+  // Straddles (2,2)/(2,3): the body claims (2,2); the under-threshold spill
+  // into (2,3) must be the cell the house grows into, not a blind side.
+  const out = assign([poly([[2.1, 2.0], [2.9, 2.0], [2.9, 3.4], [2.1, 3.4]], 55, HOUSE_T)]);
+  assert.eq(norm(out[0]), '2,2 2,3', 'grew into its own spill cell');
+});
+
+test('house bias: a hemmed-in house stays at one cell', () => {
+  // Four full-cell neighbours own every orthogonal cell around (2,2).
+  const walls = [
+    rect(1, 2, 2, 3, 500), rect(3, 2, 4, 3, 500),
+    rect(2, 1, 3, 2, 500), rect(2, 3, 3, 4, 500),
+  ];
+  const out = assign([...walls, poly([[2.2, 2.2], [2.8, 2.2], [2.8, 2.8], [2.2, 2.8]], 20, HOUSE_T)]);
+  assert.eq(norm(out[4]), '2,2', 'no free neighbour → no growth');
+  for (let i = 0; i < 4; i++) assert.eq(out[i].length, 1, `wall ${i} keeps its cell`);
+});
+
+test('house bias: non-house tiers are not grown', () => {
+  const out = assign([poly([[2.2, 2.2], [2.8, 2.2], [2.8, 2.8], [2.2, 2.8]], 20, 30)]);
+  assert.eq(norm(out[0]), '2,2', 'a 1-cell non-house footprint is left alone');
+});
+
+test('house bias: growth is order-independent', () => {
+  // Two tiny houses two cells apart; each grows toward its own lean side.
+  const a = poly([[2.2, 2.2], [2.8, 2.2], [2.8, 2.8], [2.2, 2.8]], 20, HOUSE_T);
+  const b = poly([[4.2, 2.2], [4.8, 2.2], [4.8, 2.8], [4.2, 2.8]], 22, HOUSE_T);
+  const fwd = assign([a, b]);
+  const rev = assign([b, a]);
+  assert.eq(norm(fwd[0]), norm(rev[1]), 'house A footprint stable under reorder');
+  assert.eq(norm(fwd[1]), norm(rev[0]), 'house B footprint stable under reorder');
+  const seen = new Set();
+  for (const cells of fwd) for (const [x, y] of cells) {
+    const k = `${x},${y}`;
+    assert.falsy(seen.has(k), `cell ${k} double-claimed after growth`);
+    seen.add(k);
+  }
+});
