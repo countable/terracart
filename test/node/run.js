@@ -294,8 +294,24 @@ try {
     process.exit(2);
   }
   decls += `const STARTER_RELIC_SLOTS = ${slots[1]};\n`;
+  // The trail layer above it — same lift, because the thing worth testing is
+  // that the crates come down ALONG the route the chest placer hands back.
+  const trailHead = '  _placeStarterTrail(entry, tx, ty) {\n';
+  const trailAt = src.indexOf(trailHead);
+  if (trailAt < 0) {
+    console.error('Could not find _placeStarterTrail in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const trailBodyStart = trailAt + trailHead.length;
+  const trailEnd = src.indexOf('\n  }\n', trailBodyStart);
+  if (trailEnd < 0) {
+    console.error('Could not find the end of _placeStarterTrail — update run.js');
+    process.exit(2);
+  }
+  const trailBody = src.slice(trailBodyStart, trailEnd);
   vm.runInContext(
     decls
+    + `globalThis.placeStarterTrail = function (entry, tx, ty) {\n${trailBody}\n};\n`
     + 'globalThis.STARTER_RELIC_SLOTS = STARTER_RELIC_SLOTS;\n'
     + 'globalThis.STARTER_RELIC_TIER = STARTER_RELIC_TIER;\n'
     + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
