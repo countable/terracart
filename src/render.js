@@ -1550,21 +1550,22 @@ Render.drawObjects = function drawObjects(scene) {
   const pickedSetObj = setOf(scene.save.picked);
   const brokenRockSet = scene.brokenRockSet || new Set();
   // Lowtier chests (chestTier === 1) and starter supply crates render the
-  // `box` sprite instead of the trunk chest. Defined here (ahead of the filter)
-  // because an OPENED box-crate stays in the render list as a marker.
+  // `box` sprite instead of the trunk chest.
   const _chestIsBox = (o) => {
     if (o.crate) return true;   // starter supply crates always use the box sprite
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
   };
   const _chestOpened = (o) => o.kind === 'chest' && openedSet.has(o.id);
-  // An opened low-tier / starter crate does NOT vanish — it stays put as a
-  // visible "looted" marker (open-lid chest frame) until the chest refills, so
-  // the player can see where they already cracked one open. Higher-tier chests
-  // still disappear when opened (their pad + label persist via objList).
-  const _chestOpenMarker = (o) => _chestOpened(o) && _chestIsBox(o);
+  // EVERY opened chest vanishes, crates included. A looted crate used to stay
+  // put as an open-lid "already cracked this one" marker, but the empty-crate
+  // sprite read as broken art wherever it sat, and an emptied crate is worth
+  // less on the map than the clear cell it was standing on. Showing nothing is
+  // also what a looted trunk chest has always done, so both tiers now behave
+  // the same. (The tap target survives either way — interactables.js still
+  // flashes "Picked clean already."; the pad + label persist via objList.)
   const filteredObj = objList.filter(({ o }) =>
-    !(o.kind === 'chest' && openedSet.has(o.id) && !_chestIsBox(o)) &&
+    !(o.kind === 'chest' && openedSet.has(o.id)) &&
     !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
     // Mined-out mineralrocks vanish. Previously they hung around as a
     // dimmed sprite that flashed "spent" on tap — now they just clear,
@@ -1862,12 +1863,12 @@ Render.drawObjects = function drawObjects(scene) {
               } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
-                        // An opened crate swaps the closed `box` PNG for the
-                        // matching 16×16 open-lid `open_box` PNG (same footprint).
-                        : (_chestOpenMarker(o) ? 'open_box'
-                        : (_chestIsBox(o) ? 'box' : 'chest'))),
-              // box / open_box are single-frame images; trunk.png is 2-frame.
-              // Crates (closed or opened) and coin-burst pots leave `frame` at 0.
+                        // Opened chests never reach the renderer (they're
+                        // filtered out above), so there is no "looted" sprite
+                        // to pick — a crate is either closed or gone.
+                        : (_chestIsBox(o) ? 'box' : 'chest')),
+              // box is a single-frame image; trunk.png is 2-frame.
+              // Crates and coin-burst pots leave `frame` at 0.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
@@ -1885,10 +1886,10 @@ Render.drawObjects = function drawObjects(scene) {
               // about the SAME centre: the seated kinds (trunk chest, crates)
               // are re-centred automatically by the seat pass, and the stall's
               // dxPx/dyPx below are re-derived for the new scale so its art
-              // centre doesn't move. Crates (box / open_box, 16×16) sit at
-              // CRATE_SCALE — 16 × 1.53 ≈ 24px inside the 32px cell, so a crate
-              // reads as a prop rather than filling its cell; trunk is 32×32 so
-              // 0.9 is 90% of a cell. The open marker shares the crate's scale.
+              // centre doesn't move. Crates (box, 16×16) sit at CRATE_SCALE —
+              // 16 × 1.53 ≈ 24px inside the 32px cell, so a crate reads as a
+              // prop rather than filling its cell; trunk is 32×32 so 0.9 is
+              // 90% of a cell.
               scale: (o) => produceStandFor(o) ? 0.54 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 0.9)),
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
