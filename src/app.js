@@ -2608,10 +2608,11 @@ class MapScene extends Phaser.Scene {
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
-  // (save.starterCratesAt). Four starter chests, one stack of 9 each: wood
-  // (restoring plain houses + unsealing forts), rockfruit (the "Rock" stone —
-  // restoring themed shops), rockfruit seeds and potato seeds (the player's
-  // first crops; inventory starts empty). Per-chest counts stay within the
+  // (save.starterCratesAt). Four starter chests, one stack of 9 each, in the
+  // order the ladder wants them (see STARTER_LOOT): potato seeds then rockfruit
+  // seeds (the player's first crops — the inventory starts empty), then
+  // rockfruit (the "Rock" stone — restoring themed shops) and wood (restoring
+  // plain houses + unsealing forts). Per-chest counts stay within the
   // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
   // objects carrying a `fixedLoot` payload, so they open through the
   // standard chest path (the ceremony modal + one-time save.opened) instead
@@ -2700,11 +2701,21 @@ class MapScene extends Phaser.Scene {
         if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
       }
     }
+    // Loot in the order the crates are seated — nearest the door first — which
+    // is deliberately the LADDER's order of need, not the tidiest reading of
+    // the list. STARTER_CHAIN goes open a crate → till → SOW A SEED → rebuild a
+    // wreck, so the first crate has to be the one holding a seed: it used to
+    // hold the wood, and a player who did exactly what the chip told them
+    // reached "select a seed from your bag" with an empty bag while the seeds
+    // sat at the far end of the trail. Wood (5 per plain house, and what
+    // unseals a fort) rides at the far end instead, arriving about when step 4
+    // asks for it — and the gold arrow, which always points at the nearest
+    // unopened crate, now agrees with the chip instead of contradicting it.
     const STARTER_LOOT = [
-      { id: 'wood',           qty: 9 },
-      { id: 'rockfruit',      qty: 9 },
-      { id: 'rockfruit_seed', qty: 9 },
       { id: 'potato_seed',    qty: 9 },
+      { id: 'rockfruit_seed', qty: 9 },
+      { id: 'rockfruit',      qty: 9 },
+      { id: 'wood',           qty: 9 },
     ];
     const COUNT = STARTER_LOOT.length;
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest

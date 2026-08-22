@@ -82,6 +82,10 @@ ONBOARDING (the first session)
    spawn to the relic chest, dividing it into five evenly spaced stops (four
    crates, then the chest). Each stop is in view from the one before, so the
    trail is followable: walk to the crate you can see and the next one appears.
+   Contents run in the LADDER's order of need, nearest first — seeds (step 3
+   sows one), then rockfruit and wood (step 4 rebuilds with them). The nearest
+   crate held the wood until Aug 2026, which sent a player who followed the
+   chip to "sow a seed" with an empty bag while the seeds sat at the far end.
    The route is a 4-connected flood from the anchor over ground a trail may
    cross — roads yes (people cross streets), water and buildings no — so it
    bends round a pond or a block instead of pointing through it. Crates seat on
@@ -626,9 +630,10 @@ TREASURE MARKS (X on the ground)
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
  - sources: the STARTER TILE seeds a trail of 4 fixed "starter crates" — real
-   kind:'chest' objects carrying a `fixedLoot` payload (9 each of wood,
-   rockfruit, rockfruit seed and potato seed), opened via the standard chest
-   modal but with no rarity roll — laid along the route to the relic chest a
+   kind:'chest' objects carrying a `fixedLoot` payload (9 each of potato seed,
+   rockfruit seed, rockfruit and wood — that ORDER, nearest crate first, is the
+   ladder's order of need), opened via the standard chest modal but with no
+   rarity roll — laid along the route to the relic chest a
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside named paths. Residential X's only

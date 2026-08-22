@@ -267,6 +267,26 @@
     for (const c of crates) assert.truthy(c.fixedLoot.id, `${c.id} carries an item stack`);
   });
 
+  test('starter trail: the crates carry what the ladder asks for next', () => {
+    // STARTER_CHAIN runs open a crate → till → SOW A SEED → rebuild a wreck, and
+    // the inventory starts empty. So the nearest crate — the one step 1 sends
+    // the player to, and the only one they are sure to have opened by step 3 —
+    // has to be the one with a seed in it. Wood is step 4's, and rides at the
+    // far end. It shipped the other way round once: follow the chip exactly and
+    // "select a seed from your bag" met an empty bag.
+    const { crates } = srTrail(srEntry());
+    const carried = crates.map(c => c.fixedLoot.id);
+    assert.eq(carried.length, 4, 'four payloads');
+    assert.eq(ITEM_BY_ID[carried[0]].kind, 'seed', `nearest crate holds a seed, not ${carried[0]}`);
+    assert.eq(carried[carried.length - 1], 'wood', 'wood rides at the far end');
+    // And each crate carries its own thing — a doubled payload means one of the
+    // ladder's needs is missing from the trail entirely.
+    assert.eq(new Set(carried).size, 4, `no repeats: ${carried.join(',')}`);
+    // Every stack fits the no-bag cap, or the first thing the game does is
+    // hand the player an overflow prompt.
+    for (const c of crates) assert.falsy(c.fixedLoot.qty > 9, `${c.id} fits the stack cap`);
+  });
+
   test('starter trail: the crates step out toward the chest, none doubling back', () => {
     const entry = srEntry();
     const { crates, chest } = srTrail(entry);
