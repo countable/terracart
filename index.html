@@ -1031,7 +1031,17 @@
     const MAP_TOP_GAME = 96, MAP_H_GAME = 352;
     const STICK_PX = 110;      // #move-pad — keep in sync with buildMovePad
     // The simulated phone column, in CSS px. iPhone regular ↔ Pro Max.
+    // These size the DESKTOP preview — the phone-shaped column that floats in
+    // a browser window. They are not a statement about how wide a real phone
+    // can be.
     const PHONE_MIN = 390, PHONE_MAX = 430;
+    // The widest PORTRAIT viewport that still counts as a phone, and so still
+    // gets filled edge to edge (see the clamp comment in fitGame for why this
+    // is NOT PHONE_MAX). Phone widths top out under 500; anything portrait and
+    // wider is a tablet or an unfolded foldable, which keeps the centred
+    // column — an iPad's 768 would scale the map so far past the fixed-size
+    // HUD chrome that the controls become garnish.
+    const PHONE_FILL_MAX = 500;
 
     // Given a horizontal scale and the viewport height, decide the final scale,
     // the box's top offset, and where the stick sits. Shared by both branches
@@ -1166,6 +1176,19 @@
       fitGame();
     });
 
+    // The empty strips either side of the column, as WHOLE CSS px.
+    //
+    // Rounded because `left > 0` is what decides whether the developer's
+    // simulated-device frame gets painted, and (vw - 352 * s) / 2 does not
+    // come back as a clean 0 when the scale was derived from vw in the first
+    // place: a 480-wide viewport left 2.8e-14px of gutter, which is invisible
+    // as a gap and fully visible as a 1px border and a black surround on a
+    // phone that is filling the screen exactly as intended.
+    function gutters(vw, phoneW) {
+      const left = Math.max(0, Math.round((vw - phoneW) / 2));
+      return { left, right: Math.max(0, Math.round(vw - phoneW) - left) };
+    }
+
     function fitGame() {
       const W = BOX_W, H = BOX_H;
       const vw = window.innerWidth;
@@ -1183,15 +1206,21 @@
         // in the middle of the play field. The desktop gutters are the
         // mechanism for this — portrait just wasn't using them.
         //
+        // But the clamp asks PHONE_FILL_MAX first — IS this a phone? — and
+        // only falls back to the desktop column when the answer is no.
+        // Clamping straight to PHONE_MAX made every handset wider than the
+        // desktop column pay a tablet's price: an iPhone 16 Pro Max (440) lost
+        // 5px a side, a Pixel 9 Pro XL (448) 9px, a 480-wide Android 25px —
+        // and any gutter at all switches on body.phone-preview, so a real
+        // handset also got the developer's simulated-device frame painted
+        // around the game. A phone fills its viewport edge to edge; a viewport
+        // too wide to be a phone renders the same column the desktop does.
+        //
         // Width only, though: `fillWidth` (true here, false on desktop) keeps
-        // the HEIGHT from shrinking the column below the width fit. A phone
-        // narrower than PHONE_MAX always fills its viewport edge to edge; only
-        // a viewport WIDER than a phone column gets gutters.
-        const { s, top, stickBottom } =
-          layOutVertically(Math.min(vw / W, PHONE_MAX / W), vh, true);
-        const phoneW = W * s;
-        const left  = Math.max(0, (vw - phoneW) / 2);
-        const right = Math.max(0, vw - left - phoneW);
+        // the HEIGHT from shrinking the column below the width fit.
+        const fillW = vw <= PHONE_FILL_MAX ? vw : PHONE_MAX;
+        const { s, top, stickBottom } = layOutVertically(fillW / W, vh, true);
+        const { left, right } = gutters(vw, W * s);
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
@@ -1213,9 +1242,7 @@
         // decides whether the height can actually afford that much scale.
         const { s, top, stickBottom } =
           layOutVertically(Math.max(sByMinW, sByMaxW), vh, false);
-        const phoneW = W * s;
-        const left = Math.max(0, (vw - phoneW) / 2);
-        const right = Math.max(0, vw - left - phoneW);
+        const { left, right } = gutters(vw, W * s);
         // #frame is already left/right-inset by var(--phone-*), so #game sits
         // at left:0 inside #frame — setting g.style.left = left would double
         // the offset and push the game off-centre to the right.

@@ -196,10 +196,10 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 //   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
 //   range  → cells within which it drains energy
 //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
-// hp and dmg below are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
-// right after the table, so what the game runs on is twice what is written.
 //   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
 //   weight → relative spawn share among the kinds eligible at a given depth
+// hp and dmg below are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
+// right after the table, so what the game runs on is twice what is written.
 const MONSTERS = {
   cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
   purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true },
@@ -217,7 +217,7 @@ const MONSTERS = {
 // numbers, so the ratio to that first slime stays readable at a glance and a
 // kind added to the table inherits the doubling the moment it has stats. The
 // knock-ons are derived and intended: the dps identity is untouched, so double
-// HP is exactly double the time to kill at any weapon tier, and monsterBounty
+// HP is exactly double the time to kill at any weapon tier, and enemyBounty
 // pays per HP, so a foe that takes twice as long pays twice as much.
 const CAVE_ENEMY_MUL = 2;
 for (const m of Object.values(MONSTERS)) {
@@ -229,31 +229,53 @@ for (const m of Object.values(MONSTERS)) {
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
+// combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
+// before this file so headless tests can use it without Phaser. It needs the
+// monster stats to answer "is this an enemy" and "how much HP", so hand the
+// table over — by REFERENCE, so a kind added above is a foe there immediately.
+// It sits HERE, against the table, rather than further down the file: the
+// bounty below asks Combat how much HP a kind has, so the registration has to
+// come first, and the headless lift of this block gets it for free.
+Combat.registerMonsters(MONSTERS);
 
 // --- Defeat bounty -------------------------------------------------------
-// A cave monster used to drop NOTHING: you paid the work wheel and the energy
+// A defeated enemy used to drop NOTHING: you paid the work wheel and the energy
 // it drained off you and got a flash message, so the only rational play was to
-// walk around every monster you met. Now a kill pays coins, always.
+// walk around every foe you met. Now a kill pays coins, always.
+//
+// EVERY ENEMY DRAWS ONE, not just the cave monsters. `Combat.isEnemyKind` is
+// the single definition of "a thing that attacks you" — the cave monsters and
+// the surface slime — and it is what this reads, so a hostile kind added to
+// MONSTERS is priced the moment it has stats and can never end up fought for
+// free. The surface slime was exactly that gap: it fights you, it eats your
+// crops, and killing one paid nothing at all. Crow and deer are NOT enemies
+// (they're game) and still pay in feathers and meat instead.
 //
 // The bounty is DERIVED from `hp` — the same number that sets the wheel length
 // — rather than hand-tuned per kind, so a tougher foe can never quietly pay
-// less than an easier one, and a kind added to MONSTERS is priced the moment
-// it has stats. Roughly a coin per 5 HP, floored at 1:
-//   purple slime 6hp → $1 · cave slime 15hp → $3 · archer 18hp → $4 · goblin 25hp → $5
-// Depth adds a slow climb on top (a coin per 3 levels down) so descending pays
-// for itself even where the same kinds keep spawning.
-const MONSTER_COIN_PER_HP  = 1 / 5;
-const MONSTER_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
-function monsterBounty(kind, depth) {
-  const m = MONSTERS[kind];
-  if (!m) return 0;
-  return Math.max(1, Math.round(m.hp * MONSTER_COIN_PER_HP))
-       + Math.floor(Math.max(0, depth || 0) * MONSTER_DEPTH_BONUS);
+// less than an easier one. Roughly a coin per 5 HP, floored at 1:
+//   surface slime 15hp → $3 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
+//   archer 36hp → $7 · goblin 50hp → $10
+//   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
+// The HP comes from Combat.creatureMaxHp, which is the monster table first and
+// the fauna ladder second — one source, so the coins a kind pays and the HP you
+// have to chew through can't drift apart. Depth adds a slow climb on top (a
+// coin per 3 levels down) so descending pays for itself even where the same
+// kinds keep spawning; at the surface it contributes nothing.
+const ENEMY_COIN_PER_HP  = 1 / 5;
+const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
+function enemyBounty(kind, depth) {
+  if (!Combat.isEnemyKind(kind)) return 0;
+  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * ENEMY_COIN_PER_HP))
+       + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
 }
-// Chance a defeated monster ALSO drops a buried-treasure roll — literally the
-// same pickReward('treasure:default') payout digging an X gives, so the rare
-// drop needs no table of its own and can't drift from the one players already
-// know. Deliberately small: the coins are the wage, this is the surprise.
+// Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
+// the same pickReward('treasure:default') payout digging an X gives, so the
+// rare drop needs no table of its own and can't drift from the one players
+// already know. Deliberately small: the coins are the wage, this is the
+// surprise. Unlike the wage it stays a monsters-only thing — a buried hoard is
+// something you turn up underground, and the surface slime in your potatoes is
+// not standing on one.
 const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
@@ -266,12 +288,6 @@ const ENEMY_HEALTH_RING_MS = 4000;
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
 const SHOT_DRAW_LIFT_PX = 10;
-// combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
-// before this file so headless tests can use it without Phaser. It needs the
-// monster stats to answer "is this an enemy" and "how much HP", so hand the
-// table over — by REFERENCE, so a kind added above is a foe there immediately.
-Combat.registerMonsters(MONSTERS);
-
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
@@ -4460,23 +4476,31 @@ class MapScene extends Phaser.Scene {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
       this.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
-    } else if (isMonster(victim.kind)) {
-      // Every kill pays a bounty (monsterBounty — derived from the kind's HP
-      // plus a depth climb), and one in ten also drops a buried-treasure roll:
-      // the same table an X pays, so a lucky kill reads as finding one. The
-      // gold is the reliable part — before this a monster dropped nothing at
-      // all and the only sane play was to walk around it.
-      const coins = (typeof monsterBounty === 'function')
-        ? monsterBounty(victim.kind, this.depth) : 0;
+    } else if (Combat.isEnemyKind(victim.kind)) {
+      // Every enemy kill pays a bounty (enemyBounty — derived from the kind's
+      // HP plus a depth climb). The gold is the reliable part: before this a
+      // foe dropped nothing at all and the only sane play was to walk around
+      // it. The SURFACE SLIME draws one too — it fights you and eats your
+      // crops, and for a long time killing one paid nothing, which is the gap
+      // this branch closes by asking Combat what an enemy is rather than
+      // asking the cave-monster table.
+      const coins = (typeof enemyBounty === 'function')
+        ? enemyBounty(victim.kind, this.depth) : 0;
       if (coins > 0) addMoney(save, coins);
-      const name = MONSTERS[victim.kind].name;
+      const name = MONSTERS[victim.kind]?.name || 'Slime';
       this.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
         this.viewCenterX, this.viewCenterY - 60);
-      if (Math.random() < MONSTER_TREASURE_CHANCE) {
+      // One in ten cave monsters also drops a buried-treasure roll — the same
+      // table an X pays, so a lucky kill reads as finding one. Underground
+      // only; see MONSTER_TREASURE_CHANCE.
+      if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
     } else {
-      this.flash('🟢 slime defeated', this.viewCenterX, this.viewCenterY - 60);
+      // Nothing defeatable reaches here today — interact.js sends only slimes,
+      // crows and deer down the hunt wheel, and the other two routes only ever
+      // carry enemies. A kind that ever did would otherwise die in silence.
+      this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
       const qDone = Quests.onKill(save, victim.kind);
@@ -5021,20 +5045,13 @@ class MapScene extends Phaser.Scene {
             tgt._fleeUntilT  = now + 8000;   // > one wander step so flee fires
             tgt._nextChooseT = 0;            // interrupt current step immediately
             if (tgt._hp <= 0) {
-              // Auto-defeat the prey — same outcome as player defeating it.
-              this.save.caught = this.save.caught || [];
-              if (!this.save.caught.includes(tgt.id)) {
-                this.save.caught.push(tgt.id);
-                const dropId = tgt.kind === 'crow' ? 'crow_feather'
-                             : tgt.kind === 'deer' ? 'meat' : null;
-                if (dropId) {
-                  this.addToInv(dropId, 1);
-                  const item = ITEM_BY_ID[dropId];
-                  this.flashLoot?.(`+1 ${item?.name || dropId}`, '#a7ffb0', 1, dropId);
-                } else {
-                  this.flash?.('slime defeated!', this.viewCenterX, this.viewCenterY - 60);
-                }
-              }
+              // Auto-defeat the prey — the SAME outcome as the player killing
+              // it, by calling the one payout path rather than re-implementing
+              // it. This branch used to carry its own copy of the drop logic,
+              // which is how a pet's kill came to skip the bounty, the quest
+              // tick, the treasure roll and the shiny fanfare: your dog killing
+              // a slime paid nothing while your arrow paid coins.
+              this.resolveDefeat(tgt);
               c._chaseTarget = null;
             }
             if (c._hp <= 0) {

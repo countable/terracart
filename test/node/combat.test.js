@@ -20,13 +20,19 @@
 //     including at range, where the compass heading is coarse.
 //
 // The monster stat table lives in app.js, which this headless runner doesn't
-// load, so a synthetic one is registered here — the same seam app.js uses.
-
-Combat.registerMonsters({
-  cave_slime:   { name: 'Cave Slime',   hp: 15 },
-  purple_slime: { name: 'Purple Slime', hp: 6  },
-  goblin:       { name: 'Goblin',       hp: 25 },
-});
+// load — but run.js lifts the table out as text and registers it through the
+// same seam app.js uses, so the REAL one is already in hand here.
+//
+// This file used to register a synthetic three-kind copy instead. Every test
+// file shares one vm scope and this one loads early, so that copy overwrote the
+// real registration for the whole suite, and any later test that asked Combat
+// how much HP a monster had got an answer from a hand-written stand-in. Assert
+// the real table arrived rather than replacing it.
+if (!MONSTERS || !MONSTERS.goblin) throw new Error('run.js did not lift the MONSTERS table');
+if (Combat.creatureMaxHp('goblin') !== MONSTERS.goblin.hp) {
+  throw new Error('combat.js is not answering from the real MONSTERS table — '
+    + 'run.js must register it, and nothing may register a copy over it');
+}
 
 const COMBAT_CELL_M = 7;
 
@@ -53,18 +59,23 @@ test('combat: a TAMED slime is a pet, not a target', () => {
 // ── HP ──────────────────────────────────────────────────────────────────────
 
 test('combat: max HP comes from the monster table, then the fauna ladder', () => {
-  assert.eq(Combat.creatureMaxHp('goblin'), 25, 'monster table wins');
-  assert.eq(Combat.creatureMaxHp('slime'), 15, 'surface slime baseline');
+  // Read the goblin's HP FROM the table rather than pinning a number here: the
+  // table is the source (and CAVE_ENEMY_MUL doubles every kind in it), so a
+  // literal would only pin how stale this copy is. What is being tested is
+  // which source answers, not what the number happens to be.
+  assert.eq(Combat.creatureMaxHp('goblin'), MONSTERS.goblin.hp, 'monster table wins');
+  assert.eq(Combat.creatureMaxHp('slime'), 15, 'surface slime baseline (fauna, not the table)');
   assert.eq(Combat.creatureMaxHp('dog'), 40, 'pet-combat ladder still answered here');
   assert.eq(Combat.creatureMaxHp('nonesuch'), 10, 'unknown kind falls back');
 });
 
 test('combat: HP seeds itself from the kind and floors at zero', () => {
+  const full = MONSTERS.goblin.hp;
   const c = { kind: 'goblin', id: 'g1' };
-  assert.eq(Combat.hp(c), 25, 'first read seeds full HP');
-  assert.eq(Combat.damage(c, 10), 15, 'damage subtracts');
-  assert.eq(Combat.hpFraction(c), 15 / 25, 'fraction tracks the pool');
-  assert.eq(Combat.damage(c, 999), 0, 'never goes negative');
+  assert.eq(Combat.hp(c), full, 'first read seeds full HP');
+  assert.eq(Combat.damage(c, 10), full - 10, 'damage subtracts');
+  assert.eq(Combat.hpFraction(c), (full - 10) / full, 'fraction tracks the pool');
+  assert.eq(Combat.damage(c, 9999), 0, 'never goes negative');
   assert.eq(Combat.hpFraction(c), 0, 'a dead foe reads empty, not negative');
 });
 
@@ -95,22 +106,53 @@ test('combat: bow and staff no longer shorten the melee wheel', () => {
   assert.truthy(Combat.meleeDps({ sword: { tier: 1 } }) > bare, 'a sword does');
 });
 
-test('combat: one shot carries one second of that tier\'s melee rate', () => {
+test('combat: a shot carries its tier\'s melee rate SPLIT across the ranged slots', () => {
   for (const slot of Combat.RANGED_SLOTS) {
     for (const tier of [1, 4, 7]) {
       const relics = { [slot]: { tier } };
-      const want = Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
-                              * Combat.FIRE_INTERVAL_MS / 1000);
+      const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
+                            / Combat.RANGED_SLOTS.length * Combat.FIRE_INTERVAL_MS / 1000));
       assert.eq(Combat.shotDamage(relics, slot), want,
-        `${slot} T${tier} shot should carry one second of its own rate`);
+        `${slot} T${tier} shot should carry its share of its own rate`);
     }
   }
-  // Wood → 4, frost → 50: the ladder in concrete, so a silent regression in
-  // TOOL_DURATION_MS shows up as a combat failure too. Wood was 5 while its
-  // rung was 3000 ms; at 4000 ms the rate is 3.75/s and the per-shot rounding
-  // in shotDamage carries it to 4.
-  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 4, 'wood bow');
-  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 50, 'frost bow');
+  // Wood → 2, frost → 25: the ladder in concrete, so a silent regression in
+  // TOOL_DURATION_MS shows up as a combat failure too. Wood's rung is 4000 ms,
+  // i.e. 3.75 HP/s of melee; halved across bow+staff that is 1.875, which the
+  // per-shot rounding in shotDamage carries to 2.
+  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 2, 'wood bow');
+  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 25, 'frost bow');
+});
+
+test('combat: the whole ranged loadout equals ONE melee weapon of its tier', () => {
+  // The point of the split. Shots fire themselves, from across the screen,
+  // while you walk — and the slots stack. Carrying every ranged weapon there
+  // is must therefore land what a single sword of that tier lands, not one
+  // sword per slot. Checked against the melee rate the sword itself reads.
+  for (let tier = 1; tier <= 7; tier++) {
+    const relics = {};
+    for (const slot of Combat.RANGED_SLOTS) relics[slot] = { tier };
+    const loadout = Combat.RANGED_SLOTS
+      .reduce((sum, slot) => sum + Combat.shotDamage(relics, slot), 0)
+      * (1000 / Combat.FIRE_INTERVAL_MS);
+    const sword = Combat.meleeDps({ sword: { tier } });
+    // Per-shot rounding is the only slack: at most half a point per slot, per
+    // second. Anything wider than that means the split has drifted.
+    const slack = Combat.RANGED_SLOTS.length * 0.5 * (1000 / Combat.FIRE_INTERVAL_MS);
+    assert.lt(Math.abs(loadout - sword), slack + 1e-9,
+      `T${tier}: every ranged weapon at once lands ${loadout}/s against a sword's ${sword}/s`);
+  }
+});
+
+test('combat: a single ranged weapon is worth LESS than the sword of its tier', () => {
+  // The complaint this split answers: a wooden bow was killing as fast as a
+  // wooden sword while asking nothing of the player. Pinned as an inequality
+  // rather than a number so retuning TOOL_DURATION_MS can't quietly undo it.
+  for (let tier = 1; tier <= 7; tier++) {
+    const dps = Combat.shotDamage({ bow: { tier } }, 'bow') * (1000 / Combat.FIRE_INTERVAL_MS);
+    assert.lt(dps, Combat.meleeDps({ sword: { tier } }),
+      `a T${tier} bow alone should not match a T${tier} sword`);
+  }
 });
 
 test('combat: an empty weapon slot fires nothing at all', () => {

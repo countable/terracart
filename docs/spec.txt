@@ -558,15 +558,22 @@ COMBAT
               NOT pick a target: you aim by turning. 4.5 cells/s, 8-cell range.
      staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range, fired half a beat
               off the bow so carrying both reads as an alternating patter.
+   RANGED IS PRICED PER LOADOUT. A shot carries one second of its tier's
+   melee-equivalent damage SPLIT ACROSS THE RANGED SLOTS, so your whole ranged
+   kit — bow and staff both, landing every shot — equals ONE sword of that tier,
+   and either one alone is worth half of it. Shots fire themselves at anything
+   on screen, from seven or eight cells, while you walk, needing neither a tap
+   nor the reach the melee wheel needs; and the slots stack. At full melee rate
+   each, that was two swords' worth of damage for no input, on top of the sword.
+   The divisor is the NUMBER OF RANGED SLOTS, not a tuned fraction, so a third
+   ranged weapon would re-price the other two rather than inflate the total.
+   Bow and staff no longer speed the melee wheel; the shots are what they
+   contribute. (They still speed the crow/deer HUNT wheel.)
    SHOTS STOP AT ROCK. Underground a shot is tested against the same cave-wall
    collision the body walks into, sampled every half cell so a long frame can't
    step over a wall: it stops at the face and is spent. Without it you could
    face a blank wall and clear the next tunnel through it. Nothing stops a shot
    on the surface — you can shoot over a fence or a river.
-   A shot carries one second of its own tier's melee-equivalent damage, so a
-   bow of tier N landing every shot matches a sword of tier N — the aiming is
-   the cost. Bow and staff no longer speed the melee wheel; the shots are what
-   they contribute. (They still speed the crow/deer HUNT wheel.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating
@@ -574,9 +581,23 @@ COMBAT
    the same way a sword swing does. Both rings sit on the kind's CROWN (the
    creature-wheel rule — see CLAUDE.md).
  - Dragon Powder doubles damage for its minute — melee and shots alike.
- - Defeating an enemy pays what it always paid: a monster's coin bounty (plus a
-   1-in-10 buried-treasure roll), a quest tick, and a flash. Combat costs no
-   energy; your time and your aim are the price.
+ - DEFEATING AN ENEMY PAYS GOLD — every enemy, not just the cave monsters. The
+   bounty is derived from the kind's HP (a coin per 5 HP, floored at 1) plus a
+   coin per 3 levels of depth, so a tougher foe can never pay less than an
+   easier one and a hostile kind is priced the moment it has stats: purple
+   slime $1, surface / cave slime $3, goblin archer $4, goblin $5. "Enemy" is
+   Combat.isEnemyKind — the things that attack you — which is what puts the
+   SURFACE SLIME on the wage; it fights you and eats your crops, and for a long
+   time killing one paid nothing. Crow and deer are game, not enemies: they pay
+   in feathers and meat. On top of the wage, one in ten CAVE MONSTERS also drops
+   a buried-treasure roll (a hoard is something you turn up underground). A kill
+   also ticks any kill quest and flashes. Combat costs no energy; your time and
+   your aim are the price.
+ - EVERY route to a dead creature pays the same, because they all funnel through
+   resolveDefeat — the tap-hunt wheel, the combat wheel, a killing bow/staff
+   shot, and a PET's kill. That last one used to carry its own copy of the
+   payout, so a dog finishing off a slime skipped the bounty, the quest tick,
+   the treasure roll and the shiny fanfare.
 
 ================================================================================
 CHESTS (POI-driven)

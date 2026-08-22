@@ -55,11 +55,11 @@
   });
 
   test('cave enemies: a doubled foe still pays a bounty, and a bigger one', () => {
-    // monsterBounty derives from hp, so doubling the pool doubles the wage for
+    // enemyBounty derives from hp, so doubling the pool doubles the wage for
     // a fight that now takes twice as long. Relational, not a pinned number.
     for (const kind of msKinds) {
-      const base = Math.max(1, Math.round(MONSTERS_BASELINE[kind].hp * MONSTER_COIN_PER_HP));
-      assert.gte(monsterBounty(kind, 0), base, `${kind} pays at least what it used to`);
+      const base = Math.max(1, Math.round(MONSTERS_BASELINE[kind].hp * ENEMY_COIN_PER_HP));
+      assert.gte(enemyBounty(kind, 0), base, `${kind} pays at least what it used to`);
     }
   });
 })();
