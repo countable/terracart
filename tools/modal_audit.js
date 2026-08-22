@@ -169,6 +169,37 @@ function callsTo(CALL, file = 'src/app.js') {
 
 const norm = (s) => s.replace(/\s+/g, ' ').trim();
 
+// Remove one or more layers of redundant wrapping parens, so a branch written
+// as `(a ? b : c)` splits like `a ? b : c`. Without this a nested ternary that
+// parenthesises its else-branch — which is how the renderer's chest key is
+// written — hides every alternative but the first.
+function stripParens(expr) {
+  let e = expr.trim();
+  for (;;) {
+    if (!e.startsWith('(') || !e.endsWith(')')) return e;
+    // Only strip when the opening paren is closed by the FINAL one; `(a) + (b)`
+    // must be left alone.
+    let depth = 0, quote = null;
+    let matched = -1;
+    for (let i = 0; i < e.length; i++) {
+      const c = e[i];
+      if (quote) {
+        if (c === '\\') { i++; continue; }
+        if (c === quote) quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+      if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' || c === ']' || c === '}') {
+        depth--;
+        if (depth === 0) { matched = i; break; }
+      }
+    }
+    if (matched !== e.length - 1) return e;
+    e = e.slice(1, -1).trim();
+  }
+}
+
 // Split a value expression into the alternatives it can actually render.
 // `done ? A : B` renders A or B, never the literal ternary — so comparing the
 // two halves of the dialog as whole strings misses the real bug. The quest
@@ -179,6 +210,7 @@ const norm = (s) => s.replace(/\s+/g, ' ').trim();
 // a player in mid-quest sees — and that is what printed twice. Compare the
 // BRANCH SETS and the collision is obvious.
 function valueBranches(expr) {
+  expr = stripParens(expr);
   let depth = 0, quote = null, q = -1;
   const tmplStack = [];
   for (let i = 0; i < expr.length; i++) {
@@ -355,5 +387,5 @@ CHECKS.push({
   },
 });
 
-module.exports = { CHECKS, offerCalls, chestCalls, shellCalls, declaredKinds, topLevelEntries,
+module.exports = { CHECKS, offerCalls, chestCalls, shellCalls, declaredKinds, stripParens, topLevelEntries,
                    objectLiteralAt, blankComments, valueBranches };
