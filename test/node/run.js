@@ -44,6 +44,10 @@ ctx.localStorage = {
   setItem: (k, v) => _ls.set(k, String(v)),
   removeItem: (k) => _ls.delete(k),
 };
+// fog.js base64s its per-tile bitsets through the standard browser codecs.
+ctx.btoa = (s) => Buffer.from(s, 'latin1').toString('base64');
+ctx.atob = (s) => Buffer.from(s, 'base64').toString('latin1');
+ctx.Uint8Array = Uint8Array;
 ctx.document = { visibilityState: 'visible', addEventListener() {} };
 ctx.addEventListener = () => {};      // window.addEventListener('pagehide', …)
 vm.createContext(ctx);
@@ -51,7 +55,7 @@ vm.createContext(ctx);
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
@@ -113,7 +117,15 @@ try {
 // drift the moment someone retunes the feel.
 {
   const src = readSrc('app.js');
-  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS']) {
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      // VIEW_CELLS is the ceiling on the fog reveal radius —
+                      // see fog.test.js. Lifted for the same reason: a copy
+                      // would drift the moment the viewport was resized.
+                      'VIEW_CELLS',
+                      // The starting-neighbourhood reveal radii — fog.test.js
+                      // checks they actually cover the trail the onboarding
+                      // seater lays, which is what broke when fog shipped.
+                      'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
     const m = src.match(new RegExp(`const ${name} = (\\d+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -294,6 +306,11 @@ try {
     process.exit(2);
   }
   decls += `const STARTER_RELIC_SLOTS = ${slots[1]};\n`;
+  for (const n of ['HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
+    const m = src.match(new RegExp(`const ${n} = (\\d+);`));
+    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${n} = ${m[1]};\n`;
+  }
   // The trail layer above it — same lift, because the thing worth testing is
   // that the crates come down ALONG the route the chest placer hands back.
   const trailHead = '  _placeStarterTrail(entry, tx, ty) {\n';
@@ -309,9 +326,29 @@ try {
     process.exit(2);
   }
   const trailBody = src.slice(trailBodyStart, trailEnd);
+  // ...and the fog lift that runs at the end of it. Fog of war hid the whole
+  // trail when it shipped (the walk reveals 3 cells, the seater reaches 15), so
+  // the reveal is lifted for real rather than stubbed — starter_relic.test.js
+  // drives it against the real seater to check no crate is laid under fog.
+  const revealHead = '  _revealStarterTrail(entry, tx, ty, spawnIX, spawnIY) {\n';
+  const revealAt = src.indexOf(revealHead);
+  if (revealAt < 0) {
+    console.error('Could not find _revealStarterTrail in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const revealBodyStart = revealAt + revealHead.length;
+  const revealEnd = src.indexOf('\n  }\n', revealBodyStart);
+  if (revealEnd < 0) {
+    console.error('Could not find the end of _revealStarterTrail — update run.js');
+    process.exit(2);
+  }
+  const revealBody = src.slice(revealBodyStart, revealEnd);
   vm.runInContext(
     decls
     + `globalThis.placeStarterTrail = function (entry, tx, ty) {\n${trailBody}\n};\n`
+    + 'globalThis.HOME_REVEAL_CELLS = HOME_REVEAL_CELLS;\n'
+    + 'globalThis.TRAIL_REVEAL_CELLS = TRAIL_REVEAL_CELLS;\n'
+    + `globalThis.revealStarterTrail = function (entry, tx, ty, spawnIX, spawnIY) {\n${revealBody}\n};\n`
     + 'globalThis.STARTER_RELIC_SLOTS = STARTER_RELIC_SLOTS;\n'
     + 'globalThis.STARTER_RELIC_TIER = STARTER_RELIC_TIER;\n'
     + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
