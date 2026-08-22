@@ -1043,6 +1043,29 @@
     // HUD chrome that the controls become garnish.
     const PHONE_FILL_MAX = 500;
 
+    // The column width a portrait viewport gets: the whole viewport when this
+    // is a PHONE, the desktop preview column when it is not.
+    //
+    // "Is this a phone" must NOT be answered from vw alone. Safari's Page Zoom
+    // (the aA menu / Settings → Safari → Page Zoom) rescales the CSS viewport:
+    // an iPhone 15 Pro Max at 85% zoom reports innerWidth 506 — six px past
+    // PHONE_FILL_MAX — so the one setting that asks for a SMALLER UI instead
+    // switched the layout onto the tablet path and letterboxed the game in a
+    // 430px column with the developer's preview frame painted around it.
+    // That is a real handset, whatever the zoom says.
+    //
+    // screen.width/height don't rescale with page zoom (they describe the
+    // hardware, in CSS points), so `screenMin` — the screen's short edge — is
+    // the zoom-proof half of the test: a device whose short edge is phone-sized
+    // is a phone at any zoom. The vw test stays as the first clause so a
+    // phone-shaped viewport on a desktop monitor (screenMin = the monitor)
+    // keeps filling exactly as before, and as the fallback for any browser
+    // that reports screen dimensions strangely — worst case is the old rule.
+    // An iPad stays an iPad: both its screen edges exceed PHONE_FILL_MAX.
+    function phoneFillW(vw, screenMin) {
+      return (vw <= PHONE_FILL_MAX || screenMin <= PHONE_FILL_MAX) ? vw : PHONE_MAX;
+    }
+
     // Given a horizontal scale and the viewport height, decide the final scale,
     // the box's top offset, and where the stick sits. Shared by both branches
     // so portrait and desktop-emulation can't drift apart.
@@ -1206,19 +1229,23 @@
         // in the middle of the play field. The desktop gutters are the
         // mechanism for this — portrait just wasn't using them.
         //
-        // But the clamp asks PHONE_FILL_MAX first — IS this a phone? — and
-        // only falls back to the desktop column when the answer is no.
-        // Clamping straight to PHONE_MAX made every handset wider than the
-        // desktop column pay a tablet's price: an iPhone 16 Pro Max (440) lost
-        // 5px a side, a Pixel 9 Pro XL (448) 9px, a 480-wide Android 25px —
-        // and any gutter at all switches on body.phone-preview, so a real
-        // handset also got the developer's simulated-device frame painted
-        // around the game. A phone fills its viewport edge to edge; a viewport
-        // too wide to be a phone renders the same column the desktop does.
+        // But the clamp asks phoneFillW first — IS this a phone? — and only
+        // falls back to the desktop column when the answer is no. Clamping
+        // straight to PHONE_MAX made every handset wider than the desktop
+        // column pay a tablet's price: an iPhone 16 Pro Max (440) lost 5px a
+        // side, a Pixel 9 Pro XL (448) 9px, a 480-wide Android 25px — and any
+        // gutter at all switches on body.phone-preview, so a real handset
+        // also got the developer's simulated-device frame painted around the
+        // game. A phone fills its viewport edge to edge; a viewport too wide
+        // to be a phone renders the same column the desktop does. The screen's
+        // short edge rides along because vw alone lies under Safari's Page
+        // Zoom — see phoneFillW.
         //
         // Width only, though: `fillWidth` (true here, false on desktop) keeps
         // the HEIGHT from shrinking the column below the width fit.
-        const fillW = vw <= PHONE_FILL_MAX ? vw : PHONE_MAX;
+        const scr = window.screen;
+        const screenMin = scr ? Math.min(scr.width || Infinity, scr.height || Infinity) : Infinity;
+        const fillW = phoneFillW(vw, screenMin);
         const { s, top, stickBottom } = layOutVertically(fillW / W, vh, true);
         const { left, right } = gutters(vw, W * s);
         g.style.transform = `scale(${s})`;
