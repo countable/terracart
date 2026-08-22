@@ -246,6 +246,186 @@ const PATH_FRAME = 3;
 // legible in the mid-field. Retune the pair together if that ever matters.
 const FOG_COLOR = 0x000000;
 const FOG_ALPHA = 0.8;
+// ── The frontier ramp ─────────────────────────────────────────────────────
+// The fog does not arrive as a wall. Cumulative darkness by SHELL — how many
+// cells out from the nearest revealed cell a fogged cell sits:
+//
+//   shell 1 (touching revealed ground)  0.55
+//   shell 2 (one cell behind it)        0.70
+//   shell 3+ (the interior)             FOG_ALPHA, i.e. unchanged
+//
+// The interior deliberately still lands on the old flat value: this softens
+// the EDGE, it does not lighten the unknown. The first entry is an under-wash
+// laid across the whole fogged region before shell 1 draws its bevelled
+// silhouette, so the corner bites below read as a chamfer rather than as holes
+// punched through to lit ground.
+const FOG_SHELL_A = [0.30, 0.55, 0.70, FOG_ALPHA];
+// Each pass composites OVER the one before it, so the alpha a pass is drawn at
+// is not its target: to reach cumulative t over a layer already at p you draw
+// (t - p) / (1 - p). Derived rather than typed out so retuning FOG_SHELL_A
+// can't leave a stale step behind.
+const fogShellStep = (i) => (i === 0
+  ? FOG_SHELL_A[0]
+  : (FOG_SHELL_A[i] - FOG_SHELL_A[i - 1]) / (1 - FOG_SHELL_A[i - 1]));
+// Corner bite taken out of a shell's outermost cells, in px, picked per cell by
+// a hash of its ABSOLUTE coordinates. World-keyed is the whole point: a jitter
+// keyed on screen position crawls along the frontier as the player walks, which
+// reads as the fog boiling. Keyed on the cell, the same corner is bitten the
+// same amount every time you come back to it, and the boundary reads as eroded
+// ground instead of as a UI element. A zero in the table is what keeps it from
+// scalloping into battlements — a straight front stays partly straight.
+const FOG_BEVEL_PX = [0, 0, 5, 9];
+// Squared radii of the shells, in cells. Shell 1 is the 8-neighbourhood (d² ≤ 2);
+// shell 2 is the radius-2 disc minus its four far corners (d² ≤ 5), which rounds
+// the band instead of squaring it off. FOG_SHELL_R is the kernel reach these
+// imply, and therefore how much revealed/unrevealed data the field needs BEYOND
+// the cells it reports on.
+const FOG_SHELL_D2 = [2, 5];
+const FOG_SHELL_R = 2;
+
+// Shell level per cell, from a square of revealed bits.
+//
+// `bits` is a W×W row-major array of 0/1 (1 = the player has been to that cell)
+// covering the reported window PLUS FOG_SHELL_R cells of margin on every side;
+// the result is the inner D×D window, D = W - 2R, as 0 for revealed ground and
+// 1..FOG_SHELL_D2.length+1 for how deep into the unknown the cell sits.
+//
+// Pure and exported so the ramp can be pinned headlessly — the drawing around
+// it needs Phaser, this doesn't.
+function fogShellField(bits, W, out) {
+  const R = FOG_SHELL_R;
+  const D = W - 2 * R;
+  const deepest = FOG_SHELL_D2.length + 1;
+  if (!out || out.length !== D * D) out = new Uint8Array(D * D);
+  for (let r = 0; r < D; r++) {
+    for (let c = 0; c < D; c++) {
+      const br = r + R, bc = c + R;
+      if (bits[br * W + bc]) { out[r * D + c] = 0; continue; }
+      // Nearest revealed cell in the kernel, as a squared distance. Bail the
+      // moment the innermost shell is matched — nothing closer can be found.
+      let best = Infinity;
+      for (let dy = -R; dy <= R && best > FOG_SHELL_D2[0]; dy++) {
+        const rowOff = (br + dy) * W + bc;
+        for (let dx = -R; dx <= R; dx++) {
+          if (!bits[rowOff + dx]) continue;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < best) best = d2;
+        }
+      }
+      let lvl = deepest;
+      for (let i = 0; i < FOG_SHELL_D2.length; i++) {
+        if (best <= FOG_SHELL_D2[i]) { lvl = i + 1; break; }
+      }
+      out[r * D + c] = lvl;
+    }
+  }
+  return out;
+}
+if (typeof window !== 'undefined') window.fogShellField = fogShellField;
+// Scratch for the field, allocated on first use: the sizes derive from
+// VIEW_CELLS, which app.js owns and which isn't readable when this file loads
+// (same reason as the ring buffers above).
+let _fogBits = null, _fogLvl = null;
+
+// The revealed bits around the player, and the shell field over them.
+//
+// This reads the fog masks DIRECTLY rather than reusing drawCells' `seen` ring:
+// a shell-2 cell at the edge of the drawn range needs bits FOG_SHELL_R cells
+// further out than that ring carries, and widening the ring would put the extra
+// cells on the per-frame path for the sake of a pass that rebuilds a few times
+// a second. The tile-run trick is the same one the ring scan uses — the window
+// spans at most a 2×2 block of tiles, so this resolves a handful of masks, not
+// one per cell.
+//
+// Returns D, the edge of the shell field, which covers -2..VIEW_CELLS+1: one
+// cell beyond the drawn range on each side, so a cell at the very edge can
+// still ask what its neighbour's level is.
+function fogFieldAround(scene, baseIX, baseIY, half) {
+  const D = VIEW_CELLS + 4;
+  const W = D + 2 * FOG_SHELL_R;
+  if (!_fogBits || _fogBits.length !== W * W) {
+    _fogBits = new Uint8Array(W * W);
+    _fogLvl = new Uint8Array(D * D);
+  }
+  const N = scene.cellsPerTile;
+  const haveFog = (typeof Fog !== 'undefined');
+  const off = FOG_SHELL_R + 2;          // bits index 0 is cell -2-R
+  let mTx = NaN, mTy = NaN, mMask = null;
+  for (let r = 0; r < W; r++) {
+    const ay = baseIY + (r - off) - half;
+    const ty2 = Math.floor(ay / N);
+    const iy2 = ay - ty2 * N;
+    for (let c = 0; c < W; c++) {
+      const ax = baseIX + (c - off) - half;
+      const tx2 = Math.floor(ax / N);
+      if (tx2 !== mTx || ty2 !== mTy) {
+        mTx = tx2; mTy = ty2;
+        mMask = haveFog ? Fog.maskFor(tx2, ty2) : null;
+      }
+      _fogBits[r * W + c] = mMask ? Fog.bit(mMask, iy2 * N + (ax - tx2 * N)) : 0;
+    }
+  }
+  _fogLvl = fogShellField(_fogBits, W, _fogLvl);
+  return D;
+}
+
+// One shell of the fog: every cell at or beyond `minLvl`, filled at `alpha`.
+//
+// Rows merge into horizontal RUNS before filling — the fogged region is
+// contiguous by nature (you reveal a disc as you walk), so the interior of a
+// shell collapses to a handful of rects. Only the shell's own outermost cells
+// break a run, and only when `bevel` is set: they are drawn as three slices
+// with a corner bite taken out of every side facing lighter ground. A cell
+// deeper in has the previous pass's silhouette beneath it, so a square corner
+// there is covered either way.
+function drawFogShell(g, scene, LVL, VEIL, minLvl, alpha, bevel, baseIX, baseIY, half) {
+  g.fillStyle(FOG_COLOR, alpha);
+  for (let row = -1; row <= VIEW_CELLS; row++) {
+    let runStart = null;
+    for (let col = -1; col <= VIEW_CELLS + 1; col++) {
+      // The extra column past the end is a sentinel: it is never in the shell,
+      // so it always closes an open run without duplicating the flush.
+      const solid = col <= VIEW_CELLS && VEIL(col, row) < 1 && LVL(col, row) >= minLvl;
+      let b = 0, tl = 0, tr = 0, bl = 0, br = 0;
+      if (solid && bevel && LVL(col, row) === minLvl) {
+        const nUp = LVL(col, row - 1) < minLvl, nDn = LVL(col, row + 1) < minLvl;
+        const nLf = LVL(col - 1, row) < minLvl, nRt = LVL(col + 1, row) < minLvl;
+        if (nUp || nDn || nLf || nRt) {
+          // Hashed on the cell's ABSOLUTE coordinates — see FOG_BEVEL_PX.
+          const ax = baseIX + col - half, ay = baseIY + row - half;
+          b = FOG_BEVEL_PX[((((ax * 73856093) ^ (ay * 19349663)) >>> 6) & 3)];
+          tl = (nUp || nLf) ? b : 0; tr = (nUp || nRt) ? b : 0;
+          bl = (nDn || nLf) ? b : 0; br = (nDn || nRt) ? b : 0;
+        }
+      }
+      if (solid && !b) { if (runStart === null) runStart = col; continue; }
+      if (runStart !== null) {
+        const ox = runStart - half, oy = row - half;
+        g.fillRect(scene.viewCenterX + ox * CELL_PX, scene.viewCenterY + oy * CELL_PX,
+                   (col - runStart) * CELL_PX, CELL_PX);
+        runStart = null;
+      }
+      if (!b) continue;
+      // Three horizontal slices: a top and bottom band inset by whichever of
+      // their corners is bitten, and the full-width middle between them.
+      const ox = col - half, oy = row - half;
+      const sx = scene.viewCenterX + ox * CELL_PX, sy = scene.viewCenterY + oy * CELL_PX;
+      g.fillRect(sx + tl, sy, CELL_PX - tl - tr, b);
+      g.fillRect(sx, sy + b, CELL_PX, CELL_PX - 2 * b);
+      g.fillRect(sx + bl, sy + CELL_PX - b, CELL_PX - bl - br, b);
+    }
+  }
+}
+// Test seams for the frontier ramp — the shell field and its alpha ladder are
+// pure enough to pin headlessly; only the fills below them need Phaser.
+if (typeof window !== 'undefined') {
+  window.drawFogShell = drawFogShell;
+  window.fogShellStep = fogShellStep;
+  window.FOG_SHELL_A = FOG_SHELL_A;
+  window.FOG_SHELL_D2 = FOG_SHELL_D2;
+  window.FOG_BEVEL_PX = FOG_BEVEL_PX;
+  window.FOG_ALPHA = FOG_ALPHA;
+}
 // Scratch buffers for drawCells' per-frame ring scan, reused across frames.
 // Allocated on first use rather than at parse time because their size derives
 // from VIEW_CELLS, which app.js defines and which therefore is not readable
@@ -270,10 +450,6 @@ const UNMAPPED_REVEAL_MS = 600;
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
-// Parallel ring of fog-of-war bits (1 = the player has been here). Read in the
-// same scan as the terrain types, off the same cached tile run — see the fog
-// note in the ring loop.
-let _ringSeen   = null;
 
 // ── Atmosphere ───────────────────────────────────────────────────────────────
 // Which biome is the player actually IN? The viewport routinely straddles three
@@ -451,7 +627,6 @@ Render.drawCells = function drawCells(scene) {
   const RING = VIEW_CELLS + 4;
   if (!_ringTypes || _ringTypes.length !== RING * RING) {
     _ringTypes  = new Int8Array(RING * RING);
-    _ringSeen   = new Int8Array(RING * RING);
     // Parallel ring of building ownership. 0 = no building; otherwise
     // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
     // and tileSalt distinguishes tiles so two buildings that happen to share a
@@ -461,13 +636,12 @@ Render.drawCells = function drawCells(scene) {
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
-  const seen   = _ringSeen;
   // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
   // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
   // resolve to the same one. Hold the last tile (and its salt, which depends
   // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
   // the Map for all 225 cells on every frame.
-  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0, mFog = null;
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -482,13 +656,6 @@ Render.drawCells = function drawCells(scene) {
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
         mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
-        // Fog rides along on the SAME tile run as the terrain. The scan is
-        // row-major over a 15x15 ring that spans at most a 2x2 block of tiles,
-        // so this resolves ~4 masks per frame rather than 225 — the fog costs
-        // one array index per cell and no extra lookups at all. (Fog.maskFor
-        // is keyed by tile only; it is deliberately independent of the tile
-        // CACHE, which evicts and re-rasterises — see src/fog.js.)
-        mFog = (typeof Fog !== 'undefined') ? Fog.maskFor(tx2, ty2) : null;
         mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
         // Unmapped veil, per tile: 1 while the tile's grid isn't in hand, then
         // a fade the first time the renderer sees it loaded. The stamp lives
@@ -507,12 +674,9 @@ Render.drawCells = function drawCells(scene) {
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
-      // No mask for a tile means the player has never set foot in it: fogged.
-      seen[r * RING + c] = mFog ? Fog.bit(mFog, iy2 * N + ix2) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
-  const SEEN = (c, r) => seen[(r + 2) * RING + (c + 2)];
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
@@ -1458,9 +1622,21 @@ Render.drawCells = function drawCells(scene) {
   //    layer uses) or something is newly revealed (Fog.revision). Between
   //    crossings the container just SCROLLS by the sub-cell fraction, exactly
   //    as borderContainer does, so the rects are laid out in whole cells with
-  //    no fracX baked in. That turns ~169 fillRects per frame into ~169 per
-  //    second of walking. The 1-cell halo the whole pass renders (-1..
-  //    VIEW_CELLS) is what keeps the scroll from exposing an unfogged edge.
+  //    no fracX baked in. That is what pays for everything below: the whole
+  //    image costs a couple of hundred fillRects per CELL CROSSING, against the
+  //    169-per-FRAME the out-of-reach dim spends a few layers down. The 1-cell
+  //    halo the pass renders (-1..VIEW_CELLS) is what keeps the scroll from
+  //    exposing an unfogged edge.
+  //
+  // 3. THE RAMP. The fog is drawn as concentric SHELLS off the frontier rather
+  //    than as one flat wash (FOG_SHELL_A), each shell's outermost cells bitten
+  //    at the corners by a world-keyed hash (FOG_BEVEL_PX). Both exist for the
+  //    same reason: a 32px-quantised step from lit ground to 80% black reads as
+  //    a UI element sitting on the world, and the eye lands on the staircase.
+  //    Ramping the darkness over three cells and eroding the silhouette makes
+  //    the same boundary read as ground going unknown. Note what is NOT ramped:
+  //    the interior still lands on FOG_ALPHA exactly, because softening the
+  //    edge must not lighten the claim.
   if (scene.fogGfx && scene.fogContainer) {
     scene.fogContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
     const fogRev = (typeof Fog !== 'undefined') ? Fog.revision : 0;
@@ -1485,26 +1661,21 @@ Render.drawCells = function drawCells(scene) {
       const fg2 = scene.fogGfx;
       fg2.clear();
       if (fogOn) {
-        fg2.fillStyle(FOG_COLOR, FOG_ALPHA);
-        // Merge each row's fogged cells into horizontal RUNS before filling.
-        // The fogged region is contiguous by nature (you reveal a disc as you
-        // walk), so a typical frame collapses from ~169 rects to under 13.
-        for (let row = -1; row <= VIEW_CELLS; row++) {
-          let runStart = null;
-          for (let col = -1; col <= VIEW_CELLS + 1; col++) {
-            // The extra column past the end is a sentinel: it is never fogged,
-            // so it always closes an open run without duplicating the flush.
-            const veil = col <= VIEW_CELLS ? VEIL(col, row) : 0;
-            if (veil > 0) stillVeiled = true;
-            const fogged = col <= VIEW_CELLS && veil < 1 && !SEEN(col, row);
-            if (fogged) { if (runStart === null) runStart = col; continue; }
-            if (runStart === null) continue;
-            const ox = runStart - half, oy = row - half;
-            fg2.fillRect(scene.viewCenterX + ox * CELL_PX,
-                         scene.viewCenterY + oy * CELL_PX,
-                         (col - runStart) * CELL_PX, CELL_PX);
-            runStart = null;
+        // Cells whose tile is still fully veiled are left to the survey-line
+        // shimmer, but the pass stays dirty while any of them is on screen.
+        for (let row = -1; row <= VIEW_CELLS && !stillVeiled; row++) {
+          for (let col = -1; col <= VIEW_CELLS; col++) {
+            if (VEIL(col, row) > 0) { stillVeiled = true; break; }
           }
+        }
+        const D = fogFieldAround(scene, baseCellIX, baseCellIY, half);
+        const LVL = (col, row) => _fogLvl[(row + 2) * D + (col + 2)];
+        // Shell 0 is the under-wash: shell 1's footprint, drawn square, so the
+        // corner bites in the pass above it chamfer down to a soft step instead
+        // of punching through to fully lit ground.
+        for (let s = 0; s < FOG_SHELL_A.length; s++) {
+          drawFogShell(fg2, scene, LVL, VEIL, Math.max(1, s),
+                       fogShellStep(s), s !== 0, baseCellIX, baseCellIY, half);
         }
       }
       scene._fogVeiled = stillVeiled;
