@@ -197,6 +197,24 @@ const CHECKS = [
         throw new Error(`${stray.length} fog pass(es) paint onto the terrain layer — they would ` +
           'only darken the base fill, leaving every sprite and label lit.');
       }
+      // The shells themselves are filled by drawFogShell, which lives OUTSIDE
+      // this block and takes its Graphics as an argument — so the scan above
+      // can no longer see where they land. Pin the handover instead: the local
+      // the block hands over must be scene.fogGfx, and every shell must get it.
+      if (!/const fg2 = scene\.fogGfx;/.test(block)) {
+        throw new Error('the fog block no longer binds fg2 to scene.fogGfx — the shell fills ' +
+          'below take their layer as an argument, and this is what pins which one they get.');
+      }
+      const handoff = block.match(/drawFogShell\(\s*([A-Za-z0-9_.]+)/g) || [];
+      if (!handoff.length) {
+        throw new Error('the fog block draws no shells — render.js no longer routes the fog ' +
+          'through drawFogShell, so update this audit to follow it.');
+      }
+      const wrong = handoff.filter((c) => !/\(\s*fg2$/.test(c));
+      if (wrong.length) {
+        throw new Error(`${wrong.length} fog shell(s) are drawn onto something other than fg2 ` +
+          '(scene.fogGfx) — a shell on any lower layer leaves the sprites and labels above it lit.');
+      }
     },
   },
   {
