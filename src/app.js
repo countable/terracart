@@ -463,6 +463,18 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // (see starterSmithSlots) as the player's bootstrap tools.
 const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
+// Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
+// out. Every one of these ships art in the `1. Wood` tier folder, which is what
+// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
+// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
+// to forge one below T2), and the ring is the wizard tower's exclusive gift on
+// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
+// Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
+// jackpot: it makes the player's first swing 3× quicker and leaves every finer
+// tier to be bought, forged or looted.
+const STARTER_RELIC_TIER = 1;
+
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
@@ -2511,11 +2523,114 @@ class MapScene extends Phaser.Scene {
     if (Array.isArray(entry.wildplants)) {
       entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
     }
+    // One screen out from the pocket, the treasure chest with the player's
+    // first tool in it. Seated BEFORE the two passes below so its cell is in
+    // usedSeats (and its object in entry.objects) by the time they look for
+    // somewhere to put a tree, a rock or the soil plot.
+    this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+  }
+
+  // A treasure chest one screen out from the spawn anchor, holding one random
+  // WOODEN (T1) relic.
+  //
+  // The supply crates hand a new player materials; nothing hands them a TOOL.
+  // Every relic is otherwise bought or forged, so the opening hour is spent
+  // bare-handed at 9 s a swing — a wooden one is 3× quicker (toolDurationMs) —
+  // and which tool it is decides what that hour can even be spent on. So this
+  // is a real treasure chest, not another supply crate: no `crate` flag, so it
+  // renders as the trunk with its tier gem rather than a box, and it disappears
+  // when opened. Its id carries the `chest_start_` stamp, so the gold onboarding
+  // arrow (_nearestStarterCrate) will point the way to it like any other.
+  //
+  // "A screen away": the view is VIEW_CELLS across with the player in the middle
+  // of it, so a chest VIEW_CELLS cells out is just past the edge of the opening
+  // screen — a walk in some direction, not something already in frame — and
+  // clear of the CLEAR_R tutorial pocket that gets stripped bare around the
+  // anchor. It takes the first ring from there out with a free cell (searching
+  // to RELIC_MAX_R), so a spawn hemmed in by water or buildings still gets it.
+  //
+  // Which slot and which direction are both derived from the frozen anchor
+  // through a seeded rng, never Math.random: a tile rebuild has to reproduce
+  // the same chest, in the same cell, with the same relic in it — a player who
+  // walked off and came back to find a different reward waiting would be
+  // watching the world re-roll itself. The id is keyed off the tile (not the
+  // cell) for the same reason save.opened keys off it: an opened chest must
+  // stay opened even if a future rebuild ever seats it one cell over.
+  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const grid = entry.grid;
+    if (!grid || typeof WorldGen === 'undefined') return null;
+    const N = entry.cellsPerEdge;
+    entry.objects = entry.objects || [];
+    const id = `chest_start_relic_${tx}_${ty}`;
+    if (entry.objects.some(o => o.id === id)) return null;   // already seated
+    // Ring band: one screen out, widening only as far as the starter home's
+    // own ring reaches so the chest can never end up somewhere that reads as
+    // "another neighbourhood" instead of "just off the opening screen".
+    const RELIC_MIN_R = VIEW_CELLS;
+    const RELIC_MAX_R = (typeof HomeArea !== 'undefined' ? HomeArea.RING_MAX_CELLS : 16);
+    // Cells already spoken for — a crate seat, or anything standing on the
+    // tile. Nothing but the chest may share the cell it seats on.
+    const taken = new Set(usedSeats || []);
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const markTaken = (wx, wy) => taken.add(
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    for (const o of entry.objects) markTaken(o.x, o.y);
+    for (const w of (entry.wildplants || [])) markTaken(w.x, w.y);
+    // The shared spawn rule — walkable, off anyone's road BAND (not merely off
+    // the one cell per way the grid paints), out of the back gardens. A chest
+    // in the street is the bug this mask exists to stop.
+    const spawnOpts = { roadMask: entry.roadMask };
+    const free = (cx, cy) => !taken.has(cx + ',' + cy) &&
+      WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
+    const rng = WorldGen.makeRng(
+      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
+    const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    // Nearest ring first; within a ring, a seeded pick so the chest isn't
+    // always due east of every spawn in the game. Ring cells are collected in
+    // a fixed scan order, so the pick is reproducible.
+    let seat = null;
+    for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
+      const ring = [];
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          const cx = spawnIX + dx, cy = spawnIY + dy;
+          if (free(cx, cy)) ring.push({ cx, cy });
+        }
+      }
+      if (ring.length) seat = ring[Math.floor(rng() * ring.length)];
+    }
+    // Nothing seated: every ring cell in reach is water, road, floor or taken —
+    // or, on a spawn right against a tile seam, off the edge of the only grid
+    // this pass can read. A tile is ~220 cells across and the band is 16, so a
+    // seam only ever costs the arcs on that side; the rest of the compass still
+    // answers, which is why this stays clamped to the anchor's own tile rather
+    // than reaching across seams the way _provisionStarterHome has to.
+    if (!seat) return null;
+    // Snap to the canonical global cell centre, the basis seatCrate and every
+    // cell tap share (the tile-relative basis drifts off it — see seatCrate).
+    const rawX = tx0 + (seat.cx + 0.5) * this.cellM;
+    const rawY = ty0 + (seat.cy + 0.5) * this.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+    const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+    const chest = {
+      kind: 'chest', x: wmx, y: wmy, id,
+      // Named so it draws a label: the whole point is that the player can see
+      // there is something worth the walk once it comes into view.
+      name: 'Old Chest',
+      // Opens through the standard chest path (interactables.js), which reads
+      // fixedLoot and — for a gear payload — reconciles it against what the
+      // player already owns before equipping.
+      fixedLoot: { kind: 'relic', slot, tier: STARTER_RELIC_TIER },
+    };
+    entry.objects.push(chest);
+    if (usedSeats) usedSeats.add(seat.cx + ',' + seat.cy);
+    return chest;
   }
 
   // A guaranteed 2x2 patch of tillable grass near the spawn anchor.

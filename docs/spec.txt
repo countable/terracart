@@ -78,6 +78,16 @@ ONBOARDING (the first session)
  - CRATE COMPASS: a gold edge arrow toward the nearest unopened starter crate
    while the ladder runs. The crate trail seeds out to 15 cells but the viewport
    is only VIEW_CELLS across, so without it most of the trail is invisible.
+ - THE RELIC CHEST: one real treasure chest (the trunk sprite, not a supply
+   crate) seats a screen away from spawn — VIEW_CELLS cells out, so just past
+   the edge of the opening view and clear of the cleared tutorial pocket —
+   holding ONE random wooden (T1) relic. The crates hand out materials; this is
+   the only thing that hands out a TOOL, and bare-handed work is 3x slower than
+   wooden. Slot and bearing are both derived from the frozen spawn anchor, so a
+   tile rebuild reproduces the same chest with the same relic in the same cell.
+   Its id carries the `chest_start_` stamp, so the crate compass points at it
+   too. Never a downgrade: the payload is reconciled against what the player
+   already owns (reconcileRelicOffer), same as any other gear roll.
  - The un-till toggle (tap tilled soil with no seed) is SUPPRESSED during the
    ladder's plant step — it otherwise fires on exactly the tap a beginner makes
    and silently deletes the plot they just paid energy for.
@@ -549,10 +559,11 @@ TREASURE MARKS (X on the ground)
  - claim by tapping the cell the X is drawn on (and within reach). Reward via the unified
    rarity picker — mostly a small common (≈$1 or a common seed), sometimes an
    uncommon, rarely a rare. Found state persists in save.foundTreasures.
- - sources: the STARTER TILE seeds a trail of ~7 fixed "starter chests" — real
-   kind:'chest' objects carrying a `fixedLoot` payload (potato seed + wood +
-   rockfruit), opened via the standard chest modal but with no rarity roll —
-   near spawn and clears a tutorial pocket of
+ - sources: the STARTER TILE seeds a trail of 4 fixed "starter crates" — real
+   kind:'chest' objects carrying a `fixedLoot` payload (9 each of wood,
+   rockfruit, rockfruit seed and potato seed), opened via the standard chest
+   modal but with no rarity roll — near spawn, plus the relic chest a screen
+   out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside named paths. Residential X's only
    spawn near a road.
