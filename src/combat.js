@@ -144,31 +144,94 @@
     };
   }
 
+  // How finely a shot's flight is sampled against the world when the caller
+  // supplies a `blocked` test, in cells. Half a cell is well under the
+  // thinnest thing that can stop a shot (a cave wall is a whole cell), so a
+  // frame long enough to carry a shot several cells still can't step over one.
+  const BLOCK_SAMPLE_CELLS = 0.5;
+
   // Advance every shot by `dt` seconds and resolve the first enemy each one
   // touches. `enemies` is the caller's already-filtered hostile list; `onHit`
-  // takes (enemy, shot). A shot is dropped when it hits or when it has flown
-  // its range. Returns the survivors — assign the result back.
+  // takes (enemy, shot). A shot is dropped when it hits, when it has flown its
+  // range, or when it runs into something solid. Returns the survivors —
+  // assign the result back.
   //
-  // No swept-collision maths: the fastest shot covers ~0.5 m a frame against a
-  // hit radius of ~6 m, so nothing can tunnel through a foe.
-  function stepShots(shots, dt, enemies, hitRadiusM, onHit) {
+  // No swept-collision maths for the FOES: the fastest shot covers ~0.5 m a
+  // frame against a hit radius of ~6 m, so nothing can tunnel through one.
+  //
+  // `opts.blocked(x, y)` — optional world test for solid ground, in world
+  // metres. This module knows nothing about the map, so the caller hands the
+  // question over: underground, app.js answers with the cave-wall collision
+  // test, which is what stops a bow or staff shooting through solid rock at a
+  // monster in the next tunnel. Without it a shot ignores the world entirely,
+  // which is exactly right on the surface — there is nothing up there a shot
+  // should stop against (you can shoot over a fence or a river). A shot that
+  // runs into rock stops at the face rather than inside it, so the streak
+  // reads as hitting the wall, and it is then dropped.
+  // `opts.cellM` sizes the sampling; it falls back to the hit radius, which is
+  // just under a cell.
+  function stepShots(shots, dt, enemies, hitRadiusM, onHit, opts) {
     const alive = [];
     const r2 = hitRadiusM * hitRadiusM;
+    const blocked = opts && opts.blocked;
+    const sampleM = Math.max(0.01,
+      ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
       const step = s.speedMps * dt;
-      s.x += s.vx * step;
-      s.y += s.vy * step;
-      s.travelledM += step;
+      // How far of this frame's step the shot actually gets to travel: all of
+      // it, unless something solid is in the way.
+      let travel = step;
+      let stopped = false;
+      if (blocked && step > 0) {
+        const samples = Math.max(1, Math.ceil(step / sampleM));
+        for (let i = 1; i <= samples; i++) {
+          const t = (step * i) / samples;
+          if (!blocked(s.x + s.vx * t, s.y + s.vy * t)) continue;
+          travel = Math.max(0, t - step / samples);   // stop at the face, not inside
+          stopped = true;
+          break;
+        }
+      }
+      s.x += s.vx * travel;
+      s.y += s.vy * travel;
+      s.travelledM += travel;
       let hit = null, bestD2 = r2;
       for (const e of enemies) {
         const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
         if (d2 <= bestD2) { bestD2 = d2; hit = e; }
       }
+      // A foe standing right against the far side of the wall is more than a
+      // hit radius from where the shot stopped, so this can't reach through.
       if (hit) { onHit(hit, s); continue; }
+      if (stopped) continue;                          // spent against the rock
       if (s.travelledM >= s.rangeM) continue;
       alive.push(s);
     }
     return alive;
+  }
+
+  // Is there a clear line from (x0,y0) to (x1,y1)? Sampled at the same
+  // resolution a shot's flight is, through the same caller-supplied world
+  // test, so what stops an arrow stops a line of fire.
+  //
+  // For a RANGED MONSTER's attack. The goblin archer reaches three cells, and
+  // without this it reaches them through solid rock — taking exactly the shot
+  // the player is no longer allowed to take, from somewhere they often cannot
+  // even see. Melee kinds are adjacent by definition and never consult it.
+  // The endpoints are skipped: those are the two bodies, and a body is
+  // standing on floor by definition.
+  function lineOfFire(x0, y0, x1, y1, blocked, cellM) {
+    if (!blocked) return true;
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    if (!(dist > 0)) return true;
+    const sampleM = Math.max(0.01, (cellM || 1) * BLOCK_SAMPLE_CELLS);
+    const samples = Math.max(1, Math.ceil(dist / sampleM));
+    for (let i = 1; i < samples; i++) {
+      const t = i / samples;
+      if (blocked(x0 + dx * t, y0 + dy * t)) return false;
+    }
+    return true;
   }
 
   // Health-ring tint. The combat wheel is a health bar, so it has to read as
@@ -184,8 +247,8 @@
     registerMonsters, FAUNA_HP, creatureMaxHp,
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     BASELINE_HP, dpsForDurationMs, meleeDps, shotDamage,
-    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, HIT_RADIUS_CELLS,
-    spawnShot, stepShots, healthColor,
+    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, HIT_RADIUS_CELLS, BLOCK_SAMPLE_CELLS,
+    spawnShot, stepShots, lineOfFire, healthColor,
   };
   root.Combat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

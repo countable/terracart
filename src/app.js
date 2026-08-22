@@ -196,6 +196,8 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 //   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
 //   range  → cells within which it drains energy
 //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
+// hp and dmg below are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
+// right after the table, so what the game runs on is twice what is written.
 //   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
 //   weight → relative spawn share among the kinds eligible at a given depth
 const MONSTERS = {
@@ -204,6 +206,24 @@ const MONSTERS = {
   goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
   goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
 };
+// The first slime is the tutorial; everything past it is a real fight.
+//
+// The wild surface slime is the only enemy above ground and the first one
+// anybody meets — deliberately gentle, a crop pest you can walk away from.
+// Every enemy BEYOND it is underground, chosen by a player who went looking,
+// and those are twice the foe: double HP and double damage.
+//
+// Applied as ONE rule over the baseline above rather than eight retuned
+// numbers, so the ratio to that first slime stays readable at a glance and a
+// kind added to the table inherits the doubling the moment it has stats. The
+// knock-ons are derived and intended: the dps identity is untouched, so double
+// HP is exactly double the time to kill at any weapon tier, and monsterBounty
+// pays per HP, so a foe that takes twice as long pays twice as much.
+const CAVE_ENEMY_MUL = 2;
+for (const m of Object.values(MONSTERS)) {
+  m.hp *= CAVE_ENEMY_MUL;
+  m.dmg *= CAVE_ENEMY_MUL;
+}
 // Seconds between one monster's hits. Per user: monsters were landing a hit a
 // second each, so a pack shredded the energy bar faster than it could be read —
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
@@ -4227,7 +4247,14 @@ class MapScene extends Phaser.Scene {
     if (this._shots.length) {
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
-        (enemy, shot) => this._damageEnemy(enemy, shot.damage));
+        (enemy, shot) => this._damageEnemy(enemy, shot.damage),
+        // Underground, rock stops an arrow. Without this a bow or staff shot
+        // sailed straight through a cave wall and killed whatever stood in the
+        // next tunnel over — you could clear a level by facing a blank wall and
+        // waiting. _cellBlocked is the SAME test the body walks against (and
+        // answers false on the surface, where nothing should stop a shot), so
+        // what blocks you blocks your arrows.
+        { blocked: (x, y) => this._cellBlocked(x, y), cellM: this.cellM });
     }
     this._drawShots();
 
@@ -4819,7 +4846,14 @@ class MapScene extends Phaser.Scene {
       if (isMonster(c.kind)) {
         const m = MONSTERS[c.kind];
         const R = m.range * this.cellM;
-        if (ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
+        // A RANGED monster needs a clear line, for the same reason your bow
+        // does: the goblin archer reaches three cells, and through rock that
+        // is a foe you often cannot even see chipping at your energy from
+        // inside a wall. Melee kinds (range 1) are adjacent by definition, so
+        // they skip the walk and the cost of it.
+        const clear = m.range <= 1 ||
+          Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM);
+        if (clear && ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (before > 0) {

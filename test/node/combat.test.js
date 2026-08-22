@@ -189,6 +189,101 @@ test('combat: the hit box is forgiving enough for a phone compass', () => {
     'a foe two cells off the line is not hit');
 });
 
+// ── Walls ───────────────────────────────────────────────────────────────────
+// A shot used to ignore the world completely, so underground a bow or staff
+// fired straight through solid rock: a player could stand facing a blank cave
+// wall and clear the tunnel on the other side of it. combat.js knows nothing
+// about the map, so the caller hands over the collision test — app.js gives it
+// the same one the body walks against.
+
+// A wall band across the flight path, from `x0` to `x1` metres.
+const combatWall = (x0, x1) => ({
+  blocked: (x) => x >= x0 && x < x1,
+  cellM: COMBAT_CELL_M,
+});
+
+test('combat: a shot stops at a cave wall instead of flying through it', () => {
+  const wallFrom = 4 * COMBAT_CELL_M;               // one cell of rock, 4 cells out
+  const behind = { kind: 'goblin', id: 'behind', x: 7 * COMBAT_CELL_M, y: 0 };
+  const shot = Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 9);
+  let live = [shot], hits = 0, steps = 0;
+  while (live.length && steps++ < 6000) {
+    live = Combat.stepShots(live, 1 / 60, [behind], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+      () => hits++, combatWall(wallFrom, wallFrom + COMBAT_CELL_M));
+  }
+  assert.eq(hits, 0, 'the foe in the next tunnel is not hit');
+  assert.eq(live.length, 0, 'and the shot is spent, not flying on');
+  assert.falsy(shot.x > wallFrom, `stopped at the rock face, not inside it (x=${shot.x})`);
+  assert.gt(shot.x, wallFrom - COMBAT_CELL_M, 'and it did fly up to the wall');
+});
+
+test('combat: the wall only shields what is behind it', () => {
+  // The foe standing in front of the same wall is still perfectly shootable —
+  // the rule is line of fire, not "no shooting near walls".
+  const wallFrom = 4 * COMBAT_CELL_M;
+  const inFront = { kind: 'goblin', id: 'front', x: 2 * COMBAT_CELL_M, y: 0 };
+  let live = [Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 9)];
+  let hits = 0, steps = 0;
+  while (live.length && steps++ < 6000) {
+    live = Combat.stepShots(live, 1 / 60, [inFront], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+      () => hits++, combatWall(wallFrom, wallFrom + COMBAT_CELL_M));
+  }
+  assert.eq(hits, 1, 'the foe on this side of the wall takes it');
+});
+
+test('combat: a long frame cannot step over a wall', () => {
+  // dt is whatever the browser hands us — a backgrounded tab or a stalled
+  // frame can deliver a step several cells long. Sampling the segment (rather
+  // than testing only where the shot lands) is what keeps rock solid then.
+  const wallFrom = 3 * COMBAT_CELL_M;
+  const behind = { kind: 'goblin', id: 'behind', x: 6 * COMBAT_CELL_M, y: 0 };
+  const shot = Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 9);
+  // One second of flight is 4.5 cells — clean over a one-cell wall in a single
+  // step if the flight weren't sampled.
+  const live = Combat.stepShots([shot], 1, [behind], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+    () => { throw new Error('a shot reached through the wall'); },
+    combatWall(wallFrom, wallFrom + COMBAT_CELL_M));
+  assert.eq(live.length, 0, 'the shot died at the wall');
+  assert.falsy(shot.x > wallFrom, `and never crossed it (x=${shot.x})`);
+});
+
+test('combat: a ranged monster needs the same clear line you do', () => {
+  // The goblin archer reaches 3 cells. Through rock that is a foe you often
+  // cannot see draining your energy from inside a wall — the exact shot the
+  // player was just stopped from taking.
+  const wall = (x) => x >= 2 * COMBAT_CELL_M && x < 3 * COMBAT_CELL_M;
+  assert.falsy(Combat.lineOfFire(0, 0, 4 * COMBAT_CELL_M, 0, wall, COMBAT_CELL_M),
+    'no shot through the wall');
+  assert.truthy(Combat.lineOfFire(0, 0, 1.5 * COMBAT_CELL_M, 0, wall, COMBAT_CELL_M),
+    'a clear three cells is still a clear shot');
+  // Around it: the wall is one band, so a line that never crosses it is clear.
+  assert.truthy(Combat.lineOfFire(0, 0, 0, 4 * COMBAT_CELL_M, wall, COMBAT_CELL_M),
+    'a line that misses the rock is clear');
+});
+
+test('combat: line of fire holds at the endpoints and with no world test', () => {
+  // The two bodies are standing on floor by definition, so their own cells
+  // never block. And with no test supplied nothing blocks at all (the surface).
+  const everywhere = () => true;
+  assert.truthy(Combat.lineOfFire(0, 0, 0, 0, everywhere, COMBAT_CELL_M),
+    'a foe on top of you is not shielded by its own cell');
+  assert.truthy(Combat.lineOfFire(0, 0, 50, 0, null, COMBAT_CELL_M), 'no test → clear');
+});
+
+test('combat: with no world test a shot is unobstructed (the surface)', () => {
+  // Above ground nothing stops an arrow — you can shoot over a fence, a hedge
+  // or a river — so app.js hands over a test that always answers false there.
+  // Passing no test at all must behave the same way.
+  const foe = { kind: 'goblin', id: 'g1', x: 5 * COMBAT_CELL_M, y: 0 };
+  let live = [Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 9)];
+  let hits = 0, steps = 0;
+  while (live.length && steps++ < 6000) {
+    live = Combat.stepShots(live, 1 / 60, [foe], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+      () => hits++, { blocked: () => false, cellM: COMBAT_CELL_M });
+  }
+  assert.eq(hits, 1, 'a shot that is never blocked still hits');
+});
+
 test('combat: the nearest foe on the line takes the shot', () => {
   const near = { kind: 'goblin', id: 'near', x: 15, y: 0 };
   const far  = { kind: 'goblin', id: 'far',  x: 40, y: 0 };

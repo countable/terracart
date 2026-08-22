@@ -199,8 +199,19 @@ try {
     console.error('Could not find the MONSTERS / bounty block in src/app.js — update run.js');
     process.exit(2);
   }
+  // The stats the table is AUTHORED at, before CAVE_ENEMY_MUL doubles them —
+  // evaluated from the same literal text, so a test can prove the doubling is
+  // actually applied (and applied once) instead of trusting the numbers.
+  const tableEnd = src.indexOf('};', start) + 2;
+  if (tableEnd < 2) {
+    console.error('Could not find the end of the MONSTERS literal — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(
+    src.slice(start, tableEnd).replace('const MONSTERS =', 'globalThis.MONSTERS_BASELINE ='),
+    ctx, { filename: 'monsters-baseline.js' });
   vm.runInContext(src.slice(start, end + 1)
-    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, monsterBounty,'
+    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, monsterBounty, CAVE_ENEMY_MUL,'
     + ' MONSTER_COIN_PER_HP, MONSTER_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
     ctx, { filename: 'monsters.js' });
 }

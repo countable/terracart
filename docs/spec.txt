@@ -558,6 +558,11 @@ COMBAT
               NOT pick a target: you aim by turning. 4.5 cells/s, 8-cell range.
      staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range, fired half a beat
               off the bow so carrying both reads as an alternating patter.
+   SHOTS STOP AT ROCK. Underground a shot is tested against the same cave-wall
+   collision the body walks into, sampled every half cell so a long frame can't
+   step over a wall: it stops at the face and is spent. Without it you could
+   face a blank wall and clear the next tunnel through it. Nothing stops a shot
+   on the surface — you can shoot over a fence or a river.
    A shot carries one second of its own tier's melee-equivalent damage, so a
    bow of tier N landing every shot matches a sword of tier N — the aiming is
    the cost. Bow and staff no longer speed the melee wheel; the shots are what
@@ -1004,10 +1009,20 @@ UNDERGROUND CAVES (Phase 1)
    the wheel; tougher kinds take longer; no drops). Each monster lands at most
    one hit every 2 s (MONSTER_HIT_MS). Kinds are gated by depth so descending
    introduces new foes; density rises gently with depth:
-     * cave slime    (depth 1+) — 15 hp, range 1, 2⚡/hit, slow
-     * bat           (depth 1+) — 6 hp,  range 1, 1⚡/hit, fast + erratic, hovers
-     * goblin        (depth 2+) — 25 hp, range 1, 4⚡/hit, medium speed (a slog)
-     * goblin archer (depth 3+) — 18 hp, range 3, 3⚡/hit — the ONLY ranged foe
+     * cave slime    (depth 1+) — 30 hp, range 1, 4⚡/hit, slow
+     * bat           (depth 1+) — 12 hp, range 1, 2⚡/hit, fast + erratic, hovers
+     * goblin        (depth 2+) — 50 hp, range 1, 8⚡/hit, medium speed (a slog)
+     * goblin archer (depth 3+) — 36 hp, range 3, 6⚡/hit — the ONLY ranged foe
+   THE FIRST SLIME IS THE TUTORIAL. Those numbers are the authored baseline
+   DOUBLED (CAVE_ENEMY_MUL): the wild surface slime is the only enemy above
+   ground and the first anyone meets, so it stays gentle, and every enemy
+   beyond it — all of them underground, met by a player who went looking — has
+   double the HP and does double the damage. Applied as one rule over the
+   table, so a kind added to it inherits the doubling. Knock-ons are derived:
+   double HP is exactly double the time to kill at any weapon tier (the dps
+   identity is untouched), and the coin bounty pays per HP.
+   The goblin archer needs a CLEAR LINE, the same as your own bow — it used to
+   chip at you through solid rock from a tunnel you couldn't see.
    Placeholder art: every monster reuses the slime sprite with a per-kind tint
    (real sheets are a per-kind assets.js + render.js swap). Monsters can't be
    tamed (mango/sapphire don't apply); a defeated monster is recorded in
