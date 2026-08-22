@@ -48,8 +48,11 @@
       roadMask: opts.roadMask || null,
     };
   }
-  const srPlace = (scene, entry, seats, sx = SPAWN, sy = SPAWN) =>
+  // The placer returns { chest, path } — the chest plus the walked route the
+  // crate trail is laid along. Most tests here only care about the chest.
+  const srSeat = (scene, entry, seats, sx = SPAWN, sy = SPAWN) =>
     placeStarterRelicChest.call(scene, entry, 0, 0, sx, sy, seats || new Set());
+  const srPlace = (...args) => (srSeat(...args) || {}).chest || null;
   // Tile-local cell of a placed object.
   const srCell = (o) => ({ cx: Math.floor(o.x / CELL_M), cy: Math.floor(o.y / CELL_M) });
   const srDist = (o, sx = SPAWN, sy = SPAWN) => {
@@ -193,6 +196,157 @@
     const entry = srEntry(T.WATER);
     assert.falsy(srPlace(srScene(), entry), 'declined');
     assert.eq(entry.objects.length, 0, 'and nothing pushed');
+  });
+
+  // ── The route it hands back ─────────────────────────────────────────────
+
+  test('spawn relic chest: the route walks from the anchor to the chest', () => {
+    const seated = srSeat(srScene(), srEntry());
+    const path = seated.path;
+    assert.truthy(path && path.length > 1, 'a route came back');
+    assert.eq(path[0].cx, SPAWN, 'starts on the anchor (x)');
+    assert.eq(path[0].cy, SPAWN, 'starts on the anchor (y)');
+    const last = path[path.length - 1], chest = srCell(seated.chest);
+    assert.eq(last.cx, chest.cx, 'ends on the chest (x)');
+    assert.eq(last.cy, chest.cy, 'ends on the chest (y)');
+    // One 4-connected step per entry, or it is not a walk.
+    for (let i = 1; i < path.length; i++) {
+      const step = Math.abs(path[i].cx - path[i - 1].cx) + Math.abs(path[i].cy - path[i - 1].cy);
+      assert.eq(step, 1, `step ${i} is one cell`);
+    }
+  });
+
+  test('spawn relic chest: it never seats where no route can reach', () => {
+    // A moat of water with the chest band beyond it: every cell out there is
+    // legal ground on its own terms, and every one of them is somewhere the
+    // player would have to swim to. The chest belongs on THIS side.
+    const entry = srEntry();
+    for (let cy = 0; cy < N; cy++) {
+      for (let cx = 0; cx < N; cx++) {
+        const d = Math.max(Math.abs(cx - SPAWN), Math.abs(cy - SPAWN));
+        if (d >= 6 && d <= 9) entry.grid[cy * N + cx] = T.WATER;
+      }
+    }
+    assert.falsy(srPlace(srScene(), entry), 'nothing seated across the water');
+  });
+
+  // ── The crate trail laid along it ───────────────────────────────────────
+
+  function srTrailScene(over = {}) {
+    return srScene(Object.assign({
+      save: { starterCratesAt: { x: (SPAWN + 0.5) * CELL_M, y: (SPAWN + 0.5) * CELL_M } },
+      _starterTrailAnchor() { return this.save.starterCratesAt; },
+      _placeStarterRelicChest: placeStarterRelicChest,
+      // The soil plot and the home provision are their own passes with their
+      // own tests; stub them so this one is about the trail alone.
+      _carveStarterPlot() {},
+      _provisionStarterHome() {},
+    }, over));
+  }
+  const srTrail = (entry, scene) => {
+    placeStarterTrail.call(scene || srTrailScene(), entry, 0, 0);
+    const chests = entry.objects.filter(o => o.kind === 'chest');
+    return {
+      crates: chests.filter(o => o.crate)
+        .sort((a, b) => String(a.id).localeCompare(String(b.id))),
+      chest: chests.find(o => !o.crate) || null,
+    };
+  };
+  const srCheb = (a, b) => Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy));
+
+  test('starter trail: four crates and the chest they lead to', () => {
+    const entry = srEntry();
+    const { crates, chest } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four supply crates seated');
+    assert.truthy(chest, 'and the relic chest at the end');
+    for (const c of crates) assert.truthy(c.fixedLoot.id, `${c.id} carries an item stack`);
+  });
+
+  test('starter trail: the crates step out toward the chest, none doubling back', () => {
+    const entry = srEntry();
+    const { crates, chest } = srTrail(entry);
+    const anchor = { cx: SPAWN, cy: SPAWN }, dest = srCell(chest);
+    let prevOut = 0, prevToGo = Infinity;
+    for (const c of crates) {
+      const cell = srCell(c);
+      const out = srCheb(cell, anchor), toGo = srCheb(cell, dest);
+      assert.gt(out, prevOut, `${c.id} is further from home than the one before`);
+      assert.lt(toGo, prevToGo, `${c.id} is closer to the chest than the one before`);
+      prevOut = out; prevToGo = toGo;
+    }
+  });
+
+  test('starter trail: no leg long enough to lose the thread', () => {
+    // The whole point of a trail: from where you are standing, the next stop is
+    // in view. A leg longer than the viewport breaks the chain. The four crates
+    // and the chest are five evenly spaced stops along the walk, so the last
+    // crate lands within a step or two of the chest — that is arrival, not a
+    // pile-up, which is why only the crate-to-crate legs carry a minimum.
+    const entry = srEntry();
+    const { crates, chest } = srTrail(entry);
+    const stops = [{ cx: SPAWN, cy: SPAWN }, ...crates.map(srCell), srCell(chest)];
+    for (let i = 1; i < stops.length; i++) {
+      const gap = srCheb(stops[i], stops[i - 1]);
+      assert.falsy(gap > VIEW_CELLS, `leg ${i} is ${gap} cells — further than one screen`);
+      if (i < stops.length - 1) {
+        assert.gte(gap, 2, `leg ${i} is ${gap} cells — crates piled up`);
+      }
+    }
+  });
+
+  test('starter trail: every crate stands on legal ground', () => {
+    const entry = srEntry();
+    const { crates } = srTrail(entry);
+    for (const c of crates) {
+      const cell = srCell(c);
+      // Out of the trailer's moat, which clearHomeTrailerOverlap sweeps.
+      assert.gt(srCheb(cell, { cx: SPAWN, cy: SPAWN }), 1, `${c.id} clears the trailer moat`);
+      assert.truthy(WorldGen.isSpawnCell(entry.grid, N, N, cell.cx, cell.cy, {}),
+        `${c.id} is on ground a pickup may sit on`);
+    }
+  });
+
+  test('starter trail: it bends around water instead of walking into it', () => {
+    // A pond straddling the straight line out: the route has to go round it,
+    // and every crate on that route has to stay on dry land.
+    const entry = srEntry();
+    for (let cy = SPAWN - 3; cy <= SPAWN + 3; cy++) {
+      for (let cx = SPAWN + 2; cx <= SPAWN + 8; cx++) entry.grid[cy * N + cx] = T.WATER;
+    }
+    const { crates, chest } = srTrail(entry);
+    assert.eq(crates.length, 4, 'still four crates');
+    const legs = [{ cx: SPAWN, cy: SPAWN }, ...crates.map(srCell), srCell(chest)];
+    for (const l of legs) {
+      assert.falsy(entry.grid[l.cy * N + l.cx] === T.WATER, `(${l.cx},${l.cy}) is not in the pond`);
+    }
+    for (let i = 1; i < legs.length; i++) {
+      assert.falsy(srCheb(legs[i], legs[i - 1]) > VIEW_CELLS, `leg ${i} stays within a screen`);
+    }
+  });
+
+  test('starter trail: crates keep out of the street, band and all', () => {
+    const roadMask = new Uint8Array(N * N);
+    const entry = srEntry(T.GRASS, { roadMask });
+    // A four-deep band with a one-cell painted spine — the under-report the
+    // mask exists for. The trail has to cross it without seating on it.
+    for (let cy = SPAWN + 3; cy <= SPAWN + 6; cy++) {
+      for (let cx = 0; cx < N; cx++) roadMask[cy * N + cx] = 1;
+    }
+    for (let cx = 0; cx < N; cx++) entry.grid[(SPAWN + 4) * N + cx] = T.ROAD;
+    const { crates, chest } = srTrail(entry);
+    for (const o of [...crates, chest]) {
+      const cell = srCell(o);
+      assert.falsy(roadMask[cell.cy * N + cell.cx], `${o.id} is off the road band`);
+      assert.falsy(entry.grid[cell.cy * N + cell.cx] === T.ROAD, `${o.id} is off road terrain`);
+    }
+  });
+
+  test('starter trail: a rebuild lays the same trail again', () => {
+    const a = srTrail(srEntry());
+    const b = srTrail(srEntry());
+    assert.eq(a.crates.map(c => `${c.id}@${c.x},${c.y}`).join(' '),
+      b.crates.map(c => `${c.id}@${c.x},${c.y}`).join(' '), 'same crates, same cells');
+    assert.eq(a.chest.x, b.chest.x, 'and the same chest');
   });
 
   // ── Opening it ──────────────────────────────────────────────────────────
