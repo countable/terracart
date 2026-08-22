@@ -131,6 +131,37 @@
     assert.gt(bearings.size, 1, 'and so does the direction it sits in');
   });
 
+  test('spawn relic chest: a save reset rerolls the relic but never moves the chest', () => {
+    // The salt is the ONE per-save die (save.relicSalt): wiped with the save,
+    // so a reset draws a fresh opening relic instead of the same spawn rolling
+    // the same tool forever. It reaches the SLOT stream only — the seat stays
+    // purely location-keyed, so the chest and the trail laid to it sit where
+    // they always sat, whatever the salt says.
+    const slots = new Set();
+    let seat = null;
+    for (let salt = 1; salt <= 16; salt++) {
+      const chest = srPlace(srScene({ save: { relicSalt: salt } }), srEntry());
+      slots.add(chest.fixedLoot.slot);
+      const key = chest.x + ',' + chest.y + '/' + chest.id;
+      if (seat === null) seat = key;
+      assert.eq(key, seat, `salt ${salt} left the seat alone`);
+    }
+    assert.gt(slots.size, 1, `the salt reaches the roll (16 salts saw ${[...slots].join(',')})`);
+    // And within one save the roll is stable: same salt, same relic.
+    const again = srPlace(srScene({ save: { relicSalt: 7 } }), srEntry());
+    const first = srPlace(srScene({ save: { relicSalt: 7 } }), srEntry());
+    assert.eq(again.fixedLoot.slot, first.fixedLoot.slot, 'same salt, same relic');
+  });
+
+  test('spawn relic chest: a saltless save rolls exactly the legacy relic', () => {
+    // Test stubs and pre-salt saves carry no relicSalt; both must degrade to
+    // the old purely-location roll (salt 0 is the identity of the XOR mix),
+    // so shipping the salt rerolls nothing for a save that never had one.
+    const bare = srPlace(srScene({ save: {} }), srEntry());
+    const zero = srPlace(srScene({ save: { relicSalt: 0 } }), srEntry());
+    assert.eq(bare.fixedLoot.slot, zero.fixedLoot.slot, 'no salt behaves as salt 0');
+  });
+
   test('spawn relic chest: seating it twice does not stack a second one', () => {
     const scene = srScene(), entry = srEntry(), seats = new Set();
     srPlace(scene, entry, seats);
@@ -342,6 +373,79 @@
       assert.truthy(WorldGen.isSpawnCell(entry.grid, N, N, cell.cx, cell.cy, {}),
         `${c.id} is on ground a pickup may sit on`);
     }
+  });
+
+  test('starter trail: a road very near home takes the whole trail onto its kerb', () => {
+    // A street 3 cells from the doorstep — inside NEAR_ROAD_CELLS. The chip
+    // says "supply crates were left along the road nearby", so when there
+    // really is a road nearby the trail keeps its word: every crate seats on
+    // the kerb (beside the road, never on it), walking outward, and the relic
+    // chest sits on the kerb too, at the END of the line — the crates still
+    // lead somewhere.
+    const entry = srEntry();
+    const ROAD_X = SPAWN + 3;
+    for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
+    const { crates, chest } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    assert.truthy(chest, 'the relic chest is still the destination');
+    const onShoulder = (o, what) => {
+      const cell = srCell(o);
+      assert.falsy(entry.grid[cell.cy * N + cell.cx] === T.ROAD,
+        `${what} is beside the road, not in the street`);
+      assert.truthy([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.ROAD),
+        `${what} sits on the road's shoulder`);
+    };
+    for (const c of crates) onShoulder(c, c.id);
+    onShoulder(chest, 'the chest');
+    // The chest ENDS the line: about a screen out (its road cell is a full
+    // screen; the shoulder may sit one cell nearer), with every crate between
+    // the door and it, stepping outward in the order the arrow visits them.
+    const anchor = { cx: SPAWN, cy: SPAWN };
+    const chestCell = srCell(chest);
+    const chestOut = srCheb(chestCell, anchor);
+    assert.gte(chestOut, VIEW_CELLS - 1, `the chest is about a screen out (${chestOut})`);
+    // Each crate sits before the chest and closes on it — the line walks one
+    // way down the kerb. (Distance to the CHEST, not from the anchor: on a
+    // kerb line the anchor distance is dominated by the sideways offset to
+    // the road, so it can tie between neighbouring crates.)
+    let prevToGo = Infinity;
+    for (const c of crates) {
+      const toGo = srCheb(srCell(c), chestCell);
+      assert.gt(toGo, 0, `${c.id} sits before the chest on the line`);
+      assert.lt(toGo, prevToGo, `${c.id} is closer to the chest than the one before`);
+      prevToGo = toGo;
+    }
+  });
+
+  test('starter trail: a footpath very near home counts too', () => {
+    // "A road or path" — a park trail past the door takes the crates the same
+    // way a street does.
+    const entry = srEntry();
+    const PATH_Y = SPAWN - 2;
+    for (let cx = 0; cx < N; cx++) entry.grid[PATH_Y * N + cx] = T.PATH;
+    const { crates } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    for (const c of crates) {
+      const cell = srCell(c);
+      const onShoulder = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.PATH);
+      assert.truthy(onShoulder, `${c.id} sits along the path`);
+    }
+  });
+
+  test('starter trail: a road further out does not pull the crates off the walk', () => {
+    // The same street past NEAR_ROAD_CELLS (but inside the 15-cell road BFS):
+    // no preference — the crates spread down the walked route to the chest as
+    // ever, which the kerb walk out there could not produce (its nearest
+    // shoulder is further out than the whole near span of the route).
+    const entry = srEntry();
+    const ROAD_X = SPAWN + NEAR_ROAD_CELLS + 4;
+    for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
+    const { crates } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    const out = crates.map(c => srCheb(srCell(c), { cx: SPAWN, cy: SPAWN }));
+    assert.falsy(out[0] > 3, `the first crate is still right by home (${out[0]} cells out)`);
   });
 
   test('starter trail: it bends around water instead of walking into it', () => {

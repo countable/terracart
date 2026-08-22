@@ -44,9 +44,11 @@ function loadLayout() {
                    'MAP_TOP_GAME', 'MAP_H_GAME', 'STICK_PX',
                    'PHONE_MIN', 'PHONE_MAX', 'PHONE_FILL_MAX'];
   const bridge = '\nglobalThis.__layout = layOutVertically;\n' +
+    'globalThis.__phoneFillW = phoneFillW;\n' +
     EXPORTS.map((k) => `globalThis.__${k} = ${k};`).join('\n');
   vm.runInContext(src + bridge, ctx, { filename: 'index.html#layOutVertically' });
-  const out = { fn: ctx.__layout };
+  const out = { fn: ctx.__layout, phoneFillW: ctx.__phoneFillW };
+  if (typeof out.phoneFillW !== 'function') throw new Error('layout_audit: phoneFillW not found');
   for (const k of EXPORTS) {
     const v = ctx['__' + k];
     if (typeof v !== 'number' || !isFinite(v)) {
@@ -77,6 +79,12 @@ const DEVICES = [
   { name: 'iPhone 16 Pro Max', w: 440,  h: 956  },
   { name: 'Pixel 9 Pro XL',    w: 448,  h: 998  },
   { name: 'wide Android',      w: 480,  h: 1040 },
+  // Safari's Page Zoom rescales the CSS viewport: an iPhone 15 Pro Max at 85%
+  // zoom reports innerWidth 506 — past PHONE_FILL_MAX — while the screen's
+  // short edge (430, zoom-independent) still says "phone". This row is the
+  // regression where the zoomed handset fell onto the tablet path and got a
+  // 430px column, 38px black gutters, and the developer's preview frame.
+  { name: 'iPhone 15 Pro Max / 85% zoom', w: 506, h: 876, screenMin: 430 },
   // Portrait but too wide to be a phone — keeps the desktop column.
   { name: 'iPad portrait',     w: 768,  h: 1024 },
   { name: 'desktop short',     w: 1280, h: 700  },
@@ -105,9 +113,12 @@ const BROWSER_VIEWPORTS = [
 
 // How wide the column WANTS to be in a portrait viewport of this width: the
 // whole viewport when it is a phone, the desktop simulated column when it is
-// wider than any phone. Mirrors fitGame's `fillW`.
-function columnW(L, vw) {
-  return vw <= L.PHONE_FILL_MAX ? vw : L.PHONE_MAX;
+// wider than any phone. This calls the REAL phoneFillW lifted off the page —
+// a copy of the rule here would drift, exactly like a copied layOutVertically.
+// `screenMin` is the screen's short edge (zoom-independent); a device row
+// without one is an unzoomed device, whose screen matches its viewport.
+function columnW(L, dev) {
+  return L.phoneFillW(dev.w, dev.screenMin ?? dev.w);
 }
 
 // Reproduce what fitGame does with the result, in CSS px measured from the
@@ -121,7 +132,7 @@ function geometry(L, dev) {
   // the portrait ask covers the shared maths and the desktop rows below pin
   // the wide-viewport ask.
   const portrait = dev.w < dev.h;
-  const sByWidth = (portrait ? columnW(L, dev.w) : L.PHONE_MAX) / 352;
+  const sByWidth = (portrait ? columnW(L, dev) : L.PHONE_MAX) / 352;
   // fillWidth is the portrait promise: a phone column never shrinks below the
   // width fit. Passing it here is what makes the audit test the real page.
   const { s, top, stickBottom } = L.fn(sByWidth, dev.h, portrait);
@@ -149,7 +160,7 @@ for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
   if (dev.w < dev.h) {
     CHECKS.push({ name: `layout: the column fills the width — ${label}`, run: () => {
       const L = loadLayout(), g = geometry(L, dev);
-      const want = columnW(L, dev.w);
+      const want = columnW(L, dev);
       if (g.colW < want - 0.5) {
         throw new Error(`column is ${g.colW.toFixed(1)}px wide in a ${dev.w}px viewport ` +
           `(${g.gutter.toFixed(1)}px gutters, scale ${g.s.toFixed(4)})`);
@@ -203,11 +214,13 @@ for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
     }
   } });
 
-  // Scale must stay sane: never upscaled past the phone-column cap, and never
-  // shrunk so far that the world becomes a postage stamp in a wide gutter.
+  // Scale must stay sane: never upscaled past what the column asked for (a
+  // phone's own viewport — which a zoomed phone reports wider than
+  // PHONE_FILL_MAX — or the desktop column), and never shrunk so far that
+  // the world becomes a postage stamp in a wide gutter.
   CHECKS.push({ name: `layout: scale stays in range — ${label}`, run: () => {
     const L = loadLayout(), g = geometry(L, dev);
-    const cap = (dev.w < dev.h ? L.PHONE_FILL_MAX : L.PHONE_MAX) / 352;
+    const cap = (dev.w < dev.h ? columnW(L, dev) : L.PHONE_MAX) / 352;
     if (g.s > cap + 1e-9) throw new Error(`scale ${g.s} exceeds the column cap`);
     if (g.s < 0.8) throw new Error(`scale ${g.s} shrinks the world below 0.8`);
   } });

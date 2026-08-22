@@ -280,26 +280,28 @@ function enemyBounty(kind, depth) {
 const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
-// ── Day one is slime-free at home ────────────────────────────────────────
-// A slime sits on your crops and drains 3 energy a second, and day one is the
-// one day a player has nothing to answer it with: no weapon, no relic, an
-// empty bag and a ladder telling them to stand still and till. Meeting one in
-// the first hour is not a fight, it is the tutorial being interrupted — so for
-// the save's FIRST DAY the fauna spawner seats no slime anywhere near the
-// starting anchor. It is a spawn rule, not a cull: the same number of slimes
-// spawn per tile, they just land outside the home area (the count is preserved
-// by retrying the cell, see tryPlace), and the rest of the map is as it always
-// was — walk a couple of hundred metres and there they are.
+// ── Home is pest-free until the first harvest ────────────────────────────
+// A slime sits on your crops and drains 3 energy a second, a crow eats the
+// crop outright, and the opening session is the one stretch a player has
+// nothing to answer either with: no weapon, no relic, an empty bag and a
+// ladder telling them to stand still and till. Meeting a pest there is not a
+// fight, it is the tutorial being interrupted — so until the save's FIRST
+// CROP IS HARVESTED (save.hasHarvested, stamped at the harvest site in
+// interact.js) the fauna spawner seats no slime and no crow anywhere near the
+// starting anchor. It is a spawn rule, not a cull: the same number of each
+// spawn per tile, they just land outside the home area (the count is
+// preserved by retrying the cell, see tryPlace), and the rest of the map is
+// as it always was — walk a couple of hundred metres and there they are.
 //
 // Baked into the tile at build time, so a tile built during the grace period
-// keeps its clear home area until it is rebuilt: no slime pops into being at
-// the player's feet the moment the clock runs out.
-const FIRST_DAY_MS = 24 * 60 * 60 * 1000;
+// keeps its clear home area until it is rebuilt: no pest pops into being at
+// the player's feet the moment the first crop comes in.
+//
 // Chebyshev radius of the amnesty, in cells. The starter home's own ring
 // reaches 16 (HomeArea.RING_MAX_CELLS) and the relic chest sits at 11, so this
-// covers everything the first day asks a player to walk to, plus a few cells
-// so a slime isn't spawned right on the edge of it.
-const SLIME_FREE_CELLS = 20;
+// covers everything the opening asks a player to walk to, plus a few cells
+// so a pest isn't spawned right on the edge of it.
+const PEST_FREE_CELLS = 20;
 // How long a wounded enemy keeps its floating health ring after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
 // feedback for a hit would be the foe eventually vanishing — but a ring that
@@ -338,6 +340,14 @@ const DEBUG_SPEED_MUL = 10;
 // enough that the map still opens up by being walked rather than by spawning.
 const HOME_REVEAL_CELLS = 10;
 const TRAIL_REVEAL_CELLS = 5;
+// How close a road or path has to pass to the starting anchor for the supply
+// crates to be laid along its shoulder instead of spread down the walk to the
+// relic chest (see _placeStarterTrail). The objective chip literally says
+// "supply crates were left along the road nearby", so when there IS a road
+// nearby, the crates keep its word. 6 cells (~40 m) is "very near": the kerb
+// is in view from the doorstep, so the trail still starts with a crate the
+// player can see.
+const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
@@ -862,6 +872,16 @@ class MapScene extends Phaser.Scene {
     // independently on each level. Re-applied to a cave tile's grid on load.
     this.save.dugWalls = this.save.dugWalls || [];
     this.dugWallSet = new Set(this.save.dugWalls);
+    // Per-save relic salt, mixed into the starter chest's SLOT roll (see
+    // _placeStarterRelicChest). World generation is deliberately seedless —
+    // everything hashes off location so the world survives tile eviction —
+    // which meant the opening relic was a fact about your house: reset as
+    // often as you liked, the same spawn rolled the same tool forever. The
+    // salt is the one per-save die: rolled once when a save first boots,
+    // persisted, and wiped with the save, so a reset rerolls the relic while
+    // everything else stays location-stable. Math.random is right here —
+    // this IS the save's identity, not world state.
+    if (this.save.relicSalt == null) this.save.relicSalt = (Math.random() * 0x100000000) >>> 0;
     // All one-time save-shape migrations — slot/default backfills, the maxEnergy
     // re-derive, the history cap, and the data migrations (inv string→object,
     // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
@@ -2424,17 +2444,18 @@ class MapScene extends Phaser.Scene {
           iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
         })),
     };
-    // Day one holds no slimes at home (see FIRST_DAY_MS). Resolved once per
-    // tile build; null once the grace has lapsed, which is the common case.
-    const slimeFree = this._slimeFreeZone(tx, ty);
+    // Home holds no slimes or crows until the first harvest (see
+    // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
+    // lapsed, which is the common case.
+    const pestFree = this._pestFreeZone(tx, ty);
     const tryPlace = (kindWant, classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        // `continue`, not `return`: the slime is re-rolled onto another cell
-        // rather than dropped, so the amnesty moves slimes out of the starting
-        // area without thinning the tile's population.
-        if (kindStr === 'slime' && slimeFree && slimeFree.has(cx, cy)) continue;
+        // `continue`, not `return`: the pest is re-rolled onto another cell
+        // rather than dropped, so the amnesty moves slimes and crows out of
+        // the starting area without thinning the tile's population.
+        if ((kindStr === 'slime' || kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) continue;
         const t = entry.grid[cy * N + cx];
         if (classesOK.has(t)) {
           // Residential cells are private yards — only spawn near a public anchor.
@@ -2668,16 +2689,21 @@ class MapScene extends Phaser.Scene {
     return null;  // unresolved — frozen on home-capture reload or Home adoption
   }
 
-  // The first-day slime amnesty around home, in cells of the tile being built
-  // — or null when it has lapsed (or there is no anchor to measure from yet).
-  // See FIRST_DAY_MS / SLIME_FREE_CELLS. The centre is returned in TILE-LOCAL
-  // cells and is free to be negative or past the tile's edge: a tile a few
-  // hundred metres away simply never has a cell inside the box, which is what
-  // makes the amnesty work across tile seams without a special case.
-  _slimeFreeZone(tx, ty) {
+  // The pest (slime + crow) amnesty around home, in cells of the tile being
+  // built — or null when it has lapsed (or there is no anchor to measure from
+  // yet). See PEST_FREE_CELLS. The centre is returned in TILE-LOCAL cells and
+  // is free to be negative or past the tile's edge: a tile a few hundred
+  // metres away simply never has a cell inside the box, which is what makes
+  // the amnesty work across tile seams without a special case.
+  //
+  // It ends at the FIRST HARVEST, not on a clock: bringing in a crop is the
+  // ladder's proof the player has the loop (and the produce to fight with),
+  // where a timer just measured how long the tab sat closed. A veteran's save
+  // can never fall into the grace — SaveMigrate.stampHarvested marks any save
+  // that predates the flag and has been played as already harvested.
+  _pestFreeZone(tx, ty) {
     const sv = this.save;
-    if (!sv || !Number.isFinite(sv.startedAt)) return null;   // undated save: no grace
-    if (Date.now() - sv.startedAt >= FIRST_DAY_MS) return null;
+    if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again
     // The frozen trail anchor is where the player actually started; startWorldM
     // is the projection origin, which is the same thing until a save's home
     // capture puts them somewhere else (see _starterTrailAnchor).
@@ -2690,8 +2716,8 @@ class MapScene extends Phaser.Scene {
     // question of the same object — the containment rule can't be restated
     // (and mis-stated) at the call site.
     return {
-      cx, cy, r: SLIME_FREE_CELLS,
-      has: (ix, iy) => Math.max(Math.abs(ix - cx), Math.abs(iy - cy)) <= SLIME_FREE_CELLS,
+      cx, cy, r: PEST_FREE_CELLS,
+      has: (ix, iy) => Math.max(Math.abs(ix - cx), Math.abs(iy - cy)) <= PEST_FREE_CELLS,
     };
   }
 
@@ -2722,13 +2748,22 @@ class MapScene extends Phaser.Scene {
   // of the rarity picker. (No free scarecrow — it's sold at the forced
   // scarecrow shop, the next house out past the starter blacksmith.)
   //
-  // The crates are a TRAIL, and a trail leads somewhere: they are laid along
-  // the walked route from the anchor to the relic chest one screen out, evenly
-  // spaced, so each is in view from the one before and the last hands the
-  // player the chest. They used to seat along whichever road happened to be
-  // nearest — breadcrumbs along the kerb, pointing at nothing in particular,
-  // which is still the fallback for a spawn where no chest could be seated at
-  // all; a tight ring round the anchor is the last resort.
+  // The crates are a TRAIL, and where they lie depends on the ground:
+  //
+  //   1. A road or path passing VERY NEAR the anchor (within NEAR_ROAD_CELLS)
+  //      wins. The whole trail moves onto the kerb: the crates seat down the
+  //      road's shoulder walking outward — the chip says "supply crates were
+  //      left along the road nearby", and when there is a road nearby the
+  //      trail keeps its word — and the relic chest seats on the shoulder at
+  //      the END of that line, about a screen out, so the line of crates
+  //      still leads somewhere. The gold arrow walks the player crate to
+  //      crate and hands them the chest last either way.
+  //   2. Otherwise they are laid along the walked route from the anchor to
+  //      that chest, evenly spaced, so each is in view from the one before
+  //      and the last puts the chest in view.
+  //   3. A road too far away to prefer still catches the crates when no chest
+  //      could be seated at all (the kerb walk below); a tight ring round the
+  //      anchor is the last resort.
   //
   // Runs from spawnInTile when the tile holding the anchor rasterizes, and
   // from _setStarterCratesAt when the anchor resolves after the tile already
@@ -2861,34 +2896,115 @@ class MapScene extends Phaser.Scene {
     // one screen out (see _placeStarterRelicChest), which is precisely far
     // enough to be off the opening screen — so a player who is only told "look
     // around" never learns it is there. The crates are then laid along the
-    // walked route to it, evenly spaced: walk to the crate you can see, and
-    // from there the next one is in view, and the last one puts the chest in
-    // view. That is the whole onboarding read — a trail with something at the
-    // end of it, rather than four boxes scattered down whichever street
-    // happened to be nearest.
-    const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
-    const trailPath = trail && trail.path;
-    if (trailPath && trailPath.length > COUNT) {
-      // How much of the walk the crates occupy. They sit in the NEAR part of
-      // it rather than spread the whole way: a new player should meet all four
-      // early, while they are still learning what a crate even is, and then
-      // have a clear stretch of walking left to the chest at the end. Spread
-      // evenly over the whole route the last crate landed a step or two short
-      // of the chest, which made the supplies feel like something to hike for.
-      const TRAIL_SPAN = 0.55;
-      const TRAIL_GAP = 1;            // Chebyshev spacing between crates on the route
-      // A crate takes the route cell itself where it legally can, and steps one
-      // cell off it where it can't — the street, the trailer moat and occupied
-      // cells are all out, and dropping the crate over them would break the
-      // chain the player is following.
-      const seatOK = (cx, cy) => {
-        if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
-        const t = entry.grid[cy * N + cx];
-        if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
-        if (onRoadBand(cx, cy)) return false;
-        if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
-        return !inTrailerMoat(cx, cy);
+    // walk to it, evenly spaced: walk to the crate you can see, and from there
+    // the next one is in view, and the last one puts the chest in view. That
+    // is the whole onboarding read — a trail with something at the end of it,
+    // rather than four boxes scattered down whichever street happened to be
+    // nearest. On a kerb spawn (mode 1) the walk IS the road: the crates seat
+    // down its shoulder and the chest ends the line, on the kerb like them.
+    //
+    // How much of the walk the crates occupy. They sit in the NEAR part of
+    // it rather than spread the whole way: a new player should meet all four
+    // early, while they are still learning what a crate even is, and then
+    // have a clear stretch of walking left to the chest at the end. Spread
+    // evenly over the whole route the last crate landed a step or two short
+    // of the chest, which made the supplies feel like something to hike for.
+    const TRAIL_SPAN = 0.55;
+    const TRAIL_GAP = 1;            // Chebyshev spacing between crates on the route
+    // Where a crate (or the kerb chest) may stand — the street, the trailer
+    // moat and occupied cells are all out, and dropping one over them would
+    // break the chain the player is following.
+    const seatOK = (cx, cy) => {
+      if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
+      const t = entry.grid[cy * N + cx];
+      if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
+      if (onRoadBand(cx, cy)) return false;
+      if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
+      return !inTrailerMoat(cx, cy);
+    };
+    // A road or path within NEAR_ROAD_CELLS of the anchor takes the trail
+    // (mode 1 above). roadCell came back nearest-first from the BFS, so its
+    // distance IS the road's distance.
+    const roadNear = !!roadCell &&
+      Math.max(Math.abs(roadCell.cx - spawnIX), Math.abs(roadCell.cy - spawnIY)) <= NEAR_ROAD_CELLS;
+    // The kerb line: walk the road outward from the cell nearest the door
+    // until it is about a screen from the anchor, and note the shoulder there
+    // — that is where the chest goes, so the line of crates ends at it. BFS
+    // over connected road cells, so a bending or branching street is followed
+    // by its shape; the first cell reached a screen out picks the direction
+    // the road actually goes somewhere. A road that ends short still ends the
+    // line with the chest, as long as it at least clears the tidy pocket —
+    // shorter than that and there is no line worth ending (kerbPath stays
+    // null and the route spread below takes over).
+    let kerbPath = null, chestWant = null;
+    if (roadNear) {
+      const shoulderFor = (cx, cy) => {
+        for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+          if (seatOK(cx + adx, cy + ady)) return { cx: cx + adx, cy: cy + ady };
+        }
+        return null;
       };
+      const from = new Map([[roadCell.cx + ',' + roadCell.cy, null]]);
+      const rq = [[roadCell.cx, roadCell.cy]];
+      let target = null, far = null, farSh = null, farD = -1;
+      for (let head = 0; head < rq.length && head < 600 && !target; head++) {
+        const [cx, cy] = rq[head];
+        const d = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
+        const sh = shoulderFor(cx, cy);
+        if (sh && d > farD) { farD = d; far = [cx, cy]; farSh = sh; }
+        if (sh && d >= VIEW_CELLS) { target = [cx, cy]; chestWant = sh; break; }
+        for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + ddx, ny = cy + ddy;
+          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+          const k = nx + ',' + ny;
+          if (from.has(k)) continue;
+          if (!ROAD_TYPES.has(entry.grid[ny * N + nx])) continue;
+          from.set(k, [cx, cy]);
+          rq.push([nx, ny]);
+        }
+      }
+      if (!target && far &&
+          farD >= (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 10)) {
+        target = far; chestWant = farSh;
+      }
+      if (target) {
+        kerbPath = [];
+        for (let at = target; at; at = from.get(at[0] + ',' + at[1])) {
+          kerbPath.push({ cx: at[0], cy: at[1] });
+        }
+        kerbPath.reverse();          // nearest the door first, the chest end last
+      }
+    }
+    const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
+    const trailPath = trail && trail.path;
+    if (kerbPath && kerbPath.length > 1) {
+      // Mode 1: crates down the kerb. Same packing as the route spread — the
+      // near TRAIL_SPAN of the walk, distance measured ALONG the road — but
+      // every seat is a shoulder cell: beside the street, never in it.
+      const L = kerbPath.length - 1;
+      let lastSeat = null;
+      for (let i = 0; i < COUNT; i++) {
+        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
+        let seat = null;
+        for (let off = 0; off <= 3 && !seat; off++) {
+          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
+            const p = kerbPath[at];
+            if (!p) continue;
+            for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+              const cx = p.cx + adx, cy = p.cy + ady;
+              if (!seatOK(cx, cy)) continue;
+              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
+                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
+              seat = { cx, cy }; break;
+            }
+            if (seat) break;
+          }
+        }
+        if (!seat) continue;
+        seatCrate(seat.cx, seat.cy, i);
+        lastSeat = seat;
+      }
+    } else if (trailPath && trailPath.length > COUNT) {
       const L = trailPath.length - 1;         // steps from the anchor to the chest
       let lastSeat = null;
       for (let i = 0; i < COUNT; i++) {
@@ -2897,7 +3013,8 @@ class MapScene extends Phaser.Scene {
         // the chest at 11, and no leg is long enough to lose the thread.
         // Distance is measured ALONG the route, not across it: a route that
         // bends round a pond still spaces its crates by how far the player
-        // actually walks.
+        // actually walks. A crate takes the route cell itself where it
+        // legally can, and steps one cell off it where it can't.
         const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
         let seat = null;
         for (let off = 0; off <= 3 && !seat; off++) {
@@ -2919,13 +3036,13 @@ class MapScene extends Phaser.Scene {
         lastSeat = seat;
       }
     }
-    // Fallback: no chest to lead to (a spawn with no legal ground anywhere in
-    // the band — mid-river, or walled in by buildings), so there is no route to
-    // lay crates along. Fall back to the kerb walk this trail used to be: seat
-    // them on the shoulders of the nearest road, which at least reads as
-    // breadcrumbs even though it leads nowhere in particular. Only when NOTHING
-    // was seated above — a half-laid trail is topped up by the ring below
-    // instead, which never double-seats a loot index.
+    // Undirected kerb walk — the last road-shaped resort: neither the kerb
+    // line nor the route spread seated anything (no chest could go down, or
+    // every shoulder along the line was blocked), so seat the crates on the
+    // shoulders of the nearest road nearest-first, which at least reads as
+    // breadcrumbs even though it leads nowhere in particular. Only when
+    // NOTHING was seated above — a half-laid trail is topped up by the ring
+    // below instead, which never double-seats a loot index.
     if (roadCell && placedIdx.size === 0) {
       // BFS-collect connected road cells from the nearest road cell, in
       // nearest-first order, then seat crates on walkable, non-road
@@ -2957,7 +3074,10 @@ class MapScene extends Phaser.Scene {
           const tt = entry.grid[ny * N + nx];
           if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
           if (onRoadBand(nx, ny)) continue;
-          if (usedSeats.has(nx + ',' + ny)) continue;
+          // occupied too: the pocket keeps the player's real street trees
+          // (see the CLEAR_R exception), and a crate seated on one reads as
+          // a bug whichever the renderer draws second.
+          if (usedSeats.has(nx + ',' + ny) || occupied.has(nx + ',' + ny)) continue;
           if (inTrailerMoat(nx, ny)) continue;
           // Enforce a minimum gap from the previous crate so the trail
           // spreads out instead of clustering on adjacent road cells.
@@ -3080,7 +3200,7 @@ class MapScene extends Phaser.Scene {
   // watching the world re-roll itself. The id is keyed off the tile (not the
   // cell) for the same reason save.opened keys off it: an opened chest must
   // stay opened even if a future rebuild ever seats it one cell over.
-  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
     const grid = entry.grid;
     if (!grid || typeof WorldGen === 'undefined') return null;
     const N = entry.cellsPerEdge;
@@ -3140,13 +3260,32 @@ class MapScene extends Phaser.Scene {
     const free = (cx, cy) => !taken.has(cellKey(cx, cy)) &&
       cameFrom.has(cellKey(cx, cy)) &&
       WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
-    const rng = WorldGen.makeRng(
-      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0);
-    const slot = STARTER_RELIC_SLOTS[Math.floor(rng() * STARTER_RELIC_SLOTS.length)];
+    const seed =
+      ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0;
+    const rng = WorldGen.makeRng(seed);
+    // The SLOT rolls off its own stream with the per-save salt mixed in, so a
+    // save RESET rerolls which relic the chest holds. The SEAT stream (rng)
+    // stays purely location-keyed: the chest sits where it always sat, the
+    // trail geometry doesn't move, and a tile rebuild mid-save reproduces
+    // both — the salt lives in the save, so it is exactly as stable as the
+    // loot needs to be and no more. Salt 0 (test stubs, pre-salt saves at
+    // the moment of upgrade) degrades to the old purely-location roll.
+    const slotRng = WorldGen.makeRng((seed ^ (this.save?.relicSalt || 0)) >>> 0);
+    const slot = STARTER_RELIC_SLOTS[Math.floor(slotRng() * STARTER_RELIC_SLOTS.length)];
+    // The slot used to be drawn off `rng`; burn that draw so every chest laid
+    // by the old code keeps its seat under the new one.
+    rng();
+    // A caller may nominate the seat — the kerb trail (mode 1 in
+    // _placeStarterTrail) wants the chest at the end of the crate line, on
+    // the road's shoulder. Honoured only if it passes the same legality the
+    // ring scan enforces (walkable from the anchor, the shared spawn rule,
+    // unclaimed), so a bad hint falls back to the ring below rather than
+    // seating the chest across a river or in the street.
+    let seat = null;
+    if (seatWant && free(seatWant.cx, seatWant.cy)) seat = { cx: seatWant.cx, cy: seatWant.cy };
     // Nearest ring first; within a ring, a seeded pick so the chest isn't
     // always due east of every spawn in the game. Ring cells are collected in
     // a fixed scan order, so the pick is reproducible.
-    let seat = null;
     for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
       const ring = [];
       for (let dy = -r; dy <= r; dy++) {
@@ -3310,11 +3449,22 @@ class MapScene extends Phaser.Scene {
   // tile can't drift — the record IS the object, minus its position basis.
   _starterHomeObject(rec) {
     const base = { x: rec.x, y: rec.y, id: rec.id, _synthetic: true };
+    // A record may carry a rarity rolled at seat time (see the seatAt roll in
+    // _provisionStarterHome): a rock's deposit tier, or a tree grown a size
+    // up. The frozen record is the truth — legacy records carry neither and
+    // rebuild as the plain starter shape.
     if (rec.k === 'tree') {
-      return { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+      const o = { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+      if (rec.size) o.size = rec.size;
+      return o;
     }
     if (rec.k === 'rock') {
-      return { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+      const o = { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+      if (rec.yieldTier > 1) {
+        o.yieldTier = rec.yieldTier;
+        o.requiredTier = rec.requiredTier || Math.max(1, rec.yieldTier - 1);
+      }
+      return o;
     }
     // A cave entrance on the surface. Same shape maybePlaceCaveEntrance emits,
     // so it descends through the ordinary staircase path and loadCaveTile
@@ -3582,7 +3732,11 @@ class MapScene extends Phaser.Scene {
     // candidate is quadratic, and at a quota of 50 each that alone cost most
     // of a second on the tile that builds under the player.
     const crowded = new Set();
-    const seatAt = (kind, cells, bearing) => {
+    // `plain` pins the seat to the guaranteed beginner tier (the token pair —
+    // the pocket's teaching examples must be workable bare-handed). Everything
+    // else rolls rarity like a real deposit below, so the ring holds the
+    // occasional better rock or bigger tree instead of fifty identical props.
+    const seatAt = (kind, cells, bearing, plain) => {
       let best = null, bestScore = Infinity;
       for (const c of cells) {
         if (c.used) continue;
@@ -3609,6 +3763,31 @@ class MapScene extends Phaser.Scene {
       if (kind === 'wreck') {
         rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
       }
+      // Rarity roll for the ring fill — the SAME roll a real deposit gets, so
+      // the provisioned home holds the occasional better find. Seeded off the
+      // cell (never Math.random) and FROZEN into the record, so a rebuild
+      // reproduces the same rock at the same tier — the world must not re-roll
+      // itself. Legacy records carry no tier and fall back to the plain
+      // starter shape in _starterHomeObject.
+      if (!plain && (kind === 'rock' || kind === 'tree')) {
+        const rollRng = WorldGen.makeRng(
+          ((abs.cellIX * 73856093) ^ (abs.cellIY * 19349663)) >>> 0);
+        if (kind === 'rock') {
+          // Exactly a residential surface deposit's odds (~90% plain, then
+          // the ore-subset weights — WorldGen.rollSurfaceRockTier).
+          const t = WorldGen.rollSurfaceRockTier(rollRng);
+          if (t.yieldTier > 1) { rec.yieldTier = t.yieldTier; rec.requiredTier = t.requiredTier; }
+        } else {
+          // Trees have no tier table, so they borrow the deposits' rarity
+          // SHAPE: the same ~10% that would have rolled ore instead grows a
+          // size up — mostly medium (Wood-axe pine, 2× wood), rarely large
+          // (Copper axe, 4×). Species stays the home softwood, so the find is
+          // a bigger payday, not a wall.
+          const r = rollRng();
+          const plainP = WorldGen.SURFACE_PLAIN_ROCK_P ?? 0.90;
+          if (r >= plainP) rec.size = (r >= 1 - (1 - plainP) * 0.3) ? 'large' : 'medium';
+        }
+      }
       taken.add(key(best.cx, best.cy));
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) crowded.add(key(best.cx + dx, best.cy + dy));
@@ -3631,21 +3810,23 @@ class MapScene extends Phaser.Scene {
     // seat nothing at all, leaving no wreck to rebuild and the ladder
     // unfinishable. Built lazily — the wide band is only paid for if needed.
     let wideCells = null;
-    const seatOrWiden = (kind, cells, bearing) => {
-      if (seatAt(kind, cells, bearing)) return true;
+    const seatOrWiden = (kind, cells, bearing, plain) => {
+      if (seatAt(kind, cells, bearing, plain)) return true;
       if (!wideCells) wideCells = bandCells(R0, HomeArea.RING_MAX_ESCALATED_CELLS);
-      return seatAt(kind, wideCells, bearing);
+      return seatAt(kind, wideCells, bearing, plain);
     };
     const pocketCells = bandCells(TOKEN0, POCKET);
     // Opposite sides of the doorway, so one doesn't hide behind the other.
+    // Seated PLAIN (no rarity roll): these are the examples the first two
+    // lessons are performed on, so they must stay bare-hands workable.
     let tokensWanted = 0, tokensSeated = 0;
     if (plan.tokens.tree) {
       tokensWanted++;
-      if (seatOrWiden('tree', pocketCells, 0)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
+      if (seatOrWiden('tree', pocketCells, 0, true)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
     }
     if (plan.tokens.rock) {
       tokensWanted++;
-      if (seatOrWiden('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
+      if (seatOrWiden('rock', pocketCells, Math.PI, true)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
     }
     const ringCells = bandCells(R0, R1);
     // The way down, seated in the RING and seated FIRST. It's a landmark, not
@@ -4955,9 +5136,14 @@ class MapScene extends Phaser.Scene {
     // the last. Now the pump only backfills an emptied field, and slowly, so
     // defeating the crows near your field actually buys a quiet window.
     this._lastPestT = this._lastPestT || 0;
-    // Only crops crows actually eat (not potato) justify spawning a pest.
+    // Only crops crows actually eat (not potato) justify spawning a pest —
+    // and none at all until the player's FIRST crop is in (save.hasHarvested,
+    // the same grace the tile spawner's pest-free home zone reads). Before
+    // that, the only crops in the world are the tutorial's; a zone check on
+    // the spawn point would be theatre, because the pump spawns the crow just
+    // off-screen and it flies straight to the nearest crop anyway.
     const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-    if (hasCrowCrop && now - this._lastPestT > 90000) {
+    if (hasCrowCrop && this.save.hasHarvested && now - this._lastPestT > 90000) {
       this._lastPestT = now;
       // Count nearby wild (non-released, not-yet-caught) crows.
       let wildCrows = 0;

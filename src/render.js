@@ -2616,7 +2616,9 @@ Render.drawObjects = function drawObjects(scene) {
   // from its id — in lockstep a whole street would throb as one, which reads
   // as a bug rather than as ambience.
   const haloT = performance.now() / 1000;
-  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestOpened(o));
+  // Loose supply crates (o.crate, no poiClass) are excluded for the same
+  // reason they get no pad: a transient pickup is not a place.
+  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate && !_chestOpened(o));
   Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -3535,7 +3537,7 @@ Render.drawObjects = function drawObjects(scene) {
     // shinies shimmers out of step rather than blinking in unison.
     let h = 0; const id = item.id;
     for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-    const phase = ((_sparkNow + (h % 1300)) % 1300) / 1300;        // 0..1
+    const phase = ((_sparkNow + (h % 2600)) % 2600) / 2600;        // 0..1
     const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
     const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
     const scl = 0.5 + 0.30 * wave;                                 // ~16..~26px from 32px tex
