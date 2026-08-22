@@ -1928,6 +1928,15 @@
     }
     window.addEventListener('error', (e) => {
       const err = e.error;
+      // A fully MASKED error — no Error object, no source file, and the
+      // browser's substitute message — is a script this page is not allowed
+      // to see into. Every error in our own same-origin code arrives with
+      // the real message, the throwing file, and a stack; the masked shape
+      // is a cross-origin script throwing in our window, which in practice
+      // is a Safari/iOS content blocker or extension injection. There is
+      // nothing in it to read, copy, or fix, so it does not get the red
+      // overlay. Anything carrying even one identifying field still does.
+      if (!err && !e.filename && /^Script error\.?$/.test(e.message || '')) return;
       const msg = (err && err.message) || e.message || 'script error';
       const stack = (err && err.stack)
         || (e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : '');
