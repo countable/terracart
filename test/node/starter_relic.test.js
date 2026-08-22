@@ -344,6 +344,58 @@
     }
   });
 
+  test('starter trail: a road very near home takes the crates onto its shoulder', () => {
+    // A street 3 cells from the doorstep — inside NEAR_ROAD_CELLS. The chip
+    // says "supply crates were left along the road nearby", so when there
+    // really is a road nearby the crates keep its word: every one seats on
+    // the kerb (beside the road, never on it) instead of spreading down the
+    // walk to the chest. The chest still goes down as the destination.
+    const entry = srEntry();
+    const ROAD_X = SPAWN + 3;
+    for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
+    const { crates, chest } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    assert.truthy(chest, 'the relic chest is still the destination');
+    for (const c of crates) {
+      const cell = srCell(c);
+      assert.falsy(entry.grid[cell.cy * N + cell.cx] === T.ROAD,
+        `${c.id} is beside the road, not in the street`);
+      const onShoulder = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.ROAD);
+      assert.truthy(onShoulder, `${c.id} sits on the road's shoulder`);
+    }
+  });
+
+  test('starter trail: a footpath very near home counts too', () => {
+    // "A road or path" — a park trail past the door takes the crates the same
+    // way a street does.
+    const entry = srEntry();
+    const PATH_Y = SPAWN - 2;
+    for (let cx = 0; cx < N; cx++) entry.grid[PATH_Y * N + cx] = T.PATH;
+    const { crates } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    for (const c of crates) {
+      const cell = srCell(c);
+      const onShoulder = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+        entry.grid[(cell.cy + dy) * N + (cell.cx + dx)] === T.PATH);
+      assert.truthy(onShoulder, `${c.id} sits along the path`);
+    }
+  });
+
+  test('starter trail: a road further out does not pull the crates off the walk', () => {
+    // The same street past NEAR_ROAD_CELLS (but inside the 15-cell road BFS):
+    // no preference — the crates spread down the walked route to the chest as
+    // ever, which the kerb walk out there could not produce (its nearest
+    // shoulder is further out than the whole near span of the route).
+    const entry = srEntry();
+    const ROAD_X = SPAWN + NEAR_ROAD_CELLS + 4;
+    for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
+    const { crates } = srTrail(entry);
+    assert.eq(crates.length, 4, 'all four crates seated');
+    const out = crates.map(c => srCheb(srCell(c), { cx: SPAWN, cy: SPAWN }));
+    assert.falsy(out[0] > 3, `the first crate is still right by home (${out[0]} cells out)`);
+  });
+
   test('starter trail: it bends around water instead of walking into it', () => {
     // A pond straddling the straight line out: the route has to go round it,
     // and every crate on that route has to stay on dry land.
