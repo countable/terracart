@@ -475,6 +475,53 @@
       }
     }
   }
+  // A path cell shows its cobble only once this much path lies inside it,
+  // measured in cell widths. 1 = the way must cross the whole cell.
+  const PATH_CROSS_MIN_CELLS = 1;
+
+  // How much of a way actually lies inside each cell, in CELL WIDTHS.
+  //
+  // forEachLineCell above is a Bresenham walk: it answers "does this way touch
+  // this cell", which is all the paint and the spawn mask need. It cannot
+  // answer "how much of the cell does it cross", because it carries no length.
+  // The path cobbles need that: a stone should mark a footpath that runs
+  // THROUGH a cell, not one that clips its corner or stops just inside it.
+  //
+  // Exact grid traversal (Amanatides & Woo): step from one cell boundary to the
+  // next and add the length of each piece to the cell it fell in. No sampling,
+  // so a straight orthogonal crossing measures exactly 1.0 and a corner clip
+  // measures what it really is.
+  function accumulateLineSpan(span, w, h, line, mvtToCell) {
+    for (let i = 1; i < line.length; i++) {
+      const x0 = line[i - 1].x * mvtToCell, y0 = line[i - 1].y * mvtToCell;
+      const x1 = line[i].x * mvtToCell,     y1 = line[i].y * mvtToCell;
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.hypot(dx, dy);
+      if (!(len > 0)) continue;
+      let ix = Math.floor(x0), iy = Math.floor(y0);
+      const ex = Math.floor(x1), ey = Math.floor(y1);
+      const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1;
+      const tDeltaX = dx !== 0 ? 1 / Math.abs(dx) : Infinity;
+      const tDeltaY = dy !== 0 ? 1 / Math.abs(dy) : Infinity;
+      let tMaxX = dx !== 0 ? ((dx > 0 ? (ix + 1 - x0) : (x0 - ix)) / Math.abs(dx)) : Infinity;
+      let tMaxY = dy !== 0 ? ((dy > 0 ? (iy + 1 - y0) : (y0 - iy)) / Math.abs(dy)) : Infinity;
+      let t = 0;
+      // Bounded: a segment can only cross so many cells, and the +2 covers the
+      // final partial cell plus any float wobble right on a boundary.
+      const guard = Math.abs(ex - ix) + Math.abs(ey - iy) + 2;
+      for (let n = 0; n <= guard; n++) {
+        const tNext = Math.min(tMaxX, tMaxY, 1);
+        if (ix >= 0 && iy >= 0 && ix < w && iy < h) {
+          span[iy * w + ix] += (tNext - t) * len;
+        }
+        if (tNext >= 1) break;
+        t = tNext;
+        if (tMaxX < tMaxY) { ix += stepX; tMaxX += tDeltaX; }
+        else               { iy += stepY; tMaxY += tDeltaY; }
+      }
+    }
+  }
+
   // Flag every cell a way's drawn band covers in a 0/1 mask. Same traversal as
   // paintLine, but it writes no terrain — a masked cell keeps its biome (and
   // stays walkable); it is only barred from hosting a spawn. See roadMask.
@@ -1137,6 +1184,9 @@
     // the question. This mask IS the question. It changes no terrain — masked
     // cells keep their biome and stay walkable — it only bars spawns.
     const roadMask = new Uint8Array(w * h);
+    // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
+    // Reduced to the pathCross mask below once every way has been walked.
+    const pathSpan = new Float32Array(w * h);
     const mvtToCell = cellsPerEdge / TILE_EXTENT;
     const mvtToM = tileEdgeM / TILE_EXTENT;
     // Metres per cell in THIS tile's basis. Not CELL_M: cellsPerEdge is a
@@ -1626,6 +1676,11 @@
           {
             const maskCells = Math.max(1, Math.round(roadOverlayWidthM(f.tags) / cellWidthM));
             for (const line of f.geom) stampMaskLine(roadMask, w, h, line, maskCells, mvtToCell);
+            // Footpaths also record how far they run through each cell, which
+            // is what decides whether the cell earns a cobble (see pathCross).
+            if (t === T.PATH) {
+              for (const line of f.geom) accumulateLineSpan(pathSpan, w, h, line, mvtToCell);
+            }
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,
@@ -2490,7 +2545,19 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
+    // Reduce the accumulated path lengths to the mask the renderer reads: a
+    // cell earns a cobble only where a footpath runs THROUGH it — at least one
+    // full cell width of path inside the cell. A corner clip, or a way that
+    // ends just inside, falls short and stays bare. Note this is the SUM over
+    // every path way in the cell, so a junction where two paths each cut a
+    // corner can still qualify — which is what you want at a crossroads.
+    // The epsilon keeps a perfectly straight orthogonal crossing (exactly 1.0
+    // in theory) from being rejected by float wobble.
+    const pathCross = new Uint8Array(w * h);
+    for (let i = 0; i < pathCross.length; i++) {
+      if (pathSpan[i] >= PATH_CROSS_MIN_CELLS - 1e-3) pathCross[i] = 1;
+    }
+    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, pathCross };
   }
 
   function tileEdgeMeters(lat) {
@@ -3822,6 +3889,9 @@
     // (and so the mix is tunable from one place).
     buildingTier, enforceBuildingDistribution,
     TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
+    // Path-cobble geometry — exported so the headless tests can pin that a way
+    // crossing a cell measures a full cell width while a corner clip doesn't.
+    accumulateLineSpan, PATH_CROSS_MIN_CELLS,
     // Cross-tile spawn dedup — exported so the headless tests can pin that a
     // tile being rebuilt in place is excluded from its own dedup index (the
     // bug that stripped every house sprite off rebuilt tiles).
