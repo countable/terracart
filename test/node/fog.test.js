@@ -182,3 +182,70 @@ test('fog: a reloaded save does not re-code every tile on its first flush', () =
   assert.eq(after.fog.tiles['0/0'] === before, true,
     'the blob read at load is handed straight back, not re-encoded');
 });
+
+// ── The onboarding trail ──────────────────────────────────────────────────
+// Shipping fog of war hid the starter crates. The trail is a SIGHTLINE CHAIN
+// — walk to the crate you can see, and the next one is in view, and the last
+// puts the relic chest in view — and _placeStarterTrail seats it on the
+// nearest road, BFS'ing up to 15 cells from the player's home anchor. The
+// walk's own reveal is 3 cells, so on a brand-new save every crate sat under
+// the 80% wash and the quest pointed at a road nobody could see.
+//
+// app.js._revealStarterTrail lifts the fog off it at seating time. These pin
+// the geometry so a later retune of either number can't quietly re-hide it.
+
+test('fog: the home reveal covers the tutorial pocket', () => {
+  // _placeStarterTrail strips and curates a CLEAR_R (10-cell Chebyshev) pocket
+  // around the anchor. That is the ground the player starts standing on and is
+  // explicitly not discovering, so the reveal has to cover all of it.
+  assert.eq(HOME_REVEAL_CELLS >= 10, true,
+    'the home reveal must cover the 10-cell pocket the seater clears');
+});
+
+test('fog: the home reveal reaches past the opening screen', () => {
+  // If home reveals less than the viewport half-width, the player spawns
+  // looking at a ring of fog around their own house.
+  assert.gt(HOME_REVEAL_CELLS, (VIEW_CELLS - 1) / 2,
+    'the opening screen should not be rimmed with fog around the spawn');
+});
+
+test('fog: a crate anywhere the seater can reach comes out unfogged', () => {
+  // The BFS bound is 15 cells CHEBYSHEV from the anchor, so the furthest a
+  // crate can land is the corner of that square. Reveal a home disc and a
+  // trail disc at that corner, exactly as _revealStarterTrail does, and the
+  // crate's own cell plus its immediate surroundings must read as explored.
+  fresh();
+  // Kept inside tile 0/0 so seen()'s LOCAL cell indices are the absolute ones.
+  const HOME = 20;
+  Fog.revealDisc(HOME, HOME, HOME_REVEAL_CELLS);
+  const far = HOME + 15;                       // the far corner of the BFS square
+  Fog.revealDisc(far, far, TRAIL_REVEAL_CELLS);
+  assert.eq(Fog.seen(0, 0, far, far), true, 'the crate cell itself');
+  assert.eq(Fog.seen(0, 0, far + 1, far), true, 'and the ground beside it');
+  assert.eq(Fog.seen(0, 0, HOME, HOME), true, 'home is still revealed too');
+});
+
+test('fog: the trail reveal is a margin, not a map', () => {
+  // The counterpart bound. Revealing the trail must not hand over the whole
+  // neighbourhood — walking the crates is what opens the map up.
+  assert.lt(TRAIL_REVEAL_CELLS, VIEW_CELLS,
+    'a trail disc wider than the screen reveals map the player has not earned');
+  fresh();
+  Fog.revealDisc(20, 20, TRAIL_REVEAL_CELLS);
+  assert.eq(Fog.seen(0, 0, 20 + TRAIL_REVEAL_CELLS + 1, 20), false,
+    'ground past the margin stays fogged');
+});
+
+test('fog: revealDisc is the same primitive the walk uses', () => {
+  // reveal() is just revealDisc at REVEAL_CELLS plus the changed-cell debounce.
+  // If they ever diverge, the trail and the walk would disagree about what
+  // "revealed" means.
+  const a = fresh();
+  Fog.reveal(50, 50);
+  Fog.flush(a);
+  const b = fresh();
+  Fog.revealDisc(50, 50, Fog.REVEAL_CELLS);
+  Fog.flush(b);
+  assert.eq(a.fog.tiles['0/0'], b.fog.tiles['0/0'],
+    'a walk step and an explicit disc of the same radius reveal the same cells');
+});

@@ -1065,6 +1065,20 @@ FOG OF WAR
    that already resolves the terrain types, off the same cached tile run (~4
    mask lookups a frame, not 225), and each row's fogged cells are merged into
    horizontal runs, so a rebuild is typically under 13 fillRects.
+ - The ONBOARDING TRAIL is revealed when it is laid (_revealStarterTrail), and
+   this is not optional. The starter trail is a SIGHTLINE CHAIN — walk to the
+   crate you can see, and from there the next is in view, and the last puts the
+   relic chest in view — and _placeStarterTrail seats it on the nearest road,
+   BFS'ing up to 15 cells from the home anchor. The walk reveals 3. Shipping
+   fog without this left every starter crate under the 80% wash on a fresh
+   save, with the quest pointing at a road nobody could see. HOME_REVEAL_CELLS
+   (10) covers the tutorial pocket the seater clears — the player's own block,
+   which they are not discovering — and TRAIL_REVEAL_CELLS (5) rings each crate
+   and the relic chest, found by the same `chest_start_` id stamp the gold
+   onboarding arrow keys off. Deliberately NOT one blanket radius around the
+   anchor: that would reveal map in every direction, including the way the
+   trail does not go. starter_relic.test.js drives the real fog lift against
+   the real seater, so moving either can't re-hide the trail.
  - Fog DEFERS to the UNMAPPED VEIL. A cell whose map tile hasn't arrived is
    already drawn as the animated survey-line fog that means "loading"; stacking
    the 80% wash on that would smother the one thing it exists to show. A fully

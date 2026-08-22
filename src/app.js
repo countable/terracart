@@ -245,6 +245,18 @@ const DEBUG_SPEED_MUL = 10;
 // cheap (you're pottering around the spot you're actually standing on) and the
 // character reads normally; outside it the walk costs full price and the
 // character darkens the further out they get.
+// Fog of war: how much of the starting neighbourhood is known ground before
+// the player has walked a step. See _revealStarterTrail — the onboarding trail
+// is a sightline chain (walk to the crate you can see, and the next is in
+// view), and the walk's own 3-cell reveal cannot carry that on a fresh save.
+//
+// HOME is the tutorial pocket _placeStarterTrail clears and curates (CLEAR_R,
+// 10 cells): the player's own block, which they are not discovering. TRAIL is
+// the margin around each crate and the relic chest, wide enough that a crate
+// reads as sitting on ground rather than punched out of the dark, and narrow
+// enough that the map still opens up by being walked rather than by spawning.
+const HOME_REVEAL_CELLS = 10;
+const TRAIL_REVEAL_CELLS = 5;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
@@ -2676,6 +2688,47 @@ class MapScene extends Phaser.Scene {
     // rest of the ladder needs to have something to act on.
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+    this._revealStarterTrail(entry, tx, ty, spawnIX, spawnIY);
+  }
+
+  // Lift the fog off the onboarding trail the moment it is laid.
+  //
+  // The trail is a SIGHTLINE CHAIN, and that is the whole of its design: walk
+  // to the crate you can see, and from there the next one is in view, and the
+  // last one puts the relic chest in view. Fog of war reveals 3 cells around
+  // the player and the trail reaches up to 15 from the anchor, so shipping the
+  // two together left every crate under an 80% black wash on a brand-new save
+  // — the quest said "supply crates were left along the road nearby" and the
+  // road was invisible. A chain of landmarks nobody can see is not a chain.
+  //
+  // So the pocket the player starts in is known ground: their own block, plus
+  // a disc around each thing the trail seated. Deliberately NOT a blanket
+  // radius around the anchor — that would reveal map in every direction,
+  // including the way the trail does not go. Following the crates is what
+  // opens the map up; this only makes the crates themselves findable.
+  _revealStarterTrail(entry, tx, ty, spawnIX, spawnIY) {
+    if (typeof Fog === 'undefined' || this.depth !== 0) return;
+    const N = entry.cellsPerEdge;
+    const abs = (cx, cy) => ({ ix: tx * N + cx, iy: ty * N + cy });
+    // Home: the tutorial pocket _placeStarterTrail has just cleared and
+    // curated. The player lives here; they are not discovering it.
+    const home = abs(spawnIX, spawnIY);
+    let changed = Fog.revealDisc(home.ix, home.iy, HOME_REVEAL_CELLS);
+    // ...and each crate / the relic chest, with enough margin that the crate
+    // reads as sitting on ground rather than punched out of the dark. Found by
+    // id rather than threaded through the seater: `chest_start_` is already the
+    // stamp the onboarding arrow (_nearestStarterCrate) keys off, so the two
+    // can't disagree about what the trail consists of.
+    for (const o of (entry.objects || [])) {
+      if (!o.id || !String(o.id).startsWith('chest_start_')) continue;
+      const cx = Math.floor((o.x - tx * this.tileEdgeM) / this.cellM);
+      const cy = Math.floor((o.y - ty * this.tileEdgeM) / this.cellM);
+      const a = abs(cx, cy);
+      if (Fog.revealDisc(a.ix, a.iy, TRAIL_REVEAL_CELLS)) changed = true;
+    }
+    if (!changed) return;
+    Fog.flush(this.save);
+    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // A treasure chest one screen out from the spawn anchor, holding one random
