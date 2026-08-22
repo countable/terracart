@@ -187,9 +187,9 @@ test('road overlay: a residential street is stroked at its real 5 m width', () =
 test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
   // The large tier carries a ×1.5 emphasis on top of its measured width (see
   // the next test); the mid classes are drawn at their true width.
-  assert.eq(widthOfWay({ class: 'motorway' }),  px(12) * 1.5, 'motorway');
-  assert.eq(widthOfWay({ class: 'trunk' }),     px(12) * 1.5, 'trunk');
-  assert.eq(widthOfWay({ class: 'primary' }),   px(10) * 1.5, 'primary');
+  assert.eq(widthOfWay({ class: 'motorway' }),  px(12 * 1.5), 'motorway');
+  assert.eq(widthOfWay({ class: 'trunk' }),     px(12 * 1.5), 'trunk');
+  assert.eq(widthOfWay({ class: 'primary' }),   px(10 * 1.5), 'primary');
   assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
   assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
   // A motorway is wider than a game cell — it spills past the single-cell band
@@ -200,7 +200,7 @@ test('road overlay: bigger classes are drawn wider, in real-world proportion', (
 test('road overlay: the large tier is stroked 50% wider than its measured width', () => {
   // Exactly worldgen's ROAD_LG classes get the emphasis — nothing below them.
   for (const cls of ['motorway', 'trunk', 'primary'])
-    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })) * 1.5, cls);
+    assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls }) * 1.5), cls);
   for (const cls of ['secondary', 'tertiary', 'street', 'service', 'pedestrian',
                      'track', 'cycleway', 'footway', 'pier'])
     assert.eq(widthOfWay({ class: cls }), px(WorldGen.roadWidthM({ class: cls })), cls);
@@ -218,14 +218,18 @@ test('road overlay: footways and cycleways are person-wide, not road-wide', () =
 });
 
 test('road overlay: widths come from the rasterizer\'s own table', () => {
-  // One source of truth — the overlay must not drift from WorldGen.roadWidthM.
-  // Large classes carry the fixed ×1.5 emphasis over that shared width; every
-  // other class is drawn at exactly what the table says.
+  // One source of truth — WorldGen.roadOverlayWidthM, which is the measured
+  // width from roadWidthM with the large tier's emphasis folded in. The
+  // overlay strokes with it AND worldgen stamps its no-spawn road mask with
+  // it, so the band drawn as road and the ground barred from spawning are the
+  // same ground. Drift here would put rocks back in the traffic.
   const LARGE = new Set(['motorway', 'trunk', 'primary']);
   for (const cls of ['motorway', 'primary', 'secondary', 'tertiary', 'street',
                      'service', 'pedestrian', 'track', 'cycleway', 'footway', 'pier']) {
-    const want = px(WorldGen.roadWidthM({ class: cls })) * (LARGE.has(cls) ? 1.5 : 1);
-    assert.eq(widthOfWay({ class: cls }), want, cls);
+    const cover = WorldGen.roadOverlayWidthM({ class: cls });
+    assert.eq(cover, WorldGen.roadWidthM({ class: cls }) * (LARGE.has(cls) ? 1.5 : 1),
+      `${cls}: covered width derives from the measured one`);
+    assert.eq(widthOfWay({ class: cls }), px(cover), cls);
   }
 });
 
