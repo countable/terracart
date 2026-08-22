@@ -6,7 +6,8 @@
 // Exports as globals:
 //   Fog.REVEAL_CELLS      — reveal radius, in cells, around the player
 //   Fog.init(save, w)     — load the persisted masks; w = cellsPerTile
-//   Fog.reveal(ix, iy)    — reveal around an ABSOLUTE cell; returns true if anything changed
+//   Fog.reveal(ix, iy)    — reveal around the PLAYER's cell; true if anything changed
+//   Fog.revealDisc(ix, iy, r) — reveal an arbitrary disc (the onboarding trail)
 //   Fog.seen(tx, ty, ix, iy) — is that cell revealed?
 //   Fog.maskFor(tx, ty)   — the tile's raw bitset (or null), for hot per-cell reads
 //   Fog.bit(mask, i)      — read bit i of a mask
@@ -152,14 +153,12 @@
     return !!m && !!bit(m, iy * _w + ix);
   }
 
-  // Reveal a disc of REVEAL_CELLS around one ABSOLUTE cell (tile-pixel basis,
-  // the same ix/iy space drawCells and every save key use). Cheap enough to
-  // call every frame: it bails unless the player has actually changed cell.
-  function reveal(cellIX, cellIY) {
-    if (!_w) return false;
-    if (cellIX === _lastIX && cellIY === _lastIY) return false;
-    _lastIX = cellIX; _lastIY = cellIY;
-    const R = REVEAL_CELLS;
+  // Reveal a disc of radius R around one ABSOLUTE cell (tile-pixel basis, the
+  // same ix/iy space drawCells and every save key use). The walk calls this
+  // through reveal() at REVEAL_CELLS; the onboarding trail calls it directly
+  // with its own radius (see _revealStarterTrail in app.js).
+  function revealDisc(cellIX, cellIY, R) {
+    if (!_w || !(R >= 0)) return false;
     const R2 = R * R;
     let changed = false;
     for (let dy = -R; dy <= R; dy++) {
@@ -183,6 +182,14 @@
     }
     if (changed) _revision++;
     return changed;
+  }
+
+  // The walk-time entry point: reveal around the player. Cheap enough to call
+  // every frame — it bails unless the player has actually changed cell.
+  function reveal(cellIX, cellIY) {
+    if (cellIX === _lastIX && cellIY === _lastIY) return false;
+    _lastIX = cellIX; _lastIY = cellIY;
+    return revealDisc(cellIX, cellIY, REVEAL_CELLS);
   }
 
   // save.fog = { w, tiles: { "tx/ty": "<rle+base64>" } }.
@@ -230,7 +237,7 @@
 
   window.Fog = {
     REVEAL_CELLS,
-    init, reveal, seen, maskFor, bit, flush,
+    init, reveal, revealDisc, seen, maskFor, bit, flush,
     get revision() { return _revision; },
     get width() { return _w; },
     // Test seams — the codec is the one part with a round-trip worth pinning.
