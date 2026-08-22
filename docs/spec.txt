@@ -120,14 +120,20 @@ ONBOARDING (the first session)
    Its id carries the `chest_start_` stamp, so the crate compass points at it
    too. Never a downgrade: the payload is reconciled against what the player
    already owns (reconcileRelicOffer), same as any other gear roll.
- - NO SLIMES AT HOME ON DAY ONE. For the save's first 24h (save.startedAt) the
-   fauna spawner seats no slime within SLIME_FREE_CELLS (20) of the starting
-   anchor — the whole area the first day asks a player to walk. Day one is the
-   one day they have no weapon, no relic and an empty bag, and a slime on the
+ - NO PESTS AT HOME UNTIL THE FIRST HARVEST. Until the save's first crop is
+   brought in (save.hasHarvested, stamped at the harvest site) the fauna
+   spawner seats no slime and no crow within PEST_FREE_CELLS (20) of the
+   starting anchor — the whole area the opening asks a player to walk — and
+   the crop-raiding crow pump stays off entirely. The opening is the one
+   stretch they have no weapon, no relic and an empty bag, and a pest on the
    tutorial plot is the ladder being interrupted rather than a fight. It is a
-   spawn rule, not a cull: the tile keeps its slime count (the cell is
-   re-rolled), the rest of the map is unchanged, and it expires. Baked in at
-   tile-build time, so nothing pops into being when the clock runs out.
+   spawn rule, not a cull: the tile keeps its pest count (the cell is
+   re-rolled), the rest of the map is unchanged, and it expires at the first
+   harvest — the ladder's own proof the player has the loop. Baked in at
+   tile-build time, so nothing pops into being the moment the crop comes in.
+   Legacy saves that predate the flag: a PLAYED save is settled as already
+   harvested (SaveMigrate.stampHarvested), so a veteran never wakes up to a
+   pest-free home.
  - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
    rather than being told to go till their first cell.
 

@@ -105,10 +105,11 @@ test('migrate: the discovery counter folds into a cap-exempt badge stack', () =>
   assert.eq(zero.inv.find((s) => s.id === 'discovery'), undefined, 'no empty badge stack');
 });
 
-// ── Dating a save (the first-day grace period) ──────────────────────────────
-// app.js keeps the starting area free of slimes for a save's first day, so it
-// has to know when the save started. A save that predates the field must not be
-// handed a fresh day one every time it loads.
+// ── Dating a save ───────────────────────────────────────────────────────────
+// Nothing reads startedAt today (the pest amnesty that used to now reads
+// hasHarvested, below), but a date can only be stamped honestly once, so the
+// stamping stays and stays pinned: a save that predates the field must never
+// look freshly started.
 
 test('migrate: a brand-new save is dated now', () => {
   const save = {};
@@ -137,6 +138,41 @@ test('migrate: a date already on the save is never rewritten', () => {
   const veteran = { startedAt: 999, tilled: ['1,1'] };
   SaveMigrate.migrate(veteran);
   assert.eq(veteran.startedAt, 999, 'playing does not re-date it');
+});
+
+// ── Settling hasHarvested (the pest amnesty's off-switch) ───────────────────
+// app.js keeps the starting area free of slimes and crows until the save's
+// first crop is harvested (interact.js stamps save.hasHarvested = true at the
+// harvest site). A save that predates the flag can't be asked directly, so
+// migration settles it once: a PLAYED save is assumed past its first harvest —
+// a veteran must never wake up to a pest-free home.
+
+test('migrate: a brand-new save still has its first harvest (and the amnesty) ahead', () => {
+  const save = {};
+  assert.truthy(SaveMigrate.migrate(save), 'settling the flag is real data — it persists');
+  assert.eq(save.hasHarvested, false, 'not harvested yet');
+});
+
+test('migrate: a PLAYED legacy save is treated as already past its first harvest', () => {
+  for (const played of [{ tilled: ['1,1'] }, { planted: [{}] }, { opened: ['chest_1'] },
+                        { restoredHouses: { h1: 1 } }, { money: 999 }]) {
+    const save = { ...played };
+    SaveMigrate.migrate(save);
+    assert.eq(save.hasHarvested, true,
+      `a save with ${Object.keys(played)[0]} gets no retroactive amnesty`);
+  }
+});
+
+test('migrate: a settled flag is never rewritten', () => {
+  // The harvest site wrote true — playing on (or not) must not flip it back…
+  const harvested = { hasHarvested: true };
+  SaveMigrate.migrate(harvested);
+  assert.eq(harvested.hasHarvested, true, 'true stays true');
+  // …and a save settled false that has since played-but-not-harvested keeps
+  // its grace: the backfill is only for saves the flag has never reached.
+  const midLadder = { hasHarvested: false, tilled: ['1,1'] };
+  SaveMigrate.migrate(midLadder);
+  assert.eq(midLadder.hasHarvested, false, 'tilling is not harvesting');
 });
 
 test('hasPlayed: the tells are marks only a player could leave', () => {
