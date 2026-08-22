@@ -3346,11 +3346,22 @@ class MapScene extends Phaser.Scene {
   // tile can't drift — the record IS the object, minus its position basis.
   _starterHomeObject(rec) {
     const base = { x: rec.x, y: rec.y, id: rec.id, _synthetic: true };
+    // A record may carry a rarity rolled at seat time (see the seatAt roll in
+    // _provisionStarterHome): a rock's deposit tier, or a tree grown a size
+    // up. The frozen record is the truth — legacy records carry neither and
+    // rebuild as the plain starter shape.
     if (rec.k === 'tree') {
-      return { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+      const o = { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+      if (rec.size) o.size = rec.size;
+      return o;
     }
     if (rec.k === 'rock') {
-      return { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+      const o = { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+      if (rec.yieldTier > 1) {
+        o.yieldTier = rec.yieldTier;
+        o.requiredTier = rec.requiredTier || Math.max(1, rec.yieldTier - 1);
+      }
+      return o;
     }
     // A cave entrance on the surface. Same shape maybePlaceCaveEntrance emits,
     // so it descends through the ordinary staircase path and loadCaveTile
@@ -3618,7 +3629,11 @@ class MapScene extends Phaser.Scene {
     // candidate is quadratic, and at a quota of 50 each that alone cost most
     // of a second on the tile that builds under the player.
     const crowded = new Set();
-    const seatAt = (kind, cells, bearing) => {
+    // `plain` pins the seat to the guaranteed beginner tier (the token pair —
+    // the pocket's teaching examples must be workable bare-handed). Everything
+    // else rolls rarity like a real deposit below, so the ring holds the
+    // occasional better rock or bigger tree instead of fifty identical props.
+    const seatAt = (kind, cells, bearing, plain) => {
       let best = null, bestScore = Infinity;
       for (const c of cells) {
         if (c.used) continue;
@@ -3645,6 +3660,31 @@ class MapScene extends Phaser.Scene {
       if (kind === 'wreck') {
         rec.address = (((abs.cellIX * 7919) ^ (abs.cellIY * 104729)) >>> 0) % 1000;
       }
+      // Rarity roll for the ring fill — the SAME roll a real deposit gets, so
+      // the provisioned home holds the occasional better find. Seeded off the
+      // cell (never Math.random) and FROZEN into the record, so a rebuild
+      // reproduces the same rock at the same tier — the world must not re-roll
+      // itself. Legacy records carry no tier and fall back to the plain
+      // starter shape in _starterHomeObject.
+      if (!plain && (kind === 'rock' || kind === 'tree')) {
+        const rollRng = WorldGen.makeRng(
+          ((abs.cellIX * 73856093) ^ (abs.cellIY * 19349663)) >>> 0);
+        if (kind === 'rock') {
+          // Exactly a residential surface deposit's odds (~90% plain, then
+          // the ore-subset weights — WorldGen.rollSurfaceRockTier).
+          const t = WorldGen.rollSurfaceRockTier(rollRng);
+          if (t.yieldTier > 1) { rec.yieldTier = t.yieldTier; rec.requiredTier = t.requiredTier; }
+        } else {
+          // Trees have no tier table, so they borrow the deposits' rarity
+          // SHAPE: the same ~10% that would have rolled ore instead grows a
+          // size up — mostly medium (Wood-axe pine, 2× wood), rarely large
+          // (Copper axe, 4×). Species stays the home softwood, so the find is
+          // a bigger payday, not a wall.
+          const r = rollRng();
+          const plainP = WorldGen.SURFACE_PLAIN_ROCK_P ?? 0.90;
+          if (r >= plainP) rec.size = (r >= 1 - (1 - plainP) * 0.3) ? 'large' : 'medium';
+        }
+      }
       taken.add(key(best.cx, best.cy));
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) crowded.add(key(best.cx + dx, best.cy + dy));
@@ -3667,21 +3707,23 @@ class MapScene extends Phaser.Scene {
     // seat nothing at all, leaving no wreck to rebuild and the ladder
     // unfinishable. Built lazily — the wide band is only paid for if needed.
     let wideCells = null;
-    const seatOrWiden = (kind, cells, bearing) => {
-      if (seatAt(kind, cells, bearing)) return true;
+    const seatOrWiden = (kind, cells, bearing, plain) => {
+      if (seatAt(kind, cells, bearing, plain)) return true;
       if (!wideCells) wideCells = bandCells(R0, HomeArea.RING_MAX_ESCALATED_CELLS);
-      return seatAt(kind, wideCells, bearing);
+      return seatAt(kind, wideCells, bearing, plain);
     };
     const pocketCells = bandCells(TOKEN0, POCKET);
     // Opposite sides of the doorway, so one doesn't hide behind the other.
+    // Seated PLAIN (no rarity roll): these are the examples the first two
+    // lessons are performed on, so they must stay bare-hands workable.
     let tokensWanted = 0, tokensSeated = 0;
     if (plan.tokens.tree) {
       tokensWanted++;
-      if (seatOrWiden('tree', pocketCells, 0)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
+      if (seatOrWiden('tree', pocketCells, 0, true)) { tokensSeated++; plan.need.tree = Math.max(0, plan.need.tree - 1); }
     }
     if (plan.tokens.rock) {
       tokensWanted++;
-      if (seatOrWiden('rock', pocketCells, Math.PI)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
+      if (seatOrWiden('rock', pocketCells, Math.PI, true)) { tokensSeated++; plan.need.rock = Math.max(0, plan.need.rock - 1); }
     }
     const ringCells = bandCells(R0, R1);
     // The way down, seated in the RING and seated FIRST. It's a landmark, not

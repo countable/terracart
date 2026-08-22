@@ -239,6 +239,12 @@ const HomeArea = {
       if (isTree ? this.isStarterTree(o) : this.isStarterRock(o)) {
         have[kind]++;
         if (d <= this.POCKET_CELLS) pocket[kind]++;
+      } else if (o._synthetic) {
+        // Seated by an earlier provisioning pass at a deliberately rolled
+        // rarity (the occasional ore-bearing rock / bigger tree). It fills
+        // its slot in the quota — a later pass must not seat a replacement
+        // beside it, and must never downgrade the find back to plain.
+        have[kind]++;
       } else if (this.canBeStarterUsable(o)) {
         // Untameable ones (a shiny tree) are skipped entirely — they are
         // scenery as far as the quota is concerned.
