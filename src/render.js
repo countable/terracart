@@ -1498,8 +1498,10 @@ Render.drawCells = function drawCells(scene) {
   }
   // The reach outline stays LAST on this layer, so the white edge sits on top
   // of the dim band rather than under it — the relative order these passes
-  // had inside cellGfx, preserved.
-  gr.lineStyle(3, 0xffffff, 0.3);
+  // had inside cellGfx, preserved. Kept deliberately soft (thin, low alpha):
+  // the dim step already marks the boundary, so the line only needs to hint
+  // at the edge, not draw a hard white frame around the lit area.
+  gr.lineStyle(2, 0xffffff, 0.15);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
