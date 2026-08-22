@@ -733,7 +733,17 @@ GEAR: RELICS & ARMOR
    three full seconds of the character doing nothing after release — walk 43 m
    out, let go, and the offset sat frozen for 3.1 s before covering the whole
    way back in 2.9 s. All of the sluggishness was in the wait; the walk itself
-   was never slow. At 700 ms the return begins at 0.8 s and is home by 3.7 s.
+   was never slow.
+   A FLAT timer cannot satisfy both ends of this, and 700 ms proved it: players
+   nudge themselves along in short pushes, and any gap longer than the timer had
+   the character walking BACK against them. Driven with a realistic 500 ms push
+   / 900 ms pause pattern, 700 ms spent 23% of the player's forward travel going
+   backwards across 7 direction reversals (3000 ms: 0% and 0). So the timer only
+   decides when the return BEGINS, and it begins gently — the speed eases in
+   over WALK_HOME_RAMP_MS (1100 ms, squared) instead of switching on at full
+   pace. An interrupted nudge gives up almost no ground; a real stop is under
+   way at 0.5 s and home in about 4.8 s. The same nudge pattern now measures 0%
+   backward travel. Removing the CLIFF is the fix; no single flat number is.
    The lead-line hint (WALK_HOME_HINT_IDLE_MS, 2000 ms) must stay LONGER than
    the walk's delay — it announces a walk, so it can't precede one — but not so
    much longer that an ordinary return finishes before it is due, which is what
