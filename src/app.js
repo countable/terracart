@@ -340,6 +340,14 @@ const DEBUG_SPEED_MUL = 10;
 // enough that the map still opens up by being walked rather than by spawning.
 const HOME_REVEAL_CELLS = 10;
 const TRAIL_REVEAL_CELLS = 5;
+// How close a road or path has to pass to the starting anchor for the supply
+// crates to be laid along its shoulder instead of spread down the walk to the
+// relic chest (see _placeStarterTrail). The objective chip literally says
+// "supply crates were left along the road nearby", so when there IS a road
+// nearby, the crates keep its word. 6 cells (~40 m) is "very near": the kerb
+// is in view from the doorstep, so the trail still starts with a crate the
+// player can see.
+const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How long the stick must sit idle before the character walks itself home.
@@ -2730,13 +2738,20 @@ class MapScene extends Phaser.Scene {
   // of the rarity picker. (No free scarecrow — it's sold at the forced
   // scarecrow shop, the next house out past the starter blacksmith.)
   //
-  // The crates are a TRAIL, and a trail leads somewhere: they are laid along
-  // the walked route from the anchor to the relic chest one screen out, evenly
-  // spaced, so each is in view from the one before and the last hands the
-  // player the chest. They used to seat along whichever road happened to be
-  // nearest — breadcrumbs along the kerb, pointing at nothing in particular,
-  // which is still the fallback for a spawn where no chest could be seated at
-  // all; a tight ring round the anchor is the last resort.
+  // The crates are a TRAIL, and where they lie depends on the ground:
+  //
+  //   1. A road or path passing VERY NEAR the anchor (within NEAR_ROAD_CELLS)
+  //      wins. The crates seat along its shoulder, nearest-first — the chip
+  //      says "supply crates were left along the road nearby", and when there
+  //      is a road nearby the trail keeps its word. The relic chest still goes
+  //      down one screen out as the destination; the gold arrow walks the
+  //      player crate to crate and hands them the chest last either way.
+  //   2. Otherwise they are laid along the walked route from the anchor to
+  //      that chest, evenly spaced, so each is in view from the one before
+  //      and the last puts the chest in view.
+  //   3. A road too far away to prefer still catches the crates when no chest
+  //      could be seated at all (the kerb walk below); a tight ring round the
+  //      anchor is the last resort.
   //
   // Runs from spawnInTile when the tile holding the anchor rasterizes, and
   // from _setStarterCratesAt when the anchor resolves after the tile already
@@ -2876,7 +2891,14 @@ class MapScene extends Phaser.Scene {
     // happened to be nearest.
     const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     const trailPath = trail && trail.path;
-    if (trailPath && trailPath.length > COUNT) {
+    // A road or path within NEAR_ROAD_CELLS of the anchor takes the crates
+    // instead (mode 1 above): skip the route spread so the kerb walk below —
+    // which runs whenever nothing has been seated — lays all four along the
+    // shoulder. roadCell came back nearest-first from the BFS, so its distance
+    // IS the road's distance.
+    const roadNear = !!roadCell &&
+      Math.max(Math.abs(roadCell.cx - spawnIX), Math.abs(roadCell.cy - spawnIY)) <= NEAR_ROAD_CELLS;
+    if (!roadNear && trailPath && trailPath.length > COUNT) {
       // How much of the walk the crates occupy. They sit in the NEAR part of
       // it rather than spread the whole way: a new player should meet all four
       // early, while they are still learning what a crate even is, and then
@@ -2927,13 +2949,16 @@ class MapScene extends Phaser.Scene {
         lastSeat = seat;
       }
     }
-    // Fallback: no chest to lead to (a spawn with no legal ground anywhere in
-    // the band — mid-river, or walled in by buildings), so there is no route to
-    // lay crates along. Fall back to the kerb walk this trail used to be: seat
-    // them on the shoulders of the nearest road, which at least reads as
-    // breadcrumbs even though it leads nowhere in particular. Only when NOTHING
-    // was seated above — a half-laid trail is topped up by the ring below
-    // instead, which never double-seats a loot index.
+    // The kerb walk: seat the crates on the shoulders of the nearest road,
+    // following its shape. Two ways in here:
+    //   - the road passes very near the anchor (roadNear — the preferred
+    //     mode 1: the route spread above was skipped so the crates land
+    //     alongside the road, as the chip promises), or
+    //   - no chest could be seated at all (a spawn with no legal ground in
+    //     the band — mid-river, walled in by buildings), so there is no route
+    //     to lay crates along and the kerb at least reads as breadcrumbs.
+    // Only when NOTHING was seated above — a half-laid trail is topped up by
+    // the ring below instead, which never double-seats a loot index.
     if (roadCell && placedIdx.size === 0) {
       // BFS-collect connected road cells from the nearest road cell, in
       // nearest-first order, then seat crates on walkable, non-road
@@ -2965,7 +2990,10 @@ class MapScene extends Phaser.Scene {
           const tt = entry.grid[ny * N + nx];
           if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
           if (onRoadBand(nx, ny)) continue;
-          if (usedSeats.has(nx + ',' + ny)) continue;
+          // occupied too: the pocket keeps the player's real street trees
+          // (see the CLEAR_R exception), and a crate seated on one reads as
+          // a bug whichever the renderer draws second.
+          if (usedSeats.has(nx + ',' + ny) || occupied.has(nx + ',' + ny)) continue;
           if (inTrailerMoat(nx, ny)) continue;
           // Enforce a minimum gap from the previous crate so the trail
           // spreads out instead of clustering on adjacent road cells.

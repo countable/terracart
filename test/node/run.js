@@ -440,7 +440,7 @@ try {
     process.exit(2);
   }
   const body = src.slice(bodyStart, end);
-  const consts = ['VIEW_CELLS', 'STARTER_RELIC_TIER'];
+  const consts = ['VIEW_CELLS', 'STARTER_RELIC_TIER', 'NEAR_ROAD_CELLS'];
   let decls = '';
   for (const name of consts) {
     const m = src.match(new RegExp(`const ${name} = (\\d+);`));
