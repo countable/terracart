@@ -7464,8 +7464,12 @@ class MapScene extends Phaser.Scene {
     // activations are rare enough that this map never grows unbounded.
     this._pathStoneFlashes = this._pathStoneFlashes || new Map();
     const flashNow = performance.now();
+    // Prune window must stay comfortably above render.js's PATH_STONE_FLASH_MS
+    // (the animation's own length) or an activation would get pruned away
+    // mid-animation instead of aging out after it's already finished playing.
+    const pruneMs = (typeof PATH_STONE_FLASH_MS === 'number' ? PATH_STONE_FLASH_MS : 900) + 500;
     for (const [k, t] of this._pathStoneFlashes) {
-      if (flashNow - t > 1000) this._pathStoneFlashes.delete(k);
+      if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
     }
     this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
     // Spec §PATH STONES: every 10 claimed stones on the same named path awards

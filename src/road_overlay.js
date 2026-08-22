@@ -43,9 +43,20 @@
   // started as — over the greens and tans of the biome paint a chromatic band
   // competed with the map instead of sitting under it, and the cobblestone
   // texture below needs a quiet base to read against.
-  const COLOR = 0x614b3a;
+  //
+  // PATH_COLOR is that same brown, desaturated a little (footways/tracks are
+  // still packed earth, just less saturated than the original chromatic
+  // brown). ROAD_COLOR — vehicle carriageways — is desaturated further AND
+  // darkened, so a paved street reads as a visibly different, harder surface
+  // than a dirt path instead of the same band at a different width.
+  const PATH_COLOR = 0x5c4b3f;
+  const ROAD_COLOR = 0x3a322c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
+
+  // Same class list worldgen's classifyLine uses to paint T.PATH cells — kept
+  // in sync so a way that rasterizes as a footpath also overlays as one.
+  const PATH_CLASSES = new Set(['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps']);
 
   // Rail is not road. It arrives in the same `transportation` layer and the
   // rasterizer has no tier for it, so a railway lands on the map as an
@@ -55,7 +66,12 @@
   // subclasses; `transit` covers tram / subway / light_rail).
   const RAIL_CLASSES = new Set(['rail', 'transit']);
   const RAIL_COLOR = 0x565d69;
-  const colorFor = (tags) => RAIL_CLASSES.has((tags && tags.class) || '') ? RAIL_COLOR : COLOR;
+  const colorFor = (tags) => {
+    const c = (tags && tags.class) || '';
+    if (RAIL_CLASSES.has(c)) return RAIL_COLOR;
+    if (PATH_CLASSES.has(c)) return PATH_COLOR;
+    return ROAD_COLOR;
+  };
   const cssOf = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 
   // Cells the overlay must not paint over, punched out of the finished canvas
@@ -224,7 +240,7 @@
       // The alpha is carried by the IMAGE (see above), so the stroke itself is
       // always opaque; the colour is the caller's (earth for roads, slate for
       // rail) and the alpha argument is deliberately ignored here.
-      lineStyle(w, c) { ctx.lineWidth = w; ctx.strokeStyle = cssOf(c == null ? COLOR : c); },
+      lineStyle(w, c) { ctx.lineWidth = w; ctx.strokeStyle = cssOf(c == null ? ROAD_COLOR : c); },
       beginPath() { ctx.beginPath(); },
       moveTo(x, y) { ctx.moveTo(x - originX, y - originY); },
       lineTo(x, y) { ctx.lineTo(x - originX, y - originY); },
