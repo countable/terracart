@@ -110,10 +110,18 @@
   //   opts.frontage : override the default radius (SPAWN_FRONTAGE)
   //   opts.pois     : array of {ix,iy} cell coords of nearby POIs/chests —
   //                   a residential cell within `frontage` of one is fair game
+  //   opts.roadMask : the tile's road-footprint mask (see rasterizeTile). The
+  //                   terrain code alone under-reports the road: every way
+  //                   rasterizes one cell wide however wide it really is, and
+  //                   parking aisles rasterize to nothing at all, so a cell
+  //                   the grid calls grass can be ground the player sees as
+  //                   asphalt. Pass it and those cells are refused too.
   function isSpawnCell(grid, w, h, cx, cy, opts) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
     if (!isWalkable(here)) return false;          // never on water/road/building
+    const roadMask = opts && opts.roadMask;
+    if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
     if (here !== T.RESIDENTIAL) return true;      // public / open ground — always ok
     const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
     for (let dy = -frontage; dy <= frontage; dy++) {
@@ -130,6 +138,30 @@
       }
     }
     return false;
+  }
+  // Nudge a cell onto the nearest one that passes isSpawnCell, searching
+  // outward in Chebyshev rings up to `maxR`. Returns null when the whole
+  // neighbourhood is unusable, so the caller can drop the item instead.
+  //
+  // For anchors that come straight from OSM geometry rather than from a scan
+  // of the grid — the buried-X on a parking lot is the whole reason this
+  // exists: its anchor is the lot polygon's first VERTEX, which is a corner of
+  // the lot and so lands on the kerb, the aisle or the street feeding it about
+  // as often as it lands on tarmac you can stand on. Dropping those outright
+  // would cost the lot its reward, so walk the X into the lot instead.
+  // Deterministic: fixed ring order, first hit wins, no rng.
+  function relocateToSpawnCell(grid, w, h, cx, cy, opts, maxR) {
+    if (isSpawnCell(grid, w, h, cx, cy, opts)) return { ix: cx, iy: cy };
+    const R = maxR == null ? 4 : maxR;
+    for (let r = 1; r <= R; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          if (isSpawnCell(grid, w, h, cx + dx, cy + dy, opts)) return { ix: cx + dx, iy: cy + dy };
+        }
+      }
+    }
+    return null;
   }
   // Tier picker: chooses BUILDING / BUILDING_MED / BUILDING_LARGE from polygon area + render_height.
   // Thresholds tuned to put single-family homes in the small bucket, shops in MED,
@@ -303,6 +335,28 @@
     if (c === 'footway' || c === 'path' || c === 'steps') return 2;
     return 3;
   }
+  // The big ways — motorway / trunk / primary, exactly the ROAD_LG tier — are
+  // drawn half again as wide as their measured carriageway so the trunk
+  // network stays legible at map scale. See road_overlay.js.
+  const LARGE_ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary']);
+  const LARGE_ROAD_SCALE = 1.5;
+  // The width, in metres, that a way actually COVERS on screen: its
+  // carriageway width with the large tier's extra weight applied. One number,
+  // two consumers, which is the whole point —
+  //   • road_overlay.js strokes its band with it, and
+  //   • rasterizeTile stamps `roadMask` with it,
+  // so the ground the player SEES as road is exactly the ground nothing is
+  // allowed to spawn on. The terrain grid can't answer that question on its
+  // own: every way rasterizes ONE cell wide whatever its class (see the
+  // wCells comment in rasterizeTile), so a 12 m motorway's band spills a full
+  // cell past its ROAD_LG cells on both sides, and parking aisles rasterize to
+  // no cell at all — which is how rocks and shrubs kept turning up sitting in
+  // traffic on ground the grid swore was grass.
+  function roadOverlayWidthM(tags) {
+    const t = tags || {};
+    const scale = LARGE_ROAD_CLASSES.has(t.class || '') ? LARGE_ROAD_SCALE : 1;
+    return roadWidthM(t) * scale;
+  }
 
   // Precedence: higher wins on conflict
   const PRIO = {
@@ -376,17 +430,21 @@
       }
     }
   }
-  function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under) {
-    // Stamp a disk of radius widthCells/2 along the polyline using Bresenham segments.
-    //
-    // Vertices map to the cell that CONTAINS them — floor(), the same rule
-    // snapCell / spawnDebris use, and the same answer paintPolygon's
-    // centre-sample gives. It used to be Math.round(), which picks the cell
-    // whose top-LEFT corner is nearest the point and so biased every road,
-    // path and pier half a cell south-east of the way it was painted from:
-    // roads sat half a cell off their own OSM geometry (visible the moment
-    // the road-geometry overlay was drawn over them) and half a cell off the
-    // buildings and water that were rasterized by the correct rule.
+  // Visit every cell a polyline covers when stamped as a disk of radius
+  // widthCells/2 along Bresenham segments. Shared by the terrain paint
+  // (paintLine) and the road-footprint mask (stampMaskLine) so the two can
+  // never disagree about WHICH cells a way covers — only about how wide the
+  // way is drawn.
+  //
+  // Vertices map to the cell that CONTAINS them — floor(), the same rule
+  // snapCell / spawnDebris use, and the same answer paintPolygon's
+  // centre-sample gives. It used to be Math.round(), which picks the cell
+  // whose top-LEFT corner is nearest the point and so biased every road,
+  // path and pier half a cell south-east of the way it was painted from:
+  // roads sat half a cell off their own OSM geometry (visible the moment
+  // the road-geometry overlay was drawn over them) and half a cell off the
+  // buildings and water that were rasterized by the correct rule.
+  function forEachLineCell(line, widthCells, mvtToCell, visit) {
     const r = Math.max(0, Math.floor(widthCells / 2));
     for (let i = 1; i < line.length; i++) {
       let x0 = Math.floor(line[i - 1].x * mvtToCell);
@@ -398,7 +456,7 @@
       let err = dx + dy;
       const stamp = (cx, cy) => {
         for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
-          if (ox * ox + oy * oy <= r * r) paintCell(grid, w, h, cx + ox, cy + oy, type, under);
+          if (ox * ox + oy * oy <= r * r) visit(cx + ox, cy + oy);
         }
       };
       while (true) {
@@ -416,6 +474,19 @@
         if (stepX && stepY) stamp(x0, y0 - sy);
       }
     }
+  }
+  // Flag every cell a way's drawn band covers in a 0/1 mask. Same traversal as
+  // paintLine, but it writes no terrain — a masked cell keeps its biome (and
+  // stays walkable); it is only barred from hosting a spawn. See roadMask.
+  function stampMaskLine(mask, w, h, line, widthCells, mvtToCell) {
+    forEachLineCell(line, widthCells, mvtToCell, (cx, cy) => {
+      if (cx < 0 || cy < 0 || cx >= w || cy >= h) return;
+      mask[cy * w + cx] = 1;
+    });
+  }
+  function paintLine(grid, w, h, line, type, widthCells, mvtToCell, under) {
+    forEachLineCell(line, widthCells, mvtToCell,
+      (cx, cy) => paintCell(grid, w, h, cx, cy, type, under));
   }
 
   // Post-paint erosion for merged pavement blobs.
@@ -1054,8 +1125,24 @@
     // seam between distinct buildings whose footprints rasterized into one
     // contiguous block of building tiles (otherwise they read as one blob).
     const owners = new Uint16Array(w * h);
+    // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
+    // lossy record of where the roads are: every way rasterizes exactly ONE
+    // cell wide whatever its class, and parking aisles are skipped entirely —
+    // while the road-geometry overlay draws each way at its real carriageway
+    // width (roadOverlayWidthM), so a motorway's band covers a full cell past
+    // its ROAD_LG cells on either side and a parking lot is carpeted in
+    // asphalt the grid still calls landuse. Anything seated on those cells
+    // reads as sitting in the road, which is precisely the bug that kept
+    // coming back: the spawn filters were checking terrain, and terrain wasn't
+    // the question. This mask IS the question. It changes no terrain — masked
+    // cells keep their biome and stay walkable — it only bars spawns.
+    const roadMask = new Uint8Array(w * h);
     const mvtToCell = cellsPerEdge / TILE_EXTENT;
     const mvtToM = tileEdgeM / TILE_EXTENT;
+    // Metres per cell in THIS tile's basis. Not CELL_M: cellsPerEdge is a
+    // rounded division, so the tile's own cells are a few mm off the nominal
+    // size and the grid was painted with these, not those.
+    const cellWidthM = tileEdgeM / w;
     const objects = [];
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
@@ -1532,6 +1619,14 @@
         } else if (f.type === 2 && name === 'transportation') {
           const t = classifyLine(name, f.tags);
           if (t == null) continue;
+          // Record the way's full drawn footprint FIRST — before the
+          // parking-aisle skip and regardless of how narrow a band the
+          // rasterizer is about to paint. This is the mask the spawn filters
+          // read; see roadMask above.
+          {
+            const maskCells = Math.max(1, Math.round(roadOverlayWidthM(f.tags) / cellWidthM));
+            for (const line of f.geom) stampMaskLine(roadMask, w, h, line, maskCells, mvtToCell);
+          }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,
           // not a road network. Skip them entirely: the lot keeps its landuse
@@ -1594,7 +1689,7 @@
           // grid uses (tileEdgeM/cellsPerEdge, which differs slightly from 5m). This
           // matches `offsetForPlacement` and `cellAt()`, so the chest's stored x/y
           // agrees with grid lookups instead of drifting by sub-meter per cell.
-          const cellWidthM = tileEdgeM / w;   // w === cellsPerEdge
+          // (cellWidthM is the tile-basis cell size hoisted at the top.)
           const snap = (v) => {
             // Project v back into the tile's local cell index, then expand to cell-centre.
             const origin = (v === undefined) ? 0 : Math.floor(v / tileEdgeM) * tileEdgeM;
@@ -1974,18 +2069,25 @@
     // Strip the temp _residential flag from survivors so it doesn't leak
     // into save state or the render pipeline.
     {
+      // Under a drawn road band — see roadMask. Checked everywhere a road TIER
+      // is checked: the two answer the same question, and the tier alone gets
+      // it wrong on exactly the cells players notice (the flanks of a big road,
+      // the whole of a parking lot).
+      const _underRoadBand = (ix, iy) => roadMask[iy * w + ix] === 1;
       const _mrIsBlocked = (ix, iy) => {
         const tc = grid[iy * w + ix];
         return tc === T.ROAD     || tc === T.ROAD_LG || tc === T.ROAD_MD
             || tc === T.PATH     || tc === T.WATER    || tc === T.PIER
-            || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+            || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE
+            || _underRoadBand(ix, iy);
       };
       // No interactable may sit on a road tier or a building footprint. This is
       // the blanket rule for EVERY scatter object (rocks, trees, wells, poles,
       // …); the sole exception is a POI chest, handled explicitly below.
-      const _onRoadOrBuilding = (tc) =>
+      const _onRoadOrBuilding = (tc, ix, iy) =>
            tc === T.ROAD     || tc === T.ROAD_LG    || tc === T.ROAD_MD
-        || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE;
+        || tc === T.BUILDING || tc === T.BUILDING_MED || tc === T.BUILDING_LARGE
+        || _underRoadBand(ix, iy);
       // A house/tower sprite is foot-anchored on its footprint and its base
       // overhangs the immediately adjacent cells, so a scatter object one cell
       // off the footprint still reads as sitting ON the building's foundation
@@ -2020,6 +2122,7 @@
       // the shared isSpawnCell rule below. Snapshot their cell coords now,
       // before we start splicing `objects`.
       const _mrSpawnOpts = {
+        roadMask,
         pois: objects
           .filter(o => o.kind === 'chest')
           .map(o => ({
@@ -2050,7 +2153,7 @@
         // (the player taps the building floor to activate it). House/tower
         // sprites ARE the building and were already skipped via _mrSkipKind.
         if (o.kind !== 'chest') {
-          if (_onRoadOrBuilding(here)) { objects.splice(i, 1); continue; }
+          if (_onRoadOrBuilding(here, ix, iy)) { objects.splice(i, 1); continue; }
           // One-cell building moat for ground scatter — anything closer sits
           // visually inside the house/tower sprite's overhang. Trees are
           // EXEMPT: yard trees genuinely grow against house walls (and the
@@ -2101,24 +2204,34 @@
         const iy = Math.floor((wp.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
         const wtc = grid[iy * w + ix];
-        if (_onRoadOrBuilding(wtc)) { wildplants.splice(i, 1); continue; }
+        if (_onRoadOrBuilding(wtc, ix, iy)) { wildplants.splice(i, 1); continue; }
         // Concrete POI pads stay bare — a shrub/marigold that survived the
         // biome filter (rocky-family crops) still doesn't belong on the plaza.
         if (poiPadCells.has(iy * w + ix)) { wildplants.splice(i, 1); continue; }
         if (wtc !== T.RESIDENTIAL) continue;
         if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
       }
-      // Parking-treasure X marks live in a third array (parkingTreasures)
-      // and were missed by both filters above. Apply the same shared rule — a
-      // buried-X on a residential cell must pass isSpawnCell, else drop.
-      // Non-residential parking lots (the typical case) stay.
+      // Parking-treasure X marks live in a third array (parkingTreasures) and
+      // are missed by both filters above. They used to be checked ONLY for the
+      // residential-yard rule, so an X on a road cell — or on water, or inside
+      // a building — passed straight through: the mark's anchor is the lot
+      // polygon's first VERTEX, a corner of the lot, which lands on the kerb or
+      // the street feeding it as often as on tarmac you can stand on. Now they
+      // go through the same shared rule as everything else, and rather than
+      // losing the lot its reward, an X on a bad cell is walked out to the
+      // nearest good one; it's dropped only if the whole neighbourhood is
+      // paved.
       for (let i = parkingTreasures.length - 1; i >= 0; i--) {
         const t = parkingTreasures[i];
         const ix = Math.floor((t.x - tileOriginMx) / _mrCellW);
         const iy = Math.floor((t.y - tileOriginMy) / _mrCellW);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
-        if (grid[iy * w + ix] !== T.RESIDENTIAL) continue;
-        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) parkingTreasures.splice(i, 1);
+        const moved = relocateToSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts);
+        if (!moved) { parkingTreasures.splice(i, 1); continue; }
+        if (moved.ix === ix && moved.iy === iy) continue;
+        const { mx, my } = cellCenterMeters(moved.ix, moved.iy);
+        t.x = mx; t.y = my;
+        t.id = `t_park_${Math.round(mx)}_${Math.round(my)}`;
       }
     }
 
@@ -2377,7 +2490,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells };
+    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
   }
 
   function tileEdgeMeters(lat) {
@@ -2426,7 +2539,7 @@
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
       const layers = MVT.decodeTile(bytes);
-      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -2474,6 +2587,11 @@
       // Concrete POI pad cells (grid indices) — consumed by the cave-entrance
       // pass below so a surface ladder never lands on a POI's plaza.
       entry.poiPadCells = poiPadCells;
+      // Road footprint (see roadMask in rasterizeTile). Carried on the entry so
+      // every spawner outside worldgen — app.js's treasure scatter, coin
+      // bursts, the starter provisioner — can ask the same question the
+      // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
+      entry.roadMask = roadMask;
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
@@ -2544,7 +2662,7 @@
         const _sxPois = [];
         for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
         for (const ch of (bin.chests || [])) _sxPois.push(_sxCell(ch.x, ch.y));
-        const _sxSpawnOpts = { pois: _sxPois };
+        const _sxSpawnOpts = { pois: _sxPois, roadMask };
         const _sxYardOK = (wx, wy) => {
           const { ix, iy } = _sxCell(wx, wy);
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
@@ -2564,12 +2682,18 @@
           T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
           T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
         ]);
-        // Cell at (wx,wy) is hard terrain a scatter object must never sit on
-        // (road/building/water/rock/etc — the same set trees avoid).
+        // Cell at (ix,iy) is hard ground a scatter object must never sit on:
+        // the TREE_BLOCK terrain set, plus anything under a drawn road band
+        // (roadMask) — the injected features are placed from real-world
+        // coordinates, so without the mask an OSM street tree recorded in the
+        // middle of a widened carriageway stays there.
+        const _sxHardCell = (ix, iy) => {
+          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+          return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
+        };
         const _sxHard = (wx, wy) => {
           const { ix, iy } = _sxCell(wx, wy);
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-          return TREE_BLOCK.has(grid[iy * cpe + ix]);
+          return _sxHardCell(ix, iy);
         };
         // Cell at (wx,wy) is a building footprint — wells get a softer rule than
         // _sxHard (they may supersede a road tile, repainting it) but must still
@@ -2670,7 +2794,7 @@
         }
         const tryTreeCell = (ix, iy) => {
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-          if (TREE_BLOCK.has(grid[iy * cpe + ix])) return null;
+          if (_sxHardCell(ix, iy)) return null;
           if (occupied.has(`${ix}_${iy}`)) return null;
           // Chest frontage stays clear (the player stands beside the chest),
           // but trees may hug buildings — no _sxNearBuildingCell here. Yard
@@ -2777,7 +2901,19 @@
         for (const pk of (bin.parking || [])) {
           const c = localCentre(pk.x, pk.y);
           pk.x = c.x; pk.y = c.y;
-          if (!_sxYardOK(pk.x, pk.y)) continue;
+          // Same treatment the MVT parking path gets in the rasterize
+          // post-pass: a lot's anchor lands on its aisle or the street beside
+          // it as often as on standable ground, so walk the X to the nearest
+          // cell that passes the shared spawn rule instead of burying treasure
+          // under the asphalt. Dropped only if nothing nearby works.
+          {
+            const { ix, iy } = _sxCell(pk.x, pk.y);
+            if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
+            const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+            if (!moved) continue;
+            pk.x = x * tileEdgeM + (moved.ix + 0.5) * mPerCell;
+            pk.y = y * tileEdgeM + (moved.iy + 0.5) * mPerCell;
+          }
           // Skip if an X already sits within ~8m — the MVT parking path fills
           // the SAME array (before this injection) and snaps on a slightly
           // different basis, so the same lot present in both sources would
@@ -3671,7 +3807,11 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, isWalkable, isSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    // Full-tile rasterization — exported for the headless spawn tests, which
+    // build synthetic MVT layers and pin the "nothing spawns on a road" rule
+    // end to end (test/node/spawn_roads.test.js).
+    rasterizeTile,
     // Building-footprint assignment (see assignBuildingFootprints) — exported
     // for the headless footprint tests, which pin the no-overlap /
     // one-cell-each / order-independence invariants.
@@ -3692,6 +3832,10 @@
     paintLine,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
+    // …and the width it actually COVERS, large-tier weighting included. The
+    // overlay strokes with this and rasterizeTile stamps roadMask with it, so
+    // "drawn as road" and "no spawns here" are the same number.
+    roadOverlayWidthM,
     // Live Overpass decoration (ON by default): fills tiles outside the static
     // satextract bbox with OSM features queried at request time, cached per
     // tile in IndexedDB. Opt out with setOverpassLive(false) or ?overpass=off.

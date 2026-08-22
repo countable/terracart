@@ -27,6 +27,25 @@
 
 ## QC rules
 
+- **Nothing spawns on a road, and "road" is not a terrain code.** The terrain
+  grid under-reports the road every time: a way rasterizes exactly ONE cell
+  wide however wide it really is, and parking aisles rasterize to no cell at
+  all — while the overlay draws each way at its real carriageway width. So a
+  motorway's band covers a cell either side of the cells it paints, a parking
+  lot is asphalt the grid still calls landuse, and a filter that reads `grid[]`
+  is told "grass" for both. That is why this bug kept coming back.
+  The answer is **`entry.roadMask`** (built in `rasterizeTile`, stamped from
+  **`WorldGen.roadOverlayWidthM`** — the same number `road_overlay.js` strokes
+  its band with, so drawn-as-road and no-spawn-here can't drift apart). It sets
+  no terrain: a masked cell keeps its biome and stays walkable, it just can't
+  host a spawn. Every spawner consults it, by passing `opts.roadMask` to
+  `WorldGen.isSpawnCell` (the shared rule) or reading the mask directly.
+  **When you add a spawner, pass the mask.** Checking road TERRAIN alone is the
+  bug, not the fix.
+  **Audit it:** `node test/node/run.js` › `test/node/spawn_roads.test.js` runs
+  the real rasterizer over synthetic MVT layers and fails if any object, wild
+  plant or buried-X lands on a road cell or under a road band.
+
 - **Interactables must be clearly in one cell.** Other than houses and fauna,
   every interactable should visually occupy a single tile — its art and
   collision box must align to the same cell. If it appears to straddle a cell

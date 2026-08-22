@@ -2031,6 +2031,12 @@ class MapScene extends Phaser.Scene {
     // residential block, so creature placement shares the spawn rule too.
     // POI chests (already placed by worldgen) count as public anchors.
     const _spawnOpts = {
+      // The tile's road footprint — wider than the road TERRAIN wherever the
+      // real carriageway is (a motorway's band covers a cell either side of
+      // the one it paints) and present at all in a parking lot, whose aisles
+      // paint nothing. Without it the X-mark scatter below reads the grid,
+      // is told "grass", and buries treasure in the middle of the asphalt.
+      roadMask: entry.roadMask,
       pois: (entry.objects || [])
         .filter(o => o.kind === 'chest')
         .map(o => ({
@@ -2304,6 +2310,13 @@ class MapScene extends Phaser.Scene {
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
     const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+    // A crate is seated on the shoulder of the road it's found beside, so
+    // "which cells are the road" has to mean the ground the player SEES as
+    // road, not just the one cell per way the rasterizer paints. See
+    // entry.roadMask (worldgen). Undefined on tiles built before the mask
+    // existed (or underground) — then the terrain test stands alone.
+    const onRoadBand = (cx, cy) =>
+      !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const spawnIX = Math.floor((anchor.x - tx0) / this.cellM);
     const spawnIY = Math.floor((anchor.y - ty0) / this.cellM);
     // BFS from the anchor cell for the nearest road cell within 15 cells.
@@ -2395,6 +2408,7 @@ class MapScene extends Phaser.Scene {
           if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
           const tt = entry.grid[ny * N + nx];
           if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
+          if (onRoadBand(nx, ny)) continue;
           if (usedSeats.has(nx + ',' + ny)) continue;
           if (inTrailerMoat(nx, ny)) continue;
           // Enforce a minimum gap from the previous crate so the trail
@@ -2425,13 +2439,15 @@ class MapScene extends Phaser.Scene {
           for (let step = 0; step < 5; step++) {
             if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
             const t = entry.grid[ncy * N + ncx];
-            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !usedSeats.has(ncx + ',' + ncy)) break;
+            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !onRoadBand(ncx, ncy)
+                && !usedSeats.has(ncx + ',' + ncy)) break;
             ncx += Math.sign(bdx) || 0;
             ncy += Math.sign(bdy) || 0;
           }
           if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
           const tt = entry.grid[ncy * N + ncx];
-          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || usedSeats.has(ncx + ',' + ncy)) continue;
+          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || onRoadBand(ncx, ncy)
+              || usedSeats.has(ncx + ',' + ncy)) continue;
           seatCrate(ncx, ncy, i);
           seated = true;
         }
@@ -2542,6 +2558,10 @@ class MapScene extends Phaser.Scene {
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(cx + ',' + cy)) return false;
       if (occupied.has(cx + ',' + cy)) return false;
+      // UNPAINTABLE is the road TERRAIN; the mask is the rest of the band the
+      // player sees drawn over it (see entry.roadMask). Soil tilled under the
+      // asphalt reads as a plot in the middle of the street.
+      if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) return false;
       return !UNPAINTABLE.has(grid[cy * N + cx]);
     };
     const blockUsable = (cx, cy) => inTile(cx, cy) &&
@@ -2696,6 +2716,10 @@ class MapScene extends Phaser.Scene {
       if (cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
+      // BLOCKED covers the road TERRAIN; the road mask covers the rest of the
+      // band the player sees (see entry.roadMask). The first thing a new
+      // player is taught to chop cannot be standing in the street.
+      if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) return false;
       return !BLOCKED.has(grid[cy * N + cx]);
     };
 
@@ -4311,7 +4335,7 @@ class MapScene extends Phaser.Scene {
     // shared with the X-mark scatter above. This burst is centred on a POI, so
     // pass it as a public anchor — residential cells right around the chest are
     // fair game even if no road is within frontage.
-    const burstOpts = { pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    const burstOpts = { roadMask: entry.roadMask, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     const candidates = [];
     for (let dy = -RADIUS_CELLS; dy <= RADIUS_CELLS; dy++) {
       for (let dx = -RADIUS_CELLS; dx <= RADIUS_CELLS; dx++) {
