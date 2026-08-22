@@ -72,7 +72,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, effectivePickCost, effectiveChopCost,
-  treeWoodMul, treeAxeReqTier, treeSpeciesName,
+  treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,

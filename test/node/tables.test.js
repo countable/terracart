@@ -47,6 +47,47 @@ test('treeAxeReqTier / treeWoodMul: consistent, in-range', () => {
   }
 });
 
+// A tree whose id doesn't hash shiny — shiny trees gate on a Gold axe whatever
+// their size, which would mask the size ladder these tests are checking.
+function plainTree(props) {
+  for (let i = 0; ; i++) {
+    const id = `t_${props.species || 'any'}_${props.size || 'none'}_${i}`;
+    if (!isShiny(id, SHINY_RATE.tree)) return { kind: 'tree', variant: 3, ...props, id };
+  }
+}
+
+test('treeAxeReqTier: the size ladder climbs, and only the biggest needs Gold', () => {
+  for (const species of ['maple', 'birch', 'pine']) {
+    const tier = (size) => treeAxeReqTier(plainTree({ species, size }));
+    assert.eq(tier('bush'), 0, `${species} bush fells bare-handed`);
+    assert.lt(tier('small'), tier('medium'), `${species}: small easier than medium`);
+    assert.lt(tier('medium'), tier('large'), `${species}: medium easier than large`);
+    // Gold (4) is the shiny/top gate — no non-shiny tree below 'large' may want it.
+    assert.lt(tier('small'), 4, `${species} small doesn't need a Gold axe`);
+    assert.lt(tier('medium'), 4, `${species} medium doesn't need a Gold axe`);
+  }
+});
+
+test('treeAxeReqTier: a size-less hardwood gates below a large one', () => {
+  // Regression: size-less trees class off their canopy scale, and maple's
+  // sprite-sheet base (0.85 vs 0.62) used to read as a bigger TREE — so every
+  // size-less maple classed 'full' and, with the hardwood +1, demanded the same
+  // Gold axe as a large one, sapling art and all.
+  const large = treeAxeReqTier(plainTree({ species: 'maple', size: 'large' }));
+  for (const variant of [1, 2, 3, 4]) {
+    const sizeless = treeAxeReqTier(plainTree({ species: 'maple', variant }));
+    assert.lt(sizeless, large, `size-less maple (variant ${variant}) fells easier than a large one`);
+  }
+  // The growth stage the maple sheet DRAWS is the size class it gates on:
+  // a sprout/young frame can't demand as much axe as a mature canopy.
+  const sprout = treeAxeReqTier(plainTree({ species: 'maple', variant: 1 }));
+  const mature = treeAxeReqTier(plainTree({ species: 'maple', variant: 3 }));
+  assert.lt(sprout, mature, 'a maple sprout fells easier than a mature maple');
+  assert.eq(treeGrowthStage({ variant: 0 }), 1, 'stump frame 0 clamps to the sprout frame');
+  assert.eq(treeGrowthStage({ variant: 4 }), 3, 'stump frame 4 clamps to the mature frame');
+  assert.eq(treeGrowthStage({}), 2, 'no variant = young');
+});
+
 test('HomeArea.softwoodSpeciesNear: forces pine near spawn, exempts bushes', () => {
   HomeArea.setOrigin(0, 0);
   // A normal-sized tree near the origin is forced to softwood (pine)…
