@@ -15,7 +15,10 @@
 // field init around the call; only the pure save-shape work moves here.
 //
 // Depends on globals: maxEnergyFromArmor + STARTING_ENERGY (items.js), and
-// Inventory.add (inventory.js) for the stash / sapling grants.
+// Inventory.add (inventory.js) for the stash / sapling grants. ShopsMath
+// (shops_math.js) is used too, for the shop-state GC below, but that module
+// loads AFTER this one in index.html — the call is runtime-guarded so a
+// headless load of just this file (no ShopsMath) still works.
 
 (function (root) {
   'use strict';
@@ -56,6 +59,15 @@
     if (save.offerSalt == null) {
       save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
     }
+    // GC stale per-house shop-state entries once per boot. render.js polls
+    // shop readiness for every house it draws (not just ones ever shopped at),
+    // and nothing else ever deletes an entry, so save.shopState otherwise grows
+    // by one record per house EVER SEEN and never shrinks. shops_math.js loads
+    // AFTER this file in index.html, so the call is runtime-guarded; node tests
+    // that load savemigrate.js on its own (without shops_math.js) still pass.
+    if (typeof ShopsMath !== 'undefined') {
+      ShopsMath.pruneShopState(save, Date.now());
+    }
     // Backfill armor slots (spread, not ||, so a save missing one slot key still
     // gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
     save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(save.armor || {}) };
@@ -85,9 +97,15 @@
       save.starterToolsStripped = true;
     }
     // Soft cap on unbounded history fields so a heavy player can't balloon the
-    // save past the localStorage quota and silently break writes.
+    // save past the localStorage quota and silently break writes. `placedRocks`
+    // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —
+    // an old broken rock or opened chest reappearing is accepted behaviour),
+    // a placed rockfruit stone is live rendered map content. Trimming it would
+    // silently delete a player-placed rock out of the world, not just forget
+    // its history. It stays unbounded, bounded instead by the gameplay cost of
+    // placing one.
     const HISTORY_CAP = 5000;
-    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'placedRocks', 'chopped']) {
+    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'chopped']) {
       const arr = save[k];
       if (Array.isArray(arr) && arr.length > HISTORY_CAP) {
         save[k] = arr.slice(arr.length - HISTORY_CAP);

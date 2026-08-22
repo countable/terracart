@@ -62,20 +62,8 @@
   // house rolls a new-but-stable wishlist each day. Differs from the shop RNG
   // (which rotates on the hour bucket).
   function wantedRng(house, dk) {
-    let h = 2166136261 >>> 0;
-    const s = String(house?.id || '') + '|' + String(dk || '');
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    let state = h;
-    return () => {
-      state = (Math.imul(state, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
-      let t = state;
-      t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
-      t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    const h = fnv1a(String(house?.id || '') + '|' + String(dk || ''));
+    return makeRng32(h);
   }
 
   // Rarity tier (1..7) a produce id sits at — baseTier on the ITEM record, else
@@ -114,12 +102,7 @@
   // household keeps the same theme every day while the items inside it rotate.
   function bundleTheme(house) {
     if (!house?.id) return BUNDLE_THEME_KEYS[0];
-    let h = 2166136261 >>> 0;
-    const s = String(house.id) + '|theme';
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
+    const h = fnv1a(String(house.id) + '|theme');
     return BUNDLE_THEME_KEYS[h % BUNDLE_THEME_KEYS.length];
   }
 

@@ -13,6 +13,39 @@ function randInt(min, max, rng) {
   return min + Math.floor((rng ?? Math.random)() * (max - min + 1));
 }
 
+// === Shared hashing / seeded RNG ============================================
+// One FNV-1a implementation for every id-derived hash in the game (the shiny
+// roll below, the shop bucket offset, the delivery day-seed + theme pick, and
+// the sandbox flora placer each used to hand-roll this same 32-bit loop —
+// same seed 2166136261 / prime 16777619 everywhere, differing only in what
+// string gets salted in and what the caller does with the final uint32).
+// Callers that need [0,1) divide by 4294967296 themselves; callers that need
+// a bounded pick take `% n`.
+function fnv1a(str) {
+  let h = 2166136261 >>> 0;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Seeded [0,1) generator (splitmix-style state advance + a mulberry-style
+// output mix) shared by shops_math.js's per-bucket offer rng and delivery.js's
+// per-day wishlist rng — both hashed a seed with fnv1a and then ran this exact
+// 8-line mixer to turn it into a stream; now one copy, two seeds.
+function makeRng32(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 0x9e3779b1) + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+    t ^= (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // === Rare "shiny" variants =================================================
 // A small fraction of biome flora, trees and wild animals spawn as a rare
 // yellow-tinted ("shiny") version. Harvesting / catching one pays a 10× money
@@ -26,13 +59,7 @@ const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05 };
 // Salted with '#shiny' so it never collides with other id-derived hashes
 // (e.g. the wildplant sprite-variant hash in render.js).
 function shinyHash01(id) {
-  let h = 0x811c9dc5;
-  const s = String(id) + '#shiny';
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0) / 4294967296;
+  return fnv1a(String(id) + '#shiny') / 4294967296;
 }
 // True for the rare shiny variant of the entity identified by `id`.
 function isShiny(id, rate) {

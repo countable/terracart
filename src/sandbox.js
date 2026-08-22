@@ -48,6 +48,7 @@
 // Dependencies (globals):
 //   WorldGen — Z, tileCache, cellsPerEdgeForLat, tileEdgeMeters, makeRng
 //   ITEMS / RELIC_DEFS / ARMOR_DEFS / maxEnergyFromArmor — for the test kit
+//   fnv1a (util.js) — shared FNV-1a hash, for the flora-placer's seed
 //
 // Exports as a global:
 //   Sandbox.detect()       → bool
@@ -540,7 +541,7 @@
       occupied.add(key(ix, iy));
     }
     for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
-    const hashStr = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+    const hashStr = (s) => fnv1a(s);   // shared FNV-1a (util.js)
     const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
     const place = (ix, iy, crop, t) => {
       const kk = key(ix, iy);

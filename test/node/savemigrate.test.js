@@ -82,6 +82,31 @@ test('migrate: history fields are capped at 5000 most-recent entries', () => {
   assert.eq(save.opened[4999], 'id5999');
 });
 
+test('migrate: placedRocks is exempt from the HISTORY_CAP trim (live map content)', () => {
+  // A placed rockfruit stone is live, rendered map content — trimming it would
+  // silently delete a rock the player put down, not just forget history the
+  // way an old opened chest or broken rock does.
+  const big = Array.from({ length: 6000 }, (_, i) => 'rock' + i);
+  const save = { placedRocks: big.slice(), brokenRocks: big.slice() };
+  SaveMigrate.migrate(save);
+  assert.eq(save.placedRocks.length, 6000, 'placedRocks left uncapped');
+  assert.eq(save.brokenRocks.length, 5000, 'brokenRocks still capped, same as before');
+});
+
+test('migrate: GCs stale save.shopState entries via ShopsMath (guarded, runs when loaded)', () => {
+  // ShopsMath IS loaded in this bundle (shops_math.js loads before
+  // savemigrate.test.js runs), so the runtime guard in migrate() should fire
+  // and prune any entry whose stored bucket no longer matches.
+  const staleHouse = { id: 'sm-stale' };
+  const save = {};
+  ShopsMath.bucketState(save, staleHouse, 0);   // seed a bucket-0 record
+  assert.truthy(save.shopState['sm-stale'], 'seeded before migrate');
+  // migrate() with no `now` runs the GC at Date.now() — well past bucket 0
+  // for real wall-clock time, so the stale seed gets pruned.
+  SaveMigrate.migrate(save);
+  assert.falsy(save.shopState['sm-stale'], 'stale shopState entry pruned by migrate()');
+});
+
 test('migrate: chopped self-heal strips falsy ids (id-less tree bug)', () => {
   const save = { chopped: ['t1', undefined, 't2', null, ''] };
   SaveMigrate.migrate(save);

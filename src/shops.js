@@ -11,23 +11,27 @@
 //
 // Exports as globals:
 //   Shops.shopType(house)         → 'blacksmith' | 'market' | 'trader' | null
-//   Shops.shopLabel(house)        → e.g. "Market XXVI" or null
-//   Shops.shopTint(house)         → Phaser tint colour or null (no tint)
 //   Shops.shopInk(house)          → signage lettering colour or null
 //   Shops.toRoman(n)              → "XXVI" for 26 (clamped 1..3999)
+//
+// shopTint() and shopLabel() used to live here too, but render.js deliberately
+// reimplements both rather than calling them (see the comments by
+// _houseSignText / the tint block in render.js): both read the OSM street
+// ADDRESS digit, so a plain residential house whose address merely ended in
+// the wrong digit got painted/labelled as a shop it wasn't — restore-order
+// roles fixed that by keying off the house's resolved role instead. Deleted
+// along with the now-unreferenced `label`/`tint` SHOP_CONFIG fields.
 
 (function (global) {
   // Per-type config — adding a new shop type means one entry here, plus
   // wiring into shopInteract() for buy-side behaviour. Render.js reads this
   // table directly.
-  //   label: prefix on the signage ("Market XXVI")
-  //   tint:  multiplied into the house sprite, null = no tint
-  //   ink:   lettering colour painted on the shop's wood sign — picked to
-  //          read on the SHOP_INK_BG dark-wood background (see render.js)
+  //   ink: lettering colour painted on the shop's wood sign — picked to
+  //        read on the SHOP_INK_BG dark-wood background (see render.js)
   const SHOP_CONFIG = {
-    blacksmith: { label: 'Blacksmith', tint: 0x807068, ink: '#d8d8d8' },  // steel
-    market:     { label: 'Market',     tint: 0xff6a6a, ink: '#ff7a6a' },  // red
-    trader:     { label: 'Trader',     tint: null,     ink: '#ffe066' },  // gold
+    blacksmith: { ink: '#d8d8d8' },  // steel
+    market:     { ink: '#ff7a6a' },  // red
+    trader:     { ink: '#ffe066' },  // gold
   };
 
   function shopType(house) {
@@ -43,18 +47,9 @@
   // Resolve a house to its SHOP_CONFIG entry (or null for non-shops).
   const shopConfig = (house) => SHOP_CONFIG[shopType(house)] ?? null;
 
-  const shopTint = (house) => shopConfig(house)?.tint ?? null;
-
   // Lettering colour for the shop's wood-signage label. Picked to read on
   // SHOP_INK_BG (warm dark wood — see the label block in render.js).
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
-
-  function shopLabel(house) {
-    const cfg = shopConfig(house);
-    if (!cfg) return null;
-    // address+1 so a "house number 0" doesn't render as an empty roman numeral.
-    return `${cfg.label} ${toRoman((house.address ?? 0) + 1)}`;
-  }
 
   // Roman numeral renderer (1..3999). Used for the "Market XXVI" labels above
   // specialty shops.
@@ -70,7 +65,7 @@
   }
 
   global.Shops = {
-    shopType, shopLabel, shopTint, shopInk,
+    shopType, shopInk,
     toRoman,
   };
 })(window);

@@ -110,13 +110,18 @@
   }
 
   // ── Locator helpers — find nearby content for tap targeting ──────────
-  function nearestObject(predicate) {
+  // Shared scan: the closest entry (by straight-line distance to the player)
+  // across every cached tile's `listKey` array that passes `predicate`.
+  // nearestObject/nearestWildplant/nearestCreature below are thin wrappers —
+  // only the array they scan (and, for creatures, the extra caught-filter)
+  // differ.
+  function _nearest(listKey, predicate) {
     const s = S();
     const pWX = s.startWorldM.x + s.playerM.x;
     const pWY = s.startWorldM.y + s.playerM.y;
     let best = null, bestD2 = Infinity;
     for (const entry of WorldGen.tileCache.values()) {
-      for (const o of (entry.objects || [])) {
+      for (const o of (entry[listKey] || [])) {
         if (!predicate(o)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
@@ -126,37 +131,17 @@
     return best;
   }
 
+  function nearestObject(predicate) {
+    return _nearest('objects', predicate);
+  }
+
   function nearestWildplant(predicate) {
-    const s = S();
-    const pWX = s.startWorldM.x + s.playerM.x;
-    const pWY = s.startWorldM.y + s.playerM.y;
-    let best = null, bestD2 = Infinity;
-    for (const entry of WorldGen.tileCache.values()) {
-      for (const wp of (entry.wildplants || [])) {
-        if (!predicate(wp)) continue;
-        const dx = wp.x - pWX, dy = wp.y - pWY;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { best = wp; bestD2 = d2; }
-      }
-    }
-    return best;
+    return _nearest('wildplants', predicate);
   }
 
   function nearestCreature(predicate) {
     const s = S();
-    const pWX = s.startWorldM.x + s.playerM.x;
-    const pWY = s.startWorldM.y + s.playerM.y;
-    let best = null, bestD2 = Infinity;
-    for (const entry of WorldGen.tileCache.values()) {
-      for (const c of (entry.creatures || [])) {
-        if (s.save.caught.includes(c.id)) continue;
-        if (!predicate(c)) continue;
-        const dx = c.x - pWX, dy = c.y - pWY;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { best = c; bestD2 = d2; }
-      }
-    }
-    return best;
+    return _nearest('creatures', (c) => !s.save.caught.includes(c.id) && predicate(c));
   }
 
   // Teleport: shift playerM directly. Cell centres are easier to reason about
