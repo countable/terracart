@@ -1231,6 +1231,11 @@ const TAP_HANDLERS = [
       // flashLoot draws the crop sprite from the itemId arg — the text stays
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
+      // The first harvest ends the pest amnesty around home (app.js
+      // _pestFreeZone + the crow pump): from here on, crops attract crows and
+      // slimes spawn at home like anywhere else. Persisted with this tap's
+      // ctx.dirty save.
+      save.hasHarvested = true;
       scene.questEvent?.('harvest');
       return true;
     }

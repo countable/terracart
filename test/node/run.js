@@ -340,26 +340,28 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
-// The first-day slime amnesty (_slimeFreeZone) decides whether a save is still
-// inside its first day and, if so, which cells of a tile hold no slime. Pure
-// save + grid math on the scene class, so lift it the same way, along with the
-// two constants it reads.
+// The pest amnesty (_pestFreeZone) decides whether a save is still ahead of
+// its first harvest and, if so, which cells of a tile hold no slime or crow.
+// Pure save + grid math on the scene class, so lift it the same way, along
+// with the radius constant it reads. The spawner's one-line use of the zone
+// (which KINDS it re-rolls) can't be lifted, so pest_amnesty.test.js pins it
+// against the source text — hand it the tryPlace body here.
 {
   const src = readSrc('app.js');
-  const head = '  _slimeFreeZone(tx, ty) {\n';
+  const head = '  _pestFreeZone(tx, ty) {\n';
   const at = src.indexOf(head);
   if (at < 0) {
-    console.error('Could not find _slimeFreeZone in src/app.js — update run.js');
+    console.error('Could not find _pestFreeZone in src/app.js — update run.js');
     process.exit(2);
   }
   const bodyStart = at + head.length;
   const end = src.indexOf('\n  }\n', bodyStart);
   if (end < 0) {
-    console.error('Could not find the end of _slimeFreeZone — update run.js');
+    console.error('Could not find the end of _pestFreeZone — update run.js');
     process.exit(2);
   }
   let decls = '';
-  for (const name of ['FIRST_DAY_MS', 'SLIME_FREE_CELLS']) {
+  for (const name of ['PEST_FREE_CELLS']) {
     const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -367,12 +369,24 @@ try {
     }
     decls += `const ${name} = ${m[1]};\n`;
   }
+  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+continue;/);
+  if (!guard) {
+    console.error('Could not find the pest-free spawner guard in src/app.js — update run.js');
+    process.exit(2);
+  }
+  // The crow pump's gate line, for the same reason.
+  const pump = src.match(/if \(hasCrowCrop && [^\n]+\{/);
+  if (!pump) {
+    console.error('Could not find the crow-pump gate in src/app.js — update run.js');
+    process.exit(2);
+  }
   vm.runInContext(
     decls
-    + 'globalThis.FIRST_DAY_MS = FIRST_DAY_MS;\n'
-    + 'globalThis.SLIME_FREE_CELLS = SLIME_FREE_CELLS;\n'
-    + `globalThis.slimeFreeZone = function (tx, ty) {\n${src.slice(bodyStart, end)}\n};`,
-    ctx, { filename: 'slimeFreeZone.js' });
+    + 'globalThis.PEST_FREE_CELLS = PEST_FREE_CELLS;\n'
+    + `globalThis.PEST_FREE_GUARD_SRC = ${JSON.stringify(guard[0])};\n`
+    + `globalThis.CROW_PUMP_GATE_SRC = ${JSON.stringify(pump[0])};\n`
+    + `globalThis.pestFreeZone = function (tx, ty) {\n${src.slice(bodyStart, end)}\n};`,
+    ctx, { filename: 'pestFreeZone.js' });
 }
 
 // The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one

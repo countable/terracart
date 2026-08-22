@@ -155,8 +155,10 @@
         if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsPersist = true; }
       }
     }
-    // Date the save (see stampStartedAt) — the first-day grace period reads it.
+    // Date the save (see stampStartedAt) and settle whether it has ever
+    // brought in a crop (stampHarvested) — the pest amnesty reads the latter.
     if (stampStartedAt(save)) needsPersist = true;
+    if (stampHarvested(save)) needsPersist = true;
     return needsPersist;
   }
 
@@ -164,11 +166,11 @@
   //
   // The tell is any mark the player could only have left themselves: broken
   // ground, a planted crop, an opened chest, a restored neighbour, or a purse
-  // that has moved off the starting figure. Used for two things that both have
-  // to treat a veteran's save as what it is rather than as a new game: retiring
-  // the starter ladder on a save that predates it (app.js), and dating a save
-  // that predates `startedAt` (below) — which decides whether the first-day
-  // grace period is still running.
+  // that has moved off the starting figure. Used by things that all have to
+  // treat a veteran's save as what it is rather than as a new game: retiring
+  // the starter ladder on a save that predates it (app.js), dating a save that
+  // predates `startedAt` (below), and deciding whether a save that predates
+  // `hasHarvested` gets the pest amnesty (stampHarvested).
   function hasPlayed(save) {
     if (!save) return false;
     return (save.tilled?.length ?? 0) > 0
@@ -179,12 +181,13 @@
             && (save.money ?? STARTING_MONEY) !== STARTING_MONEY);
   }
 
-  // When this save started, in epoch ms. Read by the first-day grace period
-  // (app.js — the starting area holds no slimes on day one), so it has to be
-  // honest about age: a save that predates the field and has been PLAYED is
-  // dated to the epoch (long past, no grace), and only one that has never been
-  // touched is dated to now. Stamping every legacy save with today's date would
-  // hand a veteran a fresh first day every time the field was added.
+  // When this save started, in epoch ms. Nothing gameplay-side reads it today
+  // (the pest amnesty that used to has moved to `hasHarvested`, below), but a
+  // date can only be stamped honestly ONCE — drop the stamping and every save
+  // created in the gap is dated "now" whenever a reader appears — so it stays,
+  // and stays honest about age: a save that predates the field and has been
+  // PLAYED is dated to the epoch (long past), and only one that has never been
+  // touched is dated to now.
   //
   // Kept out of migrate()'s backfill block on purpose: this is real data, not a
   // default, so it forces a persist — the date has to be the same on the next
@@ -195,5 +198,21 @@
     return true;
   }
 
-  root.SaveMigrate = { migrate, hasPlayed, stampStartedAt };
+  // Has this save ever brought in a crop? Stamped true at the harvest site
+  // (interact.js); read by the pest amnesty (app.js _pestFreeZone + the crow
+  // pump — no slime or crow near home until the first harvest). A save that
+  // predates the flag can't be asked directly, so it gets the same honesty
+  // rule as the dating above: one that has been PLAYED is assumed past its
+  // first harvest — a veteran must never wake up to a pest-free home — and
+  // only a save that has never been touched still has the grace ahead of it.
+  // (The one save this misjudges — played a little, never harvested, at the
+  // moment the flag ships — loses the amnesty a step early, once, which is
+  // the safe side of the trade.)
+  function stampHarvested(save) {
+    if (!save || save.hasHarvested !== undefined) return false;
+    save.hasHarvested = hasPlayed(save);
+    return true;
+  }
+
+  root.SaveMigrate = { migrate, hasPlayed, stampStartedAt, stampHarvested };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
