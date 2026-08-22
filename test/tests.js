@@ -1226,13 +1226,13 @@ test('rock break: bare-handed works but slower than with pick', (scene) => {
   assert.lt(scene.save.energy, 100, 'energy spent even without pick');
   assert.truthy(scene._workProgress, 'work-progress started bare-handed');
   assert.eq(scene._workProgress.durationMs, 10000, 'bare-handed mining takes 10s');
-  // Equip wood pick → 3s instead of 10s. (Tap once to cancel the in-progress
+  // Equip wood pick → 4s instead of 10s. (Tap once to cancel the in-progress
   // bare-handed attempt, then again to start the picked one.)
   scene.cancelWorkProgress();
   scene.save.relics.pick = { tier: 1 };
   tapWorld(scene, target.wx, target.wy);
   assert.truthy(scene._workProgress, 'work-progress started with pick');
-  assert.eq(scene._workProgress.durationMs, 3000, 'pick makes mining take 3s');
+  assert.eq(scene._workProgress.durationMs, 4000, 'pick makes mining take 4s');
 });
 
 test('tree chop refuses without an axe relic', (scene) => {
@@ -2045,7 +2045,7 @@ test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (s
 
 // Creatures are now DEFEATED via a work queue (slime/crow/deer): tapping
 // starts the wheel; finishing it removes the creature + grants its drop.
-// A weapon shortens the wheel by tier; bare-handed is a long 9s slog (3× wood).
+// A weapon shortens the wheel by tier; bare-handed is a long 9s slog (2.25× wood).
 test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
@@ -2061,7 +2061,7 @@ test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene._workProgress, 'tapping a crow starts the defeat work queue');
-    assert.eq(scene._workProgress.durationMs, 9000, 'bare-handed → 9s queue (3× wood)');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare-handed → 9s queue (2.25× wood)');
     assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught until the queue finishes');
     assert.eq(invCount(scene, 'crow_feather'), 0, 'no feather until the queue finishes');
   } finally {
@@ -2085,7 +2085,7 @@ test('defeat: a weapon shortens the queue; finishing it removes the crow + drops
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene._workProgress, 'weapon tap starts the queue');
-    assert.eq(scene._workProgress.durationMs, 3000, 'tier-1 weapon → 3s queue');
+    assert.eq(scene._workProgress.durationMs, 4000, 'tier-1 weapon → 4s queue');
     // Force the wheel to completion (fires onComplete, no real-time wait).
     scene._workProgress.startT = performance.now() - (scene._workProgress.durationMs + 1000);
     scene._drawWorkProgress();
@@ -2363,12 +2363,12 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
 });
 
 // PICK / TOOL DURATION — tier curve for rock-break work-wheel.
-// Bare hands 9s (3× wood), wood 3s, then -750ms per tier with a 500ms floor.
-test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 3s → iron 2s → frost 0.3s)', () => {
+// Bare hands 9s (2.25× wood), wood 4s, then down to a 300ms frost floor.
+test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 4s → iron 2s → frost 0.3s)', () => {
   if (typeof pickDurationMs !== 'function') return;
-  assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (3× wood)');
+  assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (2.25× wood)');
   assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
-  assert.eq(pickDurationMs({ pick: { tier: 1 } }), 3000, 'wood pick → 3s');
+  assert.eq(pickDurationMs({ pick: { tier: 1 } }), 4000, 'wood pick → 4s');
   assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2500, 'copper → 2.5s');
   assert.eq(pickDurationMs({ pick: { tier: 3 } }), 2000, 'iron → 2s');
   assert.eq(pickDurationMs({ pick: { tier: 4 } }), 1300, 'gold → 1.3s');
@@ -2611,7 +2611,7 @@ test('catch: empty-handed tap starts the catch queue; finishing it captures the 
   try {
     tapWorld(scene, pWX, pWY);
     assert.truthy(scene._workProgress, 'empty-handed tap starts the catch queue');
-    assert.eq(scene._workProgress.durationMs, 9000, 'bare hands → 9s catch (3× a wood net)');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare hands → 9s catch (2.25× a wood net)');
     assert.truthy(rabbit._beingCaught, 'target flagged being-caught (wander skips it)');
     assert.falsy(scene.save.caught.includes(rabbit.id), 'not caught until the queue finishes');
     // Force the wheel to completion (fires onComplete, no real-time wait).

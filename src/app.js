@@ -508,7 +508,7 @@ const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 // top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
 const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
 // Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
-// jackpot: it makes the player's first swing 3× quicker and leaves every finer
+// jackpot: it makes the player's first swing 2.25× quicker and leaves every finer
 // tier to be bought, forged or looted.
 const STARTER_RELIC_TIER = 1;
 
@@ -2919,7 +2919,7 @@ class MapScene extends Phaser.Scene {
   //
   // The supply crates hand a new player materials; nothing hands them a TOOL.
   // Every relic is otherwise bought or forged, so the opening hour is spent
-  // bare-handed at 9 s a swing — a wooden one is 3× quicker (toolDurationMs) —
+  // bare-handed at 9 s a swing — a wooden one is 2.25× quicker (toolDurationMs) —
   // and which tool it is decides what that hour can even be spent on. So this
   // is a real treasure chest, not another supply crate: no `crate` flag, so it
   // renders as the trunk with its tier gem rather than a box, and it disappears

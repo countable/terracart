@@ -105,9 +105,11 @@ test('combat: one shot carries one second of that tier\'s melee rate', () => {
         `${slot} T${tier} shot should carry one second of its own rate`);
     }
   }
-  // Wood → 5, frost → 50: the ladder in concrete, so a silent regression in
-  // TOOL_DURATION_MS shows up as a combat failure too.
-  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 5, 'wood bow');
+  // Wood → 4, frost → 50: the ladder in concrete, so a silent regression in
+  // TOOL_DURATION_MS shows up as a combat failure too. Wood was 5 while its
+  // rung was 3000 ms; at 4000 ms the rate is 3.75/s and the per-shot rounding
+  // in shotDamage carries it to 4.
+  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 4, 'wood bow');
   assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 50, 'frost bow');
 });
 

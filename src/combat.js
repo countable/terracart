@@ -90,7 +90,7 @@
   // ── Damage ladders ───────────────────────────────────────────────────────
   // The identity described at the top: a wheel that took `durMs` to strip the
   // 15-HP slime baseline was dealing 15000/durMs HP per second. Bare hands
-  // (tier 0, 9000 ms) → 1.67 dps; wood (3000) → 5; frost (300) → 50.
+  // (tier 0, 9000 ms) → 1.67 dps; wood (4000) → 3.75; frost (300) → 50.
   const BASELINE_HP = 15;
   function dpsForDurationMs(durMs) { return (BASELINE_HP * 1000) / Math.max(1, durMs); }
 

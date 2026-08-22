@@ -943,15 +943,30 @@ function effectiveTillCost(relics, rng) {
   return Math.max(1, base - Math.floor(eq.tier / 3));
 }
 // Tool work-wheel duration. TIER 0 = BARE HANDS: every tool type works
-// bare-handed at 9s (3 × the wooden tier-1 time) — so chop / mine / fish /
-// defeat are always possible, only slow. Per-tier times follow the spec ladder
-// exactly: wood 3s, copper 2.5s, iron 2s, gold 1.3s, platinum .8s, crimson
-// .5s, frost .3s. The bug net is the lone exception — butterflies still need it
-// (gated in the catch path). pickDurationMs is kept as a back-compat alias.
-const TOOL_DURATION_MS = { 1: 3000, 2: 2500, 3: 2000, 4: 1300, 5: 800, 6: 500, 7: 300 };
+// bare-handed at 9s — so chop / mine / fish / defeat are always possible, only
+// slow. Per-tier times: wood 4s, copper 2.5s, iron 2s, gold 1.3s, platinum .8s,
+// crimson .5s, frost .3s. The bug net is the lone exception — butterflies still
+// need it (gated in the catch path). pickDurationMs is a back-compat alias.
+//
+// WOOD WAS 3s UNTIL AUG 2026. The spec ladder made tier 1 exactly a third of
+// bare hands, which put the game's single biggest jump at the bottom of the
+// ladder and then almost nothing above it: picking up your first relic TRIPLED
+// your rate, and the next two upgrades bought 20% and 50% on top of that. In
+// combat that reads as a wooden sword killing too fast — a slime is BASELINE_HP,
+// so kill time in seconds IS the duration here (see combat.js), and wood 3s vs
+// copper 2.5s vs iron 2s is not a ladder anyone can feel climbing. Wood moved
+// to 4s to open that low end up: bare→wood is now 2.25× instead of 3×, and
+// copper is a real 1.6× step rather than 1.2×. Nothing else on the ladder
+// moved — tiers 2-7 are tuned endpoints and bare hands stays at the 9s rung
+// every "you can always do it, slowly" fallback is written against.
+// The tier-1 time is shared by EVERY tool, so this slowed the wooden
+// axe/pick/hoe/rod by the same third. That is the accepted cost of not forking
+// a combat-only ladder; if the gathering tools need their own curve, give
+// combat its own table rather than bending this one back.
+const TOOL_DURATION_MS = { 1: 4000, 2: 2500, 3: 2000, 4: 1300, 5: 800, 6: 500, 7: 300 };
 function toolDurationMs(relics, slot) {
   const eq = relics?.[slot];
-  if (!eq) return 9000;   // tier 0 (bare hands) = 3 × wood
+  if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
 function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }

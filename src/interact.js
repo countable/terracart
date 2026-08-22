@@ -565,7 +565,7 @@ const TAP_HANDLERS = [
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
       const weaponSlot = weaponTier > 0 ? bestWeapon : null;
-      // Weapon uses the shared spec tool ladder via toolDurationMs (wood 3s …
+      // Weapon uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
       const durMs = (typeof toolDurationMs === 'function')
         ? toolDurationMs(r, weaponSlot)

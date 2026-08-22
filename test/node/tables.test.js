@@ -2,8 +2,8 @@
 // (src/items.js, src/util.js, src/worldgen.js namespace).
 
 test('toolDurationMs: tier ladder 9s bare → 0.3s frost', () => {
-  assert.eq(toolDurationMs({}, 'pick'), 9000, 'no tool = 9s (3× wood)');
-  assert.eq(toolDurationMs({ pick: { tier: 1 } }, 'pick'), 3000, 'T1 = 3s');
+  assert.eq(toolDurationMs({}, 'pick'), 9000, 'no tool = 9s (2.25× wood)');
+  assert.eq(toolDurationMs({ pick: { tier: 1 } }, 'pick'), 4000, 'T1 = 4s');
   assert.eq(toolDurationMs({ pick: { tier: 7 } }, 'pick'), 300, 'T7 = 0.3s');
   // Strictly monotonic decreasing across the ladder.
   let prev = Infinity;
