@@ -230,6 +230,22 @@ const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]); 
 //   - PATH:                             frame 3 — single small pebble
 const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
 const PATH_FRAME = 3;
+// Fog of war — the wash over land the player has never visited.
+//
+// Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
+// That dim is deliberately tinted so unlit ground still reads as this biome
+// after dark; fog is the opposite claim — it is the absence of information,
+// and colouring it would say "here is a forest you haven't been to" when the
+// point is that the player doesn't know that yet.
+//
+// 0.8 leaves the terrain faintly legible as shape rather than blacking it out,
+// so the world reads as continuous and the revealed region has an edge to it.
+// Note it STACKS with the distance falloff (FALLOFF_A 0.90 at the viewport
+// corner, drawn on the layer just below): out at the corners, fogged and
+// explored ground are both close to black and the fog edge is only really
+// legible in the mid-field. Retune the pair together if that ever matters.
+const FOG_COLOR = 0x000000;
+const FOG_ALPHA = 0.8;
 // Scratch buffers for drawCells' per-frame ring scan, reused across frames.
 // Allocated on first use rather than at parse time because their size derives
 // from VIEW_CELLS, which app.js defines and which therefore is not readable
@@ -254,6 +270,10 @@ const UNMAPPED_REVEAL_MS = 600;
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
+// Parallel ring of fog-of-war bits (1 = the player has been here). Read in the
+// same scan as the terrain types, off the same cached tile run — see the fog
+// note in the ring loop.
+let _ringSeen   = null;
 
 // ── Atmosphere ───────────────────────────────────────────────────────────────
 // Which biome is the player actually IN? The viewport routinely straddles three
@@ -431,6 +451,7 @@ Render.drawCells = function drawCells(scene) {
   const RING = VIEW_CELLS + 4;
   if (!_ringTypes || _ringTypes.length !== RING * RING) {
     _ringTypes  = new Int8Array(RING * RING);
+    _ringSeen   = new Int8Array(RING * RING);
     // Parallel ring of building ownership. 0 = no building; otherwise
     // (tileSalt<<16)|localId, where localId is the per-tile owner from worldgen
     // and tileSalt distinguishes tiles so two buildings that happen to share a
@@ -440,12 +461,13 @@ Render.drawCells = function drawCells(scene) {
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
+  const seen   = _ringSeen;
   // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
   // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
   // resolve to the same one. Hold the last tile (and its salt, which depends
   // only on the tile) instead of rebuilding a `Z/tx/ty` key string and hitting
   // the Map for all 225 cells on every frame.
-  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0;
+  let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0, mFog = null;
   for (let r = 0; r < RING; r++) {
     for (let c = 0; c < RING; c++) {
       const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
@@ -460,6 +482,13 @@ Render.drawCells = function drawCells(scene) {
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
         mEntry = WorldGen.tileCache.get(`${WorldGen.Z}/${tx2}/${ty2}`);
+        // Fog rides along on the SAME tile run as the terrain. The scan is
+        // row-major over a 15x15 ring that spans at most a 2x2 block of tiles,
+        // so this resolves ~4 masks per frame rather than 225 — the fog costs
+        // one array index per cell and no extra lookups at all. (Fog.maskFor
+        // is keyed by tile only; it is deliberately independent of the tile
+        // CACHE, which evicts and re-rasterises — see src/fog.js.)
+        mFog = (typeof Fog !== 'undefined') ? Fog.maskFor(tx2, ty2) : null;
         mSalt = (((tx2 * 73856093) ^ (ty2 * 19349663)) & 0x7fff);
         // Unmapped veil, per tile: 1 while the tile's grid isn't in hand, then
         // a fade the first time the renderer sees it loaded. The stamp lives
@@ -478,9 +507,12 @@ Render.drawCells = function drawCells(scene) {
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
+      // No mask for a tile means the player has never set foot in it: fogged.
+      seen[r * RING + c] = mFog ? Fog.bit(mFog, iy2 * N + ix2) : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
+  const SEEN = (c, r) => seen[(r + 2) * RING + (c + 2)];
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
@@ -1390,6 +1422,80 @@ Render.drawCells = function drawCells(scene) {
         if (entry.parkingTreasures) for (const tr of entry.parkingTreasures) drawX(tr);
         if (entry.extraTreasures) for (const tr of entry.extraTreasures) drawX(tr);
       }
+    }
+  }
+
+  // ── Fog of war ────────────────────────────────────────────────────────────
+  // Land the player has never been to is washed FOG_ALPHA black. Two things
+  // about this pass are load-bearing:
+  //
+  // 1. THE LAYER. It paints into fogGfx, which sits at the very top of the
+  //    world display list — above the sprites, above the rim haze and the
+  //    distance falloff, above the labels. Every darkening pass before it had
+  //    to learn the same lesson the hard way: the out-of-reach dim started life
+  //    in cellGfx and could only reach the base terrain fill (biome seams read
+  //    as glowing lines in the dark), and the distance falloff had to move
+  //    above the sprites for the same reason (objects at the rim stayed lit and
+  //    read as stickers on dark ground). Fog is the strongest claim of the lot
+  //    — "you have not been here" — so it covers everything the world draws,
+  //    including the POI name tablets, which are otherwise crisp UI and would
+  //    happily announce the name of a shop the player has never found.
+  //
+  // 2. THE DIRTY GATE. The fog image is identical frame to frame until the
+  //    player crosses a cell (borderDirty — the same signal the biome-seam
+  //    layer uses) or something is newly revealed (Fog.revision). Between
+  //    crossings the container just SCROLLS by the sub-cell fraction, exactly
+  //    as borderContainer does, so the rects are laid out in whole cells with
+  //    no fracX baked in. That turns ~169 fillRects per frame into ~169 per
+  //    second of walking. The 1-cell halo the whole pass renders (-1..
+  //    VIEW_CELLS) is what keeps the scroll from exposing an unfogged edge.
+  if (scene.fogGfx && scene.fogContainer) {
+    scene.fogContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    const fogRev = (typeof Fog !== 'undefined') ? Fog.revision : 0;
+    // Underground has its own darkness (the torch bubble) and no persistent
+    // map to explore, so fog is a surface feature. Clear once on descent rather
+    // than leaving the last surface frame frozen over the cave.
+    const fogOn = depth === 0;
+    // ...and one more input: the UNMAPPED VEIL. A cell whose tile hasn't
+    // arrived is already drawn as the animated survey-line fog that says
+    // "loading", and stacking 80% black on that would smother the one thing it
+    // exists to show. So a fully veiled cell is left alone and picked up as
+    // ordinary fog the moment its tile lands. That handover happens mid-fade,
+    // on no cell crossing of its own, so while anything on screen is still
+    // veiled the pass stays dirty and rebuilds each frame — a few frames at
+    // the loading frontier, which is exactly the window where the image is
+    // genuinely changing.
+    if (borderDirty || fogRev !== scene._fogRev || fogOn !== scene._fogWasOn
+        || scene._fogVeiled) {
+      scene._fogRev = fogRev;
+      scene._fogWasOn = fogOn;
+      let stillVeiled = false;
+      const fg2 = scene.fogGfx;
+      fg2.clear();
+      if (fogOn) {
+        fg2.fillStyle(FOG_COLOR, FOG_ALPHA);
+        // Merge each row's fogged cells into horizontal RUNS before filling.
+        // The fogged region is contiguous by nature (you reveal a disc as you
+        // walk), so a typical frame collapses from ~169 rects to under 13.
+        for (let row = -1; row <= VIEW_CELLS; row++) {
+          let runStart = null;
+          for (let col = -1; col <= VIEW_CELLS + 1; col++) {
+            // The extra column past the end is a sentinel: it is never fogged,
+            // so it always closes an open run without duplicating the flush.
+            const veil = col <= VIEW_CELLS ? VEIL(col, row) : 0;
+            if (veil > 0) stillVeiled = true;
+            const fogged = col <= VIEW_CELLS && veil < 1 && !SEEN(col, row);
+            if (fogged) { if (runStart === null) runStart = col; continue; }
+            if (runStart === null) continue;
+            const ox = runStart - half, oy = row - half;
+            fg2.fillRect(scene.viewCenterX + ox * CELL_PX,
+                         scene.viewCenterY + oy * CELL_PX,
+                         (col - runStart) * CELL_PX, CELL_PX);
+            runStart = null;
+          }
+        }
+      }
+      scene._fogVeiled = stillVeiled;
     }
   }
 };

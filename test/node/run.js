@@ -44,6 +44,10 @@ ctx.localStorage = {
   setItem: (k, v) => _ls.set(k, String(v)),
   removeItem: (k) => _ls.delete(k),
 };
+// fog.js base64s its per-tile bitsets through the standard browser codecs.
+ctx.btoa = (s) => Buffer.from(s, 'latin1').toString('base64');
+ctx.atob = (s) => Buffer.from(s, 'base64').toString('latin1');
+ctx.Uint8Array = Uint8Array;
 ctx.document = { visibilityState: 'visible', addEventListener() {} };
 ctx.addEventListener = () => {};      // window.addEventListener('pagehide', …)
 vm.createContext(ctx);
@@ -51,7 +55,7 @@ vm.createContext(ctx);
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   'interact.js',
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
@@ -113,7 +117,11 @@ try {
 // drift the moment someone retunes the feel.
 {
   const src = readSrc('app.js');
-  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS']) {
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      // VIEW_CELLS is the ceiling on the fog reveal radius —
+                      // see fog.test.js. Lifted for the same reason: a copy
+                      // would drift the moment the viewport was resized.
+                      'VIEW_CELLS']) {
     const m = src.match(new RegExp(`const ${name} = (\\d+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);

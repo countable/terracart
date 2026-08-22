@@ -663,6 +663,11 @@ class MapScene extends Phaser.Scene {
     this.cellM = WorldGen.CELL_M;
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
+    // Fog of war — load the explored-cell masks. Keyed by tile and sized by
+    // cellsPerTile, so it has to come after that is known and before the first
+    // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
+    // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
+    Fog.init(this.save, this.cellsPerTile);
     // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
     // visual feet sit ~14px below the sprite centre (same anchor as the
     // footprint dot). The reach is cell-quantised and centres on the CELL the
@@ -967,6 +972,22 @@ class MapScene extends Phaser.Scene {
     this.labelContainer = this.add.container(0, 0);
     // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
     this.tierGfx = this.add.graphics();
+    // FOG OF WAR — the wash over cells the player has never visited. The very
+    // top of the world display list, above EVERYTHING the world draws: ground,
+    // the lighting dim, the sprites, the rim haze, the distance falloff, the
+    // POI name tablets and the tier diamonds. That is the point of it — "you
+    // have not been here" has to beat every other pass, and a label or a tier
+    // pip poking through the fog would announce the contents of a place the
+    // player has not found yet. (Everything drawn ABOVE this is deliberately
+    // not world: the vignette, the work wheel and flash text all set an
+    // explicit depth, which floats them clear of the insertion-ordered layers.)
+    //
+    // A CONTAINER, like borderContainer, because the fog only changes when the
+    // player crosses a cell: render.js rebuilds the rects on that crossing and
+    // scrolls this by the sub-cell fraction in between. See the fog pass there.
+    this.fogContainer = this.add.container(0, 0);
+    this.fogGfx = this.add.graphics();
+    this.fogContainer.add(this.fogGfx);
 
     // Legacy terrain sprite pool — ground art is fully procedural now, so this
     // is empty. Kept as a defined property so render.js's defensive length check
@@ -1197,6 +1218,7 @@ class MapScene extends Phaser.Scene {
     this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
+    this.fogContainer.setMask(mask);
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
@@ -1879,6 +1901,27 @@ class MapScene extends Phaser.Scene {
     const cx = (wx - tx * tilePx) / cellPxSize;
     const cy = (wy - ty * tilePx) / cellPxSize;
     return { tx, ty, cx, cy };
+  }
+
+  // Fog of war — mark the ground under and around the player as explored.
+  //
+  // Called every frame before drawCells, and free on all but a handful of them:
+  // Fog.reveal bails immediately unless the player has changed CELL, which is
+  // once per 7 m walked. Only when something is genuinely newly revealed does
+  // it touch the save (persistSave already coalesces writes at 500 ms) or move
+  // Fog.revision, which is the renderer's dirty gate.
+  //
+  // Underground has no fog (see the fog pass in render.js), so don't record a
+  // cave walk as surface exploration — the cave's cell indices are the SURFACE
+  // ones, and revealing them would hand the player the map above them.
+  _revealFog() {
+    if (this.depth !== 0) return;
+    const pc = this.playerToWorldCell();
+    const ix = pc.tx * this.cellsPerTile + Math.floor(pc.cx);
+    const iy = pc.ty * this.cellsPerTile + Math.floor(pc.cy);
+    if (!Fog.reveal(ix, iy)) return;
+    Fog.flush(this.save);
+    persistSave(this.save);
   }
 
   // Debug: dump what worldgen actually produced for the tile under the player,
@@ -3783,6 +3826,7 @@ class MapScene extends Phaser.Scene {
     }
 
     this.wanderCreatures();
+    this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
     this.drawObjects();
