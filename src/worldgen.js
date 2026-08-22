@@ -587,10 +587,42 @@
   // a genuinely offline session doesn't rebuild on every call.
   const TILE_RETRY_MS = 3000;
   const _tileFailedAt = new Map();   // "z/x/y" → Date.now() of the last failure
-  // Set while rebuildTileWithBin is replacing a tile: the cross-tile chest
+  // Set while rebuildTileWithBin is replacing a tile: the cross-tile spawn
   // dedup skips this key so the rebuild doesn't dedupe against the very entry
   // it is about to replace.
   let _dedupSkipKey = null;
+
+  // Cross-tile spawn-dedup index: everything a newly-built tile's objects are
+  // checked against. One pass over the cache collects named chests (name →
+  // positions) and house positions.
+  //
+  // skipKey excludes that tile's own live entry while rebuildTileWithBin
+  // replaces it in place — the rebuild produces chests AND houses at exactly
+  // the coordinates of the copies it is about to swap out, so without the
+  // skip it dedupes against itself and drops them all. Houses learned this
+  // the hard way: the skip originally covered only the chest index, and every
+  // rebuilt tile (any tile whose Overpass bin landed after it rasterized)
+  // kept its painted building footprints but lost every house sprite —
+  // brick footings with nothing standing on them.
+  function collectDedupIndex(tileCache, skipKey) {
+    const byName = new Map();   // chest name → [{ x, y }]
+    const housePositions = [];
+    for (const [ek, e] of tileCache) {
+      if (!e || !e.objects) continue;
+      if (ek === skipKey) continue;
+      for (const p of e.objects) {
+        if (p.kind === 'chest' && p.name) {
+          const k = p.name.trim().toLowerCase();
+          let arr = byName.get(k);
+          if (!arr) { arr = []; byName.set(k, arr); }
+          arr.push({ x: p.x, y: p.y });
+        } else if (p.kind === 'house') {
+          housePositions.push({ x: p.x, y: p.y });
+        }
+      }
+    }
+    return { byName, housePositions };
+  }
 
   function tileUrlFor(x, y) {
     return TILE_URL.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
@@ -2357,38 +2389,20 @@
       const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
-      // POIs duplicate across the four tiles meeting at that corner).
+      // POIs duplicate across the four tiles meeting at that corner), and any
+      // new house within HOUSE_DEDUP_M of an existing one — the same building
+      // can be duplicated across the 4 tiles meeting at its corner, producing
+      // 2-4 sprites for the same physical structure (no name available — OSM
+      // doesn't usually name dwellings).
       //
-      // Indexed by lowercased name to keep dedup O(new × matches) rather than
-      // O(new × total) — the prior triple-nested scan was quadratic across the
-      // entire tileCache for every tile load.
+      // Chests are indexed by lowercased name to keep dedup O(new × matches)
+      // rather than O(new × total) — the prior triple-nested scan was quadratic
+      // across the entire tileCache for every tile load.
       const DEDUP_M = 120;
       const DEDUP_M2 = DEDUP_M * DEDUP_M;
-      const byName = new Map();   // name → [{ x, y }]
-      for (const [ek, e] of tileCache) {
-        if (!e || !e.objects) continue;
-        if (ek === _dedupSkipKey) continue;   // rebuilding this tile — see rebuildTileWithBin
-        for (const p of e.objects) {
-          if (p.kind !== 'chest' || !p.name) continue;
-          const k = p.name.trim().toLowerCase();
-          let arr = byName.get(k);
-          if (!arr) { arr = []; byName.set(k, arr); }
-          arr.push({ x: p.x, y: p.y });
-        }
-      }
-      // Position index for houses — same building can be duplicated across the
-      // 4 tiles meeting at its corner, producing 2-4 sprites for the same
-      // physical structure. Dedup any new house within HOUSE_DEDUP_M of an
-      // existing one (no name available — OSM doesn't usually name dwellings).
       const HOUSE_DEDUP_M = 6;
       const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
-      const housePositions = [];
-      for (const e of tileCache.values()) {
-        if (!e || !e.objects) continue;
-        for (const p of e.objects) {
-          if (p.kind === 'house') housePositions.push({ x: p.x, y: p.y });
-        }
-      }
+      const { byName, housePositions } = collectDedupIndex(tileCache, _dedupSkipKey);
       const filteredObjects = [];
       for (const o of objects) {
         if (o.kind === 'chest' && o.name) {
@@ -3628,6 +3642,10 @@
     // (and so the mix is tunable from one place).
     buildingTier, enforceBuildingDistribution,
     TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
+    // Cross-tile spawn dedup — exported so the headless tests can pin that a
+    // tile being rebuilt in place is excluded from its own dedup index (the
+    // bug that stripped every house sprite off rebuilt tiles).
+    collectDedupIndex,
     erodePavementBlobs,
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).
