@@ -1075,16 +1075,33 @@ VERTICAL BUDGET (fitGame -> layOutVertically, index.html)
    bottom, so ALL the slack landed in one unmeasured place. That read very
    differently per device: an iPhone SE had the walking stick sitting 84px ON
    TOP of the map while a tall desktop window had a 195px hole under it.
- - Now the scale is capped by BOTH the phone-column width and the band that is
-   actually left, and the slack is spent in priority order: the walking stick's
-   room first, then a breathing margin (<=28px) under the objective chip.
+ - Now the scale is capped by the phone-column width, and the slack is spent in
+   priority order: the walking stick's room first, then a breathing margin
+   (<=28px) under the objective chip.
+ - ON A PHONE THE WIDTH WINS. A portrait viewport narrower than the column cap
+   always fills edge to edge; only a viewport WIDER than a phone column (tablet
+   portrait, desktop) gets gutters. Capping the scale by the leftover band as
+   well is the bug that put black bars down both sides of an ordinary iOS
+   Safari session and shrank the whole HUD with them: the band drops below the
+   width fit as soon as vh - 254 < vw, which is what a 393x630 viewport (a
+   393-wide phone with the tab bar showing) is. Nothing in the code has to
+   change for it to happen — only the browser's toolbars.
+ - What gives instead is the VERTICAL budget, in this order: the map slides up
+   under the objective chip (never past TOP_ROW, 44px — the money/energy row is
+   never covered, the chip retires itself), then at most one ring of cells
+   tucks under the inventory. A viewport too short for even that shrinks the
+   column after all, so the degenerate case degrades instead of burying the
+   map. Desktop emulation keeps the old height cap: it never promised to fill
+   a window it is only simulating a phone inside.
  - The stick is placed by fitGame into --stick-bottom: centred in the gap
    between the map and the tabs when it fits there, otherwise tucked just above
    the tabs, overlaying the map's bottom corner. Occluding a corner of the
    world beats occluding the inventory, and the stick never reaches the map's
    centre, where the player is drawn.
  - tools/layout_audit.js lifts layOutVertically out of the page and pins these
-   invariants across eight real device sizes.
+   invariants across eight real device sizes AND the same phones as a browser
+   sees them (innerHeight with the toolbars on screen — 80-120px shorter, and
+   the case the gutter bug lived in).
 
 CLUTTER
  - The "no GPS — use the stick or WASD to move" line is a lesson, not a status:

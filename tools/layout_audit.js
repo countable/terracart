@@ -40,8 +40,9 @@ function loadLayout() {
   // whole audit passes no matter what the layout does. (It did exactly that
   // until two deliberately-broken layouts both came back green.) Export the
   // bindings explicitly instead.
-  const EXPORTS = ['TOP_CHROME', 'INV_CLUSTER', 'MAP_TOP_GAME', 'MAP_H_GAME',
-                   'STICK_PX', 'PHONE_MIN', 'PHONE_MAX'];
+  const EXPORTS = ['TOP_CHROME', 'TOP_ROW', 'CELL_GAME', 'INV_CLUSTER',
+                   'MAP_TOP_GAME', 'MAP_H_GAME', 'STICK_PX',
+                   'PHONE_MIN', 'PHONE_MAX'];
   const bridge = '\nglobalThis.__layout = layOutVertically;\n' +
     EXPORTS.map((k) => `globalThis.__${k} = ${k};`).join('\n');
   vm.runInContext(src + bridge, ctx, { filename: 'index.html#layOutVertically' });
@@ -60,6 +61,10 @@ function loadLayout() {
 // Viewport sizes the game actually ships onto, smallest first. The two short
 // ones are the interesting cases: they cannot fit map + stick + inventory at
 // any scale, so they exercise the overlay fallback.
+//
+// These are DEVICE sizes — the full screen, as a home-screen app gets it. The
+// same phones in a browser tab are 80-120px shorter (see BROWSER_VIEWPORTS),
+// and that difference is a layout case of its own, not a rounding error.
 const DEVICES = [
   { name: 'iPhone SE',         w: 375,  h: 667  },
   { name: 'Galaxy S8',         w: 360,  h: 740  },
@@ -71,6 +76,24 @@ const DEVICES = [
   { name: 'desktop tall',      w: 1280, h: 1000 },
 ];
 
+// The SAME phones with browser chrome on screen — window.innerHeight in an
+// iOS Safari / Android Chrome tab, which is what fitGame actually reads. This
+// list is the regression: every one of these is short enough that the old
+// `band / MAP_H_GAME` clamp scaled the column DOWN below the width fit, so a
+// portrait phone grew gutters and shrank its whole HUD with nothing changed
+// but the browser's toolbars (a 393-wide viewport got a 376px column; a
+// 375x553 one got 299px — a 20% zoom-out).
+const BROWSER_VIEWPORTS = [
+  { name: 'iPhone SE / Safari',      w: 375, h: 553 },
+  { name: 'iPhone 13 mini / Safari', w: 375, h: 629 },
+  { name: 'iPhone 15 Pro / Safari',  w: 393, h: 659 },
+  { name: 'iPhone 15 Pro / tab bar', w: 393, h: 630 },
+  { name: 'iPhone 14 / Safari',      w: 390, h: 664 },
+  { name: 'Pro Max / Safari',        w: 430, h: 745 },
+  { name: 'Pixel 7 / Chrome',        w: 412, h: 780 },
+  { name: 'squat phone',             w: 412, h: 600 },
+];
+
 // Reproduce what fitGame does with the result, in CSS px measured from the
 // top of the viewport, so the checks below can talk about what the player
 // actually sees rather than about the box's internal coordinates.
@@ -80,37 +103,65 @@ function geometry(L, dev) {
   // layOutVertically, so testing the portrait ask covers the shared maths and
   // the desktop rows below pin the wide-viewport ask.
   const capW = L.PHONE_MAX / 352;
-  const sByWidth = dev.w < dev.h ? Math.min(dev.w / 352, capW) : capW;
-  const { s, top, stickBottom } = L.fn(sByWidth, dev.h);
+  const portrait = dev.w < dev.h;
+  const sByWidth = portrait ? Math.min(dev.w / 352, capW) : capW;
+  // fillWidth is the portrait promise: a phone column never shrinks below the
+  // width fit. Passing it here is what makes the audit test the real page.
+  const { s, top, stickBottom } = L.fn(sByWidth, dev.h, portrait);
   const mapTop = top + L.MAP_TOP_GAME * s;
   const mapBottom = mapTop + L.MAP_H_GAME * s;
   const stickTop = dev.h - stickBottom - L.STICK_PX;
   const stickBottomPx = stickTop + L.STICK_PX;
   const tabsTop = dev.h - L.INV_CLUSTER;
-  return { s, top, mapTop, mapBottom, stickTop, stickBottomPx, tabsTop,
+  const band = Math.max(160, dev.h - L.TOP_CHROME - L.INV_CLUSTER);
+  return { s, top, mapTop, mapBottom, stickTop, stickBottomPx, tabsTop, band,
+           colW: 352 * s, gutter: (dev.w - 352 * s) / 2,
            mapCentreY: (mapTop + mapBottom) / 2 };
 }
 
 const CHECKS = [];
 
-for (const dev of DEVICES) {
+for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
   const label = `${dev.name} ${dev.w}x${dev.h}`;
 
-  // The map must never run under the inventory. This is the check that the
-  // old fixed-offset layout could not make: it had no idea where the tabs were.
+  // A PHONE fills its viewport. The column may only be narrower than the
+  // screen when the screen is wider than a phone column (tablet portrait,
+  // desktop) — never because the viewport was short. This is the check the
+  // audit was missing: every invariant below was green while an ordinary iOS
+  // Safari viewport rendered a 376px column inside 393px of screen.
+  if (dev.w < dev.h) {
+    CHECKS.push({ name: `layout: the column fills the width — ${label}`, run: () => {
+      const L = loadLayout(), g = geometry(L, dev);
+      const want = Math.min(dev.w, L.PHONE_MAX);
+      if (g.colW < want - 0.5) {
+        throw new Error(`column is ${g.colW.toFixed(1)}px wide in a ${dev.w}px viewport ` +
+          `(${g.gutter.toFixed(1)}px gutters, scale ${g.s.toFixed(4)})`);
+      }
+    } });
+  }
+
+  // The map must never run under the inventory — except by the one ring of
+  // cells the fill-the-width trade is allowed to spend on a short screen, and
+  // then only on a screen whose band genuinely could not seat it.
   CHECKS.push({ name: `layout: map clears the inventory — ${label}`, run: () => {
     const L = loadLayout(), g = geometry(L, dev);
-    if (g.mapBottom > g.tabsTop + 0.5) {
-      throw new Error(`map bottom ${g.mapBottom.toFixed(1)} runs past tabs top ${g.tabsTop}`);
+    const bleed = g.band >= L.MAP_H_GAME * g.s ? 0 : L.CELL_GAME * g.s;
+    if (g.mapBottom > g.tabsTop + bleed + 0.5) {
+      throw new Error(`map bottom ${g.mapBottom.toFixed(1)} runs ` +
+        `${(g.mapBottom - g.tabsTop).toFixed(1)}px past tabs top ${g.tabsTop} ` +
+        `(at most ${bleed.toFixed(1)}px allowed here)`);
     }
   } });
 
-  // The map must start below the top chrome (money/energy row + objective
-  // chip), or the world is drawn under a panel it can never be read through.
+  // The map must start below the money/energy row — that row is opaque chrome
+  // the world can never be read through. It may start under the OBJECTIVE CHIP
+  // when the band is too short to hold it (the chip retires; the row doesn't),
+  // but only then: a screen with slack to spend still clears the whole budget.
   CHECKS.push({ name: `layout: map clears the top chrome — ${label}`, run: () => {
     const L = loadLayout(), g = geometry(L, dev);
-    if (g.mapTop < L.TOP_CHROME - 0.5) {
-      throw new Error(`map top ${g.mapTop.toFixed(1)} is above the chrome budget ${L.TOP_CHROME}`);
+    const floor = g.band >= L.MAP_H_GAME * g.s ? L.TOP_CHROME : L.TOP_ROW;
+    if (g.mapTop < floor - 0.5) {
+      throw new Error(`map top ${g.mapTop.toFixed(1)} is above the ${floor} floor`);
     }
   } });
 
@@ -156,7 +207,7 @@ for (const dev of DEVICES) {
 CHECKS.push({ name: 'layout: every screen that can seat the stick below the map does', run: () => {
   const L = loadLayout();
   const bad = [];
-  for (const dev of DEVICES) {
+  for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
     const g = geometry(L, dev);
     const band = Math.max(160, dev.h - L.TOP_CHROME - L.INV_CLUSTER);
     const roomAtBestPlacement = band - L.MAP_H_GAME * g.s;
@@ -174,7 +225,7 @@ CHECKS.push({ name: 'layout: every screen that can seat the stick below the map 
 CHECKS.push({ name: 'layout: no screen leaves a stick-free hole over 120px', run: () => {
   const L = loadLayout();
   const bad = [];
-  for (const dev of DEVICES) {
+  for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
     const g = geometry(L, dev);
     const above = g.stickTop - g.mapBottom;      // empty band above the stick
     const below = g.tabsTop - g.stickBottomPx;   // empty band below it
@@ -184,4 +235,4 @@ CHECKS.push({ name: 'layout: no screen leaves a stick-free hole over 120px', run
   if (bad.length) throw new Error(bad.join('; '));
 } });
 
-module.exports = { CHECKS, DEVICES, loadLayout, geometry };
+module.exports = { CHECKS, DEVICES, BROWSER_VIEWPORTS, loadLayout, geometry };

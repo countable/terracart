@@ -900,6 +900,17 @@
     // redeclaration that kills the whole bundle at parse time.
     const BOX_W = 352, BOX_H = 844;
     const TOP_CHROME = 106;
+    // TOP_ROW — the money / energy / ☰ row ALONE (top 8, 32-tall chips), which
+    // is the part of the top chrome the map may never slide under. The rest of
+    // TOP_CHROME is the objective chip, and that part is SPENDABLE: when the
+    // map cannot fit the band, layOutVertically slides it up under the chip
+    // rather than shrinking the whole UI. The chip is onboarding — it retires
+    // itself when the ladder finishes — while this row never does.
+    const TOP_ROW = 44;
+    // One map cell, in GAME px (11 × 32 = the 352-wide view). The most of the
+    // map the layout is ever allowed to tuck under the inventory: one ring of
+    // cells at the edge of an 11×11 view, never a row the player can reach.
+    const CELL_GAME = 32;
     // INV_CLUSTER — the bottom stack, measured from the viewport bottom up to
     // the TOP of the category tabs (bottom:104 + 44 tall). The walking stick
     // is deliberately NOT in here: it is placed into the slack below, or
@@ -916,14 +927,41 @@
     // Given a horizontal scale and the viewport height, decide the final scale,
     // the box's top offset, and where the stick sits. Shared by both branches
     // so portrait and desktop-emulation can't drift apart.
-    function layOutVertically(sByWidth, vh) {
-      // Never scale up past what the width allows, and never let the map grow
-      // taller than the band between the two chrome stacks — that is what used
-      // to push it under the stick on short screens.
+    //
+    // `fillWidth` is what separates the two callers, and it exists because the
+    // two have different promises to keep. On a REAL phone the column MUST
+    // span the viewport edge to edge: a portrait phone with black bars down
+    // both sides doesn't read as "letterboxed", it reads as broken, and it
+    // shrinks every HUD control with it. So there the width wins outright and
+    // the vertical budget absorbs whatever is left over. Desktop emulation
+    // makes no such promise — the column is a simulated phone floating in a
+    // window — so there the height is still allowed to shrink it to fit.
+    //
+    // Letting the height shrink a PHONE is exactly the bug this parameter
+    // fixes: `band / MAP_H_GAME` drops below the width fit as soon as
+    // vh - 254 < vw, which is an ordinary iOS Safari viewport once the
+    // toolbars are showing (393x630 -> a 376px column in a 393px viewport, and
+    // 375x553 -> a 299px one). The UI zoomed out and grew gutters with nothing
+    // in the code having changed but the browser chrome's height.
+    function layOutVertically(sByWidth, vh, fillWidth) {
       const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
-      const s = Math.min(sByWidth, band / MAP_H_GAME);
+      // Never scale up past what the width allows. Off a phone, also never let
+      // the map grow taller than the band between the two chrome stacks —
+      // that is what used to push it under the stick on short windows.
+      //
+      // On a phone the map MAY outgrow the band, but only by what the spends
+      // below can actually absorb: the objective chip's reserve, plus one ring
+      // of cells tucked under the inventory. Past that the column shrinks
+      // after all, so a pathologically short viewport degrades instead of
+      // burying the map under the HUD. The bleed is one cell AS DRAWN, so it
+      // scales with s and lands on the far side of the division:
+      //   352s <= band + (TOP_CHROME - TOP_ROW) + 32s.
+      const maxS = (band + (TOP_CHROME - TOP_ROW)) / (MAP_H_GAME - CELL_GAME);
+      const s = Math.min(sByWidth, fillWidth ? maxS : band / MAP_H_GAME);
       const mapH = MAP_H_GAME * s;
-      const slack = Math.max(0, band - mapH);
+      // NEGATIVE when the map is taller than the band — only fillWidth can
+      // produce that, and the mapTop below is where it gets paid for.
+      const slack = band - mapH;
       // Spend the slack in priority order. The stick's room comes FIRST: a
       // breathing margin above the map is worth less than not having the
       // walking stick sitting on the world, and allocating the margin first
@@ -931,8 +969,15 @@
       // into a 24px overlap. Only what survives that reservation becomes the
       // margin under the objective chip.
       const stickFits = slack >= STICK_PX + 16;
-      const spare = stickFits ? slack - (STICK_PX + 16) : slack;
-      const mapTop = TOP_CHROME + Math.min(28, spare * 0.35);
+      const spare = stickFits ? slack - (STICK_PX + 16) : Math.max(0, slack);
+      // Where the map's top edge lands. With slack to spend that is a small
+      // margin under the objective chip; with the map OVER-tall it is the
+      // opposite move — slide up under the chip, never past TOP_ROW, because
+      // the chip is temporary chrome and the inventory below it is not. Only
+      // the overflow that survives that runs under the inventory.
+      const mapTop = slack >= 0
+        ? TOP_CHROME + Math.min(28, spare * 0.35)
+        : Math.max(TOP_ROW, TOP_CHROME + slack);
       const mapBottom = mapTop + mapH;
       const top = mapTop - MAP_TOP_GAME * s;
       // The stick goes in the gap between the map and the tabs when it fits
@@ -975,13 +1020,19 @@
       if (!g) return;
       const root = document.documentElement;
       if (portrait) {
-        // CLAMP the column the same way landscape does. Unbounded, an iPad in
-        // portrait (768×1024) scaled the box by 768/352 = 2.18 into a 768×1841
-        // game: the map overflowed ~800px off the bottom, the inventory HUD
-        // landed on top of the world, and the movement stick sat in the middle
-        // of the play field. The desktop gutters are the mechanism for this —
-        // portrait just wasn't using them.
-        const { s, top, stickBottom } = layOutVertically(Math.min(vw / W, PHONE_MAX / W), vh);
+        // CLAMP the column's WIDTH the way landscape does. Unbounded, an iPad
+        // in portrait (768×1024) scaled the box by 768/352 = 2.18 into a
+        // 768×1841 game: the map overflowed ~800px off the bottom, the
+        // inventory HUD landed on top of the world, and the movement stick sat
+        // in the middle of the play field. The desktop gutters are the
+        // mechanism for this — portrait just wasn't using them.
+        //
+        // Width only, though: `fillWidth` (true here, false on desktop) keeps
+        // the HEIGHT from shrinking the column below the width fit. A phone
+        // narrower than PHONE_MAX always fills its viewport edge to edge; only
+        // a viewport WIDER than a phone column gets gutters.
+        const { s, top, stickBottom } =
+          layOutVertically(Math.min(vw / W, PHONE_MAX / W), vh, true);
         const phoneW = W * s;
         const left  = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
@@ -1005,7 +1056,7 @@
         // The column still wants a phone-ish width; the vertical budget then
         // decides whether the height can actually afford that much scale.
         const { s, top, stickBottom } =
-          layOutVertically(Math.max(sByMinW, sByMaxW), vh);
+          layOutVertically(Math.max(sByMinW, sByMaxW), vh, false);
         const phoneW = W * s;
         const left = Math.max(0, (vw - phoneW) / 2);
         const right = Math.max(0, vw - left - phoneW);
