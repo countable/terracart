@@ -21,7 +21,7 @@
 //                                (chestLabelPool may be pushed to)
 //                    View:       viewCenterX/Y, viewLeft, viewTop, viewSize
 //                    World:      startWorldM, playerM, cellM, tileEdgeM,
-//                                cellsPerTile, feetOffsetM, REACH_CELL_M,
+//                                cellsPerTile, feetOffsetM,
 //                                originPx, mPerPx
 //                    State:      tilledSet, placedRockSet, brokenRockSet,
 //                                save (.foundTreasures, .planted, .picked,
@@ -113,9 +113,26 @@ function hidePoolFrom(pool, startIdx) {
 }
 
 // Swap a sprite's texture only when it differs — skips Phaser's redundant
-// texture-rebind work on the common frame where the key is unchanged.
+// texture-rebind work on the common frame where the key is unchanged. Returns
+// whether it swapped, so a caller can gate a same-frame side effect (e.g.
+// (re)starting an animation) on the swap actually having happened.
 function setTextureIfDifferent(s, key) {
-  if (s.texture.key !== key) s.setTexture(key);
+  if (s.texture.key === key) return false;
+  s.setTexture(key);
+  return true;
+}
+
+// Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
+// pan fraction (fracX, fracY). drawCells inlined this expression at six call
+// sites; factored out here since they all had to stay byte-identical anyway.
+// Returns a shared scratch object (not a fresh one) — drawCells calls this up
+// to VIEW_CELLS² times per pass, several times a frame, so this avoids an
+// allocation per cell; read sx/sy out of it before the next call.
+const _cellScreenXY = { x: 0, y: 0 };
+function cellScreenXY(scene, ox, oy, fracX, fracY) {
+  _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+  _cellScreenXY.y = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+  return _cellScreenXY;
 }
 
 Render.renderPool = function renderPool(scene, pool, container, list, configure) {
@@ -141,13 +158,10 @@ function darkenHex(hex, f) {
 }
 
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b.
-function mixHex(a, b, t) {
-  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-  return (Math.round(ar + (br - ar) * t) << 16)
-       | (Math.round(ag + (bg - ag) * t) <<  8)
-       |  Math.round(ab + (bb - ab) * t);
-}
+// Same implementation as BiomeProfiles.mixHex (biome_profiles.js loads before
+// this file) — aliased locally rather than deleted since this runs in the
+// per-bordered-cell-edge hot path below (getBlend).
+const mixHex = BiomeProfiles.mixHex;
 
 // Biome border wave — precomputed once. Values are integer pixel offsets
 // (±WAVE_AMP) for each column/row index 0..CELL_PX-1.
@@ -211,7 +225,7 @@ const getBlend = (own, nbr, k) => {
   return m;
 };
 const _WAVE_TABLE = (() => {
-  const t = new Int8Array(32); // CELL_PX = 32
+  const t = new Int8Array(32); // CELL_PX = 32 (also SpriteLayout.CELL_PX)
   for (let i = 0; i < 32; i++)
     t[i] = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
   return t;
@@ -717,8 +731,7 @@ Render.drawCells = function drawCells(scene) {
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
         color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
       }
-      const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-      const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
 
       // Mid-reveal cell: its tile just loaded, so the real terrain paints
       // below and the fog fades off it on the lighting layer (drawn there so
@@ -1174,8 +1187,7 @@ Render.drawCells = function drawCells(scene) {
       const type = T(col, row);
       if (!isB(type)) continue;
       const ox = col - half, oy = row - half;
-      const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-      const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
       if (type === 11) {
@@ -1382,8 +1394,7 @@ Render.drawCells = function drawCells(scene) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
-      const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-      const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
       gr.fillRect(sx, sy, CELL_PX, CELL_PX);
     }
   }
@@ -1398,8 +1409,7 @@ Render.drawCells = function drawCells(scene) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
-        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
         gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
@@ -1490,8 +1500,7 @@ Render.drawCells = function drawCells(scene) {
       for (let col = -1; col <= VIEW_CELLS; col++) {
         if (!isReach(col, row)) continue;
         const ox = col - half, oy = row - half;
-        const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-        const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+        const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
         gr.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
     }
@@ -1506,8 +1515,7 @@ Render.drawCells = function drawCells(scene) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (!isReach(col, row)) continue;
       const ox = col - half, oy = row - half;
-      const sx = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
-      const sy = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
       const top = !isReach(col, row - 1);
       const bot = !isReach(col, row + 1);
       const lft = !isReach(col - 1, row);
@@ -1988,7 +1996,6 @@ Render.drawObjects = function drawObjects(scene) {
   // the smallest ('bush') renders as a bush, the rest as trees. OSM trees (no
   // size) fall back to crown_m, then the flat species scale. (Authoritative
   // copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
-  const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
@@ -3373,7 +3380,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     if (c.kind === 'cow') {
-      if (s.texture.key !== 'cow') { s.setTexture('cow'); s.play('cow-idle'); }
+      if (setTextureIfDifferent(s, 'cow')) s.play('cow-idle');
       // Cow is the biggest farm animal — needs to read larger than the
       // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
       // (48 px effective) so the cow visibly dwarfs the pets.
@@ -3387,7 +3394,7 @@ Render.drawObjects = function drawObjects(scene) {
       // visually similar despite sharing the scalar.
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
       const sc = creatureScale(c.kind, 1.3);
-      if (s.texture.key !== c.kind) { s.setTexture(c.kind); s.play(animKey); }
+      if (setTextureIfDifferent(s, c.kind)) s.play(animKey);
       s.setOrigin(0.5, creatureFoot(c.kind)).setScale(sc)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
@@ -3469,7 +3476,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
       // Per user → 1.20 (still well under the cow's 1.20 because the chicken
       // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
-      if (s.texture.key !== 'chicken') { s.setTexture('chicken'); s.play('chicken-idle'); }
+      if (setTextureIfDifferent(s, 'chicken')) s.play('chicken-idle');
       s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.20))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
