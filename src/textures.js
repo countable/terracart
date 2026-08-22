@@ -27,14 +27,29 @@ const CASTLE_STONE = (() => {
   };
 })();
 
+// --- Water animation timing ---
+// 8 phases × 220ms ≈ a 1.8s loop in which the highlight bands drift one full
+// band-period (7-9px) downward — roughly 4px/s, ambience rather than a
+// current you'd race. 8 phases ≈ 1px per step at those periods, so the drift
+// reads as smooth motion, not a two-frame flicker.
+const WATER_ANIM_PHASES = 8;
+const WATER_ANIM_MS = 220;
+
 // --- Biome texture registry ---
-// Terrain class id → { variants, draw(ctx, size, rng) }. Each variant becomes
-// a Phaser canvas texture keyed `biome${type}_${v}` via makeBiomeTextures.
+// Terrain class id → { variants, draw(ctx, size, rng, phaseFrac) }. Each
+// variant becomes a Phaser canvas texture keyed `biome${type}_${v}` via
+// makeBiomeTextures. Specs with `animPhases` additionally bake phases 1..N-1
+// as `biome${type}_${v}p${p}` (phase 0 keeps the plain key), and render.js
+// picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
   1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
   2:  { variants: 2, draw: drawSandTex },         // sand: horizontal ripple marks
-  3:  { variants: 2, draw: drawWaterTex },        // water: horizontal band highlights
+  // Water animates: `animPhases` pre-baked frames per variant (the bands drift
+  // downward one band-period per loop), stepped every `animMs`. See the
+  // "Animated biome textures" note above makeBiomeTextures for why this is the
+  // cheap way to animate every water cell at once.
+  3:  { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   4:  { variants: 2, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
@@ -57,8 +72,10 @@ const BIOME_TEX = {
   // PIER (type 23) — reuse the water ripple as base texture; render.js
   // overlays the wooden plank sprite on top via the cobblePool. Without
   // this entry the cell would fall back to bare colour with no ripple,
-  // breaking visual continuity with adjacent WATER cells.
-  23: { variants: 2, draw: drawWaterTex },
+  // breaking visual continuity with adjacent WATER cells. Animates in
+  // lockstep with WATER for the same reason — a still patch under a pier
+  // edge would break the "one body of water" read.
+  23: { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // Underground cave biome
   24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
   25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
@@ -273,17 +290,43 @@ function drawTilledTex(ctx, size, rng) {
   }
 }
 
-function drawWaterTex(ctx, size, rng) {
-  // Horizontal highlight bands — top-down water with distinct cyan stripe pattern.
+function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
+  // Horizontal highlight bands — top-down water with distinct cyan stripe
+  // pattern. `phaseFrac` (0..1) slides the bands downward by that fraction of
+  // one band-period; a full unit brings the pattern back to itself, so the
+  // WATER_ANIM_PHASES baked frames loop seamlessly. Everything is driven by
+  // the same rng call sequence regardless of phase, so the depth specks (and
+  // the per-variant gap/start) hold still while only the bands move.
   ctx.clearRect(0, 0, size, size);
   const bandH = 2;
   const gap = 5 + Math.floor(rng() * 3);   // 5-7 px between bands
   const startY = Math.floor(rng() * gap);
-  for (let y = startY; y < size; y += gap + bandH) {
-    ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
-    ctx.fillRect(0, y, size, Math.min(bandH, size - y));
-    ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
-    ctx.fillRect(0, y, size, 1);
+  const period = gap + bandH;
+  const off = Math.round(phaseFrac * period);
+  // Horizontal variation — a gentle sine swell plus one broken-crest window
+  // where the band drops out. Both are SHARED by every band in the tile: a
+  // per-band shape can't survive the loop (after one full cycle band k sits
+  // exactly where band k+1 was, so any k-keyed difference would pop at the
+  // wrap). Cells hash-pick between the variants, and the wave slides one full
+  // wavelength sideways per loop, so the water still varies across cells and
+  // shimmers diagonally rather than reading as ruled lines.
+  const waveLen = size / (1 + Math.floor(rng() * 2));   // 1-2 waves per tile (x-periodic)
+  const wavePhase = rng() * Math.PI * 2;
+  const waveAmp = 0.8 + rng() * 0.7;                    // ~1px swell
+  const gapStart = Math.floor(rng() * size);            // broken-crest window (wraps)
+  const gapLen = 4 + Math.floor(rng() * 5);             // 4-8 px of open water
+  const xPhase = phaseFrac * Math.PI * 2;   // one wavelength per loop — seamless
+  // Start one period above the tile so the band scrolling in from the top
+  // edge is already there; rows pushed past either edge just clip.
+  for (let y = startY - period + off; y < size; y += period) {
+    for (let x = 0; x < size; x++) {
+      if ((x - gapStart + size) % size < gapLen) continue;
+      const yy = y + Math.round(Math.sin(x * 2 * Math.PI / waveLen + wavePhase + xPhase) * waveAmp);
+      ctx.fillStyle = 'rgba(150,200,205,0.26)';  // dull crest band
+      ctx.fillRect(x, yy, 1, bandH);
+      ctx.fillStyle = 'rgba(205,225,225,0.12)';  // faint leading edge
+      ctx.fillRect(x, yy, 1, 1);
+    }
   }
   // Subtle dark depth specks.
   for (let i = 0; i < 4; i++) {
@@ -965,15 +1008,26 @@ function makeOpenCrateTexture(scene) {
   tex.refresh();
 }
 
+// === Animated biome textures ===
+// A spec with `animPhases: N` bakes N phase frames per variant at startup:
+// phase 0 keeps the plain `biome${type}_${v}` key (so anything holding that
+// key still works), phases 1..N-1 get a `p${p}` suffix. drawCells already
+// calls setTexture on every visible ground cell every frame, so animating is
+// just building the key with the clock-derived phase — no per-frame canvas
+// redraws, no texture uploads, no per-cell tweens. Each phase re-seeds the
+// SAME rng, so static features stay put and only the phase-driven motion moves.
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
+    const phases = spec.animPhases || 1;
     for (let v = 0; v < spec.variants; v++) {
-      const key = `biome${type}_${v}`;
-      if (scene.textures.exists(key)) continue;
-      const tex = scene.textures.createCanvas(key, size, size);
-      const ctx = tex.getContext();
-      spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + v + 1));
-      tex.refresh();
+      for (let p = 0; p < phases; p++) {
+        const key = `biome${type}_${v}` + (p ? `p${p}` : '');
+        if (scene.textures.exists(key)) continue;
+        const tex = scene.textures.createCanvas(key, size, size);
+        const ctx = tex.getContext();
+        spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + v + 1), p / phases);
+        tex.refresh();
+      }
     }
   }
   for (let v = 0; v < TILLED_VARIANTS; v++) {
