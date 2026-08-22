@@ -251,6 +251,54 @@ function equipGearReward(reward, save, scene) {
   scene.markRelicsDirty?.();
 }
 
+// Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
+// with every branch it can take — an item (low-tier seeds bundled up, jackpot
+// fanfare on a big hit), a gold sum, or the fallback dollar if rarity.js is
+// somehow absent — plus the consolation coins the picker couldn't fold into
+// the item's quantity.
+//
+// Factored out of the X-mark handler so a monster's rare drop pays the SAME
+// table: two copies of this would be two loot pools to retune, and the whole
+// point of the drop is that it feels like finding an X.
+//   mark — the glyph the loot flash leads with ('✕' dug up, '💀' off a kill)
+// Sets no dirty flag and does not persist; the caller owns that.
+function grantTreasureRoll(scene, save, sx, sy, mark) {
+  const reward = (typeof pickReward === 'function')
+    ? pickReward('treasure:default', save) : null;
+  if (!reward) {
+    // Shouldn't happen — context exists — but bail safely if rarity.js
+    // is missing or the pool is empty.
+    addMoney(save, 1);
+    scene.flashLoot(`${mark} → $1`, '#ffe066');
+    return;
+  }
+  if (reward.kind === 'item') {
+    // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
+    if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
+      reward.qty += LOW_TIER_SEED_QTY_BONUS;
+    }
+    scene.addToInv(reward.id, reward.qty);
+    const item = ITEM_BY_ID[reward.id];
+    const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;
+    const color = ti?.color || '#ffe066';
+    const label = `${mark} → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
+    scene.flashLoot(label, color, 1, reward.id);
+    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+      scene.flashJackpot(reward.jackpot);
+    }
+  } else if (reward.kind === 'gold') {
+    addMoney(save, reward.amount);
+    scene.flashLoot(`${mark} → $${reward.amount}`, '#ffe066');
+  }
+  // Consolation coins for any qty bumps the picker couldn't apply
+  // (bracket at cap or single-stack class). Small gold trickle alongside
+  // the main loot — never replaces it.
+  if (reward.consolation > 0) {
+    addMoney(save, reward.consolation);
+    scene.flash(`+$${reward.consolation}`, sx, sy + 16);
+  }
+}
+
 // Shared work-queue launcher for tool-driven interactions (chop, mine, pick).
 // Looks up the correct duration from toolDurationMs (falling back to 9s
 // bare-hands / 3s T1 if the helper isn't available), optionally pre-spends
@@ -333,38 +381,7 @@ const TAP_HANDLERS = [
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
-      const reward = (typeof pickReward === 'function')
-        ? pickReward('treasure:default', save) : null;
-      if (!reward) {
-        // Shouldn't happen — context exists — but bail safely if rarity.js
-        // is missing or the pool is empty.
-        addMoney(save, 1);
-        scene.flashLoot('✕ → $1', '#ffe066');
-      } else if (reward.kind === 'item') {
-        // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
-        if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
-          reward.qty += LOW_TIER_SEED_QTY_BONUS;
-        }
-        scene.addToInv(reward.id, reward.qty);
-        const item = ITEM_BY_ID[reward.id];
-        const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;
-        const color = ti?.color || '#ffe066';
-        const label = `✕ → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
-        scene.flashLoot(label, color, 1, reward.id);
-        if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
-          scene.flashJackpot(reward.jackpot);
-        }
-      } else if (reward.kind === 'gold') {
-        addMoney(save, reward.amount);
-        scene.flashLoot(`✕ → $${reward.amount}`, '#ffe066');
-      }
-      // Consolation coins for any qty bumps the picker couldn't apply
-      // (bracket at cap or single-stack class). Small gold trickle alongside
-      // the main loot — never replaces it.
-      if (reward && reward.consolation > 0) {
-        addMoney(save, reward.consolation);
-        scene.flash(`+$${reward.consolation}`, sx, sy + 16);
-      }
+      grantTreasureRoll(scene, save, sx, sy, '✕');
       ctx.dirty = true;
       return true;
     };
@@ -554,7 +571,21 @@ const TAP_HANDLERS = [
           const item = ITEM_BY_ID[dropId];
           scene.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
         } else if (_isMon) {
-          scene.flash(`⚔️ ${MONSTERS[victim.kind].name} defeated`, scene.viewCenterX, scene.viewCenterY - 60);
+          // Every kill pays a bounty (monsterBounty — derived from the kind's
+          // HP plus a depth climb, see app.js), and one in ten also drops a
+          // buried-treasure roll: the same table an X pays, so a lucky kill
+          // reads as finding one. The gold is the reliable part — before this
+          // a monster dropped nothing at all and the only sane play was to
+          // walk around it.
+          const coins = (typeof monsterBounty === 'function')
+            ? monsterBounty(victim.kind, scene.depth) : 0;
+          if (coins > 0) addMoney(save, coins);
+          const name = MONSTERS[victim.kind].name;
+          scene.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+            scene.viewCenterX, scene.viewCenterY - 60);
+          if (Math.random() < MONSTER_TREASURE_CHANCE) {
+            grantTreasureRoll(scene, save, scene.viewCenterX, scene.viewCenterY - 24, '💀');
+          }
         } else {
           scene.flash('🟢 slime defeated', scene.viewCenterX, scene.viewCenterY - 60);
         }
