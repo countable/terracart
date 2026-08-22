@@ -74,3 +74,113 @@ test('walk home: once it starts, the return is not a crawl', () => {
   assert.lt(WALK_HOME_RAMP_MS, 2000,
     'full walking pace should arrive within a couple of seconds of the walk starting');
 });
+
+// ── Too far to walk ───────────────────────────────────────────────────────
+// The return's DISTANCE, not its timing. Everything above tunes a walk; these
+// pin the case where walking is the wrong answer at all.
+//
+// A high-tier amulet moves the stick tens of metres a second, so a few seconds
+// of steering puts the character half a kilometre from the player's real
+// position. The body chases at DEBUG_SPEED_MUL x walk pace at best (14 m/s),
+// which makes that return the better part of a minute of watching a character
+// walk in a straight line — with the stick unusable under it, because grabbing
+// it just starts the whole debounce again.
+//
+// The GPS fix path already had the answer: past GPS_SNAP_M a jumped fix PLACES
+// the body rather than walking it, because that far is travel the player never
+// made on foot. The gap is the same gap whichever side opened it, so the walk
+// home reads the same constant. These tests drive the real _driftHome (lifted
+// out of src/app.js by run.js) rather than a copy of its arithmetic.
+
+// A scene stub with only what _driftHome touches. `awayM` places the body that
+// far east of the fix; the stick has been idle long enough for the return to
+// have started.
+function walkHomeScene(awayM, opts = {}) {
+  return {
+    depth: opts.depth ?? 0,
+    gpsM: opts.noGps ? null : { x: 0, y: 0 },
+    playerM: { x: awayM, y: 0 },
+    _manualOffsetM: { x: opts.offset ?? awayM, y: 0 },
+    _targetM: { x: awayM, y: 0 },
+    _gpsManualOverride: false,
+    _workProgress: null,
+    _stickPushed: () => false,
+    _walkRelics: () => [],
+    _lastStickT: Date.now() - (opts.idleMs ?? (WALK_HOME_IDLE_MS + WALK_HOME_RAMP_MS + 500)),
+    _steerDistAccrue: 0,
+    _steerCostAccrue: 0,
+    _followPaused: false,
+    _driftingHome: false,
+    targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
+    _gpsAwayM: __walkHome._gpsAwayM,
+    syncMoveTarget: __walkHome.syncMoveTarget,
+  };
+}
+const drift = (scene, dt = 1 / 60) => __walkHome._driftHome.call(scene, dt);
+
+test('walk home: a half-kilometre return is instant, not a trudge', () => {
+  const scene = walkHomeScene(500);
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0,
+    'the body should be standing on the fix after one frame, not walking toward it');
+  assert.eq(Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y), 0,
+    'the stick offset has to go with it, or the body walks straight back off');
+  assert.eq(scene.targetGhost.visible, false, 'the ghost marks a gap that no longer exists');
+});
+
+test('walk home: the instant return uses the same gap the GPS fix path snaps on', () => {
+  const near = walkHomeScene(GPS_SNAP_M - 1);
+  drift(near);
+  assert.gt(__walkHome._gpsAwayM.call(near), 1,
+    `inside ${GPS_SNAP_M}m the return is still a walk — a fix at this range doesn't snap either`);
+  const far = walkHomeScene(GPS_SNAP_M + 1);
+  drift(far);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(far)), 0,
+    `past ${GPS_SNAP_M}m it is placed, exactly as a jumped fix would be`);
+});
+
+test('walk home: an ordinary stroll off the GPS is still walked', () => {
+  // The whole feel of the stick is that you can step off your real position and
+  // stroll back. A snap threshold low enough to catch that would replace the
+  // walk home with a rubber band.
+  const scene = walkHomeScene(30);
+  drift(scene);
+  // The walk moves the OFFSET (and drags the target with it); the body follows
+  // in _followStep, so it is still standing where it was after one frame — that
+  // it hasn't been placed on the fix is the whole point here.
+  assert.eq(scene.playerM.x, 30, 'a 30m return must not warp the body');
+  const off = Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y);
+  assert.lt(off, 30, 'the offset should be bleeding off');
+  assert.gt(off, 15, 'one frame of a 30m return should not cover half of it');
+  assert.eq(scene._driftingHome, true, 'this is a walk, so the hint should know about it');
+});
+
+test('walk home: distance decides HOW the return is made, never when it starts', () => {
+  // Mid-push (inside the debounce) nothing returns, however big the gap. A warp
+  // that ignored the debounce would be the 500ms hair-trigger bug with a
+  // teleport on the end.
+  const scene = walkHomeScene(500, { idleMs: WALK_HOME_IDLE_MS - 500 });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 500,
+    'the debounce still owns when the return begins');
+});
+
+test('walk home: the body is never placed underground', () => {
+  // A snap below the surface would drop the player inside solid rock — the same
+  // reason the GPS fix path is surface-only. Down there the body mines its way.
+  const scene = walkHomeScene(500, { depth: 2 });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 500,
+    'underground the return stays a walk, however far');
+});
+
+test('walk home: a body lagging behind a spent offset is still brought home', () => {
+  // The offset bleeds at stick pace while the body chases at DEBUG_SPEED_MUL x
+  // walk pace, so the offset can reach zero with the body hundreds of metres
+  // behind it. Measuring the gap by the OFFSET would call that return finished
+  // and leave the player watching the last 400m on foot.
+  const scene = walkHomeScene(400, { offset: 0 });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0,
+    'the gap is body-to-fix, not whatever is left of the stick offset');
+});

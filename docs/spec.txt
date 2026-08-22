@@ -770,6 +770,19 @@ GEAR: RELICS & ARMOR
    zero at stick pace, free of charge; any push restarts the timer. Surface
    only, and never while a work wheel is running (standing still to chop a tree
    is being busy, not idle).
+   PAST GPS_SNAP_M (200 m) THE RETURN IS NOT WALKED — the body is placed on the
+   fix outright, exactly as a jumped fix does it. The gap is the same gap
+   whichever side opened it, so one constant decides both: past it, the
+   distance is travel the player never made on foot, and the body chases at
+   DEBUG_SPEED_MUL × walk pace (14 m/s) at best, so half a kilometre is the
+   better part of a minute of watching a character walk in a straight line with
+   the stick unusable under it. Measured body-to-fix, not by the offset — the
+   offset bleeds at stick pace while the body chases at 14 m/s, so it can reach
+   zero with the body still hundreds of metres behind, and that lag is the same
+   walk from the player's side of the screen. The DEBOUNCE still owns when the
+   return starts: distance decides how the return is made, never when — a warp
+   that ignored the debounce would be the 500 ms hair-trigger below with a
+   teleport on the end.
    That delay is a DEBOUNCE (so lifting a thumb to reposition it doesn't send
    the character trotting off), not a pause, and it has been wrong in both
    directions. At 3000 ms it measured as three full seconds of the character

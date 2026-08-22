@@ -5301,6 +5301,27 @@ class MapScene extends Phaser.Scene {
     if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return;
     if (this._workProgress || this._stickPushed()) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
+    // TOO FAR TO WALK — place the body instead. Past GPS_SNAP_M the gap is the
+    // same thing a jumped fix treats as travel the player never made on foot,
+    // and the rule has to be the same whichever side opened it: a fix that
+    // jumps 500 m re-anchors you instantly, so a 500 m gap the stick opened
+    // cannot be a minutes-long trudge back across terrain you aren't on any
+    // more. The body chases at DEBUG_SPEED_MUL x walk pace (14 m/s) at best,
+    // so half a kilometre is the better part of a minute of watching a
+    // character walk in a straight line with the stick unusable under it.
+    // Measured body-to-fix (_gpsAwayM), not by the stick offset: the offset
+    // can bleed to zero with the body still hundreds of metres behind it, and
+    // that lag is the same walk from the player's side of the screen.
+    //
+    // Still behind the idle debounce above, and deliberately: the distance
+    // decides how the return is MADE, never when it starts. Yanking someone
+    // mid-push would be the 500 ms hair-trigger bug with a warp on the end.
+    if (this._gpsAwayM() > GPS_SNAP_M) {
+      this.playerM.x = this.gpsM.x;
+      this.playerM.y = this.gpsM.y;
+      this.syncMoveTarget();      // drops the offset, the target and the ghost
+      return;
+    }
     const off = this._manualOffsetM;
     const mag = Math.hypot(off.x, off.y);
     if (mag < 0.01) return;

@@ -118,6 +118,12 @@ try {
 {
   const src = readSrc('app.js');
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      // The walk-home behaviour tests below drive the REAL
+                      // _driftHome, so they need the numbers it reads: walking
+                      // pace, and the gap past which a return is placed rather
+                      // than walked (the same constant the GPS fix path snaps
+                      // on — that shared number is the point).
+                      'WALK_M_S', 'GPS_SNAP_M', 'DEBUG_SPEED_MUL',
                       // VIEW_CELLS is the ceiling on the fog reveal radius —
                       // see fog.test.js. Lifted for the same reason: a copy
                       // would drift the moment the viewport was resized.
@@ -126,12 +132,44 @@ try {
                       // checks they actually cover the trail the onboarding
                       // seater lays, which is what broke when fog shipped.
                       'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
-    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
+    // 1 m/s would silently retune every distance the tests below measure.
+    const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
       process.exit(2);
     }
-    ctx[name] = parseInt(m[1], 10);
+    ctx[name] = parseFloat(m[1]);
+  }
+}
+
+// The walk home is BEHAVIOUR, not just timings: whether a return is walked or
+// placed outright is decided inside _driftHome. Lift the method itself —
+// alongside the two it calls — and run it on a stub scene, the same trick
+// tools/layout_audit.js uses on layOutVertically. A reimplementation here would
+// pass while the real return crawled home across half a kilometre.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    // Class methods sit at two-space indent, so the first line that is exactly
+    // `  }` closes the method — every brace inside it is deeper than that.
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_driftHome' });
+  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM']) {
+    if (typeof ctx.__walkHome[k] !== 'function') {
+      console.error(`__walkHome.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
   }
 }
 
