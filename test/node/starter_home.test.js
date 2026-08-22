@@ -516,3 +516,68 @@ test('starter home: the nearest usable candidates are the ones tamed', () => {
     assert.truthy(tamedIds.has(`d${7 - i}`), `d${7 - i} is among the nearest and should be tamed`);
   }
 });
+
+// ── Water spawns ──────────────────────────────────────────────────────────
+// A pier, a marina, a riverbank — or an outright island. The seater only ever
+// places onto existing ground, so before the escalating search an all-water
+// ring seated NOTHING: no wreck to rebuild, so ladder step 4 could never fire
+// and there was no blacksmith to spend the starter crates on.
+(() => {
+  const WATER = 3, GRASS = 0;
+  const N = 120, CELL_M = 7, SPAWN = 60;    // big enough to hold the wide band
+
+  // A tile that is all water except beyond `shoreAt` cells from spawn.
+  function makeSea(shoreAt) {
+    const grid = new Uint8Array(N * N).fill(WATER);
+    if (shoreAt != null) {
+      for (let cy = 0; cy < N; cy++) {
+        for (let cx = 0; cx < N; cx++) {
+          if (Math.max(Math.abs(cx - SPAWN), Math.abs(cy - SPAWN)) > shoreAt) grid[cy * N + cx] = GRASS;
+        }
+      }
+    }
+    return { cellsPerEdge: N, grid, objects: [], wildplants: [] };
+  }
+  function makeSeaScene() {
+    const cellPx = WorldGen.TILE_PX / N;
+    return Object.assign({
+      save: {}, cellM: CELL_M, tileEdgeM: N * CELL_M, cellsPerTile: N,
+      mPerPx: CELL_M / cellPx, originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
+    }, StarterHomeMethods);
+  }
+  const seated = (e) => e.objects.filter(o => String(o.id).startsWith('starter_'));
+  const terrainUnder = (e, o) =>
+    e.grid[Math.floor(o.y / CELL_M) * N + Math.floor(o.x / CELL_M)];
+
+  test('starter home seating: a water spawn reaches out to the nearest shore', () => {
+    // Dry land only past 25 cells — well beyond RING_MAX_CELLS (16).
+    const scene = makeSeaScene(), entry = makeSea(25);
+    scene._provisionStarterHome(entry, 0, 0, SPAWN, SPAWN, new Set());
+    const got = seated(entry);
+    assert.eq(got.length, SH_HA.QUOTA.tree + SH_HA.QUOTA.rock + SH_HA.QUOTA.wreck,
+      'the full quota is still supplied');
+    assert.eq(got.filter(o => o.kind === 'house').length, SH_HA.QUOTA.wreck,
+      'including the wrecks the ladder needs');
+    for (const o of got) {
+      assert.eq(terrainUnder(entry, o), GRASS, `${o.id} stands on dry land, not water`);
+      const d = Math.max(Math.abs(o.x / CELL_M - (SPAWN + 0.5)), Math.abs(o.y / CELL_M - (SPAWN + 0.5)));
+      assert.gt(d, 25, `${o.id} is out past the water`);
+      assert.inRange(d, 0, SH_HA.RING_MAX_ESCALATED_CELLS + 1, `${o.id} within the escalated reach`);
+    }
+    assert.truthy(scene.save.starterHome.done, 'and the plan reports itself finished');
+  });
+
+  test('starter home seating: no shore in reach fails quietly and stops trying', () => {
+    // Nothing can be placed on open water, and nothing should be: the point of
+    // the bound is that a hopeless spawn cannot spin forever or paint over the
+    // player's real coastline.
+    const scene = makeSeaScene();
+    for (let i = 0; i < 8; i++) {
+      const entry = makeSea(null);            // water everywhere
+      scene._provisionStarterHome(entry, 0, 0, SPAWN, SPAWN, new Set());
+      assert.eq(seated(entry).length, 0, 'nothing seated on open water');
+    }
+    assert.inRange((scene.save.starterHome || {}).tries || 0, 0, 4,
+      'gives up rather than retrying forever');
+  });
+})();
