@@ -31,7 +31,7 @@
 //   ping(scene, wmx, wmy)     — ping a world-metre spot
 //   setName(scene, name)      — rename (reconnects)
 //   status()                  — 'off' | 'noname' | 'connecting' | 'online' | 'error'
-//   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt — pure, tested headlessly
+//   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt / edgeDot — pure, tested headlessly
 
 const Multiplayer = (function () {
   // Where the relay lives. A page served from localhost talks to a local
@@ -45,6 +45,9 @@ const Multiplayer = (function () {
   const PING_TTL_MS = 300000;    // how long a ping marker stays on the map (5 min)
   const PING_ARROW_MAX_M = 300;  // an off-screen ping within this many metres gets an edge arrow
   const PING_ARROW_INSET = 14;   // how far inside the view edge the arrow sits
+  const PEER_DOT_MAX_M = 300;    // an off-screen peer within this many metres gets an edge dot
+  const PEER_DOT_INSET = 5;      // dot centre this far inside the view edge — its outline clears the mask
+  const PEER_DOT_R = 3;          // dot radius, px
   const RECONNECT_MIN_MS = 2000, RECONNECT_MAX_MS = 30000;
   const NAME_MAX = 16;
   // Light tints so the farmer's art stays readable: a tint multiplies, so the
@@ -76,6 +79,19 @@ const Multiplayer = (function () {
     return { x: px * scene.mPerPx, y: py * scene.mPerPx };
   }
   function hexCss(n) { return '#' + (n & 0xffffff).toString(16).padStart(6, '0'); }
+
+  // Where an edge marker for something off-screen sits: the point on the
+  // square view edge along the line from the view centre toward it, `inset`
+  // px inside so the marker's art isn't sliced by the mask. vx/vy is the
+  // screen-space offset from the view centre; returns offsets from the centre,
+  // or null for a zero vector (nothing to point at). Pure — the peer edge dot
+  // draws from it, and the tests pin it.
+  function edgeDot(vx, vy, half, inset) {
+    const m = Math.max(Math.abs(vx), Math.abs(vy));
+    if (!(m > 0)) return null;
+    const k = (half - inset) / m;
+    return { x: vx * k, y: vy * k };
+  }
 
   // What's at a world-metre spot, in the words a player would use: the object
   // in that cell, else the wild plant, else a creature standing there, else
@@ -244,6 +260,9 @@ const Multiplayer = (function () {
     if (S.container) return;
     S.container = scene.add.container(0, 0).setDepth(9.8);
     if (scene.player?.mask) S.container.setMask(scene.player.mask);
+    // One shared Graphics for every peer's edge dot, cleared each frame.
+    S.dotGfx = scene.add.graphics();
+    S.container.add(S.dotGfx);
   }
   function makePeerArt(scene, p) {
     p.sh = scene.add.image(0, 0, 'bldg_shadow').setOrigin(0.5, 0.5).setDisplaySize(17, 6).setAlpha(0.34);
@@ -265,6 +284,7 @@ const Multiplayer = (function () {
   }
   function drawPeers(scene, now, dt) {
     const half = scene.viewSize / 2 + 24;
+    S.dotGfx?.clear();
     // Time-based easing (~90% of the way in 150 ms) so a peer walks the same
     // on a 30 fps phone as at 60, instead of a per-frame fraction.
     const k = 1 - Math.exp(-dt / 0.065);
@@ -279,7 +299,7 @@ const Multiplayer = (function () {
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
       const onScreen = (p.d || 0) === (scene.depth || 0)
         && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
-      if (!onScreen) { hidePeerArt(p, false); continue; }
+      if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p, wm); continue; }
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
       playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
@@ -287,6 +307,28 @@ const Multiplayer = (function () {
       p.sh.setPosition(p.dx, p.dy + 13).setVisible(true);
       p.lbl.setPosition(p.dx, p.dy - 22).setVisible(true);
     }
+  }
+
+  // An off-screen peer within PEER_DOT_MAX_M shows as a small dot in their
+  // colour on the very edge of the view, in the direction they are — so a
+  // friend a street over registers without a name label cluttering the rim.
+  // Same clamp the ping edge arrow uses (the point where the centre→peer line
+  // leaves the square), just further out: a dot needs less clearance than an
+  // arrow plus its distance label. A peer on another depth is skipped — they
+  // aren't on your map.
+  function drawPeerDot(scene, p, wm) {
+    if (!S.dotGfx) return;
+    if ((p.d || 0) !== (scene.depth || 0)) return;
+    const dxm = wm.x - (scene.startWorldM.x + scene.playerM.x);
+    const dym = wm.y - (scene.startWorldM.y + scene.playerM.y);
+    if (Math.hypot(dxm, dym) > PEER_DOT_MAX_M) return;
+    const e = edgeDot(p.dx - scene.viewCenterX, p.dy - scene.viewCenterY,
+      scene.viewSize / 2, PEER_DOT_INSET);
+    if (!e) return;
+    const x = scene.viewCenterX + e.x, y = scene.viewCenterY + e.y;
+    // Dark halo first so the dot reads on pale terrain, like every rim marker.
+    S.dotGfx.fillStyle(0x000000, 0.55).fillCircle(x, y, PEER_DOT_R + 1.5);
+    S.dotGfx.fillStyle(p.color, 0.95).fillCircle(x, y, PEER_DOT_R);
   }
 
   // ── pings ────────────────────────────────────────────────────────────────
@@ -464,7 +506,8 @@ const Multiplayer = (function () {
   }
 
   return { start, tick, consumeTap, ping, setName, status,
-           cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, COLORS, NAME_MAX,
+           cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
+           COLORS, NAME_MAX, PEER_DOT_MAX_M, PEER_DOT_INSET, PEER_DOT_R,
            _state: S };
 })();
 if (typeof window !== 'undefined') window.Multiplayer = Multiplayer;
