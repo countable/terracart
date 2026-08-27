@@ -487,19 +487,15 @@ test('road overlay: a segment crossing the view is kept though both ends are out
 
 // ── Gating + redraw cache ─────────────────────────────────────────────────
 
-test('road overlay: on by default, off when the save says so', () => {
-  assert.truthy(RoadOverlay.isOn(makeOverlayScene()), 'default on');
-  assert.truthy(RoadOverlay.isOn(makeOverlayScene({ save: { roadGeomOverlay: true } })), 'explicit on');
-  assert.falsy(RoadOverlay.isOn(makeOverlayScene({ save: { roadGeomOverlay: false } })), 'explicit off');
-});
-
-test('road overlay: switched off draws nothing and hides the layer', () => {
+test('road overlay: always on at the surface — the old save toggle is gone', () => {
+  // The band IS how roads are drawn now, not a debug aid: a leftover
+  // roadGeomOverlay:false in an old save must not blank the roads.
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene({ save: { roadGeomOverlay: false } });
   RoadOverlay.draw(scene);
-  assert.eq(scene.roadGeomGfx.lines.length, 0, 'nothing stroked');
-  assert.falsy(scene.roadGeomContainer.visible, 'layer hidden');
+  assert.gt(scene.roadGeomGfx.lines.length, 0, 'roads stroked despite the stale flag');
+  assert.truthy(scene.roadGeomContainer.visible, 'layer visible');
 });
 
 test('road overlay: hidden underground (cave tiles have no MVT layers)', () => {
