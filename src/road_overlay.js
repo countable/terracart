@@ -9,7 +9,9 @@
 // a soft brown band, so the rasterized roads can be eyeballed against the real
 // ways they came from. Railways are drawn in slate instead of earth — the
 // rasterizer has no rail tier, so without that they'd read as ordinary
-// streets. The band is punched out over water and over building floors (see
+// streets — and then dressed as actual TRACK: timber ties across the slate
+// ballast and two steel rails along it (see "Train tracks" below).
+// The band is punched out over water and over building floors (see
 // "Keep-out"), and the layer itself sits UNDER the cobbles, so the stones the
 // rasterizer actually laid always read on top of the linework they came from.
 //
@@ -69,6 +71,83 @@
   // subclasses; `transit` covers tram / subway / light_rail).
   const RAIL_CLASSES = new Set(['rail', 'transit']);
   const RAIL_COLOR = 0x565d69;
+
+  // ── Train tracks ─────────────────────────────────────────────────────────
+  // A railway is not a paved band. Its slate stroke stays (it reads as the
+  // ballast bed once the stone pattern is gravelled over it), but the rebuild
+  // also lays TIMBER TIES across the bed and TWO STEEL RAILS along it, so a
+  // railway finally looks like one instead of a grey street. The furniture
+  // goes through the stroke target's OPTIONAL decorPath: the canvas adapter
+  // draws decor after the gravel pass (crisp — no cobble texture, no edge
+  // nibble) and before the keep-out erases (so track never crosses water or a
+  // floor); a target without decorPath — the headless test stub — just gets
+  // the plain band, exactly the pre-tracks look. Sizes are in METRES so the
+  // track keeps its proportions at any latitude's cell size.
+  const RAIL_GAUGE_M = 1.8;    // rail-to-rail spread — a touch over standard gauge, for legibility
+  const TIE_LEN_M = 2.8;       // tie length across the bed
+  const TIE_SPACING_M = 2.2;   // one tie every ~2 m of run
+  const TIE_W_PX = 2;
+  const RAIL_W_PX = 1.5;
+  const TIE_COLOR = 0x463526;      // creosote timber
+  const RAIL_STEEL = 0xb9c2cd;     // light steel — reads against the slate ballast
+
+  // Offset a polyline sideways by `off` px (+ = left of travel). Per-vertex
+  // mitered normals so the two rails stay parallel through bends; the miter is
+  // capped at 2× so a hairpin vertex can't fling a rail off the ballast.
+  function offsetPolyline(run, off) {
+    const n = run.length;
+    const segN = [];
+    for (let i = 0; i < n - 1; i++) {
+      const dx = run[i + 1].x - run[i].x, dy = run[i + 1].y - run[i].y;
+      const l = Math.hypot(dx, dy) || 1;
+      segN.push({ x: -dy / l, y: dx / l });
+    }
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = i > 0 ? segN[i - 1] : segN[0];
+      const b = i < n - 1 ? segN[i] : segN[n - 2];
+      const sx = a.x + b.x, sy = a.y + b.y;
+      const sl = Math.hypot(sx, sy);
+      let ox, oy;
+      if (sl < 1e-6) { ox = b.x; oy = b.y; }           // 180° reversal — fall back
+      else {
+        // |a+b| = 2·cos(θ/2), and the miter length is off / cos(θ/2) — so
+        // scaling the normalized sum by min(2, 2/|a+b|) is exactly that, capped.
+        const scale = Math.min(2, 2 / sl);
+        ox = (sx / sl) * scale; oy = (sy / sl) * scale;
+      }
+      out.push({ x: run[i].x + ox * off, y: run[i].y + oy * off });
+    }
+    return out;
+  }
+
+  // Emit one rail run's furniture: ties by arclength, then the two rails.
+  function emitRailDecor(scene, g, run) {
+    const pxPerM = CELL_PX / scene.cellM;
+    const halfGauge = (RAIL_GAUGE_M / 2) * pxPerM;
+    const halfTie = (TIE_LEN_M / 2) * pxPerM;
+    const tieStep = TIE_SPACING_M * pxPerM;
+    let next = tieStep / 2;   // distance along the run to the next tie
+    for (let i = 1; i < run.length; i++) {
+      const ax = run[i - 1].x, ay = run[i - 1].y;
+      let dx = run[i].x - ax, dy = run[i].y - ay;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-6) continue;
+      dx /= len; dy /= len;
+      const nx = -dy, ny = dx;
+      while (next <= len) {
+        const cx = ax + dx * next, cy = ay + dy * next;
+        g.decorPath(TIE_W_PX, TIE_COLOR, [
+          { x: cx - nx * halfTie, y: cy - ny * halfTie },
+          { x: cx + nx * halfTie, y: cy + ny * halfTie },
+        ]);
+        next += tieStep;
+      }
+      next -= len;
+    }
+    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, -halfGauge));
+    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, halfGauge));
+  }
   const colorFor = (tags) => {
     const c = (tags && tags.class) || '';
     if (RAIL_CLASSES.has(c)) return RAIL_COLOR;
@@ -294,6 +373,7 @@
     // rebuild()'s calling contract is unchanged — the tests' recording stub
     // and this adapter see the exact same one-pass sequence.
     let ops = [];      // { w, c, pts: [x0,y0, x1,y1, …] } per stroked path
+    let decorOps = []; // { w, c, pts: [{x,y}…] } track furniture, drawn after the gravel
     let erases = [];   // [x, y, w, h] keep-out holes, applied after all paint
     let curStyle = { w: 1, c: ROAD_COLOR };
     let curPts = null;
@@ -323,7 +403,7 @@
     };
     let edgeNoisePattern;
     const target = {
-      clear() { ops = []; erases = []; curPts = null; ctx.clearRect(0, 0, size, size); },
+      clear() { ops = []; decorOps = []; erases = []; curPts = null; ctx.clearRect(0, 0, size, size); },
       // The alpha is carried by the IMAGE (see above), so the stroke itself is
       // always opaque; the colour is the caller's (earth for roads, slate for
       // rail) and the alpha argument is deliberately ignored here.
@@ -340,6 +420,14 @@
       // by the repair pass; clearRect rather than a destination-out fill so
       // the hole is exact and costs nothing to composite.
       eraseRect(x, y, w, h) { erases.push([x - originX, y - originY, w, h]); },
+      // Track furniture (railway ties + rails). Stroked plain in commit() —
+      // after the gravel so it stays crisp, before the erases so the keep-out
+      // cells punch it out along with the ballast.
+      decorPath(w, c, pts) {
+        if (pts && pts.length >= 2) {
+          decorOps.push({ w, c, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+        }
+      },
       // Screen position the world origin projected to this pass — the stone
       // pattern is anchored there, so it sits still on the road while the road moves.
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
@@ -357,15 +445,25 @@
           // EDGE_FRINGE_PX of each band, which is the rough edge.
           strokeAll(-EDGE_FRINGE_PX);
         }
-        // Land only, and never over a floor.
-        for (const [x, y, w, h] of erases) ctx.clearRect(x, y, w, h);
         if (stonePattern === undefined) {
           const tile = stoneTile();
           stonePattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
         }
         // source-atop keeps the stones inside what's already drawn — the
-        // nibbled silhouette included — so they never leak off the ways.
+        // nibbled silhouette included — so they never leak off the ways. Laid
+        // BEFORE the track furniture, so ties and rails stay untextured.
         if (stonePattern) patternFill(stonePattern, 'source-atop');
+        for (const op of decorOps) {
+          ctx.lineWidth = op.w;
+          ctx.strokeStyle = cssOf(op.c);
+          ctx.beginPath();
+          ctx.moveTo(op.pts[0].x, op.pts[0].y);
+          for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
+          ctx.stroke();
+        }
+        // Land only, and never over a floor — applied LAST so the keep-out
+        // holes punch through band, gravel and track alike.
+        for (const [x, y, w, h] of erases) ctx.clearRect(x, y, w, h);
         tex.refresh();
       },
     };
@@ -501,12 +599,14 @@
     // segments: a wide band drawn segment-by-segment leaves a notch at every
     // bend, and one lineStyle per style beats one per feature.
     const runsByStyle = new Map();   // "widthPx|color" -> { widthPx, color, runs }
-    const addRun = (widthPx, color, run) => {
+    const railRuns = [];             // rail-class runs, for the track furniture pass
+    const addRun = (widthPx, color, run, isRail) => {
       if (run.length < 2) return;
       const k = `${widthPx}|${color}`;
       let bucket = runsByStyle.get(k);
       if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
       bucket.runs.push(run);
+      if (isRail) railRuns.push(run);
     };
 
     for (const { tx, ty, entry } of tiles) {
@@ -520,6 +620,7 @@
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
           const widthPx = widthPxFor(scene, f.tags);
           const color = colorFor(f.tags);
+          const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
           for (const line of f.geom) {
             if (!line || line.length < 2) continue;
             let px = projX(originMx + line[0].x * mvtToM);
@@ -534,14 +635,14 @@
               if (offscreen) {
                 // Break the path here — the skipped stretch would otherwise be
                 // drawn as a straight shortcut across the viewport.
-                addRun(widthPx, color, run);
+                addRun(widthPx, color, run, isRail);
                 run = [{ x: qx, y: qy }];
               } else {
                 run.push({ x: qx, y: qy });
               }
               px = qx; py = qy;
             }
-            addRun(widthPx, color, run);
+            addRun(widthPx, color, run, isRail);
           }
         }
       }
@@ -562,6 +663,10 @@
         g.strokePath();
       }
     }
+    // Dress the railways as track — ties + rails over the ballast band. Only
+    // when the target can draw decor (the canvas adapter); the headless test
+    // stub gets the plain band.
+    if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
     // Land only, and never over a floor: punch the keep-out cells back out.
     keepOut(scene, g, baseCellIX, baseCellIY);
     // Anchor the stone pattern to the world before it's laid down: the world origin's
