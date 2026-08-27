@@ -61,6 +61,10 @@
          neutral ink, deliberately outside both meaning-carrying families. */
       --bone:       #cfc6b4;   /* readout ink — what you actually read       */
       --dust:       #8d857a;   /* secondary readout ink — glance-only        */
+      /* The open inventory drawer: the selected tab's base colour AND the
+         panel below the tab row (#inv, painted in buildInventoryDOM). One
+         token so the tab can't drift off the panel it claims to open. */
+      --tab-brown:  #4a3a17;
       /* A control at REST vs a control SELECTED has to be obvious at a glance,
          and painting the resting rim in full --gold-dark did not clear that
          bar: an unselected item slot read almost as lit as the selected one.
@@ -123,7 +127,7 @@
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
-      background: #111; color: #ddd;
+      background: #000; color: #ddd;
       font-family: system-ui, sans-serif;
       overflow: hidden;
       /* Block iOS Safari's elastic rubber-band overscroll on fast swipes —
@@ -160,7 +164,7 @@
       right: var(--phone-right, 0px);
       border-left:  1px solid #333;
       border-right: 1px solid #333;
-      box-shadow: 0 0 0 9999px #0a0a0a;
+      box-shadow: 0 0 0 9999px #000;
       pointer-events: none;
       z-index: 99;
     }
@@ -445,7 +449,7 @@
     #menu .items {
       margin-top: 4px; min-width: 140px;
       background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
-      padding: 4px; display: flex; flex-direction: column; gap: 2px;
+      padding: 4px; display: flex; flex-direction: column; gap: 0;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
       box-shadow: var(--chrome-lip), 0 8px 20px rgba(0,0,0,0.6), var(--chrome-key);
@@ -461,16 +465,16 @@
     #devtools summary::before { content: '▸ '; }
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
-    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
-    /* Hit height, not font size: bare rows are 26px tall, which put "Reset
-       this game" 26px below "+ New game". Padding lifts them to ~32px — still
-       a comfortable thumb target, but packed (they sat at 40px once, and the
-       menu read as a sparse list that scrolled sooner than it needed to). */
+    #devtools .devitems { display: flex; flex-direction: column; gap: 0; }
+    /* Hit height, not font size: rows sat at 40px once, then 32px, and the
+       menu still read as a sparse list that scrolled sooner than it needed
+       to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
+       menu fits a short screen without feeling like a spreadsheet. */
     #menu .items button {
       background: transparent; color: var(--bone); border: 0;
-      text-align: left; padding: 7px 8px; border-radius: 4px;
+      text-align: left; padding: 4px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
-      min-height: 32px;
+      min-height: 26px;
     }
     #menu .items button:hover {
       background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
@@ -495,16 +499,20 @@
        here sets a size, so the two can't fight. */
 
     /* Category tab — raised, and joined to the slot bar below it (square
-       bottom corners, no bottom edge on the selected one). */
+       bottom corners, no bottom edge on the selected one). Inactive tabs sit
+       DARKER than the brown panel under them (#inv, painted --tab-brown in
+       buildInventoryDOM), so the selected tab — which shares the panel's
+       colour and drops its bottom edge — reads as part of the open drawer
+       and the rest read as closed ones behind it. */
     .hud-tab {
-      background: var(--chrome-scuff), var(--chrome-face);
+      background: var(--chrome-scuff), linear-gradient(180deg, #3a2e15, #261e0c);
       border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
     .hud-tab.sel {
-      background: linear-gradient(180deg, #6b5426, #4a3a17);
-      border-color: var(--gold); border-bottom-color: #4a3a17; color: #fff;
+      background: linear-gradient(180deg, #6b5426, var(--tab-brown));
+      border-color: var(--gold); border-bottom-color: var(--tab-brown); color: #fff;
       box-shadow: var(--chrome-lip), var(--chrome-gold), var(--chrome-key);
     }
     /* Count pip riding the tab's top-right corner. */
@@ -886,11 +894,9 @@
       <details id="devtools">
         <summary>Developer</summary>
         <div class="devitems">
-          <button id="debug-controls">Free walking (debug): off</button>
-          <button id="debug-road-geom">Road geometry: on</button>
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
-          <button id="debug-dragon-powder">Give Dragon Powder</button>
+          <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -1421,60 +1427,6 @@
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
-    // Debug controls: makes stick walking cost no stamina. That's all it does
-    // now — there's no second joystick any more. The button label tracks state
-    // both before the scene loads (read save directly) and after each click
-    // (scene returns the new value).
-    // Resolve the ACTIVE saved game's raw data straight from localStorage.
-    // This runs at parse time, before save.js loads, so it can't use the save.js
-    // helpers — it reads the slot registry inline, falling back to the legacy
-    // single-save key for brand-new or pre-multislot players.
-    function readActiveSaveRaw() {
-      try {
-        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-        let key = 'terracart.save.v4';
-        if (reg && Array.isArray(reg.slots) && reg.slots.length) {
-          const slot = reg.slots.find(s => s.id === reg.active) || reg.slots[0];
-          if (slot && slot.key) key = slot.key;
-        }
-        return JSON.parse(localStorage.getItem(key) || 'null');
-      } catch { return null; }
-    }
-    const debugBtn = document.getElementById('debug-controls');
-    function setDebugBtnLabel(on) {
-      debugBtn.textContent = 'Free walking (debug): ' + (on ? 'on' : 'off');
-    }
-    try {
-      const s = readActiveSaveRaw();
-      setDebugBtnLabel(!!(s && s.debugControls));
-    } catch { /* leave default 'off' */ }
-    debugBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene || !scene.setDebugControls) return;
-      const next = !scene.save?.debugControls;
-      setDebugBtnLabel(scene.setDebugControls(next));
-    });
-    // Road-geometry overlay: draws the ORIGINAL OSM road linework (the vector
-    // ways the tile rasterizer turned into road cells) over the map in black
-    // at 30% opacity. On by default; the save only ever stores an explicit off.
-    const roadGeomBtn = document.getElementById('debug-road-geom');
-    function setRoadGeomBtnLabel(on) {
-      roadGeomBtn.textContent = 'Road geometry: ' + (on ? 'on' : 'off');
-    }
-    try {
-      const s = readActiveSaveRaw();
-      setRoadGeomBtnLabel(!(s && s.roadGeomOverlay === false));
-    } catch { /* leave default 'on' */ }
-    roadGeomBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene || !scene.setRoadGeomOverlay) return;
-      const next = scene.save?.roadGeomOverlay === false;
-      setRoadGeomBtnLabel(scene.setRoadGeomOverlay(next));
-    });
     document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -1507,16 +1459,12 @@
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
-    // Dragon Powder on demand. This used to be a one-shot grant in the scene's
-    // boot path, which meant every brand-new save opened with a tier-3
-    // transform consumable as the only thing in its bag. Same affordance,
-    // behind the Developer disclosure where it can't reach a real first run.
-    document.getElementById('debug-dragon-powder').addEventListener('click', (e) => {
+    // A pack of wild slimes at the screen edge, on demand — combat can be
+    // tested without wandering around hoping to find a fight.
+    document.getElementById('debug-slime-pack').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene) return;
-      scene.addToInv?.('dragon_powder', 1);
+      window.__scene?.debugSpawnSlimePack?.(6);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -2100,8 +2048,8 @@
   <script src="src/combat.js?v=3"></script>
   <script src="src/interact.js?v=230"></script>
   <script src="src/render.js?v=316"></script>
-  <script src="src/multiplayer.js?v=6"></script>
-  <script src="src/road_overlay.js?v=11"></script>
+  <script src="src/multiplayer.js?v=7"></script>
+  <script src="src/road_overlay.js?v=12"></script>
   <script src="src/assets.js?v=177"></script>
   <script src="src/sandbox.js?v=38"></script>
   <script src="src/testtools.js?v=9"></script>
@@ -2161,7 +2109,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=444';
+      const APP_SRC = 'src/app.js?v=447';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

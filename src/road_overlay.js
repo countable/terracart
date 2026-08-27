@@ -38,7 +38,6 @@
 //
 // Exports as globals:
 //   RoadOverlay.draw(scene)      — per-frame entry point (cheap when cached)
-//   RoadOverlay.isOn(scene)      — is the overlay enabled for this save?
 //   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
 (function (global) {
   // Warm earth brown rather than black: the ways read as packed track over the
@@ -476,12 +475,6 @@
     return scene.roadGeomGfx || canvasTarget(scene);
   }
 
-  // Overlay is ON unless the save explicitly turned it off, so an existing
-  // save picks it up without a migration.
-  function isOn(scene) {
-    return !!scene && scene.save?.roadGeomOverlay !== false;
-  }
-
   function invalidate(scene) {
     if (scene) scene._roadGeomKey = null;
   }
@@ -495,7 +488,10 @@
     const g = strokeTarget(scene);
     if (!g) return;
     const container = scene.roadGeomContainer;
-    const on = isOn(scene) && (scene.depth ?? 0) === 0;
+    // Always on at the surface — the ☰ toggle it once had is gone (the band
+    // IS how roads look now, not a debug aid). Only depth gates it: cave
+    // tiles have no MVT layers to stroke.
+    const on = (scene.depth ?? 0) === 0;
     if (container) container.setVisible(on);
     if (!on) {
       if (scene._roadGeomKey !== null) {
@@ -679,5 +675,5 @@
     if (g.commit) g.commit();
   }
 
-  global.RoadOverlay = { draw, isOn, invalidate };
+  global.RoadOverlay = { draw, invalidate };
 })(window);

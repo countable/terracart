@@ -2493,15 +2493,14 @@ class MapScene extends Phaser.Scene {
       // Kelowna home origin instead of following the player's real GPS. Any of
       // these will keep GPS fixes from moving the player:
       //   teleport  — a preset override is active (GPS is force-disabled)
-      //   debugCtl  — the gold debug joystick owns movement (GPS write skipped)
-      //   manualOvr — WASD/arrows/teleport were used this session (same)
+      //   manualOvr — WASD/arrows/teleport were used this session (GPS write skipped)
       //   gpsAvail=false / gpsM=none — no GPS fix has been applied
       let tp = null;
       try { tp = JSON.parse(localStorage.getItem('terracart.teleport') || 'null'); } catch (_) {}
       const gm = this.gpsM ? `(${Math.round(this.gpsM.x)},${Math.round(this.gpsM.y)})m` : 'none';
       const originSrc = _teleportOverride ? ('TELEPORT ' + (tp && tp.name || '?')) : (_saveHome ? 'saved-home' : 'default-home/GPS');
       out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${originSrc})`);
-      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} denied=${!!this._gpsDenied} watching=${this.gpsWatchId != null} sandbox=${!!this._sandboxMode}`);
+      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} manualOvr=${!!this._gpsManualOverride} denied=${!!this._gpsDenied} watching=${this.gpsWatchId != null} sandbox=${!!this._sandboxMode}`);
       out.push(`homePending=${!!this._homeCapturePending} homeArmed=${!!this._homeCaptureArmed} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
       // Starter-trail forensics — which mode the trail pass took when it last
       // ran this session (recorded in _placeStarterTrail), plus a live census
@@ -2534,7 +2533,7 @@ class MapScene extends Phaser.Scene {
       out.push(`stickOffset=(${Math.round(off.x)},${Math.round(off.y)}) `
         + `${Math.round(Math.hypot(off.x, off.y))}m  `
         + `speed=${steerSpeedMul(this._walkRelics())}× `
-        + `cost=${this.save.debugControls ? 'free (debug)' : steerEnergyCost(this._walkRelics()) + '/cell'}`);
+        + `cost=${steerEnergyCost(this._walkRelics())}/cell`);
       if (!entry || !entry.grid) {
         out.push('(tile not loaded — stand on the spot, then dump)');
         if (window.showError) window.showError('TILE DEBUG', out.join('\n'));
@@ -6345,14 +6344,10 @@ class MapScene extends Phaser.Scene {
     // it from here on. Session-scoped: a fresh load offers the hint again,
     // which costs one line until the first step and needs no save migration.
     this._steeredManually = true;
-    // Debug controls (☰ menu) do exactly one thing now: stick walking is free.
-    // No stamina, and therefore no empty-tank stop either — that's the whole
-    // feature, so a dev can roam a map without the bar getting in the way.
-    const free = !!this.save.debugControls;
     // Out of energy is a hard stop, not a slow crawl: the stick simply can't
     // walk you any further off the GPS until you rest. Throttle the nag so it
     // doesn't fire every frame the player keeps pushing.
-    if (!free && (this.save.energy ?? 0) <= 0) {
+    if ((this.save.energy ?? 0) <= 0) {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
@@ -6377,7 +6372,6 @@ class MapScene extends Phaser.Scene {
     this._stickHeading = { x: vx / n, y: vy / n };
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-    if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
     // whole pip every ~7 cells instead of rounding up to one per cell. Close to
     // your real position it's a fifth of that: pottering around the block you're
@@ -7337,33 +7331,12 @@ class MapScene extends Phaser.Scene {
       if (this._hudDOM !== '') { this._hudDOM = ''; this.hud.textContent = ''; }
       return;
     }
-    // The coordinate dump is DEVELOPER copy — it's welded to the bottom of the
-    // screen for everyone on desktop and for anyone who denied location, which
-    // is not a rare case for a game that asks for GPS on first launch. Those
-    // players get one line they can act on; the full readout stays behind the
-    // ☰ › Developer toggle.
-    if (!this.save.debugControls) {
-      // 'waiting for GPS…' is genuine live status and stays until a fix lands.
-      // The no-GPS movement hint retires the moment the player moves by hand
-      // (see _steerManual) — after that it is a permanent line of instructions
-      // for something they have already done.
-      const text = this.gpsAvailable ? 'waiting for GPS…'
-        : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
-      if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
-      return;
-    }
-    const gps = this.gpsAvailable ? 'waiting' : 'wasd';
-    const pc = this.playerToWorldCell();
-    const { lat, lon } = localMToLonLat(this, this.playerM.x, this.playerM.y);
-    // Count in place. Spreading tileCache into an array allocated one entry per
-    // VISITED tile every frame, and that cache grows without bound as the
-    // player walks — the debug HUD was the most expensive thing on screen in a
-    // long desktop session.
-    let loaded = 0;
-    for (const t of WorldGen.tileCache.values()) if (t.status === 'ready') loaded++;
-    const text =
-      `${lat.toFixed(5)}, ${lon.toFixed(5)}  gps:${gps}  ` +
-      `tile ${pc.tx}/${pc.ty}  tiles:${loaded}  caught:${this.save.caught.length}  plots:${this.save.planted.length}`;
+    // 'waiting for GPS…' is genuine live status and stays until a fix lands.
+    // The no-GPS movement hint retires the moment the player moves by hand
+    // (see _steerManual) — after that it is a permanent line of instructions
+    // for something they have already done.
+    const text = this.gpsAvailable ? 'waiting for GPS…'
+      : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
     if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
   }
 
@@ -8536,10 +8509,9 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
-    // frame). A sandbox or debug session may have no fix at all — fall back to
-    // the player's current position so Home still resolves.
-    const anchor = this.gpsM
-      || ((this._sandboxMode || this.save.debugControls) ? this.playerM : null);
+    // frame). A sandbox session may have no fix at all — fall back to the
+    // player's current position so Home still resolves.
+    const anchor = this.gpsM || (this._sandboxMode ? this.playerM : null);
     if (!anchor) return;                       // no fix yet — wait for one
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
@@ -10673,23 +10645,65 @@ class MapScene extends Phaser.Scene {
     `;
     document.head.appendChild(s);
   }
-  // Toggle entry point wired from the ☰ menu. Debug controls are now a single
-  // switch on one thing — stick walking costs no stamina (_steerManual) —
-  // rather than a second joystick with its own speed and movement path. There
-  // is nothing to build or tear down: persist the flag and report it back so
-  // the menu button can update its label.
-  setDebugControls(on) {
-    this.save.debugControls = !!on;
-    persistSave(this.save);
-    return this.save.debugControls;
+  // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
+  // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
+  // same wander/leech/combat behaviour — pushed into the covering tile's
+  // creature list, so everything downstream (render, the sim loops, the
+  // combat tick) picks them up with no special path. The pack arrives
+  // clustered on one random side, just inside the view edge, and oozes in
+  // from there (slimes drift toward the player), which is what makes it a
+  // usable combat test: the fight starts a moment later, not on your feet.
+  // Returns how many actually landed (a spot with no walkable ground — open
+  // water, a cave wall — re-rolls a few times, then gives up on that slime).
+  debugSpawnSlimePack(n = 6) {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    // Just inside the view edge: visible the moment they land (so the
+    // auto-fire gate sees them too), but a full screen-half from the player.
+    const edgeM = (VIEW_CELLS / 2 - 0.5) * this.cellM;
+    const heading = Math.random() * Math.PI * 2;   // the side the pack comes from
+    let placed = 0;
+    for (let i = 0; i < n; i++) {
+      // Fan the pack ±~45° around the heading, one slot per slime, with a
+      // little jitter so it reads as a mob rather than a picket line. A spot
+      // a slime can't stand on re-rolls its jitter, then gives up.
+      const slot = (n > 1 ? i / (n - 1) - 0.5 : 0) * 1.6;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const a = heading + slot + (Math.random() - 0.5) * 0.35;
+        const r = edgeM - Math.random() * this.cellM;
+        const x = px + Math.cos(a) * r;
+        const y = py + Math.sin(a) * r;
+        const entry = this._devSlimeGroundAt(x, y);
+        if (!entry) continue;
+        entry.creatures = entry.creatures || [];
+        this._devSlimeSeq = (this._devSlimeSeq || 0) + 1;
+        // Unique per press — never a tile-data id, so a dev slime can't mark
+        // a real spawn as caught when it dies.
+        entry.creatures.push({
+          x, y, kind: 'slime', shiny: false,
+          id: `slime_dev_${Date.now()}_${this._devSlimeSeq}`,
+        });
+        placed++;
+        break;
+      }
+    }
+    this.flash?.(placed ? `🟢 ${placed} slimes closing in!` : 'No ground for slimes here',
+      this.viewCenterX, this.viewCenterY - 40);
+    return placed;
   }
-  // Road-geometry overlay (road_overlay.js) on/off. Persisted per save and
-  // read back by the menu button's label. Returns the new state.
-  setRoadGeomOverlay(on) {
-    this.save.roadGeomOverlay = !!on;
-    persistSave(this.save);
-    if (typeof RoadOverlay !== 'undefined') RoadOverlay.invalidate(this);
-    return this.save.roadGeomOverlay;
+  // The cached tile entry covering a world-metre spot, but only if a slime
+  // can stand there — walkable terrain on a loaded tile (surface or the
+  // current cave level; the tile cache already reflects the active depth).
+  _devSlimeGroundAt(wmx, wmy) {
+    const tx = Math.floor(wmx / this.tileEdgeM), ty = Math.floor(wmy / this.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry || !entry.grid) return null;
+    const N = this.cellsPerTile;
+    const ix = Math.floor((wmx - tx * this.tileEdgeM) / this.cellM);
+    const iy = Math.floor((wmy - ty * this.tileEdgeM) / this.cellM);
+    if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    if (!WorldGen.isWalkable(entry.grid[iy * N + ix])) return null;
+    return entry;
   }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
   // per-frame row rebuild can early-out by comparing a counter instead of
@@ -11303,7 +11317,10 @@ class MapScene extends Phaser.Scene {
     if (bar) bar.remove();
     bar = document.createElement('div');
     bar.id = 'inv';
-    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;';
+    // The bar is the OPEN DRAWER under the tab row: painted --tab-brown, the
+    // same colour the selected tab fades into (index.html .hud-tab.sel), so
+    // the active tab and the panel below it read as one surface.
+    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;background:var(--tab-brown, #4a3a17);';
 
     // 40×44, not 28×42: this is a one-handed outdoor game and the pager sat
     // well under the 44px guideline (QC/UX audit §13).
