@@ -332,6 +332,14 @@ const ENEMY_HEALTH_RING_MS = 4000;
 // Damage keeps accumulating between beats and pops as one rounded number, so
 // nothing is lost to the throttle — it just reads as swings instead of a hose.
 const DMG_POPUP_BEAT_MS = 500;
+// How long ONE drawn sword swing lasts, in ms — the slash sweeps across its
+// arc over this window, then fades. Swings themselves fire on the SAME
+// DMG_POPUP_BEAT_MS cadence the damage numbers already beat at (see above:
+// "it just reads as swings instead of a hose") — one throttle, so the blade
+// and the number it earns land on the same beat instead of drifting apart.
+// Comfortably shorter than the beat itself so one slash finishes before the
+// next starts, whatever the weapon's tier.
+const SWORD_SWING_MS = 220;
 // Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
@@ -1738,6 +1746,13 @@ class MapScene extends Phaser.Scene {
     // Health bars over recently-hurt enemies. Under the work wheel (95) so a
     // foe you are actually swinging at keeps the brighter bar on top.
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
+    // Sword-swing slash — a short arc drawn near the player, toward whatever
+    // it's engaged with, on the same beat the melee wheel's damage numbers
+    // pop (see SWORD_SWING_MS / _drawSwordSwing). Depth 11: same tier as the
+    // facing arrow, above the body (10).
+    this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
+    this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
+    this._nextSwingT = 0;              // performance.now() ms the next swing may fire
     // Footprint trail — small 50% grey dots dropped as the player moves, each
     // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
@@ -5295,7 +5310,46 @@ class MapScene extends Phaser.Scene {
     }
     this.cancelWorkProgress();
   }
+  // The visible slash to go with a sword swing — a short arc drawn near the
+  // player's chest, swept toward whatever it's engaged with. Player-anchored
+  // (the player sprite is camera-locked at viewCentre, so no world→screen
+  // projection is needed) rather than world-anchored, unlike every other
+  // combat visual here (shots, health bars): this reads as coming FROM the
+  // player, not landing at a world point.
+  _drawSwordSwing() {
+    const g = this.swordSwingGfx;
+    if (!g) return;
+    g.clear();
+    const sw = this._swing;
+    if (!sw) return;
+    const t = (performance.now() - sw.startT) / SWORD_SWING_MS;
+    if (t >= 1) { this._swing = null; return; }
+    // Sweep a wide arc centred on the direction of the target: the LEADING
+    // edge is the blade's current position, the trailing edge a fixed slice
+    // behind it, so the stroke reads as a slash in flight rather than a
+    // wedge appearing all at once (the same "trailing streak" idea _drawShots
+    // uses for an arrow, just swept angularly instead of along a line).
+    const baseAngle = Math.atan2(sw.dir.y, sw.dir.x);
+    const SWEEP = Math.PI * 0.6;                    // ~108° tip-to-tip
+    const startA = baseAngle - SWEEP / 2;
+    const headA = startA + SWEEP * t;
+    const tailA = startA + SWEEP * Math.max(0, t - 0.35);
+    const cx = this.viewCenterX;
+    const cy = this.viewCenterY + this.playerFeetNudgeY - 8;   // roughly chest height
+    const R = 15;
+    // Fade only in the closing stretch — a slash that's visible then vanishes
+    // instantly reads as a glitch, not a completed swing.
+    const alpha = t < 0.7 ? 0.9 : 0.9 * (1 - (t - 0.7) / 0.3);
+    g.lineStyle(3, 0xe8ecf0, alpha);
+    g.beginPath();
+    g.arc(cx, cy, R, tailA, headA, false);
+    g.strokePath();
+  }
   _drawWorkProgress() {
+    // Independent of wp — a killing blow clears _workProgress the instant it
+    // lands, and the swing that landed it should still finish its fade rather
+    // than being cut off mid-sweep by the early `if (!wp) return` below.
+    this._drawSwordSwing();
     const wp = this._workProgress;
     if (!wp) return;
     const now = performance.now();
@@ -5414,6 +5468,16 @@ class MapScene extends Phaser.Scene {
       const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
       wp._lastT = now;
       const dps = Combat.meleeDps(this.save.relics) * (this.isDragonActive() ? 2 : 1);
+      // A blade to actually swing — bare hands (no sword owned) has none, so
+      // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
+      if (this.save.relics?.sword && now >= this._nextSwingT) {
+        this._nextSwingT = now + DMG_POPUP_BEAT_MS;
+        const px = this.startWorldM.x + this.playerM.x;
+        const py = this.startWorldM.y + this.playerM.y;
+        const dx = c.x - px, dy = c.y - py;
+        const d = Math.hypot(dx, dy) || 1;
+        this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
+      }
       if (this._damageEnemy(c, dps * dt)) return;   // _damageEnemy clears the wheel + pays out
     }
     const dur = wp.durationMs || 3000;

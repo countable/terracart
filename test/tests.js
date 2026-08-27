@@ -2238,6 +2238,58 @@ test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (
   }
 });
 
+// ── Sword-swing visual ──────────────────────────────────────────────────────
+test('combat: a melee swing draws a slash toward the target, then fades', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  scene._swing = null; scene._nextSwingT = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const foe = { x: pWX + scene.cellM, y: pWY, kind: 'slime', id: 'test_swing_' + Date.now() };
+  entry.creatures.push(foe);
+  try {
+    scene.startCombat(foe);
+    scene._drawWorkProgress();
+    assert.truthy(scene._swing, 'engaging with a sword starts a swing');
+    assert.gt(scene._swing.dir.x, 0.99, 'aimed at the foe (due east)');
+    // Past the sweep window, the next draw call retires it.
+    scene._swing.startT = performance.now() - 10000;
+    scene._drawWorkProgress();
+    assert.falsy(scene._swing, 'a stale swing fades and clears');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
+    scene._swing = null;
+  }
+});
+
+test('combat: bare hands draw no swing — there is no blade', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  scene._swing = null; scene._nextSwingT = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const foe = { x: pWX + scene.cellM, y: pWY, kind: 'slime', id: 'test_noswing_' + Date.now() };
+  entry.creatures.push(foe);
+  try {
+    scene.startCombat(foe);
+    scene._drawWorkProgress();
+    assert.falsy(scene._swing, 'bare-handed melee has no sword to draw');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
+    scene._swing = null;
+  }
+});
+
 test('defeat: deer with a weapon → finishing the queue drops meat and removes the deer', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
