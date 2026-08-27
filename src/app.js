@@ -6372,7 +6372,6 @@ class MapScene extends Phaser.Scene {
     this._stickHeading = { x: vx / n, y: vy / n };
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-    if (free) return;
     // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
     // whole pip every ~7 cells instead of rounding up to one per cell. Close to
     // your real position it's a fifth of that: pottering around the block you're
