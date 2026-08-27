@@ -11407,7 +11407,7 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(104px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
       const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
@@ -11464,7 +11464,7 @@ class MapScene extends Phaser.Scene {
     // The bar is the OPEN DRAWER under the tab row: painted --tab-brown, the
     // same colour the selected tab fades into (index.html .hud-tab.sel), so
     // the active tab and the panel below it read as one surface.
-    bar.style.cssText = 'position:fixed;bottom:calc(48px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:6px;z-index:6;pointer-events:auto;background:var(--tab-brown, #4a3a17);';
+    bar.style.cssText = 'position:fixed;bottom:calc(66px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:center;gap:3px;padding:4px;z-index:6;pointer-events:auto;background:var(--tab-brown, #4a3a17);';
 
     // 40×44, not 28×42: this is a one-handed outdoor game and the pager sat
     // well under the 44px guideline (QC/UX audit §13).
@@ -11622,12 +11622,19 @@ class MapScene extends Phaser.Scene {
 
     document.body.appendChild(bar);
 
-    // Name strip just below the bar — shows the selected item / gear name.
+    // Name plate — shows the selected item / gear name + effect line. Its own
+    // struck box (.hud-name, index.html), stacked with NO gap between the
+    // slot bar above (bottom:66) and the Eat/Read/Drink button below
+    // (bottom:4..40) — same touching-edges convention as the tabs sitting
+    // directly on the slot bar. Giving it a fixed box (instead of bare
+    // floating text) is what stops the name/effect line from running under
+    // the icons above or getting covered by the action button below.
     let nameLbl = document.getElementById('inv-name');
     if (nameLbl) nameLbl.remove();
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(30px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);text-align:center;color:var(--bone);font:13px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.className = 'hud-name';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(40px + env(safe-area-inset-bottom, 0px));left:calc(var(--phone-left, 0px) + 6px);right:calc(var(--phone-right, 0px) + 6px);height:26px;border-radius:6px;box-sizing:border-box;padding:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;font:12px/14px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
@@ -11657,17 +11664,18 @@ class MapScene extends Phaser.Scene {
           hint.textContent = cat.key === 'armor'
             ? 'No armor yet — forge or find it'
             : 'No relics yet — forge or find them';
-          hint.style.cssText = 'opacity:0.7;';
+          hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(hint);
         } else {
           const nameSpan = document.createElement('div');
           nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
+          nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           const def = (g.kind === 'relic' && typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS[g.slot] : null;
           if (def && def.blurb) {
             const fx = document.createElement('div');
             fx.textContent = `✦ ${def.blurb}`;
-            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             nameLbl.appendChild(fx);
           }
         }
@@ -11679,11 +11687,12 @@ class MapScene extends Phaser.Scene {
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
           nameSpan.textContent = nameTxt;
+          nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {
             const fx = document.createElement('div');
             fx.textContent = `✦ ${effect}`;
-            fx.style.cssText = 'font-size:11px;color:#9fe6ff;opacity:0.92;';
+            fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             nameLbl.appendChild(fx);
           }
         }

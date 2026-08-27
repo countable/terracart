@@ -261,13 +261,14 @@
       font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
-    /* Sits BELOW #inv-name (pinned at bottom:30px, ~15px tall) in the 8..21px
-       strip. It used to WRAP to two lines there and collide with the name by
-       ~4px at every viewport size — and this is a PERMANENT state on desktop
-       and for anyone who denies location, not the rare exception it reads as.
-       nowrap+ellipsis keeps it to one line, so the two never meet; the copy
-       itself is now one actionable phrase, with the coordinate dump behind
-       ☰ › Developer (see updateHUD). */
+    /* Sits in the 8..21px strip, well below #inv-name (now its own plate at
+       bottom:40px, 26px tall — app.js buildInventoryDOM). It used to WRAP to
+       two lines there and collide with the name by ~4px at every viewport
+       size — and this is a PERMANENT state on desktop and for anyone who
+       denies location, not the rare exception it reads as. nowrap+ellipsis
+       keeps it to one line, so the two never meet; the copy itself is now one
+       actionable phrase, with the coordinate dump behind ☰ › Developer (see
+       updateHUD). */
     /* Multiplayer chip (src/multiplayer.js #mp-btn) lives on <body> like the
        pads, so it too would float over a dialog inside #game — hide it there. */
     body.modal-open #mp-btn { display: none !important; }
@@ -564,6 +565,14 @@
     }
     .hud-action:active {
       background: var(--chrome-sunk);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+    /* Selected item/gear name + effect line — its own struck plate between the
+       slot bar above and the Eat/Read/Drink button below (app.js
+       buildInventoryDOM / refreshInventoryHighlight), so the text has a fixed
+       box instead of floating over whichever HUD piece happens to be under it. */
+    .hud-name {
+      background: var(--chrome-sunk); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
 
@@ -1048,10 +1057,14 @@
     // cells at the edge of an 11×11 view, never a row the player can reach.
     const CELL_GAME = 32;
     // INV_CLUSTER — the bottom stack, measured from the viewport bottom up to
-    // the TOP of the category tabs (bottom:104 + 44 tall). The walking stick
-    // is deliberately NOT in here: it is placed into the slack below, or
-    // allowed to overlay the map when there is no slack to place it in.
-    const INV_CLUSTER = 148;
+    // the TOP of the category tabs (bottom:118 + 44 tall). That 118 is the
+    // Eat/Read/Drink button (bottom:4, ~36 tall) + the dedicated name/effect
+    // plate (bottom:40, 26 tall) + the slot bar (bottom:66, 52 tall), each
+    // stacked with NO gap against its neighbour — see buildInventoryDOM. The
+    // walking stick is deliberately NOT in here: it is placed into the slack
+    // below, or allowed to overlay the map when there is no slack to place
+    // it in.
+    const INV_CLUSTER = 162;
     // The map's 11×11 view inside the 352×844 box (src/app.js: viewTop /
     // viewSize). fitGame positions the BOX so that this rectangle lands where
     // the budget says it should.
@@ -1108,9 +1121,9 @@
     //
     // Letting the height shrink a PHONE is exactly the bug this parameter
     // fixes: `band / MAP_H_GAME` drops below the width fit as soon as
-    // vh - 254 < vw, which is an ordinary iOS Safari viewport once the
-    // toolbars are showing (393x630 -> a 376px column in a 393px viewport, and
-    // 375x553 -> a 299px one). The UI zoomed out and grew gutters with nothing
+    // vh - 268 < vw, which is an ordinary iOS Safari viewport once the
+    // toolbars are showing (393x630 -> a 362px column in a 393px viewport, and
+    // 375x553 -> a 285px one). The UI zoomed out and grew gutters with nothing
     // in the code having changed but the browser chrome's height.
     function layOutVertically(sByWidth, vh, fillWidth) {
       const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
@@ -1194,7 +1207,7 @@
     // off the side.
     //
     // Flooring the width does not rescue it — it was tried and measured. The
-    // fixed chrome is TOP_CHROME + INV_CLUSTER = 254px, so a 390px-wide column
+    // fixed chrome is TOP_CHROME + INV_CLUSTER = 268px, so a 390px-wide column
     // wants a 390px-tall map and simply cannot fit inside a 390px-tall
     // viewport; forcing the width just moves the damage, burying the player
     // under the inventory bar. There is no scale that works.
