@@ -890,6 +890,7 @@
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
           <button id="debug-dragon-powder">Give Dragon Powder</button>
+          <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -1516,6 +1517,13 @@
       const scene = window.__scene;
       if (!scene) return;
       scene.addToInv?.('dragon_powder', 1);
+    });
+    // A pack of wild slimes at the screen edge, on demand — combat can be
+    // tested without wandering around hoping to find a fight.
+    document.getElementById('debug-slime-pack').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      window.__scene?.debugSpawnSlimePack?.(6);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -2160,7 +2168,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=444';
+      const APP_SRC = 'src/app.js?v=445';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
