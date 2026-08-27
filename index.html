@@ -931,7 +931,10 @@
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <!-- Player name — shown over your farmer to other players (multiplayer.js).
            Only rendered while the save has no name; the CTA stays disabled
-           until one is typed, so a new game can't start nameless. -->
+           until one is typed, so a new game can't start nameless. This is the
+           ONLY name dialog in the new-game flow: the save slot itself is never
+           prompted for — it's auto-named "Game N" and christened "<name>'s
+           game" from this field (christenSlotFromPlayer below). -->
       <label id="safety-name" style="display:none;margin:0 0 14px;text-align:left;">
         <span style="display:block;font:700 12px ui-monospace,monospace;color:var(--gold);margin-bottom:6px;">Your name <span style="font-weight:400;color:#aaa;">(other players see it)</span></span>
         <input id="player-name" type="text" maxlength="16" autocomplete="nickname" placeholder="e.g. Ada" required
@@ -1592,9 +1595,31 @@
           flushSave();     // app.js reads the save synchronously as it parses
         } catch (_) { return false; }
       }
+      christenSlotFromPlayer(name);
       paintPlayerNameBtn();
       return true;
     };
+    // The welcome splash is the only name dialog left in the new-game flow:
+    // "+ New game" no longer prompts for a slot name, so the player name the
+    // splash collects also christens the save slot — "Ada's game". Only a slot
+    // still wearing its "Game N" placeholder is ever renamed; once christened
+    // (or hand-named some day), later player renames leave the slot label
+    // alone, so a save's identity doesn't shift under the saves menu.
+    function christenSlotFromPlayer(name) {
+      try {
+        if (typeof listSaves !== 'function' || typeof renameSave !== 'function'
+            || typeof isDefaultSaveName !== 'function') return;
+        const saves = listSaves();
+        const active = saves.find(s => s.active);
+        if (!active || !isDefaultSaveName(active.name)) return;
+        // Two games by the same player: "Ada's game", "Ada's game 2", …
+        const taken = new Set(saves.filter(s => s.id !== active.id).map(s => s.name));
+        let label = name + "'s game";
+        for (let n = 2; taken.has(label); n++) label = name + "'s game " + n;
+        renameSave(active.id, label);
+        buildSavesMenu();   // reflect the new label if the ☰ menu is open
+      } catch {}
+    }
     function paintPlayerNameBtn() {
       const btn = document.getElementById('player-name-btn');
       if (btn) btn.textContent = `Player name: ${readPlayerName() || '—'}`;
@@ -1689,10 +1714,12 @@
         newBtn._wired = true;
         newBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          const name = prompt('Name your new game:', 'Game ' + (listSaves().length + 1));
-          if (name === null) return;   // cancelled
+          // No name prompt here — one dialog fewer in the new-game flow. The
+          // slot starts under the "Game N" placeholder, and the welcome splash
+          // after the reload (which already collects the PLAYER's name for the
+          // nameless save) christens it "<player>'s game" via __setPlayerName.
           if (typeof flushSave === 'function') flushSave();
-          if (typeof createSave === 'function') createSave(name);
+          if (typeof createSave === 'function') createSave();
           // createSave points SAVE_KEY at the new, EMPTY slot — but the scene is
           // still running with the old game in memory. Without freezing writes
           // here, its next persistSave (or the pagehide flush that
@@ -2082,7 +2109,7 @@
   <script src="src/biome_profiles.js?v=6"></script>
   <script src="src/worldgen.js?v=218"></script>
   <script src="src/textures.js?v=171"></script>
-  <script src="src/save.js?v=115"></script>
+  <script src="src/save.js?v=116"></script>
   <script src="src/items.js?v=198"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=2"></script>

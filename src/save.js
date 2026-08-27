@@ -16,6 +16,8 @@
 //   the default slot so existing players keep their progress untouched. The
 //   menu drives switchSave / createSave / deleteSave; each reloads the page so
 //   the whole scene + in-memory caches re-init cleanly for the new slot.
+//   renameSave relabels a slot without a reload (index.html uses it to derive
+//   a fresh slot's name from the player name typed on the welcome splash).
 
 // Legacy single-save key — also the data key of the migrated default slot, so
 // existing saves need no data move.
@@ -70,6 +72,23 @@ function getActiveSaveId() {
   return (_readSavesReg() || initSaves()).active;
 }
 
+// Placeholder name for a slot created without one. Deletions can leave holes
+// (slots.length + 1 may already be taken), so walk up to the first free "Game N"
+// rather than trusting the count. The "+ New game" flow leans on this default:
+// there is no name prompt any more — the slot starts as "Game N" and the
+// welcome splash's player name christens it (renameSave) after the reload.
+function _defaultSaveName(reg) {
+  const used = new Set(reg.slots.map(s => s.name));
+  let n = reg.slots.length + 1;
+  while (used.has('Game ' + n)) n++;
+  return 'Game ' + n;
+}
+// Is a slot name still the untouched createSave/initSaves placeholder? The
+// splash-driven rename only ever overwrites these, never a name a player chose.
+function isDefaultSaveName(name) {
+  return /^Game \d+$/.test(String(name || ''));
+}
+
 // Create a fresh, empty slot and make it active. Caller reloads the page so the
 // scene boots from the new (empty → fresh game) slot.
 function createSave(name) {
@@ -77,7 +96,7 @@ function createSave(name) {
   const id = _newSaveId();
   reg.slots.push({
     id,
-    name: (name && String(name).trim()) || ('Game ' + (reg.slots.length + 1)),
+    name: (name && String(name).trim()) || _defaultSaveName(reg),
     key: SAVE_VERSION_KEY + '.' + id,
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
@@ -86,6 +105,20 @@ function createSave(name) {
   _writeSavesReg(reg);
   SAVE_KEY = reg.slots[reg.slots.length - 1].key;
   return id;
+}
+
+// Rename a slot in place. Returns false (and changes nothing) for an unknown
+// id or a blank name. Pure registry write — the slot's data key never changes,
+// so it's safe mid-game.
+function renameSave(id, name) {
+  const clean = name && String(name).trim();
+  if (!clean) return false;
+  const reg = _readSavesReg() || initSaves();
+  const slot = reg.slots.find(s => s.id === id);
+  if (!slot) return false;
+  slot.name = clean;
+  _writeSavesReg(reg);
+  return true;
 }
 
 // Make an existing slot active. Caller reloads. No-op (returns false) if id is
