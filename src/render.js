@@ -1315,10 +1315,10 @@ Render.drawCells = function drawCells(scene) {
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
-        const crestH = (gx, x, baseY, dbgTint, extL = 0, extR = 0) => {
+        const crestH = (gx, x, baseY, dbgTint) => {
           const body = dbgTint ?? STONE_BODY;
-          gx.fillStyle(body, 1);   gx.fillRect(x - extL, baseY - CREN, CELL_PX + extL + extR, CREN);
-          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x - extL, baseY - 1, CELL_PX + extL + extR, 1);
+          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
             gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
@@ -1372,7 +1372,19 @@ Render.drawCells = function drawCells(scene) {
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
           gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
           gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
-          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined, extL, extR);
+          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
+          // SOLID crest-height shoulders over the widened columns — the crest
+          // rows there must be full stone, not tooth-and-gap, or the covered
+          // side band's last pixels still show through beside the teeth. This
+          // is what makes the descending band end flush at the band's TOP.
+          const shoulder = (x, w) => {
+            gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
+            gb.fillRect(x, sy - WALL - TOOTH_H, w, TOOTH_H);
+            gb.fillStyle(STONE_LITE, 1);
+            gb.fillRect(x, sy - WALL - TOOTH_H, w, 1);
+          };
+          if (extL) shoulder(sx - extL, extL);
+          if (extR) shoulder(sx + CELL_PX, extR);
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
