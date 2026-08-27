@@ -406,6 +406,10 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // potion, dragon powder, coffee, pairy compass) so a duration reads as a
 // count of minutes instead of a repeated 60 * 1000 literal.
 const MINUTE_MS = 60 * 1000;
+// Flower charm — gifting a Flowers stack item to a cash shop halves its
+// prices at that building for this long (see the flower-gift branch in
+// shopInteract + shopCharmMul).
+const SHOP_CHARM_MS = 5 * MINUTE_MS;
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
@@ -7699,6 +7703,16 @@ class MapScene extends Phaser.Scene {
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const restore = FOOD_ENERGY[sel.id];
     if (restore == null) return false;
+    // First taste of a new edible permanently grows the bar: +1 max energy per
+    // distinct food ever eaten (Energy.maxEnergy folds save.eaten into the
+    // cap). Recorded BEFORE the restore below so the new headroom is fillable
+    // by this very bite.
+    let firstTaste = false;
+    this.save.eaten = this.save.eaten || [];
+    if (!this.save.eaten.includes(sel.id)) {
+      this.save.eaten.push(sel.id);
+      firstTaste = true;
+    }
     const before = this.save.energy ?? 0;
     this.save.energy = Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
@@ -7721,6 +7735,7 @@ class MapScene extends Phaser.Scene {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
+    if (firstTaste) extra += `\n🍽 first taste: +1 max ⚡`;
     persistSave(this.save);
     this.buildInventoryDOM();
     this.updateEnergyDOM();
@@ -8208,6 +8223,50 @@ class MapScene extends Phaser.Scene {
     // regardless of the underlying house number.
     const shopType = this.houseShopRole(house);
     const isFort = !!house && house.tier === 11;
+    // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
+    // vault) with Flowers selected offers to charm the keeper: one bouquet
+    // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
+    // a bouquet at a barter trader / wizard / delivery house would buy
+    // nothing, so those never offer to take one. Checked after the busy gate
+    // so a bouquet can't be spent on a shut door, and skipped while a charm
+    // is already running so repeat taps don't burn the stack.
+    if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
+        && (isCastle || isFort || shopType === 'market')
+        && this.shopCharmMul(house) === 1) {
+      this.showOfferModal({
+        kind: 'shop',
+        title: 'Charm the shopkeeper?',
+        get: `💐 half prices here, ${Math.round(SHOP_CHARM_MS / MINUTE_MS)} min`,
+        cost: `1× ${this.iconSpanHTML('flowers')} Flowers`,
+        canAfford: true,
+        acceptLabel: 'Gift',
+        onAccept: () => {
+          const idx = this.save.inv.findIndex(s => s && s.id === 'flowers' && (s.count ?? 0) > 0);
+          if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
+          const cur = this.save.inv[idx];
+          cur.count -= 1;
+          if (cur.count <= 0) {
+            this.save.inv.splice(idx, 1);
+            if (this.save.selSlot >= this.save.inv.length) {
+              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+            }
+          }
+          this.save.shopCharm = this.save.shopCharm || {};
+          // Prune spent charms while we're here so the map can't grow without
+          // bound across many gifts.
+          for (const k of Object.keys(this.save.shopCharm)) {
+            if (this.save.shopCharm[k] <= Date.now()) delete this.save.shopCharm[k];
+          }
+          this.save.shopCharm[house.id] = Date.now() + SHOP_CHARM_MS;
+          persistSave(this.save);
+          this.buildInventoryDOM();
+          this.flashLoot('💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers');
+          // Straight back into the shop so the discounted offer is in hand.
+          this.shopInteract(sx, sy, house);
+        },
+      });
+      return;
+    }
     // Forced scarecrow shop (the house just past the starter blacksmith).
     // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
     // and the house reverts to its normal role (delivery / shop). Checked
@@ -9115,6 +9174,16 @@ class MapScene extends Phaser.Scene {
   shopReadiness(house) {
     return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
   }
+  // Flower charm: 0.5 while this building holds an unexpired charm (bought
+  // with a Flowers gift — see the flower-gift branch in shopInteract), else 1.
+  // Every cash price a shop quotes multiplies by this in one of two places:
+  // buildShopOffer (seed/produce storefronts) and presentRelicOffer (castle /
+  // relic-swap offers).
+  shopCharmMul(house) {
+    const until = house && house.id != null && this.save.shopCharm
+      ? this.save.shopCharm[house.id] : 0;
+    return until && Date.now() < until ? 0.5 : 1;
+  }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
@@ -9182,14 +9251,16 @@ class MapScene extends Phaser.Scene {
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
       : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
+    // Flower charm halves the asking price for the charm window (floor $1).
+    const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
       cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       blurb,
-      cost: `$${offer.price}`,
-      canAfford: (this.save.money ?? 0) >= offer.price,
+      cost: `$${price}`,
+      canAfford: (this.save.money ?? 0) >= price,
       acceptLabel: 'Buy',
       onAccept: () => {
         // Last-chance downgrade guard — by the time the player taps Buy, the
@@ -9198,14 +9269,14 @@ class MapScene extends Phaser.Scene {
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < offer.price) { this.flash(`Coin purse won't stretch — need $${offer.price}.`, sx, sy); return; }
-        addMoney(this.save, -offer.price);
+        if ((this.save.money ?? 0) < price) { this.flash(`Coin purse won't stretch — need $${price}.`, sx, sy); return; }
+        addMoney(this.save, -price);
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);
         this.updateHUD();
-        this.flashLoot(`🪙 ${name}\n−$${offer.price}`, '#ffe066', 1.25);
+        this.flashLoot(`🪙 ${name}\n−$${price}`, '#ffe066', 1.25);
       },
       // Pivot the seed lane so the next peekOrBuildRelicOffer returns
       // something else — no per-house cache to invalidate.
@@ -10130,7 +10201,9 @@ class MapScene extends Phaser.Scene {
     const priceRng = (opts.house && opts.house.id)
       ? this.shopRng(opts.house, 'price')
       : undefined;
-    const cashCost = ShopsMath.buyPrice(this.save, baseValue, priceRng);
+    // Flower charm halves the quoted price (floor $1) — see shopCharmMul.
+    const cashCost = Math.max(1,
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
     return {
       kind: 'money',
       label: `$${cashCost}`,

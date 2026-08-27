@@ -17,6 +17,15 @@ test('maxEnergy: armor is the source of truth — empty armor = 100 base, writte
   assert.eq(save.maxEnergy, 100, 'stored max overwritten by the armor-derived cap');
 });
 
+test('maxEnergy: first-taste bonus — +1 per distinct edible in save.eaten', () => {
+  const save = { armor: {}, eaten: ['potato', 'nut', 'berry'] };
+  assert.eq(Energy.maxEnergy(save), 103, '3 tasted foods = +3 over the 100 base');
+  assert.eq(save.maxEnergy, 103, 'bonus folded into the written-back cap');
+  save.eaten.push('milk');
+  assert.eq(Energy.maxEnergy(save), 104, 'a new taste grows the cap by 1');
+  assert.eq(Energy.maxEnergy({ armor: {} }), 100, 'no eaten list = no bonus');
+});
+
 test('spend: success deducts and clamps at 0, reports before/spent', () => {
   const save = { energy: 50, maxEnergy: 100 };
   const r = Energy.spend(save, 30);

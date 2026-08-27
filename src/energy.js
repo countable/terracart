@@ -19,10 +19,16 @@
   // Always derive the cap from currently-equipped armor (rather than a stale
   // save.maxEnergy that may pre-date the latest armor change), writing it back
   // so the UI and writers agree. Falls back to save.maxEnergy / STARTING_ENERGY.
+  //
+  // On top of the armor cap rides the FIRST-TASTE bonus: +1 max energy for
+  // every distinct edible the player has ever eaten (save.eaten, appended by
+  // app.js eatSelected). Folded in here — the one place the cap is derived —
+  // so every reader and writer sees the same number.
   function maxEnergy(save) {
     const fromArmor = (typeof maxEnergyFromArmor === 'function')
       ? maxEnergyFromArmor(save.armor) : null;
-    if (fromArmor != null) { save.maxEnergy = fromArmor; return fromArmor; }
+    const tasted = Array.isArray(save.eaten) ? save.eaten.length : 0;
+    if (fromArmor != null) { save.maxEnergy = fromArmor + tasted; return save.maxEnergy; }
     return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
   }
 
