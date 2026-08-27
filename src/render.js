@@ -1315,17 +1315,27 @@ Render.drawCells = function drawCells(scene) {
         // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
         // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (wallEdge(col, row, 0, 1)) {
-          // The Home trailer parked in FRONT of (south of) this wall must
-          // occlude it — a wall behind the trailer painting over its roof
-          // reads backwards. Route just this cell's front wall to the BACK
-          // layer so the trailer sprite (objectsContainer, above gb) draws on
-          // top. Rect stamped by drawObjects' house `after` hook; the wall's
-          // painted strip spans crest top … face bottom (sy+CELL_PX+WALL).
+          // Anything parked in FRONT of (south of) this wall must occlude
+          // it — a wall behind an object painting over its art reads
+          // backwards. Route just this cell's front wall to the BACK layer
+          // so the sprite (worldContainer, above gb) draws on top. Two
+          // sources, both stamped by drawObjects last frame:
+          //   • _rampartOccludedCells — the set of absolute cells hosting a
+          //     world sprite (tree / chest / crop / creature …). One-cell
+          //     sprites never cross their own south edge (QC rule), so only
+          //     the immediate southern neighbour cell can reach the wall.
+          //   • _homeTrailerRect — the Home trailer's screen rect (its house
+          //     art is multi-cell + centroid-anchored, so cell membership
+          //     alone can't place it). Strip spans crest top … face bottom
+          //     (sy+CELL_PX+WALL).
+          const occ = scene._rampartOccludedCells;
+          const southHosted = occ &&
+            occ.has((baseCellIX + ox) + '_' + (baseCellIY + oy + 1));
           const tr = scene._homeTrailerRect;
-          const gw = (tr &&
+          const gw = (southHosted || (tr &&
             (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
             tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
-            tr.x1 > sx && tr.x0 < sx + CELL_PX) ? gb : gf;
+            tr.x1 > sx && tr.x0 < sx + CELL_PX)) ? gb : gf;
           gw.fillStyle(STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gw, sx, sy + CELL_PX);
@@ -2013,6 +2023,26 @@ Render.drawObjects = function drawObjects(scene) {
                     || (a.rank - b.rank)
                     || (a.it.dy - b.it.dy));
   for (let zi = 0; zi < zList.length; zi++) zList[zi].it._z = zi;
+  // Absolute cells occupied by a world-layer sprite, for drawCells' castle-
+  // rampart sorting (read next frame — drawCells runs first): a castle FRONT
+  // (south) wall extrudes 8px down into its southern neighbour cell, and
+  // rampartFrontGfx sits ABOVE the world sprites, so without this a tree /
+  // chest / crop / animal standing in that cell — in FRONT of the wall — got
+  // painted over by it. When the south cell hosts a sprite, drawCells drops
+  // just that cell's front wall to the BACK layer so the sprite occludes it.
+  // Keys are absolute "ix_iy" cells (coords.js basis), so the one-frame lag
+  // can't misplace them the way screen rects would. Towers are excluded (they
+  // stand ON the wall cell and live in towerContainer, above both rampart
+  // layers) and houses are excluded (multi-cell centroid anchors don't map to
+  // one cell — the Home trailer keeps its dedicated _homeTrailerRect path).
+  const _rampOcc = new Set();
+  for (const { it } of zList) {
+    const kind = it.o && it.o.kind;
+    if (kind === 'tower' || kind === 'house') continue;
+    const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
+    _rampOcc.add(c.cellIX + '_' + c.cellIY);
+  }
+  scene._rampartOccludedCells = _rampOcc;
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
