@@ -13,6 +13,28 @@ test('migrate: backfills relic / armor / progression defaults on an empty save',
   assert.eq(save.deliveryCount, 0);
   assert.eq(typeof save.houseSatisfied, 'object');
   assert.eq(typeof save.restoredHouses, 'object');
+  assert.eq(save.activeWeapon, null, 'a fresh save has no active weapon yet');
+});
+
+test('migrate: backfills activeWeapon for a veteran save that predates weapon selection', () => {
+  // Older saves had every owned weapon fighting at once; default to sword (the
+  // one that used to auto-engage regardless of what else was carried) so a
+  // veteran's combat behaviour doesn't change on this alone, falling back to
+  // bow then staff for a save that never had a sword.
+  const swordSave = { relics: { sword: { tier: 2 }, bow: { tier: 5 } } };
+  SaveMigrate.migrate(swordSave);
+  assert.eq(swordSave.activeWeapon, 'sword', 'sword wins when owned');
+  const bowSave = { relics: { bow: { tier: 3 }, staff: { tier: 1 } } };
+  SaveMigrate.migrate(bowSave);
+  assert.eq(bowSave.activeWeapon, 'bow', 'bow wins over staff when no sword');
+  const staffSave = { relics: { staff: { tier: 1 } } };
+  SaveMigrate.migrate(staffSave);
+  assert.eq(staffSave.activeWeapon, 'staff', 'staff is the last resort');
+  // Already-migrated saves (or one that deliberately switched to bow) must not
+  // be overridden back to sword just because a sword is also owned.
+  const switched = { relics: { sword: { tier: 2 }, bow: { tier: 2 } }, activeWeapon: 'bow' };
+  SaveMigrate.migrate(switched);
+  assert.eq(switched.activeWeapon, 'bow', 'an existing choice is never overridden');
 });
 
 test('migrate: re-derives maxEnergy from armor and clamps energy into range', () => {

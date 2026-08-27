@@ -34,6 +34,17 @@
     for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
     }
+    // Only one weapon fights at a time (combat.js); older saves predate the
+    // choice and had all owned weapons fighting at once. Default to sword —
+    // it's the one that used to auto-engage regardless of what else was
+    // carried, so a veteran's combat behaviour doesn't change on this alone —
+    // falling back to bow, then staff, for a save that never had a sword.
+    if (save.activeWeapon === undefined) {
+      save.activeWeapon = save.relics.sword ? 'sword'
+        : save.relics.bow ? 'bow'
+        : save.relics.staff ? 'staff'
+        : null;
+    }
     // Two-bar inventory: older saves predate the type-tab selector. Default the
     // active tab to Seeds and clear any gear selection.
     if (save.invCat === undefined) save.invCat = 'seed';
