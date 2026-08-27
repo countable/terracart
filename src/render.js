@@ -1294,6 +1294,10 @@ Render.drawCells = function drawCells(scene) {
         //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
         //           gaps between the side merlons aren't harshly dark
         const _CS = (typeof CASTLE_STONE !== 'undefined') ? CASTLE_STONE : null;
+        // window.__RAMPART_DEBUG tints the three wall pieces apart (north blue,
+        // south green, sides red) so corner stacking bugs are visible at a
+        // glance — the stone greys are too close to eyeball draw order.
+        const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
         const STONE_LITE   = _CS ? _CS.LITE.n   : 0xb9bcc2;
         const STONE_BODY   = _CS ? _CS.BODY.n   : 0x8f9298;
         const STONE_SHADOW = _CS ? _CS.SHADOW.n : 0x5a5d63;
@@ -1311,12 +1315,13 @@ Render.drawCells = function drawCells(scene) {
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
-        const crestH = (gx, x, baseY) => {
-          gx.fillStyle(STONE_BODY, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+        const crestH = (gx, x, baseY, dbgTint) => {
+          const body = dbgTint ?? STONE_BODY;
+          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(STONE_BODY, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
             gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
             gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
@@ -1346,17 +1351,17 @@ Render.drawCells = function drawCells(scene) {
             (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
             tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
             tr.x1 > sx && tr.x0 < sx + CELL_PX)) ? gb : gf;
-          gw.fillStyle(STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+          gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(gw, sx, sy + CELL_PX);
+          crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
         }
         // North / back wall → BACK layer (below objects). Same tall extruded face
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
         // so the back reads as tall as the front. No dark grounding line here: at
         // the TOP edge it read as an unwanted hard line, not a contact shadow.
         if (wallEdge(col, row, 0, -1)) {
-          gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          crestH(gb, sx, sy - WALL);
+          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
+          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
@@ -1365,13 +1370,29 @@ Render.drawCells = function drawCells(scene) {
         // MOFF / MW) is independent of both, so thickening the stone keeps the
         // teeth and side dashes on the same grid — still aligned cell to cell.
         const SIDE_W = 5;
+        // Corner joins — the wall pieces stack in a fixed order where they
+        // meet: the SIDE band paints OVER the north wall (at a top corner the
+        // band runs up across the back wall's face + crest, a flat-topped
+        // corner post capping it), while the SOUTH wall paints OVER the side
+        // band (the band stops short of the front crest's tooth rows, so the
+        // crenel gaps show courtyard floor — not side-wall stone — behind the
+        // front wall). Drawing order inside gb already puts sides after the
+        // north wall; the south wall wins by geometry, so it stays in front
+        // even on the cells the occlusion routing sends to gb.
+        const bandY = wallEdge(col, row, 0, -1) ? sy - WALL - TOOTH_H : sy;
+        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
-          gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
-          gb.fillStyle(STONE_SIDE, 1);
-          for (let i = 0; i < MERLONS; i++) gb.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
+          gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
+          // Crenel-grid dashes stay on the cell's own span; skip any dash the
+          // shortened bottom would clip so a half-dash can't fray the band end.
+          for (let i = 0; i < MERLONS; i++) {
+            const dy = sy + i * SPAN + MOFF;
+            if (dy + MW <= bandBot) gb.fillRect(x, dy, SIDE_W, MW);
+          }
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
-          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
+          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, bandY, 1, bandBot - bandY);
         };
         if (wallEdge(col, row, -1, 0)) sideShade(sx, sx + SIDE_W - 1);
         if (wallEdge(col, row, 1, 0)) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
