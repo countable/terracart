@@ -42,7 +42,9 @@ const Multiplayer = (function () {
   const SEND_HZ = 8;             // position frames per second while moving
   const HEARTBEAT_MS = 5000;     // resend even when still, so peers don't go stale
   const PEER_STALE_MS = 20000;   // drop a peer we haven't heard from (out of range / gone)
-  const PING_TTL_MS = 30000;     // how long a ping marker stays on the map
+  const PING_TTL_MS = 300000;    // how long a ping marker stays on the map (5 min)
+  const PING_ARROW_MAX_M = 300;  // an off-screen ping within this many metres gets an edge arrow
+  const PING_ARROW_INSET = 14;   // how far inside the view edge the arrow sits
   const RECONNECT_MIN_MS = 2000, RECONNECT_MAX_MS = 30000;
   const NAME_MAX = 16;
   // Light tints so the farmer's art stays readable: a tint multiplies, so the
@@ -309,27 +311,62 @@ const Multiplayer = (function () {
       const q = S.pings[i];
       if (now - q.at > PING_TTL_MS) { q.gfx?.destroy(); q.txt?.destroy(); S.pings.splice(i, 1); }
     }
+    const half = scene.viewSize / 2;
     for (const q of S.pings) {
       const wm = fromWorldPx(scene, q.x, q.y);
       const s = worldMetersToScreen(scene, wm.x, wm.y);
       if (!q.gfx) {
         q.gfx = scene.add.graphics();
-        q.txt = scene.add.text(0, 0, `📍 ${q.name}${q.label ? ': ' + q.label : ''}`, {
+        q.txt = scene.add.text(0, 0, '', {
           font: fontMono('bold 10px'), color: hexCss(q.color),
           stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1);
         S.container.add([q.gfx, q.txt]);
       }
-      // A ring that breathes over the cell, and a bobbing label — a marker
-      // that moves reads as "look here" where a static one reads as terrain.
       const t = (now - q.at) / 1000;
-      const bob = Math.sin(t * 4) * 3;
-      const r = 12 + 4 * (0.5 + 0.5 * Math.sin(t * 3));
+      const vx = s.x - scene.viewCenterX, vy = s.y - scene.viewCenterY;
       q.gfx.clear();
-      q.gfx.lineStyle(2, q.color, 0.9).strokeCircle(s.x, s.y, r);
-      q.gfx.lineStyle(1, 0x000000, 0.5).strokeCircle(s.x, s.y, r + 1.5);
-      q.txt.setPosition(s.x, s.y - 18 + bob);
+      if (Math.abs(vx) <= half && Math.abs(vy) <= half) {
+        // On screen: a ring that breathes over the cell, and a bobbing label —
+        // a marker that moves reads as "look here" where a static one reads
+        // as terrain.
+        const bob = Math.sin(t * 4) * 3;
+        const r = 12 + 4 * (0.5 + 0.5 * Math.sin(t * 3));
+        q.gfx.lineStyle(2, q.color, 0.9).strokeCircle(s.x, s.y, r);
+        q.gfx.lineStyle(1, 0x000000, 0.5).strokeCircle(s.x, s.y, r + 1.5);
+        setPingText(q, `📍 ${q.name}${q.label ? ': ' + q.label : ''}`);
+        q.txt.setOrigin(0.5, 1).setPosition(s.x, s.y - 18 + bob).setVisible(true);
+        continue;
+      }
+      // Off screen: an arrow on the view edge pointing at the spot, with the
+      // remaining distance, so a nearby ping can be walked to. Beyond
+      // PING_ARROW_MAX_M the marker just waits at its spot — no arrow.
+      const dxm = wm.x - (scene.startWorldM.x + scene.playerM.x);
+      const dym = wm.y - (scene.startWorldM.y + scene.playerM.y);
+      const dist = Math.hypot(dxm, dym);
+      if (dist > PING_ARROW_MAX_M) { q.txt.setVisible(false); continue; }
+      const kk = (half - PING_ARROW_INSET) / Math.max(Math.abs(vx), Math.abs(vy));
+      const ex = scene.viewCenterX + vx * kk, ey = scene.viewCenterY + vy * kk;
+      const cos = Math.cos(Math.atan2(vy, vx)), sin = Math.sin(Math.atan2(vy, vx));
+      const len = 9 + 2 * (0.5 + 0.5 * Math.sin(t * 3));   // same breath as the ring
+      const tipX = ex + cos * len, tipY = ey + sin * len;
+      const ax = ex - cos * len - sin * 6, ay = ey - sin * len + cos * 6;
+      const bx = ex - cos * len + sin * 6, by = ey - sin * len - cos * 6;
+      q.gfx.fillStyle(q.color, 0.95).fillTriangle(tipX, tipY, ax, ay, bx, by);
+      q.gfx.lineStyle(1, 0x000000, 0.6).strokeTriangle(tipX, tipY, ax, ay, bx, by);
+      setPingText(q, `📍 ${q.name} · ${Math.round(dist)} m`);
+      // Label sits inward of the arrow, clamped so it never clips the mask.
+      const tw = q.txt.width / 2 + 2, th = q.txt.height / 2 + 2;
+      const tx = Math.min(scene.viewCenterX + half - tw, Math.max(scene.viewCenterX - half + tw, ex - cos * 24));
+      const ty = Math.min(scene.viewCenterY + half - th, Math.max(scene.viewCenterY - half + th, ey - sin * 24));
+      q.txt.setOrigin(0.5, 0.5).setPosition(tx, ty).setVisible(true);
     }
+  }
+  // Re-rendering a Phaser text is the expensive part; only do it on change.
+  function setPingText(q, s) {
+    if (q._txtStr === s) return;
+    q._txtStr = s;
+    q.txt.setText(s);
   }
   function ping(scene, wmx, wmy) {
     if (S.status !== 'online') { scene._toast?.('Not connected', { tier: 'note' }); return false; }
