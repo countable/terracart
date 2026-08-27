@@ -6922,6 +6922,10 @@ class MapScene extends Phaser.Scene {
   // Black out at 0 energy underground and wake on the surface. Keeps the same
   // world coordinates (GPS re-asserts position up top); the player wakes still
   // drained, so they must rest before heading back down (changeDepth gate).
+  // Passing out also costs HALF the purse — floored, so it can't go negative
+  // and a broke player loses nothing further. A real cost for running the
+  // tank dry is what makes "rest first" a warning worth heeding rather than a
+  // free teleport home.
   _passOutToSurface() {
     this._passingOut = true;
     if (this._workProgress) this.cancelWorkProgress();
@@ -6936,12 +6940,15 @@ class MapScene extends Phaser.Scene {
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor('#222');
     this.ensureTilesAround().catch(() => {});
+    const lost = Math.floor((this.save.money ?? 0) / 2);
+    if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
     this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You pass out from exhaustion and wake up on the surface.',
+      sub: lost > 0 ? `Lost $${lost} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
     });

@@ -290,6 +290,12 @@ ENERGY & FOOD
      * OFFLINE — while the tab is closed, energy pro-rates linearly to a full
        bar over 1 hour away (energy.js Energy.OFFLINE_FULL_REST_MS), applied
        once on the next load.
+ - EXHAUSTION: hitting 0 energy UNDERGROUND blacks the player out and wakes
+   them on the surface (same world coordinates), costing HALF their money —
+   floored, so it can never go negative and a broke player loses nothing
+   further. They wake still drained, so changeDepth refuses to go back down
+   until they rest (app.js _passOutToSurface). On the surface, 0 energy has no
+   such penalty — it just blocks further energy-costing actions.
 
 ================================================================================
 WORLD GENERATION

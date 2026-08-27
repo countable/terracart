@@ -1072,6 +1072,38 @@ test('energy: refuses till when too tired', (scene) => {
   assert.eq(scene.save.energy, 1, 'energy unchanged on refusal');
 });
 
+test('exhaustion: passing out underground costs half the purse, floored', (scene) => {
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.save.money = 101;
+  scene._passingOut = false;
+  scene._workProgress = null;
+  try {
+    scene._passOutToSurface();
+    assert.eq(scene.depth, 0, 'woken on the surface');
+    assert.eq(scene.save.money, 51, '101 halves to 50, floor-lost — 51 left, not 50.5');
+    const modal = document.getElementById('chest-reward-modal');
+    assert.truthy(modal, 'the exhausted modal shows');
+    assert.truthy(modal.textContent.includes('$50'), 'names the amount lost');
+  } finally {
+    document.getElementById('chest-reward-modal')?.remove();
+    scene._passingOut = false;
+  }
+});
+
+test('exhaustion: a broke player loses nothing further', (scene) => {
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.save.money = 0;
+  scene._passingOut = false;
+  scene._workProgress = null;
+  try {
+    scene._passOutToSurface();
+    assert.eq(scene.save.money, 0, 'no money to lose, none lost');
+  } finally {
+    document.getElementById('chest-reward-modal')?.remove();
+    scene._passingOut = false;
+  }
+});
+
 test('eating rainberry restores energy + waters nearby crops + shows message modal', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   // Set up: 3 crops within 20m, 1 crop at 40m, all unwatered.
