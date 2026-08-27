@@ -1315,10 +1315,10 @@ Render.drawCells = function drawCells(scene) {
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
-        const crestH = (gx, x, baseY, dbgTint) => {
+        const crestH = (gx, x, baseY, dbgTint, extL = 0, extR = 0) => {
           const body = dbgTint ?? STONE_BODY;
-          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
-          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
+          gx.fillStyle(body, 1);   gx.fillRect(x - extL, baseY - CREN, CELL_PX + extL + extR, CREN);
+          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x - extL, baseY - 1, CELL_PX + extL + extR, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
             gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
@@ -1359,9 +1359,20 @@ Render.drawCells = function drawCells(scene) {
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
         // so the back reads as tall as the front. No dark grounding line here: at
         // the TOP edge it read as an unwanted hard line, not a contact shadow.
+        const SIDE_W = 5;
         if (wallEdge(col, row, 0, -1)) {
-          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
+          // The lower-anchored piece paints in front (the game's painter rule:
+          // lower centre of mass renders in front). This band belongs to THIS
+          // cell and rises into the cell above — so it must also cover the FOOT
+          // of any side band descending to the step from a diagonal-above
+          // castle cell. Without the widening, that band's last 12px stuck out
+          // beside the crest at every stepped top edge / notch: the top wall
+          // did not paint over the side wall in the cell above.
+          const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
+          const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
+          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
+          gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
+          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined, extL, extR);
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
@@ -1369,17 +1380,15 @@ Render.drawCells = function drawCells(scene) {
         // WALL / SIDE_W set the wall's visible MASS; the merlon grid (SPAN /
         // MOFF / MW) is independent of both, so thickening the stone keeps the
         // teeth and side dashes on the same grid — still aligned cell to cell.
-        const SIDE_W = 5;
-        // Corner joins — the wall pieces stack in a fixed order where they
-        // meet: the SIDE band paints OVER the north wall (at a top corner the
-        // band runs up across the back wall's face + crest, a flat-topped
-        // corner post capping it), while the SOUTH wall paints OVER the side
-        // band (the band stops short of the front crest's tooth rows, so the
-        // crenel gaps show courtyard floor — not side-wall stone — behind the
-        // front wall). Drawing order inside gb already puts sides after the
-        // north wall; the south wall wins by geometry, so it stays in front
-        // even on the cells the occlusion routing sends to gb.
-        const bandY = wallEdge(col, row, 0, -1) ? sy - WALL - TOOTH_H : sy;
+        // Corner joins follow the painter rule (lower centre of mass in
+        // front): the SOUTH wall paints over the side band — the band stops
+        // short of the front crest's tooth rows, so the crenel gaps show
+        // courtyard floor, not side-wall stone, behind the front wall (by
+        // geometry, so it holds even on cells the occlusion routing sends to
+        // gb) — and the NORTH wall paints over side-band feet at stepped top
+        // edges (the widened band above). At a plain top corner the band runs
+        // to the cell top and the full-width north crest caps it.
+        const bandY = sy;
         const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
