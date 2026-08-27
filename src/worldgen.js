@@ -2708,6 +2708,24 @@
     return Math.round(tileEdgeMeters(lat) / CELL_M);
   }
 
+  // Tile builds decode + rasterize on the MAIN thread (no worker), and each
+  // phase is tens of ms on a slow phone. Left alone, the whole build ran as
+  // ONE synchronous chunk the moment its fetch resolved — and several fetches
+  // resolving close together stacked their builds into a single frame, which
+  // is the "hitch walking into a new area". This gate serializes the heavy
+  // phases across all in-flight tiles and yields to the event loop before
+  // each one, so at most one heavy chunk runs per turn and input/render
+  // frames get a look-in between them. FIFO through a shared chain; a throw
+  // in one phase must not wedge the chain for the next (hence the swallow).
+  let _heavyChain = Promise.resolve();
+  function runHeavyPhase(fn) {
+    const run = _heavyChain
+      .then(() => new Promise((r) => setTimeout(r, 0)))
+      .then(fn);
+    _heavyChain = run.then(() => {}, () => {});
+    return run;
+  }
+
   // opts.detached — build a tile entry WITHOUT touching the shared cache (no
   // hit-check, no insert, no LRU prune, no failure bookkeeping). Used by
   // rebuildTileWithBin so a replacement can be constructed alongside the live
@@ -2745,8 +2763,11 @@
     entry.tileEdgeM = tileEdgeM;
     entry.promise = (async () => {
       const { bytes, fromCache } = await fetchTileBytes(x, y);
-      const layers = MVT.decodeTile(bytes);
-      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
+      // the two heaviest chunks of a tile build each get their own slice, and
+      // the spawn/dedup post-passes below ride the rasterize turn.
+      const layers = await runHeavyPhase(() => MVT.decodeTile(bytes));
+      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -3130,6 +3151,19 @@
           if (dupe) continue;
           entry.parkingTreasures.push(pk);
         }
+      }
+
+      // The decoded layers stay on the entry for two consumers only: the road
+      // overlay re-strokes `transportation` line geometry on each rebuild, and
+      // the tile-debug dump reads layer/feature NAMES, types and tags — never
+      // geometry. Vertex lists are the bulk of a decoded tile (every point is
+      // a heap object; landcover/building polygons carry thousands), so with
+      // 64 tiles LRU-cached, dropping the geom nothing will read again saves
+      // tens of MB on a long session — real GC/memory pressure on old phones.
+      // Rasterization is fully done by here, so nothing downstream misses it.
+      for (const l of layers) {
+        if (l.name === 'transportation') continue;
+        for (const f of (l.features || [])) f.geom = null;
       }
 
       entry.status = 'ready';
