@@ -139,6 +139,14 @@
   // that DRAWS the wheel and the number that PLACES it can't drift apart.
   const CREATURE_WHEEL_R = 9;
 
+  // The enemy HEALTH BAR (app.js _drawEnemyHealthBar). Sized to the wheel's
+  // diameter so the two combat readouts feel like one family, but drawn as a
+  // BAR so health never reads as the work wheel: the wheel is a ring that
+  // sits ON the animal, the bar is a strip that floats ABOVE it.
+  const HEALTH_BAR_W = 18;      // bar width, px — the wheel's stroked diameter
+  const HEALTH_BAR_H = 3;       // bar height, px
+  const HEALTH_BAR_GAP = 2;     // clear sky between the crown and the bar
+
   // Vertical origin the renderer should anchor `kind` at (fraction of frame).
   function creatureFoot(kind) {
     const a = CREATURE_ART[kind];
@@ -176,10 +184,34 @@
     return artTop + Math.min(CREATURE_WHEEL_R + 1, artH / 2);
   }
 
+  // THE HEALTH BAR RULE: the bar floats a fixed sliver of sky ABOVE the kind's
+  // crown — the top row of its visible art, at rest — so it hovers over the
+  // head like a name-plate rather than sitting on the body the way the work
+  // wheel does. Same table, same crown, different side of it: derived per kind
+  // from CREATURE_ART exactly like creatureWheelDy, never a flat offset (a
+  // flat offset is what floated the old wheel 4 px above a chicken and parked
+  // it at a crow's feet).
+  //
+  // Returns the offset in screen px from the creature's projected cell centre
+  // to the bar's TOP edge (negative = up the screen).
+  function creatureHealthBarTop(kind) {
+    const a = CREATURE_ART[kind];
+    if (!a) {
+      // No art entry: hang the bar over where the fallback wheel's outer edge
+      // would be, so an unknown kind still reads sanely.
+      return CREATURE_WHEEL_FALLBACK_DY - (CREATURE_WHEEL_R + 1)
+        - HEALTH_BAR_GAP - HEALTH_BAR_H;
+    }
+    const anchorY = CREATURE_GROUND_DY - a.float;
+    const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
+    return artTop - HEALTH_BAR_GAP - HEALTH_BAR_H;
+  }
+
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
-    creatureFoot, creatureWheelDy,
+    HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
+    creatureFoot, creatureWheelDy, creatureHealthBarTop,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
