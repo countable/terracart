@@ -81,10 +81,11 @@ test('edgeDot clamps an off-screen point to the square view edge, inset intact',
   assert.eq(Multiplayer.edgeDot(0, 0, half, inset), null);
 });
 
-test('the peer edge dot only reaches as far as a ping arrow does', () => {
-  // 300 m — the same reach the off-screen ping arrow has, so "close enough to
-  // signpost" means one thing on the rim. Retune them together or not at all.
-  assert.eq(Multiplayer.PEER_DOT_MAX_M, 300);
+test('"near" is 300 m — the chip count, the edge dot and the ping arrow agree', () => {
+  // One number for "close enough to matter": the HUD chip's 👥 count, the
+  // rim dot for an off-screen peer, and the off-screen ping arrow all read
+  // it. Retune them together or not at all.
+  assert.eq(Multiplayer.PEER_NEAR_M, 300);
 });
 
 test('describeAt names the rock / tree / wild plant / creature in the tapped cell', () => {
