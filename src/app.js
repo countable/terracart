@@ -9746,11 +9746,11 @@ class MapScene extends Phaser.Scene {
       if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
     }
     this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
-    // Spec §PATH STONES: every 10 claimed stones on the same named path awards
-    // 1 coin (a 30-stone path pays 3 total; fewer than 10 pays nothing). Pay
-    // each 10-stone milestone exactly once as the player walks it. This is in
+    // Spec §PATH STONES: every 2nd claimed stone on the same named path awards
+    // 1 coin (a 30-stone path pays 15 total; a single stone pays nothing). Pay
+    // each 2-stone milestone exactly once as the player walks it. This is in
     // ADDITION to the one-time completion reward fired below.
-    const milestones = Math.floor(rec.stones.length / 10);
+    const milestones = Math.floor(rec.stones.length / 2);
     if (milestones > (rec.coinsPaid || 0)) {
       const newCoins = milestones - (rec.coinsPaid || 0);
       rec.coinsPaid = milestones;

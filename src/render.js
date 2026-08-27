@@ -79,6 +79,11 @@ const POI_PAD_MINI_SCALE = 0.55;
 // always draw regardless of this roll — see the `active` check below — so
 // thinning this out never hides the player's actual progress.
 const PATH_STONE_DENSITY_PCT = 50;
+// Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
+// cluster on every cell, which read as a continuously paved surface; at 15%
+// (an 85% cut) the clusters become occasional patches and the road band's own
+// paint carries the "this is a road" read instead.
+const ROAD_COBBLE_DENSITY_PCT = 15;
 // A freshly claimed path stone gets a brief scale-pop instead of silently
 // jumping to full opacity next frame, so claiming reads as an event. 450ms
 // played and decayed almost before the eye caught it, so it's slower now —
@@ -1121,6 +1126,11 @@ Render.drawCells = function drawCells(scene) {
         if (showStone && type === PATH) {
           const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
           showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+        } else if (showStone && isRoad(type)) {
+          // Same stable per-cell hash trick as PATH above, gated by the road
+          // density (ROAD_COBBLE_DENSITY_PCT) — purely decorative thinning.
+          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
+          showStone = (sh % 100) < ROAD_COBBLE_DENSITY_PCT;
         }
         if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
