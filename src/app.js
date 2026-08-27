@@ -4868,6 +4868,13 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (now < due) continue;
+        // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
+        // price of its pierce + double punch). No energy → no bolt, SILENTLY:
+        // an auto-firing weapon must not spam "too tired" (spendEnergy only
+        // flashes when handed coordinates). The cadence is left due, so the
+        // first bolt after a meal fires immediately.
+        const eCost = Combat.SHOT[slot].energyCost || 0;
+        if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
         const shot = Combat.spawnShot(slot, px, py, this.facing, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul);
@@ -4881,16 +4888,38 @@ class MapScene extends Phaser.Scene {
     }
 
     if (this._shots.length) {
+      // What stops an ARROW (staff bolts pierce and never consult this):
+      // underground, cave rock — _cellBlocked is the SAME test the body walks
+      // against, so what blocks you blocks your arrows; on the surface,
+      // standing timber and stone — an unchopped tree or bush, an unbroken
+      // mineral rock. The surface set is built lazily, once per tick, only
+      // when a shot is actually in flight: stepShots samples the test every
+      // half-cell of every shot, far too often for a per-sample object scan.
+      let solidCells = null;
+      const shotBlocked = (x, y) => {
+        if (this._cellBlocked(x, y)) return true;
+        if (this.depth !== 0) return false;
+        if (!solidCells) {
+          solidCells = new Set();
+          const choppedSet = setOf(this.save.chopped);
+          WorldGen.forEachItemNear('objects', pcTick.tx, pcTick.ty, (o) => {
+            if (o.kind === 'tree' || o.kind === 'fruittree') {
+              if (o.chopped || choppedSet.has(o.id)) return;
+            } else if (o.kind === 'mineralrock') {
+              if (this.brokenRockSet.has(o.id)) return;
+            } else return;
+            if (Math.abs(o.x - px) > halfSpanM * 2 || Math.abs(o.y - py) > halfSpanM * 2) return;
+            const c = worldMetersToAbsCell(this, o.x, o.y);
+            solidCells.add(c.cellIX + '_' + c.cellIY);
+          });
+        }
+        const cc = worldMetersToAbsCell(this, x, y);
+        return solidCells.has(cc.cellIX + '_' + cc.cellIY);
+      };
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
         (enemy, shot) => this._damageEnemy(enemy, shot.damage),
-        // Underground, rock stops an arrow. Without this a bow or staff shot
-        // sailed straight through a cave wall and killed whatever stood in the
-        // next tunnel over — you could clear a level by facing a blank wall and
-        // waiting. _cellBlocked is the SAME test the body walks against (and
-        // answers false on the surface, where nothing should stop a shot), so
-        // what blocks you blocks your arrows.
-        { blocked: (x, y) => this._cellBlocked(x, y), cellM: this.cellM });
+        { blocked: shotBlocked, cellM: this.cellM });
     }
     this._drawShots();
 
@@ -4931,6 +4960,15 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
+      if (spec.dotPx) {
+        // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
+        // a thrown thing, an arrow as a flying line.
+        g.fillStyle(spec.color, 0.95);
+        g.fillCircle(hx, hy, spec.dotPx);
+        g.lineStyle(1, 0xffffff, 0.5);
+        g.strokeCircle(hx, hy, spec.dotPx);
+        continue;
+      }
       // The tail trails a fixed number of SCREEN pixels back along the
       // heading — the streak is a readability device, not a world-space
       // object, so it shouldn't grow or shrink with the projection.

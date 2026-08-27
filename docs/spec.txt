@@ -601,7 +601,7 @@ COMBAT
    or manual tap-to-fight (tapping an enemy directly) and the crow/deer HUNT
    wheel are unaffected; the hunt wheel is still sped by ANY owned weapon's
    tier (the best of the three), active or not.
- - THE THREE WEAPONS DO DIFFERENT THINGS.
+ - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
               hands = the 9s tier-0 rung, so you can always fight). Being the
@@ -610,23 +610,31 @@ COMBAT
               weightless — it does not swallow taps, root the character, or
               block the walk home, and it breaks off silently when the foe
               leaves reach.
-     bow    — RANGED. While active, and at least one enemy is ON SCREEN, it
-              looses one shot per second along the COMPASS heading. Shots do
-              NOT home and do NOT pick a target: you aim by turning. 4.5
-              cells/s, 8-cell range.
-     staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range.
-   A shot carries its FULL tier-equivalent melee rate — the same rate a sword
-   of that tier deals — with no split across ranged slots: because only one
-   weapon can ever be in play, there is nothing to split against (bow and
-   staff used to fire simultaneously and stack, which is what the old split
-   priced against). Bow and staff never speed the melee wheel, active or not;
-   the shots are what they contribute. (All three still speed the crow/deer
-   HUNT wheel regardless of which is active — see above.)
-   SHOTS STOP AT ROCK. Underground a shot is tested against the same cave-wall
-   collision the body walks into, sampled every half cell so a long frame can't
-   step over a wall: it stops at the face and is spent. Without it you could
-   face a blank wall and clear the next tunnel through it. Nothing stops a shot
-   on the surface — you can shoot over a fence or a river.
+     bow    — RANGED, an ARROW. While active, and at least one enemy is ON
+              SCREEN, it looses one shot every 2 seconds along the COMPASS
+              heading (4.5 cells/s, 8-cell range). Shots do NOT home and do
+              NOT pick a target: you aim by turning. An arrow STOPS in the
+              first foe it hits, and at anything solid on the way — cave rock
+              underground (the same collision the body walks into), and on
+              the surface a standing tree/bush or an unbroken mineral rock.
+              Free to fire — no energy cost.
+     staff  — RANGED, a PIERCING BOLT: same cadence and heading rules as the
+              bow (3.2 cells/s, 7-cell range), but a bolt ignores the world
+              entirely (goes through rock and timber alike) and damages EVERY
+              foe on its line once each, not just the first. Costs 1 ENERGY
+              per bolt (silently skipped if you can't afford it — an
+              auto-firing weapon must never spam "too tired"), and lands
+              DOUBLE an arrow's damage: the energy is the price of the pierce
+              and the punch.
+   A shot's damage is its tier's FULL melee-equivalent rate (bow) or DOUBLE
+   that (staff) — the same rate a sword of that tier deals, or twice it — with
+   no split across ranged slots: because only one weapon can ever be in play,
+   there is nothing to split against (bow and staff used to fire simultaneously
+   and stack, which is what the old split priced against; the doubling that
+   remains is a deliberate difference in KIND, not a stacking guard). Bow and
+   staff never speed the melee wheel, active or not; the shots are what they
+   contribute. (All three still speed the crow/deer HUNT wheel regardless of
+   which is active — see above.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating
@@ -644,8 +652,10 @@ COMBAT
    time killing one paid nothing. Crow and deer are game, not enemies: they pay
    in feathers and meat. On top of the wage, one in ten CAVE MONSTERS also drops
    a buried-treasure roll (a hoard is something you turn up underground). A kill
-   also ticks any kill quest and flashes. Combat costs no energy; your time and
-   your aim are the price.
+   also ticks any kill quest and flashes. Combat costs no energy — sword,
+   bare hands, and the bow are free; your time and your aim are the price.
+   The one exception is the staff, which draws 1 energy per bolt for its
+   pierce + double damage (see above).
  - EVERY route to a dead creature pays the same, because they all funnel through
    resolveDefeat — the tap-hunt wheel, the combat wheel, a killing bow/staff
    shot, and a PET's kill. That last one used to carry its own copy of the
@@ -883,10 +893,13 @@ GEAR: RELICS & ARMOR
               auto-engages the nearest enemy in reach WHEN ACTIVE — see
               COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
               active or not
-     bow    — RANGED weapon (auto-fires 1 shot/s along the compass while an
-              enemy is on screen, WHEN ACTIVE); lowers buy prices (T7 = par)
+     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2s
+              while an enemy is on screen, WHEN ACTIVE; stops in the first
+              foe hit and at solid ground); lowers buy prices (T7 = par)
               whether active or not
-     staff  — RANGED weapon (as the bow, shorter reach); no price effect
+     staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
+              ignores the world and hits every foe on its line; costs 1
+              energy/bolt and lands double an arrow's damage); no price effect
      (only ONE of the three auto-fights at a time — save.activeWeapon, see
      COMBAT — but all three still speed the crow/deer HUNT wheel by tier
      regardless of which is active — see WORK WHEEL)

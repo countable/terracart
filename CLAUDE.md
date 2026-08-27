@@ -46,6 +46,17 @@
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
 
+- **The painter rule: the LOWER object (centre of mass) renders in front.**
+  World sprites already obey it via the screen-row z-order in
+  `src/render.js` › drawObjects (a sprite in a lower screen row always draws
+  over one in a higher row). It governs hand-drawn geometry too — the castle
+  rampart pieces sort by it (a south wall over the side bands, a north wall
+  over the feet of side bands descending from the row above; see the tier-12
+  pass in drawCells). When adding anything that overlaps vertically, derive
+  its draw order from this rule, not from a hand-picked layer.
+  `window.__RAMPART_DEBUG = true` tints the castle wall pieces apart
+  (north blue / south green / sides red) when the stacking needs eyeballing.
+
 - **Interactables must be clearly in one cell.** Other than houses and fauna,
   every interactable should visually occupy a single tile — its art and
   collision box must align to the same cell. If it appears to straddle a cell
