@@ -54,9 +54,12 @@ if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
   window.TELEPORT_ACTIVE = _teleportOverride;
 }
-// Meters per degree of latitude (≈ constant everywhere). Longitude meters
-// additionally scale by cos(latitude). Used by the GPS watcher and the
-// debug-HUD lat/lon recompute.
+// Metres per degree of latitude (≈ constant everywhere). Longitude metres
+// additionally scale by cos(latitude). This is a rule-of-thumb scale — it is
+// NOT how a GPS fix reaches the map any more: that goes through the map's own
+// Web-Mercator projection (coords.js lonLatToLocalM), which is exact at any
+// distance from the origin. Kept because worldgen.js scatters small features
+// off the same number.
 const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
@@ -71,6 +74,13 @@ const WALK_M_S = 1.4;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// How far a player can stand from their world's projection origin before that
+// origin is definitively WRONG rather than merely far — see _warnStrandedOrigin.
+// Only reachable by a save that never captured a home (its first GPS fix was
+// too slow, or was denied and later granted): the world, Home and the starter
+// trail were all built at the default map while the player is somewhere else
+// entirely. 25 km is well past a day's walk and well past any GPS error.
+const ORIGIN_STRANDED_M = 25000;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 // How far above dead-centre every dialog rides (game px, in #game's 844-tall
 // box). Reserved as bottom padding on the shared modal wrap so the flex-centred
@@ -993,6 +1003,9 @@ class MapScene extends Phaser.Scene {
     // the session. Session-scoped ONLY — never persisted — so a fresh load
     // resumes live GPS tracking.
     this._gpsManualOverride = false;
+    // Set when the browser told us location is PERMISSION_DENIED. The one
+    // thing that stops the game watching for fixes — see _retryGps.
+    this._gpsDenied = false;
     // Home anchoring — a brand-new save with no frozen home adopts the player's
     // FIRST GPS fix as its permanent origin: startGps captures it, then reloads
     // so the projection re-inits there. Gated to genuinely fresh saves (no
@@ -1010,6 +1023,17 @@ class MapScene extends Phaser.Scene {
       !this.save.starterShopId &&
       !_sandbox &&
       (typeof navigator !== 'undefined' && !!navigator.geolocation);
+    // Two flags, because "hold the starter home back until we know where we
+    // are" and "a fix may still become this save's origin" have different
+    // deadlines. Placement can only wait so long (the safety net in startGps
+    // gives up after 2 min and lets the world build at the default origin) —
+    // but the ADOPTION stays armed for as long as nothing has been placed, so
+    // a first fix that takes four minutes on a cold phone still anchors the
+    // save where the player actually is instead of stranding them at the
+    // default home with the map a province away. Anything that puts an object
+    // in the world disarms it (see startGps): from then on the origin is load
+    // bearing and moving it would drift everything already placed.
+    this._homeCaptureArmed = this._homeCapturePending;
     // (The no-fix safety net for home capture is armed in startGps, once
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading
@@ -1836,6 +1860,73 @@ class MapScene extends Phaser.Scene {
     if (this.gpsWatchId == null) this.startGps();
   }
 
+  // Re-arm the GPS watch after a background nap (the watch is released on
+  // hide to save battery) — and, when the player denied location and has
+  // since changed their mind in the browser's own settings, after that too.
+  //
+  // The gate is the PERMISSION, never how the watch has been behaving: a
+  // transient TIMEOUT or POSITION_UNAVAILABLE used to leave the game refusing
+  // to watch again for the rest of the session, which is exactly how a player
+  // ends up parked at the default home with location switched on. A denial is
+  // re-checked through the Permissions API (no second prompt, and no nagging
+  // if the answer is still no) — a browser that lacks it keeps the old
+  // behaviour of waiting for a reload.
+  _retryGps() {
+    if (window.__TEST_MODE || this._sandboxMode || _teleportOverride) return;
+    if (this.gpsWatchId != null) return;
+    if (!this._gpsDenied) { this.startGps(); return; }
+    try {
+      navigator.permissions?.query({ name: 'geolocation' }).then((st) => {
+        if (!st || st.state === 'denied' || this.gpsWatchId != null) return;
+        this._gpsDenied = false;
+        this.startGps();
+      }).catch(() => {});
+    } catch (_) { /* no Permissions API — a reload re-asks */ }
+  }
+
+  // Has this save written anything into the world yet? Each of these is a
+  // coordinate in the origin's own metre frame (metres = z=14 px × mPerPx,
+  // and mPerPx is fixed at the origin's latitude), so the moment one exists
+  // the origin is load bearing and can no longer move under it.
+  _worldPlaced() {
+    const sv = this.save;
+    // starterCratesAt is deliberately NOT in this list: it is the one anchor
+    // the capture path knows how to redo (it nulls it, and ensureStarterShopId
+    // re-freezes it on the player after the reload).
+    return !!(sv.starterShopId || sv.starterTrailer || sv.starterHome || sv.starterPlotAt
+      || (sv.tilled && sv.tilled.length) || (sv.planted && sv.planted.length));
+  }
+
+  // A save that never captured a home plays at the DEFAULT origin. Standing a
+  // few streets from it is ordinary — that IS the default neighbourhood for
+  // the players it was picked for. Standing a province away is not: the map,
+  // Home, the starter crates and the objective arrow are all back there while
+  // the player is here.
+  //
+  // It cannot be re-anchored under them: every coordinate this save has
+  // written is metres in a frame scaled at the origin's latitude, so moving
+  // the origin drifts the lot (which is why the capture window closes as soon
+  // as the world places anything — see startGps). So this says it plainly,
+  // once a session, and names the one control that rebuilds the farm here.
+  _warnStrandedOrigin(fix) {
+    if (this._strandedWarned || !fix) return;
+    if (this.save.home || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
+    // Wait for the world to actually be on screen — a dialog stacked under the
+    // boot overlay is a dialog nobody reads. A later fix re-offers it.
+    if (!this._bootStatusDone) return;
+    const d = Math.hypot(fix.x, fix.y);
+    if (!(d >= ORIGIN_STRANDED_M)) return;
+    this._strandedWarned = true;
+    this.showMessageModal({
+      title: 'Your farm is somewhere else',
+      body: `This game was built around the default map — ${Math.round(d / 1000)} km from where you are `
+          + `standing. Its first GPS fix didn't arrive in time to anchor the world on you.\n\n`
+          + `You can walk around here, but Home, your starter crates and the objective arrow all point `
+          + `back there.\n\nTo rebuild the farm where you are: ☰ menu › Reset this game.`,
+      okLabel: 'Got it',
+    });
+  }
+
   // === Power / lifecycle ===
   // Keep the screen awake while the game is foreground, and pause the game +
   // GPS watch whenever the tab is backgrounded. The OS automatically releases
@@ -1886,7 +1977,7 @@ class MapScene extends Phaser.Scene {
         this.save.lastSeenAt = Date.now();
         persistSave(this.save);
         if (this.game && this.game.isPaused) this.game.resume();
-        if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
+        this._retryGps();
         // Wake lock is auto-released on hide; re-acquire on return.
         if (!this._wakeLock) acquireWakeLock();
       }
@@ -1936,11 +2027,14 @@ class MapScene extends Phaser.Scene {
     // Armed here — not in create() — so the clock starts when GPS actually
     // starts watching; the opening story + safety splash can hold sensors
     // off far longer than that.
+    // The net only lets the WORLD get on with it (_homeCapturePending);
+    // _homeCaptureArmed stays set, so a fix that finally lands at 3 minutes
+    // still becomes this save's home as long as nothing has been placed yet.
     if (this._homeCapturePending && !this._homeCaptureTimer) {
       this._homeCaptureTimer = setTimeout(() => {
         if (!this._homeCapturePending) return;
         this._homeCapturePending = false;
-        // Capture abandoned — this save plays out at the current (default)
+        // Placement unblocked — this save carries on at the current (default)
         // origin, so freeze the starter crate trail there now. The spawn
         // tile usually rasterized minutes ago, so this retro-places it.
         if (!this.save.home && !this.save.starterShopId) {
@@ -1963,9 +2057,22 @@ class MapScene extends Phaser.Scene {
           // app.js loads, so no reload — and no second location prompt — is
           // needed. This runs when that boot gate gave up waiting and the
           // fix landed afterwards.)
-          if (this._homeCapturePending) {
+          // The window closes the moment the world puts something down: after
+          // that the origin is load bearing (every saved coordinate is metres
+          // in a frame scaled at the origin's latitude), so moving it would
+          // drift the lot. Until then a late fix is still welcome — that is
+          // what stops a slow first fix leaving the save marooned at the
+          // default home for good.
+          if (this._homeCaptureArmed && this._worldPlaced()) this._homeCaptureArmed = false;
+          if (this._homeCaptureArmed) {
             this._homeCapturePending = false;
+            this._homeCaptureArmed = false;
             this.save.home = { lat: latitude, lon: longitude };
+            // The 2-minute net may have frozen the crate trail at the default
+            // origin on the way here. That anchor is metres in the frame we
+            // are about to replace, so let it re-freeze after the reload
+            // (ensureStarterShopId re-places it on the player).
+            this.save.starterCratesAt = null;
             let ok = false;
             try {
               persistSave(this.save);
@@ -1983,10 +2090,22 @@ class MapScene extends Phaser.Scene {
             }
             // write/readback failed — don't loop; carry on with current origin.
           }
-          const dxM = (longitude - START_LON) * METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180);
-          const dyM = -(latitude - START_LAT) * METERS_PER_DEG_LAT;
+          // Project the fix the way the MAP is projected (coords.js
+          // lonLatToLocalM — exact Web-Mercator), not with a flat metres-per-
+          // degree approximation: the flat one only agrees with the map at the
+          // origin and drifts as you walk away from it, which put a player
+          // metres off their own map after a long walk and a province off it on
+          // a save that never captured a home.
+          const fix = lonLatToLocalM(this, longitude, latitude);
           const prev = this.gpsM;
-          this.gpsM = { x: dxM, y: dyM };
+          this.gpsM = { x: fix.x, y: fix.y };
+          // A fix in hand: GPS is live again, whatever transient error the
+          // watch reported earlier (see the error handler — a cold start
+          // routinely TIMEOUTs once before the first fix lands).
+          this.gpsAvailable = true;
+          // Nothing left to anchor, and the player is nowhere near the world
+          // they were given? Say so — it can't be fixed under them.
+          this._warnStrandedOrigin(this.gpsM);
           // A manual-control takeover this session (WASD / arrow keys / SPACE /
           // T teleport) owns movement entirely: skip the GPS-driven target
           // write so the keyboard isn't fighting the watcher. gpsM still tracks
@@ -2037,17 +2156,31 @@ class MapScene extends Phaser.Scene {
         },
         err => {
           console.warn('GPS error', err.message);
+          // The HUD's "have we actually got GPS?" line only. NOT a latch: it
+          // goes true again on the next fix, and nothing decides whether to
+          // keep watching from it. It used to, and that cost a player their
+          // GPS for the whole session — a cold start TIMEOUTs once (below)
+          // before the first fix, and the visibility handler then refused to
+          // re-arm the watch after the first app-switch, freezing the farmer
+          // wherever it stood (on a fresh save: the default home, half a
+          // country from the player).
           this.gpsAvailable = false;
-          // Only a hard permission denial cancels home capture. Transient
+          // Only a hard permission denial stops the watch. Transient
           // errors — TIMEOUT (err.code 3, guaranteed within 10 s by the
           // watch's `timeout` option on a cold GPS start) and
-          // POSITION_UNAVAILABLE (2) — must NOT: cancelling here froze the
-          // save's origin at the DEFAULT home, so when the real fix finally
-          // arrived the starter-chest trail + cleared tutorial pocket had
-          // spawned on the default spawn tile, nowhere near the player
+          // POSITION_UNAVAILABLE (2) — must NOT: cancelling home capture here
+          // froze the save's origin at the DEFAULT home, so when the real fix
+          // finally arrived the starter-chest trail + cleared tutorial pocket
+          // had spawned on the default spawn tile, nowhere near the player
           // (classic symptom right after a save reset).
           if (err && err.code === 1 /* PERMISSION_DENIED */) {
+            this._gpsDenied = true;
+            // Let the dead subscription go: the watch will never fire again,
+            // and holding it stops a later grant (Settings → Location, then
+            // back to the tab) from arming a fresh one — see _retryGps.
+            if (this.gpsWatchId != null) { Geo.unsubscribe(this.gpsWatchId); this.gpsWatchId = null; }
             this._homeCapturePending = false;
+            this._homeCaptureArmed = false;
             // No GPS for this save — it plays out at the current (default)
             // origin, so freeze the starter crate trail there (retro-places
             // onto the already-rasterized spawn tile).
@@ -2301,8 +2434,8 @@ class MapScene extends Phaser.Scene {
       const gm = this.gpsM ? `(${Math.round(this.gpsM.x)},${Math.round(this.gpsM.y)})m` : 'none';
       const originSrc = _teleportOverride ? ('TELEPORT ' + (tp && tp.name || '?')) : (_saveHome ? 'saved-home' : 'default-home/GPS');
       out.push(`origin: ${START_LAT.toFixed(5)},${START_LON.toFixed(5)} (${originSrc})`);
-      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} sandbox=${!!this._sandboxMode}`);
-      out.push(`homePending=${!!this._homeCapturePending} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
+      out.push(`gpsAvail=${this.gpsAvailable} gpsFix=${gm} debugCtl=${!!(this.save && this.save.debugControls)} manualOvr=${!!this._gpsManualOverride} denied=${!!this._gpsDenied} watching=${this.gpsWatchId != null} sandbox=${!!this._sandboxMode}`);
+      out.push(`homePending=${!!this._homeCapturePending} homeArmed=${!!this._homeCaptureArmed} saveHome=${this.save && this.save.home ? this.save.home.lat.toFixed(4) + ',' + this.save.home.lon.toFixed(4) : 'none'}`);
       // Starter-trail forensics — which mode the trail pass took when it last
       // ran this session (recorded in _placeStarterTrail), plus a live census
       // of every starter chest actually in the cache and whether the save has
@@ -7055,8 +7188,7 @@ class MapScene extends Phaser.Scene {
     }
     const gps = this.gpsAvailable ? 'waiting' : 'wasd';
     const pc = this.playerToWorldCell();
-    const lat = START_LAT + (-this.playerM.y) / METERS_PER_DEG_LAT;
-    const lon = START_LON + this.playerM.x / (METERS_PER_DEG_LAT * Math.cos(START_LAT * Math.PI / 180));
+    const { lat, lon } = localMToLonLat(this, this.playerM.x, this.playerM.y);
     // Count in place. Spreading tileCache into an array allocated one entry per
     // VISITED tile every frame, and that cache grows without bound as the
     // player walks — the debug HUD was the most expensive thing on screen in a

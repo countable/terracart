@@ -59,6 +59,10 @@ const Multiplayer = (function () {
     return COLORS[Math.floor(rng() * COLORS.length) % COLORS.length];
   }
   // Absolute z=14 world px of the local player (what goes on the wire).
+  // Exact, at any distance from this save's own origin: playerM is projected
+  // out of the GPS fix through the map's Web-Mercator (coords.js
+  // lonLatToLocalM), so dividing by mPerPx undoes exactly that — no matter
+  // where the peer reading it anchored THEIR world.
   function toWorldPx(scene) {
     return {
       x: (scene.startWorldM.x + scene.playerM.x) / scene.mPerPx,
@@ -141,7 +145,14 @@ const Multiplayer = (function () {
       S._lifecycle = true;
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') { S.ws?.close(); }
-        else if (!S.stopped && !S.ws) connect();
+        else if (!S.stopped) {
+          // Coming back from a locked screen or an app switch is not the relay
+          // failing, so don't make the player serve the escalating backoff for
+          // it: reset to the floor, then reconnect (or, if the socket we asked
+          // to close is still closing, let its onclose retry — now at 2 s).
+          S.backoff = RECONNECT_MIN_MS;
+          if (!S.ws) connect();
+        }
       });
     }
   }
