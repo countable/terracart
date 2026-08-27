@@ -1588,7 +1588,11 @@
                 const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
                 const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
                 const bb = bboxOf(f.geom);
-                const stepMvt = 8 / mvtToM; // ~one candidate per 8m
+                // ~one candidate per 11.3m. Every in-polygon candidate becomes
+                // a tree (there is no thin-out roll), so tree density is set
+                // entirely by this grid pitch: 8m read as twice too dense, and
+                // 8·√2 halves the trees per area.
+                const stepMvt = 11.3 / mvtToM;
                 for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                   for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
                     const jx = xx + (rng() - 0.5) * stepMvt;
