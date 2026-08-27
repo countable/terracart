@@ -317,6 +317,40 @@ test('road overlay: railways are drawn in slate, not road earth', () => {
   assert.eq(byColour[0x3a322c], 1, 'the street keeps the road earth');
 });
 
+test('road overlay: railways get track furniture — two offset rails + perpendicular ties', () => {
+  clearTiles();
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'rail' }),      // 10 m due east
+    line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }),  // control: no decor
+  ]);
+  // Stub with decorPath support — the plain stub gets no decor at all.
+  const gfx = makeGfx();
+  gfx.decor = [];
+  gfx.decorPath = function (w, c, pts) { this.decor.push({ w, c, pts }); };
+  const scene = makeOverlayScene({ roadGeomGfx: gfx });
+  RoadOverlay.draw(scene);
+  // Fixture scale: 32 px / 5 m cell = 6.4 px/m. Gauge 1.8 m → rails at
+  // y = 176 ± 5.76; ties every 2.2 m = 14.08 px starting half a step in,
+  // spanning ±(2.8/2)·6.4 = ±8.96 px across the bed.
+  const rails = gfx.decor.filter(d => d.c === 0xb9c2cd);
+  const ties = gfx.decor.filter(d => d.c === 0x463526);
+  assert.eq(rails.length, 2, 'exactly two rails');
+  const railYs = rails.map(r => r.pts[0].y).sort((a, b) => a - b);
+  assert.inRange(railYs[0] - (176 - 5.76), -0.01, 0.01, 'left rail at -half gauge');
+  assert.inRange(railYs[1] - (176 + 5.76), -0.01, 0.01, 'right rail at +half gauge');
+  for (const r of rails) assert.eq(r.pts[0].y, r.pts[1].y, 'rail parallel to a straight run');
+  assert.eq(ties.length, 5, 'ties at 14.08 px spacing across a 64 px run');
+  assert.inRange(ties[0].pts[0].x - 183.04, -0.01, 0.01, 'first tie half a step in');
+  for (const t of ties) {
+    assert.eq(t.pts[0].x, t.pts[1].x, 'tie perpendicular to an east-west run');
+    assert.inRange((t.pts[1].y - t.pts[0].y) - 2 * 8.96, -0.01, 0.01, 'tie spans the bed');
+  }
+  // The street contributed nothing to the decor pass.
+  const streetY = 176 + 32 * 2;   // 16 MVT units = 10 m = 2 cells south
+  assert.falsy(gfx.decor.some(d => d.pts.some(p => Math.abs(p.y - streetY) < 12)),
+    'no track furniture on a road');
+});
+
 test('road overlay: rail and road of the same width are stroked separately', () => {
   clearTiles();
   // Both fall to the 3 m default width — bucketing on width alone would merge
