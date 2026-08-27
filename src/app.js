@@ -4203,9 +4203,18 @@ class MapScene extends Phaser.Scene {
         cy: a.liy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
       };
     };
-    // Per-entrance density matches the old single-stair tuning; the tile-wide
-    // cap keeps a stair-dense level from turning into a wall of monsters.
-    const count = Math.min(160, (50 + depth * 10) * anchors.length);
+    // TOTAL population matches the old single-stair tuning, regardless of how
+    // many up-staircases this tile has — anchors.length only widens WHERE
+    // spawns land (randCell already picks a random anchor per creature), so a
+    // stair-dense tile spreads the same population across more entrances
+    // instead of multiplying it. This used to multiply the count by
+    // anchors.length too, which quietly doubled (or tripled) the population
+    // on any tile with more than one up-staircase — the common case, since
+    // each residential cluster rolls its own staircase independently (~30%
+    // odds each), so 2 anchors on a tile is typical, not an edge case.
+    // The 160 cap is a dead-but-harmless safety net at today's depths — keep
+    // it in case a much deeper level or a MONSTERS-table change changes that.
+    const count = Math.min(160, 50 + depth * 10);
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -4220,8 +4229,9 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
-    // Rabbits: also anchored near the staircases.
-    const rabbitN = (10 + Math.floor(rng() * 8)) * Math.min(3, anchors.length);
+    // Rabbits: also anchored near the staircases, spread the same way — not
+    // multiplied by anchor count, for the same reason as `count` above.
+    const rabbitN = 10 + Math.floor(rng() * 8);
     for (let i = 0; i < rabbitN; i++) {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();

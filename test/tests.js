@@ -2028,6 +2028,45 @@ test('mineralrock cave drop: no ore on T1 fail', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'),   0, 'no gold either');
 });
 
+// ── Cave monster density ────────────────────────────────────────────────────
+// A tile's TOTAL monster population must not depend on how many up-staircase
+// entrances it happens to have. spawnCaveCreatures anchors spawns near every
+// entrance (so no entrance is left monster-free), but that used to also
+// MULTIPLY the total by anchors.length — a tile with the common 2-entrance
+// case (each residential cluster rolls its own staircase independently)
+// quietly got twice the intended population, which is the "2x too many
+// monsters" a player actually reported.
+test('cave spawn: total monster/rabbit count does not scale with entrance count', (scene) => {
+  const N = 100;
+  const makeEntry = (anchorCount) => ({
+    cellsPerEdge: N,
+    tileEdgeM: scene.tileEdgeM,
+    grid: new Array(N * N).fill(24 /* CAVE_FLOOR — every cell is landable */),
+    objects: Array.from({ length: anchorCount }, (_, i) => ({
+      kind: 'staircase', dir: 'up',
+      // Spread the anchors near the tile centre so the ±25-cell spawn
+      // radius never clips an edge and every placement attempt succeeds —
+      // any attempt-based flakiness would obscure the count comparison.
+      x: 9001 * scene.tileEdgeM + (N / 2 + i * 4) * (scene.tileEdgeM / N),
+      y: 9002 * scene.tileEdgeM + (N / 2) * (scene.tileEdgeM / N),
+    })),
+  });
+  const tx = 9001, ty = 9002, depth = 1;
+  scene.save.caught = [];
+  const oneAnchor = makeEntry(1);
+  scene.spawnCaveCreatures(oneAnchor, tx, ty, depth);
+  const twoAnchors = makeEntry(2);
+  scene.spawnCaveCreatures(twoAnchors, tx, ty, depth);
+  const monsters = (e) => e.creatures.filter(c => c.kind !== 'rabbit').length;
+  const rabbits  = (e) => e.creatures.filter(c => c.kind === 'rabbit').length;
+  assert.eq(monsters(oneAnchor), 60, 'depth 1 → 50 + 1*10 monsters with a single entrance');
+  assert.eq(monsters(twoAnchors), monsters(oneAnchor),
+    'a SECOND entrance spreads the same population — it must not double it');
+  assert.gt(rabbits(oneAnchor), 0, 'some rabbits spawned to compare');
+  assert.eq(rabbits(twoAnchors), rabbits(oneAnchor),
+    'rabbit count is the same trap: must not scale with entrance count either');
+});
+
 test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (scene) => {
   scene.save.relics = { ...(scene.save.relics || {}), rod: null, can: null };
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
