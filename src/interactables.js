@@ -50,6 +50,14 @@
 // window.GATHER_LUCK_ENABLED at runtime, e.g. from tests) to enable it.
 const GATHER_LUCK_DEFAULT = false;
 
+// ---- Slow grind ------------------------------------------------------------
+// A tool job EXACTLY one tier out of reach (bare hands = tier 0 included) is
+// not refused outright: the player can choose to grind it out with what they
+// have — a long fixed wheel at a steep flat energy price. See the gate branch
+// in runInteractable.
+const SLOW_GRIND_MS = 30000;
+const SLOW_GRIND_ENERGY = 15;
+
 function gatherLuckEnabled() {
   if (typeof window !== 'undefined' && window.GATHER_LUCK_ENABLED != null) {
     return !!window.GATHER_LUCK_ENABLED;
@@ -136,6 +144,10 @@ const INTERACTABLES = {
       }
       return null;
     },
+    // How many tiers the current axe falls short (0/negative = able). Bare
+    // hands are tier 0, so a tier-1 tree bare-handed is exactly 1 short —
+    // that's the slow-grind case (see runInteractable).
+    tierShort: (o, save) => treeAxeReqTier(o) - (save.relics?.axe?.tier || 0),
     energy: (save, o) => (typeof effectiveChopCost === 'function')
       ? effectiveChopCost(save.relics, o) : 0,
     complete: (ctx, o) => {
@@ -184,6 +196,14 @@ const INTERACTABLES = {
         return `Need a ${need} pick to mine this ore.`;
       }
       return null;
+    },
+    // Tier shortfall for the slow-grind offer — same req the gate reads.
+    // Plain rock is ungated, so it never reports short.
+    tierShort: (o, save) => {
+      const isPlain = o.caveVariant != null || (o.yieldTier || 1) <= 1;
+      if (isPlain) return 0;
+      const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
+      return reqTier - (save.relics?.pick?.tier || 0);
     },
     // Shared tool-tier baseline (9 bare → 1 Frost via effectivePickCost) OR a
     // +9-per-tier surcharge when the rock out-tiers the pick, whichever is more.
@@ -551,7 +571,34 @@ function runInteractable(ctx, o) {
 
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
-  if (blockMsg) { scene.flash(blockMsg, sx, sy); return true; }
+  if (blockMsg) {
+    // EXACTLY one tier short (bare hands = tier 0 included): instead of a
+    // flat refusal, offer to grind it out — a long SLOW_GRIND_MS wheel at a
+    // steep flat SLOW_GRIND_ENERGY, next to the ~3-9s / few-⚡ cost the right
+    // tool would pay. Two or more tiers short stays a hard no.
+    const short = def.tierShort ? def.tierShort(o, save) : 0;
+    if (short === 1 && typeof scene.showOfferModal === 'function') {
+      scene.showOfferModal({
+        kind: 'note',
+        title: 'This would be very slow to do with your current equipment.',
+        get: 'Do it anyway?',
+        cost: `${SLOW_GRIND_ENERGY}⚡ · ${Math.round(SLOW_GRIND_MS / 1000)}s of work`,
+        canAfford: (save.energy ?? 0) >= SLOW_GRIND_ENERGY,
+        acceptLabel: 'Do it',
+        cancelLabel: 'Not now',
+        onAccept: () => {
+          if (!scene.spendEnergy(SLOW_GRIND_ENERGY, sx, sy)) return;
+          // Same completion as a proper-tool job; the energy rides along as
+          // the refund if the player cancels the wheel mid-grind.
+          scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o),
+            SLOW_GRIND_MS, SLOW_GRIND_ENERGY, def.tool);
+        },
+      });
+      return true;
+    }
+    scene.flash(blockMsg, sx, sy);
+    return true;
+  }
 
   const cost = def.energy ? def.energy(save, o) : 0;
   const durMs = (typeof toolDurationMs === 'function')
