@@ -97,10 +97,19 @@
   re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
   art, if a wheel has left its seating, or if any ring floats above a crown it
   is tall enough to sit on.
-  **The combat health ring obeys the same rule.** The ring over a wounded enemy
-  (`_drawEnemyHealth` / `_strokeHealthRing` in `app.js`) is the same ring at the
-  same radius on the same seating — it calls `creatureWheelDy` too. Don't give
-  it an offset or a radius of its own.
+  **Enemy health is a BAR, not the wheel's ring.** The health readout over a
+  wounded enemy (`_drawEnemyHealth` / `_drawEnemyHealthBar` in `app.js`, worn
+  bright by the combat wheel's own target in `_drawWorkProgress`) is a small
+  strip floating a fixed gap ABOVE the kind's crown — deliberately a different
+  shape on the other side of the crown from the work wheel, so a fight and a
+  job can't be misread for each other. Its seating is derived the same way the
+  wheel's is: `SpriteLayout.creatureHealthBarTop(kind)` + the
+  `HEALTH_BAR_W/H/GAP` constants live in `src/sprite_layout.js`, off the same
+  `CREATURE_ART` table. Never seat it with a flat px offset, and never draw
+  health as a ring again. Damage lands as floating "-N" popups
+  (`_popDamageNumber`, fed by `_damageEnemy` on a `DMG_POPUP_BEAT_MS` throttle
+  that accumulates the melee wheel's per-frame fractions into whole numbers).
+  **Audit it:** `node test/node/run.js` › `test/node/health_bar.test.js`.
 
 - **Combat is HIT POINTS, and the numbers are derived.** Fighting an enemy is
   not a timer any more: `src/combat.js` owns one HP pool per foe that the melee

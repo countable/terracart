@@ -316,11 +316,17 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // covers everything the opening asks a player to walk to, plus a few cells
 // so a pest isn't spawned right on the edge of it.
 const PEST_FREE_CELLS = 20;
-// How long a wounded enemy keeps its floating health ring after the last hit.
+// How long a wounded enemy keeps its floating health bar after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
-// feedback for a hit would be the foe eventually vanishing — but a ring that
+// feedback for a hit would be the foe eventually vanishing — but a bar that
 // never faded would clutter a cave full of monsters you shot once.
 const ENEMY_HEALTH_RING_MS = 4000;
+// Damage numbers are throttled per foe: a shot pops its whole payload at once,
+// but the melee wheel lands fractional damage EVERY FRAME, so without a beat
+// between popups a sword fight would spray sixty overlapping "-0"s a second.
+// Damage keeps accumulating between beats and pops as one rounded number, so
+// nothing is lost to the throttle — it just reads as swings instead of a hose.
+const DMG_POPUP_BEAT_MS = 500;
 // Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
@@ -1724,8 +1730,8 @@ class MapScene extends Phaser.Scene {
     this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
     this._shots = [];
     this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
-    // Health rings over recently-hurt enemies. Under the work wheel (95) so a
-    // foe you are actually swinging at keeps the brighter ring on top.
+    // Health bars over recently-hurt enemies. Under the work wheel (95) so a
+    // foe you are actually swinging at keeps the brighter bar on top.
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Footprint trail — small 50% grey dots dropped as the player moves, each
     // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
@@ -4925,11 +4931,11 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // A health ring over every enemy hurt in the last few seconds — the same
-  // ring the combat wheel draws, at the same radius and on the same crown
-  // seating, so a bow shot from across the street reports its damage exactly
-  // the way a sword swing does. The wheel's own target is skipped: it draws
-  // its own, brighter, on top.
+  // A health bar over every enemy hurt in the last few seconds — the same bar
+  // the combat wheel's target wears, at the same crown seating, so a bow shot
+  // from across the street reports its damage exactly the way a sword swing
+  // does. The wheel's own target is skipped: it draws its own, brighter, on
+  // top (in _drawWorkProgress).
   _drawEnemyHealth(enemies) {
     const g = this.enemyHealthGfx;
     if (!g) return;
@@ -4940,40 +4946,71 @@ class MapScene extends Phaser.Scene {
       if (c === engaged) continue;
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
       const screen = this.worldMetersToScreen(c.x, c.y);
-      this._strokeHealthRing(g, Math.round(screen.x),
-        Math.round(screen.y) + Math.round(this._creatureWheelDy(c.kind)),
-        Combat.hpFraction(c), 0.5, 0.2);
+      this._drawEnemyHealthBar(g, Math.round(screen.x),
+        Math.round(screen.y) + Math.round(this._healthBarTop(c.kind)),
+        Combat.hpFraction(c), 0.62);
     }
   }
 
-  // Where a wheel/ring centres over a creature — the crown rule, in one place
-  // so the combat ring and the work wheel can't seat differently.
-  _creatureWheelDy(kind) {
+  // Where an enemy's health bar TOP edge sits over a creature — floats just
+  // above the kind's crown (SpriteLayout.creatureHealthBarTop), derived from
+  // the same art table the wheel seats from. Never a flat offset.
+  _healthBarTop(kind) {
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    return SL ? SL.creatureWheelDy(kind) : -7;
+    return SL ? SL.creatureHealthBarTop(kind) : -25;
   }
 
-  // The health ring itself: a faint full-HP track with the REMAINING hit
-  // points stroked over it, tinted green → amber → red on the way down. Shared
-  // by the combat wheel and the floating rings so one edit moves both — and
-  // deliberately the same radius (SpriteLayout.CREATURE_WHEEL_R) and the same
-  // transparency budget as the work wheel it grew out of, which was already
-  // walked back twice for hiding the sprite it reports on.
-  _strokeHealthRing(g, cx, cy, frac, arcAlpha, backAlpha) {
+  // The health bar itself: a small strip floating over the foe's head — a
+  // faint full-HP track with the REMAINING hit points filled over it, tinted
+  // green → amber → red on the way down. Deliberately NOT the work wheel's
+  // ring: the wheel is a ring that sits ON the thing being worked, health is a
+  // bar in the sky above it, so a fight and a job can never be misread for
+  // each other. `cx` is the bar's horizontal centre, `top` its top edge;
+  // `alpha` scales the whole bar (the engaged target draws brighter than a
+  // foe merely hurt in passing).
+  _drawEnemyHealthBar(g, cx, top, frac, alpha) {
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
-    g.fillStyle(0x000000, backAlpha);
-    g.fillCircle(cx, cy, R + 1);
-    g.lineStyle(3, 0xffffff, 0.155);
-    g.beginPath();
-    g.arc(cx, cy, R, 0, Math.PI * 2, false);
-    g.strokePath();
+    const W = (SL && SL.HEALTH_BAR_W != null) ? SL.HEALTH_BAR_W : 18;
+    const H = (SL && SL.HEALTH_BAR_H != null) ? SL.HEALTH_BAR_H : 3;
+    const x = cx - Math.floor(W / 2);
+    // Dark backing one pixel proud on every side — the border that keeps the
+    // strip legible over pale terrain, same job as the wheel's backing disc.
+    g.fillStyle(0x000000, 0.5 * alpha);
+    g.fillRect(x - 1, top - 1, W + 2, H + 2);
+    // Faint full-width track: how much health there ISN'T, at a glance.
+    g.fillStyle(0xffffff, 0.16 * alpha);
+    g.fillRect(x, top, W, H);
     if (frac > 0) {
-      g.lineStyle(3, Combat.healthColor(frac), arcAlpha);
-      g.beginPath();
-      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac, false);
-      g.strokePath();
+      g.fillStyle(Combat.healthColor(frac), 0.95 * alpha);
+      g.fillRect(x, top, Math.max(1, Math.round(W * frac)), H);
     }
+  }
+
+  // A floating "-N" over a foe as damage lands — the sword's melee wheel and
+  // every bow/staff shot funnel through _damageEnemy, so they all pop the
+  // same way. Spawned at the health bar and drifting up into the sky above
+  // it; short-lived enough that it doesn't need to track a moving target.
+  _popDamageNumber(c, amount) {
+    if (!this.add) return;                       // headless / teardown guard
+    const screen = this.worldMetersToScreen(c.x, c.y);
+    // Small horizontal scatter so back-to-back numbers (a bow hit landing
+    // mid-swing) read as separate hits instead of overprinting.
+    const jitter = Math.round((Math.random() - 0.5) * 10);
+    const x = Math.round(screen.x) + jitter;
+    const y = Math.round(screen.y) + Math.round(this._healthBarTop(c.kind)) - 3;
+    const t = this.add.text(x, y, `-${amount}`, {
+      font: fontMono('bold 11px'), color: '#ff8a75',
+      stroke: UI_SHADOW, strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(96).setAlpha(0.95);
+    // Clip to the map viewport like every other world-anchored layer.
+    if (this.enemyHealthGfx?.mask) t.setMask(this.enemyHealthGfx.mask);
+    t.setScale(0.7);
+    this.tweens.add({ targets: t, scale: 1, duration: 90, ease: 'Back.Out' });
+    this.tweens.add({
+      targets: t, y: y - 13, alpha: 0,
+      duration: 520, delay: 90, ease: 'Sine.Out',
+      onComplete: () => t.destroy(),
+    });
   }
 
   // The WORK wheel's ring: an arc that fills with progress toward finishing the
@@ -5010,24 +5047,43 @@ class MapScene extends Phaser.Scene {
 
   // Apply damage to an enemy from any source (a shot, or the melee wheel).
   // Returns true if that blow killed it. `_hurtUntilT` is what keeps the
-  // floating health ring up for a few seconds after the hit; `_lastDamagedT`
+  // floating health bar up for a few seconds after the hit; `_lastDamagedT`
   // feeds the existing 20-minute regen in wanderCreatures, so a foe you wound
   // and abandon does heal back up.
   _damageEnemy(c, amount) {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
     c._lastDamagedT = Date.now();
-    c._hurtUntilT = performance.now() + ENEMY_HEALTH_RING_MS;
-    if (left > 0) return false;
+    const now = performance.now();
+    c._hurtUntilT = now + ENEMY_HEALTH_RING_MS;
+    // Damage numbers. Accumulate-and-beat rather than pop-per-call: a shot
+    // arrives as one whole payload, but the melee wheel calls this every
+    // frame with a fraction of a point — see DMG_POPUP_BEAT_MS. The kill blow
+    // flushes whatever the throttle was still holding, so the numbers a fight
+    // shows always sum to the HP it took.
+    c._dmgPopupAccum = (c._dmgPopupAccum || 0) + amount;
+    const dead = left <= 0;
+    if (dead || now >= (c._dmgPopupNextT || 0)) {
+      const n = Math.round(c._dmgPopupAccum);
+      if (n >= 1) {
+        this._popDamageNumber(c, n);
+        // Subtract, don't zero: the rounding error carries into the next beat
+        // instead of quietly inflating what a long fight claims to have dealt.
+        c._dmgPopupAccum -= n;
+        c._dmgPopupNextT = now + DMG_POPUP_BEAT_MS;
+      }
+    }
+    if (!dead) return false;
     if (this._workProgress?.combat === c) this.cancelWorkProgress();
     this.resolveDefeat(c);
     return true;
   }
 
   // Start (or re-target) the COMBAT wheel on an enemy. Unlike the timed work
-  // wheel this one is driven by the target's HP: the ring is its health bar,
-  // melee drains it every frame, and bow/staff shots drain the same pool — so
-  // an arrow landing mid-swing visibly shortens the fight.
+  // wheel this one is driven by the target's HP: the foe wears its health bar
+  // (drawn bright in _drawWorkProgress), melee drains it every frame, and
+  // bow/staff shots drain the same pool — so an arrow landing mid-swing
+  // visibly shortens the fight.
   //
   // `durationMs` is still filled in, with the kill time at the CURRENT melee
   // rate and WITHOUT the dragon bonus. Nothing reads it as a deadline (HP ends
@@ -5038,8 +5094,8 @@ class MapScene extends Phaser.Scene {
     const dps = Combat.meleeDps(this.save.relics);
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
-    // The wheel is a health bar now, so the tool badge is the one place left
-    // that still says what you're hitting it WITH.
+    // A fight shows the foe's health bar, not a progress arc, so the tool
+    // badge is the one place left that still says what you're hitting it WITH.
     this._setWorkProgressIcon(this.save.relics?.sword ? 'sword' : null);
     this._workProgress = {
       worldX: victim.x, worldY: victim.y,
@@ -5338,13 +5394,20 @@ class MapScene extends Phaser.Scene {
     const cy = Math.round(screen.y) + Math.round(dyWheel);
     const g = this._workProgressGfx;
     g.clear();
-    // Two rings, one geometry. A COMBAT wheel is a HEALTH BAR — the arc is what
-    // the foe has LEFT and drains as you hurt it, tinted green → amber → red. A
-    // work wheel keeps the original meaning: the arc FILLS with progress toward
-    // finishing the job. Both are stroked at the same radius on the same crown
-    // seating, so only the meaning of the arc differs.
-    if (wp.combat) this._strokeHealthRing(g, cx, cy, Combat.hpFraction(wp.combat), 0.85, 0.34);
-    else this._strokeWorkRing(g, cx, cy, progress);
+    // Two readouts, two shapes — deliberately. A WORK wheel is the original
+    // ring: the arc FILLS with progress toward finishing the job, seated on
+    // the crown. A COMBAT target wears the enemy HEALTH BAR instead — the
+    // strip above its head that drains as you hurt it, the same bar every
+    // hurt foe floats (_drawEnemyHealthBar), just brighter for the one you
+    // are actually engaged with. A fight and a job can't be misread for each
+    // other any more; the tool badge below still says what you're swinging.
+    if (wp.combat) {
+      this._drawEnemyHealthBar(g, cx,
+        Math.round(screen.y) + Math.round(this._healthBarTop(wp.combat.kind)),
+        Combat.hpFraction(wp.combat), 1);
+    } else {
+      this._strokeWorkRing(g, cx, cy, progress);
+    }
     if (this._workProgressIcon) {
       const gr = gameScreenRect();
       if (!gr) return;
@@ -9683,11 +9746,11 @@ class MapScene extends Phaser.Scene {
       if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
     }
     this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
-    // Spec §PATH STONES: every 10 claimed stones on the same named path awards
-    // 1 coin (a 30-stone path pays 3 total; fewer than 10 pays nothing). Pay
-    // each 10-stone milestone exactly once as the player walks it. This is in
+    // Spec §PATH STONES: every 2nd claimed stone on the same named path awards
+    // 1 coin (a 30-stone path pays 15 total; a single stone pays nothing). Pay
+    // each 2-stone milestone exactly once as the player walks it. This is in
     // ADDITION to the one-time completion reward fired below.
-    const milestones = Math.floor(rec.stones.length / 10);
+    const milestones = Math.floor(rec.stones.length / 2);
     if (milestones > (rec.coinsPaid || 0)) {
       const newCoins = milestones - (rec.coinsPaid || 0);
       rec.coinsPaid = milestones;

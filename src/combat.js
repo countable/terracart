@@ -250,9 +250,8 @@
     return true;
   }
 
-  // Health-ring tint. The combat wheel is a health bar, so it has to read as
-  // one at a glance without a number: full green, bloodied amber, nearly-dead
-  // red.
+  // Health-bar tint. The bar has to read as health at a glance without a
+  // number: full green, bloodied amber, nearly-dead red.
   function healthColor(frac) {
     if (frac > 0.5) return 0x6fdc6f;
     if (frac > 0.25) return 0xffc23d;
