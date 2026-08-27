@@ -459,16 +459,16 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // must pay back at least 3x the seed, or the loop isn't worth the tilling/
 // watering/waiting. Coffee and the three magical flowers already cleared that
 // bar on their own (their seeds are rare/gated goods, not cheap commons) and
-// are left as they were. rockfruit is the one crop that can't: its produce is
-// already the $1 price FLOOR (wild debris, free to gather off any rock), so
-// there's no seed price above $0 that clears 3x — priced at $1 to match the
-// floor rather than left at its old $8 (which used to make the seed worth
-// EIGHT TIMES more than what it grows into).
+// are left as they were. rockfruit is DELIBERATELY EXEMPT: its produce is the
+// $1 price FLOOR (wild debris, free to gather off any rock), so a literal 3x
+// would need a $0 seed — the $8 seed price stands on its own terms instead
+// (it's sold as a stone/building-material commodity, not grown for profit;
+// see the rockfruit note under produce below).
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
   berry_seed: 2, cress_seed: 1, onion_seed: 2,
-  gemfruit_seed: 8, rockfruit_seed: 1, coffee_seed: 12,
+  gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor

@@ -40,11 +40,12 @@ test('effectivePickCost: cheaper as the pick tier climbs', () => {
 
 // Growing a crop out — the seed cost, the tilling/watering/waiting — has to
 // pay back at least 3x the seed price, or the loop isn't worth it next to
-// just selling the seed itself. rockfruit is the one documented exception:
-// its produce is already the game's $1 price FLOOR (wild debris, free off
-// any rock), so no seed price above $0 clears 3x — it's priced to match that
-// floor instead (see items.js PRICES comment).
-test('crop economy: produce sells for at least 3x its own seed', () => {
+// just selling the seed itself. rockfruit is DELIBERATELY EXEMPT: its produce
+// is already the game's $1 price FLOOR (wild debris, free off any rock), so
+// no seed price above $0 clears 3x — its $8 seed stands on its own terms
+// instead, priced as a stone/building-material commodity rather than a
+// grow-for-profit crop (see items.js PRICES comment).
+test('crop economy: produce sells for at least 3x its own seed (rockfruit exempt)', () => {
   for (const crop of Object.keys(CROP_ROW)) {
     const seedId = `${crop}_seed`;
     if (PRICES[seedId] == null || PRICES[crop] == null) continue;
@@ -52,8 +53,7 @@ test('crop economy: produce sells for at least 3x its own seed', () => {
     assert.gte(PRICES[crop], PRICES[seedId] * 3,
       `${crop}: produce $${PRICES[crop]} should be at least 3x its $${PRICES[seedId]} seed`);
   }
-  assert.eq(PRICES.rockfruit_seed, 1, 'rockfruit seed matches the produce price floor, not a literal 3x');
-  assert.eq(PRICES.rockfruit, 1, 'rockfruit produce is the price floor itself');
+  assert.eq(PRICES.rockfruit_seed, 8, 'rockfruit seed is intentionally untouched by the 3x rule');
 });
 
 test('itemValue: a gold bar is worth more than a copper bar', () => {
