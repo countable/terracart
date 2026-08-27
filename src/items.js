@@ -454,11 +454,21 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // (iceflower, T6) at $500. The magical-flower ladder follows BASE_TIER —
 // sunflower (T4) cheapest, iceflower (T6) dearest — matching the smelting
 // pairing (sunflower→Platinum … iceflower→Frost).
+//
+// EVERY SEED IS PRICED AT MOST A THIRD OF ITS OWN PRODUCE — growing a crop out
+// must pay back at least 3x the seed, or the loop isn't worth the tilling/
+// watering/waiting. Coffee and the three magical flowers already cleared that
+// bar on their own (their seeds are rare/gated goods, not cheap commons) and
+// are left as they were. rockfruit is the one crop that can't: its produce is
+// already the $1 price FLOOR (wild debris, free to gather off any rock), so
+// there's no seed price above $0 that clears 3x — priced at $1 to match the
+// floor rather than left at its old $8 (which used to make the seed worth
+// EIGHT TIMES more than what it grows into).
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3,
-  berry_seed: 3, cress_seed: 3, onion_seed: 3,
-  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12,
+  rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
+  berry_seed: 2, cress_seed: 1, onion_seed: 2,
+  gemfruit_seed: 8, rockfruit_seed: 1, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
