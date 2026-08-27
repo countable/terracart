@@ -10691,6 +10691,66 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay !== 'undefined') RoadOverlay.invalidate(this);
     return this.save.roadGeomOverlay;
   }
+  // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
+  // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
+  // same wander/leech/combat behaviour — pushed into the covering tile's
+  // creature list, so everything downstream (render, the sim loops, the
+  // combat tick) picks them up with no special path. The pack arrives
+  // clustered on one random side, just inside the view edge, and oozes in
+  // from there (slimes drift toward the player), which is what makes it a
+  // usable combat test: the fight starts a moment later, not on your feet.
+  // Returns how many actually landed (a spot with no walkable ground — open
+  // water, a cave wall — re-rolls a few times, then gives up on that slime).
+  debugSpawnSlimePack(n = 6) {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    // Just inside the view edge: visible the moment they land (so the
+    // auto-fire gate sees them too), but a full screen-half from the player.
+    const edgeM = (VIEW_CELLS / 2 - 0.5) * this.cellM;
+    const heading = Math.random() * Math.PI * 2;   // the side the pack comes from
+    let placed = 0;
+    for (let i = 0; i < n; i++) {
+      // Fan the pack ±~45° around the heading, one slot per slime, with a
+      // little jitter so it reads as a mob rather than a picket line. A spot
+      // a slime can't stand on re-rolls its jitter, then gives up.
+      const slot = (n > 1 ? i / (n - 1) - 0.5 : 0) * 1.6;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const a = heading + slot + (Math.random() - 0.5) * 0.35;
+        const r = edgeM - Math.random() * this.cellM;
+        const x = px + Math.cos(a) * r;
+        const y = py + Math.sin(a) * r;
+        const entry = this._devSlimeGroundAt(x, y);
+        if (!entry) continue;
+        entry.creatures = entry.creatures || [];
+        this._devSlimeSeq = (this._devSlimeSeq || 0) + 1;
+        // Unique per press — never a tile-data id, so a dev slime can't mark
+        // a real spawn as caught when it dies.
+        entry.creatures.push({
+          x, y, kind: 'slime', shiny: false,
+          id: `slime_dev_${Date.now()}_${this._devSlimeSeq}`,
+        });
+        placed++;
+        break;
+      }
+    }
+    this.flash?.(placed ? `🟢 ${placed} slimes closing in!` : 'No ground for slimes here',
+      this.viewCenterX, this.viewCenterY - 40);
+    return placed;
+  }
+  // The cached tile entry covering a world-metre spot, but only if a slime
+  // can stand there — walkable terrain on a loaded tile (surface or the
+  // current cave level; the tile cache already reflects the active depth).
+  _devSlimeGroundAt(wmx, wmy) {
+    const tx = Math.floor(wmx / this.tileEdgeM), ty = Math.floor(wmy / this.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry || !entry.grid) return null;
+    const N = this.cellsPerTile;
+    const ix = Math.floor((wmx - tx * this.tileEdgeM) / this.cellM);
+    const iy = Math.floor((wmy - ty * this.tileEdgeM) / this.cellM);
+    if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    if (!WorldGen.isWalkable(entry.grid[iy * N + ix])) return null;
+    return entry;
+  }
   // Bump _relicsGen at every site that writes save.relics / save.armor so the
   // per-frame row rebuild can early-out by comparing a counter instead of
   // recomputing a join-string of every slot every frame.
