@@ -699,7 +699,7 @@ const FOOD_ENERGY = {
   // eat button never appears for them and eatSelected() refuses.
   egg:        10,
   milk:       40,
-  mushroom:   25,
+  mushroom:   16,
   apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
   minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
   meat:       45,   // hunted from deer; dog favourite
