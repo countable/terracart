@@ -106,41 +106,96 @@ test('combat: bow and staff no longer shorten the melee wheel', () => {
   assert.truthy(Combat.meleeDps({ sword: { tier: 1 } }) > bare, 'a sword does');
 });
 
-test('combat: a shot carries its tier\'s melee rate SPLIT across the ranged slots', () => {
+test('combat: a shot carries its tier\'s melee rate SPLIT across the ranged slots, weighted', () => {
   for (const slot of Combat.RANGED_SLOTS) {
     for (const tier of [1, 4, 7]) {
       const relics = { [slot]: { tier } };
       const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
-                            / Combat.RANGED_SLOTS.length * Combat.FIRE_INTERVAL_MS / 1000));
+                            / Combat.RANGED_SLOTS.length
+                            * (Combat.SHOT_DMG_MUL[slot] || 1)
+                            * Combat.FIRE_INTERVAL_MS / 1000));
       assert.eq(Combat.shotDamage(relics, slot), want,
-        `${slot} T${tier} shot should carry its share of its own rate`);
+        `${slot} T${tier} shot should carry its weighted share of its own rate`);
     }
   }
-  // Wood → 2, frost → 25: the ladder in concrete, so a silent regression in
-  // TOOL_DURATION_MS shows up as a combat failure too. Wood's rung is 4000 ms,
-  // i.e. 3.75 HP/s of melee; halved across bow+staff that is 1.875, which the
-  // per-shot rounding in shotDamage carries to 2.
-  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 2, 'wood bow');
-  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 25, 'frost bow');
+  // The ladder in concrete, so a silent regression in TOOL_DURATION_MS shows
+  // up as a combat failure too. Wood's rung is 4000 ms, i.e. 3.75 HP/s of
+  // melee; halved across bow+staff and carried over the 2 s beat that is
+  // 3.75 per arrow (rounds to 4), and the staff's double weight makes 8.
+  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 4, 'wood bow');
+  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 50, 'frost bow');
+  assert.eq(Combat.shotDamage({ staff: { tier: 1 } }, 'staff'), 8, 'wood staff — double the arrow');
 });
 
-test('combat: the whole ranged loadout equals ONE melee weapon of its tier', () => {
-  // The point of the split. Shots fire themselves, from across the screen,
-  // while you walk — and the slots stack. Carrying every ranged weapon there
-  // is must therefore land what a single sword of that tier lands, not one
-  // sword per slot. Checked against the melee rate the sword itself reads.
+test('combat: the fire beat is 2 s, and the delivered rate is beat-independent', () => {
+  // One shot every two seconds — each shot is an event, not a stream. Pinned
+  // because shotDamage scales by the interval: changing the beat must change
+  // per-shot damage, never the delivered rate.
+  assert.eq(Combat.FIRE_INTERVAL_MS, 2000, 'one shot per 2 s');
+});
+
+test('combat: staff doubles the bow — per shot and per second', () => {
   for (let tier = 1; tier <= 7; tier++) {
-    const relics = {};
-    for (const slot of Combat.RANGED_SLOTS) relics[slot] = { tier };
-    const loadout = Combat.RANGED_SLOTS
-      .reduce((sum, slot) => sum + Combat.shotDamage(relics, slot), 0)
-      * (1000 / Combat.FIRE_INTERVAL_MS);
+    const bowShot = Combat.shotDamage({ bow: { tier } }, 'bow');
+    const staffShot = Combat.shotDamage({ staff: { tier } }, 'staff');
+    // Per-shot rounding gives ±1 of slack around the exact 2×.
+    assert.lt(Math.abs(staffShot - 2 * bowShot), 1.5,
+      `T${tier}: staff shot ${staffShot} should be ~double the arrow's ${bowShot}`);
+  }
+  // And the staff pays for it: every bolt draws energy; arrows are free.
+  assert.eq(Combat.SHOT.staff.energyCost, 1, 'a bolt costs 1 energy');
+  assert.falsy(Combat.SHOT.bow.energyCost, 'an arrow costs none');
+});
+
+test('combat: staff bolts pierce — every foe on the line is struck once, arrows stop', () => {
+  const foes = [
+    { kind: 'goblin', id: 'near', x: 15, y: 0 },
+    { kind: 'goblin', id: 'far',  x: 35, y: 0 },
+  ];
+  const run = (slot) => {
+    let live = [Combat.spawnShot(slot, 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 3)];
+    const struck = [];
+    let steps = 0;
+    while (live.length && steps++ < 6000) {
+      live = Combat.stepShots(live, 1 / 60, foes, Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+        (e) => struck.push(e.id));
+    }
+    return struck;
+  };
+  assert.eq(run('bow').join(','), 'near', 'an arrow stops in the first foe');
+  assert.eq(run('staff').join(','), 'near,far', 'a bolt passes through and strikes both, once each');
+});
+
+test('combat: staff bolts ignore walls; arrows do not', () => {
+  const wallFrom = 2 * COMBAT_CELL_M;
+  const wall = { blocked: (x) => x >= wallFrom && x < wallFrom + COMBAT_CELL_M, cellM: COMBAT_CELL_M };
+  const behind = { kind: 'goblin', id: 'behind', x: 5 * COMBAT_CELL_M, y: 0 };
+  const run = (slot) => {
+    let live = [Combat.spawnShot(slot, 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 3)];
+    let hits = 0, steps = 0;
+    while (live.length && steps++ < 6000) {
+      live = Combat.stepShots(live, 1 / 60, [behind], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+        () => hits++, wall);
+    }
+    return hits;
+  };
+  assert.eq(run('bow'), 0, 'the arrow dies at the rock');
+  assert.eq(run('staff'), 1, 'the bolt sails over it');
+});
+
+test('combat: the whole ranged loadout lands 1.5 swords — bow half, staff full', () => {
+  // The staff's double weight deliberately breaks the old "loadout = one
+  // sword" identity: bow alone is HALF its tier's melee rate, staff alone is
+  // the FULL rate (and pays energy per bolt for it).
+  for (let tier = 1; tier <= 7; tier++) {
+    const perSec = 1000 / Combat.FIRE_INTERVAL_MS;
+    const bowDps = Combat.shotDamage({ bow: { tier } }, 'bow') * perSec;
+    const staffDps = Combat.shotDamage({ staff: { tier } }, 'staff') * perSec;
     const sword = Combat.meleeDps({ sword: { tier } });
-    // Per-shot rounding is the only slack: at most half a point per slot, per
-    // second. Anything wider than that means the split has drifted.
-    const slack = Combat.RANGED_SLOTS.length * 0.5 * (1000 / Combat.FIRE_INTERVAL_MS);
-    assert.lt(Math.abs(loadout - sword), slack + 1e-9,
-      `T${tier}: every ranged weapon at once lands ${loadout}/s against a sword's ${sword}/s`);
+    // Per-shot rounding is the only slack: half a point per shot, per beat.
+    const slack = 0.5 * perSec + 1e-9;
+    assert.lt(Math.abs(bowDps - sword / 2), slack, `T${tier}: bow is half a sword`);
+    assert.lt(Math.abs(staffDps - sword), 2 * slack, `T${tier}: staff is a whole sword`);
   }
 });
 
