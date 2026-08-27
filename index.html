@@ -462,14 +462,15 @@
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
     #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
-    /* Hit height, not font size: rows were 26px tall with "Reset this game"
-       26px below "+ New game". Padding takes them to ~40px without changing
-       how they look. */
+    /* Hit height, not font size: bare rows are 26px tall, which put "Reset
+       this game" 26px below "+ New game". Padding lifts them to ~32px — still
+       a comfortable thumb target, but packed (they sat at 40px once, and the
+       menu read as a sparse list that scrolled sooner than it needed to). */
     #menu .items button {
       background: transparent; color: var(--bone); border: 0;
-      text-align: left; padding: 12px 8px; border-radius: 4px;
+      text-align: left; padding: 7px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
-      min-height: 40px;
+      min-height: 32px;
     }
     #menu .items button:hover {
       background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
