@@ -449,7 +449,7 @@
     #menu .items {
       margin-top: 4px; min-width: 140px;
       background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
-      padding: 4px; display: flex; flex-direction: column; gap: 2px;
+      padding: 4px; display: flex; flex-direction: column; gap: 0;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
       box-shadow: var(--chrome-lip), 0 8px 20px rgba(0,0,0,0.6), var(--chrome-key);
@@ -465,16 +465,16 @@
     #devtools summary::before { content: '▸ '; }
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
-    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
-    /* Hit height, not font size: bare rows are 26px tall, which put "Reset
-       this game" 26px below "+ New game". Padding lifts them to ~32px — still
-       a comfortable thumb target, but packed (they sat at 40px once, and the
-       menu read as a sparse list that scrolled sooner than it needed to). */
+    #devtools .devitems { display: flex; flex-direction: column; gap: 0; }
+    /* Hit height, not font size: rows sat at 40px once, then 32px, and the
+       menu still read as a sparse list that scrolled sooner than it needed
+       to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
+       menu fits a short screen without feeling like a spreadsheet. */
     #menu .items button {
       background: transparent; color: var(--bone); border: 0;
-      text-align: left; padding: 7px 8px; border-radius: 4px;
+      text-align: left; padding: 4px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
-      min-height: 32px;
+      min-height: 26px;
     }
     #menu .items button:hover {
       background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
