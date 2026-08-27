@@ -1,0 +1,15 @@
+{
+  "name": "terracart-relay",
+  "version": "1.0.0",
+  "description": "WebSocket presence relay for terracart multiplayer (players see each other; no shared game state).",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,10 @@
+# /etc/caddy/Caddyfile — written by setup.sh with the real host filled in.
+# Caddy gets a Let's Encrypt cert for the sslip.io name automatically and
+# proxies HTTP + WebSocket upgrades to the relay on localhost.
+#
+# Host format: <public IPv4 with dots as dashes>.sslip.io  (1.2.3.4 -> 1-2-3-4.sslip.io)
+
+1-2-3-4.sslip.io {
+    encode gzip
+    reverse_proxy 127.0.0.1:8787
+}

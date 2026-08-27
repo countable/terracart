@@ -1726,8 +1726,12 @@ class MapScene extends Phaser.Scene {
     this._fastWalk = false;
     this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
 
-    // World tap (player handler runs first and stops propagation)
-    this.input.on('pointerdown', (p) => this.handleWorldTap(p.x, p.y));
+    // World tap (player handler runs first and stops propagation). Ping mode
+    // (multiplayer.js — "tap 📍, then tap the map") takes the tap first.
+    this.input.on('pointerdown', (p) => {
+      if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, p.x, p.y)) return;
+      this.handleWorldTap(p.x, p.y);
+    });
 
     // The movement pads (stick / debug) are position:fixed on <body> at
     // z-index 6, but every modal lives INSIDE #game, whose CSS transform makes
@@ -1818,6 +1822,9 @@ class MapScene extends Phaser.Scene {
     }
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
+    // Other players. No-op until the save carries a player name (the
+    // welcome splash / ☰ menu set it); tick() picks it up once it does.
+    if (!window.__TEST_MODE && typeof Multiplayer !== 'undefined') Multiplayer.start(this);
   }
 
   // Called from the safety-splash button click (or from create() if the
@@ -4539,6 +4546,7 @@ class MapScene extends Phaser.Scene {
     this.drawRoadGeometry();
     this.drawObjects();
     this._drawWorkProgress();
+    if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     this.updateHUD();
     } catch (e) {
       this._reportLoopError(e);
@@ -6249,7 +6257,7 @@ class MapScene extends Phaser.Scene {
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
         tint = (v << 16) | (v << 8) | v;
       }
-      this.player.setTint(tint);
+      this.player.setTint(mulTint(tint, this.save.playerColor));
       const key = spent ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
@@ -6261,7 +6269,9 @@ class MapScene extends Phaser.Scene {
         .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY)
         .setVisible(true);
     } else {
-      this.player.clearTint();
+      // At rest the farmer wears the save's own colour — the same tint other
+      // players see on them (multiplayer.js), so you can spot yourself.
+      this.player.setTint(this.save.playerColor || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
   }

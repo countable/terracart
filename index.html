@@ -860,6 +860,7 @@
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
       <button id="toggle-haptics">Vibration: on</button>
+      <button id="player-name-btn">Player name: —</button>
       <button id="move-home">Move Home here</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
         <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
@@ -917,6 +918,14 @@
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
       <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:var(--green);">Farm your neighbourhood.</p>
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
+      <!-- Player name — shown over your farmer to other players (multiplayer.js).
+           Only rendered while the save has no name; the CTA stays disabled
+           until one is typed, so a new game can't start nameless. -->
+      <label id="safety-name" style="display:none;margin:0 0 14px;text-align:left;">
+        <span style="display:block;font:700 12px ui-monospace,monospace;color:var(--gold);margin-bottom:6px;">Your name <span style="font-weight:400;color:#aaa;">(other players see it)</span></span>
+        <input id="player-name" type="text" maxlength="16" autocomplete="nickname" placeholder="e.g. Ada" required
+               style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:2px solid var(--gold-dark);background:#0f0d0a;color:#fff;font:700 15px ui-monospace,monospace;">
+      </label>
       <button id="safety-dismiss">Go to my location</button>
     </div>
   </div>
@@ -1526,6 +1535,61 @@
       buildTeleportMenu();
     }
 
+    // ── Player name ─────────────────────────────────────────────────
+    // The name other players see over your farmer (src/multiplayer.js). It
+    // lives in the save, so it's per game. Set from the welcome splash on a
+    // nameless save (required), or renamed any time from the ☰ menu. Before
+    // the scene exists it's written straight to the slot; after, through the
+    // scene so the in-memory save and the relay both pick it up.
+    function readPlayerName() {
+      const sc = window.__scene;
+      if (sc && sc.save) return sc.save.playerName || '';
+      try { return (typeof loadSave === 'function' && loadSave().playerName) || ''; } catch { return ''; }
+    }
+    window.__setPlayerName = function (raw) {
+      const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
+      if (!name) return false;
+      const sc = window.__scene;
+      if (sc && sc.save && typeof Multiplayer !== 'undefined') {
+        Multiplayer.setName(sc, name);
+      } else {
+        try {
+          const sv = loadSave();
+          sv.playerName = name;
+          if (!sv.playerColor && typeof Multiplayer !== 'undefined') sv.playerColor = Multiplayer.pickColor();
+          persistSave(sv);
+          flushSave();     // app.js reads the save synchronously as it parses
+        } catch (_) { return false; }
+      }
+      paintPlayerNameBtn();
+      return true;
+    };
+    function paintPlayerNameBtn() {
+      const btn = document.getElementById('player-name-btn');
+      if (btn) btn.textContent = `Player name: ${readPlayerName() || '—'}`;
+    }
+    document.getElementById('player-name-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = prompt('Your name (other players see it):', readPlayerName());
+      if (name === null) return;
+      if (!window.__setPlayerName(name)) alert('Please enter a name.');
+    });
+    // Welcome splash: reveal the name field (and hold the CTA) on a nameless save.
+    function syncSplashName() {
+      paintPlayerNameBtn();
+      const wrap = document.getElementById('safety-name');
+      const input = document.getElementById('player-name');
+      const cta = document.getElementById('safety-dismiss');
+      if (!wrap || !input || !cta || readPlayerName()) return;
+      wrap.style.display = 'block';
+      const sync = () => { cta.disabled = !input.value.trim(); cta.style.opacity = cta.disabled ? '.45' : '1'; };
+      input.addEventListener('input', sync);
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !cta.disabled) cta.click(); });
+      sync();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncSplashName);
+    else syncSplashName();
+
     // ── Saved games ─────────────────────────────────────────────────
     // One row per save slot (from the save.js registry): a name button that
     // switches to (loads) that game, plus a ✕ to delete it. A "+ New game"
@@ -1650,6 +1714,13 @@
       // below is awaited BEFORE the splash is removed, so a second tap (or a
       // synthesized re-fire) could re-enter and play the opening story twice.
       if (__safetyDismissed) return;
+      // Name gate: the field is only rendered for a nameless save, and the
+      // button is disabled until it holds a name — this is the belt to that
+      // brace (a synthesized click, an empty string of spaces).
+      const nameEl = document.getElementById('player-name');
+      if (nameEl && document.getElementById('safety-name')?.style.display !== 'none') {
+        if (!window.__setPlayerName(nameEl.value)) { nameEl.focus(); return; }
+      }
       __safetyDismissed = true;
       __consented = true;
       try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
@@ -1964,7 +2035,7 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=18"></script>
+  <script src="src/util.js?v=19"></script>
   <script src="src/sprite_layout.js?v=7"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=8"></script>
@@ -1990,6 +2061,7 @@
   <script src="src/combat.js?v=2"></script>
   <script src="src/interact.js?v=230"></script>
   <script src="src/render.js?v=312"></script>
+  <script src="src/multiplayer.js?v=1"></script>
   <script src="src/road_overlay.js?v=10"></script>
   <script src="src/assets.js?v=177"></script>
   <script src="src/sandbox.js?v=38"></script>
@@ -2050,7 +2122,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=437';
+      const APP_SRC = 'src/app.js?v=438';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

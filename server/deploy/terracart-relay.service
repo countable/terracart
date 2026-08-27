@@ -1,0 +1,31 @@
+# systemd unit for the terracart WebSocket relay.
+# Installed by setup.sh to /etc/systemd/system/terracart-relay.service.
+# Caddy terminates TLS and proxies to 127.0.0.1:8787 (see Caddyfile.example).
+[Unit]
+Description=terracart multiplayer presence relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=terracart
+Group=terracart
+WorkingDirectory=/opt/terracart/server
+Environment=PORT=8787
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=2
+
+# Hardening: the relay holds no state and writes no files.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

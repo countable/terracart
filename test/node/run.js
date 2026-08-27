@@ -55,7 +55,7 @@ vm.createContext(ctx);
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and

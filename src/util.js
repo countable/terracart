@@ -217,6 +217,15 @@ const FONT_MONO_STACK  = 'ui-monospace, monospace';
 const FONT_SERIF_STACK = 'ui-serif, Georgia, "Times New Roman", serif';
 // `spec` is everything before the family: 'bold 10px', '700 12px', 'italic 8px'.
 const fontMono  = (spec) => `${spec} ${FONT_MONO_STACK}`;
+
+// Combine two packed-RGB tints channel-wise (each channel a 0..1 multiplier),
+// so a dim/red state tint can stack on the player's own colour instead of
+// replacing it. mulTint(0xffffff, c) === c; mulTint(a, undefined) === a.
+function mulTint(a, b) {
+  if (b == null) return a;
+  const ch = (sh) => Math.round((((a >> sh) & 0xff) * ((b >> sh) & 0xff)) / 255) << sh;
+  return ch(16) | ch(8) | ch(0);
+}
 const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
 
 // PALETTE. Named roles, not shades — reach for the role that fits rather than
