@@ -38,7 +38,7 @@ const Multiplayer = (function () {
   // `node server/index.js`; anything else (the GitHub Pages build) uses the
   // Vultr box behind Caddy's auto-TLS — see server/deploy/README.md.
   // Override with window.MP_SERVER_URL (set in index.html) for testing.
-  const DEFAULT_URL = 'wss://terracart-relay.sslip.io';   // rewritten by deploy
+  const DEFAULT_URL = 'wss://155-138-151-254.sslip.io';   // server/deploy/create_instance.sh output
   const SEND_HZ = 8;             // position frames per second while moving
   const HEARTBEAT_MS = 5000;     // resend even when still, so peers don't go stale
   const PEER_STALE_MS = 20000;   // drop a peer we haven't heard from (out of range / gone)
