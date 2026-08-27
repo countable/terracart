@@ -4007,6 +4007,30 @@
     }
   }
 
+  // Same contract as forEachItem, but restricted to the 3×3 tile
+  // neighbourhood around (tx, ty). The tile cache grows unboundedly as the
+  // player walks (capped at MAX_CACHED_TILES entries, but that is still tens of
+  // thousands of items), so every PER-FRAME consumer that only cares about
+  // things near the player must use this instead — a tile edge is hundreds of
+  // cells, so one ring of tiles comfortably covers any on-screen/near-player
+  // radius. drawObjects in render.js learned this the hard way (its comment
+  // records the random hangs the all-tiles scan caused); the creature sim
+  // loops in app.js were the same bug and now go through here.
+  function forEachItemNear(prop, tx, ty, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = tileCache.get(tileKey(tx + dtx, ty + dty));
+        if (!entry) continue;
+        const arr = entry[prop];
+        if (!arr) continue;
+        for (const item of arr) {
+          const r = fn(item, entry);
+          if (r) return r;
+        }
+      }
+    }
+  }
+
   // Specialty shop type for small houses, derived from the synthetic street
   // address. Forts (BUILDING_MED) and civic slabs are excluded — only the
   // small residential tier gets address-based specialties.
@@ -4017,7 +4041,7 @@
     Z, CELL_M, TILE_PX, T, TILE_URL,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).

@@ -180,6 +180,14 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
+    /* Every body-level HUD surface (inventory bars, chips, menu, multiplayer
+       button): manipulation kills iOS's double-tap zoom WITHOUT needing the
+       touchend preventDefault guard below — which must never fire for these
+       elements, because Phaser only sees their touchends via its window
+       listener and a prevented touchend permanently strands one of its touch
+       pointers (the "touch stops working until reload" bug). */
+    #hud, #hud-row, #inv, #inv-tabs, #inv-name, #objective, #menu, #mp-btn,
+    #money, #energy { touch-action: manipulation; }
     /* The movement stick (#move-pad) is position:fixed on <body> at z-index 6
        — but every modal dialog lives inside #game, whose transform makes its
        own stacking context, so a modal can never climb above the body-level
@@ -1326,10 +1334,22 @@
     // back. Suppressing the second tap of a quick pair closes that trap. We
     // only preventDefault on the close-together second touchend, so single
     // taps (and the game's own pointer handling) are untouched.
+    // ONLY for touches that land on the game canvas. Phaser handles canvas
+    // touches in the target phase (its canvas listener runs before this
+    // document-level one), so preventDefault here can't starve it — but for a
+    // touch on any OTHER element (movement stick, inventory bar, HUD button)
+    // Phaser only ever sees the touchend via its WINDOW listener, which runs
+    // AFTER this guard and explicitly skips defaultPrevented events. With
+    // Phaser's finite touch-pointer pool, a swallowed touchend leaves that
+    // pointer `active` forever — tap-to-play died until reload ("touch
+    // randomly stops working"). Non-canvas double-tap zoom is covered by
+    // touch-action: manipulation on the HUD (see the stylesheet) instead.
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
       const now = Date.now();
-      if (now - lastTouchEnd <= 350) e.preventDefault();
+      if (now - lastTouchEnd <= 350 && e.target instanceof HTMLCanvasElement) {
+        e.preventDefault();
+      }
       lastTouchEnd = now;
     }, { passive: false });
     // Belt-and-suspenders: kill any synthesized double-click that slips past
@@ -2053,14 +2073,14 @@
   </script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=19"></script>
+  <script src="src/util.js?v=20"></script>
   <script src="src/sprite_layout.js?v=7"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=8"></script>
   <script src="src/coords.js?v=120"></script>
   <script src="src/fog.js?v=3"></script>
   <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=217"></script>
+  <script src="src/worldgen.js?v=218"></script>
   <script src="src/textures.js?v=171"></script>
   <script src="src/save.js?v=115"></script>
   <script src="src/items.js?v=198"></script>
@@ -2078,7 +2098,7 @@
   <script src="src/interactables.js?v=12"></script>
   <script src="src/combat.js?v=2"></script>
   <script src="src/interact.js?v=230"></script>
-  <script src="src/render.js?v=312"></script>
+  <script src="src/render.js?v=313"></script>
   <script src="src/multiplayer.js?v=3"></script>
   <script src="src/road_overlay.js?v=10"></script>
   <script src="src/assets.js?v=177"></script>
@@ -2140,7 +2160,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=439';
+      const APP_SRC = 'src/app.js?v=440';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -280,6 +280,10 @@ function enemyBounty(kind, depth) {
 const MONSTER_TREASURE_CHANCE = 0.10;
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
+// What a tame pet hunts (wanderCreatures' prey scan) — hoisted so the per-step
+// scan doesn't allocate fresh Sets.
+const CAT_PREY = new Set(['crow']);
+const DOG_PREY = new Set(['deer', 'slime']);
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -1733,6 +1737,35 @@ class MapScene extends Phaser.Scene {
       this.handleWorldTap(p.x, p.y);
     });
 
+    // Stuck-touch-pointer sweeper. Phaser frees a touch pointer only when its
+    // touchend/touchcancel reaches its handlers with a matching identifier —
+    // and two things on this page can eat that event: the double-tap-zoom
+    // guard in index.html (preventDefault on a quick second touchend, which
+    // Phaser's window listener explicitly ignores) and DOM rebuilt under a
+    // held finger (buildInventoryDOM removes the bars; a touchend dispatched
+    // to a detached node never bubbles to window). A pointer left `active`
+    // with no finger on the glass is stranded FOREVER — Phaser never assigns
+    // new touches to an occupied slot and nothing else resets it — which
+    // played as "touch randomly dies after a few minutes, until reload".
+    // After the last finger lifts, give Phaser its normal crack at the event
+    // (setTimeout 0), then reset any touch pointer still claiming to be
+    // active. The mouse pointer (id 0) is never touched.
+    if (!window.__touchSweeperInstalled) {
+      window.__touchSweeperInstalled = true;
+      const sweep = (e) => {
+        if (e.touches && e.touches.length) return;   // fingers still down
+        setTimeout(() => {
+          const pointers = this.input?.manager?.pointers;
+          if (!pointers) return;
+          for (const p of pointers) {
+            if (p.id !== 0 && p.active) p.reset();
+          }
+        }, 0);
+      };
+      window.addEventListener('touchend', sweep, { passive: true });
+      window.addEventListener('touchcancel', sweep, { passive: true });
+    }
+
     // The movement pads (stick / debug) are position:fixed on <body> at
     // z-index 6, but every modal lives INSIDE #game, whose CSS transform makes
     // its own stacking context — so a modal's z-index can't climb above the
@@ -1875,20 +1908,32 @@ class MapScene extends Phaser.Scene {
         // Snapshot the moment we paused. Phaser stops calling update() while
         // hidden, so the per-frame heartbeat freezes — anchor lastSeenAt here
         // so the next visible-transition (or page reload) measures from now.
+        // Fog reveals are persisted on a throttle (see _revealFog); this is
+        // the trailing flush that catches the tail of the walk before the tab
+        // goes away.
+        if (typeof Fog !== 'undefined') Fog.flush(this.save);
         this.save.lastSeenAt = Date.now();
         persistSave(this.save);
       } else {
-        // Foregrounded after a background nap. Pro-rate energy restoration
-        // by the gap, just like a fresh page load would do in create().
-        if (this.save.lastSeenAt && !window.__TEST_MODE) {
-          this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
-        }
-        this.save.lastSeenAt = Date.now();
-        persistSave(this.save);
+        // Foregrounded after a background nap. Resume the game loop FIRST:
+        // everything after this line is nice-to-have, and a throw from any of
+        // it (applyOfflineRest builds Phaser text + tweens) used to escape the
+        // event handler before resume() ran — leaving the game paused forever,
+        // a dead screen that no longer took taps. Guard the rest so one bad
+        // step can't skip the others either.
         if (this.game && this.game.isPaused) this.game.resume();
-        if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
-        // Wake lock is auto-released on hide; re-acquire on return.
-        if (!this._wakeLock) acquireWakeLock();
+        try {
+          // Pro-rate energy restoration by the gap, just like a fresh page
+          // load would do in create().
+          if (this.save.lastSeenAt && !window.__TEST_MODE) {
+            this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+          }
+          this.save.lastSeenAt = Date.now();
+          persistSave(this.save);
+          if (!this.gpsWatchId && this.gpsAvailable !== false) this.startGps();
+          // Wake lock is auto-released on hide; re-acquire on return.
+          if (!this._wakeLock) acquireWakeLock();
+        } catch (e) { this._reportLoopError?.(e); }
       }
     };
     document.addEventListener('visibilitychange', onVis);
@@ -2224,6 +2269,18 @@ class MapScene extends Phaser.Scene {
     const ix = pc.tx * this.cellsPerTile + Math.floor(pc.cx);
     const iy = pc.ty * this.cellsPerTile + Math.floor(pc.cy);
     if (!Fog.reveal(ix, iy)) return;
+    // Persist on a 10 s throttle, not per revealed cell. Continuous walking
+    // reveals a new cell every second or two, and each persistSave lands a
+    // full-save JSON.stringify + synchronous localStorage.setItem on the main
+    // thread 500 ms later — a per-cell hitch that grew with save size (the
+    // fog blobs themselves make the save bigger every tile explored). Fog's
+    // in-memory masks are the truth between flushes; the visibilitychange
+    // hidden-branch does an unconditional flush so backgrounding/closing the
+    // tab never loses more than the walk since the last one, and any OTHER
+    // persistSave caller in that window at worst stores fog that's 10 s stale.
+    const nowT = performance.now();
+    if (this._fogPersistT && nowT - this._fogPersistT < 10000) return;
+    this._fogPersistT = nowT;
     Fog.flush(this.save);
     persistSave(this.save);
   }
@@ -4166,6 +4223,16 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    // The whole per-frame body runs inside a try/catch — INCLUDING the boot
+    // and modal-gate prologue, which used to sit before the try and was the
+    // one per-frame stretch where a throw could still kill the loop. Phaser's
+    // RAF driver reschedules the NEXT frame only AFTER this callback returns
+    // (see RequestAnimationFrame.step in vendor/phaser.js), so a single
+    // uncaught throw in here would permanently kill the game loop — frozen
+    // render plus a dead input plugin, i.e. "the UI stops accepting taps."
+    // Swallowing a bad frame keeps the loop (and taps) alive; _reportLoopError
+    // surfaces the error so the underlying cause stays diagnosable on a phone.
+    try {
     // First frame = the world is on screen: retire the boot loading overlay.
     // Any tiles still fetching show as the unmapped shimmer from here on.
     if (!this._bootStatusDone) {
@@ -4177,19 +4244,15 @@ class MapScene extends Phaser.Scene {
       // the whole first-fetch on slow lines).
       if (!window.__TEST_MODE) setTimeout(() => this._prewarmModalIcons(), 4000);
     }
-    // Keep body.modal-open honest every frame. The MutationObserver in
+    // Keep body.modal-open honest. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
-    // bottom HUD. Cost is a querySelectorAll over a handful of nodes.
-    this._syncModalGate?.();
-    // The whole per-frame body runs inside a try/catch. Phaser's RAF driver
-    // reschedules the NEXT frame only AFTER this callback returns (see
-    // RequestAnimationFrame.step in vendor/phaser.js), so a single uncaught
-    // throw in here would permanently kill the game loop — frozen render plus
-    // a dead input plugin, i.e. "the UI stops accepting taps." Swallowing a
-    // bad frame keeps the loop (and taps) alive; _reportLoopError surfaces the
-    // error so the underlying cause stays diagnosable on a phone.
-    try {
+    // bottom HUD. This is only a backstop for that case, and the sync forces a
+    // style/layout flush (getClientRects on every .game-modal), so it runs on
+    // a ~10-frame throttle rather than every frame — a removed overlay
+    // un-latches within ~170 ms, which the eye reads as instant.
+    this._modalGateTick = (this._modalGateTick || 0) + 1;
+    if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
     const dt = dtMs / 1000;
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
@@ -4509,7 +4572,21 @@ class MapScene extends Phaser.Scene {
     // then, and the arrow would only cover the sprite).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
-      const goal = step ? this._starterGuidanceGoal(step) : null;
+      // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
+      // object in every cached tile (crates, wrecks) — fine as a tap-time
+      // query, far too heavy per frame, and it ran per frame for the entire
+      // tutorial. The goal only moves when the player acts or walks; half a
+      // second of arrow staleness is imperceptible.
+      const gNow = performance.now();
+      if (!this._starterGoalMemo || gNow - this._starterGoalMemo.t > 500 ||
+          this._starterGoalMemo.event !== (step && step.event)) {
+        this._starterGoalMemo = {
+          t: gNow,
+          event: step && step.event,
+          goal: step ? this._starterGuidanceGoal(step) : null,
+        };
+      }
+      const goal = this._starterGoalMemo.goal;
       if (goal) {
         const pWX = this.startWorldM.x + this.playerM.x;
         const pWY = this.startWorldM.y + this.playerM.y;
@@ -4606,10 +4683,16 @@ class MapScene extends Phaser.Scene {
     // drawing fire the moment it appears rather than a cell later.
     const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
     const enemies = [];
-    WorldGen.forEachItem('creatures', (c) => {
-      if (!Combat.isEnemy(c)) return;
-      if (this.save.caught?.includes(c.id)) return;
+    // 3×3 neighbourhood + memoised caught-Set: this runs every frame, and the
+    // all-tiles forEachItem with a per-creature Array.includes was an
+    // O(cached-creatures × caught) scan that grew with every tile walked.
+    // Cheap box cull first, membership test last.
+    const caughtSet = setOf(this.save.caught);
+    const pcTick = this.playerToWorldCell();
+    WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, (c) => {
       if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
+      if (!Combat.isEnemy(c)) return;
+      if (caughtSet.has(c.id)) return;
       enemies.push(c);
     });
 
@@ -5126,8 +5209,8 @@ class MapScene extends Phaser.Scene {
     if (wp.combat) this._strokeHealthRing(g, cx, cy, Combat.hpFraction(wp.combat), 0.85, 0.34);
     else this._strokeWorkRing(g, cx, cy, progress);
     if (this._workProgressIcon) {
-      const gameEl = document.getElementById('game');
-      const gr = gameEl.getBoundingClientRect();
+      const gr = gameScreenRect();
+      if (!gr) return;
       const scaleX = gr.width / W, scaleY = gr.height / H;
       const ICON_PX = 16;
       const px = gr.left + cx * scaleX - ICON_PX / 2;
@@ -5153,6 +5236,14 @@ class MapScene extends Phaser.Scene {
     // matching the spec's ~7-8 cell sim window.
     const RANGE_M = 8 * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
+    // Per-frame loop hygiene (the render pass documents the same fix): only
+    // the 3×3 tile neighbourhood is simmed — the sim range above is a handful
+    // of cells and a tile edge is hundreds, so one ring of tiles always covers
+    // it — and caught-membership is a memoised Set, not an Array.includes per
+    // creature. The all-tiles + includes version was an O(every creature ever
+    // loaded × caught) scan per frame that grew the longer you walked.
+    const pcW = this.playerToWorldCell();
+    const caughtSet = setOf(this.save.caught);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -5167,37 +5258,45 @@ class MapScene extends Phaser.Scene {
     // that, the only crops in the world are the tutorial's; a zone check on
     // the spawn point would be theatre, because the pump spawns the crow just
     // off-screen and it flies straight to the nearest crop anyway.
-    const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-    if (hasCrowCrop && this.save.hasHarvested && now - this._lastPestT > 90000) {
-      this._lastPestT = now;
-      // Count nearby wild (non-released, not-yet-caught) crows.
-      let wildCrows = 0;
-      WorldGen.forEachItem('creatures', (c) => {
-        if (c.kind !== 'crow') return;
-        if (typeof c.id === 'string' && c.id.startsWith('released_')) return;
-        if (this.save.caught.includes(c.id)) return;
-        const dx = c.x - px, dy = c.y - py;
-        if (dx * dx + dy * dy <= RANGE_SQ) wildCrows++;
-      });
-      if (wildCrows < 1) {
-        const pc = this.playerToWorldCell();
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
-        if (entry && entry.creatures) {
-          // Spawn 12 m away in a random direction so the crow is just
-          // off-screen; it flies toward the nearest crop next tick.
-          const angle = Math.random() * Math.PI * 2;
-          const SPAWN_R = 12 * this.cellM;   // ~12 cells; outside viewport
-          entry.creatures.push({
-            kind: 'crow',
-            x: px + Math.cos(angle) * SPAWN_R,
-            y: py + Math.sin(angle) * SPAWN_R,
-            id: `pest_crow_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-          });
+    // Timer gate first: the planted-crop scan is O(planted) and has no
+    // business running on the ~5400 frames between pest windows.
+    if (now - this._lastPestT > 90000) {
+      const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
+      if (hasCrowCrop && this.save.hasHarvested) {
+        this._lastPestT = now;
+        // Count nearby wild (non-released, not-yet-caught) crows.
+        let wildCrows = 0;
+        WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
+          if (c.kind !== 'crow') return;
+          if (typeof c.id === 'string' && c.id.startsWith('released_')) return;
+          if (caughtSet.has(c.id)) return;
+          const dx = c.x - px, dy = c.y - py;
+          if (dx * dx + dy * dy <= RANGE_SQ) wildCrows++;
+        });
+        if (wildCrows < 1) {
+          const pc = pcW;
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+          if (entry && entry.creatures) {
+            // Spawn 12 m away in a random direction so the crow is just
+            // off-screen; it flies toward the nearest crop next tick.
+            const angle = Math.random() * Math.PI * 2;
+            const SPAWN_R = 12 * this.cellM;   // ~12 cells; outside viewport
+            entry.creatures.push({
+              kind: 'crow',
+              x: px + Math.cos(angle) * SPAWN_R,
+              y: py + Math.sin(angle) * SPAWN_R,
+              id: `pest_crow_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+            });
+          }
         }
       }
     }
 
-    WorldGen.forEachItem('creatures', (c) => {
+    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
+      // Cheapest reject first: the sim range cull. Everything below runs only
+      // for the handful of creatures actually near the player.
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // Wandering kinds: farm + pet animals always; butterflies (wild + tame)
       // flit about constantly — tame ones also pollinate. Crows + deer also
@@ -5208,12 +5307,10 @@ class MapScene extends Phaser.Scene {
                     || c.kind === 'slime' || c.kind === 'rabbit'
                     || c.kind === 'butterfly' || isMonster(c.kind);
       if (!wanders) return;
-      if (this.save.caught.includes(c.id)) return;
+      if (caughtSet.has(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
       // player), so the generic wander must not also drive it.
       if (c._beingCaught) return;
-      const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
@@ -5349,12 +5446,14 @@ class MapScene extends Phaser.Scene {
         if (isTame && (c.kind === 'cat' || c.kind === 'dog')) {
           const CHASE_R = 8 * this.cellM;
           const CHASE_R2 = CHASE_R * CHASE_R;
-          const PREY = c.kind === 'cat' ? new Set(['crow']) : new Set(['deer', 'slime']);
+          const PREY = c.kind === 'cat' ? CAT_PREY : DOG_PREY;
           let nearest = null, nearestD2 = CHASE_R2;
-          WorldGen.forEachItem('creatures', (cr) => {
+          // Pet is within sim range of the player and prey within 8 cells of
+          // the pet, so the player's 3×3 tile ring covers the search box.
+          WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
             if (!PREY.has(cr.kind)) return;
             if (cr.id?.startsWith('released_')) return;
-            if (this.save.caught?.includes(cr.id)) return;
+            if (caughtSet.has(cr.id)) return;
             const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
             if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
           });
@@ -6916,7 +7015,7 @@ class MapScene extends Phaser.Scene {
           return;
         }
         try {
-          const r = gameEl.getBoundingClientRect();
+          const r = gameScreenRect() || gameEl.getBoundingClientRect();
           const sx = r.width  / W;   // current CSS scale (uniform — same value either axis)
           const sy = r.height / H;
           const b = t.getBounds();   // Phaser/game coords
@@ -7220,7 +7319,11 @@ class MapScene extends Phaser.Scene {
     // toasts on one frame just makes an unreadable pile. The rest are already
     // banked; the chip resync at the end of the play shows where the ladder
     // actually stands.
-    this._playStarterCheer(queued[queued.length - 1]);
+    // Own try/catch: this is also called from _installModalPadGate's
+    // MutationObserver callback, which runs outside update()'s guard — a throw
+    // escaping from a microtask there is uncatchable by the game loop.
+    try { this._playStarterCheer(queued[queued.length - 1]); }
+    catch (e) { this._reportLoopError?.(e); }
   }
 
   _playStarterCheer(done) {
@@ -11262,4 +11365,13 @@ const game = window.__game = new Phaser.Game({
   // browser logs a "failed to start the audio device" warning on iOS/Android
   // because Web Audio can't start before the first user gesture.
   audio: { noAudio: true, disableWebAudio: true },
+  // Phaser defaults to ONE touch pointer (pointers[1]; pointers[0] is the
+  // mouse). With a single slot, holding the movement stick — a plain DOM
+  // element whose touches still bubble to Phaser's window listeners —
+  // occupies the only pointer, so a world tap with the other thumb is
+  // silently dropped. Worse, a touchend that never reaches Phaser (see the
+  // stuck-pointer sweeper in create()) strands that one pointer `active`
+  // forever and ALL canvas taps die until reload. Three slots covers
+  // stick + tap + one stray finger.
+  input: { activePointers: 3 },
 });

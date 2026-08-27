@@ -122,6 +122,37 @@ function setTextureIfDifferent(s, key) {
   return true;
 }
 
+// Change-guarded Text style setters. Phaser guards setText / setFontSize /
+// setStroke against no-op values, but setColor, setBackgroundColor, setShadow
+// and setPadding are UNguarded: each call unconditionally re-measures, redraws
+// the label's backing canvas and re-uploads it as a GPU texture. The label
+// passes below run per visible label per frame, so on a dense block the
+// unguarded setters were dozens of full text rasterizations + texture uploads
+// every frame — a large slice of the walking jitter. These wrappers stamp the
+// last-applied value on the (pooled, reused) Text object and only touch the
+// real setter on change. `key` for the multi-arg setters is any string that
+// uniquely encodes the full argument tuple at that call site.
+function setColorOnce(tx, color) {
+  if (tx._lastInk === color) return;
+  tx._lastInk = color;
+  tx.setColor(color);
+}
+function setBgColorOnce(tx, color) {
+  if (tx._lastBg === color) return;
+  tx._lastBg = color;
+  tx.setBackgroundColor(color);
+}
+function setShadowOnce(tx, key, x, y, color, blur, shadowStroke, shadowFill) {
+  if (tx._lastShadow === key) return;
+  tx._lastShadow = key;
+  tx.setShadow(x, y, color, blur, shadowStroke, shadowFill);
+}
+function setPaddingOnce(tx, key, left, top) {
+  if (tx._lastPad === key) return;
+  tx._lastPad = key;
+  tx.setPadding(left, top);
+}
+
 // Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
 // pan fraction (fracX, fracY). drawCells inlined this expression at six call
 // sites; factored out here since they all had to stay byte-identical anyway.
@@ -600,6 +631,22 @@ Render.drawCells = function drawCells(scene) {
   // drift relative to the rendered cell positions.
   const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
   const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  // Planted entries near the viewport, filtered ONCE per pass. The tilled-cell
+  // loop below matches each visible tilled cell against save.planted (watered
+  // tint + the orphaned-soil self-heal); scanning the whole planted list per
+  // cell made that O(visible-tilled × every-crop-ever-planted). The filter
+  // keeps every entry that could possibly match an on-screen cell (±0.1 m
+  // tolerance, so a one-cell margin is plenty) and the per-cell tests below
+  // are unchanged.
+  const _plantedNear = [];
+  if (scene.save.planted && scene.save.planted.length) {
+    const _pcx = scene.startWorldM.x + scene.playerM.x;
+    const _pcy = scene.startWorldM.y + scene.playerM.y;
+    const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
+    for (const pp of scene.save.planted) {
+      if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
+    }
+  }
   // Border layer: only redraw geometry when the camera crosses a cell boundary.
   // Between crossings scroll the container for sub-cell fractional movement.
   // This keeps the Graphics object's draw-command list stable across frames,
@@ -911,7 +958,7 @@ Render.drawCells = function drawCells(scene) {
       }
       if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
-        const hasPlant = scene.save.planted.some(pp =>
+        const hasPlant = _plantedNear.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
         if (!hasPlant) {
           scene.tilledSet.delete(tilledKey);
@@ -923,7 +970,7 @@ Render.drawCells = function drawCells(scene) {
       let isWatered = false;
       if (isTilled) {
         const c = absCellCenterMeters(scene, absCellIX, absCellIY);
-        for (const pp of scene.save.planted) {
+        for (const pp of _plantedNear) {
           if (pp.watered_t && Math.abs(pp.x - c.x) < 0.1 && Math.abs(pp.y - c.y) < 0.1) {
             isWatered = true; break;
           }
@@ -1343,12 +1390,26 @@ Render.drawCells = function drawCells(scene) {
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
   // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
   // otherwise the radius is 2.5 cells growing to 5.5 via Inner Light upgrades,
-  // then shrunk half a cell per level underground (floored at 1.5). isReach
-  // delegates entirely so the visual outline and tap-accept are always byte-identical.
+  // then shrunk half a cell per level underground (floored at 1.5).
+  //
+  // Per-frame hoist: the four reach loops below call isReach ~1000 times a
+  // frame (the outline pass probes each cell plus its four neighbours), and
+  // cellInReach recomputes reachRadiusM (a Date.now()) and playerReachCell (a
+  // fresh {cellIX, cellIY} allocation) on every call — ~60k throwaway objects
+  // a second. Both are constant for the frame, so evaluate them once here and
+  // inline cellInReach's distance test with the SAME expressions in the same
+  // order, keeping the visual outline byte-identical to the tap-accept test
+  // in interact.js (which still goes through cellInReach itself).
+  const _reachM = reachRadiusM(scene);
+  const _reachM2 = _reachM * _reachM;
+  const _reachP = playerReachCell(scene);
   const isReach = (col, row) => {
+    if (_reachM <= 0) return false;
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
-    return cellInReach(scene, absIX, absIY);
+    const dx = (absIX - _reachP.cellIX) * scene.cellM;
+    const dy = (absIY - _reachP.cellIY) * scene.cellM;
+    return dx * dx + dy * dy <= _reachM2;
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
@@ -2726,7 +2787,7 @@ Render.drawObjects = function drawObjects(scene) {
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label).setVisible(true);
     tx.setFontSize(isFallback ? 9 : 11);
-    tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
+    setPaddingOnce(tx, isFallback ? 'f' : 'n', isFallback ? 2 : 3, isFallback ? 1 : 2);
     // POI names hang VERTICALLY, reading bottom-to-top up the right-hand side
     // of the chest; every other label on the map is horizontal. On a dense
     // block the POI names, the shop signs and the crate labels all used to
@@ -2764,9 +2825,9 @@ Render.drawObjects = function drawObjects(scene) {
     // every other POI name. Only a genuine loose supply crate stays plain
     // white. The pool is shared across both, and a pooled slot may have just
     // drawn the other kind, so set it every frame.
-    tx.setColor(o.crate ? CRATE_LABEL_INK : LABEL_INK);
+    setColorOnce(tx, o.crate ? CRATE_LABEL_INK : LABEL_INK);
     tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
-    tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
+    setShadowOnce(tx, 'poi', 1, 1, LABEL_SHADOW, 2, true, true);
     // Full opacity EXCEPT where the label would cover the player — opened
     // chests keep their label legible (per user: the dimmed-after-open look
     // made closed shops read as inactive), the opened/closed state is carried
@@ -2921,9 +2982,8 @@ Render.drawObjects = function drawObjects(scene) {
     // building, almost touching the doorstep (origin set to [0.5, 0] at
     // pool creation so position y = label top). +5 follows the house
     // sprite's own dyPx so the sign stays glued to the doorstep.
-    tx.setText(_houseSignText(o))
-      .setColor(_lighten30(_houseSignInk(o)))
-      .setVisible(true);
+    tx.setText(_houseSignText(o)).setVisible(true);
+    setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
     sli++;
@@ -2964,8 +3024,9 @@ Render.drawObjects = function drawObjects(scene) {
     const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'stats-modal'];
     const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
     let psi = 0;
-    if (gameEl && !dialogOpen) {
-      const rect = gameEl.getBoundingClientRect();
+    const gameRect = (gameEl && !dialogOpen) ? gameScreenRect() : null;
+    if (gameRect) {
+      const rect = gameRect;
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
@@ -3088,23 +3149,22 @@ Render.drawObjects = function drawObjects(scene) {
     // Sepia ink on cream parchment for "open"; dim rust on cream for
     // "busy". Muted to read as a tag, not a callout.
     const ink = info.ready ? '#27521e' : '#5f2a2a';
-    tx.setText(label)
-      .setColor(ink)
-      .setBackgroundColor('#f3e9c6')
-      // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
-      // cell now, so the roof reaches half the scaled sprite height above sy —
-      // the old flat -20 landed the plaque ON the gable. Measure the art and
-      // clear it by 3px (falling back to the old offset when the frame can't
-      // be read). -10 on x nudges it off-centre so it reads as hanging from a
-      // bracket on the left rather than dead-centred on the gable.
-      .setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
-                   Math.round(sy) - _houseTopPx(o) - 3)
-      .setVisible(true);
+    tx.setText(label).setVisible(true);
+    setColorOnce(tx, ink);
+    setBgColorOnce(tx, '#f3e9c6');
+    // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
+    // cell now, so the roof reaches half the scaled sprite height above sy —
+    // the old flat -20 landed the plaque ON the gable. Measure the art and
+    // clear it by 3px (falling back to the old offset when the frame can't
+    // be read). -10 on x nudges it off-centre so it reads as hanging from a
+    // bracket on the left rather than dead-centred on the gable.
+    tx.setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
+                   Math.round(sy) - _houseTopPx(o) - 3);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
     // hard 1-px outline of the previous version — that competed too
     // hard with the house sign's stroked block lettering.
-    tx.setShadow(1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
+    setShadowOnce(tx, 'pip', 1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
     fadeLabelOverPlayer(tx, _playerBox);
     hri++;
   }
@@ -3319,9 +3379,9 @@ Render.drawObjects = function drawObjects(scene) {
     // cell border (origin (1,1) was set at pool creation).
     t.setText(label)
      .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-     .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
      .setAlpha(0.8)
      .setVisible(true);
+    setColorOnce(t, remaining <= 0 ? '#a7ffb0' : '#ffffff');
     ti++;
   }
   hidePoolFrom(scene.plantedTimerPool, ti);
