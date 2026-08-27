@@ -52,7 +52,8 @@ const Multiplayer = (function () {
   // ── pure helpers (mirrored in server/index.js; keep the two in step) ─────
   function cleanName(raw) {
     if (typeof raw !== 'string') return '';
-    return raw.replace(/[^\P{C}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+    // Clamp by code point, not UTF-16 unit, so a trailing emoji isn't split.
+    return Array.from(raw.replace(/[^\P{C}]/gu, '').replace(/\s+/g, ' ').trim()).slice(0, NAME_MAX).join('');
   }
   function pickColor(rng = Math.random) {
     return COLORS[Math.floor(rng() * COLORS.length) % COLORS.length];
@@ -105,7 +106,8 @@ const Multiplayer = (function () {
     pings: [],            // { id, name, color, x, y, label, at, gfx, txt }
     lastSend: 0, lastSent: null,
     backoff: RECONNECT_MIN_MS, retryTimer: null, stopped: false,
-    container: null, pingMode: false, btn: null, onlineCount: 0,
+    container: null, pingMode: false, btn: null,
+    everOnline: false,    // the HUD chip stays hidden until the relay has answered once
   };
 
   function serverUrl() {
@@ -182,7 +184,7 @@ const Multiplayer = (function () {
     const now = performance.now();
     switch (msg.t) {
       case 'welcome':
-        S.id = msg.id; S.backoff = RECONNECT_MIN_MS; setStatus('online');
+        S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true; setStatus('online');
         for (const p of msg.peers || []) upsertPeer(p, now);
         break;
       case 'join': upsertPeer(msg, now); break;
@@ -205,10 +207,20 @@ const Multiplayer = (function () {
   function dropPeer(id) {
     const p = S.peers.get(id);
     if (!p) return;
-    p.spr?.destroy(); p.lbl?.destroy(); p.sh?.destroy();
+    hidePeerArt(p, true);
     S.peers.delete(id);
     paintButton();
   }
+  function hidePeerArt(p, destroy) {
+    if (!p.spr) return;
+    if (destroy) { p.spr.destroy(); p.lbl.destroy(); p.sh.destroy(); p.spr = p.lbl = p.sh = null; }
+    else { p.spr.setVisible(false); p.lbl.setVisible(false); p.sh.setVisible(false); }
+  }
+  // Peers we've heard from recently. The relay only forwards moves within
+  // INTEREST_PX, so a peer that walked out of range goes quiet — it stays in
+  // the roster (its next frame in range revives it) but isn't "near".
+  const isNear = (p, now) => now - p.seenAt < PEER_STALE_MS;
+  function nearCount(now) { let n = 0; for (const p of S.peers.values()) if (isNear(p, now)) n++; return n; }
   function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); }
 
   // ── drawing ──────────────────────────────────────────────────────────────
@@ -244,7 +256,9 @@ const Multiplayer = (function () {
     // on a 30 fps phone as at 60, instead of a per-frame fraction.
     const k = 1 - Math.exp(-dt / 0.065);
     for (const p of S.peers.values()) {
-      if (now - p.seenAt > PEER_STALE_MS) { dropPeer(p.id); continue; }
+      // Quiet for too long → out of range (or a dead tab the relay hasn't
+      // reaped yet). Free its art but keep the roster entry — see isNear.
+      if (!isNear(p, now)) { if (p.spr) { hidePeerArt(p, true); paintButton(); } continue; }
       const wm = fromWorldPx(scene, p.x, p.y);
       const s = worldMetersToScreen(scene, wm.x, wm.y);
       // Ease toward the newest fix so 8 Hz updates read as a walk, not hops.
@@ -252,7 +266,7 @@ const Multiplayer = (function () {
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
       const onScreen = (p.d || 0) === (scene.depth || 0)
         && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
-      if (!onScreen) { if (p.spr) { p.spr.setVisible(false); p.lbl.setVisible(false); p.sh.setVisible(false); } continue; }
+      if (!onScreen) { hidePeerArt(p, false); continue; }
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
       playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
@@ -279,10 +293,11 @@ const Multiplayer = (function () {
     }
   }
   function drawPings(scene, now) {
-    S.pings = S.pings.filter(q => {
-      if (now - q.at > PING_TTL_MS) { q.gfx?.destroy(); q.txt?.destroy(); return false; }
-      return true;
-    });
+    if (!S.pings.length) return;
+    for (let i = S.pings.length - 1; i >= 0; i--) {
+      const q = S.pings[i];
+      if (now - q.at > PING_TTL_MS) { q.gfx?.destroy(); q.txt?.destroy(); S.pings.splice(i, 1); }
+    }
     for (const q of S.pings) {
       const wm = fromWorldPx(scene, q.x, q.y);
       const s = worldMetersToScreen(scene, wm.x, wm.y);
@@ -340,7 +355,7 @@ const Multiplayer = (function () {
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'left:calc(var(--phone-left, 0px) + 8px);z-index:7;' +
-      'display:none;align-items:center;gap:6px;' +
+      'display:none;align-items:center;gap:6px;' +   // shown by paintButton; body.modal-open hides it (index.html)
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
       'color:#9fd8ff;border:2px solid #3a6c8c;background:rgba(10,20,30,.85);' +
       'font:700 12px ui-monospace,monospace;';
@@ -357,9 +372,11 @@ const Multiplayer = (function () {
   function paintButton() {
     const btn = S.btn;
     if (!btn) return;
-    if (S.status === 'noname' || S.status === 'off') { btn.style.display = 'none'; return; }
+    // Invisible until the relay has answered once this page load: an
+    // unreachable server must not leave a dead "connecting…" chip on screen.
+    if (S.status === 'noname' || S.status === 'off' || !S.everOnline) { btn.style.display = 'none'; return; }
     btn.style.display = 'flex';
-    const n = S.peers.size;
+    const n = nearCount(performance.now());
     if (S.status !== 'online') { btn.textContent = '👥 connecting…'; btn.style.opacity = '.6'; return; }
     btn.style.opacity = '1';
     btn.textContent = S.pingMode ? '📍 tap the map…' : `📍 ping · 👥 ${n} near`;

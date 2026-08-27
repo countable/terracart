@@ -6257,7 +6257,7 @@ class MapScene extends Phaser.Scene {
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
         tint = (v << 16) | (v << 8) | v;
       }
-      this.player.setTint(mulTint(tint, this.save.playerColor));
+      this.player.setTint(mulTint(tint, this._dragonActive ? null : this.save.playerColor));
       const key = spent ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
@@ -6271,7 +6271,7 @@ class MapScene extends Phaser.Scene {
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
       // players see on them (multiplayer.js), so you can spot yourself.
-      this.player.setTint(this.save.playerColor || 0xffffff);
+      this.player.setTint((!this._dragonActive && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
   }

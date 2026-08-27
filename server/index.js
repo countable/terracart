@@ -50,11 +50,18 @@ const MAX_MSGS_PER_S = 30;
 // A socket that has not answered a ping in this long is dead (phone locked,
 // tunnel dropped) — close it so its ghost leaves the roster.
 const PING_MS = 20000;
+// A socket that connects but never says hello is holding a slot for nothing.
+const HELLO_DEADLINE_MS = 10000;
 
 function cleanName(raw) {
+  return cleanText(raw, NAME_MAX);
+}
+function cleanLabel(raw) { return cleanText(raw, LABEL_MAX); }
+// Printable characters only; collapse runs of whitespace; clamp by code point
+// (not UTF-16 unit) so a trailing emoji isn't split into a lone surrogate.
+function cleanText(raw, max) {
   if (typeof raw !== 'string') return '';
-  // Printable characters only; collapse runs of whitespace; clamp length.
-  return raw.replace(/[^\P{C}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+  return Array.from(raw.replace(/[^\P{C}]/gu, '').replace(/\s+/g, ' ').trim()).slice(0, max).join('');
 }
 function cleanColor(raw) {
   const n = Number(raw);
@@ -91,6 +98,8 @@ function createRelay(server) {
     ws.budget = MAX_MSGS_PER_S;   // inbound frames left this second (refilled below)
     ws.alive = true;
     ws.on('pong', () => { ws.alive = true; });
+    const helloTimer = setTimeout(() => { if (!me) ws.terminate(); }, HELLO_DEADLINE_MS);
+    helloTimer.unref();
 
     ws.on('message', (data) => {
       if (--ws.budget < 0) return fail(ws, 'rate');
@@ -119,12 +128,13 @@ function createRelay(server) {
         if (now - (me.lastPingAt || 0) < PING_GAP_MS) return;
         me.lastPingAt = now;
         nearby(me, { t: 'ping', id: me.id, name: me.name, color: me.color,
-                     x: num(msg.x), y: num(msg.y), label: cleanName(msg.label).slice(0, LABEL_MAX) });
+                     x: num(msg.x), y: num(msg.y), label: cleanLabel(msg.label) });
       }
       // Unknown frames are ignored, not fatal.
     });
 
     ws.on('close', () => {
+      clearTimeout(helloTimer);
       if (!me) return;
       clients.delete(me.id);
       broadcast({ t: 'leave', id: me.id });
@@ -169,4 +179,4 @@ if (require.main === module) {
   server.listen(PORT, () => console.log(`terracart relay listening on :${PORT}`));
 }
 
-module.exports = { createServer, createRelay, cleanName, cleanColor, INTEREST_PX, NAME_MAX, MAX_MSGS_PER_S, PING_GAP_MS };
+module.exports = { createServer, createRelay, cleanName, cleanLabel, cleanColor, INTEREST_PX, NAME_MAX, LABEL_MAX, MAX_MSGS_PER_S, PING_GAP_MS };

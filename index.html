@@ -256,6 +256,9 @@
        nowrap+ellipsis keeps it to one line, so the two never meet; the copy
        itself is now one actionable phrase, with the coordinate dump behind
        ☰ › Developer (see updateHUD). */
+    /* Multiplayer chip (src/multiplayer.js #mp-btn) lives on <body> like the
+       pads, so it too would float over a dialog inside #game — hide it there. */
+    body.modal-open #mp-btn { display: none !important; }
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
@@ -1544,7 +1547,15 @@
     function readPlayerName() {
       const sc = window.__scene;
       if (sc && sc.save) return sc.save.playerName || '';
-      try { return (typeof loadSave === 'function' && loadSave().playerName) || ''; } catch { return ''; }
+      try {
+        if (typeof loadSave === 'function') return loadSave().playerName || '';
+        // Before save.js has loaded (this script runs first): read the active
+        // slot straight out of the registry, same as the haptics toggle does.
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        const slot = reg && reg.slots.find(s => s.id === reg.active);
+        const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
+        return (d && d.playerName) || '';
+      } catch { return ''; }
     }
     window.__setPlayerName = function (raw) {
       const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
@@ -1584,6 +1595,10 @@
       wrap.style.display = 'block';
       const sync = () => { cta.disabled = !input.value.trim(); cta.style.opacity = cta.disabled ? '.45' : '1'; };
       input.addEventListener('input', sync);
+      // A returning save boots the scene under this splash, and Phaser's
+      // keyboard plugin captures W/A/S/D + arrows on window — so without this
+      // "Ada Smith" would type as " Smith". Stop the keys at the field.
+      for (const ev of ['keydown', 'keyup', 'keypress']) input.addEventListener(ev, (e) => e.stopPropagation());
       input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !cta.disabled) cta.click(); });
       sync();
     }
@@ -1699,7 +1714,10 @@
     // persists across the reload. Auto-dismiss the safety splash so it doesn't
     // appear a second time — the user already acknowledged it this session.
     try {
-      if (sessionStorage.getItem('terracart.safetySeen')) {
+      // A same-session reload skips the splash — unless the save has no
+      // player name yet ("+ New game" / switching saves reloads in-session),
+      // in which case the splash stays up as the name gate.
+      if (sessionStorage.getItem('terracart.safetySeen') && readPlayerName()) {
         __safetyDismissed = true;
         document.getElementById('safety')?.remove();
         window.__compassPerm = window.__compassPerm || 'granted';
@@ -2061,7 +2079,7 @@
   <script src="src/combat.js?v=2"></script>
   <script src="src/interact.js?v=230"></script>
   <script src="src/render.js?v=312"></script>
-  <script src="src/multiplayer.js?v=1"></script>
+  <script src="src/multiplayer.js?v=2"></script>
   <script src="src/road_overlay.js?v=10"></script>
   <script src="src/assets.js?v=177"></script>
   <script src="src/sandbox.js?v=38"></script>
@@ -2122,7 +2140,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=438';
+      const APP_SRC = 'src/app.js?v=439';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
