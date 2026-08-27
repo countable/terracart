@@ -8,6 +8,31 @@ function pickFromArray(arr, rng) {
   return arr[Math.floor((rng ?? Math.random)() * arr.length)];
 }
 
+// #game's screen rect, cached. getBoundingClientRect forces a synchronous
+// style-recalc + layout, and three per-frame consumers (the delivery-house
+// callouts, the work-wheel icon, the reserved-corner icons) each read it every
+// frame — layout thrash interleaved with the same frame's style WRITES. The
+// rect only actually changes when fitGame rescales (#game is a fixed 352×844
+// box under a CSS transform), so serve a cached copy: invalidated by resize /
+// visualViewport events and, belt-and-braces, re-measured once a second in
+// case some rescale path escapes both listeners.
+let _gameRectCache = null;
+let _gameRectT = 0;
+function gameScreenRect() {
+  const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  if (!_gameRectCache || now - _gameRectT > 1000) {
+    const el = document.getElementById('game');
+    if (!el) return null;
+    _gameRectCache = el.getBoundingClientRect();
+    _gameRectT = now;
+  }
+  return _gameRectCache;
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => { _gameRectCache = null; });
+  window.visualViewport?.addEventListener('resize', () => { _gameRectCache = null; });
+}
+
 // Uniform integer in the inclusive range [min, max].
 function randInt(min, max, rng) {
   return min + Math.floor((rng ?? Math.random)() * (max - min + 1));
