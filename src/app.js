@@ -1873,8 +1873,16 @@ class MapScene extends Phaser.Scene {
     // opening story slides, so calling it here can't jump the story.
     if (!this._sandboxMode) window.showHowTo?.();
 
-    // Boot tile load
-    this.ensureTilesAround().catch(e => console.error(e));
+    // Boot tile load. The boot overlay (index.html) used to fade the instant
+    // the FIRST update() frame ran, leaving the in-world "unmapped" shimmer as
+    // the only sign anything was happening for however long the initial 3×3
+    // tile block took to fetch — several seconds on a cold cache, and a
+    // dark shimmer reads as stalled, not loading. Keep the overlay up (its bar
+    // fed per-tile by ensureTilesAround itself) until this first call actually
+    // resolves, success or failure, instead of handing off at first paint.
+    this.ensureTilesAround()
+      .catch(e => console.error(e))
+      .then(() => { this._bootOverlayGone = true; window.__bootStatus?.(1); });
 
     // Network status
     window.addEventListener('offline', () => this.showBanner(true));
@@ -1974,9 +1982,12 @@ class MapScene extends Phaser.Scene {
   _warnStrandedOrigin(fix) {
     if (this._strandedWarned || !fix) return;
     if (this.save.home || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
-    // Wait for the world to actually be on screen — a dialog stacked under the
-    // boot overlay is a dialog nobody reads. A later fix re-offers it.
-    if (!this._bootStatusDone) return;
+    // Wait for the boot overlay to actually be gone — a dialog stacked under
+    // it is a dialog nobody reads. A later fix re-offers it. This is the
+    // overlay's OWN dismissal (_bootOverlayGone, set once the initial tile
+    // load resolves), not just "a frame has rendered" (_bootStatusDone) — the
+    // overlay now outlives the first frame on purpose (see create()).
+    if (!this._bootOverlayGone) return;
     const d = Math.hypot(fix.x, fix.y);
     if (!(d >= ORIGIN_STRANDED_M)) return;
     this._strandedWarned = true;
@@ -2638,7 +2649,17 @@ class MapScene extends Phaser.Scene {
       warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
     }
     let anyFailed = false;
-    for (const k of needed) {
+    // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY rather than one
+    // tile at a time. This used to be a serial `for...of` with an `await`
+    // inside — on a cold cache every neighbour is a real network round trip,
+    // so 9 tiles paid 9× the latency back to back, which is where the ~5s
+    // blank-map stretch after boot came from. Nothing here depends on load
+    // order (each tile only reads/writes its own entry; the one cross-tile
+    // read, dedup, already tolerates tiles racing each other — see
+    // collectDedupIndex), so there's nothing to lose by firing them together.
+    let doneCount = 0;
+    const total = needed.size;
+    await Promise.all([...needed].map(async (k) => {
       const [tx, ty] = k.split('/').map(Number);
       try {
         const entry = await WorldGen.loadTile(tx, ty, START_LAT);
@@ -2656,8 +2677,17 @@ class MapScene extends Phaser.Scene {
       } catch (e) {
         anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
+      } finally {
+        // Feeds the boot overlay's progress bar for the one stretch it used
+        // to have no visibility into (index.html hands off to this call the
+        // instant the world is on screen — see the create() call site). A
+        // no-op once the overlay has vanished, so this is harmless to call
+        // for every later ensureTilesAround too (walking into a new tile,
+        // depth changes, …).
+        doneCount++;
+        window.__bootStatus?.(0.9 + 0.1 * (doneCount / total), 'Loading the map…');
       }
-    }
+    }));
     // Show it whenever tiles FAIL, not only when the browser admits it's
     // offline: a captive portal, a blocked or DNS-failed tile host, a 5xx, a
     // corporate proxy or a VPN all keep navigator.onLine true, and the player
@@ -4395,11 +4425,11 @@ class MapScene extends Phaser.Scene {
     // Swallowing a bad frame keeps the loop (and taps) alive; _reportLoopError
     // surfaces the error so the underlying cause stays diagnosable on a phone.
     try {
-    // First frame = the world is on screen: retire the boot loading overlay.
-    // Any tiles still fetching show as the unmapped shimmer from here on.
+    // First frame = the world is on screen. The boot overlay itself now waits
+    // on the initial tile load rather than this frame (see create() /
+    // _bootOverlayGone) — this flag only times the icon prewarm below.
     if (!this._bootStatusDone) {
       this._bootStatusDone = true;
-      window.__bootStatus?.(1);
       // Prewarm the modal-only icon sheets once the boot rush is over — 4s
       // gives the first map tiles and Phaser's own assets first claim on the
       // connection. See IconNet for why (treasure-modal icons were blank for
