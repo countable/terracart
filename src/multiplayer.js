@@ -45,7 +45,9 @@ const Multiplayer = (function () {
   const PING_TTL_MS = 300000;    // how long a ping marker stays on the map (5 min)
   const PING_ARROW_MAX_M = 300;  // an off-screen ping within this many metres gets an edge arrow
   const PING_ARROW_INSET = 14;   // how far inside the view edge the arrow sits
-  const PEER_DOT_MAX_M = 300;    // an off-screen peer within this many metres gets an edge dot
+  const PEER_NEAR_M = 300;       // a peer within this many metres is "near": counted on the
+                                 // HUD chip, and dotted on the view edge while off-screen —
+                                 // one number so the chip and the rim can't disagree
   const PEER_DOT_INSET = 5;      // dot centre this far inside the view edge — its outline clears the mask
   const PEER_DOT_R = 3;          // dot radius, px
   const RECONNECT_MIN_MS = 2000, RECONNECT_MAX_MS = 30000;
@@ -245,10 +247,22 @@ const Multiplayer = (function () {
     if (destroy) { p.spr.destroy(); p.lbl.destroy(); p.sh.destroy(); p.spr = p.lbl = p.sh = null; }
     else { p.spr.setVisible(false); p.lbl.setVisible(false); p.sh.setVisible(false); }
   }
-  // Peers we've heard from recently. The relay only forwards moves within
-  // INTEREST_PX, so a peer that walked out of range goes quiet — it stays in
-  // the roster (its next frame in range revives it) but isn't "near".
-  const isNear = (p, now) => now - p.seenAt < PEER_STALE_MS;
+  // How far a peer is from the player, in world metres. Infinity before the
+  // scene is up so nothing counts as near while there's nothing to measure from.
+  function peerDistM(p) {
+    const sc = S.scene;
+    if (!sc) return Infinity;
+    const wm = fromWorldPx(sc, p.x, p.y);
+    return Math.hypot(wm.x - (sc.startWorldM.x + sc.playerM.x),
+                      wm.y - (sc.startWorldM.y + sc.playerM.y));
+  }
+  // "Near" = heard from recently AND within PEER_NEAR_M. The relay only
+  // forwards moves within INTEREST_PX, so a peer that walked out of range
+  // goes quiet — it stays in the roster (its next frame in range revives it).
+  // Recency alone used to be the whole test, which put "1 near" on the HUD
+  // chip for a player half a suburb away; now the chip, the edge dot and the
+  // ping arrow all agree on the same 300 m.
+  const isNear = (p, now) => now - p.seenAt < PEER_STALE_MS && peerDistM(p) <= PEER_NEAR_M;
   function nearCount(now) { let n = 0; for (const p of S.peers.values()) if (isNear(p, now)) n++; return n; }
   function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); }
 
@@ -299,7 +313,7 @@ const Multiplayer = (function () {
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
       const onScreen = (p.d || 0) === (scene.depth || 0)
         && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
-      if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p, wm); continue; }
+      if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p); continue; }
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
       playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
@@ -309,19 +323,17 @@ const Multiplayer = (function () {
     }
   }
 
-  // An off-screen peer within PEER_DOT_MAX_M shows as a small dot in their
-  // colour on the very edge of the view, in the direction they are — so a
-  // friend a street over registers without a name label cluttering the rim.
-  // Same clamp the ping edge arrow uses (the point where the centre→peer line
-  // leaves the square), just further out: a dot needs less clearance than an
-  // arrow plus its distance label. A peer on another depth is skipped — they
-  // aren't on your map.
-  function drawPeerDot(scene, p, wm) {
+  // An off-screen NEAR peer (within PEER_NEAR_M — isNear gates the caller, so
+  // no distance check here) shows as a small dot in their colour on the very
+  // edge of the view, in the direction they are — so a friend a street over
+  // registers without a name label cluttering the rim. Same clamp the ping
+  // edge arrow uses (the point where the centre→peer line leaves the square),
+  // just further out: a dot needs less clearance than an arrow plus its
+  // distance label. A peer on another depth is skipped — they aren't on your
+  // map.
+  function drawPeerDot(scene, p) {
     if (!S.dotGfx) return;
     if ((p.d || 0) !== (scene.depth || 0)) return;
-    const dxm = wm.x - (scene.startWorldM.x + scene.playerM.x);
-    const dym = wm.y - (scene.startWorldM.y + scene.playerM.y);
-    if (Math.hypot(dxm, dym) > PEER_DOT_MAX_M) return;
     const e = edgeDot(p.dx - scene.viewCenterX, p.dy - scene.viewCenterY,
       scene.viewSize / 2, PEER_DOT_INSET);
     if (!e) return;
@@ -466,10 +478,12 @@ const Multiplayer = (function () {
     // unreachable server must not leave a dead "connecting…" chip on screen.
     if (S.status === 'noname' || S.status === 'off' || !S.everOnline) { btn.style.display = 'none'; return; }
     btn.style.display = 'flex';
+    // Glyphs only, no words: 📍 arms a ping (the arming toast explains the
+    // tap), 👥 N is who's near. Armed shows a bare 📍… under the gold rim.
     const n = nearCount(performance.now());
-    if (S.status !== 'online') { btn.textContent = '👥 connecting…'; btn.style.opacity = '.6'; return; }
+    if (S.status !== 'online') { btn.textContent = '👥 …'; btn.style.opacity = '.6'; return; }
     btn.style.opacity = '1';
-    btn.textContent = S.pingMode ? '📍 tap the map…' : `📍 ping · 👥 ${n} near`;
+    btn.textContent = S.pingMode ? '📍…' : `📍 · 👥 ${n}`;
     btn.style.borderColor = S.pingMode ? '#ffd24a' : '#3a6c8c';
   }
 
@@ -490,6 +504,10 @@ const Multiplayer = (function () {
     }
     drawPeers(scene, now, dt);
     drawPings(scene, now);
+    // "Near" moves with DISTANCE now, not just joins/leaves — walking toward
+    // or away from someone must move the chip's count, so repaint on change.
+    const n = nearCount(now);
+    if (n !== S._nearN) { S._nearN = n; paintButton(); }
   }
 
   function setName(scene, name) {
@@ -507,7 +525,7 @@ const Multiplayer = (function () {
 
   return { start, tick, consumeTap, ping, setName, status,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
-           COLORS, NAME_MAX, PEER_DOT_MAX_M, PEER_DOT_INSET, PEER_DOT_R,
+           COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET, PEER_DOT_R,
            _state: S };
 })();
 if (typeof window !== 'undefined') window.Multiplayer = Multiplayer;
