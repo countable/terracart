@@ -106,52 +106,39 @@ test('combat: bow and staff no longer shorten the melee wheel', () => {
   assert.truthy(Combat.meleeDps({ sword: { tier: 1 } }) > bare, 'a sword does');
 });
 
-test('combat: a shot carries its tier\'s melee rate SPLIT across the ranged slots', () => {
+test('combat: a shot carries its tier\'s FULL melee-equivalent rate', () => {
+  // Only one weapon ever fights at a time (save.activeWeapon, app.js), so a
+  // shot no longer splits its rate across the ranged slots — there is nothing
+  // to split against once bow and staff can't both be firing.
   for (const slot of Combat.RANGED_SLOTS) {
     for (const tier of [1, 4, 7]) {
       const relics = { [slot]: { tier } };
       const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
-                            / Combat.RANGED_SLOTS.length * Combat.FIRE_INTERVAL_MS / 1000));
+                            * Combat.FIRE_INTERVAL_MS / 1000));
       assert.eq(Combat.shotDamage(relics, slot), want,
-        `${slot} T${tier} shot should carry its share of its own rate`);
+        `${slot} T${tier} shot should carry its own full rate`);
     }
   }
-  // Wood → 2, frost → 25: the ladder in concrete, so a silent regression in
+  // Wood → 4, frost → 50: the ladder in concrete, so a silent regression in
   // TOOL_DURATION_MS shows up as a combat failure too. Wood's rung is 4000 ms,
-  // i.e. 3.75 HP/s of melee; halved across bow+staff that is 1.875, which the
-  // per-shot rounding in shotDamage carries to 2.
-  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 2, 'wood bow');
-  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 25, 'frost bow');
+  // i.e. 3.75 HP/s of melee, which the per-shot rounding in shotDamage carries
+  // to 4.
+  assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 4, 'wood bow');
+  assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 50, 'frost bow');
 });
 
-test('combat: the whole ranged loadout equals ONE melee weapon of its tier', () => {
-  // The point of the split. Shots fire themselves, from across the screen,
-  // while you walk — and the slots stack. Carrying every ranged weapon there
-  // is must therefore land what a single sword of that tier lands, not one
-  // sword per slot. Checked against the melee rate the sword itself reads.
+test('combat: a single active ranged weapon matches the sword of its tier', () => {
+  // Exclusivity (only save.activeWeapon fights) is what makes this safe: a bow
+  // alone can no longer stack with a staff, so pricing it at the full melee
+  // rate doesn't create the double-dip the old split existed to prevent.
   for (let tier = 1; tier <= 7; tier++) {
-    const relics = {};
-    for (const slot of Combat.RANGED_SLOTS) relics[slot] = { tier };
-    const loadout = Combat.RANGED_SLOTS
-      .reduce((sum, slot) => sum + Combat.shotDamage(relics, slot), 0)
-      * (1000 / Combat.FIRE_INTERVAL_MS);
-    const sword = Combat.meleeDps({ sword: { tier } });
-    // Per-shot rounding is the only slack: at most half a point per slot, per
-    // second. Anything wider than that means the split has drifted.
-    const slack = Combat.RANGED_SLOTS.length * 0.5 * (1000 / Combat.FIRE_INTERVAL_MS);
-    assert.lt(Math.abs(loadout - sword), slack + 1e-9,
-      `T${tier}: every ranged weapon at once lands ${loadout}/s against a sword's ${sword}/s`);
-  }
-});
-
-test('combat: a single ranged weapon is worth LESS than the sword of its tier', () => {
-  // The complaint this split answers: a wooden bow was killing as fast as a
-  // wooden sword while asking nothing of the player. Pinned as an inequality
-  // rather than a number so retuning TOOL_DURATION_MS can't quietly undo it.
-  for (let tier = 1; tier <= 7; tier++) {
-    const dps = Combat.shotDamage({ bow: { tier } }, 'bow') * (1000 / Combat.FIRE_INTERVAL_MS);
-    assert.lt(dps, Combat.meleeDps({ sword: { tier } }),
-      `a T${tier} bow alone should not match a T${tier} sword`);
+    for (const slot of Combat.RANGED_SLOTS) {
+      const dps = Combat.shotDamage({ [slot]: { tier } }, slot) * (1000 / Combat.FIRE_INTERVAL_MS);
+      const sword = Combat.meleeDps({ sword: { tier } });
+      // Rounding is the only slack: at most half a point per second.
+      assert.lt(Math.abs(dps - sword), 0.5 * (1000 / Combat.FIRE_INTERVAL_MS) + 1e-9,
+        `T${tier} ${slot} alone should land what a T${tier} sword does`);
+    }
   }
 });
 

@@ -2142,6 +2142,7 @@ test('combat: a bow auto-fires at an on-screen enemy, along the compass', (scene
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: { tier: 1 }, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene._workProgress = null;
   scene._shots = []; scene._nextShotT = {};
@@ -2177,6 +2178,7 @@ test('combat: nothing auto-fires at GAME or at a tamed slime', (scene) => {
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: { tier: 7 }, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene._workProgress = null;
   scene._shots = []; scene._nextShotT = {};
@@ -2209,6 +2211,7 @@ test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'sword';   // only the ACTIVE weapon auto-engages
   scene.save.caught = scene.save.caught || [];
   scene.save.energy = 100;
   scene._workProgress = null;

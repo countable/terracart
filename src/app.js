@@ -187,6 +187,11 @@ const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Slot draw order within each gear tab (owned slots only are rendered).
 const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
+// The three combat weapons — the only slots save.activeWeapon ever holds. Only
+// the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
+// the others sit inert until switched to (tapping one in the Relics tab, or
+// obtaining/forging a new one — see Gear.equip). Mirrors Gear.WEAPON_SLOTS.
+const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
 // Terrain cell types fauna may NEVER step onto (spec §fauna: "no fauna may move
 // onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
@@ -4810,11 +4815,13 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── COMBAT ───────────────────────────────────────────────────────────────
-  // Per-frame fight tick: pick up the enemies on screen, let the bow and staff
-  // loose their shots along the compass, fly the shots already out, and — if
-  // you carry a sword — engage the nearest foe without being asked. The maths
-  // (what counts as an enemy, damage per shot, shot flight) all lives in
-  // combat.js; this method is the scene glue.
+  // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
+  // staff loose its shots along the compass, fly the shots already out, and —
+  // if the sword is the active weapon — engage the nearest foe without being
+  // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
+  // here at a time; the rest sit inert until switched to. The maths (what
+  // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
+  // this method is the scene glue.
   _combatTick(dt) {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
@@ -4847,13 +4854,16 @@ class MapScene extends Phaser.Scene {
     // They do not home and they do not pick a target: the shot goes where you
     // are facing, so aiming is turning. Firing is gated on an enemy being on
     // screen — otherwise every walk across town would be trailing arrows.
+    // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
+    // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
+    // auto-engage below.
     if (enemies.length) {
       for (const slot of Combat.RANGED_SLOTS) {
-        if (!relics[slot]) continue;
+        if (!relics[slot] || this.save.activeWeapon !== slot) continue;
         const due = this._nextShotT[slot];
         if (due == null) {
-          // First sighting: stagger this slot's opening shot by its phase so a
-          // player carrying both weapons gets an alternating patter.
+          // First sighting this weapon has been active for: arm the cadence
+          // (phaseMs is 0 for both slots now that only one can ever fire).
           this._nextShotT[slot] = now + Combat.SHOT[slot].phaseMs;
           continue;
         }
@@ -4885,12 +4895,14 @@ class MapScene extends Phaser.Scene {
     this._drawShots();
 
     // ── Sword: auto-engage ─────────────────────────────────────────────────
-    // Carrying a sword means you no longer have to tap the slime that is
-    // already chewing on you: the nearest enemy IN REACH is picked up on its
-    // own. The wheel is flagged `auto`, which is what keeps it from behaving
+    // The sword being the ACTIVE weapon means you no longer have to tap the
+    // slime that is already chewing on you: the nearest enemy IN REACH is
+    // picked up on its own. A sword you still own but switched away from
+    // (bow/staff active instead) does not — see the WEAPON_SLOTS note above.
+    // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (relics.sword && !this._workProgress && enemies.length) {
+    if (relics.sword && this.save.activeWeapon === 'sword' && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         const fc = worldMetersToAbsCell(this, c.x, c.y);
@@ -11390,10 +11402,31 @@ class MapScene extends Phaser.Scene {
           badge.className = 'hud-badge';
           badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
+          // "E" (Equipped/active) badge — only the weapon currently doing the
+          // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
+          // from the tier badge so the two never collide.
+          const isWeapon = g.kind === 'relic' && WEAPON_SLOTS.includes(g.slot);
+          if (isWeapon && this.save.activeWeapon === g.slot) {
+            const eBadge = document.createElement('span');
+            eBadge.textContent = 'E';
+            eBadge.title = 'Active weapon';
+            eBadge.className = 'hud-badge';
+            eBadge.style.cssText = 'position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:#ffe066;color:#3a3322;';
+            slot.appendChild(eBadge);
+          }
           slot.addEventListener('click', (e) => {
             e.stopPropagation();
             this.save.selGear = { kind: g.kind, slot: g.slot };
             this.save.selSlot = -1;
+            // Tapping a weapon makes it the active one — the other owned
+            // weapons go inert (see combat.js / _combatTick).
+            if (isWeapon && this.save.activeWeapon !== g.slot) {
+              this.save.activeWeapon = g.slot;
+              this.markRelicsDirty();
+              persistSave(this.save);
+              this.buildInventoryDOM();
+              return;
+            }
             persistSave(this.save);
             this.refreshInventoryHighlight();
           });
