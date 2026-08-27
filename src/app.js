@@ -410,17 +410,6 @@ const WALK_HOME_IDLE_MS = 5000;
 // interrupted nudge from reading as the character fighting you — and the last
 // stretch is at normal walking speed.
 const WALK_HOME_RAMP_MS = 1100;
-// ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
-// hint is deliberately quieter than the walk: a player who has just let go of
-// the stick knows perfectly well what the character is doing, so the lead line
-// stays out of the way until the stick has been untouched for this long.
-//
-// It has to stay LONGER than the walk's own delay (or the lead line appears
-// before there's a walk to lead) but not so much longer that it never shows:
-// a typical return is over in a couple of seconds, so a hint that waits much
-// past the walk's start only ever appears on very long journeys home. Tracks
-// WALK_HOME_IDLE_MS — it is that plus a beat and a half.
-const WALK_HOME_HINT_IDLE_MS = 6500;
 // Shared unit for the consumable-buff durations below (reach/speed/shield
 // potion, dragon powder, coffee, pairy compass) so a duration reads as a
 // count of minutes instead of a repeated 60 * 1000 literal.
@@ -1680,14 +1669,14 @@ class MapScene extends Phaser.Scene {
     // Walk-target marker. Movement is target-follow at every depth: GPS fixes
     // and steering input move a free-flying target (this._targetM) and the
     // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This faint sprite marks where the
+    // through rock, which the body mines out. This small dot marks where the
     // target is whenever it has pulled away from the body; it stays hidden once
-    // the two coincide.
-    this.targetGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
-      .setScale(this.playerScale)
-      .setAlpha(0.4)
+    // the two coincide. A plain marker, not a player-shaped sprite — the only
+    // player sprites on the map belong to real bodies (this.player, and any
+    // other live player — see multiplayer.js).
+    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffffff, 0.55)
+      .setStrokeStyle(1.5, 0x000000, 0.4)
       .setDepth(10)
-      .play('idle-down')
       .setVisible(false)
       .setMask(mask);
     // Warning halo behind the player: red when the tank is empty, near-black
@@ -1699,33 +1688,18 @@ class MapScene extends Phaser.Scene {
       .setDepth(9.7)
       .setVisible(false)
       .setMask(mask);
-    // GPS ghost — a translucent stand-in at your REAL (GPS) position, shown
-    // once the stick has walked the character far enough off it to matter.
-    // Walking off the GPS is the whole point of the stick, so you need to see
-    // where you actually are to find your way back; without this the only clue
-    // was the character quietly not being where you're standing. Tinted cool so
-    // it doesn't read as a second player (the tint no-ops under the Phaser
-    // Canvas fallback — the transparency alone still carries it).
-    this.gpsGhost = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
-      .setScale(this.playerScale)
-      .setAlpha(0.6)
-      .setTint(0x7ec8ff)
+    // GPS dot — a small gold marker at your REAL (GPS) position, shown once
+    // the stick has walked the character far enough off it to matter. Walking
+    // off the GPS is the whole point of the stick, so you need to see where
+    // you actually are to find your way back; without this the only clue was
+    // the character quietly not being where you're standing. A plain dot, not
+    // a player-shaped sprite — the only player sprites on the map belong to
+    // real bodies.
+    this.gpsGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffe066, 0.9)
+      .setStrokeStyle(1.5, 0x000000, 0.45)
       .setDepth(9.8)
-      .play('idle-down')
       .setVisible(false)
       .setMask(mask);
-    // Walk-home lead — the dashed line from the feet to the GPS ghost while
-    // the character is walking itself back (see _drawWalkHomeHint). Depth
-    // 9.75 tucks it under the character (10) and the ghost (9.8) but over the
-    // halo (9.7), so it reads as being on the ground.
-    this.walkHomeGfx = this.add.graphics().setDepth(9.75).setMask(mask);
-    this._walkHomeDashPhase = 0;
-    this._driftingHome = false;
-    // Marching dashes are decoration — the line itself says where the
-    // character is headed, so honour a reduced-motion preference by holding
-    // them still. Read once: the pass runs every frame.
-    this._reducedMotion = !!(typeof window !== 'undefined' && window.matchMedia
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     // Target-follow state. _targetM is the walk target in body-relative world
     // metres; _autoMineKey marks the wall cell a wheel is currently chewing
     // through (underground only); _followPaused halts pursuit after the player
@@ -4571,7 +4545,6 @@ class MapScene extends Phaser.Scene {
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
-    this._drawWalkHomeHint(dt);
     this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -6488,9 +6461,6 @@ class MapScene extends Phaser.Scene {
   // Dragon Powder and the speed potion stand in for tier 8 / 9 amulets on both
   // counts for their minute (see _walkRelics).
   _steerManual(vx, vy, dt) {
-    // Steering by hand is the opposite of walking home — clear the flag the
-    // hint draws from, or it would stay lit from the last drift frame.
-    this._driftingHome = false;
     const n = Math.hypot(vx, vy);
     if (!n) return;
     // The "no GPS — use the stick or WASD" line is a lesson, not a status.
@@ -6556,10 +6526,6 @@ class MapScene extends Phaser.Scene {
   // takeover owns the target outright), and never mid-wheel: standing still to
   // chop a tree fifty metres out is being busy, not being idle.
   _driftHome(dt) {
-    // Every early return below is a frame where the character is NOT walking
-    // itself home, so the flag the hint reads is cleared up front and set only
-    // once the offset is actually being bled off.
-    this._driftingHome = false;
     if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return;
     if (this._busyWheel() || this._stickPushed()) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
@@ -6587,7 +6553,6 @@ class MapScene extends Phaser.Scene {
     const off = this._manualOffsetM;
     const mag = Math.hypot(off.x, off.y);
     if (mag < 0.01) return;
-    this._driftingHome = true;
     // Ease the return in (see WALK_HOME_RAMP_MS): squared ramp from the moment
     // the idle timer expires, so an interrupted nudge gives up almost no ground
     // while a real stop still gets home at walking pace.
@@ -6602,76 +6567,6 @@ class MapScene extends Phaser.Scene {
     this._targetM.x += dx;
     this._targetM.y += dy;
     this._followPaused = false;
-  }
-  // The walk home is the one bit of movement the player didn't ask for frame by
-  // frame — the character just starts walking, and until now the only clue was
-  // the GPS ghost quietly getting closer. So while it runs, draw a lead: a thin
-  // dashed line from the feet to the ghost with the dashes marching that way
-  // and a chevron at the far end. It says "on my way back there" in the one
-  // place the player is already looking, and it costs nothing to ignore.
-  //
-  // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
-  // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
-  // first moments need no explaining to the player who just let go),
-  // and it needs the ghost on screen, which is the game's own test for "far
-  // enough off your real position to matter". White and translucent — quieter
-  // than the coloured compasses (the green tutorial arrow, the magenta pairy
-  // blink): this is ambient "on my way" information, not a call to action, and
-  // white doesn't claim membership of any of the game's colour languages.
-  _drawWalkHomeHint(dt) {
-    const g = this.walkHomeGfx;
-    if (!g) return;
-    g.clear();
-    if (!this._driftingHome || !this.gpsGhost?.visible) return;
-    if (Date.now() - (this._lastStickT || 0) < WALK_HOME_HINT_IDLE_MS) return;
-    // Both sprites are drawn from their centre with the same nudge, so backing
-    // it out and adding the footprint anchor puts each endpoint at the feet.
-    const FEET = 13;
-    const x0 = this.viewCenterX, y0 = this.viewCenterY + FEET;
-    const x1 = this.gpsGhost.x;
-    const y1 = this.gpsGhost.y - this.playerFeetNudgeY + FEET;
-    const dx = x1 - x0, dy = y1 - y0;
-    const len = Math.hypot(dx, dy);
-    // Stop short at both ends so the line never runs into either character.
-    const NEAR_GAP = 11, FAR_GAP = 13;
-    if (len < NEAR_GAP + FAR_GAP + 10) return;
-    const ux = dx / len, uy = dy / len;
-    const from = NEAR_GAP, to = len - FAR_GAP;
-    const DASH = 5, PERIOD = 11, MARCH = 26;   // px, px, px/s
-    if (!this._reducedMotion) {
-      this._walkHomeDashPhase = (this._walkHomeDashPhase + MARCH * dt) % PERIOD;
-    }
-    // Collected first, stroked twice: a soft dark pass under the blue one, so
-    // the line holds up over pale ground (roads, sand) as well as grass — the
-    // same keyline trick the stick's rim uses.
-    const segs = [];
-    // One period of lead-in so the dash entering at the near end is drawn
-    // clipped rather than popping into existence at full length.
-    for (let s = from - PERIOD + this._walkHomeDashPhase; s < to; s += PERIOD) {
-      const a = Math.max(s, from), b = Math.min(s + DASH, to);
-      if (b > a) segs.push([x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b]);
-    }
-    // Chevron at the ghost end — the arrowhead the dashes are walking into.
-    const px = -uy, py = ux;
-    const H = 6, W = 4.5;
-    const hx = x0 + ux * to, hy = y0 + uy * to;
-    const head = [
-      [hx - ux * H + px * W, hy - uy * H + py * W, hx, hy],
-      [hx, hy, hx - ux * H - px * W, hy - uy * H - py * W],
-    ];
-    const stroke = (list, width, colour, alpha) => {
-      g.lineStyle(width, colour, alpha);
-      for (const [ax, ay, bx, by] of list) {
-        g.beginPath();
-        g.moveTo(ax, ay);
-        g.lineTo(bx, by);
-        g.strokePath();
-      }
-    };
-    stroke(segs, 3.5, 0x0a1420, 0.22);
-    stroke(head, 3.5, 0x0a1420, 0.26);
-    stroke(segs, 2, 0xffffff, 0.42);
-    stroke(head, 2, 0xffffff, 0.7);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and

@@ -965,12 +965,7 @@ GEAR: RELICS & ARMOR
    full pace. That ramp is what keeps a generous debounce from being a cliff in
    the other direction: a push landing just past the timer gives up almost no
    ground, while a real stop is at full walking pace about a second later.
-   The lead-line hint (WALK_HOME_HINT_IDLE_MS, 6500 ms) must stay LONGER than
-   the walk's delay — it announces a walk, so it can't precede one — but not so
-   much longer that an ordinary return finishes before it is due, which is what
-   happened when the walk dropped to 700 ms and the hint stayed at 5000 ms; it
-   tracks the debounce plus a beat and a half. walk_home.test.js pins both
-   bounds. Two things borrow a tier rather
+   walk_home.test.js pins the debounce and ramp bounds. Two things borrow a tier rather
    than adding a mode: DRAGON POWDER walks as tier 8 for its minute (plus 2×
    damage and the dragon sprite) and the SPEED POTION as tier 9. The ☰ "Free
    walking (debug)" toggle drops the stamina cost to nothing and with it the

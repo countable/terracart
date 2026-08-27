@@ -125,7 +125,7 @@ try {
 // drift the moment someone retunes the feel.
 {
   const src = readSrc('app.js');
-  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+  for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_RAMP_MS',
                       // The walk-home behaviour tests below drive the REAL
                       // _driftHome, so they need the numbers it reads: walking
                       // pace, and the gap past which a return is placed rather
