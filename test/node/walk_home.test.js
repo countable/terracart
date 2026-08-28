@@ -1,7 +1,8 @@
-// Walk-home timing (src/app.js WALK_HOME_IDLE_MS).
+// Walk-home timing (src/app.js WALK_HOME_IDLE_MS / WALK_HOME_HINT_IDLE_MS).
 //
 // Letting go of the movement stick starts a debounce; when it expires the
-// character walks itself back to where the GPS says it really is.
+// character walks itself back to where the GPS says it really is, and a little
+// later a dashed lead line appears pointing the way.
 //
 // The debounce has been wrong in both directions. At 3000 ms it read as the
 // character ignoring you; chasing that it went to 700 ms and then 500 ms, which
@@ -16,6 +17,24 @@ test('walk home: the debounce outlasts an ordinary pause between stick pushes', 
     'below ~3.5s the character starts home between nudges — this is the 500ms bug');
   assert.lt(WALK_HOME_IDLE_MS, 8000,
     'above ~8s a player who has genuinely stopped is left waiting');
+});
+
+test('walk home: the hint never precedes the walk it is describing', () => {
+  // The lead line says "on my way back there". If it can appear before the walk
+  // starts, it is pointing at something that has not begun.
+  assert.gt(WALK_HOME_HINT_IDLE_MS, WALK_HOME_IDLE_MS,
+    'the hint must wait for the walk it announces');
+});
+
+test('walk home: the hint is still reachable on an ordinary return', () => {
+  // A typical return covers its distance in a couple of seconds. If the hint's
+  // delay sits far beyond the walk's, the walk finishes first and the hint is
+  // effectively dead code — which is what happened when the walk dropped to
+  // 700ms while the hint stayed at 5000ms.
+  const lag = WALK_HOME_HINT_IDLE_MS - WALK_HOME_IDLE_MS;
+  assert.lt(lag, 3000,
+    'the hint lands so long after the walk starts that most returns end first');
+  assert.gt(lag, 200, 'the hint should stay quieter than the walk, not simultaneous');
 });
 
 // ── The ramp ──────────────────────────────────────────────────────────────
@@ -94,6 +113,7 @@ function walkHomeScene(awayM, opts = {}) {
     _steerDistAccrue: 0,
     _steerCostAccrue: 0,
     _followPaused: false,
+    _driftingHome: false,
     targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
@@ -135,6 +155,7 @@ test('walk home: an ordinary stroll off the GPS is still walked', () => {
   const off = Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y);
   assert.lt(off, 30, 'the offset should be bleeding off');
   assert.gt(off, 15, 'one frame of a 30m return should not cover half of it');
+  assert.eq(scene._driftingHome, true, 'this is a walk, so the hint should know about it');
 });
 
 test('walk home: distance decides HOW the return is made, never when it starts', () => {
