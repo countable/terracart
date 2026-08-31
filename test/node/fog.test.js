@@ -212,11 +212,22 @@ test('fog: a reloaded save does not re-code every tile on its first flush', () =
 // the geometry so a later retune of either number can't quietly re-hide it.
 
 test('fog: the home reveal covers the tutorial pocket', () => {
-  // _placeStarterTrail strips and curates a CLEAR_R (10-cell Chebyshev) pocket
-  // around the anchor. That is the ground the player starts standing on and is
-  // explicitly not discovering, so the reveal has to cover all of it.
-  assert.eq(HOME_REVEAL_CELLS >= 10, true,
-    'the home reveal must cover the 10-cell pocket the seater clears');
+  // _placeStarterTrail strips and curates a CLEAR_R (= HomeArea.POCKET_CELLS)
+  // Chebyshev pocket around the anchor. That is the ground the player starts
+  // standing on and is explicitly not discovering, so the reveal covers all
+  // of it.
+  assert.gte(HOME_REVEAL_CELLS, HomeArea.POCKET_CELLS,
+    'the home reveal must cover the pocket the seater clears');
+});
+
+test('fog: the home reveal covers the starter ring that is on screen', () => {
+  // The pocket is only the bald part. The ring of trees and rocks seated
+  // immediately outside it is what the opening screen actually shows, and a
+  // reveal that stopped at the pocket would hand the player a lit clearing
+  // rimmed by a wash — the ring drawn at 20% under fog, which is how it went
+  // missing before. Everything inside the rendered frame must come out lit.
+  assert.gte(HOME_REVEAL_CELLS, (VIEW_CELLS + 1) / 2,
+    'the ring in frame at spawn must not be seated under the fog wash');
 });
 
 test('fog: the home reveal reaches past the opening screen', () => {

@@ -77,16 +77,32 @@ const HomeArea = {
   // point is that home looks like the player's actual street, not a stamped
   // homestead.
   //
-  // Geometry, in CELLS from the spawn anchor:
-  //   0..POCKET_CELLS   the cleared tutorial pocket (app.js CLEAR_R). Kept
-  //                     clean so the crate trail and the starter soil plot
-  //                     read without competing scenery — EXCEPT one token
-  //                     tree and one token rock, so the first thing a player
-  //                     learns to chop and mine is in plain sight from Home.
-  //   RING_MIN..RING_MAX  where the rest goes: visible from spawn, a short
-  //                     walk out, and clear of the pocket's tidy look.
-  POCKET_CELLS: 10,
-  RING_MIN_CELLS: 11,
+  // Geometry, in CELLS from the spawn anchor. Both bands are measured against
+  // the one distance the player can actually perceive: the viewport is
+  // VIEW_CELLS (11) wide with the player in the middle of it, so they see 5
+  // cells in every direction and nothing further out exists to them until
+  // they walk.
+  //   0..POCKET_CELLS   the cleared tutorial pocket (app.js CLEAR_R, which is
+  //                     derived from this number). Kept clean so the crate
+  //                     trail and the starter soil plot read without competing
+  //                     scenery — EXCEPT one token tree and one token rock, so
+  //                     the first thing a player learns to chop and mine is in
+  //                     plain sight from Home. Exactly the ground on screen at
+  //                     spawn, so the tidy pocket IS the opening screen.
+  //   RING_MIN..RING_MAX  where the rest goes: it begins at the screen's edge,
+  //                     so the pocket reads as a clearing RINGED by the
+  //                     neighbourhood rather than as bare ground running off
+  //                     every side of the display.
+  //
+  // The pocket used to be 10 cells and the ring 11..16 — twice as far out as a
+  // player can see, and past HOME_REVEAL_CELLS (10) as well. So a new save
+  // opened on bald ground to every edge of the screen, and the ring of trees
+  // and rocks around home was seated exactly as designed, two screens out,
+  // under fog: correct in the tile, invisible in the game. If the pocket is
+  // ever widened again, widen the view with it or the ring goes missing the
+  // same way.
+  POCKET_CELLS: 5,
+  RING_MIN_CELLS: 6,
   RING_MAX_CELLS: 16,
   // How far the search may reach when the ring band itself cannot supply the
   // quota — a spawn on a pier, a riverbank, a marina, or inside a solid block

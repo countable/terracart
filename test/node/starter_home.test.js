@@ -210,6 +210,27 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
   for (const k of ['tree', 'rock', 'wreck']) assert.gt(SH_HA.QUOTA[k], 0, `${k} quota`);
 });
 
+// ── The ring has to be ON SCREEN ─────────────────────────────────────────
+// The bug this guards: the pocket was cleared to 10 cells and the ring seated
+// at 11..16, but the viewport is VIEW_CELLS (11) across with the player in the
+// middle of it — 5 cells of sight in every direction. So the whole ring stood
+// two screens out, past HOME_REVEAL_CELLS as well, and a new save opened on
+// bald ground running off every edge of the display. The trees were in the
+// tile and correct in every unit test; no player ever saw one.
+//
+// The rendered range is offsets -6..+6 (render.js draws a one-cell halo past
+// the visible 11), so a ring item at Chebyshev 6 is already at the frame edge.
+
+test('starter home: the tidy pocket never outgrows what the player can see', () => {
+  assert.lt(SH_HA.POCKET_CELLS, (VIEW_CELLS + 1) / 2,
+    'a pocket wider than the view is bald ground to every screen edge');
+});
+
+test('starter home: the ring begins at the edge of the opening screen', () => {
+  assert.lt(SH_HA.RING_MIN_CELLS, (VIEW_CELLS + 1) / 2 + 1,
+    'the ring must reach into the rendered frame, not sit a screen past it');
+});
+
 test('starter home: a rolled synthetic find keeps its slot and its tier', () => {
   // An earlier pass seated this rock and deliberately rolled it ore-bearing.
   // The audit must treat it as provisioned — not seat a replacement beside it,
@@ -559,6 +580,25 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
       return (dy < 0 ? 'N' : 'S') + (dx < 0 ? 'W' : 'E');
     }));
     assert.gte(quads.size, 3, `ring spans ${quads.size} quadrants: ${[...quads].join(',')}`);
+  });
+
+  test('starter home seating: the ring is in frame from the doorstep, all round', () => {
+    // Not just "a ring exists" (the test above) but "a player who has not
+    // moved yet can see it". The rendered frame reaches 6 cells in every
+    // direction, so every compass quadrant owes the standing player something
+    // inside that — otherwise home opens on bald ground and the ring is a
+    // thing only the tile knows about.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const FRAME = (VIEW_CELLS + 1) / 2;                 // 6 — the rendered halo
+    const inFrame = added(entry).filter(o => cellsOut(o) > SH_HA.POCKET_CELLS &&
+                                             cellsOut(o) <= FRAME);
+    const quads = new Set(inFrame.map((o) => {
+      const dx = o.x / CELL_M - (SPAWN + 0.5), dy = o.y / CELL_M - (SPAWN + 0.5);
+      return (dy < 0 ? 'N' : 'S') + (dx < 0 ? 'W' : 'E');
+    }));
+    assert.eq(quads.size, 4,
+      `the opening screen shows the ring in ${quads.size}/4 quadrants: ${[...quads].join(',')}`);
   });
 
   test('starter home seating: the two pocket tokens sit apart, not side by side', () => {

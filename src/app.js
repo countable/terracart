@@ -366,11 +366,15 @@ const DEBUG_SPEED_MUL = 10;
 // is a sightline chain (walk to the crate you can see, and the next is in
 // view), and the walk's own 3-cell reveal cannot carry that on a fresh save.
 //
-// HOME is the tutorial pocket _placeStarterTrail clears and curates (CLEAR_R,
-// 10 cells): the player's own block, which they are not discovering. TRAIL is
-// the margin around each crate and the relic chest, wide enough that a crate
-// reads as sitting on ground rather than punched out of the dark, and narrow
-// enough that the map still opens up by being walked rather than by spawning.
+// HOME is the player's own block, which they are not discovering: the tutorial
+// pocket _placeStarterTrail clears and curates (CLEAR_R = HomeArea.POCKET_CELLS)
+// AND the near half of the starter ring seated just outside it, so the trees
+// and rocks ringing the opening screen are lit rather than sitting under the
+// wash. It stays 10 even though the pocket is now 5 for exactly that reason —
+// a reveal cut back to the pocket would re-fog the ring. TRAIL is the margin
+// around each crate and the relic chest, wide enough that a crate reads as
+// sitting on ground rather than punched out of the dark, and narrow enough
+// that the map still opens up by being walked rather than by spawning.
 const HOME_REVEAL_CELLS = 10;
 const TRAIL_REVEAL_CELLS = 5;
 // How close a road or path has to pass to the starting anchor for the supply
@@ -3067,17 +3071,20 @@ class MapScene extends Phaser.Scene {
     const dbg = [`anchor(${spawnIX},${spawnIY}) tile ${tx}/${ty}`];
     // Clear the immediate anchor area of natural mineralrocks and procedural
     // forest fill so the starter crates aren't visually competing with debris
-    // the player can't open. 10-cell Chebyshev radius (~50 m) around it.
+    // the player can't open. Chebyshev radius, in cells, around the anchor.
     // EXCEPTION: real-world detected trees (the player's actual yard / street
     // trees — flagged `individual` or carrying a DeepForest crown_color/size)
     // are kept, so the home reads like the real neighbourhood instead of a
     // bald pocket. Only procedural debris (rocks, groundstacks) and anonymous
     // forest-grove trees get cleared near the anchor.
     //
-    // Runs BEFORE anything is seated: the trail is laid across this ground, so
-    // it has to be looking at the pocket as the player will find it. Clearing
-    // afterwards meant the seater dodged debris that was about to be deleted.
-    const CLEAR_R = 10;
+    // ONE number with HomeArea.POCKET_CELLS, read from it rather than restated
+    // here: the pocket this pass CLEARS and the pocket the starter-home audit
+    // calls clean have to be the same ring. When they drifted (this was a flat
+    // 10 while the ring started at 11), the cleared ground reached two screens
+    // out — a whole screen further than the player can see — so the ring of
+    // trees seated just past it was never once in frame. See home.js.
+    const CLEAR_R = (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 5);
     const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
     const _isRealTree = (o) =>
       (o.kind === 'tree' || o.kind === 'fruittree') &&
@@ -3475,8 +3482,9 @@ class MapScene extends Phaser.Scene {
   // of it, so a chest VIEW_CELLS cells out is just past the edge of the opening
   // screen — a walk in some direction, not something already in frame — and
   // clear of the CLEAR_R tutorial pocket that gets stripped bare around the
-  // anchor. It takes the first ring from there out with a free cell (searching
-  // to RELIC_MAX_R), so a spawn hemmed in by water or buildings still gets it —
+  // anchor, and of the starter ring that begins at its edge. It takes the
+  // first ring from there out with a free cell (searching to RELIC_MAX_R), so
+  // a spawn hemmed in by water or buildings still gets it —
   // and only ever a cell the anchor can be WALKED to, since a chest at the end
   // of a trail is no use across a river.
   //
