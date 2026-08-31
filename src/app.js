@@ -74,6 +74,13 @@ const WALK_M_S = 1.4;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// Backoff for re-fetching a 3x3 tile block that came back short (see
+// _scheduleTileRetry). The floor clears WorldGen's own per-tile failure
+// backoff (TILE_RETRY_MS, 3 s) so a retry isn't answered from it, and the cap
+// keeps a genuinely offline session down to one attempt a minute rather than
+// hammering a host that isn't answering.
+const TILE_RETRY_BASE_MS = 4000;
+const TILE_RETRY_MAX_MS = 60000;
 // Save fields written by the passes that run BEFORE a home is captured — the
 // starter crate anchor, the guaranteed soil plot and the starter-home
 // provision. Every one of them is DERIVED from the projection origin and is
@@ -2088,6 +2095,15 @@ class MapScene extends Phaser.Scene {
           this.save.lastSeenAt = Date.now();
           persistSave(this.save);
           this._retryGps();
+          // A block that came back short waits out its backoff while hidden
+          // (see _scheduleTileRetry). Coming back is the likeliest moment for
+          // the network to be good again, so take it from the top rather than
+          // sitting on a minute-long delay in front of an empty map.
+          if (this._tileRetryMs) {
+            this._tileRetryMs = 0;
+            if (this._tileRetryTimer) { clearTimeout(this._tileRetryTimer); this._tileRetryTimer = null; }
+            this.ensureTilesAround().catch(() => {});
+          }
           // Wake lock is auto-released on hide; re-acquire on return.
           if (!this._wakeLock) acquireWakeLock();
         } catch (e) { this._reportLoopError?.(e); }
@@ -2724,6 +2740,46 @@ class MapScene extends Phaser.Scene {
     // Zero tiles ready means the world is empty — the objective ladder's
     // "crates were left along the road nearby" reads as a lie over it.
     this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
+    this._scheduleTileRetry(anyFailed);
+  }
+
+  // Re-fetch a block that came back short, on a backoff, until it is whole.
+  //
+  // Nothing used to. The only automatic re-fetch in the game is the 20 m walk
+  // check in update(), so a player standing still kept whatever the boot load
+  // managed — and the boot load is the one that fires all nine tiles at once
+  // into a cold cache. One bad moment there (a captive portal, a phone still
+  // handing off from cell to wifi, the tile host shedding a burst) left a
+  // brand-new player on a featureless green field: no houses, no POIs and —
+  // because the trail is laid when the anchor tile rasterizes — no starter
+  // crates either. Measured: the host recovered 25 s in and the game had still
+  // fetched nothing two minutes later. A veteran never sees it; their tiles
+  // are already in IndexedDB.
+  //
+  // Failures evict themselves in WorldGen, so a retry is a genuine re-fetch.
+  // One timer at a time, reset the moment a pass comes back whole.
+  _scheduleTileRetry(anyFailed) {
+    if (window.__TEST_MODE) return;
+    if (!anyFailed) {
+      this._tileRetryMs = 0;
+      if (this._tileRetryTimer) { clearTimeout(this._tileRetryTimer); this._tileRetryTimer = null; }
+      return;
+    }
+    if (this._tileRetryTimer) return;
+    this._tileRetryMs = this._tileRetryMs
+      ? Math.min(TILE_RETRY_MAX_MS, this._tileRetryMs * 2)
+      : TILE_RETRY_BASE_MS;
+    this._tileRetryTimer = setTimeout(() => {
+      this._tileRetryTimer = null;
+      // Backgrounded: the game loop is paused and the radio is the player's to
+      // spend, so wait rather than fetch. Coming back re-arms immediately
+      // (see the visibilitychange handler), which is when it matters anyway.
+      if (typeof document !== 'undefined' && document.hidden) {
+        this._scheduleTileRetry(true);
+        return;
+      }
+      this.ensureTilesAround().catch(() => {});
+    }, this._tileRetryMs);
   }
 
   // === Spawns ===

@@ -300,6 +300,47 @@ try {
     + '};', ctx, { filename: 'starterHome.js' });
 }
 
+// The tile-block retry backoff (_scheduleTileRetry). Nothing re-fetched a 3x3
+// block that came back short, so one bad moment at boot left a brand-new
+// player on an empty map for good — see tile_retry.test.js. Pure timer logic,
+// but it lives on the Phaser scene class, so lift it as text with the two
+// constants it reads and let the test drive the real thing.
+{
+  const src = readSrc('app.js');
+  const head = '  _scheduleTileRetry(anyFailed) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _scheduleTileRetry in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _scheduleTileRetry — update run.js');
+    process.exit(2);
+  }
+  // The call site matters as much as the method: a backoff nothing arms is no
+  // backoff at all.
+  if (!/this\._scheduleTileRetry\(anyFailed\);/.test(src)) {
+    console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
+    process.exit(2);
+  }
+  let decls = '';
+  for (const n of ['TILE_RETRY_BASE_MS', 'TILE_RETRY_MAX_MS']) {
+    const m = src.match(new RegExp(`const ${n} = (\\d+);`));
+    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${n} = ${m[1]};\n`;
+    ctx[n] = parseInt(m[1], 10);
+  }
+  vm.runInContext(
+    decls
+    + 'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
+    + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
+    + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
+    + src.slice(bodyStart, end) + '\n};',
+    ctx, { filename: 'scheduleTileRetry.js' });
+}
+
 // The cash-storefront offer path must derive every roll behind an offer from
 // the shop's hour bucket (shopRng), never Math.random — otherwise closing and
 // reopening the modal re-rolls what the shop sells, which is exactly the bug
