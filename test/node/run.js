@@ -273,10 +273,30 @@ try {
   };
   const objBody = grab('  _starterHomeObject(rec) {\n');
   const provBody = grab('  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n');
+  // _worldPlaced decides whether a late first GPS fix may still become this
+  // save's home origin, and it reads PROVISIONAL_ORIGIN_KEYS — the starter kit
+  // the pre-capture passes lay down, which must NOT count. Lifted with the
+  // list itself so home_capture.test.js drives the real predicate.
+  const placedBody = grab('  _worldPlaced() {\n');
+  const keys = src.match(/const PROVISIONAL_ORIGIN_KEYS = (\[[^\]]*\]);/);
+  if (!keys) {
+    console.error('Could not find PROVISIONAL_ORIGIN_KEYS in src/app.js — update run.js');
+    process.exit(2);
+  }
+  // The capture path's own clearing line, so the test can pin that it clears
+  // the SAME list _worldPlaced skips rather than a hand-written subset.
+  const clear = src.match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
+  if (!clear) {
+    console.error('The home-capture path no longer clears PROVISIONAL_ORIGIN_KEYS — update run.js');
+    process.exit(2);
+  }
   vm.runInContext(
-    'globalThis.StarterHomeMethods = {\n'
+    `const PROVISIONAL_ORIGIN_KEYS = ${keys[1]};\n`
+    + 'globalThis.PROVISIONAL_ORIGIN_KEYS = PROVISIONAL_ORIGIN_KEYS;\n'
+    + 'globalThis.StarterHomeMethods = {\n'
     + '  _starterHomeObject(rec) {\n' + objBody + '\n  },\n'
     + '  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n' + provBody + '\n  },\n'
+    + '  _worldPlaced() {\n' + placedBody + '\n  },\n'
     + '};', ctx, { filename: 'starterHome.js' });
 }
 

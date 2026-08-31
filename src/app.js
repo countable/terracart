@@ -74,6 +74,24 @@ const WALK_M_S = 1.4;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// Save fields written by the passes that run BEFORE a home is captured — the
+// starter crate anchor, the guaranteed soil plot and the starter-home
+// provision. Every one of them is DERIVED from the projection origin and is
+// rebuilt from scratch at a new one, so none of them commits the save to the
+// origin it was built at.
+//
+// They are cleared together by the capture path and skipped together by
+// _worldPlaced(), off this one list, because the bug was exactly the two
+// disagreeing: the 2-minute safety net freezes the crate anchor at the default
+// origin, and _setStarterCratesAt places the trail, which carves the plot and
+// provisions the home. Only starterCratesAt was treated as provisional, so the
+// net's own side effects made _worldPlaced() true within a frame of it firing —
+// and the very next GPS fix, the one the net had deliberately stayed armed for,
+// was thrown away. A player whose first fix took over two minutes (a cold
+// start indoors, a new install, a permission dialog left sitting) was anchored
+// at the default map for good, with their crates, Home and objective arrow a
+// city away and no warning under ORIGIN_STRANDED_M.
+const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHome'];
 // How far a player can stand from their world's projection origin before that
 // origin is definitively WRONG rather than merely far — see _warnStrandedOrigin.
 // Only reachable by a save that never captured a home (its first GPS fix was
@@ -1962,10 +1980,16 @@ class MapScene extends Phaser.Scene {
   // the origin is load bearing and can no longer move under it.
   _worldPlaced() {
     const sv = this.save;
-    // starterCratesAt is deliberately NOT in this list: it is the one anchor
-    // the capture path knows how to redo (it nulls it, and ensureStarterShopId
-    // re-freezes it on the player after the reload).
-    return !!(sv.starterShopId || sv.starterTrailer || sv.starterHome || sv.starterPlotAt
+    // PROVISIONAL_ORIGIN_KEYS are deliberately NOT in this list: they are the
+    // starter kit the pre-capture passes lay down, all of it re-derived at the
+    // new origin after the reload. Counting them let the safety net disarm the
+    // capture it had just stayed armed for — see PROVISIONAL_ORIGIN_KEYS.
+    //
+    // What IS here is what the PLAYER committed: a Home adopted onto a real
+    // house (or a trailer dropped under them — both need a GPS fix, so they
+    // can only exist once capture has already resolved), and ground they have
+    // tilled or planted, which is stored as cells in this origin's own frame.
+    return !!(sv.starterShopId || sv.starterTrailer
       || (sv.tilled && sv.tilled.length) || (sv.planted && sv.planted.length));
   }
 
@@ -2155,11 +2179,14 @@ class MapScene extends Phaser.Scene {
             this._homeCapturePending = false;
             this._homeCaptureArmed = false;
             this.save.home = { lat: latitude, lon: longitude };
-            // The 2-minute net may have frozen the crate trail at the default
-            // origin on the way here. That anchor is metres in the frame we
-            // are about to replace, so let it re-freeze after the reload
-            // (ensureStarterShopId re-places it on the player).
-            this.save.starterCratesAt = null;
+            // The 2-minute net may already have dropped this save's whole
+            // starter kit at the default origin on the way here — the crate
+            // anchor, the soil plot, the provisioned trees/rocks/wrecks. All
+            // of it is metres in the frame we are about to replace, so drop it
+            // and let the reloaded world lay it down again on the player
+            // (_starterTrailAnchor / _carveStarterPlot / _provisionStarterHome
+            // each re-freeze from scratch when their field is empty).
+            for (const k of PROVISIONAL_ORIGIN_KEYS) this.save[k] = null;
             let ok = false;
             try {
               persistSave(this.save);
