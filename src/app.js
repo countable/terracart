@@ -1142,6 +1142,10 @@ class MapScene extends Phaser.Scene {
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
+    // The same turret in the unclaimed palette. Baked once here rather than
+    // tinted at draw time so a castle's stone, its turrets and its court all
+    // change together — see the unclaimed-shade note in textures.js.
+    makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
     // (Longgrass used to be a procedural canvas texture painted by

@@ -27,6 +27,39 @@ const CASTLE_STONE = (() => {
   };
 })();
 
+// --- The unclaimed shade, and the second castle palette -------------------
+// An unclaimed building is shifted toward dark green and then murked down. For
+// a HOUSE that is a wash painted over the finished art (see the wash pass in
+// render.js drawCells). A CASTLE is not washed any more: it is GENERATED in a
+// second palette run through this exact transform — rampart stone, turret and
+// court floor alike.
+//
+// Why baking beat washing. A wash over a castle could only ever be a layer on
+// top of drawn geometry, and it showed: the crest of a north wall whose own
+// cell was off the top of the frame stayed lit stone, the pixels where two
+// cells' extrusions overlapped got washed twice and banded, and the turret's
+// multiply tint never quite matched the lerp on the wall under it. Baking
+// deletes the layer and every one of those seams with it. Both sides still
+// come through unclaimedShade(), so a baked castle and the washed house across
+// the road land on the same colour rather than drifting apart.
+const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.5, murk: 0x05070c, murkA: 0.22 };
+function unclaimedShade(rgb) {
+  const lerp = (a, b, t) => a * (1 - t) + b * t;
+  const ch = (sh) => {
+    const w = lerp((rgb >> sh) & 255, (UNCLAIMED_SHADE.wash >> sh) & 255, UNCLAIMED_SHADE.washA);
+    return Math.round(lerp(w, (UNCLAIMED_SHADE.murk >> sh) & 255, UNCLAIMED_SHADE.murkA));
+  };
+  return (((ch(16) << 16) | (ch(8) << 8) | ch(0)) >>> 0);
+}
+// Every stone in CASTLE_STONE, shaded. Derived rather than hand-picked so a
+// tweak to the masonry can't leave the unclaimed version behind.
+const CASTLE_STONE_UNCLAIMED = (() => {
+  const mk = (n) => ({ n, s: '#' + n.toString(16).padStart(6, '0') });
+  const out = {};
+  for (const k of Object.keys(CASTLE_STONE)) out[k] = mk(unclaimedShade(CASTLE_STONE[k].n));
+  return out;
+})();
+
 // --- Water animation timing ---
 // 8 phases × 220ms ≈ a 1.8s loop in which the highlight bands drift one full
 // band-period (8px) downward — roughly 4.5px/s, ambience rather than a
@@ -725,8 +758,12 @@ function drawOrchardTex(ctx, size, rng) {
 //   • the merlons are centred on the battlement slab (they used to sit 1px
 //     left of centre, so the crown looked knocked sideways);
 //   • shading lines stay INSIDE the outline instead of running under it.
-function makeTowerTexture(scene) {
-  const KEY = 'tower';
+// `palette` / `key` bake the SECOND turret: an unclaimed castle draws
+// 'tower_unclaimed', generated from CASTLE_STONE_UNCLAIMED, instead of taking a
+// multiply tint over the claimed one (see the unclaimed-shade note up top).
+function makeTowerTexture(scene, palette, key) {
+  const KEY = key || 'tower';
+  const P = palette || CASTLE_STONE;
   if (scene.textures.exists(KEY)) return;
   // 28 wide (was 24): the column read as a thin post next to the rampart it
   // crowns. The 24px battlement slab still sits inside the 32px cell.
@@ -743,9 +780,9 @@ function makeTowerTexture(scene) {
   // Straight off the shared castle palette, so the turret is the same masonry
   // as the rampart: column = the walls' extruded FACE stone, battlements =
   // their lit BODY stone, silhouette = the walls' DARK grounding tone.
-  const OUTLINE     = CASTLE_STONE.DARK.s;
-  const wallColor   = CASTLE_STONE.FACE.s;
-  const battleColor = CASTLE_STONE.BODY.s;
+  const OUTLINE     = P.DARK.s;
+  const wallColor   = P.FACE.s;
+  const battleColor = P.BODY.s;
 
   // Layout, top to bottom: merlons, battlement slab (overhanging the body),
   // then the column down to a 2px gap at the canvas bottom.
@@ -764,15 +801,15 @@ function makeTowerTexture(scene) {
   ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
   // Lit left edge / shadowed right edge, both inset 1px so the outline below
   // paints over neither. Both are palette stones, not white/black washes.
-  ctx.fillStyle = CASTLE_STONE.BODY.s;                 // lit edge = the wall's crest stone
+  ctx.fillStyle = P.BODY.s;                 // lit edge = the wall's crest stone
   ctx.fillRect(bodyX + 1, bodyTop, 1, bodyBot - bodyTop);
   ctx.globalAlpha = 0.7;
-  ctx.fillStyle = CASTLE_STONE.SHADOW.s;
+  ctx.fillStyle = P.SHADOW.s;
   ctx.fillRect(bodyX + bodyW - 2, bodyTop, 1, bodyBot - bodyTop);
   ctx.globalAlpha = 1;
   // Corbel shadow: the slab overhangs, so the top of the column sits in its
   // shade. Without this the overhang read as a hat balanced on a stick.
-  ctx.fillStyle = CASTLE_STONE.SHADOW.s;
+  ctx.fillStyle = P.SHADOW.s;
   ctx.globalAlpha = 0.55;
   ctx.fillRect(bodyX + 1, bodyTop, bodyW - 2, 2);
   ctx.globalAlpha = 1;
@@ -780,7 +817,7 @@ function makeTowerTexture(scene) {
   // The wall's own SHADOW tone rather than a black wash: black pulls the
   // blue-grey stone toward neutral, so joints drawn that way read as a
   // different rock from the rampart's.
-  ctx.fillStyle = CASTLE_STONE.SHADOW.s;
+  ctx.fillStyle = P.SHADOW.s;
   for (let y = bodyTop + 7; y < bodyBot - 3; y += 7) {
     ctx.fillRect(bodyX + 1, y, bodyW - 2, 1);
   }
@@ -791,7 +828,7 @@ function makeTowerTexture(scene) {
   // meeting the wall. The fade at the very bottom (applied after the outline,
   // below) does the joining; this just keeps the foot from reading flat.
   ctx.globalAlpha = 0.30;
-  ctx.fillStyle = CASTLE_STONE.SHADOW.s;
+  ctx.fillStyle = P.SHADOW.s;
   ctx.fillRect(bodyX + 1, bodyBot - 5, bodyW - 2, 5);
   ctx.globalAlpha = 1;
   // Arrow slit — a dark 2px slot with a lit sill under it so it reads as an
@@ -801,7 +838,7 @@ function makeTowerTexture(scene) {
   const slitX = (W >> 1) - 1, slitY = bodyTop + 8;
   ctx.fillStyle = OUTLINE;
   ctx.fillRect(slitX, slitY, 2, 5);
-  ctx.fillStyle = CASTLE_STONE.LITE.s;
+  ctx.fillStyle = P.LITE.s;
   ctx.fillRect(slitX, slitY + 5, 2, 1);
 
   // ── Battlement slab + merlons ─────────────────────────────────────────
@@ -819,7 +856,7 @@ function makeTowerTexture(scene) {
   // Shadow line under the slab's own lip, so slab and merlons read as separate
   // courses of stone rather than one poured shape. Same SHADOW tone the wall
   // crest uses for its parapet line.
-  ctx.fillStyle = CASTLE_STONE.SHADOW.s;
+  ctx.fillStyle = P.SHADOW.s;
   ctx.fillRect(battX + 1, battTop + battH - 1, battW - 2, 1);
 
   // ── Silhouette outline (1px fillRects — see the note above) ───────────
@@ -850,7 +887,7 @@ function makeTowerTexture(scene) {
   // Merlon top-lighting, inside the outline: one lit pixel across each
   // merlon's crown, matching the light direction the rampart crest uses
   // (render.js crestH). Drawn last so the silhouette doesn't cover it.
-  ctx.fillStyle = CASTLE_STONE.LITE.s;
+  ctx.fillStyle = P.LITE.s;
   for (let i = 0; i < MERLONS; i++) {
     ctx.fillRect(merlonX(i) + 1, battTop - MERLON_H + 1, MERLON_W - 2, 1);
   }
