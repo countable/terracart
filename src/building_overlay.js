@@ -407,7 +407,17 @@
     if (key !== scene._buildingGeomKey) {
       scene._buildingGeomKey = key;
       scene._buildingGeomPainted = true;
-      rebuild(scene, tiles, fracX, fracY);
+      // Only the rebuild is timed, same reasoning as the road overlay: draw()
+      // runs every frame but the key check above only rebuilds on a cell
+      // crossing, a tile load, or a claim change.
+      const B = window.__boot;
+      if (B) {
+        const t0 = performance.now();
+        rebuild(scene, tiles, fracX, fracY);
+        B.tick('building overlay rebuild', performance.now() - t0);
+      } else {
+        rebuild(scene, tiles, fracX, fracY);
+      }
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   }

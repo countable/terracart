@@ -525,7 +525,17 @@
     const key = `${baseCellIX},${baseCellIY},${ready}`;
     if (key !== scene._roadGeomKey) {
       scene._roadGeomKey = key;
-      rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
+      // Only the rebuild is timed — draw() runs every frame but the key
+      // check above only rebuilds on a cell crossing or a tile finishing
+      // load, so the cheap early-out frames never touch this tick.
+      const B = window.__boot;
+      if (B) {
+        const t0 = performance.now();
+        rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
+        B.tick('road overlay rebuild', performance.now() - t0);
+      } else {
+        rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
+      }
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   }

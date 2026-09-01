@@ -51,6 +51,20 @@
         live: { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) },
         hitches: [],     // { t, ms, during }  — the worst frames, with the cause
         work: {},        // name -> { n, sum, worst } for the per-frame passes
+        counts: {},      // name -> { n, sum, worst } for per-frame COUNTS (not ms) —
+                          // e.g. how many objects drawObjects scanned/kept this frame
+        // Rolling 60s windows of the frame histogram, kept alongside the
+        // session-total `live` above. Two past walking-jitter bugs both grew
+        // with distance walked, and a session-wide average can't tell "the
+        // first minute was fine, the tenth wasn't" from "it was always like
+        // this" — only a timeline of buckets can. Capped at 30 (30 minutes);
+        // older windows fall off so a long session doesn't grow this forever.
+        windows: [],     // { t0, n, avg, worst, over100 } — CLOSED windows, oldest first
+        _winCur: null,   // the window still accumulating
+        // device info for the report's device line — populated once from
+        // src/app.js (renderer type, GPU strings, deviceMemory) once the
+        // game is up; undefined fields are just omitted from the line.
+        device: null,
         // Spans currently OPEN, so a hitch can name what the game was doing
         // rather than leaving it to be guessed at.
         openNames: new Set(),
@@ -59,6 +73,14 @@
           let w = B.work[name];
           if (!w) w = B.work[name] = { n: 0, sum: 0, worst: 0 };
           w.n++; w.sum += ms; if (ms > w.worst) w.worst = ms;
+        },
+        // Same shape as tick(), for a per-frame COUNT rather than a duration
+        // (e.g. how many entries drawObjects scanned) — n/sum/worst so
+        // avg-per-call and peak both fall out, just never rendered with 'ms'.
+        count(name, n) {
+          let w = B.counts[name];
+          if (!w) w = B.counts[name] = { n: 0, sum: 0, worst: 0 };
+          w.n++; w.sum += n; if (n > w.worst) w.worst = n;
         },
         frame(ms) {
           const L = B.live;
@@ -74,6 +96,17 @@
           if (ms > 100 && B.hitches.length < 400) {
             B.hitches.push({ t: Math.round(performance.now()), ms: Math.round(ms),
               during: B.openNames.size ? [...B.openNames].join(' + ') : 'nothing (render/update)' });
+          }
+          // Close a 60s window and start the next one. `t` is the same
+          // performance.now() reader the rest of this IIFE uses.
+          const now = t();
+          if (!B._winCur) B._winCur = { t0: now, n: 0, sum: 0, worst: 0, over100: 0 };
+          const w = B._winCur;
+          w.n++; w.sum += ms; if (ms > w.worst) w.worst = ms; if (ms > 100) w.over100++;
+          if (now - w.t0 >= 60000) {
+            B.windows.push({ t0: w.t0, n: w.n, avg: w.sum / w.n, worst: w.worst, over100: w.over100 });
+            if (B.windows.length > 30) B.windows.shift();
+            B._winCur = null;
           }
         },
       };
@@ -1625,6 +1658,37 @@
               + '   (' + w.n + ' calls)');
           }
         }
+        // Per-frame COUNTS (entries scanned/kept, etc) — same shape as the
+        // timings above, printed without 'ms'. This is what turns "drawObjects
+        // walks a lot" into a number: how many entries a typical frame scans
+        // and keeps, and the worst frame seen.
+        const countNames = Object.keys(B.counts);
+        if (countNames.length) {
+          out.push('  per frame counts (avg / worst):');
+          for (const n of countNames) {
+            const c = B.counts[n];
+            out.push('    ' + n.padEnd(22) + (c.sum / c.n).toFixed(1).padStart(7) + ' / ' + String(c.worst).padStart(7)
+              + '   (' + c.n + ' calls)');
+          }
+        }
+        // Rolling 60s windows: does it get WORSE the longer you play? Two
+        // past walking-jitter bugs both grew with distance walked, so a
+        // session-wide average alone can hide a trend the timeline below
+        // shows at a glance. The in-progress window is included, marked
+        // partial, so a short session still shows something.
+        const _winsToShow = B.windows.slice();
+        if (B._winCur && B._winCur.n) {
+          _winsToShow.push({ t0: B._winCur.t0, n: B._winCur.n, avg: B._winCur.sum / B._winCur.n,
+            worst: B._winCur.worst, over100: B._winCur.over100, partial: true });
+        }
+        if (_winsToShow.length) {
+          out.push('  rolling 60s windows (avg / worst, frames >100ms):');
+          _winsToShow.forEach((w, i) => {
+            out.push('    #' + String(i + 1).padStart(2) + '  ' + ms(w.avg).padStart(7) + ' / ' + ms(w.worst).padStart(7)
+              + '   >100ms: ' + String(w.over100).padStart(3) + '  (' + w.n + ' frames)'
+              + (w.partial ? '  [current, partial]' : ''));
+          });
+        }
         // WHAT WAS RUNNING when a frame went long. This is the whole point:
         // a stutter that always says "tile ... rasterize" is a background
         // build; one that says "nothing" is the renderer itself.
@@ -1653,8 +1717,20 @@
       } else {
         out.push('', 'MAIN-THREAD BLOCKS: not measured on this browser');
       }
+      // Renderer type (WebGL vs the Canvas fallback), deviceMemory and the
+      // unmasked WebGL vendor/renderer strings — populated once from
+      // src/app.js onto B.device (see create() in src/app.js) so "what is
+      // the slow device" doesn't have to be guessed at from the UA string
+      // alone. Any field src didn't manage to read (older browser, no
+      // WEBGL_debug_renderer_info) is just omitted from the line.
+      const D = B.device || {};
       out.push('', 'device: ' + (navigator.hardwareConcurrency || '?') + ' cores, dpr '
-        + (window.devicePixelRatio || 1) + ', ' + screen.width + 'x' + screen.height);
+        + (window.devicePixelRatio || 1) + ', ' + screen.width + 'x' + screen.height
+        + (D.rendererType ? ', renderer ' + D.rendererType : '')
+        + (D.deviceMemory ? ', ' + D.deviceMemory + 'GB mem' : ''));
+      if (D.gpuRenderer || D.gpuVendor) {
+        out.push('gpu: ' + (D.gpuVendor || '?') + ' / ' + (D.gpuRenderer || '?'));
+      }
       out.push('ua: ' + navigator.userAgent);
       window.showError?.('LOAD PROFILE (copy me)', out.join('\n'));
     });
@@ -2268,10 +2344,10 @@
   <script src="src/interactables.js?v=13"></script>
   <script src="src/combat.js?v=4"></script>
   <script src="src/interact.js?v=231"></script>
-  <script src="src/render.js?v=324"></script>
+  <script src="src/render.js?v=325"></script>
   <script src="src/multiplayer.js?v=7"></script>
-  <script src="src/road_overlay.js?v=12"></script>
-  <script src="src/building_overlay.js?v=2"></script>
+  <script src="src/road_overlay.js?v=13"></script>
+  <script src="src/building_overlay.js?v=3"></script>
   <script src="src/assets.js?v=177"></script>
   <script src="src/sandbox.js?v=38"></script>
   <script src="src/testtools.js?v=9"></script>
@@ -2332,7 +2408,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=457';
+      const APP_SRC = 'src/app.js?v=458';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
