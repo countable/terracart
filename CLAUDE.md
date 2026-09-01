@@ -138,6 +138,25 @@
   registration is what makes it an enemy everywhere at once.
   **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
 
+- **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
+  is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
+  back at a `yield`, so one pass that runs straight through freezes the game
+  for exactly as long as it takes, however small the budget is. The boot
+  profile names it — `worst block <N>ms in <label>` — and the label is the
+  yield the block ENDED at, i.e. the culprit is the code just before it.
+  Three of these have shipped now: the building cover scan, the wildplant
+  sweep, and the merged-house thinning (`worst block 1397ms in after the layer
+  loop`, an O(H^2) scan of the kept roofs, now a Set of cells). The two shapes
+  to watch for are a **quadratic** (a scan of everything kept so far, or a
+  `splice` per rejection inside a reverse walk — compact in place instead) and
+  a **helper called plainly from the generator** that walks a whole polygon
+  (make it a `function*` and `yield*` it, as `spawnDebrisSteps` and
+  `_spawnRockClustersSteps` are).
+  **When you add a pass over every cell, object or polygon, give it a yield.**
+  **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
+  times every step of a real build over a 3000- and a 6000-building tile and
+  fails if any single block runs long.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

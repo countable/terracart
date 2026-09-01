@@ -470,7 +470,7 @@
   // the centerline walk can't see a band spilling into a neighbouring cell.
   //
   // Vertices map to the cell that CONTAINS them — floor(), the same rule
-  // snapCell / spawnDebris use, and the same answer paintPolygon's
+  // snapCell / spawnDebrisSteps use, and the same answer paintPolygon's
   // centre-sample gives. It used to be Math.round(), which picks the cell
   // whose top-LEFT corner is nearest the point and so biased every road,
   // path and pier half a cell south-east of the way it was painted from:
@@ -1180,7 +1180,16 @@
       if (cv.c > FOOT_COVER_MIN) body.push({ x: cv.x, y: cv.y, c: cv.c, i: it.i, area: it.bp.areaM2, key: it.key });
     }
     body.sort(byBid);
-    for (const bid of body) claim(bid);
+    // THE PASSES BELOW YIELD TOO, not just the cover scan above. Chunking the
+    // scan left the four claim passes as one unbroken tail — 212 ms of it on a
+    // 6000-building tile in a headless trace, which is a frozen frame on the
+    // phone the moment a dense tile streams in behind the player. Claim order
+    // is what makes the answer order-independent, so every break here is
+    // strictly a pause: the sequence of claim() calls is untouched.
+    for (let _q = 0; _q < body.length; _q++) {
+      if ((_q & 511) === 511) yield 'footprint body claim';
+      claim(body[_q]);
+    }
 
     // Pass 2 — rectangle bias: inside the bounding box of what pass 1 gave
     // this building, a cell's cover counts FOOT_RECT_BONUS times over. Squares
@@ -1188,7 +1197,9 @@
     // and fills the notches the old tidy pass used to, but can only take cells
     // no other building claimed.
     const fill = [];
+    let _fi = 0;
     for (const it of info) {
+      if (((_fi++) & 63) === 63) yield 'footprint rect bias';
       if (!it.cells.length) continue;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const [x, y] of it.cells) {
@@ -1203,7 +1214,10 @@
       }
     }
     fill.sort(byBid);
-    for (const bid of fill) claim(bid);
+    for (let _q = 0; _q < fill.length; _q++) {
+      if ((_q & 511) === 511) yield 'footprint fill claim';
+      claim(fill[_q]);
+    }
 
     // Pass 3 — one cell each: a building too small (or too awkwardly straddled
     // across four cells) to pass the cover bar anywhere still takes its best
@@ -1223,7 +1237,9 @@
       })
       .filter(o => o.best && o.total >= FOOT_RESCUE_MIN)
       .sort((a, b) => b.best.c - a.best.c || b.it.bp.areaM2 - a.it.bp.areaM2 || a.it.key - b.it.key);
+    let _oi = 0;
     for (const o of orphans) {
+      if (((_oi++) & 63) === 63) yield 'footprint orphan rescue';
       if (claim({ x: o.best.x, y: o.best.y, i: o.it.i })) continue;
       // First choice taken — fall back to the best cell still free.
       let alt = null;
@@ -1247,7 +1263,9 @@
       .filter(it => it.bp.tier === T.BUILDING
                  && it.cells.length > 0 && it.cells.length < FOOT_HOUSE_MIN)
       .sort((a, b) => a.key - b.key);
+    let _gi = 0;
     for (const it of growOrder) {
+      if (((_gi++) & 63) === 63) yield 'footprint house grow';
       const [cx0, cy0] = it.cells[0];
       let sx = 0, sy = 0;
       for (const p of it.ring) { sx += p.x; sy += p.y; }
@@ -1273,7 +1291,9 @@
     // never re-introduce an overlap. Buildings are processed in geometry-key
     // order for the same reason pass 1 is: no dependence on input order.
     const tidyOrder = info.slice().sort((a, b) => a.key - b.key);
+    let _ti = 0;
     for (const it of tidyOrder) {
+      if (((_ti++) & 63) === 63) yield 'footprint tidy';
       if (it.cells.length < 2) continue;
       const before = it.cells;
       const after = tidyFootprintCells(before, it.bp.tier === T.BUILDING,
@@ -1507,12 +1527,23 @@
     // density seed = polygon centroid → stable across reloads.
     // Each debris snaps to the CENTER of its 5m game cell (no jitter), and is keyed
     // by the cell's absolute (cellIX, cellIY) so the same cell is always the same id.
-    function spawnDebris(rings, crop, polyKey, dMin, dMax) {
+    // A GENERATOR, because one call can be the whole tile. The scatter walks a
+    // candidate per cell across the polygon's bounding box and runs
+    // pointInRings on each, and a landcover polygon that covers the tile is
+    // ~114k of those — per flora entry in the biome's profile. Called plainly
+    // it was one unbroken block between the last `polygon fill rows` yield and
+    // the layer's own, measured at 225 ms headless on a whole-tile polygon (so
+    // multiples of that on a phone). Delegated with `yield*` it breaks every
+    // 8 rows, exactly as the polygon fill it follows does. The prng is drawn in
+    // the same order either way, so the scatter is identical.
+    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
       const bb = bboxOf(rings);
       const stepMvt = CELL_M / mvtToM; // one candidate per game-cell-width
+      let _row = 0;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'flora scatter rows';
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
           // Snap to this tile's local cell grid (no absolute-cells drift).
@@ -1541,7 +1572,7 @@
     //                 contiguous and the gaps read as passages.
     //   • interior  (neither coord %3==0)            → never a hedge (open path)
     // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
-    function spawnHedgeMaze(rings, crop, salt) {
+    function* spawnHedgeMazeSteps(rings, crop, salt) {
       const P = 3;                 // lattice period (cells between pillars)
       const WALL_PCT = 30;         // % of wall segments that exist → ~25% fill
       const bb = bboxOf(rings);
@@ -1553,7 +1584,9 @@
         const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
         return (hsh % 100) < WALL_PCT;
       };
+      let _row = 0;
       for (let iy = iy0; iy <= iy1; iy++) {
+        if ((++_row & 7) === 7) yield 'hedge maze rows';
         for (let ix = ix0; ix <= ix1; ix++) {
           // Cell centre in MVT units for the inside-polygon test.
           if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
@@ -1589,7 +1622,7 @@
       my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
     });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
-    // the terrain `grid[]` and wildplants (spawnDebris) already use. Every placed object must share this one grid: structs
+    // the terrain `grid[]` and wildplants (spawnDebrisSteps) already use. Every placed object must share this one grid: structs
     // (trees / rocks / fruit trees / houses) used to snap to a GLOBAL 5 m grid
     // anchored at the world origin, which is offset from this tile-local grid
     // by a sub-cell fraction. That misalignment meant a tree and a wildplant
@@ -1751,12 +1784,12 @@
                 // Deterministic clipped-hedge-maze layout (commercial plazas) —
                 // keyed on absolute cell coords so the maze is continuous across
                 // polygons/tiles, not a per-polygon scatter.
-                spawnHedgeMaze(f.geom, fl.crop, fl.salt >>> 0);
+                yield* spawnHedgeMazeSteps(f.geom, fl.crop, fl.salt >>> 0);
               } else if (fl.dynamic) {
                 const density = ((seed % 1000) / 1000) * fl.dMax;
-                if (density > 0) spawnDebris(f.geom, fl.crop, seed, density, density);
+                if (density > 0) yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
               } else {
-                spawnDebris(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
               }
             }
 
@@ -1903,10 +1936,20 @@
             // pick spreads the boost across all tiers over many clusters. The
             // extra rng() draws happen only when `veinChance` is set, so callers
             // that don't pass it (industrial, ROCK) reproduce their seeds exactly.
-            const _spawnRockClusters = (rng, geom, o) => {
+            // A GENERATOR for the same reason spawnDebrisSteps is one: the
+            // pivot walk covers the polygon's whole bounding box, so one big
+            // residential polygon is a single unbroken block sitting between
+            // two `polygon fill rows` yields (a headless trace over one
+            // measured 228 ms there). Breaking per row of pivots costs the
+            // rng nothing — the draw order is untouched, so world seeds
+            // reproduce exactly.
+            const _spawnRockClustersSteps = function* (rng, geom, o) {
               const bb = bboxOf(geom);
               const veinMul = o.veinMul || 10;
               for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
+                // Every row, not every eighth: the pivot grid is coarse, so a
+                // polygon has few rows and each of them is expensive.
+                yield 'rock cluster rows';
                 for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
                   if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
                   if (rng() > o.fireChance) continue;
@@ -1940,7 +1983,7 @@
             // group of low-tier rocks within ~7 m. Gives the early game a
             // reliable urban source of stone + low-tier ore. ~30 % of clusters
             // are "veins" with one ore/crystal tier concentrated 10× (see the
-            // vein path in _spawnRockClusters) without flooding sidewalks.
+            // vein path in _spawnRockClustersSteps) without flooding sidewalks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const pivotStep = 34 / mvtToM;        // one cluster candidate per ~34 m (~5 cells at 7 m/cell; was 24 m when cells were 5 m)
@@ -1957,9 +2000,9 @@
               // road-adjacency filter at a lower rate, so input must overshoot.
               // fireChance 0.585 = 0.45 × 1.3 → 30 % more clusters than before.
               // veinChance 0.30: ~30 % of clusters become a "vein" where one
-              // random tier is 10× more likely (see _spawnRockClusters). Pass
+              // random tier is 10× more likely (see _spawnRockClustersSteps). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
-              _spawnRockClusters(resRng, f.geom, {
+              yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true,
                 weights, veinChance: 0.30, veinMul: 10 });
@@ -1981,7 +2024,7 @@
               const { tierW, totalW } = cumWeights(
                 Array.from({ length: 7 }, (_, i) => 1 / Math.pow(1.6, i)));
               // 80 % fire — "lots"; 18..33 rocks per cluster (3× the prior 6..11).
-              _spawnRockClusters(indRng, f.geom, {
+              yield* _spawnRockClustersSteps(indRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.80,
                 clusterMin: 18, clusterSpan: 16, tierW, totalW });
             }
@@ -1999,7 +2042,7 @@
               // _pushMineralrock still routes 70% of picks to cave rock.
               const { tierW, totalW } = cumWeights(
                 Array.from({ length: 7 }, (_, i) => 1 / Math.pow(2, i)));
-              _spawnRockClusters(rockRng, f.geom, {
+              yield* _spawnRockClustersSteps(rockRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.70,
                 clusterMin: 10, clusterSpan: 10, tierW, totalW });
             }
@@ -2484,24 +2527,46 @@
         // whose anchor cell is adjacent (Chebyshev ≤ 1, i.e. its footprint
         // touches) an already-kept roof. Separate buildings with a gap between
         // their footprints sit ≥ 2 cells apart and both survive.
+        //
+        // THE ADJACENCY TEST IS A LOOKUP, NOT A SCAN. "Is any kept roof within
+        // Chebyshev 1" is exactly "is one of these nine cells taken", so the
+        // kept anchors live in a Set keyed by cell and each house probes its
+        // own 3x3. The scan it replaces walked every roof kept so far — O(H^2)
+        // on a tile whose houses are mostly spread out (the case where nothing
+        // is dropped, so the list only ever grows), with an array destructure
+        // per step. That loop WAS the boot stutter: it sits between the last
+        // yield of the building block and the next one, so the slicer could
+        // not break it up, and it showed in a device trace as `worst block
+        // 1397ms in after the layer loop` on a tile of a few thousand
+        // buildings — one frozen frame per tile, eight more streaming in
+        // behind the player. Same greedy rule, same survivors, ~O(H).
         const _houseIdx = [];
         for (let k = 0; k < objects.length; k++) if (objects[k].kind === 'house') _houseIdx.push(k);
         _houseIdx.sort((a, b) => (objects[b].area || 0) - (objects[a].area || 0));
-        const _keptHouseCells = [];
+        const _keptHouseCells = new Set();
         const _dropHouse = new Set();
         for (const k of _houseIdx) {
           const o = objects[k];
           const hix = Math.floor(o.x / CELL_M), hiy = Math.floor(o.y / CELL_M);
           let tooClose = false;
-          for (const [kx, ky] of _keptHouseCells) {
-            if (Math.max(Math.abs(kx - hix), Math.abs(ky - hiy)) <= 1) { tooClose = true; break; }
+          for (let dy = -1; dy <= 1 && !tooClose; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (_keptHouseCells.has(`${hix + dx},${hiy + dy}`)) { tooClose = true; break; }
+            }
           }
           if (tooClose) _dropHouse.add(k);
-          else _keptHouseCells.push([hix, hiy]);
+          else _keptHouseCells.add(`${hix},${hiy}`);
         }
+        // One compaction pass, not one splice per drop: splicing from the tail
+        // is still O(drops x objects) of element shuffling, and `objects` is
+        // every scatter item on the tile, not just the roofs. Descending
+        // splices and a keep-filter leave the identical array.
         if (_dropHouse.size) {
-          const _dropArr = [..._dropHouse].sort((a, b) => b - a);
-          for (const k of _dropArr) objects.splice(k, 1);
+          let _w = 0;
+          for (let k = 0; k < objects.length; k++) {
+            if (!_dropHouse.has(k)) objects[_w++] = objects[k];
+          }
+          objects.length = _w;
         }
       }
     }
@@ -2598,19 +2663,15 @@
         }
         return false;
       };
-      // NOTE: still a reverse walk with splice, i.e. still quadratic in the
-      // rejections. Left alone for now because the profiler measured the
-      // wildplant sweep next door as the block that actually hurt, and this one
-      // has half a dozen exit paths that want their own change. If a trace ever
-      // names 'mineralrock object sweep' as the worst block, compact it the way
-      // the wildplant sweep above now is.
-      for (let i = objects.length - 1; i >= 0; i--) {
-        if ((i & 63) === 0) yield 'mineralrock object sweep';
-        const o = objects[i];
-        if (_mrSkipKind(o.kind)) continue;
+      // Does this object have to go? Every test below reads the FINAL grid,
+      // the road mask and the POI snapshot taken above — never the array it is
+      // walking — so the verdict for one object is independent of every other,
+      // which is what lets the sweep compact instead of splice.
+      const _mrDrop = (o) => {
+        if (_mrSkipKind(o.kind)) return false;
         const ix = Math.floor((o.x - tileOriginMx) / cellWidthM);
         const iy = Math.floor((o.y - tileOriginMy) / cellWidthM);
-        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile objects belong to a neighbour pass
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
         const here = grid[iy * w + ix];
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
@@ -2618,7 +2679,7 @@
         // (the player taps the building floor to activate it). House/tower
         // sprites ARE the building and were already skipped via _mrSkipKind.
         if (o.kind !== 'chest') {
-          if (_onRoadOrBuilding(here, ix, iy)) { objects.splice(i, 1); continue; }
+          if (_onRoadOrBuilding(here, ix, iy)) return true;
           // One-cell building moat for ground scatter — anything closer sits
           // visually inside the house/tower sprite's overhang. Trees are
           // EXEMPT: yard trees genuinely grow against house walls (and the
@@ -2626,17 +2687,17 @@
           // player's own house), and a tall canopy beside a wall reads
           // naturally where a rock on the foundation reads as junk.
           const _mrIsTree = o.kind === 'tree' || o.kind === 'fruittree';
-          if (!_mrIsTree && _mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
+          if (!_mrIsTree && _mrNearBuilding(ix, iy)) return true;
           // Synthesized concrete POI pads (hospital cross / school pyramid)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock
           // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
           // spawn gate below. Nothing but the chest belongs on its plaza.
-          if (poiPadCells.has(iy * w + ix)) { objects.splice(i, 1); continue; }
+          if (poiPadCells.has(iy * w + ix)) return true;
           // Keep the chest's one-cell frontage clear too.
-          if (_mrNearPoi(ix, iy)) { objects.splice(i, 1); continue; }
+          if (_mrNearPoi(ix, iy)) return true;
         }
         if (o.kind === 'mineralrock') {
-          if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
+          if (_mrIsBlocked(ix, iy)) return true;
           // A rock whose FINAL cell turned out to be residential must pass the
           // same shared spawn rule as every other object (isSpawnCell: near a
           // road/path, a detectable public area, or a POI) — otherwise it'd
@@ -2645,20 +2706,32 @@
           // cluster can drop a rock that ends up on a residential cell after
           // the grid is fully painted. The _residential flag is preserved for
           // telemetry but no longer drives the check.
-          if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) {
-            objects.splice(i, 1); continue;
-          }
+          if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
           delete o._residential;
-          continue;
+          return false;
         }
         // Every OTHER object that landed on a residential cell must pass the
         // shared spawn rule (isSpawnCell): near a road/path, a detectable
         // public area, or a POI — otherwise it'd bait the player into someone's
         // back yard. Forts, castles, houses and towers are already exempt above.
-        if (here === T.RESIDENTIAL) {
-          if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) { objects.splice(i, 1); continue; }
-        }
+        if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
+        return false;
+      };
+      // COMPACTED IN PLACE, not spliced — the same change the wildplant sweep
+      // below already carries, and for the same reason. This was a reverse walk
+      // calling objects.splice(i, 1) on every rejection, and a splice rewrites
+      // the whole tail: a tile whose scatter is mostly culled (a big residential
+      // polygon is exactly that — every rock away from a road goes) ran
+      // quadratic, and a headless trace over one measured 5.6 s in this single
+      // loop. Writing the survivors forward and truncating once is the same
+      // answer, in O(n), and keeps their order.
+      let objKeep = 0;
+      for (let i = 0; i < objects.length; i++) {
+        if ((i & 63) === 0) yield 'mineralrock object sweep';
+        const o = objects[i];
+        if (!_mrDrop(o)) objects[objKeep++] = o;
       }
+      objects.length = objKeep;
       // Same shared rule for the parallel `wildplants` list — any wild pickup
       // that ended up on a residential cell must pass isSpawnCell. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
@@ -4263,7 +4336,7 @@
   // via caveRockP, so plain stone is always the majority and ore grows with
   // depth. Some clusters are VEIN ZONES — one ore/crystal tier is concentrated
   // 10× for that cluster only — the same trick the surface residential clusters
-  // use (see _spawnRockClusters). Rocks land only on CAVE_FLOOR cells, never on
+  // use (see _spawnRockClustersSteps). Rocks land only on CAVE_FLOOR cells, never on
   // a staircase cell (`occupied`). Deterministic per tile+depth.
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
@@ -4437,6 +4510,11 @@
 
   global.WorldGen = {
     Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
+    // The step generator itself, so the block audit
+    // (test/node/tile_build_blocks.test.js) can time the build one step at
+    // a time — the only way to see the thing that actually stutters, which
+    // is not the total but the longest stretch between two yields.
+    rasterizeTileSteps,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
     RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
