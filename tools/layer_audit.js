@@ -185,7 +185,7 @@ const CHECKS = [
     name: 'layers: the fog pass paints onto the fog layer, not the terrain',
     run: () => {
       const src = fs.readFileSync(path.resolve(ROOT, 'src/render.js'), 'utf8');
-      const start = src.indexOf('if (scene.fogGfx && scene.fogContainer)');
+      const start = src.indexOf('if (scene.fogTex && scene.fogImage && scene.fogContainer)');
       if (start < 0) throw new Error('render.js no longer routes the fog pass through a fog layer');
       // Bound the block at the end of drawCells (the only `\n};` at column 0
       // after it) — slicing to EOF would sweep in every later draw function.
@@ -197,23 +197,27 @@ const CHECKS = [
         throw new Error(`${stray.length} fog pass(es) paint onto the terrain layer — they would ` +
           'only darken the base fill, leaving every sprite and label lit.');
       }
-      // The shells themselves are filled by drawFogShell, which lives OUTSIDE
-      // this block and takes its Graphics as an argument — so the scan above
-      // can no longer see where they land. Pin the handover instead: the local
-      // the block hands over must be scene.fogGfx, and every shell must get it.
-      if (!/const fg2 = scene\.fogGfx;/.test(block)) {
-        throw new Error('the fog block no longer binds fg2 to scene.fogGfx — the shell fills ' +
-          'below take their layer as an argument, and this is what pins which one they get.');
+      // The wash is a canvas texture now, painted by paintFogTexture, which
+      // lives OUTSIDE this block — so the scan above can no longer see where it
+      // lands. Pin the handover instead: the block calls the painter with the
+      // scene, and the painter writes scene.fogTex and nothing else.
+      if (!/paintFogTexture\(scene,/.test(block)) {
+        throw new Error('the fog block no longer calls paintFogTexture(scene, …) — the wash takes '
+          + 'its target off the scene, and this is what pins that it is the fog layer\'s texture.');
       }
-      const handoff = block.match(/drawFogShell\(\s*([A-Za-z0-9_.]+)/g) || [];
-      if (!handoff.length) {
-        throw new Error('the fog block draws no shells — render.js no longer routes the fog ' +
-          'through drawFogShell, so update this audit to follow it.');
+      const painter = src.slice(src.indexOf('function paintFogTexture('));
+      const painterEnd = painter.indexOf('\n}');
+      const body = painter.slice(0, painterEnd);
+      if (!/const tex = scene\.fogTex,/.test(body)) {
+        throw new Error('paintFogTexture no longer paints scene.fogTex — a wash on any lower layer '
+          + 'leaves the sprites and labels above it lit.');
       }
-      const wrong = handoff.filter((c) => !/\(\s*fg2$/.test(c));
-      if (wrong.length) {
-        throw new Error(`${wrong.length} fog shell(s) are drawn onto something other than fg2 ` +
-          '(scene.fogGfx) — a shell on any lower layer leaves the sprites and labels above it lit.');
+      // ...and the image that shows it has to live in the fog container, or the
+      // texture is right and its z-order is not.
+      const app = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
+      if (!/this\.fogContainer\.add\(this\.fogImage\)/.test(app)) {
+        throw new Error('the fog image is not added to fogContainer in MapScene.create() — the '
+          + 'ordering check above pins the container, so the wash has to be inside it.');
       }
     },
   },

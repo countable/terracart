@@ -1382,11 +1382,25 @@ class MapScene extends Phaser.Scene {
     // explicit depth, which floats them clear of the insertion-ordered layers.)
     //
     // A CONTAINER, like borderContainer, because the fog only changes when the
-    // player crosses a cell: render.js rebuilds the rects on that crossing and
+    // player crosses a cell: render.js repaints the wash on that crossing and
     // scrolls this by the sub-cell fraction in between. See the fog pass there.
     this.fogContainer = this.add.container(0, 0);
-    this.fogGfx = this.add.graphics();
-    this.fogContainer.add(this.fogGfx);
+    // The wash itself is a CANVAS TEXTURE, not Graphics fills. Fog drawn as
+    // rects is fog made of cells: whatever you do to the frontier — shells,
+    // corner bites — a 32px alpha step still reads as a UI element laid on the
+    // world. render.js computes a continuous alpha field at sub-cell resolution
+    // and smooth-upscales it into this texture, which Phaser then blits 1:1, so
+    // the game's pixelArt (NEAREST) filtering can't put the steps back.
+    // FOG_TEX_CELLS_PAD (render.js) is one cell of halo either side of the
+    // view, so the container's sub-cell scroll never exposes an unfogged edge.
+    // Taken from there, not retyped, so the texture can't be sized for a halo
+    // the painter doesn't lay out.
+    const fogPx = (VIEW_CELLS + FOG_TEX_CELLS_PAD) * CELL_PX;
+    this.fogTex = this.textures.exists('fogwash')
+      ? this.textures.get('fogwash')
+      : this.textures.createCanvas('fogwash', fogPx, fogPx);
+    this.fogImage = this.add.image(0, 0, 'fogwash').setOrigin(0, 0).setVisible(false);
+    this.fogContainer.add(this.fogImage);
 
     // Legacy terrain sprite pool — ground art is fully procedural now, so this
     // is empty. Kept as a defined property so render.js's defensive length check
