@@ -544,6 +544,13 @@
   // viewport is walked — the same pad the culler keeps.
   function keepOut(scene, g, baseCellIX, baseCellIY) {
     if (!g.eraseRect || baseCellIX == null) return;
+    // The building half of the keep-out only applies while buildings ARE their
+    // cells. In polygonal mode (building_overlay.js) those cells are painted as
+    // plain ground and the footprint is drawn from its source ring in a layer
+    // ABOVE this one — so punching them out would cut a staircase of holes in
+    // the road wherever a building's old cells fell, next to a polygon that
+    // covers the band by itself. Water is unconditional either way.
+    const polyB = typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
     const PAD = CELL_PX * 2;
     const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
     const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
@@ -568,7 +575,7 @@
         }
         if (!curGrid) continue;
         const t = curGrid[iy * N + ix];
-        if (t !== WATER_T && !BUILDING_T.has(t)) continue;
+        if (t !== WATER_T && (polyB || !BUILDING_T.has(t))) continue;
         g.eraseRect(scene.viewCenterX + ox * CELL_PX,
                     scene.viewCenterY + oy * CELL_PX, CELL_PX, CELL_PX);
       }

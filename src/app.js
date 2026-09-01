@@ -1238,6 +1238,22 @@ class MapScene extends Phaser.Scene {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the cobble pool.)
     this.letterContainer = this.add.container(0, 0);
+    // POLYGONAL building footprints (building_overlay.js) — the source OSM
+    // rings the rasterizer turned into building cells, filled at their true
+    // shape with the tier's floor, wall and rampart. While the mode is on
+    // (BuildingOverlay.enabled()) drawCells paints those cells as plain ground
+    // and skips every piece of tiled building art, so this layer IS the
+    // buildings, not a decoration over them.
+    //
+    // It sits above all the ground decoration it stands on (terrain, biome
+    // seams, cobbles, the road linework, road letters) and below the pads,
+    // shadows, haze, lighting and sprites — the same slot the tiled floor
+    // occupied relative to those, so a house sprite still stands on its own
+    // floor and the out-of-reach dim, the biome haze and the fog all still
+    // cover it. Scrolled each frame for the sub-cell offset, like the road
+    // layer; the module draws into an offscreen canvas and adds the resulting
+    // image here on its first pass.
+    this.buildingGeomContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
@@ -1653,6 +1669,7 @@ class MapScene extends Phaser.Scene {
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
+    this.buildingGeomContainer.setMask(mask);
     this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
@@ -5201,6 +5218,7 @@ class MapScene extends Phaser.Scene {
     this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
+    this.drawBuildingGeometry();
     this.drawObjects();
     this._drawWorkProgress();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
@@ -6588,15 +6606,26 @@ class MapScene extends Phaser.Scene {
   // ran along one side of the road and grass along the other. Mode of a
   // symmetric radius-3 sample keeps the whole road segment one consistent tint.
   neighborNonRoadColor(wcx, wcy) {
-    // Memoise the per-cell result. Terrain is static after a tile loads, so
-    // the mode of a 7×7 sample never changes for a given (wcx, wcy). Without
+    const t = this.neighborNonRoadType(wcx, wcy);
+    return t == null ? null : (COLORS[t] ?? null);
+  }
+
+  // The TYPE behind that colour. Polygonal building mode needs the type, not
+  // just the colour: a building cell painted as its surrounding zone has to
+  // wear that zone's biome TEXTURE too (see the texture pass in render.js), and
+  // a colour can't be turned back into a texture key. The sampling — and the
+  // memo — live here so both callers see the same answer for a cell.
+  neighborNonRoadType(wcx, wcy) {
+    // Memoise the per-cell result (the TYPE — the colour caller derives its
+    // colour from it). Terrain is static after a tile loads, so the mode of a
+    // 7×7 sample never changes for a given (wcx, wcy). Without
     // this, every road cell did ~48 `tileCache.get(string-key)` lookups +
     // a Map allocation EVERY FRAME — measurable cause of tap-input lag once
     // a viewport had ≥20 road cells. Cache is unbounded by design but each
     // entry is small and only ever-rendered road cells are populated.
-    if (!this._neighborColorCache) this._neighborColorCache = new Map();
+    if (!this._neighborZoneCache) this._neighborZoneCache = new Map();
     const key = Math.floor(wcx) * 100000 + Math.floor(wcy);
-    const hit = this._neighborColorCache.get(key);
+    const hit = this._neighborZoneCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
     // Flat counts array beats Map for ~20-element domains; saves the per-call
@@ -6620,12 +6649,12 @@ class MapScene extends Phaser.Scene {
         if (c > bestN) { bestN = c; bestT = t; }
       }
     }
-    const color = bestT === -1 ? null : (COLORS[bestT] ?? null);
+    const out = bestT === -1 ? null : bestT;
     // Don't memoise a "no neighbour found" — the surrounding tiles may load
     // moments later and we'd be stuck with a bad result. Only cache once we
     // sampled at least one valid neighbour.
-    if (bestN > 0) this._neighborColorCache.set(key, color);
-    return color;
+    if (bestN > 0) this._neighborZoneCache.set(key, out);
+    return out;
   }
 
   // === Drawing ===
@@ -6641,6 +6670,7 @@ class MapScene extends Phaser.Scene {
     B.tick('drawCells', performance.now() - t0);
   }
   drawRoadGeometry() { if (typeof RoadOverlay !== 'undefined') RoadOverlay.draw(this); }
+  drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
     const B = window.__boot;
     if (!B) return Render.drawObjects(this);

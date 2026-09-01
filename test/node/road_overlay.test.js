@@ -390,14 +390,38 @@ test('road overlay: water cells are punched out of the band', () => {
 
 test('road overlay: building floors are punched out of the band', () => {
   clearTiles();
-  // House (9), building_med (11) and castle floor (12) all keep the band off.
+  // House (9), building_med (11) and castle floor (12) all keep the band off —
+  // while buildings ARE their cells. (Polygonal mode is the next test.)
   putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])],
           { '1_0': 9, '2_0': 11, '3_0': 12, '4_0': 5 });
   const scene = makeOverlayScene();
-  RoadOverlay.draw(scene);
-  const g = scene.roadGeomGfx;
-  for (const ox of [1, 2, 3]) assert.truthy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' cleared');
-  assert.falsy(_erasedAt(g, 4, 0), 'the residential cell is left alone');
+  const prev = globalThis.__POLY_BUILDINGS;
+  globalThis.__POLY_BUILDINGS = false;
+  try {
+    RoadOverlay.draw(scene);
+    const g = scene.roadGeomGfx;
+    for (const ox of [1, 2, 3]) assert.truthy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' cleared');
+    assert.falsy(_erasedAt(g, 4, 0), 'the residential cell is left alone');
+  } finally { globalThis.__POLY_BUILDINGS = prev; }
+});
+
+test('road overlay: in polygonal mode building CELLS keep the band', () => {
+  // The cells aren't the building any more (building_overlay.js draws the
+  // source ring in a layer above this one), so punching them out would cut a
+  // staircase of holes in the road beside a polygon that already covers it.
+  // Water is punched either way — it is still water.
+  clearTiles();
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])],
+          { '1_0': 9, '2_0': 11, '3_0': 12, '4_0': 3 });
+  const scene = makeOverlayScene();
+  const prev = globalThis.__POLY_BUILDINGS;
+  globalThis.__POLY_BUILDINGS = true;
+  try {
+    RoadOverlay.draw(scene);
+    const g = scene.roadGeomGfx;
+    for (const ox of [1, 2, 3]) assert.falsy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' left alone');
+    assert.truthy(_erasedAt(g, 4, 0), 'the water cell is still cleared');
+  } finally { globalThis.__POLY_BUILDINGS = prev; }
 });
 
 test('road overlay: ordinary ground is never punched out', () => {
