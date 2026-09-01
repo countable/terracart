@@ -1492,6 +1492,41 @@ class MapScene extends Phaser.Scene {
       rg.generateTexture('halo_poi', 64, 64);
       rg.destroy();
     }
+    // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
+    // below). An open ring with four ticks crossing it, deliberately NOT a
+    // filled disc: a small gold disc IS a coin in this game, and the map is
+    // full of coin bursts, so the previous dot read as loot lying on the
+    // ground rather than as a position. The shape is what carries the meaning
+    // now; the gold only says whose it is — the player's own position sits on
+    // the control side of the colour law (spec §UI COLOUR LANGUAGE), same as
+    // the stick that walked them off it.
+    //
+    // Baked 1:1 at its drawn size (20 game px) rather than big-and-scaled like
+    // the soft halos above: those are clouds where a half-pixel of blur costs
+    // nothing, this is 1.5px linework that has to stay crisp under the canvas
+    // upscale. Dark keyline under the gold, the same trick the stick's rim and
+    // the walk-home lead use, so it holds up over pale ground (roads, sand) as
+    // well as over grass.
+    if (!this.textures.exists('gps_crosshair')) {
+      const cg = this.make.graphics({ x: 0, y: 0, add: false });
+      const C = 10, R = 5, TICK_IN = 3, TICK_OUT = 8;
+      const pass = (colour, alpha, width) => {
+        cg.lineStyle(width, colour, alpha);
+        cg.strokeCircle(C, C, R);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          cg.beginPath();
+          cg.moveTo(C + dx * TICK_IN, C + dy * TICK_IN);
+          cg.lineTo(C + dx * TICK_OUT, C + dy * TICK_OUT);
+          cg.strokePath();
+        }
+      };
+      pass(0x0a1420, 0.55, 3);        // keyline
+      pass(0xffe066, 1, 1.5);         // UI_CONTROL gold
+      cg.fillStyle(0xffe066, 1);
+      cg.fillCircle(C, C, 1);         // centre pip — the fix itself
+      cg.generateTexture('gps_crosshair', 20, 20);
+      cg.destroy();
+    }
     // Activated path-stone art. A claimed stone used to just jump to full
     // opacity — the same grey pebble, only less see-through, which barely
     // read as "claimed" next to the unclaimed ones. Bake a genuinely
@@ -1728,15 +1763,18 @@ class MapScene extends Phaser.Scene {
       .setDepth(9.7)
       .setVisible(false)
       .setMask(mask);
-    // GPS dot — a small gold marker at your REAL (GPS) position, shown once
-    // the stick has walked the character far enough off it to matter. Walking
-    // off the GPS is the whole point of the stick, so you need to see where
-    // you actually are to find your way back; without this the only clue was
-    // the character quietly not being where you're standing. A plain dot, not
-    // a player-shaped sprite — the only player sprites on the map belong to
-    // real bodies.
-    this.gpsGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffe066, 0.9)
-      .setStrokeStyle(1.5, 0x000000, 0.45)
+    // GPS marker — a crosshair at your REAL (GPS) position, shown once the
+    // stick has walked the character far enough off it to matter. Walking off
+    // the GPS is the whole point of the stick, so you need to see where you
+    // actually are to find your way back; without this the only clue was the
+    // character quietly not being where you're standing.
+    //
+    // Not a player-shaped sprite — the only player sprites on the map belong
+    // to real bodies — and not a filled dot either: gold and round at this
+    // size is a coin, which is the one thing on this map you are meant to walk
+    // over and collect. See the 'gps_crosshair' bake above.
+    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'gps_crosshair')
+      .setOrigin(0.5, 0.5)
       .setDepth(9.8)
       .setVisible(false)
       .setMask(mask);
