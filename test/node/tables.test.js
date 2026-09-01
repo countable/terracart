@@ -38,6 +38,24 @@ test('effectivePickCost: cheaper as the pick tier climbs', () => {
   assert.gt(bare, t7, 'bare hands cost more energy than a T7 pick');
 });
 
+// Growing a crop out — the seed cost, the tilling/watering/waiting — has to
+// pay back at least 3x the seed price, or the loop isn't worth it next to
+// just selling the seed itself. rockfruit is DELIBERATELY EXEMPT: its produce
+// is already the game's $1 price FLOOR (wild debris, free off any rock), so
+// no seed price above $0 clears 3x — its $8 seed stands on its own terms
+// instead, priced as a stone/building-material commodity rather than a
+// grow-for-profit crop (see items.js PRICES comment).
+test('crop economy: produce sells for at least 3x its own seed (rockfruit exempt)', () => {
+  for (const crop of Object.keys(CROP_ROW)) {
+    const seedId = `${crop}_seed`;
+    if (PRICES[seedId] == null || PRICES[crop] == null) continue;
+    if (crop === 'rockfruit') continue;
+    assert.gte(PRICES[crop], PRICES[seedId] * 3,
+      `${crop}: produce $${PRICES[crop]} should be at least 3x its $${PRICES[seedId]} seed`);
+  }
+  assert.eq(PRICES.rockfruit_seed, 8, 'rockfruit seed is intentionally untouched by the 3x rule');
+});
+
 test('itemValue: a gold bar is worth more than a copper bar', () => {
   assert.gt(itemValue('gold_bar'), 0, 'gold bar has a value');
   assert.gt(itemValue('gold_bar'), itemValue('copper_bar'), 'gold > copper');
@@ -153,11 +171,18 @@ test('steerSpeedMul: bare hands cover a cell a second, the amulet goes up from t
   // little over one WorldGen.CELL_M cell per second. Real walk pace crawls
   // across an 11-cell view, which is what "the default walk speed is super
   // slow" was. It was lifted from 5× (a flat one cell/second) because that
-  // still read as a drag over the whole opening; Frost is unchanged, so the
-  // per-tier step absorbed the lift rather than the whole ladder shifting.
+  // still read as a drag over the whole opening.
+  //
+  // The TOP moved instead: 15.5 -> 24. The old ladder sounded wide and did not
+  // play wide — 1.2 cells a second bare-handed against 3.1 at the top, so a
+  // top-tier amulet felt like a bare-handed one with a tailwind. The floor is
+  // load-bearing and stays; the widening lands in the per-tier step.
   assert.eq(steerSpeedMul({}), 6, 'no relics');
   assert.eq(steerSpeedMul({ amulet: null }), 6, 'no amulet');
-  assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), 15.5, 'T7 (Frost)');
+  assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), 24, 'T7 (Frost)');
+  // The reason the number moved at all: the ladder has to be worth climbing.
+  assert.gte(steerSpeedMul({ amulet: { tier: 7 } }) / steerSpeedMul({}), 3.5,
+    'the top of the ladder is a different way of moving, not a nudge');
   assert.inRange(steerSpeedMul({}) * 1.4, WorldGen.CELL_M - 0.5, WorldGen.CELL_M + 2,
     'bare baseline is ~one cell per second');
   // Monotonic, and never below the bare-handed baseline.

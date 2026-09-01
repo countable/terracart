@@ -67,6 +67,10 @@ const FILES = [
   // Pure draw-math module: it only touches WorldGen + a stub Graphics, so the
   // road-geometry overlay's projection/culling can be pinned without Phaser.
   'road_overlay.js',
+  // Same deal for the POLYGONAL building overlay: pure draw math over WorldGen
+  // + a stub fill target, so its projection, painter-rule ordering, tier
+  // styling and claim shading pin headlessly.
+  'building_overlay.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
@@ -86,7 +90,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
-  Quests, QUEST_CHAIN, STARTER_CHAIN,
+  Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
@@ -136,9 +140,9 @@ try {
                       // see fog.test.js. Lifted for the same reason: a copy
                       // would drift the moment the viewport was resized.
                       'VIEW_CELLS',
-                      // CELL_PX is the cell edge in px — render.js's fog-shell
-                      // fills are laid out in it, and fog_shells.test.js drives
-                      // them against a recording Graphics stub.
+                      // CELL_PX is the cell edge in px — the fog wash is
+                      // computed at FOG_SUB samples per cell and upscaled to
+                      // it, and fog_soft.test.js pins that budget against it.
                       'CELL_PX',
                       // The starting-neighbourhood reveal radii — fog.test.js
                       // checks they actually cover the trail the onboarding
@@ -272,12 +276,148 @@ try {
     return src.slice(bodyStart, end);
   };
   const objBody = grab('  _starterHomeObject(rec) {\n');
+  // The starter provision crosses into a SECOND tile stream: a mushroom is a
+  // wild plant, not an object. Lift both halves of that routing too, or the
+  // seating tests drive a provisioner that can't place food.
+  const wpBody = grab('  _starterHomeWildplant(rec) {\n');
+  const streamBody = grab('  _starterHomeStream(entry, rec) {\n');
   const provBody = grab('  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n');
+  // _worldPlaced decides whether a late first GPS fix may still become this
+  // save's home origin, and it reads PROVISIONAL_ORIGIN_KEYS — the starter kit
+  // the pre-capture passes lay down, which must NOT count. Lifted with the
+  // list itself so home_capture.test.js drives the real predicate.
+  const placedBody = grab('  _worldPlaced() {\n');
+  const keys = src.match(/const PROVISIONAL_ORIGIN_KEYS = (\[[^\]]*\]);/);
+  if (!keys) {
+    console.error('Could not find PROVISIONAL_ORIGIN_KEYS in src/app.js — update run.js');
+    process.exit(2);
+  }
+  // The capture path's own clearing line, so the test can pin that it clears
+  // the SAME list _worldPlaced skips rather than a hand-written subset.
+  const clear = src.match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
+  if (!clear) {
+    console.error('The home-capture path no longer clears PROVISIONAL_ORIGIN_KEYS — update run.js');
+    process.exit(2);
+  }
   vm.runInContext(
-    'globalThis.StarterHomeMethods = {\n'
+    `const PROVISIONAL_ORIGIN_KEYS = ${keys[1]};\n`
+    + 'globalThis.PROVISIONAL_ORIGIN_KEYS = PROVISIONAL_ORIGIN_KEYS;\n'
+    + 'globalThis.StarterHomeMethods = {\n'
     + '  _starterHomeObject(rec) {\n' + objBody + '\n  },\n'
+    + '  _starterHomeWildplant(rec) {\n' + wpBody + '\n  },\n'
+    + '  _starterHomeStream(entry, rec) {\n' + streamBody + '\n  },\n'
     + '  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n' + provBody + '\n  },\n'
+    + '  _worldPlaced() {\n' + placedBody + '\n  },\n'
     + '};', ctx, { filename: 'starterHome.js' });
+}
+
+// Claiming a castle — which castle it IS (a castle emits no house object; it is
+// a footprint plus a scatter of turrets), whether it has been claimed, and the
+// hearth that gives energy back on arrival. Pure save + clock logic on the
+// Phaser scene class, so lift the four methods as text and let
+// castle_claim.test.js drive the real ones.
+{
+  const src = readSrc('app.js');
+  const grab = (head) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${head.trim()} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    const bodyStart = at + head.length;
+    const end = src.indexOf('\n  }\n', bodyStart);
+    if (end < 0) {
+      console.error(`Could not find the end of ${head.trim()} — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(bodyStart, end);
+  };
+  let decls = '';
+  for (const n of ['CASTLE_REST_COOLDOWN_MS']) {
+    const m = src.match(new RegExp(`const ${n} = ([^;]+);`));
+    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${n} = ${m[1]};\n`;
+  }
+  const frac = src.match(/const CASTLE_REST_FRAC = ([\d.]+);/);
+  if (!frac) { console.error('Could not find CASTLE_REST_FRAC in src/app.js — update run.js'); process.exit(2); }
+  decls += `const CASTLE_REST_FRAC = ${frac[1]};\n`;
+  vm.runInContext(
+    decls
+    + 'globalThis.CASTLE_REST_FRAC = CASTLE_REST_FRAC;\n'
+    + 'globalThis.CASTLE_REST_COOLDOWN_MS = CASTLE_REST_COOLDOWN_MS;\n'
+    + 'globalThis.CastleMethods = {\n'
+    + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
+    + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
+    + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
+    + '  _castleHearth(sx, sy, house) {\n' + grab('  _castleHearth(sx, sy, house) {\n') + '\n  },\n'
+    + '};', ctx, { filename: 'castleClaim.js' });
+}
+
+// The tile-block retry backoff (_scheduleTileRetry). Nothing re-fetched a 3x3
+// block that came back short, so one bad moment at boot left a brand-new
+// player on an empty map for good — see tile_retry.test.js. Pure timer logic,
+// but it lives on the Phaser scene class, so lift it as text with the two
+// constants it reads and let the test drive the real thing.
+{
+  const src = readSrc('app.js');
+  const head = '  _scheduleTileRetry(anyFailed) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _scheduleTileRetry in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _scheduleTileRetry — update run.js');
+    process.exit(2);
+  }
+  // The call site matters as much as the method: a backoff nothing arms is no
+  // backoff at all.
+  if (!/this\._scheduleTileRetry\(anyRetry\)/.test(src)) {
+    console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
+    process.exit(2);
+  }
+  let decls = '';
+  for (const n of ['TILE_RETRY_BASE_MS', 'TILE_RETRY_MAX_MS']) {
+    const m = src.match(new RegExp(`const ${n} = (\\d+);`));
+    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${n} = ${m[1]};\n`;
+    ctx[n] = parseInt(m[1], 10);
+  }
+  // ...and the classifier that decides WHICH of the three a tile failure was.
+  // The banner and the retry both read it, so it is the thing that has to be
+  // right — see tile_retry.test.js.
+  const kindHead = '  _tileFailureKind(err, entry) {\n';
+  const kindAt = src.indexOf(kindHead);
+  if (kindAt < 0) {
+    console.error('Could not find _tileFailureKind in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
+  // The call sites matter as much as the method: a classifier nothing consults
+  // decides nothing. The banner must be the CENTRE tile's verdict alone, and a
+  // permanent answer must arm no retry.
+  for (const [re, what] of [
+    [/const kind = this\._tileFailureKind\(e, entry\);/, 'consult _tileFailureKind'],
+    [/if \(kind !== 'permanent'\) anyRetry = true;/, 'skip the retry on a permanent failure'],
+    [/if \(kind === 'failed' && k === centreKey\) centreFailed = true;/, 'banner only on the centre tile'],
+    [/this\.showBanner\(centreFailed\);/, 'show the banner from centreFailed'],
+  ]) {
+    if (!re.test(src)) {
+      console.error(`ensureTilesAround no longer appears to ${what} — update run.js`);
+      process.exit(2);
+    }
+  }
+  vm.runInContext(
+    decls
+    + 'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
+    + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
+    + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
+    + src.slice(bodyStart, end) + '\n};\n'
+    + 'globalThis.tileFailureKind = function (err, entry) {\n'
+    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};',
+    ctx, { filename: 'scheduleTileRetry.js' });
 }
 
 // The cash-storefront offer path must derive every roll behind an offer from
@@ -512,6 +652,41 @@ try {
 // would let a way be DRAWN wider than the ground the spawners keep clear, which
 // is how rocks ended up sitting in the traffic. Hand the source text over so
 // spawn_roads.test.js can pin it (the vm sandbox has no require/fs).
+// ── The tile-rebuild contract, lifted from BOTH sides of it ───────────────
+// A rebuilt tile (rebuildTileWithBin, in worldgen) is a brand-new entry that
+// inherits a hand-picked set of live fields from the one it replaces, and
+// app.js decides from the entry alone whether its spawn pass still has to run.
+// Those two rules have to agree about which field means "already spawned", and
+// nothing in either file says so on its own — so the test that pins it needs
+// the real text of both. Regexes here would drift; these are the source
+// slices, and spawn_rebuild.test.js reads the contract out of them.
+{
+  const appSrc = readSrc('app.js');
+  const wgSrc  = readSrc('worldgen.js');
+  const slice = (src, head, endMark, what) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${what} in src/${head.slice(0, 40)} — update run.js`);
+      process.exit(2);
+    }
+    const from = at + head.length;
+    const end = src.indexOf(endMark, from);
+    if (end < 0) {
+      console.error(`Could not find the end of ${what} — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(from, end);
+  };
+  // The two lines in _ensureTilesAroundPass that decide whether to spawn.
+  ctx.SPAWN_GATE_SRC = slice(appSrc,
+    '        // Surface fauna on depth 0; hostile wandering monsters underground.\n',
+    '\n        // Re-open any walls', 'the spawn gate');
+  ctx.SPAWN_IN_TILE_SRC      = slice(appSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  _pestFreeZone', 'spawnInTile');
+  ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
+  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
+  ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+}
+
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 
 // ── In-context test framework: test() / assert / makeScene ────────────────
@@ -525,6 +700,7 @@ vm.runInContext(`
     gt(a, b, m)      { if (!(a > b))             throw new Error((m||'gt')+': '+a+' !> '+b); },
     gte(a, b, m)     { if (!(a >= b))            throw new Error((m||'gte')+': '+a+' !>= '+b); },
     lt(a, b, m)      { if (!(a < b))             throw new Error((m||'lt')+': '+a+' !< '+b); },
+    lte(a, b, m)     { if (!(a <= b))            throw new Error((m||'lte')+': '+a+' !<= '+b); },
     inRange(v, lo, hi, m) { if (v < lo || v > hi) throw new Error((m||'inRange')+': '+v+' not in ['+lo+','+hi+']'); },
     includes(arr, v, m)   { if (!arr || !arr.includes(v)) throw new Error((m||'includes')+': '+JSON.stringify(v)+' not in '+JSON.stringify(arr)); },
   };

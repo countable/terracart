@@ -38,6 +38,25 @@ test('equip: a SECOND armor piece bumps by its own delta, not the whole max', ()
   assert.eq(save.energy, 5 + delta, 'energy bumped by the boots delta only');
 });
 
+test('equip: a weapon relic (sword/bow/staff) becomes the active weapon', () => {
+  // Only one weapon fights at a time (combat.js) — the newest one obtained or
+  // upgraded wins by default (app.js WEAPON_SLOTS / Gear.WEAPON_SLOTS).
+  const save = { relics: {}, armor: {} };
+  Gear.equip(save, 'relic', 'sword', 1);
+  assert.eq(save.activeWeapon, 'sword', 'first weapon obtained becomes active');
+  Gear.equip(save, 'relic', 'bow', 1);
+  assert.eq(save.activeWeapon, 'bow', 'a later weapon obtained switches to it');
+  Gear.equip(save, 'relic', 'sword', 4);
+  assert.eq(save.activeWeapon, 'sword', 'upgrading an owned weapon re-activates it');
+});
+
+test('equip: a non-weapon relic never touches activeWeapon', () => {
+  const save = { relics: {}, armor: {}, activeWeapon: 'bow' };
+  Gear.equip(save, 'relic', 'pick', 3);
+  Gear.equip(save, 'armor', 'helmet', 2);
+  assert.eq(save.activeWeapon, 'bow', 'gathering tools and armor are not weapons');
+});
+
 test('buildRelicOffer: returns a usable upgrade with a positive price', () => {
   const save = { relics: {}, armor: {} };
   const offer = Gear.buildRelicOffer(save, seeded(1));

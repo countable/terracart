@@ -53,22 +53,59 @@
     return mutated;
   }
 
-  // Water every planted crop within `radius` metres of world point (pwx, pwy):
-  // sets watered_t = now on crops that aren't already watered or mature. Returns
-  // the number watered.
-  function waterWithin(save, pwx, pwy, radius, now = Date.now()) {
+  // ── The watering can, and what a better one is FOR ────────────────────
+  // A can's tier is the CHANCE that a watering also jumps the plant a stage
+  // there and then: nothing without a can, certain at Frost, straight-line in
+  // between (Wood 1/7, Copper 2/7, … Frost 7/7).
+  //
+  // It buys TIME, which is the one thing a crop costs. Four waterings and four
+  // STAGE_HOLD_MS waits stand between a seed and a harvest, and no relic
+  // touched that — a Frost can watered exactly as fast as bare hands and only
+  // improved the produce quality it came out with. Now the ladder is worth
+  // climbing for the same reason the amulet is: at the top, a crop grows twice
+  // as fast, because every watering is worth two.
+  //
+  // The jump does NOT consume the watering. The plant is watered AND a stage
+  // further on, so its normal advance is still coming — that is what makes a
+  // Frost can a doubling rather than a shortcut.
+  const CAN_TOP_TIER = 7;               // Frost — the top of MATERIAL_TIERS
+  function waterJumpChance(relics) {
+    const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
+    return Math.max(0, Math.min(1, t / CAN_TOP_TIER));
+  }
+
+  // Apply a watering to ONE plant, including the can's jump roll. Returns
+  // 'watered' | 'jumped' | null (null = it wasn't a candidate). Shared by the
+  // tap handler and the area water below so the two cannot drift.
+  function waterOne(save, p, relics, now = Date.now(), rng = Math.random) {
+    if (!p || (p.stage ?? 0) >= maxStage()) return null;
+    if (p.watered_t) return null;
+    p.watered_t = now;
+    if (rng() >= waterJumpChance(relics)) return 'watered';
+    p.stage = (p.stage ?? 0) + 1;
+    // Jumped all the way to ripe: a mature plant is never watered, so clear the
+    // flag rather than leave it holding a watering it can no longer spend.
+    if ((p.stage ?? 0) >= maxStage()) p.watered_t = 0;
+    return 'jumped';
+  }
+
+  // Water every planted crop within `radius` metres of world point (pwx, pwy).
+  // Returns { n, jumped } — how many were watered, and how many the can pushed
+  // a stage on.
+  function waterWithin(save, pwx, pwy, radius, now = Date.now(), relics = null, rng = Math.random) {
     const r2 = radius * radius;
-    let n = 0;
+    let n = 0, jumped = 0;
     for (const p of save.planted || []) {
       const dx = p.x - pwx, dy = p.y - pwy;
       if (dx * dx + dy * dy > r2) continue;
-      if ((p.stage ?? 0) >= maxStage()) continue;
-      if (p.watered_t) continue;
-      p.watered_t = now;
+      const r = waterOne(save, p, relics, now, rng);
+      if (!r) continue;
       n++;
+      if (r === 'jumped') jumped++;
     }
-    return n;
+    return { n, jumped };
   }
 
-  root.Crops = { STAGE_HOLD_MS, maxStage, isMature, crowEats, advanceGrowth, waterWithin };
+  root.Crops = { STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
+                 advanceGrowth, waterWithin, waterOne, waterJumpChance };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

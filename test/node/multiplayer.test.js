@@ -58,6 +58,36 @@ test('mulTint stacks a state tint on the player colour; white is the identity', 
   assert.eq(mulTint(0x808080, 0x808080), 0x404040);
 });
 
+test('edgeDot clamps an off-screen point to the square view edge, inset intact', () => {
+  const half = 176, inset = Multiplayer.PEER_DOT_INSET;
+  // Straight east: the dot sits on the right edge, dead level.
+  const e = Multiplayer.edgeDot(400, 0, half, inset);
+  assert.eq(e.x, half - inset, 'east dot on the right edge');
+  assert.eq(e.y, 0, 'east dot stays level');
+  // Oblique: the dominant axis pins to the edge, the other keeps the ratio —
+  // that's what makes the dot point AT the peer, not at a corner.
+  const o = Multiplayer.edgeDot(400, 100, half, inset);
+  assert.eq(o.x, half - inset, 'dominant axis on the edge');
+  assert.inRange(o.y - (half - inset) / 4, -1e-9, 1e-9, 'minor axis keeps the ratio');
+  // Wherever the peer is, the dot never leaves the inset square.
+  for (const [vx, vy] of [[500, -500], [-9, 300], [-1000, -1], [3, -1000]]) {
+    const d = Multiplayer.edgeDot(vx, vy, half, inset);
+    assert.inRange(d.x, -(half - inset), half - inset, 'x inside the view');
+    assert.inRange(d.y, -(half - inset), half - inset, 'y inside the view');
+    assert.inRange(Math.max(Math.abs(d.x), Math.abs(d.y)) - (half - inset),
+      -1e-9, 1e-9, 'on the edge, not short of it');
+  }
+  // Nothing to point at → no dot (guards a peer somehow at the view centre).
+  assert.eq(Multiplayer.edgeDot(0, 0, half, inset), null);
+});
+
+test('"near" is 300 m — the chip count, the edge dot and the ping arrow agree', () => {
+  // One number for "close enough to matter": the HUD chip's 👥 count, the
+  // rim dot for an off-screen peer, and the off-screen ping arrow all read
+  // it. Retune them together or not at all.
+  assert.eq(Multiplayer.PEER_NEAR_M, 300);
+});
+
 test('describeAt names the rock / tree / wild plant / creature in the tapped cell', () => {
   const sc = mpScene();
   const at = (dx, dy) => ({ x: sc.startWorldM.x + dx, y: sc.startWorldM.y + dy });

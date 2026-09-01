@@ -10,6 +10,8 @@
 //   worldMetersToAbsCell(scene, wmx, wmy)    — { cellIX, cellIY }
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
 //   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
+//   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
+//   localMToLonLat(scene, mx, my)            — and back out to lon/lat
 
 function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
@@ -116,4 +118,38 @@ function cellInReach(scene, cellIX, cellIY) {
   const dx = (cellIX - p.cellIX) * scene.cellM;
   const dy = (cellIY - p.cellIY) * scene.cellM;
   return dx * dx + dy * dy <= reachM * reachM;
+}
+
+// ─── GPS ⇄ the local metre frame ─────────────────────────────────────────────
+// The world is drawn in Web-Mercator: every tile, object and cell lives at
+// `z=14 world px × mPerPx` metres, where mPerPx is frozen at the ORIGIN's
+// latitude (app.js create()). So the only correct way to put a GPS fix on that
+// map is to project it the same way — lon/lat → world px → metres.
+//
+// The old conversion was a flat lat/lon → metres approximation anchored at the
+// origin. It agrees with Mercator AT the origin and drifts as you walk away
+// from it, because Mercator's scale grows with latitude: ~2 m out at 5 km
+// north, ~17 km out for a save still anchored at the default home while its
+// player is a province away (home capture never landed). That drift is what
+// stood a player somewhere they weren't — on their own map, and on the
+// multiplayer wire, which is this same metre frame divided by mPerPx.
+//
+//   lonLatToLocalM(scene, lon, lat) — { x, y } in playerM's frame (metres from
+//                                     the projection origin; + is east / south)
+//   localMToLonLat(scene, mx, my)   — the exact inverse, { lon, lat }
+function lonLatToLocalM(scene, lon, lat) {
+  const p = WorldGen.lonLatToWorldPx(lon, lat, WorldGen.Z);
+  return {
+    x: p.x * scene.mPerPx - scene.startWorldM.x,
+    y: p.y * scene.mPerPx - scene.startWorldM.y,
+  };
+}
+function localMToLonLat(scene, mx, my) {
+  const n = (1 << WorldGen.Z) * WorldGen.TILE_PX;
+  const px = (scene.startWorldM.x + mx) / scene.mPerPx;
+  const py = (scene.startWorldM.y + my) / scene.mPerPx;
+  return {
+    lon: px / n * 360 - 180,
+    lat: Math.atan(Math.sinh(Math.PI * (1 - 2 * py / n))) * 180 / Math.PI,
+  };
 }

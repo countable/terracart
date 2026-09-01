@@ -290,6 +290,12 @@ ENERGY & FOOD
      * OFFLINE — while the tab is closed, energy pro-rates linearly to a full
        bar over 1 hour away (energy.js Energy.OFFLINE_FULL_REST_MS), applied
        once on the next load.
+ - EXHAUSTION: hitting 0 energy UNDERGROUND blacks the player out and wakes
+   them on the surface (same world coordinates), costing HALF their money —
+   floored, so it can never go negative and a broke player loses nothing
+   further. They wake still drained, so changeDepth refuses to go back down
+   until they rest (app.js _passOutToSurface). On the surface, 0 energy has no
+   such penalty — it just blocks further energy-costing actions.
 
 ================================================================================
 WORLD GENERATION
@@ -591,35 +597,50 @@ COMBAT
    from any source drains the one pool, and an enemy left alone heals back to
    full after 20 minutes without a hit. HP is in-memory: a foe you softened up
    is whole again next session.
- - THE THREE WEAPONS DO DIFFERENT THINGS.
+ - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (sword/bow/staff/null)
+   picks which owned weapon auto-engages or auto-fires; the others sit inert —
+   no auto-engage, no auto-fire — until switched to. Default is the newest
+   weapon OBTAINED or UPGRADED (equipping one always makes it active); the
+   player can also switch by tapping any owned weapon in the Relics inventory
+   tab, which marks it with a small "E" (equipped/active) badge alongside its
+   tier badge. This only gates the AUTOMATIC behaviours below — a bare-handed
+   or manual tap-to-fight (tapping an enemy directly) and the crow/deer HUNT
+   wheel are unaffected; the hunt wheel is still sped by ANY owned weapon's
+   tier (the best of the three), active or not.
+ - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
-              hands = the 9s tier-0 rung, so you can always fight). Owning one
-              also AUTO-ENGAGES: the nearest enemy in reach is picked up
-              without a tap. An auto-engaged fight is deliberately weightless —
-              it does not swallow taps, root the character, or block the walk
-              home, and it breaks off silently when the foe leaves reach.
-     bow    — RANGED. While at least one enemy is ON SCREEN it looses one shot
-              per second along the COMPASS heading. Shots do NOT home and do
-              NOT pick a target: you aim by turning. 4.5 cells/s, 8-cell range.
-     staff  — RANGED, as the bow: 3.2 cells/s, 7-cell range, fired half a beat
-              off the bow so carrying both reads as an alternating patter.
-   RANGED IS PRICED PER LOADOUT. A shot carries one second of its tier's
-   melee-equivalent damage SPLIT ACROSS THE RANGED SLOTS, so your whole ranged
-   kit — bow and staff both, landing every shot — equals ONE sword of that tier,
-   and either one alone is worth half of it. Shots fire themselves at anything
-   on screen, from seven or eight cells, while you walk, needing neither a tap
-   nor the reach the melee wheel needs; and the slots stack. At full melee rate
-   each, that was two swords' worth of damage for no input, on top of the sword.
-   The divisor is the NUMBER OF RANGED SLOTS, not a tuned fraction, so a third
-   ranged weapon would re-price the other two rather than inflate the total.
-   Bow and staff no longer speed the melee wheel; the shots are what they
-   contribute. (They still speed the crow/deer HUNT wheel.)
-   SHOTS STOP AT ROCK. Underground a shot is tested against the same cave-wall
-   collision the body walks into, sampled every half cell so a long frame can't
-   step over a wall: it stops at the face and is spent. Without it you could
-   face a blank wall and clear the next tunnel through it. Nothing stops a shot
-   on the surface — you can shoot over a fence or a river.
+              hands = the 9s tier-0 rung, so you can always fight). Being the
+              ACTIVE weapon also AUTO-ENGAGES: the nearest enemy in reach is
+              picked up without a tap. An auto-engaged fight is deliberately
+              weightless — it does not swallow taps, root the character, or
+              block the walk home, and it breaks off silently when the foe
+              leaves reach.
+     bow    — RANGED, an ARROW. While active, and at least one enemy is ON
+              SCREEN, it looses one shot every 2 seconds along the COMPASS
+              heading (4.5 cells/s, 8-cell range). Shots do NOT home and do
+              NOT pick a target: you aim by turning. An arrow STOPS in the
+              first foe it hits, and at anything solid on the way — cave rock
+              underground (the same collision the body walks into), and on
+              the surface a standing tree/bush or an unbroken mineral rock.
+              Free to fire — no energy cost.
+     staff  — RANGED, a PIERCING BOLT: same cadence and heading rules as the
+              bow (3.2 cells/s, 7-cell range), but a bolt ignores the world
+              entirely (goes through rock and timber alike) and damages EVERY
+              foe on its line once each, not just the first. Costs 1 ENERGY
+              per bolt (silently skipped if you can't afford it — an
+              auto-firing weapon must never spam "too tired"), and lands
+              DOUBLE an arrow's damage: the energy is the price of the pierce
+              and the punch.
+   A shot's damage is its tier's FULL melee-equivalent rate (bow) or DOUBLE
+   that (staff) — the same rate a sword of that tier deals, or twice it — with
+   no split across ranged slots: because only one weapon can ever be in play,
+   there is nothing to split against (bow and staff used to fire simultaneously
+   and stack, which is what the old split priced against; the doubling that
+   remains is a deliberate difference in KIND, not a stacking guard). Bow and
+   staff never speed the melee wheel, active or not; the shots are what they
+   contribute. (All three still speed the crow/deer HUNT wheel regardless of
+   which is active — see above.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating
@@ -637,8 +658,10 @@ COMBAT
    time killing one paid nothing. Crow and deer are game, not enemies: they pay
    in feathers and meat. On top of the wage, one in ten CAVE MONSTERS also drops
    a buried-treasure roll (a hoard is something you turn up underground). A kill
-   also ticks any kill quest and flashes. Combat costs no energy; your time and
-   your aim are the price.
+   also ticks any kill quest and flashes. Combat costs no energy — sword,
+   bare hands, and the bow are free; your time and your aim are the price.
+   The one exception is the staff, which draws 1 energy per bolt for its
+   pierce + double damage (see above).
  - EVERY route to a dead creature pays the same, because they all funnel through
    resolveDefeat — the tap-hunt wheel, the combat wheel, a killing bow/staff
    shot, and a PET's kill. That last one used to carry its own copy of the
@@ -743,8 +766,8 @@ PATH STONES
    cell ever had a visible stone, and a cell that rolled no stone stays bare
    even once claimed (it never pops one in — that would read as a bug, not
    as "lighting up").
-   Every 10 consecutive claimed stones on the same named path awards 1 coin
-   (a 30-stone path pays 3 coins total; fewer than 10 pays nothing).
+   Every 2nd claimed stone on the same named path awards 1 coin
+   (a 30-stone path pays 15 coins total; a single stone pays nothing).
  - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
    fires a one-time completion reward via the unified rarity picker (lowtier
    chest curve at tier 4), shown with the chest reward fanfare. This is on top
@@ -873,13 +896,19 @@ GEAR: RELICS & ARMOR
               wizard tower's Inner Light, tier = inner-light/reach level
      amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
-              auto-engages the nearest enemy in reach); raises sell prices
-              (0.5× → 1.0× at Frost)
-     bow    — RANGED weapon (auto-fires 1 shot/s along the compass while an
-              enemy is on screen); lowers buy prices (T7 = par)
-     staff  — RANGED weapon (as the bow, half a beat offset, shorter reach);
-              no price effect
-     (all three still speed the crow/deer HUNT wheel by tier — see WORK WHEEL)
+              auto-engages the nearest enemy in reach WHEN ACTIVE — see
+              COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
+              active or not
+     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2s
+              while an enemy is on screen, WHEN ACTIVE; stops in the first
+              foe hit and at solid ground); lowers buy prices (T7 = par)
+              whether active or not
+     staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
+              ignores the world and hits every foe on its line; costs 1
+              energy/bolt and lands double an arrow's damage); no price effect
+     (only ONE of the three auto-fights at a time — save.activeWeapon, see
+     COMBAT — but all three still speed the crow/deer HUNT wheel by tier
+     regardless of which is active — see WORK WHEEL)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
    needed and no separate mode. It walks the character somewhere OTHER than
@@ -1202,6 +1231,32 @@ FOG OF WAR
    the distance falloff (0.90 at the viewport corner), so out at the corners
    fogged and explored ground are both near black and the fog edge reads
    mainly in the mid-field — retune the pair together, never the alpha alone.
+ - The wash is A CONTINUOUS FIELD painted into a CANVAS TEXTURE, not Graphics
+   fills. Darkness ramps with DISTANCE from the nearest revealed cell — 0.55
+   one cell out, 0.70 two, FOG_ALPHA at three and past (FOG_RAMP_A), smoothstep
+   between those samples — and the distance is measured to the EDGE of explored
+   ground, half a cell in from the last explored cell's centre (FOG_EDGE_BIAS),
+   so the feather lands on the unknown side and ground the player has walked
+   stays legible. The frontier is then bent by two octaves of value noise keyed
+   on ABSOLUTE world position, which is what makes it read as weather rather
+   than as a vignette: a jitter keyed on the screen crawls along the boundary
+   as the player walks and looks like the fog boiling, while world-keyed wisps
+   put the same tongue of fog over the same ground every time you come back.
+   The wisp push is TAPERED to nothing at BOTH ends of the ramp (4u(1-u)) —
+   that taper is what keeps the two claims intact: walked ground takes no wisp
+   at all, and the deep interior still lands on FOG_ALPHA exactly. Softening
+   the edge must not lighten the unknown.
+ - It was three concentric SHELLS of 32px rects until Sep 2026, with a hashed
+   corner bite out of each shell's outermost cells. That softened the frontier
+   without ever letting it stop being made of cells: the eye reads a 32px alpha
+   step as a UI element laid on the world, and the bites only turned the
+   staircase into a row of chamfered tiles. If you are tempted to draw the fog
+   as rects again — at any resolution — that is the bug.
+ - The field is computed at FOG_SUB (8) samples per cell and drawn up to
+   CELL_PX with smoothing on; Phaser then blits the result 1:1, so the game's
+   pixelArt (NEAREST) filtering cannot put the steps back. Bilinear, not the
+   'high' resampler: the field is already smooth, and 'high' cost several times
+   the milliseconds for under one alpha step of accuracy.
  - LAYER: fogContainer is LAST in the display list — above the ground, the
    lighting dim, the sprites, the rim haze, the distance falloff, the POI name
    tablets and the tier diamonds. Fog is the strongest claim of any darkening
@@ -1233,8 +1288,12 @@ FOG OF WAR
    between crossings fogContainer just SCROLLS by the sub-cell fraction, the
    same trick the biome-seam layer uses. The fog bits are read in the ring scan
    that already resolves the terrain types, off the same cached tile run (~4
-   mask lookups a frame, not 225), and each row's fogged cells are merged into
-   horizontal runs, so a rebuild is typically under 13 fillRects.
+   mask lookups a frame, not 225). The repaint itself skips every lattice
+   square whose four cells agree — all revealed, or all past the ramp —
+   because bilinear interpolation between four equal corners IS that value
+   and the wisp taper is zero at both ends, so the work tracks the LENGTH OF
+   THE FRONTIER, not the area of the screen. That matters most while tiles
+   are still landing, the one window where the pass runs every frame.
  - The ONBOARDING TRAIL is revealed when it is laid (_revealStarterTrail), and
    this is not optional. The starter trail is a SIGHTLINE CHAIN — walk to the
    crate you can see, and from there the next is in view, and the last puts the
@@ -1258,7 +1317,7 @@ FOG OF WAR
    rebuilds every frame — a few frames at the loading frontier, which is
    exactly the window where the image is genuinely changing.
  - tools/layer_audit.js pins the layer above every world layer AND checks the
-   pass paints onto fogGfx rather than the terrain graphics — the same bug that
+   pass paints scene.fogTex rather than the terrain graphics — the same bug that
    left biome seams glowing outside the reach bubble, one layer up.
 
 TEXTURES

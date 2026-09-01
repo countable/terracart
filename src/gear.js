@@ -13,6 +13,11 @@
 (function (root) {
   'use strict';
 
+  // The three combat weapons — the ONLY slots `save.activeWeapon` ever holds.
+  // Shared with app.js (inventory tap-to-activate) and combat.js (what
+  // auto-engages / auto-fires); kept here too since equip() is what flips it
+  // on a fresh pickup.
+  const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
   // Equip a bought / forged / looted relic or armor piece. Armor also recomputes
   // max energy and grants the freshly-unlocked headroom (captured BEFORE
@@ -34,6 +39,10 @@
     }
     save.relics = save.relics || {};
     save.relics[slot] = { tier };
+    // Only one weapon fights at a time (combat.js) — the newest one obtained
+    // or upgraded wins by default; the player can still switch back by
+    // tapping another owned weapon in the Relics inventory tab (app.js).
+    if (WEAPON_SLOTS.includes(slot)) save.activeWeapon = slot;
   }
 
   // Pick a random relic OR armor piece the player can actually use (current slot
@@ -123,5 +132,5 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
-  root.Gear = { equip, buildRelicOffer, blacksmithRecipe, smeltingRecipe, smeltUnlockedBars };
+  root.Gear = { equip, buildRelicOffer, blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

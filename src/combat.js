@@ -9,13 +9,15 @@
 // Now a fight is HIT POINTS, and the three weapons reach them differently:
 //
 //   sword          — melee. The combat wheel drains the foe's HP while it runs
-//                    (app.js `startCombat` / `_drawWorkProgress`), and owning
-//                    one AUTO-ENGAGES the nearest enemy in reach, so you don't
-//                    have to tap a slime that's already chewing on you.
-//   bow / staff    — ranged. While an enemy is on screen they loose one shot a
-//                    second along the COMPASS HEADING (app.js `_combatTick`) —
-//                    they do not home, so you aim by turning. A hit drains the
-//                    same HP pool the melee wheel does.
+//                    (app.js `startCombat` / `_drawWorkProgress`), and being
+//                    the ACTIVE weapon AUTO-ENGAGES the nearest enemy in
+//                    reach, so you don't have to tap a slime that's already
+//                    chewing on you.
+//   bow / staff    — ranged. While an enemy is on screen the ACTIVE one of
+//                    the two looses one shot a second along the COMPASS
+//                    HEADING (app.js `_combatTick`) — it does not home, so you
+//                    aim by turning. A hit drains the same HP pool the melee
+//                    wheel does.
 //   bare hands     — still work, still slow (the 9 s tier-0 rung).
 //
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
@@ -24,18 +26,19 @@
 // That rate is the MELEE rung, and everything below is derived from it;
 // nothing here is a magic number picked to feel right.
 //
-// RANGED IS PRICED PER LOADOUT, NOT PER WEAPON. A shot used to carry a full
-// second of its tier's melee rate, which made a bow of tier N the equal of a
-// sword of tier N — with the aiming meant to be the cost. It isn't much of a
-// cost: shots fire THEMSELVES once a second at anything on screen, from seven
-// or eight cells away, while you keep walking, and they need neither a tap nor
-// the reach the melee wheel needs. And the slots STACK — bow and staff fire
-// independently, so a player carrying both was landing two swords' worth of
-// damage for no input at all, on top of whatever the sword itself was doing.
-// So the rate is now split across the ranged slots: your WHOLE ranged loadout,
-// landing every shot, equals one melee weapon of its tier. That divisor is
-// RANGED_SLOTS.length rather than a tuned fraction, so adding a third ranged
-// weapon re-prices the other two instead of inflating the total again.
+// ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
+// of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
+// inert — no auto-engage, no auto-fire — until the player switches to them
+// (tapping a weapon in the Relics inventory tab, or obtaining/forging a new
+// one, which becomes active automatically). Because only one weapon can ever
+// be in play, there is no split across ranged slots any more: there used to
+// be one (bow and staff fired simultaneously and stacked, so their shares
+// were priced to sum to one sword), but exclusivity already prevents the
+// double-dip the split existed to fix. What's left is SHOT_DMG_MUL, a
+// deliberate difference in KIND rather than a stacking guard: the bow (an
+// arrow) delivers its tier's full melee-equivalent rate, same as the sword;
+// the staff (a piercing bolt) delivers DOUBLE that, priced in energy per
+// bolt — see the SHOT table below.
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -113,33 +116,60 @@
     return dpsForDurationMs(toolDurationMs(relics, slot));
   }
 
-  const FIRE_INTERVAL_MS = 1000;          // "1/s", as asked
+  // One shot every two seconds. Was 1000 — halving the cadence makes each
+  // shot a visible event instead of a stream; shotDamage scales per-shot
+  // damage by the interval, so the delivered rate is cadence-independent.
+  const FIRE_INTERVAL_MS = 2000;
   const RANGED_SLOTS = ['bow', 'staff'];
-  // Per-slot shot geometry. `phaseMs` staggers the staff half a beat off the
-  // bow so a player carrying both hears an alternating patter rather than one
-  // doubled thud. Ranges/speeds are in CELLS and cells-per-second so they hold
-  // at any cell size; the viewport is 11 cells wide, so a bow shot crosses the
-  // screen and a staff bolt very nearly does.
+  // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
+  // off the bow so a player carrying both fired simultaneously heard an
+  // alternating patter; only one ranged slot can ever be the active weapon
+  // now, so it's a no-op, kept at 0 for both rather than an unexplained
+  // half-second delay the first time the staff becomes active. Ranges/speeds
+  // are in CELLS and cells-per-second so they hold at any cell size; the
+  // viewport is 11 cells wide, so a bow shot crosses the screen and a staff
+  // bolt very nearly does.
+  //
+  // The two weapons differ in KIND, not just tint:
+  //   bow   — an arrow: a streak (lenPx/widthPx) that stops in the FIRST foe
+  //           it hits and in anything solid on the way (cave rock, and on the
+  //           surface standing trees / bushes / mineral rocks — app.js hands
+  //           the test over as opts.blocked).
+  //   staff — a magic bolt: a fat dot (dotPx radius) that PIERCES — it damages
+  //           every foe it passes exactly once and ignores the world test
+  //           entirely (magic goes over rock and timber alike). Each bolt
+  //           draws energyCost (1⚡) from the caster — app.js gates the shot
+  //           on affording it — and hits twice as hard as an arrow
+  //           (SHOT_DMG_MUL below): the energy is the price of the pierce
+  //           and the punch.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2, phaseMs: 0 },
-    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, lenPx: 6, widthPx: 3, phaseMs: 500 },
+    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3, lenPx: 6, widthPx: 3,
+             phaseMs: 0, pierce: true, energyCost: 1 },
   };
+  // Damage weight per slot: a staff bolt lands double an arrow's share.
+  const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
   // Deliberately generous: the heading comes off a phone COMPASS, which is
   // coarse and jittery, so a strict hit box would make the whole mechanic read
   // as broken. Just under a cell puts a foe eight cells out inside a ~7° cone.
   const HIT_RADIUS_CELLS = 0.9;
 
-  // Damage per shot: one second of that weapon tier's melee-equivalent rate,
-  // SPLIT across the ranged slots, fired once a second — see the loadout note
-  // at the top of the file. An empty slot fires nothing at all.
+  // Damage per shot: one firing-interval's worth of that weapon tier's
+  // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — the staff
+  // hits double, priced in energy per bolt). No split across ranged slots:
+  // only one weapon ever fires (save.activeWeapon, app.js), so a bow alone
+  // delivers its tier's FULL melee rate — same as a sword of that tier — and
+  // a staff alone delivers double that. The interval cancels out of the
+  // delivered per-second rate entirely; it only paces how chunky each hit
+  // looks. An empty slot fires nothing at all.
   //
-  // The floor of 1 is what keeps a wooden weapon firing at all once the split
-  // and the rounding are through; it only ever binds on rungs whose full rate
-  // is already under two per second.
+  // The floor of 1 is what keeps a wooden weapon firing at all once the
+  // rounding is through; it only ever binds on rungs whose full rate is
+  // already under two per second.
   function shotDamage(relics, slot) {
     if (!relics || !relics[slot]) return 0;
-    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) / RANGED_SLOTS.length;
+    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1);
     return Math.max(1, Math.round(perSecond * FIRE_INTERVAL_MS / 1000));
   }
 
@@ -157,6 +187,7 @@
       rangeM: spec.rangeCells * cellM,
       travelledM: 0,
       damage: dmg,
+      pierce: !!spec.pierce,
     };
   }
 
@@ -195,10 +226,11 @@
     for (const s of shots) {
       const step = s.speedMps * dt;
       // How far of this frame's step the shot actually gets to travel: all of
-      // it, unless something solid is in the way.
+      // it, unless something solid is in the way. A PIERCING shot (the staff
+      // bolt) never consults the world at all — magic crosses rock and timber.
       let travel = step;
       let stopped = false;
-      if (blocked && step > 0) {
+      if (!s.pierce && blocked && step > 0) {
         const samples = Math.max(1, Math.ceil(step / sampleM));
         for (let i = 1; i <= samples; i++) {
           const t = (step * i) / samples;
@@ -211,14 +243,29 @@
       s.x += s.vx * travel;
       s.y += s.vy * travel;
       s.travelledM += travel;
-      let hit = null, bestD2 = r2;
-      for (const e of enemies) {
-        const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
-        if (d2 <= bestD2) { bestD2 = d2; hit = e; }
+      if (s.pierce) {
+        // Piercing: damage every foe inside the radius ONCE each, keep flying.
+        // The per-shot hit ledger is what stops a slow bolt re-hitting the
+        // same foe on every frame it spends crossing them.
+        for (const e of enemies) {
+          const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
+          if (d2 > r2) continue;
+          const key = e.id != null ? e.id : e;
+          if (!s._struck) s._struck = new Set();
+          if (s._struck.has(key)) continue;
+          s._struck.add(key);
+          onHit(e, s);
+        }
+      } else {
+        let hit = null, bestD2 = r2;
+        for (const e of enemies) {
+          const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
+          if (d2 <= bestD2) { bestD2 = d2; hit = e; }
+        }
+        // A foe standing right against the far side of the wall is more than a
+        // hit radius from where the shot stopped, so this can't reach through.
+        if (hit) { onHit(hit, s); continue; }
       }
-      // A foe standing right against the far side of the wall is more than a
-      // hit radius from where the shot stopped, so this can't reach through.
-      if (hit) { onHit(hit, s); continue; }
       if (stopped) continue;                          // spent against the rock
       if (s.travelledM >= s.rangeM) continue;
       alive.push(s);
@@ -250,9 +297,8 @@
     return true;
   }
 
-  // Health-ring tint. The combat wheel is a health bar, so it has to read as
-  // one at a glance without a number: full green, bloodied amber, nearly-dead
-  // red.
+  // Health-bar tint. The bar has to read as health at a glance without a
+  // number: full green, bloodied amber, nearly-dead red.
   function healthColor(frac) {
     if (frac > 0.5) return 0x6fdc6f;
     if (frac > 0.25) return 0xffc23d;
@@ -263,7 +309,7 @@
     registerMonsters, FAUNA_HP, creatureMaxHp,
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     BASELINE_HP, dpsForDurationMs, meleeDps, shotDamage,
-    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, HIT_RADIUS_CELLS, BLOCK_SAMPLE_CELLS,
+    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, BLOCK_SAMPLE_CELLS,
     spawnShot, stepShots, lineOfFire, healthColor,
   };
   root.Combat = api;
