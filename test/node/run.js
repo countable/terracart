@@ -307,6 +307,48 @@ try {
     + '};', ctx, { filename: 'starterHome.js' });
 }
 
+// Claiming a castle — which castle it IS (a castle emits no house object; it is
+// a footprint plus a scatter of turrets), whether it has been claimed, and the
+// hearth that gives energy back on arrival. Pure save + clock logic on the
+// Phaser scene class, so lift the four methods as text and let
+// castle_claim.test.js drive the real ones.
+{
+  const src = readSrc('app.js');
+  const grab = (head) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${head.trim()} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    const bodyStart = at + head.length;
+    const end = src.indexOf('\n  }\n', bodyStart);
+    if (end < 0) {
+      console.error(`Could not find the end of ${head.trim()} — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(bodyStart, end);
+  };
+  let decls = '';
+  for (const n of ['CASTLE_REST_COOLDOWN_MS']) {
+    const m = src.match(new RegExp(`const ${n} = ([^;]+);`));
+    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${n} = ${m[1]};\n`;
+  }
+  const frac = src.match(/const CASTLE_REST_FRAC = ([\d.]+);/);
+  if (!frac) { console.error('Could not find CASTLE_REST_FRAC in src/app.js — update run.js'); process.exit(2); }
+  decls += `const CASTLE_REST_FRAC = ${frac[1]};\n`;
+  vm.runInContext(
+    decls
+    + 'globalThis.CASTLE_REST_FRAC = CASTLE_REST_FRAC;\n'
+    + 'globalThis.CASTLE_REST_COOLDOWN_MS = CASTLE_REST_COOLDOWN_MS;\n'
+    + 'globalThis.CastleMethods = {\n'
+    + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
+    + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
+    + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
+    + '  _castleHearth(sx, sy, house) {\n' + grab('  _castleHearth(sx, sy, house) {\n') + '\n  },\n'
+    + '};', ctx, { filename: 'castleClaim.js' });
+}
+
 // The tile-block retry backoff (_scheduleTileRetry). Nothing re-fetched a 3x3
 // block that came back short, so one bad moment at boot left a brand-new
 // player on an empty map for good — see tile_retry.test.js. Pure timer logic,

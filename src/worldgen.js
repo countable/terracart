@@ -1283,6 +1283,10 @@
     // seam between distinct buildings whose footprints rasterized into one
     // contiguous block of building tiles (otherwise they read as one blob).
     const owners = new Uint16Array(w * h);
+    // ownerId → that footprint's stable key (see the mint below). Sparse array,
+    // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
+    // building it belongs to in two hops and nothing has to search polygons.
+    const ownerKeys = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
     // lossy record of where the roads are: every way rasterizes exactly ONE
     // cell wide whatever its class, and parking aisles are skipped entirely —
@@ -2194,6 +2198,29 @@
             owners[fy * w + fx] = ownerId;
             fpCells.push([fx, fy]);
           }
+          // A STABLE IDENTITY for this footprint, minted before the sprite
+          // skip below so the tiers that draw no sprite still get one.
+          //
+          // A castle (BUILDING_LARGE) is the reason this exists. It emits no
+          // house object at all — it is a block of tier-12 cells with a
+          // scatter of separate `tower` objects around its rim, one per ~5
+          // perimeter cells, each carrying its own id. So there was nothing in
+          // the data that meant "this castle": anything recorded against a
+          // tower id was recorded against ONE TURRET, and the same castle read
+          // as claimed from one corner and unclaimed from another.
+          //
+          // The key is the footprint's own anchor cell in ABSOLUTE cell
+          // coords, so every cell and every turret of one castle agrees on it
+          // and it survives a tile rebuild. (A footprint split across a tile
+          // seam mints one key per side — the same limitation houses already
+          // have, where the two halves are reconciled by proximity dedup.)
+          if (fpCells.length) {
+            let kx = 0, ky = 0;
+            for (const [fx, fy] of fpCells) { kx += fx; ky += fy; }
+            const akx = tx * w + Math.round(kx / fpCells.length);
+            const aky = ty * h + Math.round(ky / fpCells.length);
+            ownerKeys[ownerId] = `b_${akx}_${aky}`;
+          }
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
@@ -2455,6 +2482,7 @@
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
     // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
     // cell coord so towers stay aligned across tile boundaries.
+    const _flagged = new Set();
     for (let iy = 0; iy < h; iy++) {
       for (let ix = 0; ix < w; ix++) {
         if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
@@ -2469,7 +2497,15 @@
         const absX = tx * w + ix, absY = ty * w + iy;
         if (((absX + absY * 13) % 5 + 5) % 5 !== 0) continue;
         const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
-        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}` });
+        // Which castle this turret belongs to, and whether it is the one that
+        // flies the flag. A castle has several turrets but is one place, so
+        // exactly one of them — the first the scan reaches, which is stable
+        // because the scan order is — carries anything drawn once per castle.
+        const castle = ownerKeys[owners[iy * w + ix]] || null;
+        const flagPost = !!castle && !_flagged.has(castle);
+        if (flagPost) _flagged.add(castle);
+        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}`,
+          castle, flagPost });
       }
     }
 
@@ -2701,7 +2737,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
   }
 
   function tileEdgeMeters(lat) {
@@ -2771,7 +2807,7 @@
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
       const layers = await runHeavyPhase(() => MVT.decodeTile(bytes));
-      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -2814,6 +2850,7 @@
       }
       entry.grid = grid;
       entry.owners = owners;
+      entry.ownerKeys = ownerKeys;
       entry.objects = filteredObjects;
       entry.depth = 0;
       // Concrete POI pad cells (grid indices) — consumed by the cave-entrance

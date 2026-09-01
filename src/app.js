@@ -632,6 +632,15 @@ const HOME_FULL_REST_S = 90;
 // The trade-off: a fire also repels slimes nearby, so it makes a safe, slow
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
+// A CLAIMED castle is a hearth. Visiting one gives back a tenth of the bar,
+// once an hour per castle (save.claimedCastles[key] holds the last draw).
+// Deliberately a lump on arrival rather than a rest rate like the ones above:
+// the castle is somewhere you travel to, so the payoff should land the moment
+// you get there instead of asking you to stand still on it. Small enough that
+// it can't replace food or sleeping at Home — a tenth of a bar an hour is a
+// courtesy for the walk, not an income.
+const CASTLE_REST_FRAC = 0.10;
+const CASTLE_REST_COOLDOWN_MS = 60 * 60 * 1000;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
@@ -1407,6 +1416,7 @@ class MapScene extends Phaser.Scene {
     // Turrets render from their own pool into towerContainer (above the
     // ramparts); every other world object shares objectPool.
     this.towerPool = [];
+    this.castleFlagPool = [];   // the claimed-castle banner, one per castle
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -1526,6 +1536,34 @@ class MapScene extends Phaser.Scene {
       cg.fillCircle(C, C, 1);         // centre pip — the fix itself
       cg.generateTexture('gps_crosshair', 20, 20);
       cg.destroy();
+    }
+    // The banner a CLAIMED castle flies — a cream pennant on a short pole with
+    // a green heart on it. Green because that is already this game's word for
+    // energy (UI_GREEN, "success / ready / energy gain"), and the heart is
+    // exactly what the castle now does for you: a tenth of the bar back, once
+    // an hour. Red would have read as the danger/out-of-energy halo instead.
+    //
+    // Baked 1:1 at its drawn size for the same reason the GPS crosshair is —
+    // this is pixel work, not a soft cloud, and a scaled bake would smear the
+    // 5px heart into a blob.
+    if (!this.textures.exists('castle_flag')) {
+      const fg = this.make.graphics({ x: 0, y: 0, add: false });
+      const INK = 0x14110c, POLE = 0x6b5334, CLOTH = 0xf2ead6, HEART = 0x3f9e57;
+      fg.fillStyle(INK, 1);    fg.fillRect(2, 0, 3, 18);      // pole keyline
+      fg.fillStyle(POLE, 1);   fg.fillRect(2, 1, 2, 17);      // pole
+      fg.fillStyle(INK, 1);    fg.fillRect(4, 1, 10, 12);     // banner keyline
+      fg.fillStyle(CLOTH, 1);  fg.fillRect(5, 2, 8, 10);      // banner
+      // A 5x5 pixel heart, plotted rather than drawn from circles: at this
+      // size an arc rounds to mush and the shape stops reading as a heart.
+      const H = ['.X.X.', 'XXXXX', 'XXXXX', '.XXX.', '..X..'];
+      fg.fillStyle(HEART, 1);
+      for (let r = 0; r < H.length; r++) {
+        for (let c = 0; c < H[r].length; c++) {
+          if (H[r][c] === 'X') fg.fillRect(6 + c, 4 + r, 1, 1);
+        }
+      }
+      fg.generateTexture('castle_flag', 16, 18);
+      fg.destroy();
     }
     // Activated path-stone art. A claimed stone used to just jump to full
     // opacity — the same grey pebble, only less see-through, which barely
@@ -8675,6 +8713,9 @@ class MapScene extends Phaser.Scene {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (isCastle) {
+      // The hearth first: a castle you claimed gives energy back on arrival,
+      // before any trading, so the player has the bar to act on what's inside.
+      this._castleHearth(sx, sy, house);
       // First time the player reaches this (now-unsealed) vault, record it so
       // the NEXT un-opened castle ramps to a higher delivery gate (see
       // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
@@ -10344,6 +10385,9 @@ class MapScene extends Phaser.Scene {
   // old per-castle tribute — an id-less building is gated too; there's no
   // payment to record against a house key.
   _isBuildingSealed(house) {
+    // Claimed outright — the player solved a quest at THIS castle, so it is
+    // theirs for good and the quest board never comes back here.
+    if (this.isCastleClaimed(house)) return false;
     const need = this._deliveryGate(house);
     if (!need) return false;
     // Players who passed the old delivery threshold keep access.
@@ -10358,9 +10402,65 @@ class MapScene extends Phaser.Scene {
     this.showQuestBoard(sx, sy, house);
   }
 
+  // WHICH CASTLE this is. A castle emits no house object of its own — it is a
+  // block of tier-12 cells with a scatter of `tower` objects round its rim,
+  // one per ~5 perimeter cells, each carrying its own id. So a tower id names
+  // A TURRET, not a castle, and anything recorded against one made the same
+  // castle read as claimed from one corner and unclaimed from another.
+  // worldgen stamps every turret with its footprint's stable key (`castle`);
+  // that is the only thing that means "this castle".
+  _castleKey(house) {
+    return (house && house.castle) || null;
+  }
+
+  // Has the player solved a quest AT this castle? Claiming is per castle and
+  // permanent: the vault opens, the banner goes up, and the quest board never
+  // comes back here — the next job is somewhere else, which is what makes the
+  // map worth walking.
+  isCastleClaimed(house) {
+    const key = this._castleKey(house);
+    // PRESENCE, not truthiness: the value is the last hearth draw and a castle
+    // claimed but never drawn from stores 0, which is falsy.
+    return !!key && this.save.claimedCastles?.[key] != null;
+  }
+
+  // Record the claim. Stores the last hearth draw (0 = never drawn), so the
+  // one map carries both "is it claimed" and "when did it last feed you".
+  _claimCastle(house) {
+    const key = this._castleKey(house);
+    if (!key) return false;
+    this.save.claimedCastles = this.save.claimedCastles || {};
+    if (this.save.claimedCastles[key] != null) return false;
+    this.save.claimedCastles[key] = 0;
+    return true;
+  }
+
+  // The hearth: arriving at a castle you claimed gives back CASTLE_REST_FRAC of
+  // the bar, at most once an hour per castle. Silent when the castle is on
+  // cooldown or the bar is already full — a toast saying "nothing happened" is
+  // worse than nothing happening.
+  _castleHearth(sx, sy, house) {
+    if (!this.isCastleClaimed(house)) return;
+    const key = this._castleKey(house);
+    const now = Date.now();
+    const last = this.save.claimedCastles[key] || 0;
+    if (last && now - last < CASTLE_REST_COOLDOWN_MS) return;
+    const maxE = this.getMaxEnergy();
+    const cur = this.save.energy ?? 0;
+    if (cur >= maxE) return;                       // nothing to give back
+    const gain = Math.max(1, Math.round(maxE * CASTLE_REST_FRAC));
+    this.save.energy = Math.min(maxE, cur + gain);
+    this.save.claimedCastles[key] = now;
+    if (typeof persistSave === 'function') persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`💚 +${Math.min(gain, maxE - cur)} energy`, '#a7ffb0');
+  }
+
   // Quest board modal for castles. Shows the active quest's progress; when the
-  // quest is complete the player can claim the reward to advance the chain.
-  // Once all quests are done the castle vault opens (the seal check returns false).
+  // quest is complete the player can claim the reward — which also CLAIMS THIS
+  // CASTLE: the one you solved it at, and no other. A claimed castle never
+  // shows this board again (the seal check below lets it straight through to
+  // its vault), so the next job is always somewhere you haven't been.
   showQuestBoard(sx, sy, house) {
     if (typeof Quests === 'undefined') return;
     const q = Quests.current(this.save);
@@ -10391,15 +10491,16 @@ class MapScene extends Phaser.Scene {
         if (!done) return;
         const reward = Quests.advance(this.save);
         if (reward?.money) addMoney(this.save, reward.money);
-        if (Quests.allDone(this.save) && house?.id) {
-          this.save.openedCastles = this.save.openedCastles || {};
-          this.save.openedCastles[house.id] = true;
-        }
+        // THIS castle, and no other. The job was done for the people here, so
+        // this is the vault that opens and the tower that raises a banner; the
+        // next quest is somebody else's, at a castle the player hasn't been to.
+        const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${reward?.money || 0}`, '#ffe066');
-        if (Quests.allDone(this.save)) {
-          this.flash('Castle vault unlocked!', this.viewCenterX, this.viewCenterY - 60);
+        if (claimed) {
+          this.flash('The castle is yours — its vault is open.',
+            this.viewCenterX, this.viewCenterY - 60);
         }
       },
     });

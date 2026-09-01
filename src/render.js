@@ -2731,6 +2731,29 @@ Render.drawObjects = function drawObjects(scene) {
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
   Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
+  // marks exactly one of a footprint's towers `flagPost`, so a castle with six
+  // turrets flies one flag rather than six.
+  //
+  // Seated on that turret's crown — the tower art is bottom-anchored at
+  // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
+  // bottom-anchored pole lands on the battlements. Read from the frame rather
+  // than a copied number, so a retall of the turret can't leave the flag
+  // floating. Same container as the turrets, so it clears both rampart layers.
+  const flagList = scene.isCastleClaimed
+    ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
+    : [];
+  const towerH = flagList.length ? (scene.textures.getFrame('tower')?.height ?? 42) : 0;
+  Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
+    const { dx, dy } = item;
+    const { sx, sy } = project(dx, dy);
+    setTextureIfDifferent(s, 'castle_flag');
+    s.setOrigin(0.5, 1)
+     .setScale(1)
+     .setAlpha(1)
+     .clearTint()
+     .setPosition(Math.round(sx), Math.round(sy + CELL_PX * 0.5 - towerH + 2));
+  });
 
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up
