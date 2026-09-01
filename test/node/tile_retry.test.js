@@ -134,3 +134,78 @@
     });
   });
 })();
+
+// ── WHICH failure was it, and who hears about it ──────────────────────────
+//
+// "We keep hitting 'can't reach the map'" — on a map that was loading fine.
+// Three separate reasons, and the banner used to fire for all of them:
+//   • a tile held back by WorldGen's own per-tile backoff (not a new failure);
+//   • a tile the host ANSWERED for, with a 4xx (nothing to retry, and nothing
+//     unreachable — but it was retried every 60 s and bannered forever);
+//   • any of the EIGHT ring tiles, which are ground the player cannot see and
+//     will not reach for minutes. A tile is 222 cells across; the viewport is
+//     11. A flaky ring tile told a player standing on perfectly good terrain
+//     that the map was unreachable.
+(() => {
+  const err = (m) => new Error(m);
+
+  test('tile failure: WorldGen\'s own backoff is a HOLD, not a failure', () => {
+    assert.eq(tileFailureKind(err('tile 14/1/2 backoff')), 'held', 'by message');
+    assert.eq(tileFailureKind(err('anything'), { _transient: true }), 'held',
+      'and by the flag on the entry it handed back');
+  });
+
+  test('tile failure: the _transient flag is read off the ENTRY', () => {
+    // It is deliberately never put in tileCache, so the old lookup there could
+    // not match — and it was looked up by "tx/ty" against keys of "z/tx/ty"
+    // besides. Only the message regex was doing any work.
+    assert.eq(tileFailureKind(err('boom'), { _transient: true }), 'held');
+    assert.eq(tileFailureKind(err('boom'), {}), 'failed', 'an ordinary entry is not a hold');
+    assert.eq(tileFailureKind(err('boom'), null), 'failed', 'nor is no entry at all');
+  });
+
+  test('tile failure: a 4xx is the server ANSWERING, so it is permanent', () => {
+    for (const code of [400, 403, 404, 410, 429]) {
+      assert.eq(tileFailureKind(err(`tile 14/1/2 HTTP ${code}`)), 'permanent', `HTTP ${code}`);
+    }
+  });
+
+  test('tile failure: a 5xx or a dead network is worth retrying', () => {
+    for (const m of ['tile 14/1/2 HTTP 500', 'tile 14/1/2 HTTP 502', 'tile 14/1/2 HTTP 504',
+                     'Failed to fetch', 'NetworkError when attempting to fetch resource',
+                     'The operation was aborted']) {
+      assert.eq(tileFailureKind(err(m)), 'failed', m);
+    }
+  });
+
+  test('tile failure: a hold is never mistaken for a permanent answer', () => {
+    // Order matters: WorldGen's backoff sentinel wins over anything in the
+    // message it is carrying, or a tile that once 404'd would stop retrying
+    // for a reason that had already expired.
+    assert.eq(tileFailureKind(err('tile 14/1/2 backoff'), { _transient: true }), 'held');
+  });
+
+  test('tile failure: a missing or empty message is a plain failure', () => {
+    assert.eq(tileFailureKind(new Error()), 'failed', 'no message');
+    assert.eq(tileFailureKind(null), 'failed', 'no error object at all');
+    assert.eq(tileFailureKind({}), 'failed', 'something that is not an Error');
+  });
+
+  test('tile failure: only a retryable kind arms the retry', () => {
+    // The rule the pass applies: retry unless the host already answered.
+    const arms = (kind) => kind !== 'permanent';
+    assert.truthy(arms('failed'), 'a real failure heals on a retry');
+    assert.truthy(arms('held'), 'and a hold is waiting for exactly that retry');
+    assert.falsy(arms('permanent'), 'asking a 4xx again gets the same 4xx');
+  });
+
+  test('tile failure: only the CENTRE tile can raise the banner', () => {
+    // The rule the pass applies, spelled out: banner === a real failure on the
+    // tile the player is standing in.
+    const banners = (kind, isCentre) => kind === 'failed' && isCentre;
+    assert.truthy(banners('failed', true), 'the ground under the player');
+    assert.falsy(banners('failed', false), 'a ring tile fails quietly and retries');
+    assert.falsy(banners('held', true), 'a hold is not something to report');
+    assert.falsy(banners('permanent', true), '"can\'t reach" is a lie about a host that replied');
+  });
+})();

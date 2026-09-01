@@ -370,7 +370,7 @@ try {
   }
   // The call site matters as much as the method: a backoff nothing arms is no
   // backoff at all.
-  if (!/this\._scheduleTileRetry\(anyFailed\b/.test(src)) {
+  if (!/this\._scheduleTileRetry\(anyRetry\)/.test(src)) {
     console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
     process.exit(2);
   }
@@ -381,12 +381,38 @@ try {
     decls += `const ${n} = ${m[1]};\n`;
     ctx[n] = parseInt(m[1], 10);
   }
+  // ...and the classifier that decides WHICH of the three a tile failure was.
+  // The banner and the retry both read it, so it is the thing that has to be
+  // right — see tile_retry.test.js.
+  const kindHead = '  _tileFailureKind(err, entry) {\n';
+  const kindAt = src.indexOf(kindHead);
+  if (kindAt < 0) {
+    console.error('Could not find _tileFailureKind in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
+  // The call sites matter as much as the method: a classifier nothing consults
+  // decides nothing. The banner must be the CENTRE tile's verdict alone, and a
+  // permanent answer must arm no retry.
+  for (const [re, what] of [
+    [/const kind = this\._tileFailureKind\(e, entry\);/, 'consult _tileFailureKind'],
+    [/if \(kind !== 'permanent'\) anyRetry = true;/, 'skip the retry on a permanent failure'],
+    [/if \(kind === 'failed' && k === centreKey\) centreFailed = true;/, 'banner only on the centre tile'],
+    [/this\.showBanner\(centreFailed\);/, 'show the banner from centreFailed'],
+  ]) {
+    if (!re.test(src)) {
+      console.error(`ensureTilesAround no longer appears to ${what} — update run.js`);
+      process.exit(2);
+    }
+  }
   vm.runInContext(
     decls
     + 'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
     + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
     + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
-    + src.slice(bodyStart, end) + '\n};',
+    + src.slice(bodyStart, end) + '\n};\n'
+    + 'globalThis.tileFailureKind = function (err, entry) {\n'
+    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};',
     ctx, { filename: 'scheduleTileRetry.js' });
 }
 
