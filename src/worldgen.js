@@ -1312,22 +1312,113 @@
   // BIOME_PROFILES registry (src/biome_profiles.js) — see BiomeProfiles.flora().
 
   // How long one slice of a tile build may hold the main thread before it hands
-  // it back. A frame is 16.7 ms; 8 leaves room for the render and the input
-  // that has to happen in the same frame.
-  // How long a slice may hold the thread. It is a DIAL, not a constant, because
-  // the right answer changes: while the boot overlay is up nobody can tap
-  // anything, so slicing finely buys nothing and costs a frame per slice —
-  // measured at roughly half the build's wall clock. Once the player has the
-  // map, responsiveness is the whole point and the slice gets short again.
-  // app.js turns it down via WorldGen.setSliceBudgetMs when the overlay goes.
+  // it back. It is a DIAL, not a constant, because the right answer changes:
+  // while the boot overlay is up nobody can tap anything, so slicing finely
+  // buys nothing and costs a frame per slice — measured at roughly half the
+  // build's wall clock. Once the player has the map, responsiveness is the
+  // whole point. app.js turns it down via setSliceBudgetMs when the overlay
+  // goes, which also arms the controller below.
   const RASTER_SLICE_BOOT_MS = 24;
-  // 12, not 10: a yield costs a whole frame, so a budget well under the frame
-  // leaves most of each frame unused and stretches the build for no gain in
-  // smoothness. Just under 16.7 keeps one slice per frame.
+  // Once the map is live this is a CEILING, not the cost of a slice — see the
+  // controller below. 12 was the flat live budget until Sept 2026 and it is
+  // what made the first ten seconds of walking stutter end to end: 12 ms of
+  // rasterize plus the game's own 5-9 ms of update and draw is over 16.7, so
+  // EVERY frame missed vsync for as long as the neighbour ring was streaming,
+  // then everything went smooth the moment it finished.
   const RASTER_SLICE_LIVE_MS = 12;
   let RASTER_SLICE_MS = RASTER_SLICE_BOOT_MS;
-  function setSliceBudgetMs(ms) {
+
+  // ── How long a slice may ACTUALLY hold the thread ────────────────────────
+  // Whatever the frame has left after the game has drawn — a number that
+  // differs by an order of magnitude between a desktop and a five-year-old
+  // phone, and changes minute to minute with how much is on screen, so it is
+  // measured rather than picked.
+  //
+  // WHY OVERRUNNING IS NEVER WORTH IT. A yield costs a whole frame either way
+  // (rAF), so the intuition behind a fat budget is "use the frame you already
+  // paid for". But the frame you paid for is 16.7 ms, and going one
+  // millisecond past it does not cost one millisecond — it costs the next
+  // vsync, the entire 16.7. Slicing at 12 ms on a phone doing 8 ms of game
+  // work delivers 12 ms of tile per 33 ms frame; slicing at 7 delivers 7 per
+  // 16.7. That is the same throughput at twice the frame rate, which is why
+  // this is a fix and not a trade.
+  //
+  // AIMD, borrowed from congestion control and for the same reason: back off
+  // hard on the signal that we overran, creep back up when we did not, and the
+  // budget settles just under whatever the device can actually carry.
+  //
+  // With a plain AIMD it settles by OSCILLATING across the limit — creep up,
+  // miss a frame, back off, creep up — which converged on the right average
+  // and still dropped one frame in six, because every cycle has to overrun to
+  // find the edge again. So it also remembers: a miss records a headroom just
+  // under the budget that caused it, and the creep stops there rather than
+  // walking into the same wall. That headroom then relaxes back toward the
+  // ceiling very slowly (SLICE_PROBE_MS per fitting frame, about one extra
+  // millisecond per second of streaming) so a device that frees up — the
+  // player walks out of a crowded block — is not stuck on an old measurement.
+  // One dropped frame every few seconds instead of every sixth.
+  const SLICE_MIN_MS = 3;
+  // WHAT COUNTS AS A MISSED FRAME is relative, not a fixed millisecond count.
+  // rAF is quantised to the display: frames come back at 16.7, 33.4, 50 … A
+  // phone spending 25 ms a frame on its own work is ALREADY at 33.4 with 8 ms
+  // of idle inside it, and judged against a flat threshold every one of those
+  // frames reads as a miss — pinning the budget at the floor, punishing the
+  // tile build for a frame rate it did not cause and wasting the idle it could
+  // have spent. So the threshold is the smallest frame seen lately — that
+  // quantum — plus a slack.
+  //
+  // The slack is ABSOLUTE, not a percentage. Spilling always costs exactly one
+  // refresh, so the gap to catch is ~16.7 ms wherever the quantum sits; a
+  // percentage that separates 16.7 from 33.4 is far too loose by the time the
+  // quantum is 50 ms and three refreshes deep. 6 ms is under half a 60 Hz
+  // refresh and still clears a 120 Hz one (8.3 → 14.3, catching 16.6).
+  // The learned quantum. min() pulls it down the moment a fast frame proves the
+  // device can do better; it relaxes back up slowly, so it tracks a device that
+  // has genuinely dropped to 30 fps within a couple of seconds without one slow
+  // frame being able to move it.
+  const SLICE_FRAME_SLACK_MS = 6;
+  const SLICE_BASE_RELAX_MS = 0.25;
+  let _sliceBaseMs = 16.7;
+  const SLICE_BACKOFF = 0.7;      // multiplicative decrease, on a missed frame
+  const SLICE_CREEP_MS = 0.5;     // additive increase, on a frame that fitted
+  const SLICE_SAFE_FRAC = 0.9;    // how far under a budget that missed we settle
+  const SLICE_PROBE_MS = 0.02;    // how fast that ceiling relaxes back up
+  let _sliceMs = RASTER_SLICE_BOOT_MS;
+  // The largest budget believed to fit. Infinity = nothing has missed yet, so
+  // the dial itself is the only limit.
+  let _sliceSafeMs = Infinity;
+  // Off during the boot: the overlay is up, nobody can tap anything, and there
+  // is no frame rate worth protecting — a controller would only slow the boot
+  // down. app.js turns it on with the map (setSliceBudgetMs).
+  let _sliceAdapt = false;
+  function setSliceBudgetMs(ms, adapt = true) {
     RASTER_SLICE_MS = Math.max(4, Math.min(60, +ms || RASTER_SLICE_LIVE_MS));
+    _sliceMs = RASTER_SLICE_MS;
+    _sliceSafeMs = Infinity;
+    _sliceBaseMs = 16.7;
+    _sliceAdapt = !!adapt;
+  }
+  function sliceBudgetMs() { return _sliceMs; }
+  // The frame time above which a slice is judged to have spilled into the next
+  // frame. Exported so a test can drive the controller with a real device model
+  // rather than a copy of this number.
+  function sliceFrameTargetMs() { return _sliceBaseMs + SLICE_FRAME_SLACK_MS; }
+  // `frameMs` is the whole frame the slice took part in: our own hold plus
+  // everything between handing the thread back and getting it again.
+  function noteSliceFrame(frameMs) {
+    if (!_sliceAdapt || !(frameMs > 0)) return _sliceMs;
+    _sliceBaseMs = Math.min(frameMs, _sliceBaseMs + SLICE_BASE_RELAX_MS);
+    const target = sliceFrameTargetMs();
+    if (frameMs > target) {
+      _sliceSafeMs = Math.max(SLICE_MIN_MS, _sliceMs * SLICE_SAFE_FRAC);
+      _sliceMs = Math.max(SLICE_MIN_MS, _sliceMs * SLICE_BACKOFF);
+    } else {
+      // It fitted inside the quantum. (No separate hysteresis band — the
+      // remembered headroom below is what stops this walking into the wall.)
+      if (_sliceSafeMs < RASTER_SLICE_MS) _sliceSafeMs += SLICE_PROBE_MS;
+      _sliceMs = Math.min(RASTER_SLICE_MS, _sliceSafeMs, _sliceMs + SLICE_CREEP_MS);
+    }
+    return _sliceMs;
   }
   const _now = () => (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
@@ -2874,7 +2965,7 @@
   }
 
   // Run it in slices, giving the browser a painted frame whenever a slice has
-  // held the thread for RASTER_SLICE_MS. Same passes, same result — only the
+  // held the thread for its slice budget. Same passes, same result — only the
   // wall-clock shape differs.
   let _lastRasterSlices = 0;
   let _lastRasterWorstMs = 0;
@@ -2898,9 +2989,13 @@
       // budget, THAT is the thing left to chunk.
       const held = _now() - started;
       if (held > worst) { worst = held; worstAt = r.value || 'unlabelled'; }
-      if (held >= RASTER_SLICE_MS) {
+      if (held >= _sliceMs) {
+        const handedBack = _now();
         await _yieldToPaint();
-        started = _now();
+        const back = _now();
+        // Our hold plus the rest of the frame: what the player actually felt.
+        noteSliceFrame(held + (back - handedBack));
+        started = back;
         slices++;
       }
     }
@@ -2994,12 +3089,13 @@
       // the spawn/dedup post-passes below ride the rasterize turn.
       const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
       const layers = await runHeavyPhase(() =>
-        (MVT.decodeTileSliced ? MVT.decodeTileSliced(bytes, _yieldToPaint, () => RASTER_SLICE_MS)
+        (MVT.decodeTileSliced ? MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs)
                               : MVT.decodeTile(bytes)));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
       const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
-      if (_endRaster) _endRaster(`${_lastRasterSlices} slices, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
+      if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
+        `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -4306,7 +4402,8 @@
 
   global.WorldGen = {
     Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
-    setSliceBudgetMs, RASTER_SLICE_LIVE_MS,
+    setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
+    RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
