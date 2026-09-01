@@ -652,6 +652,41 @@ try {
 // would let a way be DRAWN wider than the ground the spawners keep clear, which
 // is how rocks ended up sitting in the traffic. Hand the source text over so
 // spawn_roads.test.js can pin it (the vm sandbox has no require/fs).
+// ── The tile-rebuild contract, lifted from BOTH sides of it ───────────────
+// A rebuilt tile (rebuildTileWithBin, in worldgen) is a brand-new entry that
+// inherits a hand-picked set of live fields from the one it replaces, and
+// app.js decides from the entry alone whether its spawn pass still has to run.
+// Those two rules have to agree about which field means "already spawned", and
+// nothing in either file says so on its own — so the test that pins it needs
+// the real text of both. Regexes here would drift; these are the source
+// slices, and spawn_rebuild.test.js reads the contract out of them.
+{
+  const appSrc = readSrc('app.js');
+  const wgSrc  = readSrc('worldgen.js');
+  const slice = (src, head, endMark, what) => {
+    const at = src.indexOf(head);
+    if (at < 0) {
+      console.error(`Could not find ${what} in src/${head.slice(0, 40)} — update run.js`);
+      process.exit(2);
+    }
+    const from = at + head.length;
+    const end = src.indexOf(endMark, from);
+    if (end < 0) {
+      console.error(`Could not find the end of ${what} — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(from, end);
+  };
+  // The two lines in _ensureTilesAroundPass that decide whether to spawn.
+  ctx.SPAWN_GATE_SRC = slice(appSrc,
+    '        // Surface fauna on depth 0; hostile wandering monsters underground.\n',
+    '\n        // Re-open any walls', 'the spawn gate');
+  ctx.SPAWN_IN_TILE_SRC      = slice(appSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  _pestFreeZone', 'spawnInTile');
+  ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
+  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
+  ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+}
+
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 
 // ── In-context test framework: test() / assert / makeScene ────────────────

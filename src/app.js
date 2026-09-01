@@ -2876,8 +2876,24 @@ class MapScene extends Phaser.Scene {
         entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
         // Surface fauna on depth 0; hostile wandering monsters underground.
-        if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
-        else if (this.depth > 0 && !entry.creatures) this.spawnCaveCreatures(entry, tx, ty, this.depth);
+        //
+        // GATED ON _spawned, NOT ON entry.creatures. The two look
+        // interchangeable — the spawn pass sets creatures, so creatures means
+        // it ran — right up until a tile is REBUILT. rebuildTileWithBin
+        // (an Overpass bin landing after the tile rasterized without one)
+        // constructs a fresh entry and carries the live creatures across,
+        // because their positions and tamed state cannot be reconstructed. So
+        // the replacement arrived already looking spawned, this call skipped
+        // it, and everything ELSE the pass places was silently gone: the
+        // starter crates first of all, plus the buried X, the extra treasure
+        // scatter and the fruit-tree objects. It read as the crates vanishing
+        // a few seconds into the session ("something loaded over them") and
+        // coming back on refresh — because on reload the bin is already
+        // cached, the tile builds with it first time, and no rebuild happens.
+        // A flag the rebuild does not carry says what the carried state
+        // cannot: this entry has not been through the spawn pass.
+        if (this.depth === 0 && !entry._spawned) this.spawnInTile(entry, tx, ty);
+        else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
         // Re-open any walls the player has already mined on this level, and
         // guarantee an up-staircase by the starting house so you can always
         // climb back to the surface from home.
@@ -3123,7 +3139,12 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
-    entry.creatures = creatures;
+    entry._spawned = true;
+    // KEEP creatures the entry already carries. On a rebuild they are the live
+    // ones — mid-wander positions, tamed pets, work in progress — handed over
+    // by rebuildTileWithBin; the set just rolled is the same deterministic
+    // draw they came from, so replacing them would only teleport them home.
+    entry.creatures = entry.creatures || creatures;
 
     // Starter loot now lives entirely in the road-side starter chests placed
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
@@ -4579,7 +4600,7 @@ class MapScene extends Phaser.Scene {
     for (const [kind, m] of Object.entries(MONSTERS)) {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
-    if (!bag.length) { entry.creatures = creatures; return; }
+    if (!bag.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
     // Anchor spawns near the up-staircases (where the player enters) so
     // monsters are immediately visible rather than scattered across the
     // ~229×229 cell tile. A level has an up-stair at EVERY surface entrance
@@ -4646,7 +4667,8 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
-    entry.creatures = creatures;
+    entry._spawned = true;
+    entry.creatures = entry.creatures || creatures;
   }
 
   // Dark-outlined, solid-filled arrow triangle (facing indicator + pairy
