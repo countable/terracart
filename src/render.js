@@ -488,17 +488,34 @@ let _ringUnclaimed = null;
 // every frame — the pass runs for every visible building cell, and a fresh
 // array per frame is garbage the render loop can't afford.
 const _washCells = [];
+// How far a castle's battlements rise above a cell's edge (crenel parapet plus
+// merlon tooth) and how far its south wall face extrudes below it. Read from
+// the same geometry the rampart is drawn with — a wash that stopped at the cell
+// edge left a lit crown of teeth on an otherwise unclaimed wall.
+const RAMPART_RISE_PX = 8;
+const RAMPART_FACE_PX = 10;
 // 35% of the way to dark green. Composited as one alpha pass over the finished
 // building art (see the wash pass in drawCells).
 const UNCLAIMED_WASH = 0x1e3b24;
-const UNCLAIMED_WASH_A = 0.35;
+const UNCLAIMED_WASH_A = 0.5;
+// ...and a murk over the top of it: a cold near-black at low alpha, the same
+// idea as the fog-of-war wash (FOG_COLOR at FOG_ALPHA) but a fraction of the
+// strength. The green alone said "not yours" and read as a colour choice; the
+// murk says "unlit, nobody home", which is the thing being communicated. Two
+// passes rather than one darker green because they do different jobs — the
+// green carries the meaning, the murk carries the mood, and either can be
+// tuned without disturbing the other.
+const UNCLAIMED_MURK = 0x05070c;
+const UNCLAIMED_MURK_A = 0.22;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
 // lands a sprite roughly where the wash lands the ground under it.
 const UNCLAIMED_SPRITE_TINT = (() => {
-  const lerp = (a, b) => Math.round(a * (1 - UNCLAIMED_WASH_A) + b * UNCLAIMED_WASH_A);
-  return (lerp(255, (UNCLAIMED_WASH >> 16) & 255) << 16)
-       | (lerp(255, (UNCLAIMED_WASH >> 8) & 255) << 8)
-       |  lerp(255, UNCLAIMED_WASH & 255);
+  const lerp = (a, b, t) => a * (1 - t) + b * t;
+  const ch = (sh) => {
+    const washed = lerp(255, (UNCLAIMED_WASH >> sh) & 255, UNCLAIMED_WASH_A);
+    return Math.round(lerp(washed, (UNCLAIMED_MURK >> sh) & 255, UNCLAIMED_MURK_A));
+  };
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 })();
 // Compose two multiply tints, channel by channel — so an unclaimed shop keeps
 // its role colour AND takes the wash, instead of one replacing the other.
@@ -1293,9 +1310,14 @@ Render.drawCells = function drawCells(scene) {
       // extrudes into the row underneath so the wash covers the wall face too
       // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
       if (UNCLAIMED(col, row)) {
+        // How far this cell's art spills out of it, per EDGE — and only where
+        // the edge actually carries a wall. Extending every cell upward banded
+        // the whole footprint: an interior cell's rect overlapped its
+        // neighbour's, so the shared 8 px got washed twice and read as stripes.
         const face = wallEdge(col, row, 0, 1)
-          ? (type === 11 ? 5 : (SOUTH_FACE_PX[type] || 4)) : 0;
-        _washCells.push(sx, sy, face);
+          ? (type === 11 ? 5 : (type === 12 ? RAMPART_FACE_PX : (SOUTH_FACE_PX[type] || 4))) : 0;
+        const rise = (type === 12 && wallEdge(col, row, 0, -1)) ? RAMPART_RISE_PX : 0;
+        _washCells.push(sx, sy, face, rise, type === 12 ? 1 : 0);
       }
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
@@ -1505,11 +1527,40 @@ Render.drawCells = function drawCells(scene) {
   // in the loop would be painted UNDER the palisade and the ramparts it is
   // supposed to cover.
   if (_washCells.length) {
-    g.fillStyle(UNCLAIMED_WASH, UNCLAIMED_WASH_A);
-    for (let i = 0; i < _washCells.length; i += 3) {
-      const wx = _washCells[i], wy = _washCells[i + 1], face = _washCells[i + 2];
-      g.fillRect(wx, wy, CELL_PX, CELL_PX + face);
-    }
+    // ONTO THE RIGHT LAYERS. This used to paint into `g`, the terrain graphics
+    // — which is under everything a castle is made of. A castle's ramparts are
+    // split across two later layers so its turrets can sort per edge (gb for
+    // the back and sides, gf for the south wall, which sits ABOVE the world
+    // sprites), so the wash reached the floor and nothing else: the walls of an
+    // unclaimed castle stayed brightly lit stone on washed ground.
+    //
+    // gb is above the terrain, so one pass there covers the floor, a house's
+    // extrusion and outline, a fort's pickets AND the back and side ramparts.
+    // The south wall needs its own pass in gf, restricted to the band that wall
+    // occupies — a full-cell rect up there would also wash the player and
+    // anything else standing on the building, which the front wall only does
+    // where it genuinely draws over them.
+    const paint = (gx, colour, alpha, frontOnly) => {
+      gx.fillStyle(colour, alpha);
+      for (let i = 0; i < _washCells.length; i += 5) {
+        const wx = _washCells[i], wy = _washCells[i + 1];
+        const face = _washCells[i + 2], rise = _washCells[i + 3], isCastle = _washCells[i + 4];
+        if (frontOnly) {
+          if (!isCastle || !face) continue;
+          // The south rampart only: its merlons rise into the bottom of this
+          // cell and its wall face extrudes below.
+          gx.fillRect(wx, wy + CELL_PX - RAMPART_RISE_PX, CELL_PX, RAMPART_RISE_PX + face);
+        } else {
+          gx.fillRect(wx, wy - rise, CELL_PX, CELL_PX + rise + face);
+        }
+      }
+    };
+    const gbW = scene.rampartBackGfx || g;
+    const gfW = scene.rampartFrontGfx || g;
+    paint(gbW, UNCLAIMED_WASH, UNCLAIMED_WASH_A, false);
+    paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A, false);
+    paint(gfW, UNCLAIMED_WASH, UNCLAIMED_WASH_A, true);
+    paint(gfW, UNCLAIMED_MURK, UNCLAIMED_MURK_A, true);
     _washCells.length = 0;
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
