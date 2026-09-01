@@ -2817,8 +2817,17 @@ class MapScene extends Phaser.Scene {
     if (warmed && typeof warmed.then === 'function') {
       warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
     }
-    let anyFailed = false;      // a real failure — worth telling the player about
-    let anyPending = false;     // held back by WorldGen's retry backoff, not a failure
+    // THREE outcomes, not two, and only one of them is the player's problem.
+    //   centreFailed — the tile the player is STANDING IN could not be built.
+    //     That is the only failure they can see: the other eight are ground
+    //     they might walk onto in a few minutes. Banner.
+    //   anyRetry     — something in the block isn't whole yet: a real failure
+    //     anywhere, or a tile held back by WorldGen's own backoff. Retry, but
+    //     say nothing.
+    //   permanent    — the server ANSWERED, with a 4xx. There is nothing to
+    //     retry and nothing was unreachable, so neither of the above.
+    let centreFailed = false;
+    let anyRetry = false;
     // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY rather than one
     // tile at a time. This used to be a serial `for...of` with an `await`
     // inside — on a cold cache every neighbour is a real network round trip,
@@ -2831,8 +2840,9 @@ class MapScene extends Phaser.Scene {
     const total = needed.size;
     const buildOne = async (k) => {
       const [tx, ty] = k.split('/').map(Number);
+      let entry = null;
       try {
-        const entry = await WorldGen.loadTile(tx, ty, START_LAT);
+        entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
         // Surface fauna on depth 0; hostile wandering monsters underground.
         if (this.depth === 0 && !entry.creatures) this.spawnInTile(entry, tx, ty);
@@ -2845,15 +2855,10 @@ class MapScene extends Phaser.Scene {
           this._ensureHomeUpStair(entry, tx, ty);
         }
       } catch (e) {
-        // A tile inside WorldGen's own retry backoff hands back a _transient
-        // entry with a rejected promise — a deliberate HOLD, not a new failure.
-        // Counting it as one is why "can't reach the map" flapped up during a
-        // perfectly healthy load: one flaky tile poisons every pass that
-        // touches it for TILE_RETRY_MS, and the ring makes several. The retry
-        // is still scheduled either way; only the banner is held back.
-        if (WorldGen.tileCache.get(k)?._transient || /backoff/.test(e.message || '')) anyPending = true;
-        else anyFailed = true;
-        console.warn('tile fetch failed', k, e.message);
+        const kind = this._tileFailureKind(e, entry);
+        if (kind !== 'permanent') anyRetry = true;
+        if (kind === 'failed' && k === centreKey) centreFailed = true;
+        console.warn('tile fetch failed', k, e.message, `(${kind})`);
       } finally {
         // Feeds the boot overlay's progress bar for the one stretch it used
         // to have no visibility into (index.html hands off to this call the
@@ -2865,18 +2870,23 @@ class MapScene extends Phaser.Scene {
         window.__bootStatus?.(0.9 + 0.1 * (doneCount / total), 'Loading the map…');
       }
     };
-    // Show the banner whenever tiles FAIL, not only when the browser admits
-    // it's offline: a captive portal, a blocked or DNS-failed tile host, a
-    // 5xx, a corporate proxy or a VPN all keep navigator.onLine true, and the
+    // Show the banner when THE GROUND UNDER THE PLAYER failed, not merely when
+    // some tile in the block did. It is raised on a failure rather than on
+    // navigator.onLine because a captive portal, a blocked or DNS-failed tile
+    // host, a 5xx, a corporate proxy or a VPN all keep onLine true, and the
     // player was left with a featureless green field, no message and no retry.
-    // Zero tiles ready means the world is empty — the objective ladder's
-    // "crates were left along the road nearby" reads as a lie over it.
+    //
+    // But eight of the nine tiles in a block are ground the player cannot see
+    // and will not reach for minutes — a tile is 222 cells across and the
+    // viewport is 11 — so a flaky ring tile told a player standing on
+    // perfectly good terrain that the map was unreachable. That is the "we
+    // keep hitting it" case. The ring still retries; it just does it quietly,
+    // and if the player does walk that way the tile becomes the centre and
+    // earns the banner then.
     const settle = () => {
-      this.showBanner(anyFailed);
+      this.showBanner(centreFailed);
       this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-      // Retry on EITHER: a genuine failure or a backoff hold both mean the
-      // block isn't whole yet. Only the first says so to the player.
-      this._scheduleTileRetry(anyFailed || anyPending);
+      this._scheduleTileRetry(anyRetry);
     };
 
     // THE CENTRE TILE FIRST, and hand control back the moment it is done.
@@ -2948,6 +2958,34 @@ class MapScene extends Phaser.Scene {
   //
   // Failures evict themselves in WorldGen, so a retry is a genuine re-fetch.
   // One timer at a time, reset the moment a pass comes back whole.
+  // What KIND of tile failure this was — the one place the three are told
+  // apart, so the banner and the retry can't come to different conclusions.
+  //
+  //   'held'      WorldGen's own per-tile backoff handed back a _transient
+  //               entry whose promise is already rejected. A deliberate hold,
+  //               not a new failure. Retry, say nothing. Counting it as a
+  //               failure is why the banner flapped up during a perfectly
+  //               healthy load: one flaky tile poisons every pass that touches
+  //               it for TILE_RETRY_MS, and the ring makes several.
+  //   'permanent' The host ANSWERED, with a 4xx. Retrying asks the same
+  //               question every 60 s forever, and "can't reach the map" is a
+  //               lie about a server that replied — this is how one dud tile
+  //               kept the banner up for a whole session.
+  //   'failed'    Everything else: offline, DNS, a 5xx, a captive portal, a
+  //               timeout. Retry, and if it was the tile the player is
+  //               standing in, tell them.
+  //
+  // The _transient flag is read off the ENTRY because that is the object
+  // carrying it: it is deliberately never put in tileCache, so looking it up
+  // there could not work (and the key it was looked up by was the wrong shape
+  // besides — "tx/ty" against cache keys of "z/tx/ty").
+  _tileFailureKind(err, entry) {
+    const msg = (err && err.message) || '';
+    if ((entry && entry._transient) || /backoff/.test(msg)) return 'held';
+    if (/HTTP 4\d\d/.test(msg)) return 'permanent';
+    return 'failed';
+  }
+
   _scheduleTileRetry(anyFailed) {
     if (window.__TEST_MODE) return;
     if (!anyFailed) {
