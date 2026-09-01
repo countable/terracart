@@ -2813,7 +2813,8 @@ class MapScene extends Phaser.Scene {
     if (warmed && typeof warmed.then === 'function') {
       warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
     }
-    let anyFailed = false;
+    let anyFailed = false;      // a real failure — worth telling the player about
+    let anyPending = false;     // held back by WorldGen's retry backoff, not a failure
     // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY rather than one
     // tile at a time. This used to be a serial `for...of` with an `await`
     // inside — on a cold cache every neighbour is a real network round trip,
@@ -2840,7 +2841,14 @@ class MapScene extends Phaser.Scene {
           this._ensureHomeUpStair(entry, tx, ty);
         }
       } catch (e) {
-        anyFailed = true;
+        // A tile inside WorldGen's own retry backoff hands back a _transient
+        // entry with a rejected promise — a deliberate HOLD, not a new failure.
+        // Counting it as one is why "can't reach the map" flapped up during a
+        // perfectly healthy load: one flaky tile poisons every pass that
+        // touches it for TILE_RETRY_MS, and the ring makes several. The retry
+        // is still scheduled either way; only the banner is held back.
+        if (WorldGen.tileCache.get(k)?._transient || /backoff/.test(e.message || '')) anyPending = true;
+        else anyFailed = true;
         console.warn('tile fetch failed', k, e.message);
       } finally {
         // Feeds the boot overlay's progress bar for the one stretch it used
@@ -2862,7 +2870,9 @@ class MapScene extends Phaser.Scene {
     const settle = () => {
       this.showBanner(anyFailed);
       this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-      this._scheduleTileRetry(anyFailed);
+      // Retry on EITHER: a genuine failure or a backoff hold both mean the
+      // block isn't whole yet. Only the first says so to the player.
+      this._scheduleTileRetry(anyFailed || anyPending);
     };
 
     // THE CENTRE TILE FIRST, and hand control back the moment it is done.
@@ -8314,8 +8324,9 @@ class MapScene extends Phaser.Scene {
         extra = `\n🧭 no chests nearby`;
       }
     } else if (sel.id === 'rainberry') {
-      const watered = this.waterCropsWithin(20);
+      const { n: watered, jumped } = this.waterCropsWithin(20);
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+      if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (sel.id === 'coffee') {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
@@ -8354,7 +8365,9 @@ class MapScene extends Phaser.Scene {
   waterCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    return Crops.waterWithin(this.save, pWX, pWY, radius);
+    // The can's jump roll applies here too — a rainberry soaking the whole
+    // plot is still the player watering, so it is still worth owning a can.
+    return Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), this.save.relics);
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.

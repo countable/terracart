@@ -370,7 +370,7 @@ try {
   }
   // The call site matters as much as the method: a backoff nothing arms is no
   // backoff at all.
-  if (!/this\._scheduleTileRetry\(anyFailed\);/.test(src)) {
+  if (!/this\._scheduleTileRetry\(anyFailed\b/.test(src)) {
     console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
     process.exit(2);
   }

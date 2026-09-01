@@ -55,7 +55,7 @@ test('waterWithin: waters un-watered, in-range, immature crops and counts them',
     { x: 1,  y: 0, crop: 'berry', stage: 0, watered_t: 999 }, // already watered → skip
     { x: 1,  y: 1, crop: 'berry', stage: Crops.maxStage(), watered_t: 0 }, // mature → skip
   ] };
-  const n = Crops.waterWithin(save, 0, 0, 5, now);
+  const { n } = Crops.waterWithin(save, 0, 0, 5, now);
   assert.eq(n, 2, 'two crops watered');
   assert.eq(save.planted[0].watered_t, now, 'nearest watered at now');
   assert.eq(save.planted[1].watered_t, now, '5m-away crop watered');
@@ -67,8 +67,93 @@ test('waterWithin: waters un-watered, in-range, immature crops and counts them',
 test('water → hold → advance is a coherent cycle', () => {
   const save = { planted: [{ x: 0, y: 0, crop: 'cress', stage: 0, watered_t: 0 }] };
   const t = 9_000_000;
-  assert.eq(Crops.waterWithin(save, 0, 0, 2, t), 1, 'watered');
+  assert.eq(Crops.waterWithin(save, 0, 0, 2, t).n, 1, 'watered');
   assert.eq(Crops.advanceGrowth(save, t + HOLD() - 1), false, 'not yet');
   assert.eq(Crops.advanceGrowth(save, t + HOLD()), true, 'now it grows');
   assert.eq(save.planted[0].stage, 1);
+});
+
+// ── The watering can buys TIME ─────────────────────────────────────────────
+// A can's tier is the chance a watering also jumps the plant a stage there and
+// then. Before this, no relic touched growth at all: a Frost can watered
+// exactly as fast as bare hands and only improved the produce that came out,
+// so the one thing a crop actually costs — four waterings and four holds —
+// was the same at the top of the ladder as at the bottom.
+
+const canOf = (tier) => (tier ? { can: { tier } } : {});
+const alwaysJump = () => 0;      // rng below every chance → always jumps
+const neverJump = () => 0.999;   // rng at the top → only a 100% chance fires
+
+test('watering can: no can never jumps a stage', () => {
+  assert.eq(Crops.waterJumpChance({}), 0, 'bare hands');
+  assert.eq(Crops.waterJumpChance(canOf(0)), 0, 'a tierless can');
+  const p = { x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 0 };
+  assert.eq(Crops.waterOne({}, p, {}, 1000, alwaysJump), 'watered', 'watered, not jumped');
+  assert.eq(p.stage, 0, 'still stage 0');
+});
+
+test('watering can: Frost always jumps a stage', () => {
+  assert.eq(Crops.waterJumpChance(canOf(Crops.CAN_TOP_TIER)), 1, 'certain at the top');
+  const p = { x: 0, y: 0, crop: 'berry', stage: 1, watered_t: 0 };
+  assert.eq(Crops.waterOne({}, p, canOf(Crops.CAN_TOP_TIER), 1000, neverJump), 'jumped',
+    'even the unluckiest roll jumps at 100%');
+  assert.eq(p.stage, 2, 'a stage further on');
+});
+
+test('watering can: the chance scales straight up the ladder', () => {
+  let prev = -1;
+  for (let t = 0; t <= Crops.CAN_TOP_TIER; t++) {
+    const c = Crops.waterJumpChance(canOf(t));
+    assert.gt(c, prev, `tier ${t} beats tier ${t - 1}`);
+    assert.inRange(c, 0, 1, `tier ${t} is a probability`);
+    prev = c;
+  }
+  assert.eq(Crops.waterJumpChance(canOf(1)), 1 / Crops.CAN_TOP_TIER, 'Wood is one seventh');
+  assert.eq(Crops.waterJumpChance(canOf(4)), 4 / Crops.CAN_TOP_TIER, 'Gold is four sevenths');
+});
+
+test('watering can: a tier past Frost is still a certainty, not more', () => {
+  assert.eq(Crops.waterJumpChance(canOf(99)), 1, 'clamped');
+});
+
+test('watering can: a jump does NOT consume the watering', () => {
+  // That is what makes a Frost can a DOUBLING rather than a shortcut: the
+  // plant is watered and a stage on, so its normal advance is still coming.
+  const p = { x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 0 };
+  Crops.waterOne({}, p, canOf(Crops.CAN_TOP_TIER), 1000, alwaysJump);
+  assert.eq(p.stage, 1, 'jumped one');
+  assert.eq(p.watered_t, 1000, 'and is still watered');
+  const save = { planted: [p] };
+  assert.truthy(Crops.advanceGrowth(save, 1000 + Crops.STAGE_HOLD_MS), 'the hold still pays out');
+  assert.eq(p.stage, 2, 'two stages from one watering');
+});
+
+test('watering can: jumping to ripe clears the watering', () => {
+  // A mature plant is never watered, so it must not be left holding one it can
+  // no longer spend.
+  const p = { x: 0, y: 0, crop: 'berry', stage: Crops.maxStage() - 1, watered_t: 0 };
+  Crops.waterOne({}, p, canOf(Crops.CAN_TOP_TIER), 1000, alwaysJump);
+  assert.truthy(Crops.isMature(p), 'ripe');
+  assert.eq(p.watered_t, 0, 'and not holding a watering');
+});
+
+test('watering can: a mature or already-watered plant is not a candidate', () => {
+  const ripe = { x: 0, y: 0, crop: 'berry', stage: Crops.maxStage(), watered_t: 0 };
+  assert.eq(Crops.waterOne({}, ripe, canOf(7), 1000, alwaysJump), null, 'ripe');
+  const wet = { x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 5 };
+  assert.eq(Crops.waterOne({}, wet, canOf(7), 1000, alwaysJump), null, 'already watered');
+  assert.eq(wet.stage, 0, 'and it did not sneak a jump');
+});
+
+test('watering can: an area water reports what it pushed along', () => {
+  const save = { planted: [
+    { x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 0 },
+    { x: 1, y: 0, crop: 'berry', stage: 0, watered_t: 0 },
+  ] };
+  const dry = Crops.waterWithin(save, 0, 0, 5, 1000, {}, alwaysJump);
+  assert.eq(dry.n, 2, 'both watered');
+  assert.eq(dry.jumped, 0, 'no can, nothing jumped');
+  for (const p of save.planted) { p.watered_t = 0; p.stage = 0; }
+  const wet = Crops.waterWithin(save, 0, 0, 5, 1000, canOf(Crops.CAN_TOP_TIER), alwaysJump);
+  assert.eq(wet.jumped, 2, 'a Frost can pushed both');
 });
