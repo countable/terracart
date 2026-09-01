@@ -1521,6 +1521,7 @@
       const centre = span('centre tile');
       out.push('',
         'WHERE IT WENT (to playable)',
+        '  you (story/prompt) ' + ms(sum(span('waiting for the player'))).padStart(7),
         '  waiting for GPS   ' + ms(sum(span('boot gate'))).padStart(8),
         '  app.js parse      ' + ms(sum(span('app.js'))).padStart(8),
         '  phaser assets     ' + ms(sum(span('phaser preload'))).padStart(8),
@@ -2150,7 +2151,7 @@
   </script>
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
-  <script src="src/mvt.js?v=3"></script>
+  <script src="src/mvt.js?v=4"></script>
   <script src="src/util.js?v=20"></script>
   <script src="src/sprite_layout.js?v=8"></script>
   <script src="src/placed_floor.js?v=1"></script>
@@ -2158,7 +2159,7 @@
   <script src="src/coords.js?v=121"></script>
   <script src="src/fog.js?v=3"></script>
   <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=221"></script>
+  <script src="src/worldgen.js?v=222"></script>
   <script src="src/textures.js?v=171"></script>
   <script src="src/save.js?v=116"></script>
   <script src="src/items.js?v=198"></script>
@@ -2239,7 +2240,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=449';
+      const APP_SRC = 'src/app.js?v=450';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -2288,15 +2289,21 @@
       // set up after it and `done()` can fire from either side.
       let sub = null;
       let timer = null;
-      let endGate = null;
+      let endGate = null;    // the wait for an actual fix
+      let endWait = null;    // the wait for the player to tap through
 
       if (!needsHomeCapture()) { window.__boot?.mark('no home capture needed'); bootApp(); return; }
-      // A fresh save holds app.js back until the first GPS fix lands, so this
-      // stretch can be most of a slow boot — and none of it is the game's code.
-      endGate = window.__boot?.begin('boot gate: waiting for first GPS fix');
+      // TWO different waits, and only one of them is the game's fault. The gate
+      // is armed here, but nothing is asked of the network until the player has
+      // read the opening story and tapped "Go to my location" — so the stretch
+      // from here to that tap is the PLAYER's, and only what follows it is the
+      // GPS. Measured as one span they came to 9.3 s under a heading that said
+      // "waiting for first GPS fix", which sent me looking in the wrong place.
+      endWait = window.__boot?.begin('waiting for the player (story + prompt)');
       function done() {
         if (timer) { clearTimeout(timer); timer = null; }
         if (sub) { Geo.unsubscribe(sub); sub = null; }
+        if (endWait) { endWait('never tapped'); endWait = null; }
         if (endGate) { endGate(); endGate = null; }
         bootApp();
       }
@@ -2305,6 +2312,8 @@
       // player's consent, and the only point at which we touch geolocation.
       window.__onLocationConsent = function () {
         if (booted || sub) return;
+        if (endWait) { endWait(); endWait = null; }
+        endGate = window.__boot?.begin('boot gate: waiting for first GPS fix');
         const box = document.getElementById('locating');
         if (box) box.style.display = 'flex';
         sub = Geo.subscribe(

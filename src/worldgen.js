@@ -1278,7 +1278,18 @@
   // How long one slice of a tile build may hold the main thread before it hands
   // it back. A frame is 16.7 ms; 8 leaves room for the render and the input
   // that has to happen in the same frame.
-  const RASTER_SLICE_MS = 8;
+  // How long a slice may hold the thread. It is a DIAL, not a constant, because
+  // the right answer changes: while the boot overlay is up nobody can tap
+  // anything, so slicing finely buys nothing and costs a frame per slice —
+  // measured at roughly half the build's wall clock. Once the player has the
+  // map, responsiveness is the whole point and the slice gets short again.
+  // app.js turns it down via WorldGen.setSliceBudgetMs when the overlay goes.
+  const RASTER_SLICE_BOOT_MS = 24;
+  const RASTER_SLICE_LIVE_MS = 10;
+  let RASTER_SLICE_MS = RASTER_SLICE_BOOT_MS;
+  function setSliceBudgetMs(ms) {
+    RASTER_SLICE_MS = Math.max(4, Math.min(60, +ms || RASTER_SLICE_LIVE_MS));
+  }
   const _now = () => (typeof performance !== 'undefined' && performance.now)
     ? performance.now() : Date.now();
 
@@ -2799,14 +2810,22 @@
   // held the thread for RASTER_SLICE_MS. Same passes, same result — only the
   // wall-clock shape differs.
   let _lastRasterSlices = 0;
+  let _lastRasterWorstMs = 0;
   async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
     let started = _now();
-    let slices = 1;
+    let slices = 1, worst = 0;
     for (;;) {
       const r = it.next();
-      if (r.done) { _lastRasterSlices = slices; return r.value; }
-      if (_now() - started >= RASTER_SLICE_MS) {
+      if (r.done) { _lastRasterSlices = slices; _lastRasterWorstMs = Math.round(worst); return r.value; }
+      // The WORST unbroken stretch, which is the number that matters: the
+      // budget can only be honoured at a yield, so a single helper call or one
+      // huge polygon between two yields blocks for as long as it takes however
+      // short the budget is. If a profile shows a worst block far above the
+      // budget, THAT is the thing left to chunk.
+      const held = _now() - started;
+      if (held > worst) worst = held;
+      if (held >= RASTER_SLICE_MS) {
         await _yieldToPaint();
         started = _now();
         slices++;
@@ -2840,12 +2859,14 @@
   // frozen app rather than a loading one. rAF fires BEFORE the paint and the
   // timeout inside it resolves after, so exactly one frame is on screen (and
   // one round of input handled) between consecutive chunks.
+  // ONE frame per yield, not two. This used to resolve from a setTimeout NESTED
+  // inside the rAF, which costs a whole extra turn of the event loop: measured
+  // on an iPhone, a 55-slice tile build spent 2.44 s of wall clock on about
+  // 1.2 s of work, because each yield was ~36 ms of waiting. rAF alone still
+  // gets a paint (it fires as the frame is being prepared) at half the price.
   const _yieldToPaint = () => new Promise((resolve) => {
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => setTimeout(resolve, 0));
-    } else {
-      setTimeout(resolve, 0);
-    }
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
   });
   function runHeavyPhase(fn) {
     const run = _heavyChain
@@ -2899,11 +2920,13 @@
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
       const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
-      const layers = await runHeavyPhase(() => MVT.decodeTile(bytes));
+      const layers = await runHeavyPhase(() =>
+        (MVT.decodeTileSliced ? MVT.decodeTileSliced(bytes, _yieldToPaint, () => RASTER_SLICE_MS)
+                              : MVT.decodeTile(bytes)));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
       const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
-      if (_endRaster) _endRaster(`${_lastRasterSlices} slices`);
+      if (_endRaster) _endRaster(`${_lastRasterSlices} slices, worst block ${_lastRasterWorstMs}ms`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -4210,6 +4233,7 @@
 
   global.WorldGen = {
     Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
+    setSliceBudgetMs, RASTER_SLICE_LIVE_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,

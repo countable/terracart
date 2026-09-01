@@ -2001,6 +2001,9 @@ class MapScene extends Phaser.Scene {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
+        // The map is the player's now, so responsiveness beats throughput:
+        // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
+        WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
       });
 
     // Network status
@@ -2771,6 +2774,24 @@ class MapScene extends Phaser.Scene {
 
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
+    // ONE PASS PER CENTRE AT A TIME. Measured on a real phone: the centre tile
+    // was fetched, decoded and rasterized THREE times over — two concurrent
+    // passes at boot, then a third when the Overpass bin landed and evicted it
+    // — and the duplicates cost ~8 s of the load, most of it while the player
+    // was already trying to play. Nothing called ensureTilesAround twice on
+    // purpose; create(), the warmOverpass re-entry, the walk check and the
+    // tile-failure retry simply all can, and none of them knew about each
+    // other. A pass already running for this centre IS the answer to a second
+    // ask, so hand it back rather than starting a rival.
+    const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
+    if (this._tilePass && this._tilePassKey === passKey) return this._tilePass;
+    this._tilePassKey = passKey;
+    this._tilePass = this._ensureTilesAroundPass(cell)
+      .finally(() => { if (this._tilePassKey === passKey) { this._tilePass = null; } });
+    return this._tilePass;
+  }
+
+  async _ensureTilesAroundPass(cell) {
     const needed = new Set();
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       needed.add(`${cell.tx + dx}/${cell.ty + dy}`);

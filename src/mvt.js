@@ -157,6 +157,68 @@
     return layer;
   }
 
+  // The same decode, in steps. A real map tile carries 13-14 layers and
+  // thousands of features between them, and as one call that was measured at
+  // 3.4 s of frozen main thread on an iPhone — the single longest block in a
+  // boot trace. Yields between layers and every few hundred features; the
+  // driver below decides when a yield is actually worth taking.
+  function* decodeLayerSteps(r, end) {
+    const layer = { name: '', extent: 4096, keys: [], values: [], features: [] };
+    const featSpans = [];
+    while (r.pos < end) {
+      const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
+      if (tag === 1 && wire === 2) layer.name = r.readString();
+      else if (tag === 5) layer.extent = r.readVarint();
+      else if (tag === 3 && wire === 2) layer.keys.push(r.readString());
+      else if (tag === 4 && wire === 2) { const l = r.readVarint(); layer.values.push(readValue(r, r.pos + l)); }
+      else if (tag === 2 && wire === 2) { const l = r.readVarint(); featSpans.push([r.pos, r.pos + l]); r.pos += l; }
+      else r.skip(wire);
+    }
+    let n = 0;
+    for (const [a, b] of featSpans) {
+      if ((++n & 255) === 0) yield;
+      const sub = new Reader(r.buf);
+      sub.pos = a;
+      layer.features.push(decodeFeature(sub, b, layer.keys, layer.values));
+    }
+    return layer;
+  }
+
+  function* decodeTileSteps(bytes) {
+    const r = new Reader(bytes);
+    const layers = [];
+    while (r.pos < r.len) {
+      const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
+      if (tag === 3 && wire === 2) {
+        const l = r.readVarint();
+        const sub = new Reader(r.buf);
+        sub.pos = r.pos;
+        const end = r.pos + l;
+        r.pos = end;
+        layers.push(yield* decodeLayerSteps(sub, end));
+        yield;
+      } else r.skip(wire);
+    }
+    return layers;
+  }
+
+  // Drain it with a time budget, handing the thread back whenever a slice has
+  // held it too long. `yielder` and `budgetMs` come from worldgen so the whole
+  // build — decode and rasterize alike — answers to one dial.
+  async function decodeTileSliced(bytes, yielder, budgetMs) {
+    const now = () => ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+    const it = decodeTileSteps(bytes);
+    let started = now();
+    for (;;) {
+      const res = it.next();
+      if (res.done) return res.value;
+      if (now() - started >= (typeof budgetMs === 'function' ? budgetMs() : budgetMs)) {
+        await yielder();
+        started = now();
+      }
+    }
+  }
+
   function decodeTile(bytes) {
     // gzip auto-decompress if needed (uncommon for MVT in browsers, but safe)
     const r = new Reader(bytes);
@@ -171,5 +233,5 @@
     return layers;
   }
 
-  global.MVT = { decodeTile };
+  global.MVT = { decodeTile, decodeTileSliced };
 })(window);
