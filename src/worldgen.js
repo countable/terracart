@@ -854,9 +854,47 @@
   // rebuilt tile (any tile whose Overpass bin landed after it rasterized)
   // kept its painted building footprints but lost every house sprite —
   // brick footings with nothing standing on them.
+  // THE HOUSE INDEX IS BUCKETED, and that is the whole reason `houseNear`
+  // exists rather than callers walking `housePositions`. "Is there a house
+  // within HOUSE_DEDUP_M of this one" used to be a linear scan of every house
+  // in every cached tile, run once per house of the tile being built — so it
+  // grew as (houses per tile) x (houses in the ring), and it runs OUTSIDE the
+  // sliced build, in one unbroken stretch after rasterize resolves. A boot
+  // trace showed it as six frames over 100 ms (worst 253) charged to nothing
+  // more specific than `neighbour ring (in the background)`, getting worse with
+  // every tile the ring added. A house within HOUSE_DEDUP_M is within
+  // HOUSE_DEDUP_M on each axis, so it can only be in this house's own bucket or
+  // one of the eight around it: nine lookups, whatever the ring holds.
+  const HOUSE_DEDUP_M = 6;
+  const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
   function collectDedupIndex(tileCache, skipKey) {
     const byName = new Map();   // chest name → [{ x, y }]
-    const housePositions = [];
+    const housePositions = [];  // flat list, in cache order (the index's record)
+    const houseBuckets = new Map();   // `bx,by` → [{ x, y }]
+    const addHouse = (x, y) => {
+      const p = { x, y };
+      housePositions.push(p);
+      const k = `${Math.floor(x / HOUSE_DEDUP_M)},${Math.floor(y / HOUSE_DEDUP_M)}`;
+      const arr = houseBuckets.get(k);
+      if (arr) arr.push(p); else houseBuckets.set(k, [p]);
+    };
+    // True when any indexed house is within HOUSE_DEDUP_M of (x, y). Same
+    // answer the linear scan gave — the distance test below is the same one,
+    // the buckets only decide which houses are worth testing.
+    const houseNear = (x, y) => {
+      const bx = Math.floor(x / HOUSE_DEDUP_M), by = Math.floor(y / HOUSE_DEDUP_M);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const arr = houseBuckets.get(`${bx + dx},${by + dy}`);
+          if (!arr) continue;
+          for (let i = 0; i < arr.length; i++) {
+            const ex = arr[i].x - x, ey = arr[i].y - y;
+            if (ex * ex + ey * ey <= HOUSE_DEDUP_M2) return true;
+          }
+        }
+      }
+      return false;
+    };
     for (const [ek, e] of tileCache) {
       if (!e || !e.objects) continue;
       if (ek === skipKey) continue;
@@ -867,11 +905,11 @@
           if (!arr) { arr = []; byName.set(k, arr); }
           arr.push({ x: p.x, y: p.y });
         } else if (p.kind === 'house') {
-          housePositions.push({ x: p.x, y: p.y });
+          addHouse(p.x, p.y);
         }
       }
     }
-    return { byName, housePositions };
+    return { byName, housePositions, addHouse, houseNear };
   }
 
   function tileUrlFor(x, y) {
@@ -3214,9 +3252,7 @@
       // across the entire tileCache for every tile load.
       const DEDUP_M = 120;
       const DEDUP_M2 = DEDUP_M * DEDUP_M;
-      const HOUSE_DEDUP_M = 6;
-      const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
-      const { byName, housePositions } = collectDedupIndex(tileCache, _dedupSkipKey);
+      const { byName, addHouse, houseNear } = collectDedupIndex(tileCache, _dedupSkipKey);
       const filteredObjects = [];
       for (const o of objects) {
         if (o.kind === 'chest' && o.name) {
@@ -3229,15 +3265,10 @@
           if (drop) continue;
         }
         if (o.kind === 'house') {
-          let drop = false;
-          for (const p of housePositions) {
-            const dx = p.x - o.x, dy = p.y - o.y;
-            if (dx * dx + dy * dy <= HOUSE_DEDUP_M2) { drop = true; break; }
-          }
-          if (drop) continue;
+          if (houseNear(o.x, o.y)) continue;
           // Record the kept house so other newly-pushed houses in this same
           // tile also dedup against it (not just cross-tile).
-          housePositions.push({ x: o.x, y: o.y });
+          addHouse(o.x, o.y);
         }
         filteredObjects.push(o);
       }

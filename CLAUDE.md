@@ -156,6 +156,16 @@
   **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
   times every step of a real build over a 3000- and a 6000-building tile and
   fails if any single block runs long.
+  **The post-rasterize path in `loadTile` has no slicer at all** — the
+  cross-tile dedup, the cave entrance, the Overpass bin injection all run
+  straight through when the rasterize resolves, and they are charged to no
+  span narrower than `neighbour ring (in the background)`, so a profile can
+  only point at them by elimination. Anything there must be O(n) by
+  construction: the house dedup was a scan of every house in every cached tile
+  per house of the new one (six frames over 100 ms, worsening with each tile
+  the ring added) and is a bucket grid now — `collectDedupIndex`'s `houseNear`
+  / `addHouse`, never a walk of `housePositions`.
+  **Audit it:** `test/node/worldgen_dedup.test.js`.
 
 ## Testing
 
