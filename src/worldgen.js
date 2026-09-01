@@ -961,6 +961,14 @@
   // weaker than bounding-box coercion: genuine L / T / U buildings with
   // recesses ≥2 cells wide are untouched.
   //
+  // The synchronous form of the above — the exported API, and what the tests
+  // drive, so they exercise the same passes in the same order as the game.
+  function assignBuildingFootprints(polys, mvtToCell, w, h, pad = 0) {
+    const it = assignBuildingFootprintsSteps(polys, mvtToCell, w, h, pad);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
   // `isFree(x, y)` (optional) vetoes an addition — assignBuildingFootprints
   // passes the claim map so tidying can never take a cell that already
   // belongs to a neighbouring building. Omitted → every cell is fair game
@@ -1118,7 +1126,14 @@
   // to `polys`: each entry is that building's [[x, y], …] (possibly empty, and
   // possibly including cells outside [0, w) × [0, h) when pad > 0 — callers
   // paint only the in-bounds ones, exactly as before).
-  function assignBuildingFootprints(polys, mvtToCell, w, h, pad = 0) {
+  // Assign each building poly the cells it owns, IN STEPS.
+  //
+  // The per-building cover scan below walks a poly's whole bounding box calling
+  // cellCoverFraction per cell, and as one call for every building on a tile it
+  // was the single longest block left in a build: a labelled slice profile on a
+  // real 14-layer tile named it at 1.3-1.7 s, which is the walking stutter.
+  // Yields between buildings; the shape of the answer is untouched.
+  function* assignBuildingFootprintsSteps(polys, mvtToCell, w, h, pad = 0) {
     const lo = -pad, hiX = w - 1 + pad, hiY = h - 1 + pad;
     const stride = (hiX - lo + 1);
     const cellIdx = (x, y) => (y - lo) * stride + (x - lo);
@@ -1128,7 +1143,10 @@
     const claimed = (x, y) => owner[cellIdx(x, y)] !== -1;
 
     // Per-building: ring in cell units, candidate covers, tie-break key.
-    const info = polys.map((bp, i) => {
+    const info = [];
+    for (let _pi = 0; _pi < polys.length; _pi++) {
+      if ((_pi & 3) === 3) yield 'building cover scan';
+      const bp = polys[_pi], i = _pi;
       const ring = bp.ring.map(p => ({ x: p.x * mvtToCell, y: p.y * mvtToCell }));
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of ring) {
@@ -1142,8 +1160,8 @@
         const c = cellCoverFraction(ring, x, y);
         if (c > 0) covers.push({ x, y, c });
       }
-      return { i, bp, ring, covers, key: footprintTieKey(ring), cells: [] };
-    });
+      info.push({ i, bp, ring, covers, key: footprintTieKey(ring), cells: [] });
+    }
     // Best cover first; ties by the bigger building, then by geometry key,
     // then by cell — a total order that never consults the input order.
     const byBid = (a, b) => b.c - a.c || b.area - a.area || a.key - b.key
@@ -2231,7 +2249,7 @@
       // where needed.
       // Then paint + push house objects (LARGE gets a cement pad with no
       // sprite; everything else gets a 'house' object).
-      yield `${name} layer`;
+      yield `${name} features`;
       if (name === 'building' && buildingPolys.length) {
         // Give every building an EXCLUSIVE set of cells before anything is
         // painted. Cells are assigned by how much of them the polygon actually
@@ -2241,13 +2259,16 @@
         // neighbour. Assignment runs with a 3-cell pad past the tile bounds so
         // an edge-clipped building shapes the same in both tiles that draw it;
         // only the in-bounds cells are painted.
-        const footprints = assignBuildingFootprints(buildingPolys, mvtToCell, w, h, 3);
+        yield 'building block start';
+        const footprints = yield* assignBuildingFootprintsSteps(buildingPolys, mvtToCell, w, h, 3);
+        yield 'assignBuildingFootprints';
         // Tier floors are enforced AFTER assignment, over the buildings that
         // actually landed on the tile — a building that got no cell at all
         // mustn't consume the tile's one guaranteed castle/fort slot.
         const _placed = buildingPolys.filter((bp, i) => footprints[i].some(
           ([fx, fy]) => fx >= 0 && fy >= 0 && fx < w && fy < h));
         enforceBuildingDistribution(_placed);
+        yield 'enforceBuildingDistribution';
         let _bOwnerId = 0;
         for (let _bi = 0; _bi < buildingPolys.length; _bi++) {
           if ((_bi & 15) === 0) yield 'building paint';
@@ -2331,6 +2352,7 @@
           ownerKeys[ownerId] = id;
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
+        yield 'building paint (all footprints)';
         // Thin merged house icons. When several tiny building polygons abut and
         // rasterize into one continuous block of building tiles, each polygon
         // still drops its own roof — so the merged footprint reads as a cluster
@@ -2360,7 +2382,7 @@
         }
       }
     }
-    yield 'all layers painted';
+    yield 'after the layer loop';
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
