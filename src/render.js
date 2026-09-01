@@ -486,27 +486,29 @@ let _ringOwners = null;
 let _ringUnclaimed = null;
 // Flat [sx, sy, southFaceDepth] triples for the unclaimed-building wash. Reused
 // every frame — the pass runs for every visible building cell, and a fresh
-// array per frame is garbage the render loop can't afford.
+// array per frame is garbage the render loop can't afford. CASTLES ARE NOT IN
+// HERE: their unclaimed look is baked into the stone they're drawn with, so a
+// tier-12 cell never reaches the wash.
 const _washCells = [];
-// How far a castle's battlements rise above a cell's edge (crenel parapet plus
-// merlon tooth) and how far its south wall face extrudes below it. Read from
-// the same geometry the rampart is drawn with — a wash that stopped at the cell
-// edge left a lit crown of teeth on an otherwise unclaimed wall.
-const RAMPART_RISE_PX = 8;
-const RAMPART_FACE_PX = 10;
-// 35% of the way to dark green. Composited as one alpha pass over the finished
-// building art (see the wash pass in drawCells).
-const UNCLAIMED_WASH = 0x1e3b24;
-const UNCLAIMED_WASH_A = 0.5;
-// ...and a murk over the top of it: a cold near-black at low alpha, the same
-// idea as the fog-of-war wash (FOG_COLOR at FOG_ALPHA) but a fraction of the
-// strength. The green alone said "not yours" and read as a colour choice; the
-// murk says "unlit, nobody home", which is the thing being communicated. Two
-// passes rather than one darker green because they do different jobs — the
-// green carries the meaning, the murk carries the mood, and either can be
-// tuned without disturbing the other.
-const UNCLAIMED_MURK = 0x05070c;
-const UNCLAIMED_MURK_A = 0.22;
+// The shade an unclaimed building takes: 35% of the way to dark green, then a
+// murk over the top of it — a cold near-black at low alpha, the same idea as
+// the fog-of-war wash (FOG_COLOR at FOG_ALPHA) but a fraction of the strength.
+// The green alone said "not yours" and read as a colour choice; the murk says
+// "unlit, nobody home", which is the thing being communicated. Two passes
+// rather than one darker green because they do different jobs — the green
+// carries the meaning, the murk carries the mood, and either can be tuned
+// without disturbing the other.
+//
+// The numbers live in textures.js (UNCLAIMED_SHADE) because a CASTLE doesn't
+// take this wash at all any more — its stone, turret and court floor are BAKED
+// in a second palette put through the same transform. Read from there so the
+// painted houses and the baked castles can't drift apart. The literals are the
+// headless fallback: render.js loads in the node suite, textures.js can't.
+const _USH = (typeof UNCLAIMED_SHADE !== 'undefined') ? UNCLAIMED_SHADE : null;
+const UNCLAIMED_WASH = _USH ? _USH.wash : 0x1e3b24;
+const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.5;
+const UNCLAIMED_MURK = _USH ? _USH.murk : 0x05070c;
+const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.22;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
 // lands a sprite roughly where the wash lands the ground under it.
 const UNCLAIMED_SPRITE_TINT = (() => {
@@ -517,6 +519,17 @@ const UNCLAIMED_SPRITE_TINT = (() => {
   };
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 })();
+// unclaimedShade() is a dozen float ops and the court-floor colour resolution
+// below asks for it up to five times per castle cell per frame (the fill, the
+// four border comparisons). There are six colours in the whole game that ever
+// reach it, so memoise.
+const _shadeMemo = new Map();
+const _shadeOnce = (n) => {
+  if (typeof unclaimedShade !== 'function') return n;
+  let v = _shadeMemo.get(n);
+  if (v === undefined) { v = unclaimedShade(n); _shadeMemo.set(n, v); }
+  return v;
+};
 // Compose two multiply tints, channel by channel — so an unclaimed shop keeps
 // its role colour AND takes the wash, instead of one replacing the other.
 const _mulTints = (a, b) => {
@@ -807,6 +820,13 @@ Render.drawCells = function drawCells(scene) {
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   const UNCLAIMED = (c, r) => unclaimed[(r + 2) * RING + (c + 2)] === 1;
+  // An unclaimed castle's COURT is painted in the shaded colour, so every place
+  // that resolves a cell's painted colour has to agree: the fill, the rounded
+  // corners' diagonal fills, and the wavy-border test that asks whether two
+  // cells differ. Disagreeing put a border between every pair of unclaimed
+  // court cells — the whole castle floor came out gridded.
+  const courtShaded = (t, colour, c, r) =>
+    (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : colour;
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -838,6 +858,11 @@ Render.drawCells = function drawCells(scene) {
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
+      // An unclaimed castle's COURT is shaded with its stone. The cobble
+      // overlay baked over this fill (drawCastleFloorTex) is pure alpha, so
+      // recolouring the fill recolours the paving with it — no second texture
+      // family, and the floor can't end up lit under shaded walls.
+      if (type === 12 && UNCLAIMED(col, row)) color = _shadeOnce(color);
       if (isRoad(type) || type === PATH) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
@@ -879,7 +904,7 @@ Render.drawCells = function drawCells(scene) {
         // revealed outside the curve are the correct adjacent-zone colour.
         const cornerColor = (t, dnx, dny) => roadish(t)
           ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
-          : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+          : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
         if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
         if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
@@ -917,7 +942,8 @@ Render.drawCells = function drawCells(scene) {
         // The neighbour's PAINTED colour, which both the needs-a-border test
         // and the blend ramp want — resolved once per side rather than twice.
         const nbrColorOf = (t, dnx, dny) =>
-          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny)
+            : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         const cN = nbrColorOf(tN,  0, -1);
         const cS = nbrColorOf(tS,  0, +1);
         const cW = nbrColorOf(tW, -1,  0);
@@ -1309,15 +1335,17 @@ Render.drawCells = function drawCells(scene) {
       // Note it for the unclaimed wash below, with the depth its south wall
       // extrudes into the row underneath so the wash covers the wall face too
       // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
-      if (UNCLAIMED(col, row)) {
-        // How far this cell's art spills out of it, per EDGE — and only where
-        // the edge actually carries a wall. Extending every cell upward banded
-        // the whole footprint: an interior cell's rect overlapped its
-        // neighbour's, so the shared 8 px got washed twice and read as stripes.
+      // A castle takes no wash — it is DRAWN unclaimed (the palette pick in the
+      // tier-12 branch below, the second turret texture, and the court floor's
+      // own base colour above). Everything else gets the overlay.
+      if (type !== 12 && UNCLAIMED(col, row)) {
+        // How far this cell's art spills out of it — only where the south edge
+        // actually carries a wall. Extending every cell upward banded the whole
+        // footprint: an interior cell's rect overlapped its neighbour's, so the
+        // shared pixels got washed twice and read as stripes.
         const face = wallEdge(col, row, 0, 1)
-          ? (type === 11 ? 5 : (type === 12 ? RAMPART_FACE_PX : (SOUTH_FACE_PX[type] || 4))) : 0;
-        const rise = (type === 12 && wallEdge(col, row, 0, -1)) ? RAMPART_RISE_PX : 0;
-        _washCells.push(sx, sy, face, rise, type === 12 ? 1 : 0);
+          ? (type === 11 ? 5 : (SOUTH_FACE_PX[type] || 4)) : 0;
+        _washCells.push(sx, sy, face);
       }
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
@@ -1367,17 +1395,26 @@ Render.drawCells = function drawCells(scene) {
         //           against the light castle floor
         //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
         //           gaps between the side merlons aren't harshly dark
-        const _CS = (typeof CASTLE_STONE !== 'undefined') ? CASTLE_STONE : null;
+        // ...and in the SECOND palette when the castle isn't the player's:
+        // CASTLE_STONE_UNCLAIMED is every one of those six stones put through
+        // unclaimedShade(). Picked per cell, which is what makes it possible
+        // for the castle across the road to be lit while this one isn't.
+        const _claimedHere = !UNCLAIMED(col, row);
+        const _CS = (typeof CASTLE_STONE === 'undefined') ? null
+          : (_claimedHere || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
+              ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
         // window.__RAMPART_DEBUG tints the three wall pieces apart (north blue,
         // south green, sides red) so corner stacking bugs are visible at a
         // glance — the stone greys are too close to eyeball draw order.
         const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
-        const STONE_LITE   = _CS ? _CS.LITE.n   : 0xb9bcc2;
-        const STONE_BODY   = _CS ? _CS.BODY.n   : 0x8f9298;
-        const STONE_SHADOW = _CS ? _CS.SHADOW.n : 0x5a5d63;
-        const STONE_DARK   = _CS ? _CS.DARK.n   : 0x303134;
-        const STONE_FACE   = _CS ? _CS.FACE.n   : 0x7e8188;
-        const STONE_SIDE   = _CS ? _CS.SIDE.n   : 0x7a7d84;
+        const _sh = (n) => (_claimedHere || typeof unclaimedShade === 'undefined')
+          ? n : unclaimedShade(n);
+        const STONE_LITE   = _CS ? _CS.LITE.n   : _sh(0xb9bcc2);
+        const STONE_BODY   = _CS ? _CS.BODY.n   : _sh(0x8f9298);
+        const STONE_SHADOW = _CS ? _CS.SHADOW.n : _sh(0x5a5d63);
+        const STONE_DARK   = _CS ? _CS.DARK.n   : _sh(0x303134);
+        const STONE_FACE   = _CS ? _CS.FACE.n   : _sh(0x7e8188);
+        const STONE_SIDE   = _CS ? _CS.SIDE.n   : _sh(0x7a7d84);
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
@@ -1527,40 +1564,23 @@ Render.drawCells = function drawCells(scene) {
   // in the loop would be painted UNDER the palisade and the ramparts it is
   // supposed to cover.
   if (_washCells.length) {
-    // ONTO THE RIGHT LAYERS. This used to paint into `g`, the terrain graphics
-    // — which is under everything a castle is made of. A castle's ramparts are
-    // split across two later layers so its turrets can sort per edge (gb for
-    // the back and sides, gf for the south wall, which sits ABOVE the world
-    // sprites), so the wash reached the floor and nothing else: the walls of an
-    // unclaimed castle stayed brightly lit stone on washed ground.
+    // ONTO THE RIGHT LAYER. This used to paint into `g`, the terrain graphics —
+    // which is under a house's own extrusion and outline and under a fort's
+    // pickets, so the wash reached the floor and nothing else. gb sits above
+    // the terrain, so one pass there covers all three.
     //
-    // gb is above the terrain, so one pass there covers the floor, a house's
-    // extrusion and outline, a fort's pickets AND the back and side ramparts.
-    // The south wall needs its own pass in gf, restricted to the band that wall
-    // occupies — a full-cell rect up there would also wash the player and
-    // anything else standing on the building, which the front wall only does
-    // where it genuinely draws over them.
-    const paint = (gx, colour, alpha, frontOnly) => {
+    // It no longer needs a second pass on the front layer: that pass existed
+    // for the castle's south rampart (drawn in gf, above the world sprites),
+    // and the castle is baked now.
+    const paint = (gx, colour, alpha) => {
       gx.fillStyle(colour, alpha);
-      for (let i = 0; i < _washCells.length; i += 5) {
-        const wx = _washCells[i], wy = _washCells[i + 1];
-        const face = _washCells[i + 2], rise = _washCells[i + 3], isCastle = _washCells[i + 4];
-        if (frontOnly) {
-          if (!isCastle || !face) continue;
-          // The south rampart only: its merlons rise into the bottom of this
-          // cell and its wall face extrudes below.
-          gx.fillRect(wx, wy + CELL_PX - RAMPART_RISE_PX, CELL_PX, RAMPART_RISE_PX + face);
-        } else {
-          gx.fillRect(wx, wy - rise, CELL_PX, CELL_PX + rise + face);
-        }
+      for (let i = 0; i < _washCells.length; i += 3) {
+        gx.fillRect(_washCells[i], _washCells[i + 1], CELL_PX, CELL_PX + _washCells[i + 2]);
       }
     };
     const gbW = scene.rampartBackGfx || g;
-    const gfW = scene.rampartFrontGfx || g;
-    paint(gbW, UNCLAIMED_WASH, UNCLAIMED_WASH_A, false);
-    paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A, false);
-    paint(gfW, UNCLAIMED_WASH, UNCLAIMED_WASH_A, true);
-    paint(gfW, UNCLAIMED_MURK, UNCLAIMED_MURK_A, true);
+    paint(gbW, UNCLAIMED_WASH, UNCLAIMED_WASH_A);
+    paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
     _washCells.length = 0;
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
@@ -2395,7 +2415,15 @@ Render.drawObjects = function drawObjects(scene) {
     // so origin x 0.5 centres it on the cell. Towers draw in their own layer
     // above BOTH rampart layers (app.js towerContainer), so the turret always
     // reads as standing on top of the wall, never behind it.
-    tower:  { key: 'tower',                  origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
+    // castle's masonry is generated in the shaded palette (textures.js), and a
+    // tower that took a multiply tint instead never quite landed on the wall
+    // colour beneath it. Falls back to the lit key if the second bake is
+    // missing, so a stale texture cache can't blank the turret.
+    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+                               && sc.textures.exists('tower_unclaimed'))
+                              ? 'tower_unclaimed' : 'tower',
+              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
@@ -2688,7 +2716,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (!spec || !SL) return null;
     const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
     if (!wantSeat) return null;
-    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return null;
     const frameVal = spec.frame === undefined ? 0
                    : (typeof spec.frame === 'function' ? spec.frame(o) : spec.frame);
@@ -2785,7 +2813,7 @@ Render.drawObjects = function drawObjects(scene) {
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
-    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
     setTextureIfDifferent(s, texKey);
     let frameVal;
@@ -2823,15 +2851,16 @@ Render.drawObjects = function drawObjects(scene) {
       const bt = BiomeProfiles.tint(o._biome, o.kind);
       if (bt) tint = bt;
     }
-    // A building that isn't the player's is washed toward dark green with the
-    // rest of its footprint (see the wash pass in drawCells). Its SPRITE is not
-    // on that canvas — a roof and a turret are pooled images above it — so the
-    // same shift is applied here as a multiply tint. Multiply can't reproduce a
+    // A HOUSE that isn't the player's is washed toward dark green with the rest
+    // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
+    // that canvas — the roof is a pooled image above it — so the same shift is
+    // applied here as a multiply tint. Multiply can't reproduce a
     // lerp exactly, so the tint is white lerped 35% toward the wash colour:
     // mid-tones land where the wash puts them and the art keeps its shading.
     // Applied last so it also carries over a shop's own role tint.
-    if ((o.kind === 'house' || o.kind === 'tower') && scene.isClaimedKey
-        && !scene.isClaimedKey(o.kind === 'tower' ? o.castle : o.id)) {
+    // (A TURRET is exempt: it swaps to its own baked texture above rather than
+    // taking the tint, so applying this as well would shade it twice.)
+    if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
       tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;

@@ -105,12 +105,20 @@ function providedTextureKeys() {
   if (body == null) throw new Error('shell_audit: could not parse ASSETS in src/assets.js');
   const keys = new Set([...topLevelEntries(body).keys()]);
   const tex = blankComments(read('src/textures.js'));
-  for (const m of tex.matchAll(/const KEY = '([^']+)'/g)) keys.add(m[1]);
+  // `const KEY = 'tower'` — and `const KEY = key || 'tower'`, the parameterised
+  // form, whose literal is the DEFAULT key the no-argument call bakes.
+  for (const m of tex.matchAll(/const KEY = (?:[A-Za-z_$][\w$]* \|\| )?'([^']+)'/g)) keys.add(m[1]);
   // Not everything goes through the ASSETS table: a few sprites are loaded
   // straight from app.js's preload (the staircases are). Those are just as
   // real, and missing them here would have this audit cry wolf about them.
   const app = blankComments(read('src/app.js'));
   for (const m of app.matchAll(/this\.load\.(?:image|spritesheet|atlas)\('([^']+)'/g)) keys.add(m[1]);
+  // A maker that takes its key as an argument (makeTowerTexture bakes the
+  // turret twice — once in the lit castle palette, once in the unclaimed one)
+  // has no `const KEY = '…'` to find. Its keys come from the CALL SITE, which
+  // is the boot path itself, so reading them here proves the bake happens
+  // rather than just that the name is spelled somewhere.
+  for (const m of app.matchAll(/\bmake[A-Za-z]*Texture\s*\([^;)]*'([^']+)'\s*\)/g)) keys.add(m[1]);
   return keys;
 }
 
