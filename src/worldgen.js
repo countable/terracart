@@ -1383,6 +1383,17 @@
     // size and the grid was painted with these, not those.
     const cellWidthM = tileEdgeM / w;
     const objects = [];
+    // The tile's SOURCE building polygons, kept for the polygonal footprint
+    // overlay (building_overlay.js) the way the raw `transportation` lines are
+    // kept for the road overlay. The grid is a lossy record of a building: a
+    // rotated house squares off to the cells it covers most of, an L-shaped
+    // block loses its notch, and two buildings that abut weld into one span of
+    // tier colour. The rings below are what the rasterizer was AIMING at, in
+    // TILE-LOCAL METRES (x,y interleaved), carrying the tier the distribution
+    // pass finally settled on and the ownerKey its footprint was stamped with —
+    // so the overlay draws the same building, at the same tier, in the same
+    // claimed/unclaimed state the tiled paint would have drawn.
+    const buildingShapes = [];
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
     // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
@@ -2279,6 +2290,10 @@
           // adjacent building cells carry different owners, separating
           // buildings whose footprints abut into one contiguous block.
           const ownerId = (++_bOwnerId) & 0xffff;
+          // Remembered on the poly so the overlay's shape can be resolved to
+          // the same ownerKey after the loop (a house's key is minted further
+          // down, past two `continue`s, so it can't be read here).
+          bp._ownerId = ownerId;
           const fpCells = [];
           for (const [fx, fy] of footprints[_bi]) {
             if (fx < 0 || fy < 0 || fx >= w || fy >= h) continue;
@@ -2353,6 +2368,23 @@
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
         yield 'building paint (all footprints)';
+        // Export the SOURCE rings for the polygonal footprint overlay. Done
+        // after the paint loop, not inside it: a house's ownerKey is minted at
+        // the very end of the loop body, so reading it any earlier would hand
+        // the overlay a null key and draw every house as claimed.
+        for (const bp of buildingPolys) {
+          const ring = new Float32Array(bp.ring.length * 2);
+          for (let i = 0; i < bp.ring.length; i++) {
+            ring[i * 2] = bp.ring[i].x * mvtToM;
+            ring[i * 2 + 1] = bp.ring[i].y * mvtToM;
+          }
+          buildingShapes.push({
+            ring,
+            tier: bp.tier,
+            areaM2: bp.areaM2,
+            key: (bp._ownerId && ownerKeys[bp._ownerId]) || null,
+          });
+        }
         // Thin merged house icons. When several tiny building polygons abut and
         // rasterize into one continuous block of building tiles, each polygon
         // still drops its own roof — so the merged footprint reads as a cluster
@@ -2860,7 +2892,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -2998,7 +3030,7 @@
                               : MVT.decodeTile(bytes)));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
@@ -3053,6 +3085,9 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // Source building polygons (tile-local metres) for building_overlay.js —
+      // the polygonal counterpart of entry.layers' road linework.
+      entry.buildingShapes = buildingShapes || [];
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.

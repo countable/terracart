@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  Polygonal building footprints — standalone preview.
+
+  building_overlay.js draws the SOURCE OSM building rings instead of the cells
+  the rasterizer squared them onto (see the header of src/building_overlay.js).
+  The headless suite pins its maths against a recording stub, which is the
+  right test but shows you nothing; the game itself needs live map tiles. This
+  page is the middle ground: a hand-written fixture of rings — a rotated house,
+  an unclaimed one, an L-shaped mid-rise, a castle with a cut corner — fed to
+  the REAL canvas adapter through a Phaser-shaped shim thin enough to read in
+  one screen (textures.createCanvas / add.image backed by DOM canvases).
+  Everything you see is the module's own drawing code.
+
+  Serve the repo (python -m http.server 7731) and open /tools/building-poly-preview.html.
+  It is a preview, not a test: nothing here asserts, and the shim is only as
+  faithful as the two methods it implements.
+-->
+<html lang="en"><head><meta charset="utf-8"><title>polygonal footprints preview</title><style>
+body{margin:0;background:#4b7f4b;}
+#stage{position:relative;width:352px;height:352px;overflow:hidden;}
+canvas{position:absolute;image-rendering:pixelated;}
+</style></head><body>
+<div id="stage"></div>
+<script src="/src/sprite_layout.js"></script>
+<script src="/src/mvt.js"></script>
+<script src="/src/util.js"></script>
+<script src="/src/coords.js"></script>
+<script src="/src/fog.js"></script>
+<script src="/src/biome_profiles.js"></script>
+<script src="/src/home.js"></script>
+<script src="/src/worldgen.js"></script>
+<script src="/src/textures.js"></script>
+<script src="/src/render.js"></script>
+<script src="/src/road_overlay.js"></script>
+<script src="/src/building_overlay.js"></script>
+<script>
+const CELL_PX = 32;
+const COLORS = { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 };
+const stage = document.getElementById('stage');
+// Minimal Phaser-shaped shim: enough of textures/add.image for the overlay's
+// real canvas adapter to run, backed by DOM canvases.
+const scene = {
+  startWorldM: { x: 32 * 7, y: 32 * 7 }, playerM: { x: 0, y: 0 },
+  mPerPx: 10, originPx: { x: 0, y: 0 }, cellM: 7, cellsPerTile: 64, depth: 0, save: {},
+  viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
+  isClaimedKey: (k) => k !== 'unclaimed',
+  textures: {
+    _m: new Map(),
+    exists(k) { return this._m.has(k); },
+    remove(k) { this._m.delete(k); },
+    get(k) { return this._m.get(k); },
+    createCanvas(k, w, h) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const t = { canvas: c, getContext: () => c.getContext('2d'), refresh() {}, getSourceImage: () => c };
+      this._m.set(k, t); return t;
+    },
+  },
+  add: {
+    image(x, y, key) {
+      const t = scene.textures.get(key);
+      t.canvas.style.left = x + 'px'; t.canvas.style.top = y + 'px';
+      stage.appendChild(t.canvas);
+      return { setOrigin() { return this; }, setAlpha() { return this; } };
+    },
+  },
+  buildingGeomContainer: { add() {}, setVisible() {}, setPosition() {} },
+  playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 32, cy: 32 }),
+};
+// Bake the real biome textures so the floors wear their materials.
+if (typeof makeBiomeTextures === 'function') {
+  // textures.js draws into Phaser canvas textures; give it ours.
+  makeBiomeTextures(scene, CELL_PX);
+}
+const TILE_EDGE_M = 64 * 7;
+const M = (cx, cy) => [cx * 7, cy * 7];
+const ring = (pts) => Float32Array.from(pts.flatMap(([x, y]) => M(x, y)));
+const rot = (cx, cy, w, h, a) => {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y]) => [cx + x*c - y*s, cy + x*s + y*c]);
+};
+WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
+  tileEdgeM: TILE_EDGE_M,
+  buildingShapes: [
+    { ring: ring(rot(30, 30, 5, 3.5, 0.42)), tier: 9, areaM2: 200, key: 'a' },
+    { ring: ring(rot(30.5, 34.5, 4, 3, -0.25)), tier: 9, areaM2: 150, key: 'unclaimed' },
+    { ring: ring([[34,29],[38,29],[38,31],[36.5,31],[36.5,33],[34,33]]), tier: 11, areaM2: 700, key: 'b' },
+    { ring: ring([[27,33],[31,33],[32.5,34.5],[32.5,36.5],[27,36.5]]), tier: 12, areaM2: 3000, key: 'c' },
+  ],
+});
+BuildingOverlay.draw(scene);
+document.title = 'ready';
+</script></body></html>

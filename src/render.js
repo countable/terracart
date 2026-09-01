@@ -56,6 +56,35 @@ const Render = {};
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
+// Pseudo-3D extrusion: a building footprint is the "top surface", and its
+// south-facing edge gets a darker wall projected downward onto the row below.
+// Wall face = 40% brightness of the footprint colour (60% darker) — deep
+// shadow under the lit top surface, but with enough hue to read as the
+// building's own material rather than a generic dark stripe. Houses get a 4px
+// wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
+// footprint scale.
+//
+// Module scope, and exported on Render, because the TILED pass below is not
+// the only thing that draws this wall: building_overlay.js extrudes the source
+// POLYGON with the same colours at the same depths, and a wall that changed
+// height when the footprint stopped being square would give the two modes
+// different silhouettes for the same building.
+const BUILDING_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
+const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+// Building tiers, as a predicate. Module scope for the same reason: the base
+// terrain fill needs it too, several hundred lines before the outline pass
+// that used to own it.
+const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
+Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
+Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+// Is the POLYGONAL building mode on? When it is, building cells paint as the
+// GROUND around them here and every piece of tiled building art below is
+// skipped — the footprints are drawn from their source rings by
+// building_overlay.js instead. Resolved per pass (the flag is a runtime toggle,
+// so a frame has to be able to change its mind) and false whenever that module
+// isn't loaded, which is what keeps the tiled path the default everywhere else.
+const polyBuildings = () =>
+  typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
 // Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
 // the places are, not a call to action, and anything brisk turns a street of
 // POIs into a strobe.
@@ -665,6 +694,9 @@ function drawAtmosRim(scene, haze) {
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  // One read per pass — every building-art decision below asks it, and a
+  // toggle flipping mid-pass would draw half a building.
+  const POLY = polyBuildings();
   const gb2 = scene.borderGfx;
   // Castle ramparts split across TWO layers so towers (objectsContainer) sort
   // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
@@ -827,6 +859,13 @@ Render.drawCells = function drawCells(scene) {
   // court cells — the whole castle floor came out gridded.
   const courtShaded = (t, colour, c, r) =>
     (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : colour;
+  // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
+  // test has to look THROUGH to the zone underneath. Road and path cells are
+  // painted the majority biome around them; in polygonal mode a building cell
+  // is too (see the base fill below), so the wavy biome borders and the
+  // rounded-corner fills have to resolve it the same way or a building would
+  // be ringed by a seam against the ground it was just painted to match.
+  const lookThrough = (t) => isRoad(t) || t === PATH || (POLY && isBuildingType(t));
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -863,10 +902,26 @@ Render.drawCells = function drawCells(scene) {
       // recolouring the fill recolours the paving with it — no second texture
       // family, and the floor can't end up lit under shaded walls.
       if (type === 12 && UNCLAIMED(col, row)) color = _shadeOnce(color);
-      if (isRoad(type) || type === PATH) {
+      // In POLYGONAL mode a building cell is not a floor — the floor is drawn
+      // from the source ring by building_overlay.js — so the cell paints as
+      // the GROUND the building stands on, exactly the way a road cell
+      // inherits the zone it crosses. Same helper, one sample: the mode of the
+      // surrounding non-road, non-building cells. `polyGround` carries the
+      // inherited TYPE down to the texture pass below so the cell wears that
+      // zone's material too; -1 = paint normally. When nothing but building
+      // sits within the sample (deep inside a big footprint) it stays -1 and
+      // the tier colour shows through — which is under the polygon anyway.
+      let polyGround = -1;
+      const polyB = POLY && isBuildingType(type);
+      if (isRoad(type) || type === PATH || polyB) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
-        color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+        if (polyB) {
+          const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
+          if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
+        } else {
+          color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+        }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
 
@@ -902,7 +957,7 @@ Render.drawCells = function drawCells(scene) {
         if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        const cornerColor = (t, dnx, dny) => roadish(t)
+        const cornerColor = (t, dnx, dny) => lookThrough(t)
           ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
           : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
@@ -942,7 +997,7 @@ Render.drawCells = function drawCells(scene) {
         // The neighbour's PAINTED colour, which both the needs-a-border test
         // and the blend ramp want — resolved once per side rather than twice.
         const nbrColorOf = (t, dnx, dny) =>
-          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny)
+          lookThrough(t) ? nbrInferred(dnx, dny)
             : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         const cN = nbrColorOf(tN,  0, -1);
         const cS = nbrColorOf(tS,  0, +1);
@@ -1097,7 +1152,11 @@ Render.drawCells = function drawCells(scene) {
           // back to the path's own base if there's no record or the under-biome
           // has no texture (e.g. commercial/industrial concrete pads).
           let baseType = type;
-          if (type === PATH) {
+          // Polygonal mode: the building cell wears the inherited zone's
+          // texture (see polyGround above), so nothing under the polygon reads
+          // as a floor.
+          if (polyGround >= 0) baseType = polyGround;
+          else if (type === PATH) {
             const N = scene.cellsPerTile;
             const txp = Math.floor(absCellIX / N);
             const typ = Math.floor(absCellIY / N);
@@ -1279,7 +1338,7 @@ Render.drawCells = function drawCells(scene) {
   // Building outline pass — runs AFTER all cells are filled so a neighbour
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
-  const isB = (t) => t === 9 || t === 11 || t === 12;
+  const isB = isBuildingType;
   // Two building cells belong to DIFFERENT buildings when both are owned, sit in
   // the same tile (matching salt in the high bits), and carry different local
   // ids. Across a tile seam we can't compare local ids reliably, so we treat the
@@ -1314,22 +1373,20 @@ Render.drawCells = function drawCells(scene) {
     if (nb === T(col, row) && (dc === -1 || dr === -1)) return false;   // partner already drew it
     return true;
   };
-  // Pseudo-3D extrusion: building footprints are the "top surface", and the
-  // south-facing edge of each building cell gets a 5px-tall darker wall projected
-  // downward, painted on top of the row below. Other edges get a thin black tint
-  // to keep the silhouette crisp.
-  // Wall face = 40% brightness of the footprint colour (60% darker) — deep
-  // shadow under the lit top surface, but with enough hue to read as the
-  // building's own material rather than a generic dark stripe.
-  const SOUTH_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
-  // Houses get a 4px wall + 1px silhouette outline. Civic slabs (LARGE) keep
-  // the thicker 5px wall and 3px outline to read at their bigger footprint scale.
-  const SOUTH_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+  // Pseudo-3D extrusion: see BUILDING_FACE_COLOR / BUILDING_FACE_PX at module
+  // scope — the same wall the polygonal overlay extrudes its rings with.
+  const SOUTH_FACE_COLOR = BUILDING_FACE_COLOR;
+  const SOUTH_FACE_PX = BUILDING_FACE_PX;
   _washCells.length = 0;
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       const type = T(col, row);
       if (!isB(type)) continue;
+      // POLYGONAL mode: the floor, the wash, the pickets, the extrusion, the
+      // outline and the ramparts are all drawn from the source ring by
+      // building_overlay.js. Nothing tiled here — leaving even the outline in
+      // would trace the staircase silhouette the polygon exists to replace.
+      if (POLY) continue;
       const ox = col - half, oy = row - half;
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
       // Note it for the unclaimed wash below, with the depth its south wall
