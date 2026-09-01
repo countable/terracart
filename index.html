@@ -7,6 +7,49 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
+  <script>
+    // ── Boot profiler ────────────────────────────────────────────────────
+    // FIRST thing on the page, so it is recording before a single byte of the
+    // game is parsed. Everything else can only measure from where it starts;
+    // this measures the whole boot, including the stretches nothing else is
+    // awake for (the script tags parsing, the wait for a first GPS fix, the
+    // player reading the story).
+    //
+    // It exists because a load stall is the one bug that cannot be reproduced
+    // on someone else's machine: the phone that takes forty seconds is not the
+    // desktop that takes three, and a profile taken here is worth more than any
+    // amount of guessing. Read it from ☰ › Load profile once the game is up.
+    //
+    // Costs nothing when nobody looks: a mark is an array push, and the whole
+    // thing is a few hundred entries at most.
+    (function () {
+      const t = () => performance.now();
+      const B = {
+        marks: [],     // { name, t }              — instants
+        spans: [],     // { name, t, ms, note }    — completed stretches
+        long: [],      // { t, ms }                — main-thread blocks > 50 ms
+        open: new Map(),
+        mark(name) { try { B.marks.push({ name, t: t() }); } catch (_) {} },
+        // begin() returns its own end function, so a span can't be closed by
+        // the wrong name and nesting the same name twice is safe.
+        begin(name) {
+          const t0 = t();
+          return (note) => { try { B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {} };
+        },
+        // Fire-and-forget for a stretch measured somewhere else.
+        span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
+      };
+      window.__boot = B;
+      B.mark('html parse');
+      try {
+        new PerformanceObserver((l) => {
+          for (const e of l.getEntries()) B.long.push({ t: Math.round(e.startTime), ms: Math.round(e.duration) });
+        }).observe({ entryTypes: ['longtask'] });
+      } catch (_) { /* no longtask support (Safari) — the spans still land */ }
+      document.addEventListener('DOMContentLoaded', () => B.mark('DOM ready'));
+      window.addEventListener('load', () => B.mark('window load'));
+    })();
+  </script>
   <!-- iOS PWA: launch fullscreen with a dark status bar when added to home screen. -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -907,6 +950,7 @@
           <button id="debug-wood-relics">All wood relics (T1)</button>
           <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
+          <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
             <!-- buttons injected from window.TELEPORT_PRESETS -->
@@ -1452,6 +1496,76 @@
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
+    // ☰ › Load profile — the boot timeline recorded by window.__boot (see the
+    // profiler at the top of this file), rendered as a waterfall you can read
+    // on the device that is actually slow and paste back.
+    //
+    // Sorted by START, not by size: the question a load stall asks is "what was
+    // the app doing between second 3 and second 20", and only a timeline
+    // answers it. Sizes are in the same rows for the follow-up question.
+    document.getElementById('debug-load-profile').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const B = window.__boot;
+      if (!B) { window.showError?.('load profile', 'profiler not running'); return; }
+      const ms = (v) => (v >= 1000 ? (v / 1000).toFixed(2) + 's' : Math.round(v) + 'ms');
+      const at = (v) => (v / 1000).toFixed(2).padStart(6) + 's';
+      const out = [];
+      const playable = B.marks.find(k => k.name.startsWith('MAP PLAYABLE'));
+      const span = (pre) => B.spans.filter(x => x.name.startsWith(pre));
+      const sum = (a) => a.reduce((t, x) => t + x.ms, 0);
+      out.push('TIME TO A PLAYABLE MAP: ' + (playable ? ms(playable.t) : 'still loading'));
+      // WHERE IT WENT, in five lines. The full timeline below answers "when";
+      // this answers "what do I fix", which is the question that gets asked
+      // first and is otherwise buried in thirty tile rows.
+      const centre = span('centre tile');
+      out.push('',
+        'WHERE IT WENT (to playable)',
+        '  waiting for GPS   ' + ms(sum(span('boot gate'))).padStart(8),
+        '  app.js parse      ' + ms(sum(span('app.js'))).padStart(8),
+        '  phaser assets     ' + ms(sum(span('phaser preload'))).padStart(8),
+        '  scene create      ' + ms(sum(span('scene create'))).padStart(8),
+        '  centre tile       ' + ms(centre.length ? Math.max(...centre.map(x => x.ms)) : 0).padStart(8),
+        '     of which: fetch ' + ms(sum(span('tile').filter(x => x.name.endsWith('fetch')
+            && x.t < (playable ? playable.t : Infinity)))).padStart(7)
+          + '  rasterize ' + ms(sum(span('tile').filter(x => x.name.endsWith('rasterize')
+            && x.t < (playable ? playable.t : Infinity)))).padStart(7),
+        '  (background) ring ' + ms(sum(span('neighbour ring'))).padStart(8));
+      // A real waterfall: every bar starts where the thing started and is as
+      // long as it took, all against one scale. Overlap is the point — it shows
+      // at a glance what was waiting on what.
+      const rows = B.spans.map(x => ({ ...x, kind: 'span' }))
+        .concat(B.marks.map(x => ({ ...x, ms: null, kind: 'mark' })))
+        .sort((a, b) => a.t - b.t);
+      const span0 = Math.max(1, ...rows.map(r => r.t + (r.ms || 0)));
+      const W = 26;
+      const track = (t0, dur) => {
+        const a = Math.round((t0 / span0) * W);
+        const n = Math.max(1, Math.round((dur / span0) * W));
+        return ' '.repeat(a) + '#'.repeat(Math.min(n, W - a || 1));
+      };
+      out.push('', 'TIMELINE  (at)      (took)');
+      for (const r of rows) {
+        if (r.kind === 'mark') { out.push(at(r.t) + '  ·        ' + r.name); continue; }
+        out.push(at(r.t) + '  ' + ms(r.ms).padStart(7) + '  ' + r.name
+          + (r.note ? ' (' + r.note + ')' : '') + '\n           |' + track(r.t, r.ms));
+      }
+      // Main-thread blocks. This is the number that decides whether the app
+      // felt frozen, as opposed to merely slow: total time is patience, a
+      // single long block is a tap that did nothing.
+      if (B.long.length) {
+        const tot = B.long.reduce((a, x) => a + x.ms, 0);
+        const worst = B.long.slice().sort((a, b) => b.ms - a.ms).slice(0, 8);
+        out.push('', 'MAIN-THREAD BLOCKS: ' + B.long.length + ' totalling ' + ms(tot));
+        out.push('  worst: ' + worst.map(x => ms(x.ms) + ' @' + (x.t / 1000).toFixed(1) + 's').join(', '));
+      } else {
+        out.push('', 'MAIN-THREAD BLOCKS: not measured on this browser');
+      }
+      out.push('', 'device: ' + (navigator.hardwareConcurrency || '?') + ' cores, dpr '
+        + (window.devicePixelRatio || 1) + ', ' + screen.width + 'x' + screen.height);
+      out.push('ua: ' + navigator.userAgent);
+      window.showError?.('LOAD PROFILE (copy me)', out.join('\n'));
+    });
     document.getElementById('debug-dump-tile').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -1723,6 +1837,7 @@
       }
       __safetyDismissed = true;
       __consented = true;
+      window.__boot?.mark('player tapped "Go to my location"');
       try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
       // Remove the splash up front so a queued second tap can't land on it again
       // while we're awaiting the permission prompt.
@@ -2033,6 +2148,7 @@
       });
     }
   </script>
+  <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=3"></script>
   <script src="src/util.js?v=20"></script>
@@ -2042,7 +2158,7 @@
   <script src="src/coords.js?v=121"></script>
   <script src="src/fog.js?v=3"></script>
   <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=220"></script>
+  <script src="src/worldgen.js?v=221"></script>
   <script src="src/textures.js?v=171"></script>
   <script src="src/save.js?v=116"></script>
   <script src="src/items.js?v=198"></script>
@@ -2067,6 +2183,7 @@
   <script src="src/sandbox.js?v=38"></script>
   <script src="src/testtools.js?v=9"></script>
   <script src="src/geo.js?v=2"></script>
+  <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
     // Progress plumbing for #bootload. app.js drives it through
@@ -2122,7 +2239,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=448';
+      const APP_SRC = 'src/app.js?v=449';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -2135,11 +2252,13 @@
         booted = true;
         document.getElementById('locating')?.remove();
         window.__flushPendingHowTo?.();
+        const endLoad = window.__boot?.begin('app.js load + parse');
         const el = document.createElement('script');
+        el.onerror = () => endLoad?.('FAILED');
         el.src = APP_SRC;
         // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
         // section was built before it loaded, so build it again now.
-        el.onload = () => { try { window.__buildTeleportMenu?.(); } catch (_) {} };
+        el.onload = () => { endLoad?.(); try { window.__buildTeleportMenu?.(); } catch (_) {} };
         document.body.appendChild(el);
       }
 
@@ -2165,13 +2284,20 @@
         return true;
       }
 
-      if (!needsHomeCapture()) { bootApp(); return; }
-
+      // Declared BEFORE the early return below, because the gate's own timer is
+      // set up after it and `done()` can fire from either side.
       let sub = null;
       let timer = null;
+      let endGate = null;
+
+      if (!needsHomeCapture()) { window.__boot?.mark('no home capture needed'); bootApp(); return; }
+      // A fresh save holds app.js back until the first GPS fix lands, so this
+      // stretch can be most of a slow boot — and none of it is the game's code.
+      endGate = window.__boot?.begin('boot gate: waiting for first GPS fix');
       function done() {
         if (timer) { clearTimeout(timer); timer = null; }
         if (sub) { Geo.unsubscribe(sub); sub = null; }
+        if (endGate) { endGate(); endGate = null; }
         bootApp();
       }
 

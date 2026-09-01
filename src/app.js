@@ -831,6 +831,7 @@ class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
 
   preload() {
+    this._endPreload = window.__boot?.begin('phaser preload (asset fetches)');
     // Boot loading overlay (index.html #bootload). Asset fetches are the long
     // pole of a cold boot, so the Phaser loader's own progress drives the bar:
     // 0→0.85 here, 0.9 as create() builds the world, 1 on the first update()
@@ -922,6 +923,8 @@ class MapScene extends Phaser.Scene {
   }
 
   create() {
+    this._endPreload?.(); this._endPreload = null;
+    const _endCreate = window.__boot?.begin('scene create (world + textures)');
     window.__bootStatus?.(0.9, 'Surveying the neighbourhood…');
     this.save = Object.assign(
       {
@@ -1991,9 +1994,14 @@ class MapScene extends Phaser.Scene {
     // dark shimmer reads as stalled, not loading. Keep the overlay up (its bar
     // fed per-tile by ensureTilesAround itself) until this first call actually
     // resolves, success or failure, instead of handing off at first paint.
+    const _endTiles = window.__boot?.begin('first tile block (overlay stays up)');
     this.ensureTilesAround()
       .catch(e => console.error(e))
-      .then(() => { this._bootOverlayGone = true; window.__bootStatus?.(1); });
+      .then(() => {
+        _endTiles?.();
+        window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
+        this._bootOverlayGone = true; window.__bootStatus?.(1);
+      });
 
     // Network status
     window.addEventListener('offline', () => this.showBanner(true));
@@ -2028,6 +2036,7 @@ class MapScene extends Phaser.Scene {
     }
     // Tests reach into the scene via window.__scene.
     window.__scene = this;
+    _endCreate?.();
     // Other players. No-op until the save carries a player name (the
     // welcome splash / ☰ menu set it); tick() picks it up once it does.
     if (!window.__TEST_MODE && typeof Multiplayer !== 'undefined') Multiplayer.start(this);
@@ -2846,7 +2855,9 @@ class MapScene extends Phaser.Scene {
     // chunk per painted frame (worldgen's heavy-phase chain), and settles
     // again when it lands. One ring pass at a time — walking into a new tile
     // re-enters here, and stacking ring passes would put the pile-up back.
+    const _endCentre = window.__boot?.begin('centre tile (blocks the boot)');
     await buildOne(centreKey);
+    _endCentre?.(centreKey);
     settle();
     const ring = [...needed].filter(k => k !== centreKey);
     if (!ring.length || this._ringBuild) return;
@@ -2859,10 +2870,12 @@ class MapScene extends Phaser.Scene {
       // for gaps. requestIdleCallback picks the gaps; the timeout is the floor
       // that keeps it moving on a busy thread, and the rAF fallback covers
       // browsers without it.
+      const endRing = window.__boot?.begin('neighbour ring (in the background)');
       for (const k of ring) {
         await this._whenIdle();
         await buildOne(k);
       }
+      endRing?.(`${ring.length} tiles`);
     })().catch(() => {}).then(() => { this._ringBuild = null; settle(); });
   }
 

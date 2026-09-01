@@ -2798,15 +2798,18 @@
   // Run it in slices, giving the browser a painted frame whenever a slice has
   // held the thread for RASTER_SLICE_MS. Same passes, same result — only the
   // wall-clock shape differs.
+  let _lastRasterSlices = 0;
   async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
     let started = _now();
+    let slices = 1;
     for (;;) {
       const r = it.next();
-      if (r.done) return r.value;
+      if (r.done) { _lastRasterSlices = slices; return r.value; }
       if (_now() - started >= RASTER_SLICE_MS) {
         await _yieldToPaint();
         started = _now();
+        slices++;
       }
     }
   }
@@ -2888,12 +2891,19 @@
     const tileEdgeM = tileEdgeMeters(lat);
     entry.tileEdgeM = tileEdgeM;
     entry.promise = (async () => {
+      const _bp = (typeof window !== 'undefined' && window.__boot) || null;
+      const _endFetch = _bp && _bp.begin(`tile ${key} fetch`);
       const { bytes, fromCache } = await fetchTileBytes(x, y);
+      if (_endFetch) _endFetch(fromCache ? 'from cache' : 'from network');
       // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
+      const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
       const layers = await runHeavyPhase(() => MVT.decodeTile(bytes));
+      if (_endDecode) _endDecode(`${layers.length} layers`);
+      const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
       const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      if (_endRaster) _endRaster(`${_lastRasterSlices} slices`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
