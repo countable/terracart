@@ -1,4 +1,4 @@
-// Quest ladders — the castle chain (QUEST_CHAIN) and the first-session
+// Quest ladders — the castle BOARD (three generated slots) and the first-session
 // starter chain (STARTER_CHAIN). The two are deliberately independent; the
 // isolation tests below are the guard that keeps them that way, because the
 // castle vault gate reads allDone() and a leak would silently reprice it.
@@ -105,46 +105,40 @@ test('starter chain: skipAll retires the ladder for a veteran save', () => {
 
 // ── Isolation from the castle chain ─────────────────────────────────────────
 //
-// The castle vault opens on Quests.allDone(), which must walk QUEST_CHAIN
-// alone. If the starter steps ever leaked into that tally, every castle in
-// the game would silently reprice its gate.
-
-test('isolation: finishing the starter chain does not open the castle vault', () => {
+// The two ladders share this file and nothing else. The starter chain is the
+// first-session guidance chip; the castle BOARD is three generated jobs that
+// never run out. Neither may move the other.
+test('isolation: finishing the starter chain does not touch the castle board', () => {
   const save = {};
-  for (const s of STARTER_CHAIN) Quests.onStarterEvent(save, s.event);
-  assert.truthy(Quests.starterAllDone(save), 'starter done');
-  assert.falsy(Quests.allDone(save), 'castle chain still sealed');
-  assert.eq(Quests.current(save).id, QUEST_CHAIN[0].id, 'castle chain untouched at step 0');
+  for (const step of STARTER_CHAIN) Quests.onStarterEvent(save, step.event);
+  assert.truthy(Quests.starterAllDone(save), 'starter chain finished');
+  assert.eq(Quests.completedCount(save), 0, 'no castle quest was claimed by it');
 });
 
-test('isolation: finishing the castle chain does not retire the starter chip', () => {
+test('isolation: claiming castle quests does not retire the starter chip', () => {
   const save = {};
-  for (let i = 0; i < QUEST_CHAIN.length; i++) Quests.advance(save);
-  assert.truthy(Quests.allDone(save), 'castle chain done');
-  assert.falsy(Quests.starterAllDone(save), 'starter chain untouched');
-  assert.eq(Quests.starterCurrent(save).id, STARTER_CHAIN[0].id, 'starter still at step 0');
+  for (let i = 0; i < QUEST_SLOTS; i++) {
+    const q = Quests.slot(save, i);
+    q.have = q.need;
+    Quests.claim(save, i);
+  }
+  assert.eq(Quests.completedCount(save), QUEST_SLOTS, 'three claimed');
+  assert.falsy(Quests.starterAllDone(save), 'starter chip still guiding');
 });
 
 test('isolation: the two ladders keep their state in separate save keys', () => {
   const save = {};
   Quests.onStarterEvent(save, STARTER_CHAIN[0].event);
-  Quests.advance(save);
-  assert.eq(save.starter.step, 1, 'starter state in save.starter');
-  assert.eq(save.quests.step, 1, 'castle state in save.quests');
+  Quests.slot(save, 0);
+  assert.truthy(save.starter, 'starter state');
+  assert.truthy(save.quests, 'board state');
+  assert.falsy(save.starter.slots, 'the chip has no board');
+  assert.falsy(save.quests.step, 'the board has no chain step');
 });
-
-// ── Tilled soil is never undone by a tap ────────────────────────────────────
-//
-// Tapping tilled soil with nothing selected USED to un-till it. It was a real,
-// documented toggle, and it fired on exactly the tap a confused beginner makes:
-// they break ground, tap it to ask what now, and the plot they just paid energy
-// for silently goes back to grass under a message ('Soil loosened.') that reads
-// like progress. It was first suppressed during the ladder's planting step and
-// then removed outright — soil is never in the way, so there was nothing the
-// undo was for. These pin that a seedless tap only ever instructs.
 
 const plantHandler = () => TAP_HANDLERS.find((h) => h.name === 'plant');
 
+// A tap context on a tilled cell, for the seedless-tap tests below.
 const tilledCtx = (save, flashes) => {
   const scene = makeScene({
     tilledSet: new Set(['7,7']),

@@ -1007,7 +1007,13 @@ function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // named so the ladder between them is one subtraction rather than a magic
 // slope constant.
 const STEER_MUL_FLOOR = 6;      // bare hands
-const STEER_MUL_FROST = 15.5;   // tier 7 amulet
+// 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
+// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so a tier-8
+// amulet felt like a tier-0 one with a tailwind and a coffee (+1 tier, ~9% at
+// the top end) did nothing you could feel. The floor stays at 6 — it was
+// deliberately lifted from 5 because one cell a second read as a drag — so the
+// whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
+const STEER_MUL_FROST = 24;   // tier 7 amulet
 function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the

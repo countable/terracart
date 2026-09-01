@@ -475,7 +475,7 @@ const SPEED_POTION_AMULET_TIER = 9;
 // minutes, stacking additively on top of whatever tier is already in play
 // (worn amulet, Dragon, or the Speed potion), capped at the same ceiling
 // those top out at so a coffee can't out-tier the rarest buff.
-const COFFEE_AMULET_BOOST = 1;
+const COFFEE_AMULET_BOOST = 2;
 const COFFEE_BUFF_MS = 3 * MINUTE_MS;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
@@ -1417,7 +1417,10 @@ class MapScene extends Phaser.Scene {
       // rather than as lettering. Still short of full opacity so it stays
       // map-printed rather than stamped on.
       const t = this.add.text(0, 0, '', {
-        font: fontSerif('bold 10px'), color: UI_SHADOW,
+        // 11px, up one from 10: at dpr 3 on a phone the street name was
+        // legible but not comfortably so, and a map label the player has to
+        // squint at is doing half its job.
+        font: fontSerif('bold 11px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
@@ -6875,6 +6878,25 @@ class MapScene extends Phaser.Scene {
     const step = WALK_M_S * steerSpeedMul(relics) * dt;
     const dx = (vx / n) * step, dy = (vy / n) * step;
     if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
+    // TAKE THE WHEEL AT ONCE. The stick nudges the TARGET, and _followStep
+    // walks the body toward it — which is right while steering, because the
+    // body then sits within one step of a target being dragged along. But if
+    // the stick is taken MID AUTO-WALK the target is tens of metres ahead in
+    // the old direction, so a frame's nudge barely bends the course and the
+    // character keeps marching the way it was going for a second or two before
+    // the accumulated offset wins. It reads as momentum, and nobody asked for
+    // momentum. Re-anchoring on takeover makes the first push move the body.
+    //
+    // The offset banked below is deliberately untouched: it records the ground
+    // the player covered BY HAND, and abandoning an in-flight GPS chase is a
+    // different thing. The next fix re-targets gpsM + offset as it always did.
+    // The half-cell test only ever fires on takeover — while steering, the gap
+    // is one step, far inside it.
+    if (Math.hypot(this._targetM.x - this.playerM.x, this._targetM.y - this.playerM.y)
+        > this.cellM * 0.5) {
+      this._targetM.x = this.playerM.x;
+      this._targetM.y = this.playerM.y;
+    }
     this._targetM.x += dx;
     this._targetM.y += dy;
     this._manualOffsetM.x += dx;
@@ -7970,6 +7992,10 @@ class MapScene extends Phaser.Scene {
   // so the call sites can fire unconditionally and stay ignorant of the chain.
   questEvent(event) {
     if (typeof Quests === 'undefined') return;
+    // The castle board listens to the SAME events the starter ladder does —
+    // that shared bus is most of what made a generator cheap to build. All
+    // three slots see every event; none of them has an accept step.
+    if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
     // Bank the step NOW — the money and the advanced ladder are earned whether
@@ -10532,12 +10558,19 @@ class MapScene extends Phaser.Scene {
     // Claimed outright — the player solved a quest at THIS castle, so it is
     // theirs for good and the quest board never comes back here.
     if (this.isCastleClaimed(house)) return false;
+    // A save that finished the old global three-quest chain had every castle
+    // open; the per-castle seal must not take that back (see the migration in
+    // quests.js _qs).
+    if (this.save.castlesLegacyOpen) return false;
     const need = this._deliveryGate(house);
     if (!need) return false;
     // Players who passed the old delivery threshold keep access.
     if ((this.save.deliveryCount ?? 0) >= need) return false;
-    // Quest chain replaces the delivery gate.
-    if (typeof Quests !== 'undefined') return !Quests.allDone(this.save);
+    // PER CASTLE, now that the board never runs dry. This was global — finish
+    // the three-quest chain and every castle in the world opened at once —
+    // which was the only thing it could be while there were exactly three
+    // quests. With a generator behind the board there is always a job at every
+    // castle, so each one is earned where it stands.
     return true;
   }
 
@@ -10625,41 +10658,43 @@ class MapScene extends Phaser.Scene {
   // its vault), so the next job is always somewhere you haven't been.
   showQuestBoard(sx, sy, house) {
     if (typeof Quests === 'undefined') return;
-    const q = Quests.current(this.save);
-    if (!q) { this.flash('Castle vault is now open!', sx, sy); return; }
-    const prog = Quests.progress(this.save);
-    const done = Quests.isComplete(this.save);
-    let progressLine;
-    switch (q.type) {
-      case 'kill':  progressLine = `${prog} / ${q.count} defeated`; break;
-      case 'poi':   progressLine = done ? 'Discovered!' : 'Explore the map to find it.'; break;
-      case 'item':  progressLine = done ? 'Retrieved!' : `Need depth ≥ ${q.minDepth}`; break;
-      default:      progressLine = '';
-    }
-    // A quest board is NOT a trade — there is nothing to pay — so it fills the
-    // headline only and passes no cost. It used to hand the SAME string to both
-    // `get` and `cost`, which printed the progress line ("3 / 10 defeated")
-    // twice with a stray "for" wedged between the two copies, and on a finished
-    // quest printed the reward figure twice the same way.
+    // WHICH slot this castle keeps. Every castle is pinned to one for life, so
+    // the job here is never the job at the castle down the road — which is the
+    // reason to walk to a different one.
+    const mine = Quests.slotForCastle(this._castleKey(house) || (house && house.id) || '');
+    const board = Quests.board(this.save);
+    const q = board[mine];
+    if (!q) { this.flash('No work here today.', sx, sy); return; }
+    const done = Quests.isSlotComplete(this.save, mine);
+    // The other two are shown, greyed, because "there are three jobs going"
+    // is not something a player can learn from a board that only shows one —
+    // and knowing the other two tells them which castle to walk to next.
+    const others = board
+      .map((o, i) => ({ o, i }))
+      .filter(({ i }) => i !== mine && board[i])
+      .map(({ o, i }) => `<div style="opacity:.55;font-size:11px;margin-top:3px;">`
+        + `#${i + 1} ${o.title} — ${o.have}/${o.need} <i>(another castle)</i></div>`)
+      .join('');
     this.showOfferModal({
       kind: 'quest',
-      title: done ? 'Quest complete!' : q.title,
-      get: done ? `Reward: $${q.reward?.money || 0}` : progressLine,
-      blurb: q.body,
+      title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
+      get: done ? `Reward: $${q.reward}` : `${q.have} / ${q.need}`,
+      blurb: q.body + others,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
       onAccept: () => {
-        if (!done) return;
-        const reward = Quests.advance(this.save);
-        if (reward?.money) addMoney(this.save, reward.money);
+        const finished = Quests.claim(this.save, mine);
+        if (!finished) return;
+        if (finished.reward) addMoney(this.save, finished.reward);
         // THIS castle, and no other. The job was done for the people here, so
         // this is the vault that opens and the tower that raises a banner; the
-        // next quest is somebody else's, at a castle the player hasn't been to.
+        // next job took its slot number and is somebody else's, at a castle the
+        // player hasn't been to.
         const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 +$${reward?.money || 0}`, '#ffe066');
+        this.flashLoot(`🪙 +$${finished.reward}`, '#ffe066');
         if (claimed) {
           this.flash('The castle is yours — its vault is open.',
             this.viewCenterX, this.viewCenterY - 60);
@@ -11723,7 +11758,7 @@ class MapScene extends Phaser.Scene {
       persistSave(this.save);
       this.buildInventoryDOM();
       if (r.accepted > 0 && typeof Quests !== 'undefined') {
-        const qDone = Quests.onItemAcquired(this.save, id, this.depth);
+        const qDone = Quests.onItemAcquired(this.save, id, this.depth);   // retired hook, always false
         if (qDone) {
           persistSave(this.save);
           this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
