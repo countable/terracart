@@ -913,6 +913,11 @@ Render.drawCells = function drawCells(scene) {
   // eliminating the GC churn from clear()+rebuild every frame.
   const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY;
   if (borderDirty) { gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY; }
+  // Stamped for the profiler: app.js's drawCells/update wrappers read this
+  // to label a crossing frame's cost separately from steady-state frames
+  // (see the 'update @crossing' / 'drawCells @crossing' ticks). Plain
+  // assignment, no allocation — cheap even when nobody's measuring.
+  scene._boot_crossing = borderDirty;
   scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
   let noiseIdx = 0;
@@ -2179,7 +2184,18 @@ Render.drawCells = function drawCells(scene) {
         // the container above carries the sub-cell scroll.
         scene.fogImage.setPosition(scene.viewCenterX + (-1 - half) * CELL_PX,
                                    scene.viewCenterY + (-1 - half) * CELL_PX);
-        paintFogTexture(scene, VEIL, stillVeiled, baseCellIX, baseCellIY, half);
+        // Only the actual repaint is timed — this whole block is already
+        // gated by the dirty check above (crossing / reveal / veil), so the
+        // tick only fires on the expensive path, never the frames it's
+        // skipped for.
+        const _fogB = window.__boot;
+        if (_fogB) {
+          const _t0 = performance.now();
+          paintFogTexture(scene, VEIL, stillVeiled, baseCellIX, baseCellIY, half);
+          _fogB.tick('fog paint', performance.now() - _t0);
+        } else {
+          paintFogTexture(scene, VEIL, stillVeiled, baseCellIX, baseCellIY, half);
+        }
       }
       scene._fogVeiled = stillVeiled;
     }
@@ -2296,12 +2312,19 @@ Render.drawObjects = function drawObjects(scene) {
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
   const caughtSet = setOf(scene.save.caught);
   const pc = scene.playerToWorldCell();
+  // Counted alongside the loop below, not derived after it: "how much does
+  // this walk touch" is the number the case for a spatial index needs, and
+  // counting inline costs one increment per item instead of a second pass.
+  // _boot_scanned is every object/creature/wildplant iterated across the
+  // 3×3 tiles; _boot_kept is how many survived culling into the draw lists.
+  let _boot_scanned = 0, _boot_kept = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
       if (entry.objects) {
         for (const o of entry.objects) {
+          _boot_scanned++;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           // Houses are culled with extra margin. Every other object's art is
           // about a cell wide, so its anchor leaving the viewport means its
@@ -2320,27 +2343,37 @@ Render.drawObjects = function drawObjects(scene) {
           // edge, pointing at nothing.
           const wide = Math.abs(dx) > halfM || Math.abs(dy) > halfM;
           objList.push({ o, dx, dy, wide });
+          _boot_kept++;
         }
       }
       if (entry.creatures) {
         for (const c of entry.creatures) {
+          _boot_scanned++;
           if (caughtSet.has(c.id)) continue;
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           creatureList.push({ c, dx, dy });
+          _boot_kept++;
         }
       }
       // Wild plants render as planted crops at the mature stage (col 4).
       if (entry.wildplants) {
         for (const wp of entry.wildplants) {
+          _boot_scanned++;
           if (pickedSet.has(wp.id)) continue;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
+          _boot_kept++;
         }
       }
     }
   }
+  // B.count keeps n/sum/worst like B.tick, just printed without 'ms' — the
+  // peak answers "how bad does the densest tile get", the average answers
+  // "what does a typical frame pay".
+  window.__boot?.count?.('drawObjects scanned', _boot_scanned);
+  window.__boot?.count?.('drawObjects kept', _boot_kept);
   // Planted crops are tagged with the depth they were sown at (surface = 0 for
   // legacy saves). Only draw the ones that belong to the level you're standing
   // on, so surface farms don't render underground (and future cave crops won't
