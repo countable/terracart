@@ -46,6 +46,17 @@
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
 
+- **The painter rule: the LOWER object (centre of mass) renders in front.**
+  World sprites already obey it via the screen-row z-order in
+  `src/render.js` › drawObjects (a sprite in a lower screen row always draws
+  over one in a higher row). It governs hand-drawn geometry too — the castle
+  rampart pieces sort by it (a south wall over the side bands, a north wall
+  over the feet of side bands descending from the row above; see the tier-12
+  pass in drawCells). When adding anything that overlaps vertically, derive
+  its draw order from this rule, not from a hand-picked layer.
+  `window.__RAMPART_DEBUG = true` tints the castle wall pieces apart
+  (north blue / south green / sides red) when the stacking needs eyeballing.
+
 - **Interactables must be clearly in one cell.** Other than houses and fauna,
   every interactable should visually occupy a single tile — its art and
   collision box must align to the same cell. If it appears to straddle a cell
@@ -97,10 +108,19 @@
   re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
   art, if a wheel has left its seating, or if any ring floats above a crown it
   is tall enough to sit on.
-  **The combat health ring obeys the same rule.** The ring over a wounded enemy
-  (`_drawEnemyHealth` / `_strokeHealthRing` in `app.js`) is the same ring at the
-  same radius on the same seating — it calls `creatureWheelDy` too. Don't give
-  it an offset or a radius of its own.
+  **Enemy health is a BAR, not the wheel's ring.** The health readout over a
+  wounded enemy (`_drawEnemyHealth` / `_drawEnemyHealthBar` in `app.js`, worn
+  bright by the combat wheel's own target in `_drawWorkProgress`) is a small
+  strip floating a fixed gap ABOVE the kind's crown — deliberately a different
+  shape on the other side of the crown from the work wheel, so a fight and a
+  job can't be misread for each other. Its seating is derived the same way the
+  wheel's is: `SpriteLayout.creatureHealthBarTop(kind)` + the
+  `HEALTH_BAR_W/H/GAP` constants live in `src/sprite_layout.js`, off the same
+  `CREATURE_ART` table. Never seat it with a flat px offset, and never draw
+  health as a ring again. Damage lands as floating "-N" popups
+  (`_popDamageNumber`, fed by `_damageEnemy` on a `DMG_POPUP_BEAT_MS` throttle
+  that accumulates the melee wheel's per-frame fractions into whole numbers).
+  **Audit it:** `node test/node/run.js` › `test/node/health_bar.test.js`.
 
 - **Combat is HIT POINTS, and the numbers are derived.** Fighting an enemy is
   not a timer any more: `src/combat.js` owns one HP pool per foe that the melee
@@ -117,6 +137,25 @@
   target. **When you add a hostile kind, put it in the monster table** — that
   registration is what makes it an enemy everywhere at once.
   **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
+
+- **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
+  is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
+  back at a `yield`, so one pass that runs straight through freezes the game
+  for exactly as long as it takes, however small the budget is. The boot
+  profile names it — `worst block <N>ms in <label>` — and the label is the
+  yield the block ENDED at, i.e. the culprit is the code just before it.
+  Three of these have shipped now: the building cover scan, the wildplant
+  sweep, and the merged-house thinning (`worst block 1397ms in after the layer
+  loop`, an O(H^2) scan of the kept roofs, now a Set of cells). The two shapes
+  to watch for are a **quadratic** (a scan of everything kept so far, or a
+  `splice` per rejection inside a reverse walk — compact in place instead) and
+  a **helper called plainly from the generator** that walks a whole polygon
+  (make it a `function*` and `yield*` it, as `spawnDebrisSteps` and
+  `_spawnRockClustersSteps` are).
+  **When you add a pass over every cell, object or polygon, give it a yield.**
+  **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
+  times every step of a real build over a 3000- and a 6000-building tile and
+  fails if any single block runs long.
 
 ## Testing
 

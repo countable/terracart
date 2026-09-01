@@ -1,0 +1,124 @@
+<!doctype html>
+<!--
+  Polygonal building footprints — standalone preview.
+
+  building_overlay.js draws the SOURCE OSM building rings instead of the cells
+  the rasterizer squared them onto (see the header of src/building_overlay.js).
+  The headless suite pins its maths against a recording stub, which is the
+  right test but shows you nothing; the game itself needs live map tiles. This
+  page is the middle ground: a hand-written fixture of rings — a rotated house,
+  an unclaimed one, an L-shaped mid-rise, a castle with a cut corner — fed to
+  the REAL canvas adapter through a Phaser-shaped shim thin enough to read in
+  one screen (textures.createCanvas / add.image backed by DOM canvases).
+  Everything you see is the module's own drawing code.
+
+  Serve the repo (python -m http.server 7731) and open /tools/building-poly-preview.html.
+  It is a preview, not a test: nothing here asserts, and the shim is only as
+  faithful as the two methods it implements.
+-->
+<html lang="en"><head><meta charset="utf-8"><title>polygonal footprints preview</title><style>
+body{margin:0;background:#4b7f4b;}
+#stage{position:relative;width:352px;height:352px;overflow:hidden;}
+canvas{position:absolute;image-rendering:pixelated;}
+</style></head><body>
+<div id="stage"></div>
+<script src="/src/sprite_layout.js"></script>
+<script src="/src/mvt.js"></script>
+<script src="/src/util.js"></script>
+<script src="/src/coords.js"></script>
+<script src="/src/fog.js"></script>
+<script src="/src/biome_profiles.js"></script>
+<script src="/src/home.js"></script>
+<script src="/src/worldgen.js"></script>
+<script src="/src/textures.js"></script>
+<script src="/src/render.js"></script>
+<script src="/src/road_overlay.js"></script>
+<script src="/src/building_overlay.js"></script>
+<script>
+const CELL_PX = 32;
+const COLORS = { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 };
+const stage = document.getElementById('stage');
+// Minimal Phaser-shaped shim: enough of textures/add.image for the overlay's
+// real canvas adapter to run, backed by DOM canvases.
+const scene = {
+  startWorldM: { x: 32 * 7, y: 32 * 7 }, playerM: { x: 0, y: 0 },
+  mPerPx: 10, originPx: { x: 0, y: 0 }, cellM: 7, cellsPerTile: 64, depth: 0, save: {},
+  viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
+  isClaimedKey: (k) => k !== 'unclaimed',
+  textures: {
+    _m: new Map(),
+    exists(k) { return this._m.has(k); },
+    remove(k) { this._m.delete(k); },
+    get(k) { return this._m.get(k); },
+    createCanvas(k, w, h) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const t = { canvas: c, getContext: () => c.getContext('2d'), refresh() {}, getSourceImage: () => c };
+      this._m.set(k, t); return t;
+    },
+  },
+  add: {
+    image(x, y, key) {
+      const t = scene.textures.get(key);
+      t.canvas.style.left = x + 'px'; t.canvas.style.top = y + 'px';
+      stage.appendChild(t.canvas);
+      return { setOrigin() { return this; }, setAlpha() { return this; } };
+    },
+  },
+  buildingGeomContainer: { add() {}, setVisible() {}, setPosition() {} },
+  playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 32, cy: 32 }),
+};
+// Bake the real biome textures so the floors wear their materials.
+if (typeof makeBiomeTextures === 'function') {
+  // textures.js draws into Phaser canvas textures; give it ours.
+  makeBiomeTextures(scene, CELL_PX);
+}
+const TILE_EDGE_M = 64 * 7;
+const M = (cx, cy) => [cx * 7, cy * 7];
+const ring = (pts) => Float32Array.from(pts.flatMap(([x, y]) => M(x, y)));
+const rot = (cx, cy, w, h, a) => {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y]) => [cx + x*c - y*s, cy + x*s + y*c]);
+};
+WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
+  tileEdgeM: TILE_EDGE_M,
+  buildingShapes: [
+    { ring: ring(rot(30, 30, 5, 3.5, 0.42)), tier: 9, areaM2: 200, key: 'a' },
+    { ring: ring(rot(30.5, 34.5, 4, 3, -0.25)), tier: 9, areaM2: 150, key: 'unclaimed' },
+    { ring: ring([[34,29],[38,29],[38,31],[36.5,31],[36.5,33],[34,33]]), tier: 11, areaM2: 700, key: 'b' },
+    { ring: ring([[27,33],[31,33],[32.5,34.5],[32.5,36.5],[27,36.5]]), tier: 12, areaM2: 3000, key: 'c' },
+  ],
+});
+// The GROUND the footprints stand on, drawn the way the game's ground layers
+// draw it: a flat biome fill, the per-cell procedural texture over it, then
+// render.js's dashed cell grid (its own GRID_LINE, so this page can't invent a
+// different lattice than the one the overlay continues). Without it there is
+// nothing for a footprint to sit on and no way to judge whether the ground's
+// squares still read across one.
+(function ground() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 352; c.style.left = '0px'; c.style.top = '0px';
+  stage.insertBefore(c, stage.firstChild);
+  const x = c.getContext('2d');
+  x.fillStyle = '#479757'; x.fillRect(0, 0, 352, 352);
+  const tex = scene.textures.get('biome0_0');
+  for (let r = -1; r <= 12; r++) {
+    for (let col = -1; col <= 12; col++) {
+      const t = scene.textures.get(`biome0_${(col * 7 + r * 13) & 1}`);
+      if (t) x.drawImage(t.canvas, col * CELL_PX, r * CELL_PX, CELL_PX, CELL_PX);
+    }
+  }
+  const G = Render.GRID_LINE;
+  x.strokeStyle = `rgba(0,0,0,${G.alpha})`;
+  x.lineWidth = G.width;
+  x.setLineDash([G.dash, G.gap]);
+  x.beginPath();
+  for (let i = -1; i <= 12; i++) {
+    const p = Math.round(i * CELL_PX + CELL_PX / 2);
+    x.moveTo(p, 0); x.lineTo(p, 352);
+    x.moveTo(0, p); x.lineTo(352, p);
+  }
+  x.stroke();
+})();
+BuildingOverlay.draw(scene);
+document.title = 'ready';
+</script></body></html>

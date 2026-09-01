@@ -40,6 +40,17 @@ const Geo = (function () {
   }
 
   function _onErr(err) {
+    // A denied watch is a dead watch — it will never produce another fix. Drop
+    // it now so that if the player grants location afterwards (browser settings
+    // → back to the tab) the next subscribe arms a FRESH watch instead of
+    // rejoining this corpse for as long as the release grace lasts.
+    // Transient errors (TIMEOUT, POSITION_UNAVAILABLE) keep the watch: they are
+    // what a cold GPS start reports on its way to the first fix.
+    if (err && err.code === 1 /* PERMISSION_DENIED */ && watchId != null) {
+      try { navigator.geolocation.clearWatch(watchId); } catch (_) {}
+      watchId = null;
+      if (teardownTimer) { clearTimeout(teardownTimer); teardownTimer = null; }
+    }
     for (const sub of [...subs]) {
       if (!subs.has(sub) || !sub.onErr) continue;
       try { sub.onErr(err); } catch (e) { console.error('Geo error handler:', e); }

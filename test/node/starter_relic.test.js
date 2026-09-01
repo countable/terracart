@@ -290,6 +290,28 @@
   };
   const srCheb = (a, b) => Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy));
 
+  test('starter trail: the clearing stops where the starter ring starts', () => {
+    // The clearing pass and the starter-home audit describe the SAME pocket,
+    // so CLEAR_R reads HomeArea.POCKET_CELLS rather than restating it. When
+    // the two drifted apart — a flat CLEAR_R of 10 against a ring that began
+    // at 11 — the strip reached a full screen further than the player can see
+    // and swept the ground the ring was supposed to be seen against.
+    const entry = srEntry();
+    // One anonymous procedural tree per radius, out past the ring's inner edge.
+    for (let d = 2; d <= HomeArea.RING_MIN_CELLS + 3; d++) {
+      entry.objects.push({ kind: 'tree', species: 'pine', id: `proc_${d}`,
+        x: (SPAWN + d + 0.5) * CELL_M, y: (SPAWN + 0.5) * CELL_M });
+    }
+    srTrail(entry);
+    const left = new Set(entry.objects.filter(o => o.kind === 'tree').map(o => o.id));
+    for (let d = 2; d <= HomeArea.POCKET_CELLS; d++) {
+      assert.falsy(left.has(`proc_${d}`), `proc_${d} is inside the pocket and must be stripped`);
+    }
+    for (let d = HomeArea.RING_MIN_CELLS; d <= HomeArea.RING_MIN_CELLS + 3; d++) {
+      assert.truthy(left.has(`proc_${d}`), `proc_${d} stands in the ring and must survive`);
+    }
+  });
+
   test('starter trail: four crates and the chest they lead to', () => {
     const entry = srEntry();
     const { crates, chest } = srTrail(entry);

@@ -518,3 +518,83 @@ test('reachCells and reachRadiusM are consistent: radius = cells*cellM + 1', () 
     assert.eq(radius, expectedRadius, `cells=${cells}, depth=${c.depth}, upg=${c.reachUpgrades}`);
   }
 });
+
+// ── GPS ⇄ local metres (lonLatToLocalM / localMToLonLat) ─────────────────────
+// The map is Web-Mercator; a GPS fix has to be projected the same way or the
+// player stands somewhere they aren't. These pin that the conversion IS the
+// map's own projection, and that it stays exact far from the origin — the flat
+// metres-per-degree version it replaced drifted with latitude, which is how a
+// save still anchored at the default home reported its player kilometres from
+// where they stood (both on their own map and on the multiplayer wire).
+function mercScene(lon, lat) {
+  const originPx = WorldGen.lonLatToWorldPx(lon, lat, WorldGen.Z);
+  const mPerPx = WorldGen.metersPerPixel(lat, WorldGen.Z);
+  return {
+    originPx, mPerPx,
+    cellsPerTile: WorldGen.cellsPerEdgeForLat(lat), cellM: WorldGen.CELL_M,
+    startWorldM: { x: originPx.x * mPerPx, y: originPx.y * mPerPx },
+    playerM: { x: 0, y: 0 },
+  };
+}
+
+test('lonLatToLocalM puts the origin fix at (0,0) and round-trips', () => {
+  const sc = mercScene(-119.4787, 49.85438);
+  const at0 = lonLatToLocalM(sc, -119.4787, 49.85438);
+  assert.inRange(at0.x, -1e-6, 1e-6);
+  assert.inRange(at0.y, -1e-6, 1e-6);
+  for (const [lon, lat] of [[-119.4787, 49.85438], [-119.47, 49.86], [-122.15, 37.4222], [11.61, 48.152]]) {
+    const m = lonLatToLocalM(sc, lon, lat);
+    const ll = localMToLonLat(sc, m.x, m.y);
+    assert.inRange(ll.lon - lon, -1e-9, 1e-9);
+    assert.inRange(ll.lat - lat, -1e-9, 1e-9);
+  }
+});
+
+test('a fix lands on the map cell the map itself draws it in, near and far', () => {
+  const sc = mercScene(-119.4787, 49.85438);
+  // Whatever the distance, absolute metres = z=14 world px × mPerPx — the same
+  // frame every object, tile and cell in the save lives in.
+  for (const [lon, lat] of [[-119.4780, 49.8550], [-119.20, 50.30], [-113.49, 53.55]]) {
+    const m = lonLatToLocalM(sc, lon, lat);
+    const px = WorldGen.lonLatToWorldPx(lon, lat, WorldGen.Z);
+    assert.inRange((sc.startWorldM.x + m.x) / sc.mPerPx - px.x, -1e-6, 1e-6);
+    assert.inRange((sc.startWorldM.y + m.y) / sc.mPerPx - px.y, -1e-6, 1e-6);
+  }
+});
+
+test('north/south is where the flat approximation drifts — metres, then kilometres', () => {
+  const sc = mercScene(-119.4787, 49.85438);
+  const MPD = 111320;                       // the old flat metres-per-degree
+  const flat = (lon, lat) => ({
+    x: (lon - -119.4787) * MPD * Math.cos(49.85438 * Math.PI / 180),
+    y: -(lat - 49.85438) * MPD,
+  });
+  // Same longitude line: x agrees exactly, so the whole error is north/south.
+  const near = lonLatToLocalM(sc, -119.4787, 49.90);      // ~5 km north
+  assert.inRange(Math.abs(near.y - flat(-119.4787, 49.90).y), 1, 12);
+  // Edmonton — a save marooned at the default origin while its player is a
+  // province away. The old projection put them kilometres off the map: far
+  // enough that nobody standing beside them saw them, and their own farm sat
+  // in the wrong neighbourhood.
+  const far = lonLatToLocalM(sc, -113.4938, 53.5461);
+  assert.gt(Math.abs(far.y - flat(-113.4938, 53.5461).y), 10000);
+});
+
+test('two saves anchored at different latitudes agree on where a peer is', () => {
+  // The multiplayer wire is this same metre frame ÷ mPerPx (multiplayer.js
+  // toWorldPx). Exactness is what lets a player whose save is anchored
+  // somewhere else entirely still show up standing next to you.
+  const mine = mercScene(-119.4787, 49.85438);
+  const theirs = mercScene(-113.4938, 53.5461);     // home capture landed elsewhere
+  const spot = { lon: -119.4790, lat: 49.85460 };   // where we're both standing
+  const theirM = lonLatToLocalM(theirs, spot.lon, spot.lat);
+  const wirePx = {
+    x: (theirs.startWorldM.x + theirM.x) / theirs.mPerPx,
+    y: (theirs.startWorldM.y + theirM.y) / theirs.mPerPx,
+  };
+  // Their px, read back in MY save's metre frame (Multiplayer.fromWorldPx).
+  const wm = { x: wirePx.x * mine.mPerPx, y: wirePx.y * mine.mPerPx };
+  const mineM = lonLatToLocalM(mine, spot.lon, spot.lat);
+  assert.inRange(wm.x - (mine.startWorldM.x + mineM.x), -1e-6, 1e-6);
+  assert.inRange(wm.y - (mine.startWorldM.y + mineM.y), -1e-6, 1e-6);
+});

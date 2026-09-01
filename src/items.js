@@ -454,11 +454,21 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // (iceflower, T6) at $500. The magical-flower ladder follows BASE_TIER —
 // sunflower (T4) cheapest, iceflower (T6) dearest — matching the smelting
 // pairing (sunflower→Platinum … iceflower→Frost).
+//
+// EVERY SEED IS PRICED AT MOST A THIRD OF ITS OWN PRODUCE — growing a crop out
+// must pay back at least 3x the seed, or the loop isn't worth the tilling/
+// watering/waiting. Coffee and the three magical flowers already cleared that
+// bar on their own (their seeds are rare/gated goods, not cheap commons) and
+// are left as they were. rockfruit is DELIBERATELY EXEMPT: its produce is the
+// $1 price FLOOR (wild debris, free to gather off any rock), so a literal 3x
+// would need a $0 seed — the $8 seed price stands on its own terms instead
+// (it's sold as a stone/building-material commodity, not grown for profit;
+// see the rockfruit note under produce below).
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 3, pairy_seed: 3, nut_seed: 3, potato_seed: 3,
-  berry_seed: 3, cress_seed: 3, onion_seed: 3,
-  gemfruit_seed: 10, rockfruit_seed: 8, coffee_seed: 12,
+  rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
+  berry_seed: 2, cress_seed: 1, onion_seed: 2,
+  gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
@@ -699,7 +709,7 @@ const FOOD_ENERGY = {
   // eat button never appears for them and eatSelected() refuses.
   egg:        10,
   milk:       40,
-  mushroom:   25,
+  mushroom:   16,
   apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
   minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
   meat:       45,   // hunted from deer; dog favourite
@@ -997,7 +1007,13 @@ function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // named so the ladder between them is one subtraction rather than a magic
 // slope constant.
 const STEER_MUL_FLOOR = 6;      // bare hands
-const STEER_MUL_FROST = 15.5;   // tier 7 amulet
+// 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
+// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so a tier-8
+// amulet felt like a tier-0 one with a tailwind and a coffee (+1 tier, ~9% at
+// the top end) did nothing you could feel. The floor stays at 6 — it was
+// deliberately lifted from 5 because one cell a second read as a drag — so the
+// whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
+const STEER_MUL_FROST = 24;   // tier 7 amulet
 function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the

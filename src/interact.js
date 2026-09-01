@@ -1240,9 +1240,14 @@ const TAP_HANDLERS = [
       return true;
     }
     if (!p.watered_t) {
-      p.watered_t = Date.now();
+      // Through the shared core (Crops.waterOne), which also rolls the can's
+      // chance to jump the plant a stage on the spot — nothing without a can,
+      // certain at Frost. See crops.js waterJumpChance.
+      const jumped = Crops.waterOne(save, p, save.relics) === 'jumped';
       // Watering Can quality: bonus = can.tier + (charges > 0 ? 2 : 0).
       // Charges from refilling at a water tile (see the 'can-refill' handler).
+      // This is the PRODUCE quality the harvest reads, a separate thing from
+      // the growth jump above — one is what you get, the other is how soon.
       const can = save.relics?.can;
       if (can?.tier) {
         const filled = (save.canCharges ?? 0) > 0;
@@ -1252,7 +1257,7 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       // Water the plant AND report its growth progress so the player can see
       // how close it is to harvest (e.g. "Pairy 2/5").
-      scene.flash(stageReadout(), sx, sy);
+      scene.flash(jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout(), sx, sy);
       return true;
     }
     // Already watered and still growing: show the growth-stage readout.

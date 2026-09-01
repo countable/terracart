@@ -317,6 +317,40 @@ test('road overlay: railways are drawn in slate, not road earth', () => {
   assert.eq(byColour[0x3a322c], 1, 'the street keeps the road earth');
 });
 
+test('road overlay: railways get track furniture — two offset rails + perpendicular ties', () => {
+  clearTiles();
+  putTile(0, 0, [
+    line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'rail' }),      // 10 m due east
+    line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }),  // control: no decor
+  ]);
+  // Stub with decorPath support — the plain stub gets no decor at all.
+  const gfx = makeGfx();
+  gfx.decor = [];
+  gfx.decorPath = function (w, c, pts) { this.decor.push({ w, c, pts }); };
+  const scene = makeOverlayScene({ roadGeomGfx: gfx });
+  RoadOverlay.draw(scene);
+  // Fixture scale: 32 px / 5 m cell = 6.4 px/m. Gauge 1.8 m → rails at
+  // y = 176 ± 5.76; ties every 2.2 m = 14.08 px starting half a step in,
+  // spanning ±(2.8/2)·6.4 = ±8.96 px across the bed.
+  const rails = gfx.decor.filter(d => d.c === 0xb9c2cd);
+  const ties = gfx.decor.filter(d => d.c === 0x463526);
+  assert.eq(rails.length, 2, 'exactly two rails');
+  const railYs = rails.map(r => r.pts[0].y).sort((a, b) => a - b);
+  assert.inRange(railYs[0] - (176 - 5.76), -0.01, 0.01, 'left rail at -half gauge');
+  assert.inRange(railYs[1] - (176 + 5.76), -0.01, 0.01, 'right rail at +half gauge');
+  for (const r of rails) assert.eq(r.pts[0].y, r.pts[1].y, 'rail parallel to a straight run');
+  assert.eq(ties.length, 5, 'ties at 14.08 px spacing across a 64 px run');
+  assert.inRange(ties[0].pts[0].x - 183.04, -0.01, 0.01, 'first tie half a step in');
+  for (const t of ties) {
+    assert.eq(t.pts[0].x, t.pts[1].x, 'tie perpendicular to an east-west run');
+    assert.inRange((t.pts[1].y - t.pts[0].y) - 2 * 8.96, -0.01, 0.01, 'tie spans the bed');
+  }
+  // The street contributed nothing to the decor pass.
+  const streetY = 176 + 32 * 2;   // 16 MVT units = 10 m = 2 cells south
+  assert.falsy(gfx.decor.some(d => d.pts.some(p => Math.abs(p.y - streetY) < 12)),
+    'no track furniture on a road');
+});
+
 test('road overlay: rail and road of the same width are stroked separately', () => {
   clearTiles();
   // Both fall to the 3 m default width — bucketing on width alone would merge
@@ -356,14 +390,38 @@ test('road overlay: water cells are punched out of the band', () => {
 
 test('road overlay: building floors are punched out of the band', () => {
   clearTiles();
-  // House (9), building_med (11) and castle floor (12) all keep the band off.
+  // House (9), building_med (11) and castle floor (12) all keep the band off —
+  // while buildings ARE their cells. (Polygonal mode is the next test.)
   putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])],
           { '1_0': 9, '2_0': 11, '3_0': 12, '4_0': 5 });
   const scene = makeOverlayScene();
-  RoadOverlay.draw(scene);
-  const g = scene.roadGeomGfx;
-  for (const ox of [1, 2, 3]) assert.truthy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' cleared');
-  assert.falsy(_erasedAt(g, 4, 0), 'the residential cell is left alone');
+  const prev = globalThis.__POLY_BUILDINGS;
+  globalThis.__POLY_BUILDINGS = false;
+  try {
+    RoadOverlay.draw(scene);
+    const g = scene.roadGeomGfx;
+    for (const ox of [1, 2, 3]) assert.truthy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' cleared');
+    assert.falsy(_erasedAt(g, 4, 0), 'the residential cell is left alone');
+  } finally { globalThis.__POLY_BUILDINGS = prev; }
+});
+
+test('road overlay: in polygonal mode building CELLS keep the band', () => {
+  // The cells aren't the building any more (building_overlay.js draws the
+  // source ring in a layer above this one), so punching them out would cut a
+  // staircase of holes in the road beside a polygon that already covers it.
+  // Water is punched either way — it is still water.
+  clearTiles();
+  putTile(0, 0, [line([{ x: -400, y: 0 }, { x: 400, y: 0 }])],
+          { '1_0': 9, '2_0': 11, '3_0': 12, '4_0': 3 });
+  const scene = makeOverlayScene();
+  const prev = globalThis.__POLY_BUILDINGS;
+  globalThis.__POLY_BUILDINGS = true;
+  try {
+    RoadOverlay.draw(scene);
+    const g = scene.roadGeomGfx;
+    for (const ox of [1, 2, 3]) assert.falsy(_erasedAt(g, ox, 0), 'floor cell ' + ox + ' left alone');
+    assert.truthy(_erasedAt(g, 4, 0), 'the water cell is still cleared');
+  } finally { globalThis.__POLY_BUILDINGS = prev; }
 });
 
 test('road overlay: ordinary ground is never punched out', () => {
@@ -453,19 +511,15 @@ test('road overlay: a segment crossing the view is kept though both ends are out
 
 // ── Gating + redraw cache ─────────────────────────────────────────────────
 
-test('road overlay: on by default, off when the save says so', () => {
-  assert.truthy(RoadOverlay.isOn(makeOverlayScene()), 'default on');
-  assert.truthy(RoadOverlay.isOn(makeOverlayScene({ save: { roadGeomOverlay: true } })), 'explicit on');
-  assert.falsy(RoadOverlay.isOn(makeOverlayScene({ save: { roadGeomOverlay: false } })), 'explicit off');
-});
-
-test('road overlay: switched off draws nothing and hides the layer', () => {
+test('road overlay: always on at the surface — the old save toggle is gone', () => {
+  // The band IS how roads are drawn now, not a debug aid: a leftover
+  // roadGeomOverlay:false in an old save must not blank the roads.
   clearTiles();
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
   const scene = makeOverlayScene({ save: { roadGeomOverlay: false } });
   RoadOverlay.draw(scene);
-  assert.eq(scene.roadGeomGfx.lines.length, 0, 'nothing stroked');
-  assert.falsy(scene.roadGeomContainer.visible, 'layer hidden');
+  assert.gt(scene.roadGeomGfx.lines.length, 0, 'roads stroked despite the stale flag');
+  assert.truthy(scene.roadGeomContainer.visible, 'layer visible');
 });
 
 test('road overlay: hidden underground (cave tiles have no MVT layers)', () => {

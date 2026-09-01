@@ -1072,6 +1072,38 @@ test('energy: refuses till when too tired', (scene) => {
   assert.eq(scene.save.energy, 1, 'energy unchanged on refusal');
 });
 
+test('exhaustion: passing out underground costs half the purse, floored', (scene) => {
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.save.money = 101;
+  scene._passingOut = false;
+  scene._workProgress = null;
+  try {
+    scene._passOutToSurface();
+    assert.eq(scene.depth, 0, 'woken on the surface');
+    assert.eq(scene.save.money, 51, '101 halves to 50, floor-lost — 51 left, not 50.5');
+    const modal = document.getElementById('chest-reward-modal');
+    assert.truthy(modal, 'the exhausted modal shows');
+    assert.truthy(modal.textContent.includes('$50'), 'names the amount lost');
+  } finally {
+    document.getElementById('chest-reward-modal')?.remove();
+    scene._passingOut = false;
+  }
+});
+
+test('exhaustion: a broke player loses nothing further', (scene) => {
+  document.getElementById('chest-reward-modal')?.remove();
+  scene.save.money = 0;
+  scene._passingOut = false;
+  scene._workProgress = null;
+  try {
+    scene._passOutToSurface();
+    assert.eq(scene.save.money, 0, 'no money to lose, none lost');
+  } finally {
+    document.getElementById('chest-reward-modal')?.remove();
+    scene._passingOut = false;
+  }
+});
+
 test('eating rainberry restores energy + waters nearby crops + shows message modal', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   // Set up: 3 crops within 20m, 1 crop at 40m, all unwatered.
@@ -1996,6 +2028,45 @@ test('mineralrock cave drop: no ore on T1 fail', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'),   0, 'no gold either');
 });
 
+// ── Cave monster density ────────────────────────────────────────────────────
+// A tile's TOTAL monster population must not depend on how many up-staircase
+// entrances it happens to have. spawnCaveCreatures anchors spawns near every
+// entrance (so no entrance is left monster-free), but that used to also
+// MULTIPLY the total by anchors.length — a tile with the common 2-entrance
+// case (each residential cluster rolls its own staircase independently)
+// quietly got twice the intended population, which is the "2x too many
+// monsters" a player actually reported.
+test('cave spawn: total monster/rabbit count does not scale with entrance count', (scene) => {
+  const N = 100;
+  const makeEntry = (anchorCount) => ({
+    cellsPerEdge: N,
+    tileEdgeM: scene.tileEdgeM,
+    grid: new Array(N * N).fill(24 /* CAVE_FLOOR — every cell is landable */),
+    objects: Array.from({ length: anchorCount }, (_, i) => ({
+      kind: 'staircase', dir: 'up',
+      // Spread the anchors near the tile centre so the ±25-cell spawn
+      // radius never clips an edge and every placement attempt succeeds —
+      // any attempt-based flakiness would obscure the count comparison.
+      x: 9001 * scene.tileEdgeM + (N / 2 + i * 4) * (scene.tileEdgeM / N),
+      y: 9002 * scene.tileEdgeM + (N / 2) * (scene.tileEdgeM / N),
+    })),
+  });
+  const tx = 9001, ty = 9002, depth = 1;
+  scene.save.caught = [];
+  const oneAnchor = makeEntry(1);
+  scene.spawnCaveCreatures(oneAnchor, tx, ty, depth);
+  const twoAnchors = makeEntry(2);
+  scene.spawnCaveCreatures(twoAnchors, tx, ty, depth);
+  const monsters = (e) => e.creatures.filter(c => c.kind !== 'rabbit').length;
+  const rabbits  = (e) => e.creatures.filter(c => c.kind === 'rabbit').length;
+  assert.eq(monsters(oneAnchor), 60, 'depth 1 → 50 + 1*10 monsters with a single entrance');
+  assert.eq(monsters(twoAnchors), monsters(oneAnchor),
+    'a SECOND entrance spreads the same population — it must not double it');
+  assert.gt(rabbits(oneAnchor), 0, 'some rabbits spawned to compare');
+  assert.eq(rabbits(twoAnchors), rabbits(oneAnchor),
+    'rabbit count is the same trap: must not scale with entrance count either');
+});
+
 test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (scene) => {
   scene.save.relics = { ...(scene.save.relics || {}), rod: null, can: null };
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
@@ -2142,6 +2213,7 @@ test('combat: a bow auto-fires at an on-screen enemy, along the compass', (scene
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: { tier: 1 }, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene._workProgress = null;
   scene._shots = []; scene._nextShotT = {};
@@ -2177,6 +2249,7 @@ test('combat: nothing auto-fires at GAME or at a tamed slime', (scene) => {
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: { tier: 7 }, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene._workProgress = null;
   scene._shots = []; scene._nextShotT = {};
@@ -2209,6 +2282,7 @@ test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (
   if (!entry) return;
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
                         sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.activeWeapon = 'sword';   // only the ACTIVE weapon auto-engages
   scene.save.caught = scene.save.caught || [];
   scene.save.energy = 100;
   scene._workProgress = null;
@@ -2232,6 +2306,58 @@ test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (
     entry.creatures.pop(); entry.creatures.pop();
     scene._shots = []; scene._nextShotT = {};
     scene._workProgress = null;
+  }
+});
+
+// ── Sword-swing visual ──────────────────────────────────────────────────────
+test('combat: a melee swing draws a slash toward the target, then fades', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  scene._swing = null; scene._nextSwingT = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const foe = { x: pWX + scene.cellM, y: pWY, kind: 'slime', id: 'test_swing_' + Date.now() };
+  entry.creatures.push(foe);
+  try {
+    scene.startCombat(foe);
+    scene._drawWorkProgress();
+    assert.truthy(scene._swing, 'engaging with a sword starts a swing');
+    assert.gt(scene._swing.dir.x, 0.99, 'aimed at the foe (due east)');
+    // Past the sweep window, the next draw call retires it.
+    scene._swing.startT = performance.now() - 10000;
+    scene._drawWorkProgress();
+    assert.falsy(scene._swing, 'a stale swing fades and clears');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
+    scene._swing = null;
+  }
+});
+
+test('combat: bare hands draw no swing — there is no blade', (scene) => {
+  const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
+  if (!entry) return;
+  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.energy = 100;
+  scene._workProgress = null;
+  scene._swing = null; scene._nextSwingT = 0;
+  const pWX = scene.startWorldM.x + scene.playerM.x;
+  const pWY = scene.startWorldM.y + scene.playerM.y;
+  const foe = { x: pWX + scene.cellM, y: pWY, kind: 'slime', id: 'test_noswing_' + Date.now() };
+  entry.creatures.push(foe);
+  try {
+    scene.startCombat(foe);
+    scene._drawWorkProgress();
+    assert.falsy(scene._swing, 'bare-handed melee has no sword to draw');
+  } finally {
+    entry.creatures.pop();
+    scene._workProgress = null;
+    scene._swing = null;
   }
 });
 

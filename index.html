@@ -7,6 +7,94 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
+  <script>
+    // ── Boot profiler ────────────────────────────────────────────────────
+    // FIRST thing on the page, so it is recording before a single byte of the
+    // game is parsed. Everything else can only measure from where it starts;
+    // this measures the whole boot, including the stretches nothing else is
+    // awake for (the script tags parsing, the wait for a first GPS fix, the
+    // player reading the story).
+    //
+    // It exists because a load stall is the one bug that cannot be reproduced
+    // on someone else's machine: the phone that takes forty seconds is not the
+    // desktop that takes three, and a profile taken here is worth more than any
+    // amount of guessing. Read it from ☰ › Load profile once the game is up.
+    //
+    // Costs nothing when nobody looks: a mark is an array push, and the whole
+    // thing is a few hundred entries at most.
+    (function () {
+      const t = () => performance.now();
+      const B = {
+        marks: [],     // { name, t }              — instants
+        spans: [],     // { name, t, ms, note }    — completed stretches
+        long: [],      // { t, ms }                — main-thread blocks > 50 ms
+        open: new Map(),
+        mark(name) { try { B.marks.push({ name, t: t() }); } catch (_) {} },
+        // begin() returns its own end function, so a span can't be closed by
+        // the wrong name and nesting the same name twice is safe.
+        begin(name) {
+          const t0 = t();
+          try { B.openNames.add(name); } catch (_) {}
+          return (note) => {
+            try { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {}
+          };
+        },
+        // Fire-and-forget for a stretch measured somewhere else.
+        span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
+
+        // ── Live half ──────────────────────────────────────────────────
+        // The boot half above answers "why was the start slow". This answers
+        // "why does it stutter while I walk", which is a different question
+        // with a different shape: no beginning and no end, just a stream of
+        // frames of which a few are terrible. iOS Safari has no longtask
+        // observer, so the frame gap is measured directly.
+        live: { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) },
+        hitches: [],     // { t, ms, during }  — the worst frames, with the cause
+        work: {},        // name -> { n, sum, worst } for the per-frame passes
+        // Spans currently OPEN, so a hitch can name what the game was doing
+        // rather than leaving it to be guessed at.
+        openNames: new Set(),
+        // One per-frame pass's cost. Called a lot; keep it to arithmetic.
+        tick(name, ms) {
+          let w = B.work[name];
+          if (!w) w = B.work[name] = { n: 0, sum: 0, worst: 0 };
+          w.n++; w.sum += ms; if (ms > w.worst) w.worst = ms;
+        },
+        frame(ms) {
+          const L = B.live;
+          L.n++; L.sum += ms;
+          if (ms > L.worst) L.worst = ms;
+          if (ms > 50) L.over50++;
+          if (ms > 100) L.over100++;
+          if (ms > 250) L.over250++;
+          // 0-16, 16-33, 33-50, 50-83, 83-133, 133-250, 250-500, 500-1000, 1s+
+          const E = [16, 33, 50, 83, 133, 250, 500, 1000];
+          let i = 0; while (i < E.length && ms > E[i]) i++;
+          L.buckets[i]++;
+          if (ms > 100 && B.hitches.length < 400) {
+            B.hitches.push({ t: Math.round(performance.now()), ms: Math.round(ms),
+              during: B.openNames.size ? [...B.openNames].join(' + ') : 'nothing (render/update)' });
+          }
+        },
+      };
+      window.__boot = B;
+      B.mark('html parse');
+      try {
+        new PerformanceObserver((l) => {
+          for (const e of l.getEntries()) B.long.push({ t: Math.round(e.startTime), ms: Math.round(e.duration) });
+        }).observe({ entryTypes: ['longtask'] });
+      } catch (_) { /* no longtask support (Safari) — the spans still land */ }
+      let _lastFrame = 0;
+      const _frameTick = (now) => {
+        if (_lastFrame) B.frame(now - _lastFrame);
+        _lastFrame = now;
+        requestAnimationFrame(_frameTick);
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_frameTick);
+      document.addEventListener('DOMContentLoaded', () => B.mark('DOM ready'));
+      window.addEventListener('load', () => B.mark('window load'));
+    })();
+  </script>
   <!-- iOS PWA: launch fullscreen with a dark status bar when added to home screen. -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -61,6 +149,10 @@
          neutral ink, deliberately outside both meaning-carrying families. */
       --bone:       #cfc6b4;   /* readout ink — what you actually read       */
       --dust:       #8d857a;   /* secondary readout ink — glance-only        */
+      /* The open inventory drawer: the selected tab's base colour AND the
+         panel below the tab row (#inv, painted in buildInventoryDOM). One
+         token so the tab can't drift off the panel it claims to open. */
+      --tab-brown:  #4a3a17;
       /* A control at REST vs a control SELECTED has to be obvious at a glance,
          and painting the resting rim in full --gold-dark did not clear that
          bar: an unselected item slot read almost as lit as the selected one.
@@ -123,7 +215,7 @@
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
-      background: #111; color: #ddd;
+      background: #000; color: #ddd;
       font-family: system-ui, sans-serif;
       overflow: hidden;
       /* Block iOS Safari's elastic rubber-band overscroll on fast swipes —
@@ -160,7 +252,7 @@
       right: var(--phone-right, 0px);
       border-left:  1px solid #333;
       border-right: 1px solid #333;
-      box-shadow: 0 0 0 9999px #0a0a0a;
+      box-shadow: 0 0 0 9999px #000;
       pointer-events: none;
       z-index: 99;
     }
@@ -180,6 +272,14 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
+    /* Every body-level HUD surface (inventory bars, chips, menu, multiplayer
+       button): manipulation kills iOS's double-tap zoom WITHOUT needing the
+       touchend preventDefault guard below — which must never fire for these
+       elements, because Phaser only sees their touchends via its window
+       listener and a prevented touchend permanently strands one of its touch
+       pointers (the "touch stops working until reload" bug). */
+    #hud, #hud-row, #inv, #inv-tabs, #inv-name, #objective, #menu, #mp-btn,
+    #money, #energy { touch-action: manipulation; }
     /* The movement stick (#move-pad) is position:fixed on <body> at z-index 6
        — but every modal dialog lives inside #game, whose transform makes its
        own stacking context, so a modal can never climb above the body-level
@@ -249,13 +349,14 @@
       font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
-    /* Sits BELOW #inv-name (pinned at bottom:30px, ~15px tall) in the 8..21px
-       strip. It used to WRAP to two lines there and collide with the name by
-       ~4px at every viewport size — and this is a PERMANENT state on desktop
-       and for anyone who denies location, not the rare exception it reads as.
-       nowrap+ellipsis keeps it to one line, so the two never meet; the copy
-       itself is now one actionable phrase, with the coordinate dump behind
-       ☰ › Developer (see updateHUD). */
+    /* Sits in the 8..21px strip, well below #inv-name (now its own plate at
+       bottom:40px, 26px tall — app.js buildInventoryDOM). It used to WRAP to
+       two lines there and collide with the name by ~4px at every viewport
+       size — and this is a PERMANENT state on desktop and for anyone who
+       denies location, not the rare exception it reads as. nowrap+ellipsis
+       keeps it to one line, so the two never meet; the copy itself is now one
+       actionable phrase, with the coordinate dump behind ☰ › Developer (see
+       updateHUD). */
     /* Multiplayer chip (src/multiplayer.js #mp-btn) lives on <body> like the
        pads, so it too would float over a dialog inside #game — hide it there. */
     body.modal-open #mp-btn { display: none !important; }
@@ -437,7 +538,7 @@
     #menu .items {
       margin-top: 4px; min-width: 140px;
       background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
-      padding: 4px; display: flex; flex-direction: column; gap: 2px;
+      padding: 4px; display: flex; flex-direction: column; gap: 0;
       max-height: calc(100vh - 60px); overflow-y: auto;
       overscroll-behavior: contain;
       box-shadow: var(--chrome-lip), 0 8px 20px rgba(0,0,0,0.6), var(--chrome-key);
@@ -453,15 +554,16 @@
     #devtools summary::before { content: '▸ '; }
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
-    #devtools .devitems { display: flex; flex-direction: column; gap: 2px; }
-    /* Hit height, not font size: rows were 26px tall with "Reset this game"
-       26px below "+ New game". Padding takes them to ~40px without changing
-       how they look. */
+    #devtools .devitems { display: flex; flex-direction: column; gap: 0; }
+    /* Hit height, not font size: rows sat at 40px once, then 32px, and the
+       menu still read as a sparse list that scrolled sooner than it needed
+       to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
+       menu fits a short screen without feeling like a spreadsheet. */
     #menu .items button {
       background: transparent; color: var(--bone); border: 0;
-      text-align: left; padding: 12px 8px; border-radius: 4px;
+      text-align: left; padding: 4px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
-      min-height: 40px;
+      min-height: 26px;
     }
     #menu .items button:hover {
       background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
@@ -486,16 +588,20 @@
        here sets a size, so the two can't fight. */
 
     /* Category tab — raised, and joined to the slot bar below it (square
-       bottom corners, no bottom edge on the selected one). */
+       bottom corners, no bottom edge on the selected one). Inactive tabs sit
+       DARKER than the brown panel under them (#inv, painted --tab-brown in
+       buildInventoryDOM), so the selected tab — which shares the panel's
+       colour and drops its bottom edge — reads as part of the open drawer
+       and the rest read as closed ones behind it. */
     .hud-tab {
-      background: var(--chrome-scuff), var(--chrome-face);
+      background: var(--chrome-scuff), linear-gradient(180deg, #3a2e15, #261e0c);
       border: 2px solid var(--ctl-rim); color: var(--bone);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
     .hud-tab.sel {
-      background: linear-gradient(180deg, #6b5426, #4a3a17);
-      border-color: var(--gold); border-bottom-color: #4a3a17; color: #fff;
+      background: linear-gradient(180deg, #6b5426, var(--tab-brown));
+      border-color: var(--gold); border-bottom-color: var(--tab-brown); color: #fff;
       box-shadow: var(--chrome-lip), var(--chrome-gold), var(--chrome-key);
     }
     /* Count pip riding the tab's top-right corner. */
@@ -547,6 +653,14 @@
     }
     .hud-action:active {
       background: var(--chrome-sunk);
+      box-shadow: var(--chrome-well), var(--chrome-key);
+    }
+    /* Selected item/gear name + effect line — its own struck plate between the
+       slot bar above and the Eat/Read/Drink button below (app.js
+       buildInventoryDOM / refreshInventoryHighlight), so the text has a fixed
+       box instead of floating over whichever HUD piece happens to be under it. */
+    .hud-name {
+      background: var(--chrome-sunk); color: var(--bone);
       box-shadow: var(--chrome-well), var(--chrome-key);
     }
 
@@ -877,12 +991,11 @@
       <details id="devtools">
         <summary>Developer</summary>
         <div class="devitems">
-          <button id="debug-controls">Free walking (debug): off</button>
-          <button id="debug-road-geom">Road geometry: on</button>
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
-          <button id="debug-dragon-powder">Give Dragon Powder</button>
+          <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
+          <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
             <!-- buttons injected from window.TELEPORT_PRESETS -->
@@ -1033,10 +1146,14 @@
     // cells at the edge of an 11×11 view, never a row the player can reach.
     const CELL_GAME = 32;
     // INV_CLUSTER — the bottom stack, measured from the viewport bottom up to
-    // the TOP of the category tabs (bottom:104 + 44 tall). The walking stick
-    // is deliberately NOT in here: it is placed into the slack below, or
-    // allowed to overlay the map when there is no slack to place it in.
-    const INV_CLUSTER = 148;
+    // the TOP of the category tabs (bottom:118 + 44 tall). That 118 is the
+    // Eat/Read/Drink button (bottom:4, ~36 tall) + the dedicated name/effect
+    // plate (bottom:40, 26 tall) + the slot bar (bottom:66, 52 tall), each
+    // stacked with NO gap against its neighbour — see buildInventoryDOM. The
+    // walking stick is deliberately NOT in here: it is placed into the slack
+    // below, or allowed to overlay the map when there is no slack to place
+    // it in.
+    const INV_CLUSTER = 162;
     // The map's 11×11 view inside the 352×844 box (src/app.js: viewTop /
     // viewSize). fitGame positions the BOX so that this rectangle lands where
     // the budget says it should.
@@ -1093,9 +1210,9 @@
     //
     // Letting the height shrink a PHONE is exactly the bug this parameter
     // fixes: `band / MAP_H_GAME` drops below the width fit as soon as
-    // vh - 254 < vw, which is an ordinary iOS Safari viewport once the
-    // toolbars are showing (393x630 -> a 376px column in a 393px viewport, and
-    // 375x553 -> a 299px one). The UI zoomed out and grew gutters with nothing
+    // vh - 268 < vw, which is an ordinary iOS Safari viewport once the
+    // toolbars are showing (393x630 -> a 362px column in a 393px viewport, and
+    // 375x553 -> a 285px one). The UI zoomed out and grew gutters with nothing
     // in the code having changed but the browser chrome's height.
     function layOutVertically(sByWidth, vh, fillWidth) {
       const band = Math.max(160, vh - TOP_CHROME - INV_CLUSTER);
@@ -1179,7 +1296,7 @@
     // off the side.
     //
     // Flooring the width does not rescue it — it was tried and measured. The
-    // fixed chrome is TOP_CHROME + INV_CLUSTER = 254px, so a 390px-wide column
+    // fixed chrome is TOP_CHROME + INV_CLUSTER = 268px, so a 390px-wide column
     // wants a 390px-tall map and simply cannot fit inside a 390px-tall
     // viewport; forcing the width just moves the damage, burying the player
     // under the inventory bar. There is no scale that works.
@@ -1326,10 +1443,22 @@
     // back. Suppressing the second tap of a quick pair closes that trap. We
     // only preventDefault on the close-together second touchend, so single
     // taps (and the game's own pointer handling) are untouched.
+    // ONLY for touches that land on the game canvas. Phaser handles canvas
+    // touches in the target phase (its canvas listener runs before this
+    // document-level one), so preventDefault here can't starve it — but for a
+    // touch on any OTHER element (movement stick, inventory bar, HUD button)
+    // Phaser only ever sees the touchend via its WINDOW listener, which runs
+    // AFTER this guard and explicitly skips defaultPrevented events. With
+    // Phaser's finite touch-pointer pool, a swallowed touchend leaves that
+    // pointer `active` forever — tap-to-play died until reload ("touch
+    // randomly stops working"). Non-canvas double-tap zoom is covered by
+    // touch-action: manipulation on the HUD (see the stylesheet) instead.
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
       const now = Date.now();
-      if (now - lastTouchEnd <= 350) e.preventDefault();
+      if (now - lastTouchEnd <= 350 && e.target instanceof HTMLCanvasElement) {
+        e.preventDefault();
+      }
       lastTouchEnd = now;
     }, { passive: false });
     // Belt-and-suspenders: kill any synthesized double-click that slips past
@@ -1400,60 +1529,6 @@
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.confirmMoveHomeTrailer) window.__scene.confirmMoveHomeTrailer();
     });
-    // Debug controls: makes stick walking cost no stamina. That's all it does
-    // now — there's no second joystick any more. The button label tracks state
-    // both before the scene loads (read save directly) and after each click
-    // (scene returns the new value).
-    // Resolve the ACTIVE saved game's raw data straight from localStorage.
-    // This runs at parse time, before save.js loads, so it can't use the save.js
-    // helpers — it reads the slot registry inline, falling back to the legacy
-    // single-save key for brand-new or pre-multislot players.
-    function readActiveSaveRaw() {
-      try {
-        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-        let key = 'terracart.save.v4';
-        if (reg && Array.isArray(reg.slots) && reg.slots.length) {
-          const slot = reg.slots.find(s => s.id === reg.active) || reg.slots[0];
-          if (slot && slot.key) key = slot.key;
-        }
-        return JSON.parse(localStorage.getItem(key) || 'null');
-      } catch { return null; }
-    }
-    const debugBtn = document.getElementById('debug-controls');
-    function setDebugBtnLabel(on) {
-      debugBtn.textContent = 'Free walking (debug): ' + (on ? 'on' : 'off');
-    }
-    try {
-      const s = readActiveSaveRaw();
-      setDebugBtnLabel(!!(s && s.debugControls));
-    } catch { /* leave default 'off' */ }
-    debugBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene || !scene.setDebugControls) return;
-      const next = !scene.save?.debugControls;
-      setDebugBtnLabel(scene.setDebugControls(next));
-    });
-    // Road-geometry overlay: draws the ORIGINAL OSM road linework (the vector
-    // ways the tile rasterizer turned into road cells) over the map in black
-    // at 30% opacity. On by default; the save only ever stores an explicit off.
-    const roadGeomBtn = document.getElementById('debug-road-geom');
-    function setRoadGeomBtnLabel(on) {
-      roadGeomBtn.textContent = 'Road geometry: ' + (on ? 'on' : 'off');
-    }
-    try {
-      const s = readActiveSaveRaw();
-      setRoadGeomBtnLabel(!(s && s.roadGeomOverlay === false));
-    } catch { /* leave default 'on' */ }
-    roadGeomBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene || !scene.setRoadGeomOverlay) return;
-      const next = scene.save?.roadGeomOverlay === false;
-      setRoadGeomBtnLabel(scene.setRoadGeomOverlay(next));
-    });
     document.getElementById('debug-clear-relics').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -1465,6 +1540,123 @@
       scene.updateRelicRow?.();
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
+    });
+    // ☰ › Load profile — the boot timeline recorded by window.__boot (see the
+    // profiler at the top of this file), rendered as a waterfall you can read
+    // on the device that is actually slow and paste back.
+    //
+    // Sorted by START, not by size: the question a load stall asks is "what was
+    // the app doing between second 3 and second 20", and only a timeline
+    // answers it. Sizes are in the same rows for the follow-up question.
+    document.getElementById('debug-load-profile').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const B = window.__boot;
+      if (!B) { window.showError?.('load profile', 'profiler not running'); return; }
+      const ms = (v) => (v >= 1000 ? (v / 1000).toFixed(2) + 's' : Math.round(v) + 'ms');
+      const at = (v) => (v / 1000).toFixed(2).padStart(6) + 's';
+      const out = [];
+      const playable = B.marks.find(k => k.name.startsWith('MAP PLAYABLE'));
+      const span = (pre) => B.spans.filter(x => x.name.startsWith(pre));
+      const sum = (a) => a.reduce((t, x) => t + x.ms, 0);
+      out.push('TIME TO A PLAYABLE MAP: ' + (playable ? ms(playable.t) : 'still loading'));
+      // WHERE IT WENT, in five lines. The full timeline below answers "when";
+      // this answers "what do I fix", which is the question that gets asked
+      // first and is otherwise buried in thirty tile rows.
+      const centre = span('centre tile');
+      out.push('',
+        'WHERE IT WENT (to playable)',
+        '  you (story/prompt) ' + ms(sum(span('waiting for the player'))).padStart(7),
+        '  waiting for GPS   ' + ms(sum(span('boot gate'))).padStart(8),
+        '  app.js parse      ' + ms(sum(span('app.js'))).padStart(8),
+        '  phaser assets     ' + ms(sum(span('phaser preload'))).padStart(8),
+        '  scene create      ' + ms(sum(span('scene create'))).padStart(8),
+        '  centre tile       ' + ms(centre.length ? Math.max(...centre.map(x => x.ms)) : 0).padStart(8),
+        '     of which: fetch ' + ms(sum(span('tile').filter(x => x.name.endsWith('fetch')
+            && x.t < (playable ? playable.t : Infinity)))).padStart(7)
+          + '  rasterize ' + ms(sum(span('tile').filter(x => x.name.endsWith('rasterize')
+            && x.t < (playable ? playable.t : Infinity)))).padStart(7),
+        '  (background) ring ' + ms(sum(span('neighbour ring'))).padStart(8));
+      // A real waterfall: every bar starts where the thing started and is as
+      // long as it took, all against one scale. Overlap is the point — it shows
+      // at a glance what was waiting on what.
+      const rows = B.spans.map(x => ({ ...x, kind: 'span' }))
+        .concat(B.marks.map(x => ({ ...x, ms: null, kind: 'mark' })))
+        .sort((a, b) => a.t - b.t);
+      const span0 = Math.max(1, ...rows.map(r => r.t + (r.ms || 0)));
+      const W = 26;
+      const track = (t0, dur) => {
+        const a = Math.round((t0 / span0) * W);
+        const n = Math.max(1, Math.round((dur / span0) * W));
+        return ' '.repeat(a) + '#'.repeat(Math.min(n, W - a || 1));
+      };
+      out.push('', 'TIMELINE  (at)      (took)');
+      for (const r of rows) {
+        if (r.kind === 'mark') { out.push(at(r.t) + '  ·        ' + r.name); continue; }
+        out.push(at(r.t) + '  ' + ms(r.ms).padStart(7) + '  ' + r.name
+          + (r.note ? ' (' + r.note + ')' : '') + '\n           |' + track(r.t, r.ms));
+      }
+      // ── While you were playing ─────────────────────────────────────
+      // Frame gaps measured off the profiler's own rAF loop, so this is the
+      // gap the PLAYER saw — including frames the game loop never got to run.
+      // The histogram is the honest answer to "does it stutter": an average
+      // hides the handful of 400 ms frames that are the entire complaint.
+      const L = B.live;
+      if (L.n > 30) {
+        const E = ['  <16ms (60fps)', ' 16-33ms (30fps)', ' 33-50ms', ' 50-83ms',
+                   ' 83-133ms', '133-250ms', '250-500ms', '0.5-1s', '   >1s'];
+        out.push('', 'WHILE YOU WERE PLAYING — ' + L.n + ' frames, avg '
+          + ms(L.sum / L.n) + ', worst ' + ms(L.worst));
+        for (let i = 0; i < E.length; i++) {
+          const c = L.buckets[i];
+          if (!c) continue;
+          const pct = (c * 100 / L.n);
+          out.push('  ' + E[i] + ' ' + String(c).padStart(6) + '  '
+            + pct.toFixed(1).padStart(5) + '%  ' + '#'.repeat(Math.max(1, Math.round(pct / 4))));
+        }
+        // Per-frame JS, so a render-bound stutter can be told from a
+        // game-logic one without guessing.
+        const names = Object.keys(B.work);
+        if (names.length) {
+          out.push('  per frame (avg / worst):');
+          for (const n of names) {
+            const w = B.work[n];
+            out.push('    ' + n.padEnd(14) + ms(w.sum / w.n).padStart(7) + ' / ' + ms(w.worst).padStart(7)
+              + '   (' + w.n + ' calls)');
+          }
+        }
+        // WHAT WAS RUNNING when a frame went long. This is the whole point:
+        // a stutter that always says "tile ... rasterize" is a background
+        // build; one that says "nothing" is the renderer itself.
+        if (B.hitches.length) {
+          const by = new Map();
+          for (const h of B.hitches) {
+            const e = by.get(h.during) || { n: 0, sum: 0, worst: 0 };
+            e.n++; e.sum += h.ms; if (h.ms > e.worst) e.worst = h.ms;
+            by.set(h.during, e);
+          }
+          out.push('  frames over 100ms, by what was running:');
+          for (const [k, e] of [...by.entries()].sort((a, b) => b[1].sum - a[1].sum).slice(0, 8)) {
+            out.push('    ' + String(e.n).padStart(4) + 'x  ' + ms(e.sum).padStart(7)
+              + ' total, worst ' + ms(e.worst).padStart(7) + '  ' + k);
+          }
+        }
+      }
+      // Main-thread blocks. This is the number that decides whether the app
+      // felt frozen, as opposed to merely slow: total time is patience, a
+      // single long block is a tap that did nothing.
+      if (B.long.length) {
+        const tot = B.long.reduce((a, x) => a + x.ms, 0);
+        const worst = B.long.slice().sort((a, b) => b.ms - a.ms).slice(0, 8);
+        out.push('', 'MAIN-THREAD BLOCKS: ' + B.long.length + ' totalling ' + ms(tot));
+        out.push('  worst: ' + worst.map(x => ms(x.ms) + ' @' + (x.t / 1000).toFixed(1) + 's').join(', '));
+      } else {
+        out.push('', 'MAIN-THREAD BLOCKS: not measured on this browser');
+      }
+      out.push('', 'device: ' + (navigator.hardwareConcurrency || '?') + ' cores, dpr '
+        + (window.devicePixelRatio || 1) + ', ' + screen.width + 'x' + screen.height);
+      out.push('ua: ' + navigator.userAgent);
+      window.showError?.('LOAD PROFILE (copy me)', out.join('\n'));
     });
     document.getElementById('debug-dump-tile').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1486,16 +1678,12 @@
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
-    // Dragon Powder on demand. This used to be a one-shot grant in the scene's
-    // boot path, which meant every brand-new save opened with a tier-3
-    // transform consumable as the only thing in its bag. Same affordance,
-    // behind the Developer disclosure where it can't reach a real first run.
-    document.getElementById('debug-dragon-powder').addEventListener('click', (e) => {
+    // A pack of wild slimes at the screen edge, on demand — combat can be
+    // tested without wandering around hoping to find a fight.
+    document.getElementById('debug-slime-pack').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
-      const scene = window.__scene;
-      if (!scene) return;
-      scene.addToInv?.('dragon_powder', 1);
+      window.__scene?.debugSpawnSlimePack?.(6);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -1741,6 +1929,7 @@
       }
       __safetyDismissed = true;
       __consented = true;
+      window.__boot?.mark('player tapped "Go to my location"');
       try { sessionStorage.setItem('terracart.safetySeen', '1'); } catch {}
       // Remove the splash up front so a queued second tap can't land on it again
       // while we're awaiting the permission prompt.
@@ -2051,22 +2240,23 @@
       });
     }
   </script>
+  <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
-  <script src="src/mvt.js?v=3"></script>
-  <script src="src/util.js?v=19"></script>
-  <script src="src/sprite_layout.js?v=7"></script>
+  <script src="src/mvt.js?v=4"></script>
+  <script src="src/util.js?v=20"></script>
+  <script src="src/sprite_layout.js?v=8"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=8"></script>
-  <script src="src/coords.js?v=120"></script>
+  <script src="src/coords.js?v=121"></script>
   <script src="src/fog.js?v=3"></script>
   <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=217"></script>
-  <script src="src/textures.js?v=171"></script>
-  <script src="src/save.js?v=115"></script>
-  <script src="src/items.js?v=198"></script>
+  <script src="src/worldgen.js?v=226"></script>
+  <script src="src/textures.js?v=173"></script>
+  <script src="src/save.js?v=116"></script>
+  <script src="src/items.js?v=199"></script>
   <script src="src/inventory.js?v=2"></script>
-  <script src="src/energy.js?v=2"></script>
-  <script src="src/crops.js?v=1"></script>
+  <script src="src/energy.js?v=3"></script>
+  <script src="src/crops.js?v=2"></script>
   <script src="src/delivery.js?v=4"></script>
   <script src="src/savemigrate.js?v=7"></script>
   <script src="src/gear.js?v=2"></script>
@@ -2074,17 +2264,19 @@
   <script src="src/shops.js?v=5"></script>
   <script src="src/rarity.js?v=27"></script>
   <script src="src/loot.js?v=142"></script>
-  <script src="src/quests.js?v=4"></script>
-  <script src="src/interactables.js?v=12"></script>
-  <script src="src/combat.js?v=2"></script>
-  <script src="src/interact.js?v=230"></script>
-  <script src="src/render.js?v=312"></script>
-  <script src="src/multiplayer.js?v=3"></script>
-  <script src="src/road_overlay.js?v=10"></script>
+  <script src="src/quests.js?v=5"></script>
+  <script src="src/interactables.js?v=13"></script>
+  <script src="src/combat.js?v=4"></script>
+  <script src="src/interact.js?v=231"></script>
+  <script src="src/render.js?v=323"></script>
+  <script src="src/multiplayer.js?v=7"></script>
+  <script src="src/road_overlay.js?v=12"></script>
+  <script src="src/building_overlay.js?v=2"></script>
   <script src="src/assets.js?v=177"></script>
   <script src="src/sandbox.js?v=38"></script>
   <script src="src/testtools.js?v=9"></script>
-  <script src="src/geo.js?v=1"></script>
+  <script src="src/geo.js?v=2"></script>
+  <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
     // Progress plumbing for #bootload. app.js drives it through
@@ -2140,7 +2332,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=439';
+      const APP_SRC = 'src/app.js?v=456';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -2153,11 +2345,13 @@
         booted = true;
         document.getElementById('locating')?.remove();
         window.__flushPendingHowTo?.();
+        const endLoad = window.__boot?.begin('app.js load + parse');
         const el = document.createElement('script');
+        el.onerror = () => endLoad?.('FAILED');
         el.src = APP_SRC;
         // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
         // section was built before it loaded, so build it again now.
-        el.onload = () => { try { window.__buildTeleportMenu?.(); } catch (_) {} };
+        el.onload = () => { endLoad?.(); try { window.__buildTeleportMenu?.(); } catch (_) {} };
         document.body.appendChild(el);
       }
 
@@ -2183,13 +2377,26 @@
         return true;
       }
 
-      if (!needsHomeCapture()) { bootApp(); return; }
-
+      // Declared BEFORE the early return below, because the gate's own timer is
+      // set up after it and `done()` can fire from either side.
       let sub = null;
       let timer = null;
+      let endGate = null;    // the wait for an actual fix
+      let endWait = null;    // the wait for the player to tap through
+
+      if (!needsHomeCapture()) { window.__boot?.mark('no home capture needed'); bootApp(); return; }
+      // TWO different waits, and only one of them is the game's fault. The gate
+      // is armed here, but nothing is asked of the network until the player has
+      // read the opening story and tapped "Go to my location" — so the stretch
+      // from here to that tap is the PLAYER's, and only what follows it is the
+      // GPS. Measured as one span they came to 9.3 s under a heading that said
+      // "waiting for first GPS fix", which sent me looking in the wrong place.
+      endWait = window.__boot?.begin('waiting for the player (story + prompt)');
       function done() {
         if (timer) { clearTimeout(timer); timer = null; }
         if (sub) { Geo.unsubscribe(sub); sub = null; }
+        if (endWait) { endWait('never tapped'); endWait = null; }
+        if (endGate) { endGate(); endGate = null; }
         bootApp();
       }
 
@@ -2197,6 +2404,8 @@
       // player's consent, and the only point at which we touch geolocation.
       window.__onLocationConsent = function () {
         if (booted || sub) return;
+        if (endWait) { endWait(); endWait = null; }
+        endGate = window.__boot?.begin('boot gate: waiting for first GPS fix');
         const box = document.getElementById('locating');
         if (box) box.style.display = 'flex';
         sub = Geo.subscribe(

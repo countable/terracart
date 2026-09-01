@@ -173,7 +173,18 @@ function persistSave(s) {
   if (_savingDisabled) return;
   _pendingSave = s;
   if (_saveTimer) return;
-  _saveTimer = setTimeout(() => { _saveTimer = null; flushSave(); }, SAVE_DEBOUNCE_MS);
+  // When the debounce lapses, land the actual stringify + localStorage write
+  // in an idle slice rather than at the timer's arbitrary point mid-frame:
+  // the write grows with the save (fog blobs alone add up over a session) and
+  // is the single biggest main-thread hitch on a slow phone. The timeout
+  // bounds staleness when the browser never reports idle time; the pagehide /
+  // visibilitychange flushes below stay synchronous, so nothing is lost when
+  // the tab goes away first.
+  _saveTimer = setTimeout(() => {
+    _saveTimer = null;
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => flushSave(), { timeout: 1000 });
+    else flushSave();
+  }, SAVE_DEBOUNCE_MS);
 }
 
 // Hard-disable all writes. Used by the menu's "Reset save" path: once

@@ -406,7 +406,19 @@
       grid[i] = type;
     }
   }
-  function paintPolygon(grid, w, h, rings, type, mvtToCell) {
+  // Scanline fill, IN ROWS, so a big polygon isn't one unbroken block.
+  //
+  // This is the last thing holding the main thread for hundreds of ms at a
+  // time. A tile build yields between its passes and every few features, but a
+  // SINGLE feature can be the landuse polygon covering the whole tile — 222
+  // rows of up to 222 cells, ~50k paintCell calls, measured at 326 ms with
+  // nothing able to interrupt it. On a phone that is the walking stutter: the
+  // live profiler attributes every frame over 100 ms to a background tile
+  // build, and this is what a background tile build is doing.
+  //
+  // Yields by row, which is the natural seam — the scanline state is rebuilt
+  // per row, so pausing between rows costs nothing.
+  function* paintPolygonSteps(grid, w, h, rings, type, mvtToCell) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
     // Build cell-space polygon, then scanline fill.
@@ -423,6 +435,7 @@
     const y0 = Math.max(0, Math.floor(minY));
     const y1 = Math.min(h - 1, Math.ceil(maxY));
     for (let y = y0; y <= y1; y++) {
+      if (((y - y0) & 7) === 7) yield 'polygon fill rows';
       const ys = y + 0.5;
       const xs = [];
       for (const ring of polys) {
@@ -445,6 +458,11 @@
       }
     }
   }
+  // The synchronous form, for anything that isn't itself sliceable.
+  function paintPolygon(grid, w, h, rings, type, mvtToCell) {
+    const it = paintPolygonSteps(grid, w, h, rings, type, mvtToCell);
+    while (!it.next().done) { /* drain */ }
+  }
   // Visit every cell a polyline covers when stamped as a disk of radius
   // widthCells/2 along Bresenham segments. Used by the terrain paint
   // (paintLine). The road-footprint mask (stampMaskLine below) used to share
@@ -452,7 +470,7 @@
   // the centerline walk can't see a band spilling into a neighbouring cell.
   //
   // Vertices map to the cell that CONTAINS them — floor(), the same rule
-  // snapCell / spawnDebris use, and the same answer paintPolygon's
+  // snapCell / spawnDebrisSteps use, and the same answer paintPolygon's
   // centre-sample gives. It used to be Math.round(), which picks the cell
   // whose top-LEFT corner is nearest the point and so biased every road,
   // path and pier half a cell south-east of the way it was painted from:
@@ -943,6 +961,14 @@
   // weaker than bounding-box coercion: genuine L / T / U buildings with
   // recesses ≥2 cells wide are untouched.
   //
+  // The synchronous form of the above — the exported API, and what the tests
+  // drive, so they exercise the same passes in the same order as the game.
+  function assignBuildingFootprints(polys, mvtToCell, w, h, pad = 0) {
+    const it = assignBuildingFootprintsSteps(polys, mvtToCell, w, h, pad);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
   // `isFree(x, y)` (optional) vetoes an addition — assignBuildingFootprints
   // passes the claim map so tidying can never take a cell that already
   // belongs to a neighbouring building. Omitted → every cell is fair game
@@ -1100,7 +1126,14 @@
   // to `polys`: each entry is that building's [[x, y], …] (possibly empty, and
   // possibly including cells outside [0, w) × [0, h) when pad > 0 — callers
   // paint only the in-bounds ones, exactly as before).
-  function assignBuildingFootprints(polys, mvtToCell, w, h, pad = 0) {
+  // Assign each building poly the cells it owns, IN STEPS.
+  //
+  // The per-building cover scan below walks a poly's whole bounding box calling
+  // cellCoverFraction per cell, and as one call for every building on a tile it
+  // was the single longest block left in a build: a labelled slice profile on a
+  // real 14-layer tile named it at 1.3-1.7 s, which is the walking stutter.
+  // Yields between buildings; the shape of the answer is untouched.
+  function* assignBuildingFootprintsSteps(polys, mvtToCell, w, h, pad = 0) {
     const lo = -pad, hiX = w - 1 + pad, hiY = h - 1 + pad;
     const stride = (hiX - lo + 1);
     const cellIdx = (x, y) => (y - lo) * stride + (x - lo);
@@ -1110,7 +1143,10 @@
     const claimed = (x, y) => owner[cellIdx(x, y)] !== -1;
 
     // Per-building: ring in cell units, candidate covers, tie-break key.
-    const info = polys.map((bp, i) => {
+    const info = [];
+    for (let _pi = 0; _pi < polys.length; _pi++) {
+      if ((_pi & 3) === 3) yield 'building cover scan';
+      const bp = polys[_pi], i = _pi;
       const ring = bp.ring.map(p => ({ x: p.x * mvtToCell, y: p.y * mvtToCell }));
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of ring) {
@@ -1124,8 +1160,8 @@
         const c = cellCoverFraction(ring, x, y);
         if (c > 0) covers.push({ x, y, c });
       }
-      return { i, bp, ring, covers, key: footprintTieKey(ring), cells: [] };
-    });
+      info.push({ i, bp, ring, covers, key: footprintTieKey(ring), cells: [] });
+    }
     // Best cover first; ties by the bigger building, then by geometry key,
     // then by cell — a total order that never consults the input order.
     const byBid = (a, b) => b.c - a.c || b.area - a.area || a.key - b.key
@@ -1144,7 +1180,16 @@
       if (cv.c > FOOT_COVER_MIN) body.push({ x: cv.x, y: cv.y, c: cv.c, i: it.i, area: it.bp.areaM2, key: it.key });
     }
     body.sort(byBid);
-    for (const bid of body) claim(bid);
+    // THE PASSES BELOW YIELD TOO, not just the cover scan above. Chunking the
+    // scan left the four claim passes as one unbroken tail — 212 ms of it on a
+    // 6000-building tile in a headless trace, which is a frozen frame on the
+    // phone the moment a dense tile streams in behind the player. Claim order
+    // is what makes the answer order-independent, so every break here is
+    // strictly a pause: the sequence of claim() calls is untouched.
+    for (let _q = 0; _q < body.length; _q++) {
+      if ((_q & 511) === 511) yield 'footprint body claim';
+      claim(body[_q]);
+    }
 
     // Pass 2 — rectangle bias: inside the bounding box of what pass 1 gave
     // this building, a cell's cover counts FOOT_RECT_BONUS times over. Squares
@@ -1152,7 +1197,9 @@
     // and fills the notches the old tidy pass used to, but can only take cells
     // no other building claimed.
     const fill = [];
+    let _fi = 0;
     for (const it of info) {
+      if (((_fi++) & 63) === 63) yield 'footprint rect bias';
       if (!it.cells.length) continue;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const [x, y] of it.cells) {
@@ -1167,7 +1214,10 @@
       }
     }
     fill.sort(byBid);
-    for (const bid of fill) claim(bid);
+    for (let _q = 0; _q < fill.length; _q++) {
+      if ((_q & 511) === 511) yield 'footprint fill claim';
+      claim(fill[_q]);
+    }
 
     // Pass 3 — one cell each: a building too small (or too awkwardly straddled
     // across four cells) to pass the cover bar anywhere still takes its best
@@ -1187,7 +1237,9 @@
       })
       .filter(o => o.best && o.total >= FOOT_RESCUE_MIN)
       .sort((a, b) => b.best.c - a.best.c || b.it.bp.areaM2 - a.it.bp.areaM2 || a.it.key - b.it.key);
+    let _oi = 0;
     for (const o of orphans) {
+      if (((_oi++) & 63) === 63) yield 'footprint orphan rescue';
       if (claim({ x: o.best.x, y: o.best.y, i: o.it.i })) continue;
       // First choice taken — fall back to the best cell still free.
       let alt = null;
@@ -1211,7 +1263,9 @@
       .filter(it => it.bp.tier === T.BUILDING
                  && it.cells.length > 0 && it.cells.length < FOOT_HOUSE_MIN)
       .sort((a, b) => a.key - b.key);
+    let _gi = 0;
     for (const it of growOrder) {
+      if (((_gi++) & 63) === 63) yield 'footprint house grow';
       const [cx0, cy0] = it.cells[0];
       let sx = 0, sy = 0;
       for (const p of it.ring) { sx += p.x; sy += p.y; }
@@ -1237,7 +1291,9 @@
     // never re-introduce an overlap. Buildings are processed in geometry-key
     // order for the same reason pass 1 is: no dependence on input order.
     const tidyOrder = info.slice().sort((a, b) => a.key - b.key);
+    let _ti = 0;
     for (const it of tidyOrder) {
+      if (((_ti++) & 63) === 63) yield 'footprint tidy';
       if (it.cells.length < 2) continue;
       const before = it.cells;
       const after = tidyFootprintCells(before, it.bp.tier === T.BUILDING,
@@ -1275,7 +1331,132 @@
   // Per-biome wild flora (kinds, densities, RNG salts) now lives in the central
   // BIOME_PROFILES registry (src/biome_profiles.js) — see BiomeProfiles.flora().
 
-  function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+  // How long one slice of a tile build may hold the main thread before it hands
+  // it back. It is a DIAL, not a constant, because the right answer changes:
+  // while the boot overlay is up nobody can tap anything, so slicing finely
+  // buys nothing and costs a frame per slice — measured at roughly half the
+  // build's wall clock. Once the player has the map, responsiveness is the
+  // whole point. app.js turns it down via setSliceBudgetMs when the overlay
+  // goes, which also arms the controller below.
+  const RASTER_SLICE_BOOT_MS = 24;
+  // Once the map is live this is a CEILING, not the cost of a slice — see the
+  // controller below. 12 was the flat live budget until Sept 2026 and it is
+  // what made the first ten seconds of walking stutter end to end: 12 ms of
+  // rasterize plus the game's own 5-9 ms of update and draw is over 16.7, so
+  // EVERY frame missed vsync for as long as the neighbour ring was streaming,
+  // then everything went smooth the moment it finished.
+  const RASTER_SLICE_LIVE_MS = 12;
+  let RASTER_SLICE_MS = RASTER_SLICE_BOOT_MS;
+
+  // ── How long a slice may ACTUALLY hold the thread ────────────────────────
+  // Whatever the frame has left after the game has drawn — a number that
+  // differs by an order of magnitude between a desktop and a five-year-old
+  // phone, and changes minute to minute with how much is on screen, so it is
+  // measured rather than picked.
+  //
+  // WHY OVERRUNNING IS NEVER WORTH IT. A yield costs a whole frame either way
+  // (rAF), so the intuition behind a fat budget is "use the frame you already
+  // paid for". But the frame you paid for is 16.7 ms, and going one
+  // millisecond past it does not cost one millisecond — it costs the next
+  // vsync, the entire 16.7. Slicing at 12 ms on a phone doing 8 ms of game
+  // work delivers 12 ms of tile per 33 ms frame; slicing at 7 delivers 7 per
+  // 16.7. That is the same throughput at twice the frame rate, which is why
+  // this is a fix and not a trade.
+  //
+  // AIMD, borrowed from congestion control and for the same reason: back off
+  // hard on the signal that we overran, creep back up when we did not, and the
+  // budget settles just under whatever the device can actually carry.
+  //
+  // With a plain AIMD it settles by OSCILLATING across the limit — creep up,
+  // miss a frame, back off, creep up — which converged on the right average
+  // and still dropped one frame in six, because every cycle has to overrun to
+  // find the edge again. So it also remembers: a miss records a headroom just
+  // under the budget that caused it, and the creep stops there rather than
+  // walking into the same wall. That headroom then relaxes back toward the
+  // ceiling very slowly (SLICE_PROBE_MS per fitting frame, about one extra
+  // millisecond per second of streaming) so a device that frees up — the
+  // player walks out of a crowded block — is not stuck on an old measurement.
+  // One dropped frame every few seconds instead of every sixth.
+  const SLICE_MIN_MS = 3;
+  // WHAT COUNTS AS A MISSED FRAME is relative, not a fixed millisecond count.
+  // rAF is quantised to the display: frames come back at 16.7, 33.4, 50 … A
+  // phone spending 25 ms a frame on its own work is ALREADY at 33.4 with 8 ms
+  // of idle inside it, and judged against a flat threshold every one of those
+  // frames reads as a miss — pinning the budget at the floor, punishing the
+  // tile build for a frame rate it did not cause and wasting the idle it could
+  // have spent. So the threshold is the smallest frame seen lately — that
+  // quantum — plus a slack.
+  //
+  // The slack is ABSOLUTE, not a percentage. Spilling always costs exactly one
+  // refresh, so the gap to catch is ~16.7 ms wherever the quantum sits; a
+  // percentage that separates 16.7 from 33.4 is far too loose by the time the
+  // quantum is 50 ms and three refreshes deep. 6 ms is under half a 60 Hz
+  // refresh and still clears a 120 Hz one (8.3 → 14.3, catching 16.6).
+  // The learned quantum. min() pulls it down the moment a fast frame proves the
+  // device can do better; it relaxes back up slowly, so it tracks a device that
+  // has genuinely dropped to 30 fps within a couple of seconds without one slow
+  // frame being able to move it.
+  const SLICE_FRAME_SLACK_MS = 6;
+  const SLICE_BASE_RELAX_MS = 0.25;
+  let _sliceBaseMs = 16.7;
+  const SLICE_BACKOFF = 0.7;      // multiplicative decrease, on a missed frame
+  const SLICE_CREEP_MS = 0.5;     // additive increase, on a frame that fitted
+  const SLICE_SAFE_FRAC = 0.9;    // how far under a budget that missed we settle
+  const SLICE_PROBE_MS = 0.02;    // how fast that ceiling relaxes back up
+  let _sliceMs = RASTER_SLICE_BOOT_MS;
+  // The largest budget believed to fit. Infinity = nothing has missed yet, so
+  // the dial itself is the only limit.
+  let _sliceSafeMs = Infinity;
+  // Off during the boot: the overlay is up, nobody can tap anything, and there
+  // is no frame rate worth protecting — a controller would only slow the boot
+  // down. app.js turns it on with the map (setSliceBudgetMs).
+  let _sliceAdapt = false;
+  function setSliceBudgetMs(ms, adapt = true) {
+    RASTER_SLICE_MS = Math.max(4, Math.min(60, +ms || RASTER_SLICE_LIVE_MS));
+    _sliceMs = RASTER_SLICE_MS;
+    _sliceSafeMs = Infinity;
+    _sliceBaseMs = 16.7;
+    _sliceAdapt = !!adapt;
+  }
+  function sliceBudgetMs() { return _sliceMs; }
+  // The frame time above which a slice is judged to have spilled into the next
+  // frame. Exported so a test can drive the controller with a real device model
+  // rather than a copy of this number.
+  function sliceFrameTargetMs() { return _sliceBaseMs + SLICE_FRAME_SLACK_MS; }
+  // `frameMs` is the whole frame the slice took part in: our own hold plus
+  // everything between handing the thread back and getting it again.
+  function noteSliceFrame(frameMs) {
+    if (!_sliceAdapt || !(frameMs > 0)) return _sliceMs;
+    _sliceBaseMs = Math.min(frameMs, _sliceBaseMs + SLICE_BASE_RELAX_MS);
+    const target = sliceFrameTargetMs();
+    if (frameMs > target) {
+      _sliceSafeMs = Math.max(SLICE_MIN_MS, _sliceMs * SLICE_SAFE_FRAC);
+      _sliceMs = Math.max(SLICE_MIN_MS, _sliceMs * SLICE_BACKOFF);
+    } else {
+      // It fitted inside the quantum. (No separate hysteresis band — the
+      // remembered headroom below is what stops this walking into the wall.)
+      if (_sliceSafeMs < RASTER_SLICE_MS) _sliceSafeMs += SLICE_PROBE_MS;
+      _sliceMs = Math.min(RASTER_SLICE_MS, _sliceSafeMs, _sliceMs + SLICE_CREEP_MS);
+    }
+    return _sliceMs;
+  }
+  const _now = () => (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+
+  // Rasterize a tile, in slices. THE WHOLE POINT IS THE `yield`s: a tile build
+  // is ~50k cells through a dozen sequential passes, and as one straight-line
+  // call it was a single 300-800 ms block of the main thread on a desktop —
+  // seconds on a phone — with nine of them at boot. Nothing could interrupt it,
+  // so the app was not slow, it was FROZEN, and no amount of spacing the builds
+  // out could change that. Now it stops between passes and every few dozen
+  // features, and the driver below hands the thread back whenever a slice has
+  // run long enough.
+  //
+  // Yields are only ever at top-level statement positions of this generator —
+  // never inside the arrow functions it defines, where `yield` isn't legal.
+  // Pausing is safe anywhere here: grid/objects/wildplants are function-local
+  // until the return, so nothing else can observe a half-built tile.
+  function* rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
     // Per-cell building ownership: a 1-based, per-tile id stamped only on
@@ -1283,6 +1464,10 @@
     // seam between distinct buildings whose footprints rasterized into one
     // contiguous block of building tiles (otherwise they read as one blob).
     const owners = new Uint16Array(w * h);
+    // ownerId → that footprint's stable key (see the mint below). Sparse array,
+    // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
+    // building it belongs to in two hops and nothing has to search polygons.
+    const ownerKeys = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
     // lossy record of where the roads are: every way rasterizes exactly ONE
     // cell wide whatever its class, and parking aisles are skipped entirely —
@@ -1309,6 +1494,17 @@
     // size and the grid was painted with these, not those.
     const cellWidthM = tileEdgeM / w;
     const objects = [];
+    // The tile's SOURCE building polygons, kept for the polygonal footprint
+    // overlay (building_overlay.js) the way the raw `transportation` lines are
+    // kept for the road overlay. The grid is a lossy record of a building: a
+    // rotated house squares off to the cells it covers most of, an L-shaped
+    // block loses its notch, and two buildings that abut weld into one span of
+    // tier colour. The rings below are what the rasterizer was AIMING at, in
+    // TILE-LOCAL METRES (x,y interleaved), carrying the tier the distribution
+    // pass finally settled on and the ownerKey its footprint was stamped with —
+    // so the overlay draws the same building, at the same tier, in the same
+    // claimed/unclaimed state the tiled paint would have drawn.
+    const buildingShapes = [];
     const wildplants = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
     // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
@@ -1331,12 +1527,23 @@
     // density seed = polygon centroid → stable across reloads.
     // Each debris snaps to the CENTER of its 5m game cell (no jitter), and is keyed
     // by the cell's absolute (cellIX, cellIY) so the same cell is always the same id.
-    function spawnDebris(rings, crop, polyKey, dMin, dMax) {
+    // A GENERATOR, because one call can be the whole tile. The scatter walks a
+    // candidate per cell across the polygon's bounding box and runs
+    // pointInRings on each, and a landcover polygon that covers the tile is
+    // ~114k of those — per flora entry in the biome's profile. Called plainly
+    // it was one unbroken block between the last `polygon fill rows` yield and
+    // the layer's own, measured at 225 ms headless on a whole-tile polygon (so
+    // multiples of that on a phone). Delegated with `yield*` it breaks every
+    // 8 rows, exactly as the polygon fill it follows does. The prng is drawn in
+    // the same order either way, so the scatter is identical.
+    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
       const bb = bboxOf(rings);
       const stepMvt = CELL_M / mvtToM; // one candidate per game-cell-width
+      let _row = 0;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'flora scatter rows';
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
           // Snap to this tile's local cell grid (no absolute-cells drift).
@@ -1365,7 +1572,7 @@
     //                 contiguous and the gaps read as passages.
     //   • interior  (neither coord %3==0)            → never a hedge (open path)
     // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
-    function spawnHedgeMaze(rings, crop, salt) {
+    function* spawnHedgeMazeSteps(rings, crop, salt) {
       const P = 3;                 // lattice period (cells between pillars)
       const WALL_PCT = 30;         // % of wall segments that exist → ~25% fill
       const bb = bboxOf(rings);
@@ -1377,7 +1584,9 @@
         const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
         return (hsh % 100) < WALL_PCT;
       };
+      let _row = 0;
       for (let iy = iy0; iy <= iy1; iy++) {
+        if ((++_row & 7) === 7) yield 'hedge maze rows';
         for (let ix = ix0; ix <= ix1; ix++) {
           // Cell centre in MVT units for the inside-polygon test.
           if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
@@ -1413,7 +1622,7 @@
       my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
     });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
-    // the terrain `grid[]` and wildplants (spawnDebris) already use. Every placed object must share this one grid: structs
+    // the terrain `grid[]` and wildplants (spawnDebrisSteps) already use. Every placed object must share this one grid: structs
     // (trees / rocks / fruit trees / houses) used to snap to a GLOBAL 5 m grid
     // anchored at the world origin, which is offset from this tile-local grid
     // by a sub-cell fraction. That misalignment meant a tree and a wildplant
@@ -1470,6 +1679,7 @@
     // on span deletes it: measured on a 45-degree footpath, 31 of 65 cells were
     // left with no 4-connected neighbour. It sits between two cells the line
     // genuinely runs through, so it is always painted.
+    yield 'path pre-pass';
     const pathCrossAt = (cx, cy, isElbow) => isElbow ||
       (cx >= 0 && cy >= 0 && cx < w && cy < h && pathCross[cy * w + cx] === 1);
 
@@ -1482,7 +1692,12 @@
       // impossible because by the time we knew the counts, the grid was
       // already coloured. So: collect → enforce mins → paint + objectify.
       const buildingPolys = [];
+      // Feature loops are the long pole — a dense tile carries thousands, and
+      // one polygon can paint hundreds of cells. Stop often enough that a slice
+      // stays inside its budget even on the heaviest layer.
+      let _sliceCount = 0;
       for (const f of layer.features) {
+        if ((++_sliceCount & 7) === 0) yield `${name} features`;
         if (f.type === 3) { // polygon
           let t = classifyPolygon(name, f.tags);
 
@@ -1504,9 +1719,9 @@
             // feature tagged with subclass=swimming_pool.
             const subCls = f.tags.class || f.tags.subclass;
             if (subCls === 'swimming_pool' || subCls === 'pool') {
-              paintPolygon(grid, w, h, f.geom, T.WATER, mvtToCell);
+              yield* paintPolygonSteps(grid, w, h, f.geom, T.WATER, mvtToCell);
             } else if (t != null) {
-              paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+              yield* paintPolygonSteps(grid, w, h, f.geom, t, mvtToCell);
             }
 
             // Per-polygon debris/decor share one centroid-derived key
@@ -1569,12 +1784,12 @@
                 // Deterministic clipped-hedge-maze layout (commercial plazas) —
                 // keyed on absolute cell coords so the maze is continuous across
                 // polygons/tiles, not a per-polygon scatter.
-                spawnHedgeMaze(f.geom, fl.crop, fl.salt >>> 0);
+                yield* spawnHedgeMazeSteps(f.geom, fl.crop, fl.salt >>> 0);
               } else if (fl.dynamic) {
                 const density = ((seed % 1000) / 1000) * fl.dMax;
-                if (density > 0) spawnDebris(f.geom, fl.crop, seed, density, density);
+                if (density > 0) yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
               } else {
-                spawnDebris(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
               }
             }
 
@@ -1588,7 +1803,11 @@
                 const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
                 const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
                 const bb = bboxOf(f.geom);
-                const stepMvt = 8 / mvtToM; // ~one candidate per 8m
+                // ~one candidate per 11.3m. Every in-polygon candidate becomes
+                // a tree (there is no thin-out roll), so tree density is set
+                // entirely by this grid pitch: 8m read as twice too dense, and
+                // 8·√2 halves the trees per area.
+                const stepMvt = 11.3 / mvtToM;
                 for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
                   for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
                     const jx = xx + (rng() - 0.5) * stepMvt;
@@ -1717,10 +1936,20 @@
             // pick spreads the boost across all tiers over many clusters. The
             // extra rng() draws happen only when `veinChance` is set, so callers
             // that don't pass it (industrial, ROCK) reproduce their seeds exactly.
-            const _spawnRockClusters = (rng, geom, o) => {
+            // A GENERATOR for the same reason spawnDebrisSteps is one: the
+            // pivot walk covers the polygon's whole bounding box, so one big
+            // residential polygon is a single unbroken block sitting between
+            // two `polygon fill rows` yields (a headless trace over one
+            // measured 228 ms there). Breaking per row of pivots costs the
+            // rng nothing — the draw order is untouched, so world seeds
+            // reproduce exactly.
+            const _spawnRockClustersSteps = function* (rng, geom, o) {
               const bb = bboxOf(geom);
               const veinMul = o.veinMul || 10;
               for (let yy = bb.minY; yy <= bb.maxY; yy += o.pivotStep) {
+                // Every row, not every eighth: the pivot grid is coarse, so a
+                // polygon has few rows and each of them is expensive.
+                yield 'rock cluster rows';
                 for (let xx = bb.minX; xx <= bb.maxX; xx += o.pivotStep) {
                   if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
                   if (rng() > o.fireChance) continue;
@@ -1754,7 +1983,7 @@
             // group of low-tier rocks within ~7 m. Gives the early game a
             // reliable urban source of stone + low-tier ore. ~30 % of clusters
             // are "veins" with one ore/crystal tier concentrated 10× (see the
-            // vein path in _spawnRockClusters) without flooding sidewalks.
+            // vein path in _spawnRockClustersSteps) without flooding sidewalks.
             if (t === T.RESIDENTIAL) {
               const resRng = makeRng((polyKey ^ 0xFA11) >>> 0);
               const pivotStep = 34 / mvtToM;        // one cluster candidate per ~34 m (~5 cells at 7 m/cell; was 24 m when cells were 5 m)
@@ -1771,9 +2000,9 @@
               // road-adjacency filter at a lower rate, so input must overshoot.
               // fireChance 0.585 = 0.45 × 1.3 → 30 % more clusters than before.
               // veinChance 0.30: ~30 % of clusters become a "vein" where one
-              // random tier is 10× more likely (see _spawnRockClusters). Pass
+              // random tier is 10× more likely (see _spawnRockClustersSteps). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
-              _spawnRockClusters(resRng, f.geom, {
+              yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tierW, totalW, residential: true,
                 weights, veinChance: 0.30, veinMul: 10 });
@@ -1795,7 +2024,7 @@
               const { tierW, totalW } = cumWeights(
                 Array.from({ length: 7 }, (_, i) => 1 / Math.pow(1.6, i)));
               // 80 % fire — "lots"; 18..33 rocks per cluster (3× the prior 6..11).
-              _spawnRockClusters(indRng, f.geom, {
+              yield* _spawnRockClustersSteps(indRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.80,
                 clusterMin: 18, clusterSpan: 16, tierW, totalW });
             }
@@ -1813,7 +2042,7 @@
               // _pushMineralrock still routes 70% of picks to cave rock.
               const { tierW, totalW } = cumWeights(
                 Array.from({ length: 7 }, (_, i) => 1 / Math.pow(2, i)));
-              _spawnRockClusters(rockRng, f.geom, {
+              yield* _spawnRockClustersSteps(rockRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.70,
                 clusterMin: 10, clusterSpan: 10, tierW, totalW });
             }
@@ -2016,6 +2245,7 @@
               // A school/mall is often several adjacent building polygons, each of which pushed
               // its own house sprite — removing only the nearest leaves the others on the pad.
               for (let i = objects.length - 1; i >= 0; i--) {
+        if ((i & 255) === 0) yield 'civic building dedupe';
                 const o = objects[i];
                 if (o.kind !== 'house') continue;
                 const ox = Math.floor((o.x - tileOriginMx) / mvtToM * mvtToCell);
@@ -2030,12 +2260,18 @@
               // there: it reads as the building's entrance / sidewalk frontage.
               const ROADISH = new Set([T.PATH, T.ROAD, T.ROAD_MD, T.ROAD_LG]);
               let nearRoad = null, bestRoadD = 60 * 60;
-              for (let dy = -60; dy <= 60; dy++) for (let dx = -60; dx <= 60; dx++) {
-                const ix = cellIX + dx, iy = cellIY + dy;
-                if (ix<0||iy<0||ix>=w||iy>=h) continue;
-                if (!ROADISH.has(grid[iy * w + ix])) continue;
-                const d2 = dx*dx + dy*dy;
-                if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
+              for (let dy = -60; dy <= 60; dy++) {
+                // 121x121 = ~14.6k cells, once per civic POI. Unbroken, that is
+                // one of the longest stretches in a build on a tile with a few
+                // schools or malls on it.
+                if ((dy & 31) === 0) yield 'civic road scan';
+                for (let dx = -60; dx <= 60; dx++) {
+                  const ix = cellIX + dx, iy = cellIY + dy;
+                  if (ix<0||iy<0||ix>=w||iy>=h) continue;
+                  if (!ROADISH.has(grid[iy * w + ix])) continue;
+                  const d2 = dx*dx + dy*dy;
+                  if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
+                }
               }
               let finalIX = cellIX, finalIY = cellIY;
               if (nearRoad) {
@@ -2158,6 +2394,7 @@
       // where needed.
       // Then paint + push house objects (LARGE gets a cement pad with no
       // sprite; everything else gets a 'house' object).
+      yield `${name} features`;
       if (name === 'building' && buildingPolys.length) {
         // Give every building an EXCLUSIVE set of cells before anything is
         // painted. Cells are assigned by how much of them the polygon actually
@@ -2167,15 +2404,19 @@
         // neighbour. Assignment runs with a 3-cell pad past the tile bounds so
         // an edge-clipped building shapes the same in both tiles that draw it;
         // only the in-bounds cells are painted.
-        const footprints = assignBuildingFootprints(buildingPolys, mvtToCell, w, h, 3);
+        yield 'building block start';
+        const footprints = yield* assignBuildingFootprintsSteps(buildingPolys, mvtToCell, w, h, 3);
+        yield 'assignBuildingFootprints';
         // Tier floors are enforced AFTER assignment, over the buildings that
         // actually landed on the tile — a building that got no cell at all
         // mustn't consume the tile's one guaranteed castle/fort slot.
         const _placed = buildingPolys.filter((bp, i) => footprints[i].some(
           ([fx, fy]) => fx >= 0 && fy >= 0 && fx < w && fy < h));
         enforceBuildingDistribution(_placed);
+        yield 'enforceBuildingDistribution';
         let _bOwnerId = 0;
         for (let _bi = 0; _bi < buildingPolys.length; _bi++) {
+          if ((_bi & 15) === 0) yield 'building paint';
           const bp = buildingPolys[_bi];
           // Stamp building ownership over this building's footprint cells with
           // a unique per-tile id. Footprints are disjoint, so a cell has
@@ -2183,12 +2424,39 @@
           // adjacent building cells carry different owners, separating
           // buildings whose footprints abut into one contiguous block.
           const ownerId = (++_bOwnerId) & 0xffff;
+          // Remembered on the poly so the overlay's shape can be resolved to
+          // the same ownerKey after the loop (a house's key is minted further
+          // down, past two `continue`s, so it can't be read here).
+          bp._ownerId = ownerId;
           const fpCells = [];
           for (const [fx, fy] of footprints[_bi]) {
             if (fx < 0 || fy < 0 || fx >= w || fy >= h) continue;
             paintCell(grid, w, h, fx, fy, bp.tier);
             owners[fy * w + fx] = ownerId;
             fpCells.push([fx, fy]);
+          }
+          // A STABLE IDENTITY for this footprint, minted before the sprite
+          // skip below so the tiers that draw no sprite still get one.
+          //
+          // A castle (BUILDING_LARGE) is the reason this exists. It emits no
+          // house object at all — it is a block of tier-12 cells with a
+          // scatter of separate `tower` objects around its rim, one per ~5
+          // perimeter cells, each carrying its own id. So there was nothing in
+          // the data that meant "this castle": anything recorded against a
+          // tower id was recorded against ONE TURRET, and the same castle read
+          // as claimed from one corner and unclaimed from another.
+          //
+          // The key is the footprint's own anchor cell in ABSOLUTE cell
+          // coords, so every cell and every turret of one castle agrees on it
+          // and it survives a tile rebuild. (A footprint split across a tile
+          // seam mints one key per side — the same limitation houses already
+          // have, where the two halves are reconciled by proximity dedup.)
+          if (fpCells.length && bp.tier === T.BUILDING_LARGE) {
+            let kx = 0, ky = 0;
+            for (const [fx, fy] of fpCells) { kx += fx; ky += fy; }
+            const akx = tx * w + Math.round(kx / fpCells.length);
+            const aky = ty * h + Math.round(ky / fpCells.length);
+            ownerKeys[ownerId] = `b_${akx}_${aky}`;
           }
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
@@ -2225,7 +2493,31 @@
           // Synthetic 3-digit street address derived from cell coords. Houses
           // whose address ends in 9 become blacksmiths (~10% of houses).
           const address = (((ix * HASH_MUL_X) ^ (iy * HASH_MUL_Y)) >>> 0) % 1000;
+          // House / fort cells resolve to the house object's own id — the key
+          // save.restoredHouses and save.unlockedForts are stored under — so
+          // "is the building under this cell claimed" is one lookup. (A castle
+          // has no house object at all, so it keys on its footprint instead;
+          // see the BUILDING_LARGE mint above.)
+          ownerKeys[ownerId] = id;
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
+        }
+        yield 'building paint (all footprints)';
+        // Export the SOURCE rings for the polygonal footprint overlay. Done
+        // after the paint loop, not inside it: a house's ownerKey is minted at
+        // the very end of the loop body, so reading it any earlier would hand
+        // the overlay a null key and draw every house as claimed.
+        for (const bp of buildingPolys) {
+          const ring = new Float32Array(bp.ring.length * 2);
+          for (let i = 0; i < bp.ring.length; i++) {
+            ring[i * 2] = bp.ring[i].x * mvtToM;
+            ring[i * 2 + 1] = bp.ring[i].y * mvtToM;
+          }
+          buildingShapes.push({
+            ring,
+            tier: bp.tier,
+            areaM2: bp.areaM2,
+            key: (bp._ownerId && ownerKeys[bp._ownerId]) || null,
+          });
         }
         // Thin merged house icons. When several tiny building polygons abut and
         // rasterize into one continuous block of building tiles, each polygon
@@ -2235,27 +2527,50 @@
         // whose anchor cell is adjacent (Chebyshev ≤ 1, i.e. its footprint
         // touches) an already-kept roof. Separate buildings with a gap between
         // their footprints sit ≥ 2 cells apart and both survive.
+        //
+        // THE ADJACENCY TEST IS A LOOKUP, NOT A SCAN. "Is any kept roof within
+        // Chebyshev 1" is exactly "is one of these nine cells taken", so the
+        // kept anchors live in a Set keyed by cell and each house probes its
+        // own 3x3. The scan it replaces walked every roof kept so far — O(H^2)
+        // on a tile whose houses are mostly spread out (the case where nothing
+        // is dropped, so the list only ever grows), with an array destructure
+        // per step. That loop WAS the boot stutter: it sits between the last
+        // yield of the building block and the next one, so the slicer could
+        // not break it up, and it showed in a device trace as `worst block
+        // 1397ms in after the layer loop` on a tile of a few thousand
+        // buildings — one frozen frame per tile, eight more streaming in
+        // behind the player. Same greedy rule, same survivors, ~O(H).
         const _houseIdx = [];
         for (let k = 0; k < objects.length; k++) if (objects[k].kind === 'house') _houseIdx.push(k);
         _houseIdx.sort((a, b) => (objects[b].area || 0) - (objects[a].area || 0));
-        const _keptHouseCells = [];
+        const _keptHouseCells = new Set();
         const _dropHouse = new Set();
         for (const k of _houseIdx) {
           const o = objects[k];
           const hix = Math.floor(o.x / CELL_M), hiy = Math.floor(o.y / CELL_M);
           let tooClose = false;
-          for (const [kx, ky] of _keptHouseCells) {
-            if (Math.max(Math.abs(kx - hix), Math.abs(ky - hiy)) <= 1) { tooClose = true; break; }
+          for (let dy = -1; dy <= 1 && !tooClose; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (_keptHouseCells.has(`${hix + dx},${hiy + dy}`)) { tooClose = true; break; }
+            }
           }
           if (tooClose) _dropHouse.add(k);
-          else _keptHouseCells.push([hix, hiy]);
+          else _keptHouseCells.add(`${hix},${hiy}`);
         }
+        // One compaction pass, not one splice per drop: splicing from the tail
+        // is still O(drops x objects) of element shuffling, and `objects` is
+        // every scatter item on the tile, not just the roofs. Descending
+        // splices and a keep-filter leave the identical array.
         if (_dropHouse.size) {
-          const _dropArr = [..._dropHouse].sort((a, b) => b - a);
-          for (const k of _dropArr) objects.splice(k, 1);
+          let _w = 0;
+          for (let k = 0; k < objects.length; k++) {
+            if (!_dropHouse.has(k)) objects[_w++] = objects[k];
+          }
+          objects.length = _w;
         }
       }
     }
+    yield 'after the layer loop';
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -2264,6 +2579,7 @@
     // the interior test sees the final grid, and before the road-label /
     // path-stone passes so no glyph or stone lands on a dissolved cell.
     erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
+    yield 'pavement erosion';
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -2347,12 +2663,15 @@
         }
         return false;
       };
-      for (let i = objects.length - 1; i >= 0; i--) {
-        const o = objects[i];
-        if (_mrSkipKind(o.kind)) continue;
+      // Does this object have to go? Every test below reads the FINAL grid,
+      // the road mask and the POI snapshot taken above — never the array it is
+      // walking — so the verdict for one object is independent of every other,
+      // which is what lets the sweep compact instead of splice.
+      const _mrDrop = (o) => {
+        if (_mrSkipKind(o.kind)) return false;
         const ix = Math.floor((o.x - tileOriginMx) / cellWidthM);
         const iy = Math.floor((o.y - tileOriginMy) / cellWidthM);
-        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;   // off-tile objects belong to a neighbour pass
+        if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
         const here = grid[iy * w + ix];
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
@@ -2360,7 +2679,7 @@
         // (the player taps the building floor to activate it). House/tower
         // sprites ARE the building and were already skipped via _mrSkipKind.
         if (o.kind !== 'chest') {
-          if (_onRoadOrBuilding(here, ix, iy)) { objects.splice(i, 1); continue; }
+          if (_onRoadOrBuilding(here, ix, iy)) return true;
           // One-cell building moat for ground scatter — anything closer sits
           // visually inside the house/tower sprite's overhang. Trees are
           // EXEMPT: yard trees genuinely grow against house walls (and the
@@ -2368,17 +2687,17 @@
           // player's own house), and a tall canopy beside a wall reads
           // naturally where a rock on the foundation reads as junk.
           const _mrIsTree = o.kind === 'tree' || o.kind === 'fruittree';
-          if (!_mrIsTree && _mrNearBuilding(ix, iy)) { objects.splice(i, 1); continue; }
+          if (!_mrIsTree && _mrNearBuilding(ix, iy)) return true;
           // Synthesized concrete POI pads (hospital cross / school pyramid)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock
           // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
           // spawn gate below. Nothing but the chest belongs on its plaza.
-          if (poiPadCells.has(iy * w + ix)) { objects.splice(i, 1); continue; }
+          if (poiPadCells.has(iy * w + ix)) return true;
           // Keep the chest's one-cell frontage clear too.
-          if (_mrNearPoi(ix, iy)) { objects.splice(i, 1); continue; }
+          if (_mrNearPoi(ix, iy)) return true;
         }
         if (o.kind === 'mineralrock') {
-          if (_mrIsBlocked(ix, iy)) { objects.splice(i, 1); continue; }
+          if (_mrIsBlocked(ix, iy)) return true;
           // A rock whose FINAL cell turned out to be residential must pass the
           // same shared spawn rule as every other object (isSpawnCell: near a
           // road/path, a detectable public area, or a POI) — otherwise it'd
@@ -2387,37 +2706,61 @@
           // cluster can drop a rock that ends up on a residential cell after
           // the grid is fully painted. The _residential flag is preserved for
           // telemetry but no longer drives the check.
-          if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) {
-            objects.splice(i, 1); continue;
-          }
+          if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
           delete o._residential;
-          continue;
+          return false;
         }
         // Every OTHER object that landed on a residential cell must pass the
         // shared spawn rule (isSpawnCell): near a road/path, a detectable
         // public area, or a POI — otherwise it'd bait the player into someone's
         // back yard. Forts, castles, houses and towers are already exempt above.
-        if (here === T.RESIDENTIAL) {
-          if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) { objects.splice(i, 1); continue; }
-        }
+        if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
+        return false;
+      };
+      // COMPACTED IN PLACE, not spliced — the same change the wildplant sweep
+      // below already carries, and for the same reason. This was a reverse walk
+      // calling objects.splice(i, 1) on every rejection, and a splice rewrites
+      // the whole tail: a tile whose scatter is mostly culled (a big residential
+      // polygon is exactly that — every rock away from a road goes) ran
+      // quadratic, and a headless trace over one measured 5.6 s in this single
+      // loop. Writing the survivors forward and truncating once is the same
+      // answer, in O(n), and keeps their order.
+      let objKeep = 0;
+      for (let i = 0; i < objects.length; i++) {
+        if ((i & 63) === 0) yield 'mineralrock object sweep';
+        const o = objects[i];
+        if (!_mrDrop(o)) objects[objKeep++] = o;
       }
+      objects.length = objKeep;
       // Same shared rule for the parallel `wildplants` list — any wild pickup
       // that ended up on a residential cell must pass isSpawnCell. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
-      for (let i = wildplants.length - 1; i >= 0; i--) {
+      // COMPACTED IN PLACE, not spliced. This was a reverse walk calling
+      // wildplants.splice(i, 1) on every rejection, and a splice rewrites the
+      // whole tail — so a tile with thousands of wild plants and a lot of
+      // rejections ran quadratic. Measured with the labelled slice profiler at
+      // 337 ms in this one loop, the longest unbroken block in a tile build and
+      // the thing the live profiler blamed for every walking stutter. Writing
+      // the survivors forward and truncating once is the same answer in O(n).
+      let wpKeep = 0;
+      for (let i = 0; i < wildplants.length; i++) {
+        if ((i & 63) === 0) yield 'mineralrock wildplant sweep';
         const wp = wildplants[i];
         const ix = Math.floor((wp.x - tileOriginMx) / cellWidthM);
         const iy = Math.floor((wp.y - tileOriginMy) / cellWidthM);
-        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
-        const wtc = grid[iy * w + ix];
-        if (_onRoadOrBuilding(wtc, ix, iy)) { wildplants.splice(i, 1); continue; }
-        // Concrete POI pads stay bare — a shrub/marigold that survived the
-        // biome filter (rocky-family crops) still doesn't belong on the plaza.
-        if (poiPadCells.has(iy * w + ix)) { wildplants.splice(i, 1); continue; }
-        if (wtc !== T.RESIDENTIAL) continue;
-        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
+        let drop = false;
+        if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
+          const wtc = grid[iy * w + ix];
+          // Concrete POI pads stay bare — a shrub/marigold that survived the
+          // biome filter (rocky-family crops) still doesn't belong on the plaza.
+          if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
+          else if (poiPadCells.has(iy * w + ix)) drop = true;
+          else if (wtc === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) drop = true;
+        }
+        if (!drop) wildplants[wpKeep++] = wp;
       }
+      wildplants.length = wpKeep;
       // Parking-treasure X marks live in a third array (parkingTreasures) and
       // are missed by both filters above. They used to be checked ONLY for the
       // residential-yard rule, so an X on a road cell — or on water, or inside
@@ -2442,16 +2785,20 @@
       }
     }
 
+    yield 'mineralrock cleanup';
     // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a
     // residential polygon may have had debris dropped into a cell that later
     // became road, OR a park polygon's shrubs may have ended up under a
     // residential overpaint. The biome-appropriateness test lives in the central
     // BIOME_PROFILES registry now (BiomeProfiles.allows — a crop survives on any
     // cell whose family grows it); the wildplant filter below calls it directly.
+    yield 'wildplant biome filter';
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
     // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
     // cell coord so towers stay aligned across tile boundaries.
+    const _flagged = new Set();
     for (let iy = 0; iy < h; iy++) {
+      if ((iy & 31) === 0) yield 'tower scan rows';
       for (let ix = 0; ix < w; ix++) {
         if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
         // Perimeter test: at least one 4-neighbor is not BUILDING_LARGE (or off-tile).
@@ -2465,10 +2812,19 @@
         const absX = tx * w + ix, absY = ty * w + iy;
         if (((absX + absY * 13) % 5 + 5) % 5 !== 0) continue;
         const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
-        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}` });
+        // Which castle this turret belongs to, and whether it is the one that
+        // flies the flag. A castle has several turrets but is one place, so
+        // exactly one of them — the first the scan reaches, which is stable
+        // because the scan order is — carries anything drawn once per castle.
+        const castle = ownerKeys[owners[iy * w + ix]] || null;
+        const flagPost = !!castle && !_flagged.has(castle);
+        if (flagPost) _flagged.add(castle);
+        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}`,
+          castle, flagPost });
       }
     }
 
+    yield 'castle towers';
     // Unified occupancy pass — at most one object per cell.
     // Strict priority: chest > house > tree > wildplant.
     // The first one to claim a cell wins; everything else in that cell is
@@ -2499,6 +2855,7 @@
       return String(a.id ?? '').localeCompare(String(b.id ?? ''));
     });
     const keptStructs = [];
+    yield 'structure sort';
     for (const o of structs) {
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
@@ -2518,6 +2875,7 @@
     //    kept wildplant as `_biome` so the renderer can apply the biome's flora
     //    tint (e.g. golden field grass, swampy reeds).
     const filtered = [];
+    yield 'structure cells';
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
@@ -2535,6 +2893,7 @@
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
     for (const o of otherKinds)  objects.push(o);
+    yield 'occupancy pass';
     // Road-name labels: walk each transportation_name line at ~1 cell per step
     // and drop ONE compact whole-word label (the name's first word) every
     // LABEL_PERIOD road cells, rotated to the local road direction. This
@@ -2697,7 +3056,54 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes };
+  }
+
+  // Run the whole build now, in one go. The shipping contract for callers that
+  // cannot await — and what the tests drive, so they exercise the same passes
+  // in the same order as the game.
+  function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+    const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
+
+  // Run it in slices, giving the browser a painted frame whenever a slice has
+  // held the thread for its slice budget. Same passes, same result — only the
+  // wall-clock shape differs.
+  let _lastRasterSlices = 0;
+  let _lastRasterWorstMs = 0;
+  let _lastRasterWorstAt = '';
+  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+    const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
+    let started = _now();
+    let slices = 1, worst = 0, worstAt = '';
+    for (;;) {
+      const r = it.next();
+      if (r.done) {
+        _lastRasterSlices = slices;
+        _lastRasterWorstMs = Math.round(worst);
+        _lastRasterWorstAt = worstAt;
+        return r.value;
+      }
+      // The WORST unbroken stretch, which is the number that matters: the
+      // budget can only be honoured at a yield, so a single helper call or one
+      // huge polygon between two yields blocks for as long as it takes however
+      // short the budget is. If a profile shows a worst block far above the
+      // budget, THAT is the thing left to chunk.
+      const held = _now() - started;
+      if (held > worst) { worst = held; worstAt = r.value || 'unlabelled'; }
+      if (held >= _sliceMs) {
+        const handedBack = _now();
+        await _yieldToPaint();
+        const back = _now();
+        // Our hold plus the rest of the frame: what the player actually felt.
+        noteSliceFrame(held + (back - handedBack));
+        started = back;
+        slices++;
+      }
+    }
   }
 
   function tileEdgeMeters(lat) {
@@ -2706,6 +3112,41 @@
   }
   function cellsPerEdgeForLat(lat) {
     return Math.round(tileEdgeMeters(lat) / CELL_M);
+  }
+
+  // Tile builds decode + rasterize on the MAIN thread (no worker), and each
+  // phase is tens of ms on a slow phone. Left alone, the whole build ran as
+  // ONE synchronous chunk the moment its fetch resolved — and several fetches
+  // resolving close together stacked their builds into a single frame, which
+  // is the "hitch walking into a new area". This gate serializes the heavy
+  // phases across all in-flight tiles and yields to the event loop before
+  // each one, so at most one heavy chunk runs per turn and input/render
+  // frames get a look-in between them. FIFO through a shared chain; a throw
+  // in one phase must not wedge the chain for the next (hence the swallow).
+  let _heavyChain = Promise.resolve();
+  // Yield long enough for the browser to actually PAINT before the next heavy
+  // chunk. setTimeout(0) alone only guarantees another macrotask, and a
+  // macrotask is not a frame: with nine tiles queued the chain ran chunk,
+  // timeout, chunk, timeout — every one of them 300-800 ms of rasterize — and
+  // the display never updated between them, so a five-second build read as a
+  // frozen app rather than a loading one. rAF fires BEFORE the paint and the
+  // timeout inside it resolves after, so exactly one frame is on screen (and
+  // one round of input handled) between consecutive chunks.
+  // ONE frame per yield, not two. This used to resolve from a setTimeout NESTED
+  // inside the rAF, which costs a whole extra turn of the event loop: measured
+  // on an iPhone, a 55-slice tile build spent 2.44 s of wall clock on about
+  // 1.2 s of work, because each yield was ~36 ms of waiting. rAF alone still
+  // gets a paint (it fires as the frame is being prepared) at half the price.
+  const _yieldToPaint = () => new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+  function runHeavyPhase(fn) {
+    const run = _heavyChain
+      .then(_yieldToPaint)
+      .then(fn);
+    _heavyChain = run.then(() => {}, () => {});
+    return run;
   }
 
   // opts.detached — build a tile entry WITHOUT touching the shared cache (no
@@ -2744,9 +3185,22 @@
     const tileEdgeM = tileEdgeMeters(lat);
     entry.tileEdgeM = tileEdgeM;
     entry.promise = (async () => {
+      const _bp = (typeof window !== 'undefined' && window.__boot) || null;
+      const _endFetch = _bp && _bp.begin(`tile ${key} fetch`);
       const { bytes, fromCache } = await fetchTileBytes(x, y);
-      const layers = MVT.decodeTile(bytes);
-      const { grid, owners, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM);
+      if (_endFetch) _endFetch(fromCache ? 'from cache' : 'from network');
+      // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
+      // the two heaviest chunks of a tile build each get their own slice, and
+      // the spawn/dedup post-passes below ride the rasterize turn.
+      const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
+      const layers = await runHeavyPhase(() =>
+        (MVT.decodeTileSliced ? MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs)
+                              : MVT.decodeTile(bytes)));
+      if (_endDecode) _endDecode(`${layers.length} layers`);
+      const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
+        `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -2789,6 +3243,7 @@
       }
       entry.grid = grid;
       entry.owners = owners;
+      entry.ownerKeys = ownerKeys;
       entry.objects = filteredObjects;
       entry.depth = 0;
       // Concrete POI pad cells (grid indices) — consumed by the cave-entrance
@@ -2799,6 +3254,9 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // Source building polygons (tile-local metres) for building_overlay.js —
+      // the polygonal counterpart of entry.layers' road linework.
+      entry.buildingShapes = buildingShapes || [];
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
@@ -3130,6 +3588,19 @@
           if (dupe) continue;
           entry.parkingTreasures.push(pk);
         }
+      }
+
+      // The decoded layers stay on the entry for two consumers only: the road
+      // overlay re-strokes `transportation` line geometry on each rebuild, and
+      // the tile-debug dump reads layer/feature NAMES, types and tags — never
+      // geometry. Vertex lists are the bulk of a decoded tile (every point is
+      // a heap object; landcover/building polygons carry thousands), so with
+      // 64 tiles LRU-cached, dropping the geom nothing will read again saves
+      // tens of MB on a long session — real GC/memory pressure on old phones.
+      // Rasterization is fully done by here, so nothing downstream misses it.
+      for (const l of layers) {
+        if (l.name === 'transportation') continue;
+        for (const f of (l.features || [])) f.geom = null;
       }
 
       entry.status = 'ready';
@@ -3865,7 +4336,7 @@
   // via caveRockP, so plain stone is always the majority and ore grows with
   // depth. Some clusters are VEIN ZONES — one ore/crystal tier is concentrated
   // 10× for that cluster only — the same trick the surface residential clusters
-  // use (see _spawnRockClusters). Rocks land only on CAVE_FLOOR cells, never on
+  // use (see _spawnRockClustersSteps). Rocks land only on CAVE_FLOOR cells, never on
   // a staircase cell (`occupied`). Deterministic per tile+depth.
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
@@ -4007,6 +4478,30 @@
     }
   }
 
+  // Same contract as forEachItem, but restricted to the 3×3 tile
+  // neighbourhood around (tx, ty). The tile cache grows unboundedly as the
+  // player walks (capped at MAX_CACHED_TILES entries, but that is still tens of
+  // thousands of items), so every PER-FRAME consumer that only cares about
+  // things near the player must use this instead — a tile edge is hundreds of
+  // cells, so one ring of tiles comfortably covers any on-screen/near-player
+  // radius. drawObjects in render.js learned this the hard way (its comment
+  // records the random hangs the all-tiles scan caused); the creature sim
+  // loops in app.js were the same bug and now go through here.
+  function forEachItemNear(prop, tx, ty, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = tileCache.get(tileKey(tx + dtx, ty + dty));
+        if (!entry) continue;
+        const arr = entry[prop];
+        if (!arr) continue;
+        for (const item of arr) {
+          const r = fn(item, entry);
+          if (r) return r;
+        }
+      }
+    }
+  }
+
   // Specialty shop type for small houses, derived from the synthetic street
   // address. Forts (BUILDING_MED) and civic slabs are excluded — only the
   // small residential tier gets address-based specialties.
@@ -4014,10 +4509,17 @@
   // shops.js; the only thing worldgen owns here is the address field itself.
 
   global.WorldGen = {
-    Z, CELL_M, TILE_PX, T, TILE_URL,
+    Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
+    // The step generator itself, so the block audit
+    // (test/node/tile_build_blocks.test.js) can time the build one step at
+    // a time — the only way to see the thing that actually stutters, which
+    // is not the total but the longest stretch between two yields.
+    rasterizeTileSteps,
+    setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
+    RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).

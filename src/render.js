@@ -56,6 +56,44 @@ const Render = {};
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
+// Pseudo-3D extrusion: a building footprint is the "top surface", and its
+// south-facing edge gets a darker wall projected downward onto the row below.
+// Wall face = 40% brightness of the footprint colour (60% darker) — deep
+// shadow under the lit top surface, but with enough hue to read as the
+// building's own material rather than a generic dark stripe. Houses get a 4px
+// wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
+// footprint scale.
+//
+// Module scope, and exported on Render, because the TILED pass below is not
+// the only thing that draws this wall: building_overlay.js extrudes the source
+// POLYGON with the same colours at the same depths, and a wall that changed
+// height when the footprint stopped being square would give the two modes
+// different silhouettes for the same building.
+const BUILDING_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
+const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+// Building tiers, as a predicate. Module scope for the same reason: the base
+// terrain fill needs it too, several hundred lines before the outline pass
+// that used to own it.
+const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
+Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
+Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+// The dashed cell grid: a hairline black at 8%, 4 on / 4 off. Faint on
+// purpose — it says "the world is on a lattice" without competing with
+// anything drawn on it. Shared, because the grid is drawn in TWO places: the
+// gridGfx pass below lays it over the ground, and building_overlay.js lays the
+// same lattice over each polygon footprint (the tiled floors got it for free,
+// sitting a layer under gridContainer; a polygon in a layer above it would
+// otherwise wipe the grid out wherever a building stands).
+const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
+Render.GRID_LINE = GRID_LINE;
+// Is the POLYGONAL building mode on? When it is, building cells paint as the
+// GROUND around them here and every piece of tiled building art below is
+// skipped — the footprints are drawn from their source rings by
+// building_overlay.js instead. Resolved per pass (the flag is a runtime toggle,
+// so a frame has to be able to change its mind) and false whenever that module
+// isn't loaded, which is what keeps the tiled path the default everywhere else.
+const polyBuildings = () =>
+  typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
 // Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
 // the places are, not a call to action, and anything brisk turns a street of
 // POIs into a strobe.
@@ -79,6 +117,11 @@ const POI_PAD_MINI_SCALE = 0.55;
 // always draw regardless of this roll — see the `active` check below — so
 // thinning this out never hides the player's actual progress.
 const PATH_STONE_DENSITY_PCT = 50;
+// Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
+// cluster on every cell, which read as a continuously paved surface; at 15%
+// (an 85% cut) the clusters become occasional patches and the road band's own
+// paint carries the "this is a road" read instead.
+const ROAD_COBBLE_DENSITY_PCT = 15;
 // A freshly claimed path stone gets a brief scale-pop instead of silently
 // jumping to full opacity next frame, so claiming reads as an event. 450ms
 // played and decayed almost before the eye caught it, so it's slower now —
@@ -120,6 +163,37 @@ function setTextureIfDifferent(s, key) {
   if (s.texture.key === key) return false;
   s.setTexture(key);
   return true;
+}
+
+// Change-guarded Text style setters. Phaser guards setText / setFontSize /
+// setStroke against no-op values, but setColor, setBackgroundColor, setShadow
+// and setPadding are UNguarded: each call unconditionally re-measures, redraws
+// the label's backing canvas and re-uploads it as a GPU texture. The label
+// passes below run per visible label per frame, so on a dense block the
+// unguarded setters were dozens of full text rasterizations + texture uploads
+// every frame — a large slice of the walking jitter. These wrappers stamp the
+// last-applied value on the (pooled, reused) Text object and only touch the
+// real setter on change. `key` for the multi-arg setters is any string that
+// uniquely encodes the full argument tuple at that call site.
+function setColorOnce(tx, color) {
+  if (tx._lastInk === color) return;
+  tx._lastInk = color;
+  tx.setColor(color);
+}
+function setBgColorOnce(tx, color) {
+  if (tx._lastBg === color) return;
+  tx._lastBg = color;
+  tx.setBackgroundColor(color);
+}
+function setShadowOnce(tx, key, x, y, color, blur, shadowStroke, shadowFill) {
+  if (tx._lastShadow === key) return;
+  tx._lastShadow = key;
+  tx.setShadow(x, y, color, blur, shadowStroke, shadowFill);
+}
+function setPaddingOnce(tx, key, left, top) {
+  if (tx._lastPad === key) return;
+  tx._lastPad = key;
+  tx.setPadding(left, top);
 }
 
 // Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
@@ -447,6 +521,59 @@ if (typeof window !== 'undefined') {
 // read, so carrying them between frames is safe.
 let _ringTypes  = null;
 let _ringOwners = null;
+let _ringUnclaimed = null;
+// Flat [sx, sy, southFaceDepth] triples for the unclaimed-building wash. Reused
+// every frame — the pass runs for every visible building cell, and a fresh
+// array per frame is garbage the render loop can't afford. CASTLES ARE NOT IN
+// HERE: their unclaimed look is baked into the stone they're drawn with, so a
+// tier-12 cell never reaches the wash.
+const _washCells = [];
+// The shade an unclaimed building takes: 35% of the way to dark green, then a
+// murk over the top of it — a cold near-black at low alpha, the same idea as
+// the fog-of-war wash (FOG_COLOR at FOG_ALPHA) but a fraction of the strength.
+// The green alone said "not yours" and read as a colour choice; the murk says
+// "unlit, nobody home", which is the thing being communicated. Two passes
+// rather than one darker green because they do different jobs — the green
+// carries the meaning, the murk carries the mood, and either can be tuned
+// without disturbing the other.
+//
+// The numbers live in textures.js (UNCLAIMED_SHADE) because a CASTLE doesn't
+// take this wash at all any more — its stone, turret and court floor are BAKED
+// in a second palette put through the same transform. Read from there so the
+// painted houses and the baked castles can't drift apart. The literals are the
+// headless fallback: render.js loads in the node suite, textures.js can't.
+const _USH = (typeof UNCLAIMED_SHADE !== 'undefined') ? UNCLAIMED_SHADE : null;
+const UNCLAIMED_WASH = _USH ? _USH.wash : 0x1e3b24;
+const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.5;
+const UNCLAIMED_MURK = _USH ? _USH.murk : 0x05070c;
+const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.12;
+// White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
+// lands a sprite roughly where the wash lands the ground under it.
+const UNCLAIMED_SPRITE_TINT = (() => {
+  const lerp = (a, b, t) => a * (1 - t) + b * t;
+  const ch = (sh) => {
+    const washed = lerp(255, (UNCLAIMED_WASH >> sh) & 255, UNCLAIMED_WASH_A);
+    return Math.round(lerp(washed, (UNCLAIMED_MURK >> sh) & 255, UNCLAIMED_MURK_A));
+  };
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+})();
+// unclaimedShade() is a dozen float ops and the court-floor colour resolution
+// below asks for it up to five times per castle cell per frame (the fill, the
+// four border comparisons). There are six colours in the whole game that ever
+// reach it, so memoise.
+const _shadeMemo = new Map();
+const _shadeOnce = (n) => {
+  if (typeof unclaimedShade !== 'function') return n;
+  let v = _shadeMemo.get(n);
+  if (v === undefined) { v = unclaimedShade(n); _shadeMemo.set(n, v); }
+  return v;
+};
+// Compose two multiply tints, channel by channel — so an unclaimed shop keeps
+// its role colour AND takes the wash, instead of one replacing the other.
+const _mulTints = (a, b) => {
+  const ch = (sh) => Math.round((((a >> sh) & 255) * ((b >> sh) & 255)) / 255);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
 // Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
 // tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
 // the survey-line shimmer — the tile-loading indicator); values in between =
@@ -576,6 +703,9 @@ function drawAtmosRim(scene, haze) {
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  // One read per pass — every building-art decision below asks it, and a
+  // toggle flipping mid-pass would draw half a building.
+  const POLY = polyBuildings();
   const gb2 = scene.borderGfx;
   // Castle ramparts split across TWO layers so towers (objectsContainer) sort
   // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
@@ -600,6 +730,22 @@ Render.drawCells = function drawCells(scene) {
   // drift relative to the rendered cell positions.
   const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
   const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  // Planted entries near the viewport, filtered ONCE per pass. The tilled-cell
+  // loop below matches each visible tilled cell against save.planted (watered
+  // tint + the orphaned-soil self-heal); scanning the whole planted list per
+  // cell made that O(visible-tilled × every-crop-ever-planted). The filter
+  // keeps every entry that could possibly match an on-screen cell (±0.1 m
+  // tolerance, so a one-cell margin is plenty) and the per-cell tests below
+  // are unchanged.
+  const _plantedNear = [];
+  if (scene.save.planted && scene.save.planted.length) {
+    const _pcx = scene.startWorldM.x + scene.playerM.x;
+    const _pcy = scene.startWorldM.y + scene.playerM.y;
+    const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
+    for (const pp of scene.save.planted) {
+      if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
+    }
+  }
   // Border layer: only redraw geometry when the camera crosses a cell boundary.
   // Between crossings scroll the container for sub-cell fractional movement.
   // This keeps the Graphics object's draw-command list stable across frames,
@@ -647,9 +793,26 @@ Render.drawCells = function drawCells(scene) {
     // local id in different tiles never read as "the same building".
     _ringOwners = new Int32Array(RING * RING);
     _ringVeil   = new Float32Array(RING * RING);
+    // Parallel ring of "this building cell belongs to somebody else". 1 =
+    // unclaimed, and gets the dark-green wash below.
+    _ringUnclaimed = new Uint8Array(RING * RING);
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
+  const unclaimed = _ringUnclaimed;
+  // Per-frame memo of ownerKey -> claimed, so a 30-cell footprint asks the save
+  // once instead of 30 times. Cleared each frame because a claim can land
+  // mid-session (restoring a wreck, unsealing a fort, taking a castle).
+  const _claimMemo = new Map();
+  const _claimedKey = (k) => {
+    if (!k) return true;                       // no key = nothing to own
+    let v = _claimMemo.get(k);
+    if (v === undefined) {
+      v = scene.isClaimedKey ? scene.isClaimedKey(k) : true;
+      _claimMemo.set(k, v);
+    }
+    return v;
+  };
   // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
   // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
   // resolve to the same one. Hold the last tile (and its salt, which depends
@@ -688,6 +851,8 @@ Render.drawCells = function drawCells(scene) {
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
+      unclaimed[r * RING + c] =
+        (ol && e2.ownerKeys && !_claimedKey(e2.ownerKeys[ol])) ? 1 : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
@@ -695,6 +860,21 @@ Render.drawCells = function drawCells(scene) {
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
+  const UNCLAIMED = (c, r) => unclaimed[(r + 2) * RING + (c + 2)] === 1;
+  // An unclaimed castle's COURT is painted in the shaded colour, so every place
+  // that resolves a cell's painted colour has to agree: the fill, the rounded
+  // corners' diagonal fills, and the wavy-border test that asks whether two
+  // cells differ. Disagreeing put a border between every pair of unclaimed
+  // court cells — the whole castle floor came out gridded.
+  const courtShaded = (t, colour, c, r) =>
+    (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : colour;
+  // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
+  // test has to look THROUGH to the zone underneath. Road and path cells are
+  // painted the majority biome around them; in polygonal mode a building cell
+  // is too (see the base fill below), so the wavy biome borders and the
+  // rounded-corner fills have to resolve it the same way or a building would
+  // be ringed by a seam against the ground it was just painted to match.
+  const lookThrough = (t) => isRoad(t) || t === PATH || (POLY && isBuildingType(t));
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -726,10 +906,31 @@ Render.drawCells = function drawCells(scene) {
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
       // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
-      if (isRoad(type) || type === PATH) {
+      // An unclaimed castle's COURT is shaded with its stone. The cobble
+      // overlay baked over this fill (drawCastleFloorTex) is pure alpha, so
+      // recolouring the fill recolours the paving with it — no second texture
+      // family, and the floor can't end up lit under shaded walls.
+      if (type === 12 && UNCLAIMED(col, row)) color = _shadeOnce(color);
+      // In POLYGONAL mode a building cell is not a floor — the floor is drawn
+      // from the source ring by building_overlay.js — so the cell paints as
+      // the GROUND the building stands on, exactly the way a road cell
+      // inherits the zone it crosses. Same helper, one sample: the mode of the
+      // surrounding non-road, non-building cells. `polyGround` carries the
+      // inherited TYPE down to the texture pass below so the cell wears that
+      // zone's material too; -1 = paint normally. When nothing but building
+      // sits within the sample (deep inside a big footprint) it stays -1 and
+      // the tier colour shows through — which is under the polygon anyway.
+      let polyGround = -1;
+      const polyB = POLY && isBuildingType(type);
+      if (isRoad(type) || type === PATH || polyB) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
-        color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+        if (polyB) {
+          const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
+          if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
+        } else {
+          color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+        }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
 
@@ -765,9 +966,9 @@ Render.drawCells = function drawCells(scene) {
         if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        const cornerColor = (t, dnx, dny) => roadish(t)
+        const cornerColor = (t, dnx, dny) => lookThrough(t)
           ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
-          : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+          : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
         if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
         if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
@@ -805,7 +1006,8 @@ Render.drawCells = function drawCells(scene) {
         // The neighbour's PAINTED colour, which both the needs-a-border test
         // and the blend ramp want — resolved once per side rather than twice.
         const nbrColorOf = (t, dnx, dny) =>
-          (isRoad(t) || t === PATH) ? nbrInferred(dnx, dny) : (COLORS[t] ?? GRASS_FALLBACK_COLOR);
+          lookThrough(t) ? nbrInferred(dnx, dny)
+            : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         const cN = nbrColorOf(tN,  0, -1);
         const cS = nbrColorOf(tS,  0, +1);
         const cW = nbrColorOf(tW, -1,  0);
@@ -911,7 +1113,7 @@ Render.drawCells = function drawCells(scene) {
       }
       if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
-        const hasPlant = scene.save.planted.some(pp =>
+        const hasPlant = _plantedNear.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
         if (!hasPlant) {
           scene.tilledSet.delete(tilledKey);
@@ -923,7 +1125,7 @@ Render.drawCells = function drawCells(scene) {
       let isWatered = false;
       if (isTilled) {
         const c = absCellCenterMeters(scene, absCellIX, absCellIY);
-        for (const pp of scene.save.planted) {
+        for (const pp of _plantedNear) {
           if (pp.watered_t && Math.abs(pp.x - c.x) < 0.1 && Math.abs(pp.y - c.y) < 0.1) {
             isWatered = true; break;
           }
@@ -959,7 +1161,11 @@ Render.drawCells = function drawCells(scene) {
           // back to the path's own base if there's no record or the under-biome
           // has no texture (e.g. commercial/industrial concrete pads).
           let baseType = type;
-          if (type === PATH) {
+          // Polygonal mode: the building cell wears the inherited zone's
+          // texture (see polyGround above), so nothing under the polygon reads
+          // as a floor.
+          if (polyGround >= 0) baseType = polyGround;
+          else if (type === PATH) {
             const N = scene.cellsPerTile;
             const txp = Math.floor(absCellIX / N);
             const typ = Math.floor(absCellIY / N);
@@ -1074,6 +1280,11 @@ Render.drawCells = function drawCells(scene) {
         if (showStone && type === PATH) {
           const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
           showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+        } else if (showStone && isRoad(type)) {
+          // Same stable per-cell hash trick as PATH above, gated by the road
+          // density (ROAD_COBBLE_DENSITY_PCT) — purely decorative thinning.
+          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
+          showStone = (sh % 100) < ROAD_COBBLE_DENSITY_PCT;
         }
         if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
@@ -1136,7 +1347,7 @@ Render.drawCells = function drawCells(scene) {
   // Building outline pass — runs AFTER all cells are filled so a neighbour
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
-  const isB = (t) => t === 9 || t === 11 || t === 12;
+  const isB = isBuildingType;
   // Two building cells belong to DIFFERENT buildings when both are owned, sit in
   // the same tile (matching salt in the high bits), and carry different local
   // ids. Across a tile seam we can't compare local ids reliably, so we treat the
@@ -1171,23 +1382,37 @@ Render.drawCells = function drawCells(scene) {
     if (nb === T(col, row) && (dc === -1 || dr === -1)) return false;   // partner already drew it
     return true;
   };
-  // Pseudo-3D extrusion: building footprints are the "top surface", and the
-  // south-facing edge of each building cell gets a 5px-tall darker wall projected
-  // downward, painted on top of the row below. Other edges get a thin black tint
-  // to keep the silhouette crisp.
-  // Wall face = 40% brightness of the footprint colour (60% darker) — deep
-  // shadow under the lit top surface, but with enough hue to read as the
-  // building's own material rather than a generic dark stripe.
-  const SOUTH_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
-  // Houses get a 4px wall + 1px silhouette outline. Civic slabs (LARGE) keep
-  // the thicker 5px wall and 3px outline to read at their bigger footprint scale.
-  const SOUTH_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+  // Pseudo-3D extrusion: see BUILDING_FACE_COLOR / BUILDING_FACE_PX at module
+  // scope — the same wall the polygonal overlay extrudes its rings with.
+  const SOUTH_FACE_COLOR = BUILDING_FACE_COLOR;
+  const SOUTH_FACE_PX = BUILDING_FACE_PX;
+  _washCells.length = 0;
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       const type = T(col, row);
       if (!isB(type)) continue;
+      // POLYGONAL mode: the floor, the wash, the pickets, the extrusion, the
+      // outline and the ramparts are all drawn from the source ring by
+      // building_overlay.js. Nothing tiled here — leaving even the outline in
+      // would trace the staircase silhouette the polygon exists to replace.
+      if (POLY) continue;
       const ox = col - half, oy = row - half;
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
+      // Note it for the unclaimed wash below, with the depth its south wall
+      // extrudes into the row underneath so the wash covers the wall face too
+      // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
+      // A castle takes no wash — it is DRAWN unclaimed (the palette pick in the
+      // tier-12 branch below, the second turret texture, and the court floor's
+      // own base colour above). Everything else gets the overlay.
+      if (type !== 12 && UNCLAIMED(col, row)) {
+        // How far this cell's art spills out of it — only where the south edge
+        // actually carries a wall. Extending every cell upward banded the whole
+        // footprint: an interior cell's rect overlapped its neighbour's, so the
+        // shared pixels got washed twice and read as stripes.
+        const face = wallEdge(col, row, 0, 1)
+          ? (type === 11 ? 5 : (SOUTH_FACE_PX[type] || 4)) : 0;
+        _washCells.push(sx, sy, face);
+      }
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
       if (type === 11) {
@@ -1236,13 +1461,26 @@ Render.drawCells = function drawCells(scene) {
         //           against the light castle floor
         //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
         //           gaps between the side merlons aren't harshly dark
-        const _CS = (typeof CASTLE_STONE !== 'undefined') ? CASTLE_STONE : null;
-        const STONE_LITE   = _CS ? _CS.LITE.n   : 0xb9bcc2;
-        const STONE_BODY   = _CS ? _CS.BODY.n   : 0x8f9298;
-        const STONE_SHADOW = _CS ? _CS.SHADOW.n : 0x5a5d63;
-        const STONE_DARK   = _CS ? _CS.DARK.n   : 0x303134;
-        const STONE_FACE   = _CS ? _CS.FACE.n   : 0x7e8188;
-        const STONE_SIDE   = _CS ? _CS.SIDE.n   : 0x7a7d84;
+        // ...and in the SECOND palette when the castle isn't the player's:
+        // CASTLE_STONE_UNCLAIMED is every one of those six stones put through
+        // unclaimedShade(). Picked per cell, which is what makes it possible
+        // for the castle across the road to be lit while this one isn't.
+        const _claimedHere = !UNCLAIMED(col, row);
+        const _CS = (typeof CASTLE_STONE === 'undefined') ? null
+          : (_claimedHere || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
+              ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
+        // window.__RAMPART_DEBUG tints the three wall pieces apart (north blue,
+        // south green, sides red) so corner stacking bugs are visible at a
+        // glance — the stone greys are too close to eyeball draw order.
+        const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
+        const _sh = (n) => (_claimedHere || typeof unclaimedShade === 'undefined')
+          ? n : unclaimedShade(n);
+        const STONE_LITE   = _CS ? _CS.LITE.n   : _sh(0xb9bcc2);
+        const STONE_BODY   = _CS ? _CS.BODY.n   : _sh(0x8f9298);
+        const STONE_SHADOW = _CS ? _CS.SHADOW.n : _sh(0x5a5d63);
+        const STONE_DARK   = _CS ? _CS.DARK.n   : _sh(0x303134);
+        const STONE_FACE   = _CS ? _CS.FACE.n   : _sh(0x7e8188);
+        const STONE_SIDE   = _CS ? _CS.SIDE.n   : _sh(0x7a7d84);
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
@@ -1254,12 +1492,13 @@ Render.drawCells = function drawCells(scene) {
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
-        const crestH = (gx, x, baseY) => {
-          gx.fillStyle(STONE_BODY, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+        const crestH = (gx, x, baseY, dbgTint) => {
+          const body = dbgTint ?? STONE_BODY;
+          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(STONE_BODY, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
             gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
             gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
@@ -1268,28 +1507,61 @@ Render.drawCells = function drawCells(scene) {
         // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
         // (bottom) edge; the lit battlement crest rises up from the bottom edge.
         if (wallEdge(col, row, 0, 1)) {
-          // The Home trailer parked in FRONT of (south of) this wall must
-          // occlude it — a wall behind the trailer painting over its roof
-          // reads backwards. Route just this cell's front wall to the BACK
-          // layer so the trailer sprite (objectsContainer, above gb) draws on
-          // top. Rect stamped by drawObjects' house `after` hook; the wall's
-          // painted strip spans crest top … face bottom (sy+CELL_PX+WALL).
+          // Anything parked in FRONT of (south of) this wall must occlude
+          // it — a wall behind an object painting over its art reads
+          // backwards. Route just this cell's front wall to the BACK layer
+          // so the sprite (worldContainer, above gb) draws on top. Two
+          // sources, both stamped by drawObjects last frame:
+          //   • _rampartOccludedCells — the set of absolute cells hosting a
+          //     world sprite (tree / chest / crop / creature …). One-cell
+          //     sprites never cross their own south edge (QC rule), so only
+          //     the immediate southern neighbour cell can reach the wall.
+          //   • _homeTrailerRect — the Home trailer's screen rect (its house
+          //     art is multi-cell + centroid-anchored, so cell membership
+          //     alone can't place it). Strip spans crest top … face bottom
+          //     (sy+CELL_PX+WALL).
+          const occ = scene._rampartOccludedCells;
+          const southHosted = occ &&
+            occ.has((baseCellIX + ox) + '_' + (baseCellIY + oy + 1));
           const tr = scene._homeTrailerRect;
-          const gw = (tr &&
+          const gw = (southHosted || (tr &&
             (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
             tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
-            tr.x1 > sx && tr.x0 < sx + CELL_PX) ? gb : gf;
-          gw.fillStyle(STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
+            tr.x1 > sx && tr.x0 < sx + CELL_PX)) ? gb : gf;
+          gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
-          crestH(gw, sx, sy + CELL_PX);
+          crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
         }
         // North / back wall → BACK layer (below objects). Same tall extruded face
         // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
         // so the back reads as tall as the front. No dark grounding line here: at
         // the TOP edge it read as an unwanted hard line, not a contact shadow.
+        const SIDE_W = 5;
         if (wallEdge(col, row, 0, -1)) {
-          gb.fillStyle(STONE_FACE, 1); gb.fillRect(sx, sy - WALL, CELL_PX, WALL);
-          crestH(gb, sx, sy - WALL);
+          // The lower-anchored piece paints in front (the game's painter rule:
+          // lower centre of mass renders in front). This band belongs to THIS
+          // cell and rises into the cell above — so it must also cover the FOOT
+          // of any side band descending to the step from a diagonal-above
+          // castle cell. Without the widening, that band's last 12px stuck out
+          // beside the crest at every stepped top edge / notch: the top wall
+          // did not paint over the side wall in the cell above.
+          const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
+          const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
+          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
+          gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
+          crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
+          // SOLID crest-height shoulders over the widened columns — the crest
+          // rows there must be full stone, not tooth-and-gap, or the covered
+          // side band's last pixels still show through beside the teeth. This
+          // is what makes the descending band end flush at the band's TOP.
+          const shoulder = (x, w) => {
+            gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
+            gb.fillRect(x, sy - WALL - TOOTH_H, w, TOOTH_H);
+            gb.fillStyle(STONE_LITE, 1);
+            gb.fillRect(x, sy - WALL - TOOTH_H, w, 1);
+          };
+          if (extL) shoulder(sx - extL, extL);
+          if (extR) shoulder(sx + CELL_PX, extR);
         }
         // Side walls → BACK layer (below objects). No protruding teeth; a light
         // stone edge hugs the wall with shadow dashes on the merlon span so they
@@ -1297,14 +1569,28 @@ Render.drawCells = function drawCells(scene) {
         // WALL / SIDE_W set the wall's visible MASS; the merlon grid (SPAN /
         // MOFF / MW) is independent of both, so thickening the stone keeps the
         // teeth and side dashes on the same grid — still aligned cell to cell.
-        const SIDE_W = 5;
+        // Corner joins follow the painter rule (lower centre of mass in
+        // front): the SOUTH wall paints over the side band — the band stops
+        // short of the front crest's tooth rows, so the crenel gaps show
+        // courtyard floor, not side-wall stone, behind the front wall (by
+        // geometry, so it holds even on cells the occlusion routing sends to
+        // gb) — and the NORTH wall paints over side-band feet at stepped top
+        // edges (the widened band above). At a plain top corner the band runs
+        // to the cell top and the full-width north crest caps it.
+        const bandY = sy;
+        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
-          gb.fillStyle(STONE_BODY, 1);   gb.fillRect(x, sy, SIDE_W, CELL_PX);
-          gb.fillStyle(STONE_SIDE, 1);
-          for (let i = 0; i < MERLONS; i++) gb.fillRect(x, sy + i * SPAN + MOFF, SIDE_W, MW);
+          gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
+          gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
+          // Crenel-grid dashes stay on the cell's own span; skip any dash the
+          // shortened bottom would clip so a half-dash can't fray the band end.
+          for (let i = 0; i < MERLONS; i++) {
+            const dy = sy + i * SPAN + MOFF;
+            if (dy + MW <= bandBot) gb.fillRect(x, dy, SIDE_W, MW);
+          }
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
-          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, sy, 1, CELL_PX);
+          gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, bandY, 1, bandBot - bandY);
         };
         if (wallEdge(col, row, -1, 0)) sideShade(sx, sx + SIDE_W - 1);
         if (wallEdge(col, row, 1, 0)) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
@@ -1328,6 +1614,41 @@ Render.drawCells = function drawCells(scene) {
       if (wallEdge(col, row, 1, 0)) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
     }
   }
+  // ── Somebody else's ────────────────────────────────────────────────────
+  // A building the player hasn't taken back is washed toward dark green, so
+  // the map answers "what is mine" at a glance instead of one modal at a time.
+  //
+  // ONE PASS OVER THE FINISHED CELLS, not a tint threaded through the dozen
+  // fills above. A 35% wash of a colour composites to exactly the same result
+  // as mixing every one of those colours 35% toward it — 0.65·base + 0.35·green
+  // either way — and this way it cannot miss a part: the floor, the south
+  // extrusion, the silhouette outline, a fort's palisade pickets and a
+  // castle's rampart stones are all already on the canvas underneath it.
+  //
+  // Runs after the whole building loop rather than inside it because the tier
+  // 11 and 12 branches `continue` before the end, so a per-cell wash written
+  // in the loop would be painted UNDER the palisade and the ramparts it is
+  // supposed to cover.
+  if (_washCells.length) {
+    // ONTO THE RIGHT LAYER. This used to paint into `g`, the terrain graphics —
+    // which is under a house's own extrusion and outline and under a fort's
+    // pickets, so the wash reached the floor and nothing else. gb sits above
+    // the terrain, so one pass there covers all three.
+    //
+    // It no longer needs a second pass on the front layer: that pass existed
+    // for the castle's south rampart (drawn in gf, above the world sprites),
+    // and the castle is baked now.
+    const paint = (gx, colour, alpha) => {
+      gx.fillStyle(colour, alpha);
+      for (let i = 0; i < _washCells.length; i += 3) {
+        gx.fillRect(_washCells[i], _washCells[i + 1], CELL_PX, CELL_PX + _washCells[i + 2]);
+      }
+    };
+    const gbW = scene.rampartBackGfx || g;
+    paint(gbW, UNCLAIMED_WASH, UNCLAIMED_WASH_A);
+    paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
+    _washCells.length = 0;
+  }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
   // feet, so reach depends only on which cell they're standing in (a fixed
@@ -1343,12 +1664,26 @@ Render.drawCells = function drawCells(scene) {
   // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
   // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
   // otherwise the radius is 2.5 cells growing to 5.5 via Inner Light upgrades,
-  // then shrunk half a cell per level underground (floored at 1.5). isReach
-  // delegates entirely so the visual outline and tap-accept are always byte-identical.
+  // then shrunk half a cell per level underground (floored at 1.5).
+  //
+  // Per-frame hoist: the four reach loops below call isReach ~1000 times a
+  // frame (the outline pass probes each cell plus its four neighbours), and
+  // cellInReach recomputes reachRadiusM (a Date.now()) and playerReachCell (a
+  // fresh {cellIX, cellIY} allocation) on every call — ~60k throwaway objects
+  // a second. Both are constant for the frame, so evaluate them once here and
+  // inline cellInReach's distance test with the SAME expressions in the same
+  // order, keeping the visual outline byte-identical to the tap-accept test
+  // in interact.js (which still goes through cellInReach itself).
+  const _reachM = reachRadiusM(scene);
+  const _reachM2 = _reachM * _reachM;
+  const _reachP = playerReachCell(scene);
   const isReach = (col, row) => {
+    if (_reachM <= 0) return false;
     const absIX = baseCellIX + (col - half);
     const absIY = baseCellIY + (row - half);
-    return cellInReach(scene, absIX, absIY);
+    const dx = (absIX - _reachP.cellIX) * scene.cellM;
+    const dy = (absIY - _reachP.cellIY) * scene.cellM;
+    return dx * dx + dy * dy <= _reachM2;
   };
   // Darken every cell OUTSIDE the reach area so the player's eye lands on
   // what's actionable. Done before the outline so the white border sits on
@@ -1564,8 +1899,8 @@ Render.drawCells = function drawCells(scene) {
     gg.clear();
     scene._lastGridIX = baseCellIX;
     scene._lastGridIY = baseCellIY;
-    gg.lineStyle(1, 0x000000, 0.08);
-    const DASH = 4, GAP = 4;
+    gg.lineStyle(GRID_LINE.width, GRID_LINE.color, GRID_LINE.alpha);
+    const DASH = GRID_LINE.dash, GAP = GRID_LINE.gap;
     const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
     // Draw at integer-snapped positions (no fracX/fracY) — container handles scroll.
     for (let i = -1; i <= VIEW_CELLS + 1; i++) {
@@ -1952,6 +2287,26 @@ Render.drawObjects = function drawObjects(scene) {
                     || (a.rank - b.rank)
                     || (a.it.dy - b.it.dy));
   for (let zi = 0; zi < zList.length; zi++) zList[zi].it._z = zi;
+  // Absolute cells occupied by a world-layer sprite, for drawCells' castle-
+  // rampart sorting (read next frame — drawCells runs first): a castle FRONT
+  // (south) wall extrudes 8px down into its southern neighbour cell, and
+  // rampartFrontGfx sits ABOVE the world sprites, so without this a tree /
+  // chest / crop / animal standing in that cell — in FRONT of the wall — got
+  // painted over by it. When the south cell hosts a sprite, drawCells drops
+  // just that cell's front wall to the BACK layer so the sprite occludes it.
+  // Keys are absolute "ix_iy" cells (coords.js basis), so the one-frame lag
+  // can't misplace them the way screen rects would. Towers are excluded (they
+  // stand ON the wall cell and live in towerContainer, above both rampart
+  // layers) and houses are excluded (multi-cell centroid anchors don't map to
+  // one cell — the Home trailer keeps its dedicated _homeTrailerRect path).
+  const _rampOcc = new Set();
+  for (const { it } of zList) {
+    const kind = it.o && it.o.kind;
+    if (kind === 'tower' || kind === 'house') continue;
+    const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
+    _rampOcc.add(c.cellIX + '_' + c.cellIY);
+  }
+  scene._rampartOccludedCells = _rampOcc;
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -2126,7 +2481,15 @@ Render.drawObjects = function drawObjects(scene) {
     // so origin x 0.5 centres it on the cell. Towers draw in their own layer
     // above BOTH rampart layers (app.js towerContainer), so the turret always
     // reads as standing on top of the wall, never behind it.
-    tower:  { key: 'tower',                  origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
+    // castle's masonry is generated in the shaded palette (textures.js), and a
+    // tower that took a multiply tint instead never quite landed on the wall
+    // colour beneath it. Falls back to the lit key if the second bake is
+    // missing, so a stale texture cache can't blank the turret.
+    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+                               && sc.textures.exists('tower_unclaimed'))
+                              ? 'tower_unclaimed' : 'tower',
+              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
     // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
@@ -2419,7 +2782,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (!spec || !SL) return null;
     const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
     if (!wantSeat) return null;
-    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return null;
     const frameVal = spec.frame === undefined ? 0
                    : (typeof spec.frame === 'function' ? spec.frame(o) : spec.frame);
@@ -2516,7 +2879,7 @@ Render.drawObjects = function drawObjects(scene) {
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
-    const texKey = typeof spec.key === 'function' ? spec.key(o) : spec.key;
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
     setTextureIfDifferent(s, texKey);
     let frameVal;
@@ -2554,6 +2917,18 @@ Render.drawObjects = function drawObjects(scene) {
       const bt = BiomeProfiles.tint(o._biome, o.kind);
       if (bt) tint = bt;
     }
+    // A HOUSE that isn't the player's is washed toward dark green with the rest
+    // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
+    // that canvas — the roof is a pooled image above it — so the same shift is
+    // applied here as a multiply tint. Multiply can't reproduce a
+    // lerp exactly, so the tint is white lerped 35% toward the wash colour:
+    // mid-tones land where the wash puts them and the art keeps its shading.
+    // Applied last so it also carries over a shop's own role tint.
+    // (A TURRET is exempt: it swaps to its own baked texture above rather than
+    // taking the tint, so applying this as well would shade it twice.)
+    if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
+      tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
+    }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
@@ -2588,6 +2963,29 @@ Render.drawObjects = function drawObjects(scene) {
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
   Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
+  // marks exactly one of a footprint's towers `flagPost`, so a castle with six
+  // turrets flies one flag rather than six.
+  //
+  // Seated on that turret's crown — the tower art is bottom-anchored at
+  // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
+  // bottom-anchored pole lands on the battlements. Read from the frame rather
+  // than a copied number, so a retall of the turret can't leave the flag
+  // floating. Same container as the turrets, so it clears both rampart layers.
+  const flagList = scene.isCastleClaimed
+    ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
+    : [];
+  const towerH = flagList.length ? (scene.textures.getFrame('tower')?.height ?? 42) : 0;
+  Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
+    const { dx, dy } = item;
+    const { sx, sy } = project(dx, dy);
+    setTextureIfDifferent(s, 'castle_flag');
+    s.setOrigin(0.5, 1)
+     .setScale(1)
+     .setAlpha(1)
+     .clearTint()
+     .setPosition(Math.round(sx), Math.round(sy + CELL_PX * 0.5 - towerH + 2));
+  });
 
   // POI pads — one rounded, slightly-oversized concrete slab under every
   // pad-bearing chest. The pad image is anchored so its cell centre lines up
@@ -2726,7 +3124,7 @@ Render.drawObjects = function drawObjects(scene) {
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label).setVisible(true);
     tx.setFontSize(isFallback ? 9 : 11);
-    tx.setPadding(isFallback ? 2 : 3, isFallback ? 1 : 2);
+    setPaddingOnce(tx, isFallback ? 'f' : 'n', isFallback ? 2 : 3, isFallback ? 1 : 2);
     // POI names hang VERTICALLY, reading bottom-to-top up the right-hand side
     // of the chest; every other label on the map is horizontal. On a dense
     // block the POI names, the shop signs and the crate labels all used to
@@ -2764,9 +3162,9 @@ Render.drawObjects = function drawObjects(scene) {
     // every other POI name. Only a genuine loose supply crate stays plain
     // white. The pool is shared across both, and a pooled slot may have just
     // drawn the other kind, so set it every frame.
-    tx.setColor(o.crate ? CRATE_LABEL_INK : LABEL_INK);
+    setColorOnce(tx, o.crate ? CRATE_LABEL_INK : LABEL_INK);
     tx.setStroke(LABEL_STROKE, LABEL_STROKE_W);
-    tx.setShadow(1, 1, LABEL_SHADOW, 2, true, true);
+    setShadowOnce(tx, 'poi', 1, 1, LABEL_SHADOW, 2, true, true);
     // Full opacity EXCEPT where the label would cover the player — opened
     // chests keep their label legible (per user: the dimmed-after-open look
     // made closed shops read as inactive), the opened/closed state is carried
@@ -2921,9 +3319,8 @@ Render.drawObjects = function drawObjects(scene) {
     // building, almost touching the doorstep (origin set to [0.5, 0] at
     // pool creation so position y = label top). +5 follows the house
     // sprite's own dyPx so the sign stays glued to the doorstep.
-    tx.setText(_houseSignText(o))
-      .setColor(_lighten30(_houseSignInk(o)))
-      .setVisible(true);
+    tx.setText(_houseSignText(o)).setVisible(true);
+    setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
     sli++;
@@ -2964,8 +3361,9 @@ Render.drawObjects = function drawObjects(scene) {
     const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'stats-modal'];
     const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
     let psi = 0;
-    if (gameEl && !dialogOpen) {
-      const rect = gameEl.getBoundingClientRect();
+    const gameRect = (gameEl && !dialogOpen) ? gameScreenRect() : null;
+    if (gameRect) {
+      const rect = gameRect;
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
@@ -3088,23 +3486,22 @@ Render.drawObjects = function drawObjects(scene) {
     // Sepia ink on cream parchment for "open"; dim rust on cream for
     // "busy". Muted to read as a tag, not a callout.
     const ink = info.ready ? '#27521e' : '#5f2a2a';
-    tx.setText(label)
-      .setColor(ink)
-      .setBackgroundColor('#f3e9c6')
-      // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
-      // cell now, so the roof reaches half the scaled sprite height above sy —
-      // the old flat -20 landed the plaque ON the gable. Measure the art and
-      // clear it by 3px (falling back to the old offset when the frame can't
-      // be read). -10 on x nudges it off-centre so it reads as hanging from a
-      // bracket on the left rather than dead-centred on the gable.
-      .setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
-                   Math.round(sy) - _houseTopPx(o) - 3)
-      .setVisible(true);
+    tx.setText(label).setVisible(true);
+    setColorOnce(tx, ink);
+    setBgColorOnce(tx, '#f3e9c6');
+    // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
+    // cell now, so the roof reaches half the scaled sprite height above sy —
+    // the old flat -20 landed the plaque ON the gable. Measure the art and
+    // clear it by 3px (falling back to the old offset when the frame can't
+    // be read). -10 on x nudges it off-centre so it reads as hanging from a
+    // bracket on the left rather than dead-centred on the gable.
+    tx.setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
+                   Math.round(sy) - _houseTopPx(o) - 3);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
     // hard 1-px outline of the previous version — that competed too
     // hard with the house sign's stroked block lettering.
-    tx.setShadow(1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
+    setShadowOnce(tx, 'pip', 1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
     fadeLabelOverPlayer(tx, _playerBox);
     hri++;
   }
@@ -3319,9 +3716,9 @@ Render.drawObjects = function drawObjects(scene) {
     // cell border (origin (1,1) was set at pool creation).
     t.setText(label)
      .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
-     .setColor(remaining <= 0 ? '#a7ffb0' : '#ffffff')
      .setAlpha(0.8)
      .setVisible(true);
+    setColorOnce(t, remaining <= 0 ? '#a7ffb0' : '#ffffff');
     ti++;
   }
   hidePoolFrom(scene.plantedTimerPool, ti);
