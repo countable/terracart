@@ -272,6 +272,11 @@ try {
     return src.slice(bodyStart, end);
   };
   const objBody = grab('  _starterHomeObject(rec) {\n');
+  // The starter provision crosses into a SECOND tile stream: a mushroom is a
+  // wild plant, not an object. Lift both halves of that routing too, or the
+  // seating tests drive a provisioner that can't place food.
+  const wpBody = grab('  _starterHomeWildplant(rec) {\n');
+  const streamBody = grab('  _starterHomeStream(entry, rec) {\n');
   const provBody = grab('  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n');
   // _worldPlaced decides whether a late first GPS fix may still become this
   // save's home origin, and it reads PROVISIONAL_ORIGIN_KEYS — the starter kit
@@ -295,6 +300,8 @@ try {
     + 'globalThis.PROVISIONAL_ORIGIN_KEYS = PROVISIONAL_ORIGIN_KEYS;\n'
     + 'globalThis.StarterHomeMethods = {\n'
     + '  _starterHomeObject(rec) {\n' + objBody + '\n  },\n'
+    + '  _starterHomeWildplant(rec) {\n' + wpBody + '\n  },\n'
+    + '  _starterHomeStream(entry, rec) {\n' + streamBody + '\n  },\n'
     + '  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n' + provBody + '\n  },\n'
     + '  _worldPlaced() {\n' + placedBody + '\n  },\n'
     + '};', ctx, { filename: 'starterHome.js' });

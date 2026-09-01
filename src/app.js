@@ -3894,6 +3894,35 @@ class MapScene extends Phaser.Scene {
     return { kind: 'house', ...base, tier: WorldGen.T.BUILDING, address: rec.address || 0 };
   }
 
+  // The same, for the one starter record that is NOT an object: a mushroom
+  // lives in the tile's `wildplants` stream (keyed by `crop`, picked bare-
+  // handed) rather than in `objects`. Kept beside _starterHomeObject so the
+  // two halves of "a frozen record becomes a world thing" stay together.
+  //
+  // _ix/_iy are the ABSOLUTE cell, not the tile-local index worldgen stores.
+  // They are only ever a hash for the sprite variant (render.js), so absolute
+  // is strictly better: it doesn't change when a record is injected into a
+  // neighbour tile across a seam. Derived rather than frozen, so records
+  // written before this existed rebuild identically.
+  _starterHomeWildplant(rec) {
+    const c = worldMetersToAbsCell(this, rec.x, rec.y);
+    return {
+      x: rec.x, y: rec.y, id: rec.id, _synthetic: true,
+      ...HomeArea.STARTER_MUSHROOM,
+      _ix: c.cellIX, _iy: c.cellIY,
+    };
+  }
+
+  // Which of a tile's two streams a frozen starter record belongs in.
+  _starterHomeStream(entry, rec) {
+    if (rec.k === 'mushroom') {
+      entry.wildplants = entry.wildplants || [];
+      return { list: entry.wildplants, make: () => this._starterHomeWildplant(rec) };
+    }
+    entry.objects = entry.objects || [];
+    return { list: entry.objects, make: () => this._starterHomeObject(rec) };
+  }
+
   // Make sure the starter ladder has something to teach WITH.
   //
   // The ladder assumes the world around spawn can carry it: wood to chop,
@@ -3942,10 +3971,12 @@ class MapScene extends Phaser.Scene {
       wx >= tx0 && wx < tx0 + this.tileEdgeM && wy >= ty0 && wy < ty0 + this.tileEdgeM;
     const present = new Set();
     for (const o of entry.objects) if (o.id) present.add(o.id);
+    for (const w of (entry.wildplants || [])) if (w.id) present.add(w.id);
     const inject = (rec) => {
       if (inThisTile(rec.x, rec.y)) {
         if (present.has(rec.id)) return;
-        entry.objects.push(this._starterHomeObject(rec));
+        const s = this._starterHomeStream(entry, rec);
+        s.list.push(s.make());
         present.add(rec.id);
         return;
       }
@@ -3955,8 +3986,9 @@ class MapScene extends Phaser.Scene {
       const otx = Math.floor(rec.x / this.tileEdgeM), oty = Math.floor(rec.y / this.tileEdgeM);
       const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
       if (!e || !e.objects) return;
-      for (const o of e.objects) if (o.id === rec.id) return;
-      e.objects.push(this._starterHomeObject(rec));
+      const s = this._starterHomeStream(e, rec);
+      for (const o of s.list) if (o.id === rec.id) return;
+      s.list.push(s.make());
     };
     const frozen = this.save.starterHome;
     if (frozen) {
@@ -3990,18 +4022,21 @@ class MapScene extends Phaser.Scene {
     const atx2 = Math.floor(tx0 / this.tileEdgeM), aty2 = Math.floor(ty0 / this.tileEdgeM);
     const seen = new Set();
     const areaObjects = [];
-    const collect = (list) => {
+    const areaPlants = [];
+    const collect = (list, into) => {
       for (const o of (list || [])) {
         if (o.id) { if (seen.has(o.id)) continue; seen.add(o.id); }
-        areaObjects.push(o);
+        into.push(o);
       }
     };
-    collect(entry.objects);
+    collect(entry.objects, areaObjects);
+    collect(entry.wildplants, areaPlants);
     for (const [k, e] of WorldGen.tileCache) {
       if (!e || !e.objects) continue;
       const parts = k.split('/');
       if (Math.abs(+parts[1] - atx2) > 1 || Math.abs(+parts[2] - aty2) > 1) continue;
-      collect(e.objects);
+      collect(e.objects, areaObjects);
+      collect(e.wildplants, areaPlants);
     }
     // Audit as far out as an earlier pass had to reach. Without this, anything
     // seated in the escalated band sits outside the default audit radius, so
@@ -4012,7 +4047,7 @@ class MapScene extends Phaser.Scene {
       if (d > auditR) auditR = Math.ceil(d);
     }
     const plan = HomeArea.planStarterProvision(areaObjects, anchorX, anchorY, this.cellM,
-      { homeId: this.save.starterShopId, radiusCells: auditR });
+      { homeId: this.save.starterShopId, radiusCells: auditR, wildplants: areaPlants });
 
     // Modify the unusable naturals standing here rather than crowding more in
     // beside them: the player's own street tree stays their street tree, it
@@ -4257,16 +4292,35 @@ class MapScene extends Phaser.Scene {
       ladderWanted = 1;
       seatOrWiden('ladder', ringCells, -Math.PI / 2);
     }
-    // Round-robin the kinds into the queue before assigning bearings, so each
-    // direction out of home offers a mix rather than a wedge of all-trees.
+    // Round-robin the kinds into the queue so the seating ORDER is fair — every
+    // kind gets a pick of the good cells each round, instead of the last pool
+    // taking whatever the first fifty seats left.
+    //
+    // The BEARING, though, comes from each item's index within its OWN pool,
+    // never from its index in the queue. A queue-index bearing only spreads a
+    // kind around the compass when every pool is the same size: round-robin
+    // puts a SMALL pool entirely in the first rounds, so its items take the
+    // first slice of the circle and nothing else. With six mushrooms against
+    // fifty trees that is the whole quota of food in one wedge — the same
+    // all-on-one-side bug the round-robin was added to fix, one level down.
+    // Per-pool bearings walk each kind around the full circle on its own, and
+    // the per-kind phase keeps two kinds from marching in lockstep on the same
+    // bearings the whole way round.
+    const KIND_PHASE = { tree: 0, rock: Math.PI / 2, wreck: Math.PI, mushroom: Math.PI * 1.5 };
+    // atan2 (what a cell's own bearing is measured with) returns -PI..PI, and
+    // seatAt's shortest-arc test assumes both sides are in that range.
+    const wrapPi = (b) => b - 2 * Math.PI * Math.floor((b + Math.PI) / (2 * Math.PI));
+    const pools = [['tree', plan.need.tree], ['rock', plan.need.rock],
+                   ['wreck', plan.need.wreck], ['mushroom', plan.need.mushroom]];
     const queue = [];
-    const pools = [['tree', plan.need.tree], ['rock', plan.need.rock], ['wreck', plan.need.wreck]];
-    for (let n = 0; queue.length < plan.need.tree + plan.need.rock + plan.need.wreck; n++) {
-      for (const [kind, count] of pools) if (n < count) queue.push(kind);
+    const totalWanted = pools.reduce((sum, [, count]) => sum + count, 0);
+    for (let n = 0; queue.length < totalWanted; n++) {
+      for (const [kind, count] of pools) {
+        if (n >= count) continue;
+        queue.push({ kind, bearing: wrapPi((2 * Math.PI * n) / count + KIND_PHASE[kind]) });
+      }
     }
-    for (let i = 0; i < queue.length; i++) {
-      seatOrWiden(queue[i], ringCells, (2 * Math.PI * i) / queue.length - Math.PI);
-    }
+    for (const q of queue) seatOrWiden(q.kind, ringCells, q.bearing);
     const wanted = tokensWanted + ladderWanted + queue.length;
 
     // Freeze BOTH halves — what was added and what was tamed. Without the

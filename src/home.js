@@ -126,7 +126,17 @@ const HomeArea = {
   // ring", and a bare or parkland spawn can put it a long walk away. The audit
   // counts any down-staircase already standing in the area, so this adds a
   // second entrance only when the neighbourhood didn't supply one.
-  QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1 },
+  //
+  // `mushroom` is FOOD, and it is the one quota entry that isn't about the
+  // ladder's lessons. Energy is the early game's real constraint — every swing
+  // costs some and the only refills are eating and resting — and a mushroom is
+  // 16 of it (items.js FOOD_ENERGY), so six is about one full tank scattered
+  // around the ring. Bounded on purpose: a picked wild plant never regrows
+  // (save.picked is keyed by its cell id), so this is a one-time cushion while
+  // the first crop matures, not an income source. The map's own mushrooms are
+  // no help here — the residential flora window is 0.008..0.025 per cell
+  // (biome_profiles.js), so a suburban spawn can easily have none in reach.
+  QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1, mushroom: 6 },
   // Of that quota, how many must sit inside the pocket as the visible example.
   // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
   // and rocks, so however lush the surrounding neighbourhood is, a player
@@ -146,6 +156,10 @@ const HomeArea = {
   // A rock bare hands can break: interactables.js treats yieldTier <= 1 as
   // "plain rock" and skips the pick gate entirely.
   STARTER_ROCK: { yieldTier: 1, requiredTier: 1 },
+  // Food that needs no tool at all — a wild plant, picked bare-handed like any
+  // other. Lives in the tile's `wildplants` stream, not `objects`, which is the
+  // one place the starter provision crosses into a second stream.
+  STARTER_MUSHROOM: { crop: 'mushroom' },
 
   // Can a beginner actually harvest this, with the empty relic set they start
   // with? Both read the SHIPPING gate helpers rather than re-deriving them, so
@@ -158,6 +172,11 @@ const HomeArea = {
   isStarterRock(o) {
     if (!o || o.kind !== 'mineralrock') return false;
     return (o.yieldTier || 1) <= 1;
+  },
+  // A wild plant that feeds the player. Wild plants carry `crop`, not `kind` —
+  // they are a separate stream from objects (see STARTER_MUSHROOM).
+  isStarterMushroom(w) {
+    return !!w && w.crop === this.STARTER_MUSHROOM.crop;
   },
   // A house the ladder's "Rebuild a neighbour" step can be performed on: a
   // plain small house, which renders as a wreck until it is restored. Forts
@@ -226,10 +245,14 @@ const HomeArea = {
   //                     when an earlier pass had to escalate past the band to
   //                     find ground, so what it seated out there still counts
   //                     and the quota isn't provisioned twice.
+  //   opts.wildplants   the area's wild-plant stream. Passed separately because
+  //                     it IS separate in the tile (entry.wildplants, keyed by
+  //                     `crop` where objects are keyed by `kind`) — merging the
+  //                     two into one list here would only hide that.
   planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
     const homeId = opts && opts.homeId;
     const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
-    const have = { tree: 0, rock: 0, wreck: 0, ladder: 0 };
+    const have = { tree: 0, rock: 0, wreck: 0, ladder: 0, mushroom: 0 };
     const pocket = { tree: 0, rock: 0 };
     // Tameable-but-currently-unusable naturals, kept with their distance so
     // the nearest can be preferred below.
@@ -282,13 +305,22 @@ const HomeArea = {
         if (c.d <= this.POCKET_CELLS) pocket[kind]++;
       }
     }
+    // Food already growing in the area counts, the same way a usable tree does:
+    // a woodland spawn with mushrooms all over it is not owed six more. No
+    // downgrade path — there is nothing about a wild plant to make easier.
+    for (const w of ((opts && opts.wildplants) || [])) {
+      if (!this.isStarterMushroom(w)) continue;
+      if (this.cellsFromAnchor(w.x, w.y, anchorX, anchorY, cellM) > radius) continue;
+      have.mushroom++;
+    }
     return {
       downgrade,
       need: {
-        tree:   Math.max(0, this.QUOTA.tree   - have.tree),
-        rock:   Math.max(0, this.QUOTA.rock   - have.rock),
-        wreck:  Math.max(0, this.QUOTA.wreck  - have.wreck),
-        ladder: Math.max(0, this.QUOTA.ladder - have.ladder),
+        tree:     Math.max(0, this.QUOTA.tree     - have.tree),
+        rock:     Math.max(0, this.QUOTA.rock     - have.rock),
+        wreck:    Math.max(0, this.QUOTA.wreck    - have.wreck),
+        ladder:   Math.max(0, this.QUOTA.ladder   - have.ladder),
+        mushroom: Math.max(0, this.QUOTA.mushroom - have.mushroom),
       },
       // Independent of `need`: a lush neighbourhood can satisfy the whole
       // quota out in the ring and still leave the cleared pocket empty.

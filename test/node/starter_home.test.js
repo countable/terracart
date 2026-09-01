@@ -204,6 +204,52 @@ test('starter home: anything past the ring is out of the home area entirely', ()
   assert.eq(p.need.wreck, SH_HA.QUOTA.wreck, 'nor a distant house');
 });
 
+// ── Food ─────────────────────────────────────────────────────────────────
+// Mushrooms are the one quota entry that isn't about the ladder's lessons:
+// energy is the early constraint and a mushroom is 16 of it, so the ring
+// carries about a tank's worth. They are WILD PLANTS, so the audit reads them
+// off a separate stream from the objects.
+
+const shShroom = (c, id) => ({ x: c * SH_CELL_M, y: 0, crop: 'mushroom', id: id || `mu${c}` });
+
+test('starter home: a bare spawn is owed the whole mushroom quota', () => {
+  assert.eq(shPlan([]).need.mushroom, SH_HA.QUOTA.mushroom, 'no food, no cushion');
+});
+
+test('starter home: a mushroom is judged on its crop, not a kind', () => {
+  assert.truthy(SH_HA.isStarterMushroom({ crop: 'mushroom' }), 'a wild mushroom');
+  assert.falsy(SH_HA.isStarterMushroom({ crop: 'longgrass' }), 'other flora is not food');
+  assert.falsy(SH_HA.isStarterMushroom({ kind: 'tree' }), 'nor is an object');
+  assert.falsy(SH_HA.isStarterMushroom(null), 'nor is nothing');
+});
+
+test('starter home: a woodland spawn already carrying food is owed none', () => {
+  const wild = [];
+  for (let i = 0; i < SH_HA.QUOTA.mushroom; i++) {
+    wild.push(shShroom(SH_HA.RING_MIN_CELLS + (i % 3), `w${i}`));
+  }
+  const p = SH_HA.planStarterProvision([], 0, 0, SH_CELL_M, { wildplants: wild });
+  assert.eq(p.need.mushroom, 0, 'the map already fed the player');
+});
+
+test('starter home: only the shortfall is topped up', () => {
+  const p = SH_HA.planStarterProvision([], 0, 0, SH_CELL_M,
+    { wildplants: [shShroom(SH_HA.RING_MIN_CELLS, 'a'), shShroom(SH_HA.RING_MIN_CELLS + 1, 'b')] });
+  assert.eq(p.need.mushroom, SH_HA.QUOTA.mushroom - 2, 'two found, the rest owed');
+});
+
+test('starter home: food out past the home area does not count', () => {
+  const far = SH_HA.RING_MAX_CELLS + 5;
+  const p = SH_HA.planStarterProvision([], 0, 0, SH_CELL_M, { wildplants: [shShroom(far)] });
+  assert.eq(p.need.mushroom, SH_HA.QUOTA.mushroom, 'a mushroom a walk away is not in reach');
+});
+
+test('starter home: other flora in the ring is not mistaken for food', () => {
+  const p = SH_HA.planStarterProvision([], 0, 0, SH_CELL_M,
+    { wildplants: [{ x: SH_HA.RING_MIN_CELLS * SH_CELL_M, y: 0, crop: 'longgrass', id: 'g' }] });
+  assert.eq(p.need.mushroom, SH_HA.QUOTA.mushroom, 'grass is not a meal');
+});
+
 test('starter home: the pocket sits inside the ring, and both are non-empty', () => {
   assert.lt(SH_HA.POCKET_CELLS, SH_HA.RING_MIN_CELLS, 'ring starts outside the pocket');
   assert.lt(SH_HA.RING_MIN_CELLS, SH_HA.RING_MAX_CELLS, 'the ring has width');
@@ -280,7 +326,11 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
   });
   const run = (scene, entry) =>
     scene._provisionStarterHome(entry, 0, 0, SPAWN, SPAWN, new Set());
-  const added = (entry) => entry.objects.filter(o => String(o.id).startsWith('starter_'));
+  // BOTH streams. A starter record is an object (tree / rock / wreck / stair)
+  // except a mushroom, which is a wild plant — so a helper that reads
+  // entry.objects alone silently stops counting the food.
+  const added = (entry) => [...entry.objects, ...(entry.wildplants || [])]
+    .filter(o => String(o.id).startsWith('starter_'));
   const cellsOut = (o) => Math.max(Math.abs(o.x / CELL_M - (SPAWN + 0.5)),
                                    Math.abs(o.y / CELL_M - (SPAWN + 0.5)));
 
@@ -294,6 +344,8 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
     assert.eq(trees.length, SH_HA.QUOTA.tree, 'trees seated');
     assert.eq(rocks.length, SH_HA.QUOTA.rock, 'rocks seated');
     assert.eq(houses.length, SH_HA.QUOTA.wreck, 'wrecks seated');
+    assert.eq(objs.filter(o => SH_HA.isStarterMushroom(o)).length, SH_HA.QUOTA.mushroom,
+      'mushrooms seated');
     assert.truthy(scene.save.starterHome, 'frozen on the save');
     assert.eq(scene.save.starterHome.placed.length, objs.length, 'every placement recorded');
   });
@@ -601,6 +653,59 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
       `the opening screen shows the ring in ${quads.size}/4 quadrants: ${[...quads].join(',')}`);
   });
 
+  test('starter home seating: the food lands in the WILD PLANT stream', () => {
+    // A mushroom is picked, not chopped: it belongs in entry.wildplants with a
+    // `crop`, not in entry.objects with a `kind`. Seating it as an object would
+    // put it in the tap path for chopping and out of the one for foraging.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const shrooms = (entry.wildplants || []).filter(w => String(w.id).startsWith('starter_'));
+    assert.eq(shrooms.length, SH_HA.QUOTA.mushroom, 'every mushroom is a wild plant');
+    for (const w of shrooms) {
+      assert.truthy(SH_HA.isStarterMushroom(w), `${w.id} carries the mushroom crop`);
+      assert.falsy(w.kind, `${w.id} is not an object`);
+    }
+    assert.eq(entry.objects.filter(o => SH_HA.isStarterMushroom(o)).length, 0,
+      'and none of them leaked into the object stream');
+  });
+
+  test('starter home seating: the food rings home, it is not one wedge', () => {
+    // The bug this guards: bearings used to come from the item's index in the
+    // ROUND-ROBIN QUEUE, which only spreads a kind around the compass when the
+    // pools are the same size. Six mushrooms against fifty trees land entirely
+    // in the first rounds, so the whole quota of food took one slice of the
+    // circle — a player who walked any other way found none of it. Bearings
+    // now come from each item's index within its OWN pool.
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const shrooms = (entry.wildplants || []).filter(w => String(w.id).startsWith('starter_'));
+    const quads = new Set(shrooms.map((w) => {
+      const dx = w.x / CELL_M - (SPAWN + 0.5), dy = w.y / CELL_M - (SPAWN + 0.5);
+      return (dy < 0 ? 'N' : 'S') + (dx < 0 ? 'W' : 'E');
+    }));
+    assert.eq(quads.size, 4, `food reaches ${quads.size}/4 quadrants: ${[...quads].join(',')}`);
+  });
+
+  test('starter home seating: mushrooms sit in the ring, not the tidy pocket', () => {
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    for (const w of (entry.wildplants || []).filter(w => String(w.id).startsWith('starter_'))) {
+      assert.gt(cellsOut(w), SH_HA.POCKET_CELLS, `${w.id} is outside the cleared pocket`);
+    }
+  });
+
+  test('starter home seating: the food survives a rebuild', () => {
+    const scene = makeScene(), entry = makeEntry();
+    run(scene, entry);
+    const before = (entry.wildplants || []).filter(w => String(w.id).startsWith('starter_'))
+      .map(w => w.id).sort();
+    const rebuilt = makeEntry();
+    run(scene, rebuilt);
+    const after = (rebuilt.wildplants || []).filter(w => String(w.id).startsWith('starter_'))
+      .map(w => w.id).sort();
+    assert.eq(after.join('|'), before.join('|'), 'the same mushrooms, in the same cells');
+  });
+
   test('starter home seating: the two pocket tokens sit apart, not side by side', () => {
     const scene = makeScene(), entry = makeEntry();
     run(scene, entry);
@@ -760,7 +865,8 @@ test('starter home: the nearest usable candidates are the ones tamed', () => {
       mPerPx: CELL_M / cellPx, originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
     }, StarterHomeMethods);
   }
-  const seated = (e) => e.objects.filter(o => String(o.id).startsWith('starter_'));
+  const seated = (e) => [...e.objects, ...(e.wildplants || [])]
+    .filter(o => String(o.id).startsWith('starter_'));
   const terrainUnder = (e, o) =>
     e.grid[Math.floor(o.y / CELL_M) * N + Math.floor(o.x / CELL_M)];
 
