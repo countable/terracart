@@ -79,6 +79,11 @@ const GPS_SNAP_M = 200;
 // backoff (TILE_RETRY_MS, 3 s) so a retry isn't answered from it, and the cap
 // keeps a genuinely offline session down to one attempt a minute rather than
 // hammering a host that isn't answering.
+// How long a neighbouring tile's build will wait for an idle moment before
+// going ahead anyway (see _whenIdle). Long enough that a player actively
+// walking and tapping keeps the thread, short enough that the ring is all in
+// well before they could walk out of the centre tile.
+const RING_IDLE_TIMEOUT_MS = 400;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
 // Save fields written by the passes that run BEFORE a home is captured — the
@@ -2757,6 +2762,9 @@ class MapScene extends Phaser.Scene {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       needed.add(`${cell.tx + dx}/${cell.ty + dy}`);
     }
+    // The tile the player is standing in — the only one they can see or reach
+    // right now, and so the only one worth making them wait for.
+    const centreKey = `${cell.tx}/${cell.ty}`;
     // Overpass is fired only for the centre tile (the one the player is in).
     // Neighbours get their Overpass fetch when the player walks into them and
     // they become the centre tile on the next ensureTilesAround call.
@@ -2779,7 +2787,7 @@ class MapScene extends Phaser.Scene {
     // collectDedupIndex), so there's nothing to lose by firing them together.
     let doneCount = 0;
     const total = needed.size;
-    await Promise.all([...needed].map(async (k) => {
+    const buildOne = async (k) => {
       const [tx, ty] = k.split('/').map(Number);
       try {
         const entry = await WorldGen.loadTile(tx, ty, START_LAT);
@@ -2807,16 +2815,67 @@ class MapScene extends Phaser.Scene {
         doneCount++;
         window.__bootStatus?.(0.9 + 0.1 * (doneCount / total), 'Loading the map…');
       }
-    }));
-    // Show it whenever tiles FAIL, not only when the browser admits it's
-    // offline: a captive portal, a blocked or DNS-failed tile host, a 5xx, a
-    // corporate proxy or a VPN all keep navigator.onLine true, and the player
-    // was left with a featureless green field, no message and no retry.
-    this.showBanner(anyFailed);
+    };
+    // Show the banner whenever tiles FAIL, not only when the browser admits
+    // it's offline: a captive portal, a blocked or DNS-failed tile host, a
+    // 5xx, a corporate proxy or a VPN all keep navigator.onLine true, and the
+    // player was left with a featureless green field, no message and no retry.
     // Zero tiles ready means the world is empty — the objective ladder's
     // "crates were left along the road nearby" reads as a lie over it.
-    this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
-    this._scheduleTileRetry(anyFailed);
+    const settle = () => {
+      this.showBanner(anyFailed);
+      this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
+      this._scheduleTileRetry(anyFailed);
+    };
+
+    // THE CENTRE TILE FIRST, and hand control back the moment it is done.
+    //
+    // A tile build is one uninterruptible 300-800 ms chunk of rasterize on the
+    // main thread. Awaiting all nine before returning meant the player waited
+    // through nine of them — measured at ~5 s of frozen UI on the boot path,
+    // with the overlay up and nothing responding — for eight tiles of ground
+    // they cannot see. The viewport is 11 cells across and a tile is 222, so
+    // the centre tile alone is already ~400× what is on screen; the ring is
+    // walking headroom, minutes away at 1.4 m/s.
+    //
+    // So: await the centre, settle, return. The ring streams in behind, one
+    // chunk per painted frame (worldgen's heavy-phase chain), and settles
+    // again when it lands. One ring pass at a time — walking into a new tile
+    // re-enters here, and stacking ring passes would put the pile-up back.
+    await buildOne(centreKey);
+    settle();
+    const ring = [...needed].filter(k => k !== centreKey);
+    if (!ring.length || this._ringBuild) return;
+    this._ringBuild = (async () => {
+      // One at a time, each waiting for an IDLE moment first. Fired together
+      // they queue straight onto the heavy chain and spend the player's first
+      // seconds of play the same way the boot did — a 300-800 ms stall, eight
+      // times, while they are trying to walk. The ring is walking headroom a
+      // tile wide (~1.5 km, minutes away at 1.4 m/s), so it can afford to wait
+      // for gaps. requestIdleCallback picks the gaps; the timeout is the floor
+      // that keeps it moving on a busy thread, and the rAF fallback covers
+      // browsers without it.
+      for (const k of ring) {
+        await this._whenIdle();
+        await buildOne(k);
+      }
+    })().catch(() => {}).then(() => { this._ringBuild = null; settle(); });
+  }
+
+  // Resolve on the next idle slice, or after RING_IDLE_TIMEOUT_MS at the
+  // latest. A tile build overruns any idle deadline on its own (it is one
+  // uninterruptible chunk), so this is about picking a better MOMENT, not
+  // about fitting inside the budget.
+  _whenIdle() {
+    return new Promise((resolve) => {
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => resolve(), { timeout: RING_IDLE_TIMEOUT_MS });
+      } else if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => setTimeout(resolve, RING_IDLE_TIMEOUT_MS));
+      } else {
+        setTimeout(resolve, RING_IDLE_TIMEOUT_MS);
+      }
+    });
   }
 
   // Re-fetch a block that came back short, on a backoff, until it is whole.

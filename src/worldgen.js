@@ -2758,9 +2758,24 @@
   // frames get a look-in between them. FIFO through a shared chain; a throw
   // in one phase must not wedge the chain for the next (hence the swallow).
   let _heavyChain = Promise.resolve();
+  // Yield long enough for the browser to actually PAINT before the next heavy
+  // chunk. setTimeout(0) alone only guarantees another macrotask, and a
+  // macrotask is not a frame: with nine tiles queued the chain ran chunk,
+  // timeout, chunk, timeout — every one of them 300-800 ms of rasterize — and
+  // the display never updated between them, so a five-second build read as a
+  // frozen app rather than a loading one. rAF fires BEFORE the paint and the
+  // timeout inside it resolves after, so exactly one frame is on screen (and
+  // one round of input handled) between consecutive chunks.
+  const _yieldToPaint = () => new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
   function runHeavyPhase(fn) {
     const run = _heavyChain
-      .then(() => new Promise((r) => setTimeout(r, 0)))
+      .then(_yieldToPaint)
       .then(fn);
     _heavyChain = run.then(() => {}, () => {});
     return run;
