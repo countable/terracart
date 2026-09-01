@@ -4740,6 +4740,13 @@ class MapScene extends Phaser.Scene {
 
   // === Tick ===
   update(_, dtMs) {
+    const _uB = window.__boot;
+    const _ut0 = _uB ? performance.now() : 0;
+    if (_uB) { try { return this._updateTimed(_, dtMs); } finally { _uB.tick('update (all)', performance.now() - _ut0); } }
+    return this._updateTimed(_, dtMs);
+  }
+
+  _updateTimed(_, dtMs) {
     // The whole per-frame body runs inside a try/catch — INCLUDING the boot
     // and modal-gate prologue, which used to sit before the try and was the
     // one per-frame stretch where a throw could still kill the loop. Phaser's
@@ -5116,6 +5123,7 @@ class MapScene extends Phaser.Scene {
     if (!this._lastCheckM ||
         Math.hypot(this.playerM.x - this._lastCheckM.x, this.playerM.y - this._lastCheckM.y) > 20) {
       this._lastCheckM = { ...this.playerM };
+      window.__boot?.mark('walked 20m — checking tiles');
       this.ensureTilesAround().catch(() => {});
     }
 
@@ -6570,9 +6578,21 @@ class MapScene extends Phaser.Scene {
   // call-site shape (this.drawCells, this.drawObjects, this.renderPool,
   // this.worldMetersToScreen, this.screenToWorldMeters) for the update loop,
   // interact.js, and test/tests.js -- behaviour is bit-identical.
-  drawCells() { Render.drawCells(this); }
+  drawCells() {
+    const B = window.__boot;
+    if (!B) return Render.drawCells(this);
+    const t0 = performance.now();
+    Render.drawCells(this);
+    B.tick('drawCells', performance.now() - t0);
+  }
   drawRoadGeometry() { if (typeof RoadOverlay !== 'undefined') RoadOverlay.draw(this); }
-  drawObjects() { Render.drawObjects(this); }
+  drawObjects() {
+    const B = window.__boot;
+    if (!B) return Render.drawObjects(this);
+    const t0 = performance.now();
+    Render.drawObjects(this);
+    B.tick('drawObjects', performance.now() - t0);
+  }
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); }

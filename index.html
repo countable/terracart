@@ -34,10 +34,48 @@
         // the wrong name and nesting the same name twice is safe.
         begin(name) {
           const t0 = t();
-          return (note) => { try { B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {} };
+          try { B.openNames.add(name); } catch (_) {}
+          return (note) => {
+            try { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {}
+          };
         },
         // Fire-and-forget for a stretch measured somewhere else.
         span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
+
+        // ── Live half ──────────────────────────────────────────────────
+        // The boot half above answers "why was the start slow". This answers
+        // "why does it stutter while I walk", which is a different question
+        // with a different shape: no beginning and no end, just a stream of
+        // frames of which a few are terrible. iOS Safari has no longtask
+        // observer, so the frame gap is measured directly.
+        live: { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) },
+        hitches: [],     // { t, ms, during }  — the worst frames, with the cause
+        work: {},        // name -> { n, sum, worst } for the per-frame passes
+        // Spans currently OPEN, so a hitch can name what the game was doing
+        // rather than leaving it to be guessed at.
+        openNames: new Set(),
+        // One per-frame pass's cost. Called a lot; keep it to arithmetic.
+        tick(name, ms) {
+          let w = B.work[name];
+          if (!w) w = B.work[name] = { n: 0, sum: 0, worst: 0 };
+          w.n++; w.sum += ms; if (ms > w.worst) w.worst = ms;
+        },
+        frame(ms) {
+          const L = B.live;
+          L.n++; L.sum += ms;
+          if (ms > L.worst) L.worst = ms;
+          if (ms > 50) L.over50++;
+          if (ms > 100) L.over100++;
+          if (ms > 250) L.over250++;
+          // 0-16, 16-33, 33-50, 50-83, 83-133, 133-250, 250-500, 500-1000, 1s+
+          const E = [16, 33, 50, 83, 133, 250, 500, 1000];
+          let i = 0; while (i < E.length && ms > E[i]) i++;
+          L.buckets[i]++;
+          if (ms > 100 && B.hitches.length < 400) {
+            B.hitches.push({ t: Math.round(performance.now()), ms: Math.round(ms),
+              during: B.openNames.size ? [...B.openNames].join(' + ') : 'nothing (render/update)' });
+          }
+        },
       };
       window.__boot = B;
       B.mark('html parse');
@@ -46,6 +84,13 @@
           for (const e of l.getEntries()) B.long.push({ t: Math.round(e.startTime), ms: Math.round(e.duration) });
         }).observe({ entryTypes: ['longtask'] });
       } catch (_) { /* no longtask support (Safari) — the spans still land */ }
+      let _lastFrame = 0;
+      const _frameTick = (now) => {
+        if (_lastFrame) B.frame(now - _lastFrame);
+        _lastFrame = now;
+        requestAnimationFrame(_frameTick);
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_frameTick);
       document.addEventListener('DOMContentLoaded', () => B.mark('DOM ready'));
       window.addEventListener('load', () => B.mark('window load'));
     })();
@@ -1551,6 +1596,52 @@
         out.push(at(r.t) + '  ' + ms(r.ms).padStart(7) + '  ' + r.name
           + (r.note ? ' (' + r.note + ')' : '') + '\n           |' + track(r.t, r.ms));
       }
+      // ── While you were playing ─────────────────────────────────────
+      // Frame gaps measured off the profiler's own rAF loop, so this is the
+      // gap the PLAYER saw — including frames the game loop never got to run.
+      // The histogram is the honest answer to "does it stutter": an average
+      // hides the handful of 400 ms frames that are the entire complaint.
+      const L = B.live;
+      if (L.n > 30) {
+        const E = ['  <16ms (60fps)', ' 16-33ms (30fps)', ' 33-50ms', ' 50-83ms',
+                   ' 83-133ms', '133-250ms', '250-500ms', '0.5-1s', '   >1s'];
+        out.push('', 'WHILE YOU WERE PLAYING — ' + L.n + ' frames, avg '
+          + ms(L.sum / L.n) + ', worst ' + ms(L.worst));
+        for (let i = 0; i < E.length; i++) {
+          const c = L.buckets[i];
+          if (!c) continue;
+          const pct = (c * 100 / L.n);
+          out.push('  ' + E[i] + ' ' + String(c).padStart(6) + '  '
+            + pct.toFixed(1).padStart(5) + '%  ' + '#'.repeat(Math.max(1, Math.round(pct / 4))));
+        }
+        // Per-frame JS, so a render-bound stutter can be told from a
+        // game-logic one without guessing.
+        const names = Object.keys(B.work);
+        if (names.length) {
+          out.push('  per frame (avg / worst):');
+          for (const n of names) {
+            const w = B.work[n];
+            out.push('    ' + n.padEnd(14) + ms(w.sum / w.n).padStart(7) + ' / ' + ms(w.worst).padStart(7)
+              + '   (' + w.n + ' calls)');
+          }
+        }
+        // WHAT WAS RUNNING when a frame went long. This is the whole point:
+        // a stutter that always says "tile ... rasterize" is a background
+        // build; one that says "nothing" is the renderer itself.
+        if (B.hitches.length) {
+          const by = new Map();
+          for (const h of B.hitches) {
+            const e = by.get(h.during) || { n: 0, sum: 0, worst: 0 };
+            e.n++; e.sum += h.ms; if (h.ms > e.worst) e.worst = h.ms;
+            by.set(h.during, e);
+          }
+          out.push('  frames over 100ms, by what was running:');
+          for (const [k, e] of [...by.entries()].sort((a, b) => b[1].sum - a[1].sum).slice(0, 8)) {
+            out.push('    ' + String(e.n).padStart(4) + 'x  ' + ms(e.sum).padStart(7)
+              + ' total, worst ' + ms(e.worst).padStart(7) + '  ' + k);
+          }
+        }
+      }
       // Main-thread blocks. This is the number that decides whether the app
       // felt frozen, as opposed to merely slow: total time is patience, a
       // single long block is a tap that did nothing.
@@ -2159,7 +2250,7 @@
   <script src="src/coords.js?v=121"></script>
   <script src="src/fog.js?v=3"></script>
   <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=222"></script>
+  <script src="src/worldgen.js?v=223"></script>
   <script src="src/textures.js?v=171"></script>
   <script src="src/save.js?v=116"></script>
   <script src="src/items.js?v=198"></script>
@@ -2240,7 +2331,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=450';
+      const APP_SRC = 'src/app.js?v=451';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

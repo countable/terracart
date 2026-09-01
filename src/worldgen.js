@@ -406,7 +406,19 @@
       grid[i] = type;
     }
   }
-  function paintPolygon(grid, w, h, rings, type, mvtToCell) {
+  // Scanline fill, IN ROWS, so a big polygon isn't one unbroken block.
+  //
+  // This is the last thing holding the main thread for hundreds of ms at a
+  // time. A tile build yields between its passes and every few features, but a
+  // SINGLE feature can be the landuse polygon covering the whole tile — 222
+  // rows of up to 222 cells, ~50k paintCell calls, measured at 326 ms with
+  // nothing able to interrupt it. On a phone that is the walking stutter: the
+  // live profiler attributes every frame over 100 ms to a background tile
+  // build, and this is what a background tile build is doing.
+  //
+  // Yields by row, which is the natural seam — the scanline state is rebuilt
+  // per row, so pausing between rows costs nothing.
+  function* paintPolygonSteps(grid, w, h, rings, type, mvtToCell) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
     // Build cell-space polygon, then scanline fill.
@@ -423,6 +435,7 @@
     const y0 = Math.max(0, Math.floor(minY));
     const y1 = Math.min(h - 1, Math.ceil(maxY));
     for (let y = y0; y <= y1; y++) {
+      if (((y - y0) & 7) === 7) yield 'polygon fill rows';
       const ys = y + 0.5;
       const xs = [];
       for (const ring of polys) {
@@ -444,6 +457,11 @@
         for (let x = xa; x <= xb; x++) paintCell(grid, w, h, x, y, type);
       }
     }
+  }
+  // The synchronous form, for anything that isn't itself sliceable.
+  function paintPolygon(grid, w, h, rings, type, mvtToCell) {
+    const it = paintPolygonSteps(grid, w, h, rings, type, mvtToCell);
+    while (!it.next().done) { /* drain */ }
   }
   // Visit every cell a polyline covers when stamped as a disk of radius
   // widthCells/2 along Bresenham segments. Used by the terrain paint
@@ -1285,7 +1303,10 @@
   // map, responsiveness is the whole point and the slice gets short again.
   // app.js turns it down via WorldGen.setSliceBudgetMs when the overlay goes.
   const RASTER_SLICE_BOOT_MS = 24;
-  const RASTER_SLICE_LIVE_MS = 10;
+  // 12, not 10: a yield costs a whole frame, so a budget well under the frame
+  // leaves most of each frame unused and stretches the build for no gain in
+  // smoothness. Just under 16.7 keeps one slice per frame.
+  const RASTER_SLICE_LIVE_MS = 12;
   let RASTER_SLICE_MS = RASTER_SLICE_BOOT_MS;
   function setSliceBudgetMs(ms) {
     RASTER_SLICE_MS = Math.max(4, Math.min(60, +ms || RASTER_SLICE_LIVE_MS));
@@ -1505,7 +1526,7 @@
     // on span deletes it: measured on a 45-degree footpath, 31 of 65 cells were
     // left with no 4-connected neighbour. It sits between two cells the line
     // genuinely runs through, so it is always painted.
-    yield;   // pre-pass done: path spans measured
+    yield 'path pre-pass';
     const pathCrossAt = (cx, cy, isElbow) => isElbow ||
       (cx >= 0 && cy >= 0 && cx < w && cy < h && pathCross[cy * w + cx] === 1);
 
@@ -1523,7 +1544,7 @@
       // stays inside its budget even on the heaviest layer.
       let _sliceCount = 0;
       for (const f of layer.features) {
-        if ((++_sliceCount & 7) === 0) yield;
+        if ((++_sliceCount & 7) === 0) yield `${name} features`;
         if (f.type === 3) { // polygon
           let t = classifyPolygon(name, f.tags);
 
@@ -1545,9 +1566,9 @@
             // feature tagged with subclass=swimming_pool.
             const subCls = f.tags.class || f.tags.subclass;
             if (subCls === 'swimming_pool' || subCls === 'pool') {
-              paintPolygon(grid, w, h, f.geom, T.WATER, mvtToCell);
+              yield* paintPolygonSteps(grid, w, h, f.geom, T.WATER, mvtToCell);
             } else if (t != null) {
-              paintPolygon(grid, w, h, f.geom, t, mvtToCell);
+              yield* paintPolygonSteps(grid, w, h, f.geom, t, mvtToCell);
             }
 
             // Per-polygon debris/decor share one centroid-derived key
@@ -2061,7 +2082,7 @@
               // A school/mall is often several adjacent building polygons, each of which pushed
               // its own house sprite — removing only the nearest leaves the others on the pad.
               for (let i = objects.length - 1; i >= 0; i--) {
-        if ((i & 255) === 0) yield;
+        if ((i & 255) === 0) yield 'civic building dedupe';
                 const o = objects[i];
                 if (o.kind !== 'house') continue;
                 const ox = Math.floor((o.x - tileOriginMx) / mvtToM * mvtToCell);
@@ -2076,12 +2097,18 @@
               // there: it reads as the building's entrance / sidewalk frontage.
               const ROADISH = new Set([T.PATH, T.ROAD, T.ROAD_MD, T.ROAD_LG]);
               let nearRoad = null, bestRoadD = 60 * 60;
-              for (let dy = -60; dy <= 60; dy++) for (let dx = -60; dx <= 60; dx++) {
-                const ix = cellIX + dx, iy = cellIY + dy;
-                if (ix<0||iy<0||ix>=w||iy>=h) continue;
-                if (!ROADISH.has(grid[iy * w + ix])) continue;
-                const d2 = dx*dx + dy*dy;
-                if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
+              for (let dy = -60; dy <= 60; dy++) {
+                // 121x121 = ~14.6k cells, once per civic POI. Unbroken, that is
+                // one of the longest stretches in a build on a tile with a few
+                // schools or malls on it.
+                if ((dy & 31) === 0) yield 'civic road scan';
+                for (let dx = -60; dx <= 60; dx++) {
+                  const ix = cellIX + dx, iy = cellIY + dy;
+                  if (ix<0||iy<0||ix>=w||iy>=h) continue;
+                  if (!ROADISH.has(grid[iy * w + ix])) continue;
+                  const d2 = dx*dx + dy*dy;
+                  if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
+                }
               }
               let finalIX = cellIX, finalIY = cellIY;
               if (nearRoad) {
@@ -2204,7 +2231,7 @@
       // where needed.
       // Then paint + push house objects (LARGE gets a cement pad with no
       // sprite; everything else gets a 'house' object).
-      yield;   // this layer's features are in
+      yield `${name} layer`;
       if (name === 'building' && buildingPolys.length) {
         // Give every building an EXCLUSIVE set of cells before anything is
         // painted. Cells are assigned by how much of them the polygon actually
@@ -2223,7 +2250,7 @@
         enforceBuildingDistribution(_placed);
         let _bOwnerId = 0;
         for (let _bi = 0; _bi < buildingPolys.length; _bi++) {
-          if ((_bi & 15) === 0) yield;
+          if ((_bi & 15) === 0) yield 'building paint';
           const bp = buildingPolys[_bi];
           // Stamp building ownership over this building's footprint cells with
           // a unique per-tile id. Footprints are disjoint, so a cell has
@@ -2333,7 +2360,7 @@
         }
       }
     }
-    yield;   // every layer painted
+    yield 'all layers painted';
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -2342,7 +2369,7 @@
     // the interior test sees the final grid, and before the road-label /
     // path-stone passes so no glyph or stone lands on a dissolved cell.
     erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
-    yield;
+    yield 'pavement erosion';
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -2426,7 +2453,14 @@
         }
         return false;
       };
+      // NOTE: still a reverse walk with splice, i.e. still quadratic in the
+      // rejections. Left alone for now because the profiler measured the
+      // wildplant sweep next door as the block that actually hurt, and this one
+      // has half a dozen exit paths that want their own change. If a trace ever
+      // names 'mineralrock object sweep' as the worst block, compact it the way
+      // the wildplant sweep above now is.
       for (let i = objects.length - 1; i >= 0; i--) {
+        if ((i & 63) === 0) yield 'mineralrock object sweep';
         const o = objects[i];
         if (_mrSkipKind(o.kind)) continue;
         const ix = Math.floor((o.x - tileOriginMx) / cellWidthM);
@@ -2484,20 +2518,31 @@
       // that ended up on a residential cell must pass isSpawnCell. (DEBRIS_CROP
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
-      for (let i = wildplants.length - 1; i >= 0; i--) {
-        if ((i & 255) === 0) yield;
+      // COMPACTED IN PLACE, not spliced. This was a reverse walk calling
+      // wildplants.splice(i, 1) on every rejection, and a splice rewrites the
+      // whole tail — so a tile with thousands of wild plants and a lot of
+      // rejections ran quadratic. Measured with the labelled slice profiler at
+      // 337 ms in this one loop, the longest unbroken block in a tile build and
+      // the thing the live profiler blamed for every walking stutter. Writing
+      // the survivors forward and truncating once is the same answer in O(n).
+      let wpKeep = 0;
+      for (let i = 0; i < wildplants.length; i++) {
+        if ((i & 63) === 0) yield 'mineralrock wildplant sweep';
         const wp = wildplants[i];
         const ix = Math.floor((wp.x - tileOriginMx) / cellWidthM);
         const iy = Math.floor((wp.y - tileOriginMy) / cellWidthM);
-        if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
-        const wtc = grid[iy * w + ix];
-        if (_onRoadOrBuilding(wtc, ix, iy)) { wildplants.splice(i, 1); continue; }
-        // Concrete POI pads stay bare — a shrub/marigold that survived the
-        // biome filter (rocky-family crops) still doesn't belong on the plaza.
-        if (poiPadCells.has(iy * w + ix)) { wildplants.splice(i, 1); continue; }
-        if (wtc !== T.RESIDENTIAL) continue;
-        if (!isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) wildplants.splice(i, 1);
+        let drop = false;
+        if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
+          const wtc = grid[iy * w + ix];
+          // Concrete POI pads stay bare — a shrub/marigold that survived the
+          // biome filter (rocky-family crops) still doesn't belong on the plaza.
+          if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
+          else if (poiPadCells.has(iy * w + ix)) drop = true;
+          else if (wtc === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) drop = true;
+        }
+        if (!drop) wildplants[wpKeep++] = wp;
       }
+      wildplants.length = wpKeep;
       // Parking-treasure X marks live in a third array (parkingTreasures) and
       // are missed by both filters above. They used to be checked ONLY for the
       // residential-yard rule, so an X on a road cell — or on water, or inside
@@ -2522,20 +2567,20 @@
       }
     }
 
-    yield;   // mineralrock cleanup done
+    yield 'mineralrock cleanup';
     // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a
     // residential polygon may have had debris dropped into a cell that later
     // became road, OR a park polygon's shrubs may have ended up under a
     // residential overpaint. The biome-appropriateness test lives in the central
     // BIOME_PROFILES registry now (BiomeProfiles.allows — a crop survives on any
     // cell whose family grows it); the wildplant filter below calls it directly.
-    yield;   // wildplants filtered to their biomes
+    yield 'wildplant biome filter';
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
     // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
     // cell coord so towers stay aligned across tile boundaries.
     const _flagged = new Set();
     for (let iy = 0; iy < h; iy++) {
-      if ((iy & 31) === 0) yield;                 // ~50k cells — stop by the row
+      if ((iy & 31) === 0) yield 'tower scan rows';
       for (let ix = 0; ix < w; ix++) {
         if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
         // Perimeter test: at least one 4-neighbor is not BUILDING_LARGE (or off-tile).
@@ -2561,7 +2606,7 @@
       }
     }
 
-    yield;   // towers placed
+    yield 'castle towers';
     // Unified occupancy pass — at most one object per cell.
     // Strict priority: chest > house > tree > wildplant.
     // The first one to claim a cell wins; everything else in that cell is
@@ -2592,7 +2637,7 @@
       return String(a.id ?? '').localeCompare(String(b.id ?? ''));
     });
     const keptStructs = [];
-    yield;   // structures sorted
+    yield 'structure sort';
     for (const o of structs) {
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
@@ -2612,7 +2657,7 @@
     //    kept wildplant as `_biome` so the renderer can apply the biome's flora
     //    tint (e.g. golden field grass, swampy reeds).
     const filtered = [];
-    yield;   // structures have their cells
+    yield 'structure cells';
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
@@ -2630,7 +2675,7 @@
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
     for (const o of otherKinds)  objects.push(o);
-    yield;   // one object per cell
+    yield 'occupancy pass';
     // Road-name labels: walk each transportation_name line at ~1 cell per step
     // and drop ONE compact whole-word label (the name's first word) every
     // LABEL_PERIOD road cells, rotated to the local road direction. This
@@ -2811,20 +2856,26 @@
   // wall-clock shape differs.
   let _lastRasterSlices = 0;
   let _lastRasterWorstMs = 0;
+  let _lastRasterWorstAt = '';
   async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
     let started = _now();
-    let slices = 1, worst = 0;
+    let slices = 1, worst = 0, worstAt = '';
     for (;;) {
       const r = it.next();
-      if (r.done) { _lastRasterSlices = slices; _lastRasterWorstMs = Math.round(worst); return r.value; }
+      if (r.done) {
+        _lastRasterSlices = slices;
+        _lastRasterWorstMs = Math.round(worst);
+        _lastRasterWorstAt = worstAt;
+        return r.value;
+      }
       // The WORST unbroken stretch, which is the number that matters: the
       // budget can only be honoured at a yield, so a single helper call or one
       // huge polygon between two yields blocks for as long as it takes however
       // short the budget is. If a profile shows a worst block far above the
       // budget, THAT is the thing left to chunk.
       const held = _now() - started;
-      if (held > worst) worst = held;
+      if (held > worst) { worst = held; worstAt = r.value || 'unlabelled'; }
       if (held >= RASTER_SLICE_MS) {
         await _yieldToPaint();
         started = _now();
@@ -2926,7 +2977,7 @@
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
       const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
-      if (_endRaster) _endRaster(`${_lastRasterSlices} slices, worst block ${_lastRasterWorstMs}ms`);
+      if (_endRaster) _endRaster(`${_lastRasterSlices} slices, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
