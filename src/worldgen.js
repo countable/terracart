@@ -1275,7 +1275,27 @@
   // Per-biome wild flora (kinds, densities, RNG salts) now lives in the central
   // BIOME_PROFILES registry (src/biome_profiles.js) — see BiomeProfiles.flora().
 
-  function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+  // How long one slice of a tile build may hold the main thread before it hands
+  // it back. A frame is 16.7 ms; 8 leaves room for the render and the input
+  // that has to happen in the same frame.
+  const RASTER_SLICE_MS = 8;
+  const _now = () => (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+
+  // Rasterize a tile, in slices. THE WHOLE POINT IS THE `yield`s: a tile build
+  // is ~50k cells through a dozen sequential passes, and as one straight-line
+  // call it was a single 300-800 ms block of the main thread on a desktop —
+  // seconds on a phone — with nine of them at boot. Nothing could interrupt it,
+  // so the app was not slow, it was FROZEN, and no amount of spacing the builds
+  // out could change that. Now it stops between passes and every few dozen
+  // features, and the driver below hands the thread back whenever a slice has
+  // run long enough.
+  //
+  // Yields are only ever at top-level statement positions of this generator —
+  // never inside the arrow functions it defines, where `yield` isn't legal.
+  // Pausing is safe anywhere here: grid/objects/wildplants are function-local
+  // until the return, so nothing else can observe a half-built tile.
+  function* rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM) {
     const w = cellsPerEdge, h = cellsPerEdge;
     const grid = new Uint8Array(w * h);
     // Per-cell building ownership: a 1-based, per-tile id stamped only on
@@ -1474,6 +1494,7 @@
     // on span deletes it: measured on a 45-degree footpath, 31 of 65 cells were
     // left with no 4-connected neighbour. It sits between two cells the line
     // genuinely runs through, so it is always painted.
+    yield;   // pre-pass done: path spans measured
     const pathCrossAt = (cx, cy, isElbow) => isElbow ||
       (cx >= 0 && cy >= 0 && cx < w && cy < h && pathCross[cy * w + cx] === 1);
 
@@ -1486,7 +1507,12 @@
       // impossible because by the time we knew the counts, the grid was
       // already coloured. So: collect → enforce mins → paint + objectify.
       const buildingPolys = [];
+      // Feature loops are the long pole — a dense tile carries thousands, and
+      // one polygon can paint hundreds of cells. Stop often enough that a slice
+      // stays inside its budget even on the heaviest layer.
+      let _sliceCount = 0;
       for (const f of layer.features) {
+        if ((++_sliceCount & 7) === 0) yield;
         if (f.type === 3) { // polygon
           let t = classifyPolygon(name, f.tags);
 
@@ -2024,6 +2050,7 @@
               // A school/mall is often several adjacent building polygons, each of which pushed
               // its own house sprite — removing only the nearest leaves the others on the pad.
               for (let i = objects.length - 1; i >= 0; i--) {
+        if ((i & 255) === 0) yield;
                 const o = objects[i];
                 if (o.kind !== 'house') continue;
                 const ox = Math.floor((o.x - tileOriginMx) / mvtToM * mvtToCell);
@@ -2166,6 +2193,7 @@
       // where needed.
       // Then paint + push house objects (LARGE gets a cement pad with no
       // sprite; everything else gets a 'house' object).
+      yield;   // this layer's features are in
       if (name === 'building' && buildingPolys.length) {
         // Give every building an EXCLUSIVE set of cells before anything is
         // painted. Cells are assigned by how much of them the polygon actually
@@ -2184,6 +2212,7 @@
         enforceBuildingDistribution(_placed);
         let _bOwnerId = 0;
         for (let _bi = 0; _bi < buildingPolys.length; _bi++) {
+          if ((_bi & 15) === 0) yield;
           const bp = buildingPolys[_bi];
           // Stamp building ownership over this building's footprint cells with
           // a unique per-tile id. Footprints are disjoint, so a cell has
@@ -2293,6 +2322,7 @@
         }
       }
     }
+    yield;   // every layer painted
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -2301,6 +2331,7 @@
     // the interior test sees the final grid, and before the road-label /
     // path-stone passes so no glyph or stone lands on a dissolved cell.
     erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
+    yield;
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -2443,6 +2474,7 @@
       // no longer seeds residential, but cross-polygon overlap can still
       // drop a shrub or longgrass tuft onto a residential cell.)
       for (let i = wildplants.length - 1; i >= 0; i--) {
+        if ((i & 255) === 0) yield;
         const wp = wildplants[i];
         const ix = Math.floor((wp.x - tileOriginMx) / cellWidthM);
         const iy = Math.floor((wp.y - tileOriginMy) / cellWidthM);
@@ -2479,17 +2511,20 @@
       }
     }
 
+    yield;   // mineralrock cleanup done
     // Post-pass: roads/paths/water/buildings are painted AFTER landuse, so a
     // residential polygon may have had debris dropped into a cell that later
     // became road, OR a park polygon's shrubs may have ended up under a
     // residential overpaint. The biome-appropriateness test lives in the central
     // BIOME_PROFILES registry now (BiomeProfiles.allows — a crop survives on any
     // cell whose family grows it); the wildplant filter below calls it directly.
+    yield;   // wildplants filtered to their biomes
     // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
     // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
     // cell coord so towers stay aligned across tile boundaries.
     const _flagged = new Set();
     for (let iy = 0; iy < h; iy++) {
+      if ((iy & 31) === 0) yield;                 // ~50k cells — stop by the row
       for (let ix = 0; ix < w; ix++) {
         if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
         // Perimeter test: at least one 4-neighbor is not BUILDING_LARGE (or off-tile).
@@ -2515,6 +2550,7 @@
       }
     }
 
+    yield;   // towers placed
     // Unified occupancy pass — at most one object per cell.
     // Strict priority: chest > house > tree > wildplant.
     // The first one to claim a cell wins; everything else in that cell is
@@ -2545,6 +2581,7 @@
       return String(a.id ?? '').localeCompare(String(b.id ?? ''));
     });
     const keptStructs = [];
+    yield;   // structures sorted
     for (const o of structs) {
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
@@ -2564,6 +2601,7 @@
     //    kept wildplant as `_biome` so the renderer can apply the biome's flora
     //    tint (e.g. golden field grass, swampy reeds).
     const filtered = [];
+    yield;   // structures have their cells
     for (const wp of wildplants) {
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
@@ -2581,6 +2619,7 @@
     objects.length = 0;
     for (const o of keptStructs) objects.push(o);
     for (const o of otherKinds)  objects.push(o);
+    yield;   // one object per cell
     // Road-name labels: walk each transportation_name line at ~1 cell per step
     // and drop ONE compact whole-word label (the name's first word) every
     // LABEL_PERIOD road cells, rotated to the local road direction. This
@@ -2746,6 +2785,32 @@
     return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask };
   }
 
+  // Run the whole build now, in one go. The shipping contract for callers that
+  // cannot await — and what the tests drive, so they exercise the same passes
+  // in the same order as the game.
+  function rasterizeTile(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+    const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
+
+  // Run it in slices, giving the browser a painted frame whenever a slice has
+  // held the thread for RASTER_SLICE_MS. Same passes, same result — only the
+  // wall-clock shape differs.
+  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+    const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
+    let started = _now();
+    for (;;) {
+      const r = it.next();
+      if (r.done) return r.value;
+      if (_now() - started >= RASTER_SLICE_MS) {
+        await _yieldToPaint();
+        started = _now();
+      }
+    }
+  }
+
   function tileEdgeMeters(lat) {
     // edge in meters at z=14 at given latitude
     return metersPerPixel(lat, Z) * TILE_PX;
@@ -2828,7 +2893,7 @@
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
       const layers = await runHeavyPhase(() => MVT.decodeTile(bytes));
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTile(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
       // already in a previously-loaded tile within 120m (typical OSM intersection
       // POIs duplicate across the four tiles meeting at that corner), and any
@@ -4134,7 +4199,7 @@
   // shops.js; the only thing worldgen owns here is the address field itself.
 
   global.WorldGen = {
-    Z, CELL_M, TILE_PX, T, TILE_URL,
+    Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
