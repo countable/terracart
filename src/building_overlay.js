@@ -135,7 +135,41 @@
     };
   };
 
+  // The dashed cell grid, from render.js so the lattice over a footprint is
+  // the SAME lattice as the one over the ground it stands on — same hairline,
+  // same softness, same 4-on-4-off rhythm — and continues across the building
+  // instead of restarting at its wall.
+  const GRID_FALLBACK = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
+  const gridStyle = () =>
+    ((typeof Render !== 'undefined' && Render.GRID_LINE) || GRID_FALLBACK);
+  // …with ONE thing changed per building: the ink. The ground's grid is a
+  // black hairline, which works over grass and stone and disappears entirely
+  // into a dark floor — an unclaimed house is shaded most of the way to black,
+  // and 8% black on near-black is nothing. So the ink flips to white where the
+  // floor is too dark to take a dark line, at the same weight, rhythm and
+  // alpha: the lattice stays the ground's lattice, it just stays VISIBLE.
+  // Rec. 601 luma, and the threshold is where a mid-grey stops reading dark.
+  const LUMA_FLIP = 0.42;
+  const luma = (c) => (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
+  // …and one thing more: the WEIGHT. 8% reads on the ground because the ground
+  // is quiet — grass tufts, sand ripples, a park's flowers are all low-contrast
+  // at this scale. A floor is not: house cobbles, fort planks and castle paving
+  // are high-frequency patterns with far more local contrast than the hairline
+  // carries, and measured over one, an 8% line moves a pixel by ~10/255 while
+  // the material itself swings ~20. The lattice was there and invisible. This
+  // multiple puts the line's contrast against a paved floor roughly where 8%
+  // puts it against grass — same hairline, same rhythm, same softness to the
+  // eye; it is the BACKGROUND that changed, not the intent.
+  const GRID_OVER_FLOOR_MUL = 2;
+  const gridInkFor = (style, floor) => ({
+    ...style,
+    alpha: style.alpha * GRID_OVER_FLOOR_MUL,
+    color: luma(floor) >= LUMA_FLIP ? style.color : 0xffffff,
+  });
+
   const cssOf = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
+  const rgbaOf = (c, a) =>
+    `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
 
   // ── The polygonal mode switch ────────────────────────────────────────────
   // Default ON — this branch exists to look at it. `false` (not merely falsy)
@@ -241,6 +275,55 @@
         ctx.lineWidth = width * 2;
         ctx.strokeStyle = cssOf(color);
         if (dash) ctx.setLineDash(dash);
+        ctx.stroke();
+        ctx.restore();
+      },
+      // The ground's own cell lattice, continued across the footprint. Clipped
+      // to the ring and stroked only over its bounding box, so the cost is
+      // proportional to the footprint's area rather than the whole canvas per
+      // building. The lines are placed from the VIEWPORT, exactly where
+      // render.js's gridGfx places them (cell edges, offset half a cell from
+      // the viewport corner), and both layers ride the same container scroll —
+      // so the lattice is continuous from the grass onto the floor rather than
+      // a second grid that happens to be nearby.
+      gridPoly(pts, style) {
+        if (!pts || pts.length < 3) return;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of pts) {
+          if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+          if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+        }
+        x0 -= originX; x1 -= originX; y0 -= originY; y1 -= originY;
+        // Where the grid's first line falls on THIS canvas, and the dash phase
+        // that goes with it — both measured from the viewport corner, so a
+        // change to the canvas pad can't slide the lattice or its dashes.
+        const vx = scene.viewLeft - originX, vy = scene.viewTop - originY;
+        const gx = vx + CELL_PX / 2, gy = vy + CELL_PX / 2;
+        const period = style.dash + style.gap;
+        // gridGfx runs each dash sequence from the VIEWPORT corner (vLeft for
+        // the horizontals, vTop for the verticals), not from the first line —
+        // so the dashes are anchored there too, or the two lattices would meet
+        // at a building's wall out of step.
+        const phase = (v) => v - Math.ceil(v / period) * period;   // ≤ 0, in step with v
+        ctx.save();
+        trace(pts);
+        ctx.clip();
+        ctx.lineWidth = style.width;
+        ctx.strokeStyle = rgbaOf(style.color, style.alpha);
+        ctx.setLineDash([style.dash, style.gap]);
+        ctx.beginPath();
+        for (let x = gx + Math.ceil((x0 - gx) / CELL_PX) * CELL_PX; x <= x1; x += CELL_PX) {
+          const sy = phase(vy) + Math.floor((y0 - phase(vy)) / period) * period;
+          const cx = Math.round(x) + 0.5;   // half-pixel: a crisp 1px column, not two grey ones
+          ctx.moveTo(cx, sy);
+          ctx.lineTo(cx, y1);
+        }
+        for (let y = gy + Math.ceil((y0 - gy) / CELL_PX) * CELL_PX; y <= y1; y += CELL_PX) {
+          const sx = phase(vx) + Math.floor((x0 - phase(vx)) / period) * period;
+          const cy = Math.round(y) + 0.5;
+          ctx.moveTo(sx, cy);
+          ctx.lineTo(x1, cy);
+        }
         ctx.stroke();
         ctx.restore();
       },
@@ -366,6 +449,7 @@
       return v;
     };
 
+    const GRID = gridStyle();
     const draws = [];
     for (const { tx, ty, entry } of tiles) {
       const originMx = tx * entry.tileEdgeM;
@@ -414,6 +498,12 @@
       g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier)));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+      // The cell grid goes on OVER the floor and its material. The tiled
+      // floors wore it a layer lower (gridContainer sits under noiseContainer),
+      // but a hairline this faint loses to a cobble or plank pattern laid on
+      // top of it — and the point of the pass is that the ground's squares
+      // stay readable across a footprint, so it goes last.
+      if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the

@@ -77,6 +77,15 @@ const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
 Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
 Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+// The dashed cell grid: a hairline black at 8%, 4 on / 4 off. Faint on
+// purpose — it says "the world is on a lattice" without competing with
+// anything drawn on it. Shared, because the grid is drawn in TWO places: the
+// gridGfx pass below lays it over the ground, and building_overlay.js lays the
+// same lattice over each polygon footprint (the tiled floors got it for free,
+// sitting a layer under gridContainer; a polygon in a layer above it would
+// otherwise wipe the grid out wherever a building stands).
+const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
+Render.GRID_LINE = GRID_LINE;
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
@@ -1890,8 +1899,8 @@ Render.drawCells = function drawCells(scene) {
     gg.clear();
     scene._lastGridIX = baseCellIX;
     scene._lastGridIY = baseCellIY;
-    gg.lineStyle(1, 0x000000, 0.08);
-    const DASH = 4, GAP = 4;
+    gg.lineStyle(GRID_LINE.width, GRID_LINE.color, GRID_LINE.alpha);
+    const DASH = GRID_LINE.dash, GAP = GRID_LINE.gap;
     const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
     // Draw at integer-snapped positions (no fracX/fracY) — container handles scroll.
     for (let i = -1; i <= VIEW_CELLS + 1; i++) {

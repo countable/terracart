@@ -37,6 +37,7 @@ function makeGfx() {
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
     texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
+    gridPoly(pts, style) { this.ops.push({ op: 'grid', pts, style }); },
     texturePhase(x, y) { this.phase = { x, y }; },
     commit() { this.commits++; },
     only(op) { return this.ops.filter(o => o.op === op); },
@@ -283,6 +284,66 @@ test('building overlay: the floors of different tiers are different colours', ()
   BuildingOverlay.draw(scene);
   const fills = scene.buildingGeomGfx.only('fill');
   assert.truthy(fills[1].color !== fills[3].color, 'a house floor is not a castle floor');
+});
+
+test('building overlay: the ground grid continues across a footprint', () => {
+  // The tiled floors wore the cell lattice for free — gridContainer sits above
+  // cellGfx — so a polygon in a layer above it has to lay the same grid back
+  // down, or a building wipes the ground's squares out wherever it stands.
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10)]);
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  const g = scene.buildingGeomGfx;
+  const grid = g.only('grid');
+  assert.eq(grid.length, 1, 'one lattice pass over the footprint');
+  // …and it is render.js's OWN grid, not a second one that can drift from it:
+  // same hairline, same alpha, same rhythm (only the ink may flip — below).
+  for (const k of ['width', 'dash', 'gap']) {
+    assert.eq(grid[0].style[k], Render.GRID_LINE[k], `grid ${k} is the ground's`);
+  }
+  // Its weight is the ground's, scaled for the busier background a paved floor
+  // makes — a fixed multiple of the shared alpha, never a number of its own.
+  const mul = grid[0].style.alpha / Render.GRID_LINE.alpha;
+  assert.eq(Number.isInteger(mul) && mul >= 1, true, 'a multiple of the ground alpha');
+  assert.lt(grid[0].style.alpha, 0.35, 'still a whisper, not a drawn-on cage');
+  // Over the floor AND its material: a hairline this faint loses to a cobble
+  // pattern laid on top of it.
+  const seq = g.ops.map(o => o.op);
+  assert.eq(seq.indexOf('grid') > seq.indexOf('fill'), true, 'grid goes over the floor fill');
+  assert.eq(seq.indexOf('grid') > seq.indexOf('texture'), true, 'and over the material');
+});
+
+test('building overlay: the grid ink flips to white on a floor too dark for black', () => {
+  // 8% black on a near-black unclaimed floor is nothing, and "the squares stay
+  // visible" is the whole job — so the ink, and only the ink, flips.
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'h_1_1')]);
+  const had = typeof unclaimedShade !== 'undefined';
+  const prev = had ? unclaimedShade : undefined;
+  globalThis.unclaimedShade = () => 0x0a0a0a;      // shaded practically to black
+  try {
+    const lit = makeScene({ isClaimedKey: () => true });
+    BuildingOverlay.draw(lit);
+    const dark = makeScene({ isClaimedKey: () => false });
+    BuildingOverlay.draw(dark);
+    assert.eq(lit.buildingGeomGfx.only('grid')[0].style.color, Render.GRID_LINE.color,
+      'a lit house keeps the ground’s dark hairline');
+    assert.eq(dark.buildingGeomGfx.only('grid')[0].style.color, 0xffffff,
+      'a near-black floor takes a white one');
+    assert.eq(dark.buildingGeomGfx.only('grid')[0].style.alpha,
+      lit.buildingGeomGfx.only('grid')[0].style.alpha,
+      'at the same softness either way');
+  } finally {
+    if (had) globalThis.unclaimedShade = prev; else delete globalThis.unclaimedShade;
+  }
+});
+
+test('building overlay: the grid is soft, not a drawn-on cage', () => {
+  const style = Render.GRID_LINE;
+  assert.eq(style.width, 1, 'a hairline');
+  assert.lt(style.alpha, 0.15, 'faint enough to read as ground showing through');
+  assert.gt(style.dash, 0, 'dashed, not solid');
 });
 
 // ─── Claim state ────────────────────────────────────────────────────────────

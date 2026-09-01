@@ -88,6 +88,37 @@ WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
     { ring: ring([[27,33],[31,33],[32.5,34.5],[32.5,36.5],[27,36.5]]), tier: 12, areaM2: 3000, key: 'c' },
   ],
 });
+// The GROUND the footprints stand on, drawn the way the game's ground layers
+// draw it: a flat biome fill, the per-cell procedural texture over it, then
+// render.js's dashed cell grid (its own GRID_LINE, so this page can't invent a
+// different lattice than the one the overlay continues). Without it there is
+// nothing for a footprint to sit on and no way to judge whether the ground's
+// squares still read across one.
+(function ground() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 352; c.style.left = '0px'; c.style.top = '0px';
+  stage.insertBefore(c, stage.firstChild);
+  const x = c.getContext('2d');
+  x.fillStyle = '#479757'; x.fillRect(0, 0, 352, 352);
+  const tex = scene.textures.get('biome0_0');
+  for (let r = -1; r <= 12; r++) {
+    for (let col = -1; col <= 12; col++) {
+      const t = scene.textures.get(`biome0_${(col * 7 + r * 13) & 1}`);
+      if (t) x.drawImage(t.canvas, col * CELL_PX, r * CELL_PX, CELL_PX, CELL_PX);
+    }
+  }
+  const G = Render.GRID_LINE;
+  x.strokeStyle = `rgba(0,0,0,${G.alpha})`;
+  x.lineWidth = G.width;
+  x.setLineDash([G.dash, G.gap]);
+  x.beginPath();
+  for (let i = -1; i <= 12; i++) {
+    const p = Math.round(i * CELL_PX + CELL_PX / 2);
+    x.moveTo(p, 0); x.lineTo(p, 352);
+    x.moveTo(0, p); x.lineTo(352, p);
+  }
+  x.stroke();
+})();
 BuildingOverlay.draw(scene);
 document.title = 'ready';
 </script></body></html>
