@@ -42,7 +42,9 @@ const CASTLE_STONE = (() => {
 // deletes the layer and every one of those seams with it. Both sides still
 // come through unclaimedShade(), so a baked castle and the washed house across
 // the road land on the same colour rather than drifting apart.
-const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.5, murk: 0x05070c, murkA: 0.22 };
+// murkA was 0.22 — the darkening came out heavier than wanted once it was
+// baked into the stone rather than washed over it, so it is down a tenth.
+const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.5, murk: 0x05070c, murkA: 0.12 };
 function unclaimedShade(rgb) {
   const lerp = (a, b, t) => a * (1 - t) + b * t;
   const ch = (sh) => {
