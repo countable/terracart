@@ -1231,6 +1231,32 @@ FOG OF WAR
    the distance falloff (0.90 at the viewport corner), so out at the corners
    fogged and explored ground are both near black and the fog edge reads
    mainly in the mid-field — retune the pair together, never the alpha alone.
+ - The wash is A CONTINUOUS FIELD painted into a CANVAS TEXTURE, not Graphics
+   fills. Darkness ramps with DISTANCE from the nearest revealed cell — 0.55
+   one cell out, 0.70 two, FOG_ALPHA at three and past (FOG_RAMP_A), smoothstep
+   between those samples — and the distance is measured to the EDGE of explored
+   ground, half a cell in from the last explored cell's centre (FOG_EDGE_BIAS),
+   so the feather lands on the unknown side and ground the player has walked
+   stays legible. The frontier is then bent by two octaves of value noise keyed
+   on ABSOLUTE world position, which is what makes it read as weather rather
+   than as a vignette: a jitter keyed on the screen crawls along the boundary
+   as the player walks and looks like the fog boiling, while world-keyed wisps
+   put the same tongue of fog over the same ground every time you come back.
+   The wisp push is TAPERED to nothing at BOTH ends of the ramp (4u(1-u)) —
+   that taper is what keeps the two claims intact: walked ground takes no wisp
+   at all, and the deep interior still lands on FOG_ALPHA exactly. Softening
+   the edge must not lighten the unknown.
+ - It was three concentric SHELLS of 32px rects until Sep 2026, with a hashed
+   corner bite out of each shell's outermost cells. That softened the frontier
+   without ever letting it stop being made of cells: the eye reads a 32px alpha
+   step as a UI element laid on the world, and the bites only turned the
+   staircase into a row of chamfered tiles. If you are tempted to draw the fog
+   as rects again — at any resolution — that is the bug.
+ - The field is computed at FOG_SUB (8) samples per cell and drawn up to
+   CELL_PX with smoothing on; Phaser then blits the result 1:1, so the game's
+   pixelArt (NEAREST) filtering cannot put the steps back. Bilinear, not the
+   'high' resampler: the field is already smooth, and 'high' cost several times
+   the milliseconds for under one alpha step of accuracy.
  - LAYER: fogContainer is LAST in the display list — above the ground, the
    lighting dim, the sprites, the rim haze, the distance falloff, the POI name
    tablets and the tier diamonds. Fog is the strongest claim of any darkening
@@ -1262,8 +1288,12 @@ FOG OF WAR
    between crossings fogContainer just SCROLLS by the sub-cell fraction, the
    same trick the biome-seam layer uses. The fog bits are read in the ring scan
    that already resolves the terrain types, off the same cached tile run (~4
-   mask lookups a frame, not 225), and each row's fogged cells are merged into
-   horizontal runs, so a rebuild is typically under 13 fillRects.
+   mask lookups a frame, not 225). The repaint itself skips every lattice
+   square whose four cells agree — all revealed, or all past the ramp —
+   because bilinear interpolation between four equal corners IS that value
+   and the wisp taper is zero at both ends, so the work tracks the LENGTH OF
+   THE FRONTIER, not the area of the screen. That matters most while tiles
+   are still landing, the one window where the pass runs every frame.
  - The ONBOARDING TRAIL is revealed when it is laid (_revealStarterTrail), and
    this is not optional. The starter trail is a SIGHTLINE CHAIN — walk to the
    crate you can see, and from there the next is in view, and the last puts the
@@ -1287,7 +1317,7 @@ FOG OF WAR
    rebuilds every frame — a few frames at the loading frontier, which is
    exactly the window where the image is genuinely changing.
  - tools/layer_audit.js pins the layer above every world layer AND checks the
-   pass paints onto fogGfx rather than the terrain graphics — the same bug that
+   pass paints scene.fogTex rather than the terrain graphics — the same bug that
    left biome seams glowing outside the reach bubble, one layer up.
 
 TEXTURES
