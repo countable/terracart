@@ -2214,7 +2214,7 @@
           // and it survives a tile rebuild. (A footprint split across a tile
           // seam mints one key per side — the same limitation houses already
           // have, where the two halves are reconciled by proximity dedup.)
-          if (fpCells.length) {
+          if (fpCells.length && bp.tier === T.BUILDING_LARGE) {
             let kx = 0, ky = 0;
             for (const [fx, fy] of fpCells) { kx += fx; ky += fy; }
             const akx = tx * w + Math.round(kx / fpCells.length);
@@ -2256,6 +2256,12 @@
           // Synthetic 3-digit street address derived from cell coords. Houses
           // whose address ends in 9 become blacksmiths (~10% of houses).
           const address = (((ix * HASH_MUL_X) ^ (iy * HASH_MUL_Y)) >>> 0) % 1000;
+          // House / fort cells resolve to the house object's own id — the key
+          // save.restoredHouses and save.unlockedForts are stored under — so
+          // "is the building under this cell claimed" is one lookup. (A castle
+          // has no house object at all, so it keys on its footprint instead;
+          // see the BUILDING_LARGE mint above.)
+          ownerKeys[ownerId] = id;
           objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
         }
         // Thin merged house icons. When several tiny building polygons abut and

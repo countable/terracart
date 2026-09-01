@@ -83,6 +83,10 @@ const GPS_SNAP_M = 200;
 // going ahead anyway (see _whenIdle). Long enough that a player actively
 // walking and tapping keeps the thread, short enough that the ring is all in
 // well before they could walk out of the centre tile.
+// A pot of gold bursts into at least this many coins. The scatter search
+// widens until it can seat them (see _coinBurstInteract) — a burst that came
+// back with one coin was the search giving up, never the reward being small.
+const COIN_BURST_MIN = 8;
 const RING_IDLE_TIMEOUT_MS = 400;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
@@ -6587,23 +6591,49 @@ class MapScene extends Phaser.Scene {
     const poiLocalCX = Math.floor((poi.x - tx * tileEdgeM) / cellM);
     const poiLocalCY = Math.floor((poi.y - ty * tileEdgeM) / cellM);
     const RADIUS_CELLS = Math.max(2, Math.ceil(25 / cellM));   // ~5 cells at 5m
+    const MAX_BURST_CELLS = RADIUS_CELLS * 3;                  // ~75 m, the escalated reach
     // Scatter only on legitimate spawn cells: walkable, off-road, and not deep
     // in a private yard. WorldGen.isSpawnCell is the single source of truth,
     // shared with the X-mark scatter above. This burst is centred on a POI, so
     // pass it as a public anchor — residential cells right around the chest are
     // fair game even if no road is within frontage.
     const burstOpts = { roadMask: entry.roadMask, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
-    const candidates = [];
-    for (let dy = -RADIUS_CELLS; dy <= RADIUS_CELLS; dy++) {
-      for (let dx = -RADIUS_CELLS; dx <= RADIUS_CELLS; dx++) {
-        const cx = poiLocalCX + dx, cy = poiLocalCY + dy;
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        // Skip the POI's own cell (chest sprite sits there).
-        if (dx === 0 && dy === 0) continue;
-        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
-        candidates.push({ cx, cy });
+    // Cells within `r` that will take a coin. `strict` is the shared scenery
+    // rule (walkable, off the road band, and on RESIDENTIAL only near a public
+    // anchor); relaxed keeps the two that matter for a coin — not in water or
+    // a wall, not in the traffic — and drops the frontage rule.
+    const gather = (r, strict) => {
+      const out = [];
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const cx = poiLocalCX + dx, cy = poiLocalCY + dy;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          // Skip the POI's own cell (chest sprite sits there).
+          if (dx === 0 && dy === 0) continue;
+          if (strict) {
+            if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
+          } else {
+            if (!WorldGen.isWalkable(entry.grid[cy * N + cx])) continue;
+            if (entry.roadMask && entry.roadMask[cy * N + cx]) continue;
+          }
+          out.push({ cx, cy });
+        }
       }
+      return out;
+    };
+    // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER. The strict rule is built
+    // for scenery that stays put: on residential ground it wants a road, a
+    // public area or a POI within SPAWN_FRONTAGE, which around a pot of gold
+    // in a suburb can come back with a handful of cells — or one. The count
+    // below is capped by whatever this finds, so the burst quietly became a
+    // single coin. A coin is not scenery: it is a 60-second pickup a few steps
+    // from a chest the player is standing on, so it may lie in a front garden.
+    // Widen first (still strict), and only then relax.
+    let candidates = gather(RADIUS_CELLS, true);
+    for (let r = RADIUS_CELLS + 2; candidates.length < COIN_BURST_MIN && r <= MAX_BURST_CELLS; r += 2) {
+      candidates = gather(r, true);
     }
+    if (candidates.length < COIN_BURST_MIN) candidates = gather(MAX_BURST_CELLS, false);
     if (candidates.length === 0) {
       this.flash('No room to scatter!', sx, sy);
       return;
@@ -6613,8 +6643,9 @@ class MapScene extends Phaser.Scene {
       const j = Math.floor(Math.random() * (i + 1));
       [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
     }
-    // Spec: one coin per ~5 cells of vicinity, clamped to [8, 12].
-    const target = Math.max(8, Math.min(12, Math.floor(candidates.length / 5) || 8));
+    // Spec: one coin per ~5 cells of vicinity, clamped to [COIN_BURST_MIN, 12].
+    const target = Math.max(COIN_BURST_MIN,
+      Math.min(12, Math.floor(candidates.length / 5) || COIN_BURST_MIN));
     const n = Math.min(target, candidates.length);
     entry.coinDrops = entry.coinDrops || [];
     const expiresAt = Date.now() + 60_000;
@@ -10470,6 +10501,24 @@ class MapScene extends Phaser.Scene {
   // that is the only thing that means "this castle".
   _castleKey(house) {
     return (house && house.castle) || null;
+  }
+
+  // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? One predicate over every way
+  // a building can become yours, keyed by whatever worldgen stamped on the
+  // cell (see ownerKeys): a house by its own id, a fort by its own id, a
+  // castle by its footprint key. Home counts however it was adopted — a real
+  // house or the synthetic trailer.
+  //
+  // Everything else is somebody else's, and the renderer washes it toward
+  // dark green so the map reads at a glance as what you have taken back.
+  isClaimedKey(key) {
+    if (!key) return false;
+    const sv = this.save;
+    if (sv.starterShopId && sv.starterShopId === key) return true;   // Home
+    if (sv.restoredHouses && sv.restoredHouses[key]) return true;    // rebuilt wreck
+    if (sv.unlockedForts && sv.unlockedForts[key]) return true;      // unsealed fort
+    if (sv.claimedCastles && sv.claimedCastles[key] != null) return true;
+    return false;
   }
 
   // Has the player solved a quest AT this castle? Claiming is per castle and

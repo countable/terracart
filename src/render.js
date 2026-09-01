@@ -483,6 +483,29 @@ if (typeof window !== 'undefined') {
 // read, so carrying them between frames is safe.
 let _ringTypes  = null;
 let _ringOwners = null;
+let _ringUnclaimed = null;
+// Flat [sx, sy, southFaceDepth] triples for the unclaimed-building wash. Reused
+// every frame — the pass runs for every visible building cell, and a fresh
+// array per frame is garbage the render loop can't afford.
+const _washCells = [];
+// 35% of the way to dark green. Composited as one alpha pass over the finished
+// building art (see the wash pass in drawCells).
+const UNCLAIMED_WASH = 0x1e3b24;
+const UNCLAIMED_WASH_A = 0.35;
+// White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
+// lands a sprite roughly where the wash lands the ground under it.
+const UNCLAIMED_SPRITE_TINT = (() => {
+  const lerp = (a, b) => Math.round(a * (1 - UNCLAIMED_WASH_A) + b * UNCLAIMED_WASH_A);
+  return (lerp(255, (UNCLAIMED_WASH >> 16) & 255) << 16)
+       | (lerp(255, (UNCLAIMED_WASH >> 8) & 255) << 8)
+       |  lerp(255, UNCLAIMED_WASH & 255);
+})();
+// Compose two multiply tints, channel by channel — so an unclaimed shop keeps
+// its role colour AND takes the wash, instead of one replacing the other.
+const _mulTints = (a, b) => {
+  const ch = (sh) => Math.round((((a >> sh) & 255) * ((b >> sh) & 255)) / 255);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
 // Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
 // tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
 // the survey-line shimmer — the tile-loading indicator); values in between =
@@ -699,9 +722,26 @@ Render.drawCells = function drawCells(scene) {
     // local id in different tiles never read as "the same building".
     _ringOwners = new Int32Array(RING * RING);
     _ringVeil   = new Float32Array(RING * RING);
+    // Parallel ring of "this building cell belongs to somebody else". 1 =
+    // unclaimed, and gets the dark-green wash below.
+    _ringUnclaimed = new Uint8Array(RING * RING);
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
+  const unclaimed = _ringUnclaimed;
+  // Per-frame memo of ownerKey -> claimed, so a 30-cell footprint asks the save
+  // once instead of 30 times. Cleared each frame because a claim can land
+  // mid-session (restoring a wreck, unsealing a fort, taking a castle).
+  const _claimMemo = new Map();
+  const _claimedKey = (k) => {
+    if (!k) return true;                       // no key = nothing to own
+    let v = _claimMemo.get(k);
+    if (v === undefined) {
+      v = scene.isClaimedKey ? scene.isClaimedKey(k) : true;
+      _claimMemo.set(k, v);
+    }
+    return v;
+  };
   // A tile is ~222 cells on a side, so this 15x15 ring falls inside at most a
   // 2x2 block of tiles and, scanning row-major, long runs of consecutive cells
   // resolve to the same one. Hold the last tile (and its salt, which depends
@@ -740,6 +780,8 @@ Render.drawCells = function drawCells(scene) {
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
+      unclaimed[r * RING + c] =
+        (ol && e2.ownerKeys && !_claimedKey(e2.ownerKeys[ol])) ? 1 : 0;
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
@@ -747,6 +789,7 @@ Render.drawCells = function drawCells(scene) {
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
+  const UNCLAIMED = (c, r) => unclaimed[(r + 2) * RING + (c + 2)] === 1;
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -1239,12 +1282,21 @@ Render.drawCells = function drawCells(scene) {
   // Houses get a 4px wall + 1px silhouette outline. Civic slabs (LARGE) keep
   // the thicker 5px wall and 3px outline to read at their bigger footprint scale.
   const SOUTH_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+  _washCells.length = 0;
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       const type = T(col, row);
       if (!isB(type)) continue;
       const ox = col - half, oy = row - half;
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
+      // Note it for the unclaimed wash below, with the depth its south wall
+      // extrudes into the row underneath so the wash covers the wall face too
+      // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
+      if (UNCLAIMED(col, row)) {
+        const face = wallEdge(col, row, 0, 1)
+          ? (type === 11 ? 5 : (SOUTH_FACE_PX[type] || 4)) : 0;
+        _washCells.push(sx, sy, face);
+      }
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
       if (type === 11) {
@@ -1436,6 +1488,29 @@ Render.drawCells = function drawCells(scene) {
       if (wallEdge(col, row, -1, 0)) g.fillRect(sx,               sy, B, CELL_PX);
       if (wallEdge(col, row, 1, 0)) g.fillRect(sx + CELL_PX - B, sy, B, CELL_PX);
     }
+  }
+  // ── Somebody else's ────────────────────────────────────────────────────
+  // A building the player hasn't taken back is washed toward dark green, so
+  // the map answers "what is mine" at a glance instead of one modal at a time.
+  //
+  // ONE PASS OVER THE FINISHED CELLS, not a tint threaded through the dozen
+  // fills above. A 35% wash of a colour composites to exactly the same result
+  // as mixing every one of those colours 35% toward it — 0.65·base + 0.35·green
+  // either way — and this way it cannot miss a part: the floor, the south
+  // extrusion, the silhouette outline, a fort's palisade pickets and a
+  // castle's rampart stones are all already on the canvas underneath it.
+  //
+  // Runs after the whole building loop rather than inside it because the tier
+  // 11 and 12 branches `continue` before the end, so a per-cell wash written
+  // in the loop would be painted UNDER the palisade and the ramparts it is
+  // supposed to cover.
+  if (_washCells.length) {
+    g.fillStyle(UNCLAIMED_WASH, UNCLAIMED_WASH_A);
+    for (let i = 0; i < _washCells.length; i += 3) {
+      const wx = _washCells[i], wy = _washCells[i + 1], face = _washCells[i + 2];
+      g.fillRect(wx, wy, CELL_PX, CELL_PX + face);
+    }
+    _washCells.length = 0;
   }
   // Reach indicator — subtle white outline tracing only the outer edge of the
   // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
@@ -2696,6 +2771,17 @@ Render.drawObjects = function drawObjects(scene) {
     if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
       const bt = BiomeProfiles.tint(o._biome, o.kind);
       if (bt) tint = bt;
+    }
+    // A building that isn't the player's is washed toward dark green with the
+    // rest of its footprint (see the wash pass in drawCells). Its SPRITE is not
+    // on that canvas — a roof and a turret are pooled images above it — so the
+    // same shift is applied here as a multiply tint. Multiply can't reproduce a
+    // lerp exactly, so the tint is white lerped 35% toward the wash colour:
+    // mid-tones land where the wash puts them and the art keeps its shading.
+    // Applied last so it also carries over a shop's own role tint.
+    if ((o.kind === 'house' || o.kind === 'tower') && scene.isClaimedKey
+        && !scene.isClaimedKey(o.kind === 'tower' ? o.castle : o.id)) {
+      tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
     }
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
