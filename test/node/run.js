@@ -140,9 +140,9 @@ try {
                       // see fog.test.js. Lifted for the same reason: a copy
                       // would drift the moment the viewport was resized.
                       'VIEW_CELLS',
-                      // CELL_PX is the cell edge in px — render.js's fog-shell
-                      // fills are laid out in it, and fog_shells.test.js drives
-                      // them against a recording Graphics stub.
+                      // CELL_PX is the cell edge in px — the fog wash is
+                      // computed at FOG_SUB samples per cell and upscaled to
+                      // it, and fog_soft.test.js pins that budget against it.
                       'CELL_PX',
                       // The starting-neighbourhood reveal radii — fog.test.js
                       // checks they actually cover the trail the onboarding
