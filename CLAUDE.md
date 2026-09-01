@@ -167,6 +167,25 @@
   / `addHouse`, never a walk of `housePositions`.
   **Audit it:** `test/node/worldgen_dedup.test.js`.
 
+- **A tile can be REBUILT under you, and a rebuilt entry is a NEW object.**
+  When a tile rasterizes before its Overpass bin arrives, `rebuildTileWithBin`
+  builds a replacement and swaps it into the cache. It carries over only what
+  it cannot reconstruct — live `creatures`, `coinDrops` — so ANY other state
+  app.js hung on the old entry is gone, and `spawnInTile` has to run again.
+  That pass is therefore gated on **`entry._spawned`**, a flag the rebuild does
+  NOT carry, never on carried state: gating on `entry.creatures` made a
+  rebuilt tile look spawned, and the starter crates, the buried X, the treasure
+  scatter and the fruit trees all vanished a few seconds into the session and
+  "came back on refresh" (on reload the bin is cached, so no rebuild happens).
+  This is the third bug of the shape — the chest dedup, then the house dedup,
+  now the spawn gate. **When you put per-session state on a tile entry, decide
+  what a rebuild does with it**: carried across, or re-derived by a pass that a
+  flag the rebuild drops will re-run.
+  **Audit it:** `node test/node/run.js` › `test/node/spawn_rebuild.test.js`
+  runs the shipping gate line against a rebuilt entry. Note that
+  `starter_relic.test.js` drives `_placeStarterTrail` directly and passed
+  throughout the bug — the trail was fine, the CALL to it was not.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
