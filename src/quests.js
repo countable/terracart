@@ -65,6 +65,19 @@ const QUEST_ENEMY_NAMES = {
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.
 const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_worship', 'playground'];
+// Exposed as a global (mirrors the "IIFE modules' window.X exports" pattern
+// described at the top of interactables.js) purely for the headless test
+// bundle: test/node/run.js's BRIDGE re-exports QUEST_TEMPLATES/QUEST_ENEMIES
+// this same way, but QUEST_POIS was never added because nothing outside this
+// file used to read the raw target list. poi_quest.test.js needs the REAL
+// array, not a hand-copied one — a copy is exactly the kind of thing that
+// drifts silently the next time a target is added here, which is the whole
+// class of bug this file's onEvent()/onPoiVisit() plumbing just got bitten by
+// (see interactables.js' markOpened for the fix). In the browser this line is
+// a no-op duplicate of the lexical binding every later <script> tag already
+// sees; only the node vm harness — which reloads each test file in its own
+// separate vm.runInContext call — needs the property on the shared global.
+if (typeof window !== 'undefined') window.QUEST_POIS = QUEST_POIS;
 const QUEST_POI_NAMES = {
   well: 'an old well', fountain: 'a fountain', library: 'a library', museum: 'a museum',
   park: 'a park', place_of_worship: 'a chapel', playground: 'a playground',

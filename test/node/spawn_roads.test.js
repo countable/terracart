@@ -259,4 +259,111 @@ test('road_overlay.js strokes with roadOverlayWidthM, not its own copy of it', (
   assert.falsy(/LARGE_SCALE|LARGE_CLASSES/.test(src),
     'overlay keeps no private large-tier scale');
 });
+
+// ─── Cave entrances (staircases) ─────────────────────────────────────────────
+//
+// maybePlaceCaveEntrance runs AFTER rasterizeTile, inside loadTile
+// (worldgen.js:3294) — the "descend" staircase it drops is a spawn like any
+// other, but its gate (stairCellOK) re-implements the occupancy/building/
+// chest checks by hand instead of calling isSpawnCell, and until now it
+// forgot the one this whole file is about: entry.roadMask. Both of its
+// placement paths could land a ladder under a drawn road band the terrain
+// grid never records:
+//   • placeRandomWalkable (the per-tile guarantee on a tile with no cave
+//     rock) scans EVERY walkable cell with no mask check at all — worst
+//     case, dead centre of a parking lot, which paints no road cell to
+//     begin with;
+//   • placeBeside (anchored to a residential rock cluster) picks the first
+//     of the 8 cells touching the rock that passes stairCellOK, which could
+//     be a cell a motorway's band covers without ever painting ROAD terrain
+//     there.
+// rasterizeTile alone can't reproduce this — staircases don't exist until
+// maybePlaceCaveEntrance runs — so these tests call it directly the same way
+// loadTile does, off entry shapes either hand-built (to force each path
+// deterministically) or taken straight from the real rasterizer.
+
+test('maybePlaceCaveEntrance: placeRandomWalkable never seats a stair under the road band', () => {
+  // No cave rock anywhere -> the per-tile guarantee falls through to
+  // placeRandomWalkable. Mask every cell but one; a working gate MUST place
+  // the guaranteed entrance on that one survivor, every time.
+  const N = 8, cellM = 7, edgeM = N * cellM;
+  for (let tx = 0; tx < 12; tx++) {
+    const grid = new Uint8Array(N * N).fill(T.GRASS);
+    const roadMask = new Uint8Array(N * N).fill(1);
+    roadMask[0] = 0;   // cell (0,0) is the only legal spawn on the whole tile
+    const entry = { cellsPerEdge: N, grid, roadMask, objects: [], poiPadCells: null };
+    WorldGen.maybePlaceCaveEntrance(entry, tx, 9, edgeM);
+    const stairs = entry.objects.filter(o => o.kind === 'staircase');
+    assert.eq(stairs.length, 1, `tx=${tx}: the per-tile guarantee still fires`);
+    const lix = Math.floor((stairs[0].x - tx * edgeM) / cellM);
+    const liy = Math.floor((stairs[0].y - 9 * edgeM) / cellM);
+    assert.eq(roadMask[liy * N + lix], 0, `tx=${tx}: stair landed on a masked cell`);
+    assert.eq(lix, 0); assert.eq(liy, 0);
+  }
+});
+
+test('maybePlaceCaveEntrance: placeBeside never seats a stair under the road band', () => {
+  // One cave-rock cluster of one rock; mask 7 of its 8 neighbours, leaving
+  // exactly one legal cell beside it. Sweep tx so both the 30% roll and the
+  // "placed === 0" guarantee get exercised across many seeds — any hit on a
+  // masked neighbour is the bug.
+  const N = 8, cellM = 7, edgeM = N * cellM;
+  const rlix = 4, rliy = 4;
+  // placeBeside's dirs list tries [1,0] first — pick the LAST candidate it
+  // tries ([-1,1]) as the one open neighbour, so a gate that ignores the mask
+  // still finds a "legal" cell (the masked [1,0]) before ever reaching this
+  // one, and the test can tell "ignored the mask" apart from "got lucky".
+  const openDx = -1, openDy = 1;
+  let anyPlaced = false;
+  for (let tx = 0; tx < 200; tx++) {
+    const grid = new Uint8Array(N * N).fill(T.GRASS);
+    const roadMask = new Uint8Array(N * N);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      if (dx === openDx && dy === openDy) continue;
+      roadMask[(rliy + dy) * N + (rlix + dx)] = 1;
+    }
+    const rockX = tx * edgeM + (rlix + 0.5) * cellM;
+    const rockY = 1 * edgeM + (rliy + 0.5) * cellM;
+    const objects = [{ kind: 'mineralrock', x: rockX, y: rockY, caveVariant: 0, _clusterId: 'c1' }];
+    const entry = { cellsPerEdge: N, grid, roadMask, objects, poiPadCells: null };
+    WorldGen.maybePlaceCaveEntrance(entry, tx, 1, edgeM);
+    for (const o of entry.objects) {
+      if (o.kind !== 'staircase') continue;
+      anyPlaced = true;
+      const lix = Math.floor((o.x - tx * edgeM) / cellM);
+      const liy = Math.floor((o.y - 1 * edgeM) / cellM);
+      assert.eq(roadMask[liy * N + lix], 0, `tx=${tx}: stair landed on a masked cell beside the rock`);
+      assert.eq(lix, rlix + openDx); assert.eq(liy, rliy + openDy);
+    }
+  }
+  assert.truthy(anyPlaced, 'fixture actually exercised placeBeside at least once across the sweep');
+});
+
+test('maybePlaceCaveEntrance: over the real rasterizer + road fixture, no stair lands on road terrain or under the mask', () => {
+  // End-to-end version, off the real rasterizeTile output (residential block
+  // + a motorway + a street, same fixture the rest of this file uses) —
+  // swept across many tile coordinates so different rng draws hit both
+  // placeBeside (residential cave rocks near the motorway) and the
+  // placeRandomWalkable guarantee.
+  let checked = 0;
+  for (let tx = 0; tx < 20; tx++) {
+    for (let ty = 0; ty < 3; ty++) {
+      const { grid, roadMask, objects, poiPadCells } = WorldGen.rasterizeTile(fixtureLayers(), CPE, tx, ty, TILE_EDGE_M);
+      const entry = { cellsPerEdge: CPE, grid, roadMask, objects: objects.slice(), poiPadCells };
+      WorldGen.maybePlaceCaveEntrance(entry, tx, ty, TILE_EDGE_M);
+      for (const o of entry.objects) {
+        if (o.kind !== 'staircase') continue;
+        checked++;
+        const lix = Math.floor((o.x - tx * TILE_EDGE_M) / (TILE_EDGE_M / CPE));
+        const liy = Math.floor((o.y - ty * TILE_EDGE_M) / (TILE_EDGE_M / CPE));
+        assert.falsy(ROAD_TIERS.has(grid[liy * CPE + lix]),
+          `tx=${tx},ty=${ty}: staircase on road terrain at ${lix},${liy}`);
+        assert.eq(roadMask[liy * CPE + lix], 0,
+          `tx=${tx},ty=${ty}: staircase under the road band at ${lix},${liy}`);
+      }
+    }
+  }
+  assert.gt(checked, 0, 'sweep produced staircases to check');
+});
 })();

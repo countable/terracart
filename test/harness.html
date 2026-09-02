@@ -89,7 +89,15 @@
       '/vendor/phaser.js', '/src/mvt.js', '/src/util.js', '/src/sprite_layout.js', '/src/placed_floor.js',
       '/src/home.js', '/src/coords.js', '/src/fog.js', '/src/biome_profiles.js', '/src/worldgen.js',
       '/src/textures.js', '/src/save.js', '/src/items.js', '/src/inventory.js', '/src/energy.js', '/src/crops.js', '/src/delivery.js', '/src/savemigrate.js', '/src/gear.js', '/src/shops_math.js', '/src/shops.js', '/src/rarity.js',
-      '/src/loot.js', '/src/quests.js', '/src/interactables.js', '/src/combat.js', '/src/interact.js', '/src/render.js', '/src/assets.js',
+      '/src/loot.js', '/src/quests.js', '/src/interactables.js', '/src/combat.js', '/src/interact.js', '/src/render.js',
+      // Same three, in the same place, as index.html: render.js, then
+      // multiplayer + the two geometry overlays, then assets.js. They were
+      // added to index.html and not here, so `Multiplayer` was simply
+      // undefined in the harness — and because every call site in app.js is
+      // guarded with `typeof Multiplayer !== 'undefined'`, nothing failed: the
+      // guards just no-opped and any future browser test of presence, peers or
+      // the overlays would have been testing nothing at all.
+      '/src/multiplayer.js', '/src/road_overlay.js', '/src/building_overlay.js', '/src/assets.js',
       '/src/sandbox.js', '/src/testtools.js', '/src/geo.js', '/src/app.js',
     ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
   </script>

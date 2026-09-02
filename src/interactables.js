@@ -388,6 +388,26 @@ const INTERACTABLES = {
       const markOpened = () => {
         save.opened.push(o.id);
         scene.questEvent?.('chest');
+        // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
+        // thing that can credit a 'poi' quest, and its ONLY call site used to
+        // be the well interactable below, hardcoded to the literal 'well'.
+        // Six of QUEST_POIS's seven targets (fountain/library/museum/park/
+        // place_of_worship/playground) never reach a well object — they land
+        // on the world as plain kind:'chest' objects carrying that class as
+        // o.poiClass (worldgen.js's POI 'USEFUL' set + loot.js POI_CATEGORY /
+        // chestTier), so those quest slots sat on the board permanently
+        // uncompletable (~1 in 20 generated slots, given the 'poi' template's
+        // weight). Crediting from every chest open — not just from well — is
+        // the fix: onEvent() only advances a poi-quest slot when its target
+        // matches o.poiClass, so this is a no-op on every chest that isn't
+        // the one a live quest is scouting for, and it can't double-credit
+        // the 'chest' quest above (different `event` string, separate loop).
+        // Firing it INSIDE markOpened (not the coin-burst / market-stand
+        // shortcuts above, and not the "Picked clean already" / "leave for
+        // later" paths that return before this runs) means a chest can only
+        // ever award this once — exactly the same guarantee save.opened
+        // already gives the 'chest' quest.
+        if (typeof Quests !== 'undefined' && o.poiClass) Quests.onPoiVisit(save, o.poiClass);
       };
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
