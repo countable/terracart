@@ -416,6 +416,206 @@ test('MVT.decodeTile: feature default id is 0 when absent', () => {
   assert.eq(layers[0].features[0].id, 0, 'default id = 0 when omitted');
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Corrupt / truncated tiles — a length prefix must be checked against the
+// bytes actually remaining, or a corrupt tile spins for real wall-clock time
+// (proportional to the bogus claimed length, up to 2^53) and then returns a
+// truncated-but-plausible-looking layer as if it decoded successfully. That
+// silent "success" is what makes it dangerous: worldgen.js caches the raw
+// tile bytes in IndexedDB forever (see the comment at worldgen.js's tile
+// cache) and only evicts/retries a tile whose decode PROMISE REJECTS — so a
+// tile that decodes "successfully" into garbage stays poisoned across every
+// future load, not just this one.
+//
+// Repro that motivated this: a 9-byte buffer whose one layer claims a
+// 5e7-byte length ran ~5.9s on this machine (proportionally worse on a phone)
+// and then returned one garbage layer, no error. Every case below must both
+// throw AND do so fast — a test that only checks "it threw" would still pass
+// if the throw came 40 seconds late.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Generous ceiling for "fast" — real corrupt-length rejection is sub-millisecond
+// (it fails at the point the length is read, before doing any bounded work).
+// 200ms leaves headroom for a loaded CI box while still being 30x tighter than
+// the multi-second spin this pins against.
+const CORRUPT_BUDGET_MS = 200;
+
+function assertRejectsFast(fn, label) {
+  const t0 = Date.now();
+  let threw = null;
+  try { fn(); } catch (e) { threw = e; }
+  const elapsedMs = Date.now() - t0;
+  assert.truthy(threw, label + ': expected decode to throw on corrupt input, it returned normally');
+  assert.lt(elapsedMs, CORRUPT_BUDGET_MS,
+    label + ': took ' + elapsedMs + 'ms — should reject at the bad length, not spin over it');
+}
+
+test('MVT.decodeTile: truncated LAYER length is rejected fast, not spun over', () => {
+  // Exact P1 repro: field 3 (layer, wire 2) claims a 5e7-byte body in a
+  // 9-byte buffer. Before the fix this ran ~5.9s and returned a garbage
+  // one-layer result instead of throwing.
+  const bytes = Uint8Array.from([...fieldTag(3, 2), ...encodeVarint(5e7), 0x0a, 0x02, 65, 66]);
+  assertRejectsFast(() => MVT.decodeTile(bytes), 'truncated layer length');
+});
+
+test('MVT.decodeTile: truncated FEATURE length (inside a real layer) is rejected fast', () => {
+  // A layer whose one feature field (tag 2, wire 2) claims a length far
+  // longer than the layer (and the whole tile) actually has left.
+  const layerBytes = [
+    ...fieldTag(1, 2), ...encodeString('roads'),
+    ...fieldTag(2, 2), ...encodeVarint(3e7), 1, 2, 3, // feature LEN lies
+  ];
+  const tileBytes = new Uint8Array([...fieldTag(3, 2), ...lenPrefixed(layerBytes)]);
+  assertRejectsFast(() => MVT.decodeTile(tileBytes), 'truncated feature length');
+});
+
+test('MVT.decodeTile: a length that overflows past the buffer end (generic LEN field) is rejected fast', () => {
+  // Same shape, but through Reader.readString via the layer NAME field —
+  // pins that the check lives once on the shared length-reading path
+  // (Reader.readLen), not only on the two message-body call sites.
+  const layerBytes = [
+    ...fieldTag(1, 2), ...encodeVarint(9e6), 65, 66, // name LEN lies
+  ];
+  const tileBytes = new Uint8Array([...fieldTag(3, 2), ...lenPrefixed(layerBytes)]);
+  assertRejectsFast(() => MVT.decodeTile(tileBytes), 'overflowing string length');
+});
+
+test('MVT.decodeTile: truncated packed-tag length inside a feature is rejected fast', () => {
+  // Feature.tags (field 2, wire 2) is itself a LEN-prefixed packed varint
+  // array read inside decodeFeature — a separate call site from the layer's
+  // own feature-span length above.
+  const featureBytes = [
+    ...fieldTag(2, 2), ...encodeVarint(2e7), 0, 0, // tags LEN lies
+  ];
+  const layerBytes = [
+    ...fieldTag(1, 2), ...encodeString('x'),
+    ...fieldTag(2, 2), ...lenPrefixed(featureBytes),
+  ];
+  const tileBytes = new Uint8Array([...fieldTag(3, 2), ...lenPrefixed(layerBytes)]);
+  assertRejectsFast(() => MVT.decodeTile(tileBytes), 'truncated feature tags length');
+});
+
+test('MVT.decodeTile: empty buffer still decodes to zero layers (not a false positive from the length check)', () => {
+  // Guard against the fix being too aggressive: an empty tile has no length
+  // prefixes to check at all, so it must still decode cleanly.
+  const layers = MVT.decodeTile(new Uint8Array(0));
+  assert.eq(layers.length, 0, 'no layers for empty tile, no throw');
+});
+
+test('MVT.decodeTileSliced: same truncated layer length is rejected fast (not just decodeTile)', async () => {
+  // decodeTileSliced (via decodeTileSteps/decodeLayerSteps) is the path
+  // worldgen.js actually calls in the browser — it must reject too, and the
+  // rejection must arrive as a rejected promise so loadTile's failure/retry
+  // path (_tileFailedAt) sees it.
+  const bytes = Uint8Array.from([...fieldTag(3, 2), ...encodeVarint(5e7), 0x0a, 0x02, 65, 66]);
+  const t0 = Date.now();
+  let threw = null;
+  try {
+    await MVT.decodeTileSliced(bytes, () => Promise.resolve(), 1000000);
+  } catch (e) { threw = e; }
+  const elapsedMs = Date.now() - t0;
+  assert.truthy(threw, 'decodeTileSliced should reject on a corrupt length');
+  assert.lt(elapsedMs, CORRUPT_BUDGET_MS, 'decodeTileSliced took ' + elapsedMs + 'ms — should reject fast');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parity: decodeTileSliced (the async, step-based, actually-shipped path) must
+// decode a VALID tile identically to decodeTile (the sync reference). This is
+// also the regression pin for a second, independently-found bug: decodeLayerSteps
+// used to read a Value submessage's length TWICE — once explicitly before
+// calling readValue(), and once again inside readValue() itself (which reads
+// its own LEN as its first statement, same as decodeLayer's tag-4 case). That
+// double-read misaligned every field parsed afterward in the layer header, so
+// a real tile's `values` came out wrong and every one of its features decoded
+// as the all-defaults shell ({id:0,type:0,tags:{},geom:[]}) — silently, with
+// no error, on the exact path worldgen.js prefers (MVT.decodeTileSliced when
+// it exists, which it always does). Fixed by dropping the redundant length
+// read in decodeLayerSteps' tag-4 branch so it matches decodeLayer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildParityTile() {
+  // Two layers. Layer 1 puts its `values` BEFORE its features (matching this
+  // file's existing fixture); layer 2 puts them AFTER (the order the comment
+  // atop decodeLayer says real-world MVT tiles use) and carries two features
+  // and two distinct tag values, so a misaligned header would corrupt more
+  // than one field.
+  const mkValue = (s) => [...fieldTag(1, 2), ...encodeString(s)];
+  const mkGeom = (dx, dy) => {
+    const raw = [(1 << 3) | 1, zigzag(dx), zigzag(dy)];
+    const out = [];
+    for (const v of raw) out.push(...encodeVarint(v));
+    return out;
+  };
+
+  const layer1 = [
+    ...fieldTag(15, 0), ...encodeVarint(2),
+    ...fieldTag(1, 2), ...encodeString('roads'),
+    ...fieldTag(5, 0), ...encodeVarint(4096),
+    ...fieldTag(3, 2), ...encodeString('highway'),
+    ...fieldTag(4, 2), ...lenPrefixed(mkValue('primary')), // values before features
+    ...fieldTag(2, 2), ...lenPrefixed([
+      ...fieldTag(1, 0), ...encodeVarint(1),
+      ...fieldTag(2, 2), ...lenPrefixed([...encodeVarint(0), ...encodeVarint(0)]),
+      ...fieldTag(3, 0), ...encodeVarint(2),
+      ...fieldTag(4, 2), ...lenPrefixed(mkGeom(1, 1)),
+    ]),
+  ];
+
+  const feature2a = [
+    ...fieldTag(1, 0), ...encodeVarint(10),
+    ...fieldTag(2, 2), ...lenPrefixed([...encodeVarint(0), ...encodeVarint(0)]),
+    ...fieldTag(3, 0), ...encodeVarint(1),
+    ...fieldTag(4, 2), ...lenPrefixed(mkGeom(2, 2)),
+  ];
+  const feature2b = [
+    ...fieldTag(1, 0), ...encodeVarint(11),
+    ...fieldTag(2, 2), ...lenPrefixed([...encodeVarint(0), ...encodeVarint(1)]),
+    ...fieldTag(3, 0), ...encodeVarint(1),
+    ...fieldTag(4, 2), ...lenPrefixed(mkGeom(3, 3)),
+  ];
+  const layer2 = [
+    ...fieldTag(1, 2), ...encodeString('buildings'), // features before values
+    ...fieldTag(5, 0), ...encodeVarint(4096),
+    ...fieldTag(3, 2), ...encodeString('kind'),
+    ...fieldTag(2, 2), ...lenPrefixed(feature2a),
+    ...fieldTag(2, 2), ...lenPrefixed(feature2b),
+    ...fieldTag(4, 2), ...lenPrefixed(mkValue('house')),
+    ...fieldTag(4, 2), ...lenPrefixed(mkValue('shed')),
+  ];
+
+  return new Uint8Array([
+    ...fieldTag(3, 2), ...lenPrefixed(layer1),
+    ...fieldTag(3, 2), ...lenPrefixed(layer2),
+  ]);
+}
+
+// Canonical stringify (keys sorted) — decodeLayer and decodeLayerSteps build
+// their layer object literals with a different PROPERTY ORDER
+// ({name,extent,features,keys,values} vs {name,extent,keys,values,features}),
+// which is immaterial (property order isn't part of the decoded value) but
+// trips a plain JSON.stringify comparison. Sort keys so the comparison is of
+// actual content, not incidental construction order.
+function canon(v) {
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v);
+}
+
+test('MVT.decodeTileSliced matches MVT.decodeTile byte-for-byte on a valid multi-layer tile', async () => {
+  const tile = buildParityTile();
+  const viaSync = MVT.decodeTile(tile);
+  const viaSliced = await MVT.decodeTileSliced(tile, () => Promise.resolve(), 1000000);
+  assert.eq(canon(viaSliced), canon(viaSync),
+    'decodeTileSliced output must equal decodeTile output for a valid tile (property order ignored)');
+  // Spell out the specific field the double-length-read bug used to corrupt,
+  // so a future regression here fails on something readable, not just a JSON diff.
+  assert.eq(viaSliced[1].values.join(','), 'house,shed', 'layer 2 values decoded in order');
+  assert.eq(viaSliced[1].features[0].tags['kind'], 'house', 'feature 2a tag resolved');
+  assert.eq(viaSliced[1].features[1].tags['kind'], 'shed', 'feature 2b tag resolved');
+});
+
 test('MVT.decodeTile: default extent is 4096 when absent', () => {
   const geomRaw = [(1 << 3) | 1, zigzag(0), zigzag(0)];
   const geomVarints = [];

@@ -687,6 +687,63 @@ try {
   ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
 }
 
+// ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
+// FINDING 3) — all three need slices of app.js it cannot load headlessly.
+{
+  const src = readSrc('app.js');
+  const grabBetween = (head, endMark, what) => {
+    const at = src.indexOf(head);
+    if (at < 0) { console.error(`Could not find ${what} in src/app.js — update run.js`); process.exit(2); }
+    const from = at + head.length;
+    const end = src.indexOf(endMark, from);
+    if (end < 0) { console.error(`Could not find the end of ${what} in src/app.js — update run.js`); process.exit(2); }
+    return src.slice(from, end);
+  };
+
+  // faunaBlocksCell / FAUNA_BLOCKED_TYPES / crowEatsCrop are plain top-level
+  // helpers in app.js that _wildCrowTick (and the fauna spawner) call — lift
+  // them verbatim so the lifted method bodies below resolve for real instead
+  // of against a stub that could drift from the shipping set.
+  {
+    const m = src.match(/const FAUNA_BLOCKED_TYPES = new Set\(\[[^\]]*\]\);\nfunction faunaBlocksCell\(type\) \{ return FAUNA_BLOCKED_TYPES\.has\(type\); \}/);
+    if (!m) { console.error('Could not find FAUNA_BLOCKED_TYPES/faunaBlocksCell in src/app.js — update run.js'); process.exit(2); }
+    vm.runInContext(m[0] + '\n;globalThis.faunaBlocksCell = faunaBlocksCell;', ctx, { filename: 'faunaBlocksCell.js' });
+  }
+  {
+    const m = src.match(/function crowEatsCrop\(p\) \{ return Crops\.crowEats\(p\); \}/);
+    if (!m) { console.error('Could not find crowEatsCrop in src/app.js — update run.js'); process.exit(2); }
+    vm.runInContext(m[0] + '\n;globalThis.crowEatsCrop = crowEatsCrop;', ctx, { filename: 'crowEatsCrop.js' });
+  }
+
+  // FINDING 1 — _wildCrowTick, whole method body, run with a stub `this`
+  // (same trick spawn_rebuild.test.js uses on the spawn gate: new Function +
+  // .call(stub, …) drives the REAL shipping code, not a transcription of it).
+  ctx.WILD_CROW_TICK_SRC = grabBetween(
+    '  _wildCrowTick(c, now, px, py) {\n', '\n  }\n', '_wildCrowTick');
+
+  // FINDING 2 / FINDING 3(b) — the fauna-spawn tryPlace closure (spawnInTile),
+  // lifted alone rather than the whole 260-line spawnInTile method: tryPlace
+  // is the one piece the two findings touch (the roadMask gate, the caughtSet
+  // lookup) and it only closes over rng/N/entry/_spawnOpts/pestFree/caughtSet/
+  // creatures/tx/ty, all cheap to stub.
+  ctx.TRY_PLACE_SRC = grabBetween(
+    '    const tryPlace = (kindWant, classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
+
+  // FINDING 3(b), other half — spawnCaveCreatures is small and self-contained
+  // enough (this.save.caught, this.tileEdgeM, WorldGen, MONSTERS, entry.* —
+  // nothing else) to just run whole via SPAWN_CAVE_SRC, already lifted above
+  // for the rebuild-contract tests.
+
+  // FINDING 3(a) — the save.caught pest-crow prune block inside
+  // wanderCreatures. Lifted alone (not the ~1500-line wanderCreatures method
+  // it lives in): it only touches this.depth / this.save.caught /
+  // this._lastCaughtPruneT / WorldGen.tileCache / WorldGen.tileKey.
+  ctx.CAUGHT_PRUNE_SRC = grabBetween(
+    '    // Prune save.caught of pest-crow markers whose tile has since fallen out\n',
+    '\n    const caughtSet = setOf(this.save.caught);',
+    'the save.caught pest-crow prune block');
+}
+
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 
 // app.js can't load headlessly (it needs Phaser — see above), so the perf-

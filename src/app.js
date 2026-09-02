@@ -3100,6 +3100,13 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
+    // Memoised Set, not an Array.includes: tryPlace below calls this per
+    // spawn ATTEMPT (up to 12 per creature, across every species in
+    // FAUNA_ORDER), so an .includes here was an O(save.caught length) scan
+    // hundreds of times per tile build — the same failure shape util.js's
+    // setOf was written for (see its comment), and app.js already uses it
+    // for exactly this check in the per-frame wander/render loops.
+    const caughtSet = setOf(this.save.caught);
     // Even pets only belong near street frontage / public space inside a
     // residential block, so creature placement shares the spawn rule too.
     // POI chests (already placed by worldgen) count as public anchors.
@@ -3131,12 +3138,24 @@ class MapScene extends Phaser.Scene {
         if ((kindStr === 'slime' || kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) continue;
         const t = entry.grid[cy * N + cx];
         if (classesOK.has(t)) {
-          // Residential cells are private yards — only spawn near a public anchor.
-          if (t === 5 /* RESIDENTIAL */ && !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
+          // Route EVERY candidate cell through the shared spawn rule, not just
+          // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
+          // its residential-frontage logic — so gating the call on `t === 5`
+          // (the old code) made the mask unreachable for grass/park/farmland/
+          // etc., and a cow or crow could spawn on ground the player sees as
+          // asphalt: a motorway's band covers a cell either side of the cells
+          // it paints, and a parking lot's aisles paint no road cells at all.
+          // This does NOT impose the frontage rule on non-residential terrain:
+          // isSpawnCell returns true right after the walkable+roadMask checks
+          // for any `here !== T.RESIDENTIAL` cell (worldgen.js:132), so grass
+          // etc. only ever pays the (cheap) roadMask lookup, never the
+          // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
+          // test/node/fauna_spawn.test.js.
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
-          if (this.save.caught.includes(id)) return;
+          if (caughtSet.has(id)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
           // through tame/release/re-catch. Slimes are energy pests with no
@@ -3173,7 +3192,7 @@ class MapScene extends Phaser.Scene {
     if (this.save.released) {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
-        if (this.save.caught.includes(r.id)) continue;
+        if (caughtSet.has(r.id)) continue;
         creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
@@ -4633,6 +4652,11 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
     const N = entry.cellsPerEdge;
     const creatures = [];
+    // Memoised Set, not an Array.includes — the monster + rabbit loops below
+    // call this up to (count + rabbitN) * 20 times per tile build (up to
+    // ~3500 calls at max depth), each an O(save.caught length) scan without
+    // this. Same fix as spawnInTile above / setOf's own doc comment.
+    const caughtSet = setOf(this.save.caught);
     // Weighted bag of the kinds that may appear at this depth.
     const bag = [];
     for (const [kind, m] of Object.entries(MONSTERS)) {
@@ -4682,7 +4706,7 @@ class MapScene extends Phaser.Scene {
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
-        if (this.save.caught.includes(id)) break;   // already defeated — stays dead
+        if (caughtSet.has(id)) break;   // already defeated — stays dead
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind, id });
@@ -4698,7 +4722,7 @@ class MapScene extends Phaser.Scene {
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
-        if (this.save.caught.includes(id)) break;   // already caught — stays gone
+        if (caughtSet.has(id)) break;   // already caught — stays gone
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
@@ -6078,6 +6102,34 @@ class MapScene extends Phaser.Scene {
     // creature. The all-tiles + includes version was an O(every creature ever
     // loaded × caught) scan per frame that grew the longer you walked.
     const pcW = this.playerToWorldCell();
+    // Prune save.caught of pest-crow markers whose tile has since fallen out
+    // of the in-memory tile cache. Every OTHER id in this array is
+    // deterministic (crow_tx_ty_i, mon_kind_depth_tx_ty_i, rabbit_depth_tx_ty_i,
+    // …) and MUST be kept forever — revisiting that tile re-seeds the same rng
+    // and mints the identical id, so dropping the marker would let the "dead"
+    // creature spawn right back. Pest crows are the one exception: each spawn
+    // below mints a fresh id off Date.now()+Math.random() that is never minted
+    // again, so once its tile leaves the cache the creature object it named is
+    // gone for good and the marker can never matter again. Nothing pruned this
+    // before — grepped, only testtools resets the array wholesale — so a save
+    // with crops planted and a pet active added one of these roughly every 90s
+    // (the pest timer below) for the life of the save, same failure shape as
+    // coinBurstClaimed/houseSatisfied/shopCharm before those grew a prune pass.
+    //   Depth-gated: WorldGen.tileCache is REPOINTED to the cave-level map
+    // underground (see _setStarterCratesAt above), so checking it while the
+    // player is down a level would read the wrong map and wrongly prune a
+    // surface pest crow whose tile is still very much cached.
+    //   Own throttle (not `_lastPestT`) because that timer can go far longer
+    // than 90s between resets when no crow-edible crop is planted (see below),
+    // and this O(save.caught) filter has no business running every frame either.
+    if ((this.depth || 0) === 0 && this.save.caught && this.save.caught.length &&
+        now - (this._lastCaughtPruneT || 0) > 90000) {
+      this._lastCaughtPruneT = now;
+      this.save.caught = this.save.caught.filter((id) => {
+        const m = typeof id === 'string' && /^pest_crow_(-?\d+)_(-?\d+)_/.exec(id);
+        return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
+      });
+    }
     const caughtSet = setOf(this.save.caught);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
@@ -6503,8 +6555,65 @@ class MapScene extends Phaser.Scene {
   // Defeating the crow during the pause cancels the destruction, giving the
   // player a generous grace window.
   _wildCrowTick(c, now, px, py) {
-    // A fleeing crow (just hit by a pet) skips crop logic and runs.
-    if (c._fleeUntilT && c._fleeUntilT > now) return;
+    // A fleeing crow (just hit by a pet) skips crop logic and bolts away in
+    // short fast dashes, reusing the SAME FLIGHT-phase fields (_flightUntilT /
+    // _startX,Y / _targetX,Y / _flightT0) that a normal orbiting glide uses —
+    // so the dash gets the existing eased-interpolation code below for free
+    // instead of a second position-update path.
+    //   This used to just `return` here for the whole 8s flee window — the
+    // comment said "skips crop logic and runs" but nothing ran: c.x/c.y are
+    // ONLY ever written inside this function, so returning before touching
+    // them froze the crow in place while a cat/dog kept landing hits on a
+    // stationary target. See CLAUDE.md FINDING 1 / test/node/crow_flee.test.js.
+    const fleeing = c._fleeUntilT && c._fleeUntilT > now;
+    if (fleeing) {
+      // A crow being mauled doesn't finish casing the crop first — abandon
+      // any in-progress destroy pause so recovering later starts clean.
+      c._destroyCropRef = null;
+      c._destroyCyclesLeft = 0;
+      c._destroyAtT = null;
+      // _fleeDash marks a flight leg as ITS OWN panic dash (vs. a normal
+      // orbit glide that was already in flight the instant the hit landed).
+      // Without that distinction the check below would happily keep gliding
+      // the crow ALONG ITS OLD PRE-HIT COURSE — e.g. still inbound to the very
+      // crop it was casing — for up to a full 1200ms glide before the flee
+      // ever took effect, unlike every other kind's flee override (:6249),
+      // which reacts on the very next tick.
+      if (c._flightUntilT && now < c._flightUntilT && c._fleeDash) {
+        const dur = c._flightUntilT - c._flightT0;
+        const t = Math.min(1, (now - c._flightT0) / dur);
+        const u = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        c.x = c._startX + (c._targetX - c._startX) * u;
+        c.y = c._startY + (c._targetY - c._startY) * u;
+        return;
+      }
+      // Between dashes (or reacting to the hit for the first time) — launch a
+      // new short burst directly away from the hit angle, same ±0.6 rad
+      // jitter the generic flee override uses so a fleeing crow reads like
+      // every other fleeing kind.
+      const fa = c._fleeAngle ?? 0;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
+        const d = 2 * this.cellM;
+        const ftx = c.x + Math.cos(fleeAngle) * d;
+        const fty = c.y + Math.sin(fleeAngle) * d;
+        const dest = this.cellAt(ftx, fty);
+        if (dest.loaded && !faunaBlocksCell(dest.type)) {
+          c._startX = c.x; c._startY = c.y;
+          c._targetX = ftx; c._targetY = fty;
+          c._flightT0 = now;
+          // Quicker than a normal 800-1200ms orbit glide — panic speed.
+          c._flightUntilT = now + 350 + Math.random() * 200;
+          c._fleeDash = true;
+          c._faceFlip = (ftx - c.x) < 0;
+          break;
+        }
+      }
+      // All 4 attempts blocked (e.g. cornered by water/buildings): stand
+      // still this tick and retry next tick rather than phasing into a bad
+      // cell — same policy the orbit-flight target search uses below.
+      return;
+    }
     // (1) Resolve any pending crop destruction. The destroy timer arms
     // when the crow lands on a crop's cell; it fires here if the crop
     // is still present, or quietly cancels if the player harvested it
@@ -6681,6 +6790,11 @@ class MapScene extends Phaser.Scene {
     c._flightUntilT = now + 800 + Math.random() * 400;   // 800–1200 ms slow glide
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
+    // This is a normal orbit glide, not a flee dash — clear the marker so a
+    // FUTURE hit mid-glide doesn't mistake this leg for an in-progress dash
+    // and wrongly keep flying it out before reacting (see the fleeing branch
+    // above).
+    c._fleeDash = false;
   }
 
   // Sample a symmetric square neighbourhood around (wcx, wcy) and return the
