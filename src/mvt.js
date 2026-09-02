@@ -26,8 +26,29 @@
     const v = this.readVarint();
     return (v >>> 1) ^ -(v & 1);
   };
-  Reader.prototype.readString = function () {
+  // Every LEN-prefixed field (string / submessage / packed array) declares its
+  // own byte length as a varint with no relation to what's actually left in
+  // the buffer. A truncated or corrupt tile can claim any length up to 2^53,
+  // and past EOF readVarint()/skip() keep "succeeding" (reading `undefined`
+  // bytes as 0) instead of failing — so nothing would ever stop a loop bounded
+  // by that length. Repro in test/node/mvt.test.js: a 9-byte buffer whose one
+  // layer claims a 5e7-byte length ran 5.9s and then returned a garbage layer
+  // as if it were a whole tile, silently. Validating here — once, at the
+  // single place every such length is read — means a corrupt length fails
+  // FAST (throw) instead of spinning, and it fails LOUD instead of being
+  // clamped into a truncated-but-plausible layer/tile: worldgen's tile-load
+  // path (_tileFailedAt in worldgen.js) only evicts and retries a tile that
+  // actually rejects, so a length that overruns the buffer must throw, not
+  // return a shorter "successful" result.
+  Reader.prototype.readLen = function () {
     const len = this.readVarint();
+    if (len > this.len - this.pos) {
+      throw new Error('MVT: length ' + len + ' exceeds ' + (this.len - this.pos) + ' bytes remaining');
+    }
+    return len;
+  };
+  Reader.prototype.readString = function () {
+    const len = this.readLen();
     let s = '';
     const end = this.pos + len;
     // UTF-8 decode (assume mostly ASCII for prototype; fallback for non-ASCII via TextDecoder)
@@ -50,13 +71,13 @@
   Reader.prototype.skip = function (wire) {
     if (wire === 0) this.readVarint();
     else if (wire === 1) this.pos += 8;
-    else if (wire === 2) { const l = this.readVarint(); this.pos += l; }
+    else if (wire === 2) { const l = this.readLen(); this.pos += l; }
     else if (wire === 5) this.pos += 4;
   };
 
   function readValue(r) {
     // a Value message: oneof string/float/double/int/uint/sint/bool
-    const end = r.readVarint() + r.pos;
+    const end = r.pos + r.readLen();
     let v = null;
     while (r.pos < end) {
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
@@ -113,12 +134,12 @@
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
       if (tag === 1) f.id = r.readVarint();
       else if (tag === 2 && wire === 2) {
-        const l = r.readVarint(); const stop = r.pos + l;
+        const l = r.readLen(); const stop = r.pos + l;
         tagPairs = [];
         while (r.pos < stop) tagPairs.push(r.readVarint());
       } else if (tag === 3) f.type = r.readVarint(); // 1=point,2=line,3=poly
       else if (tag === 4 && wire === 2) {
-        const l = r.readVarint(); const stop = r.pos + l;
+        const l = r.readLen(); const stop = r.pos + l;
         geomInts = [];
         while (r.pos < stop) geomInts.push(r.readVarint());
       } else r.skip(wire);
@@ -143,7 +164,7 @@
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
       if (tag === 1) layer.name = r.readString();
       else if (tag === 2 && wire === 2) {
-        const l = r.readVarint(); featSpans.push([r.pos, r.pos + l]); r.pos += l;
+        const l = r.readLen(); featSpans.push([r.pos, r.pos + l]); r.pos += l;
       } else if (tag === 3) layer.keys.push(r.readString());
       else if (tag === 4) layer.values.push(readValue(r));
       else if (tag === 5) layer.extent = r.readVarint();
@@ -165,13 +186,34 @@
   function* decodeLayerSteps(r, end) {
     const layer = { name: '', extent: 4096, keys: [], values: [], features: [] };
     const featSpans = [];
+    // Header field count — a layer with a huge number of keys/values (or a
+    // huge run of non-feature fields) could otherwise hold the thread between
+    // two yields with nothing to stop it: this loop shipped with NO yield at
+    // all, so decodeTileSliced's whole point (hand the frame back on a budget)
+    // didn't apply to it. 511 matches the per-feature cadence below.
+    let hn = 0;
     while (r.pos < end) {
+      if ((++hn & 511) === 0) yield;
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
       if (tag === 1 && wire === 2) layer.name = r.readString();
       else if (tag === 5) layer.extent = r.readVarint();
       else if (tag === 3 && wire === 2) layer.keys.push(r.readString());
-      else if (tag === 4 && wire === 2) { const l = r.readVarint(); layer.values.push(readValue(r, r.pos + l)); }
-      else if (tag === 2 && wire === 2) { const l = r.readVarint(); featSpans.push([r.pos, r.pos + l]); r.pos += l; }
+      // NOT `const l = r.readVarint(); readValue(r, r.pos + l)` — readValue()
+      // reads its OWN length prefix as its first statement (see readValue
+      // above / decodeLayer's tag-4 case, which calls it the same way). Pre-
+      // consuming a length here and then ignoring the unused 2nd arg left
+      // readValue reading the Value submessage's first field-tag byte as if
+      // IT were a length, misaligning `r.pos` for every field after it in
+      // this layer's header — keys/values/extent parsed afterward all came
+      // out wrong (or the layer's own bounds were miscomputed). Confirmed via
+      // scratchpad repro: a value-bearing layer decoded through decodeLayer
+      // (sync) matched by eye; the same bytes through decodeLayerSteps (this
+      // function — the path worldgen.js actually calls, since it prefers
+      // decodeTileSliced whenever it exists) came back with wrong `values`
+      // and every feature defaulted to {id:0,type:0,tags:{},geom:[]}. Pinned
+      // by the decodeTileSliced-vs-decodeTile parity test in mvt.test.js.
+      else if (tag === 4 && wire === 2) layer.values.push(readValue(r));
+      else if (tag === 2 && wire === 2) { const l = r.readLen(); featSpans.push([r.pos, r.pos + l]); r.pos += l; }
       else r.skip(wire);
     }
     let n = 0;
@@ -190,7 +232,7 @@
     while (r.pos < r.len) {
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
       if (tag === 3 && wire === 2) {
-        const l = r.readVarint();
+        const l = r.readLen();
         const sub = new Reader(r.buf);
         sub.pos = r.pos;
         const end = r.pos + l;
@@ -226,7 +268,7 @@
     while (r.pos < r.len) {
       const k = r.readVarint(); const tag = k >> 3, wire = k & 7;
       if (tag === 3 && wire === 2) {
-        const l = r.readVarint();
+        const l = r.readLen();
         layers.push(decodeLayer(r, r.pos + l));
       } else r.skip(wire);
     }
