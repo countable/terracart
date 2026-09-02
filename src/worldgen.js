@@ -7,7 +7,32 @@
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
   const CELL_M = 7;             // game cell size in meters
-  const TILE_URL = 'https://tiles.openfreemap.org/planet/20260520_001001_pt/{z}/{x}/{y}.pbf';
+
+  // ── Where the tiles come from ──────────────────────────────────────────
+  // OpenFreeMap serves each weekly planet build from a DATED directory
+  // (`/planet/20260520_001001_pt/...`), and its host keeps two of them — the
+  // newest and the one currently deployed — and deletes the rest. So a tile
+  // URL with a version in it has a shelf life of weeks, after which every
+  // request for ground that isn't already cached fails, and it fails as a
+  // network error rather than a tile 404 (the host has no location block for
+  // a version that is gone). That is the "can't reach the map — tap to retry"
+  // that retrying could not clear and that nobody at home noticed, because
+  // home was in IndexedDB from months ago.
+  //
+  // The published way to find the live version is the TileJSON at
+  // TILEJSON_URL, whose `tiles[0]` is the current template. It is resolved at
+  // the first tile fetch (resolveTileUrl), remembered in IndexedDB for a day,
+  // and re-asked ONCE whenever a tile fetch fails — so a rotation mid-session
+  // heals on the next tile instead of on the next deploy. TILE_URL_FALLBACK is
+  // what was last known to work when nothing can be resolved (offline first
+  // run): bump it when it rotates, but nothing depends on it being current.
+  const TILE_HOST = 'https://tiles.openfreemap.org';
+  const TILEJSON_URL = TILE_HOST + '/planet';
+  const TILE_URL_FALLBACK = 'https://tiles.openfreemap.org/planet/20260520_001001_pt/{z}/{x}/{y}.pbf';
+  const TILE_URL = TILE_URL_FALLBACK;   // the name the rest of the file (and tests) know
+  const TILEJSON_IDB_KEY = '__tilejson';           // { url, fetchedAt } in the tile store
+  const TILEJSON_REFRESH_MS = 24 * 60 * 60 * 1000; // re-ask daily; the planet rotates weekly
+  const TILEJSON_RETRY_MIN_MS = 60 * 1000;         // a failing host is asked once a minute, not per tile
 
   // The tile cache key, spelled one way. `${Z}/${tx}/${ty}` is hand-built
   // across this file and several others (app.js, render.js, …) — this is the
@@ -912,8 +937,99 @@
     return { byName, housePositions, addHouse, houseNear };
   }
 
+  // ── The live tile URL template (see the TILE_HOST block at the top) ─────
+  let _tileUrl = TILE_URL_FALLBACK;
+  let _tileUrlSource = 'pinned';       // 'pinned' | 'cache' | 'tilejson' — for the load profile
+  let _tileUrlPromise = null;          // the memoised resolve, so N tiles at boot ask once
+  let _tileUrlAskedAt = 0;             // last time the TileJSON was actually fetched
+  function tileUrlTemplate() { return _tileUrl; }
   function tileUrlFor(x, y) {
-    return TILE_URL.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
+    return _tileUrl.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
+  }
+  // A template is only trusted from the host we already load tiles from — a
+  // TileJSON is a fetched document, not a config file — and only if it can
+  // actually be filled in.
+  function validTileTemplate(u) {
+    return typeof u === 'string' && u.startsWith(TILE_HOST + '/')
+      && u.includes('{z}') && u.includes('{x}') && u.includes('{y}');
+  }
+  function _applyTileUrl(url, source) {
+    if (url === _tileUrl) { _tileUrlSource = source; return false; }
+    const _bp = (typeof window !== 'undefined' && window.__boot) || null;
+    if (_bp) _bp.mark(`tile url from ${source}: ${url.replace(/\{z\}.*$/, '')}`);
+    _tileUrl = url;
+    _tileUrlSource = source;
+    return true;
+  }
+  async function fetchTileJson() {
+    if (typeof fetch !== 'function') throw new Error('no fetch');
+    const resp = await fetch(TILEJSON_URL, { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`tilejson HTTP ${resp.status}`);
+    const j = await resp.json();
+    const u = j && Array.isArray(j.tiles) ? j.tiles[0] : null;
+    if (!validTileTemplate(u)) throw new Error('tilejson: no usable tiles url');
+    return u;
+  }
+  // Resolve the template: IndexedDB first (a day's worth of trust, with a
+  // background refresh once it is older), then the TileJSON, then whatever we
+  // already had. Never rejects — a failure to resolve just means the current
+  // template stays, which is the pinned one on a first offline run.
+  //
+  // `force` is the failed-fetch path: skip the cache and ask the host again,
+  // but no more than once per TILEJSON_RETRY_MIN_MS, so a host that is simply
+  // down is asked once a minute rather than once per tile of the ring.
+  function resolveTileUrl(opts) {
+    const force = !!(opts && opts.force);
+    if (_tileUrlPromise && !force) return _tileUrlPromise;
+    if (force && Date.now() - _tileUrlAskedAt < TILEJSON_RETRY_MIN_MS) {
+      return _tileUrlPromise || Promise.resolve(_tileUrl);
+    }
+    const askHost = async () => {
+      _tileUrlAskedAt = Date.now();
+      try {
+        const u = await fetchTileJson();
+        _applyTileUrl(u, 'tilejson');
+        idbPut(TILEJSON_IDB_KEY, { url: u, fetchedAt: Date.now() });
+      } catch (_) { /* keep what we have */ }
+      return _tileUrl;
+    };
+    _tileUrlPromise = (async () => {
+      if (!force) {
+        const cached = await idbGet(TILEJSON_IDB_KEY);
+        if (cached && validTileTemplate(cached.url)) {
+          _applyTileUrl(cached.url, 'cache');
+          // Stale: use it now, refresh behind the first tile rather than
+          // ahead of it — the cached version is far more likely alive than
+          // the pinned one, and the boot is waiting on this.
+          if (Date.now() - (cached.fetchedAt || 0) > TILEJSON_REFRESH_MS) askHost();
+          return _tileUrl;
+        }
+      }
+      return askHost();
+    })();
+    return _tileUrlPromise;
+  }
+  // One tile from the network, under the live template. A failure of ANY
+  // shape (a 4xx, a 5xx, the service worker's synthetic 504, a CORS-shaped
+  // TypeError) re-asks the TileJSON once; if that yields a DIFFERENT template
+  // the tile is fetched again under it, because "the snapshot rotated" is
+  // exactly what a failure looks like and the only failure we can fix from
+  // here. Same template back means the failure is real: rethrow it as-is.
+  async function fetchTileResponse(x, y) {
+    await resolveTileUrl();
+    const under = _tileUrl;
+    const attempt = async () => {
+      const resp = await fetch(tileUrlFor(x, y));
+      if (!resp.ok) throw new Error(`tile ${tileKey(x, y)} HTTP ${resp.status}`);
+      return resp;
+    };
+    try {
+      return await attempt();
+    } catch (err) {
+      await resolveTileUrl({ force: true });
+      if (_tileUrl === under) throw err;
+      return attempt();
+    }
   }
   // Background refresh of a stale record. Never throws, never deletes: on any
   // failure the existing cached bytes remain the tile's source of truth.
@@ -921,8 +1037,8 @@
     const key = tileKey(x, y);
     if (_tileRefreshing.has(key)) return;
     _tileRefreshing.add(key);
-    fetch(tileUrlFor(x, y))
-      .then((resp) => (resp.ok ? resp.arrayBuffer() : null))
+    fetchTileResponse(x, y)
+      .then((resp) => resp.arrayBuffer())
       .then((buf) => { if (buf) idbPut(key, { bytes: new Uint8Array(buf), fetchedAt: Date.now() }); })
       .catch(() => {})
       .finally(() => _tileRefreshing.delete(key));
@@ -941,11 +1057,15 @@
       if (Date.now() - (cached.fetchedAt || 0) > TILE_REFRESH_MS) refreshTileBytes(x, y);
       return { bytes: cached.bytes, fromCache: true };
     }
-    const resp = await fetch(tileUrlFor(x, y));
-    if (!resp.ok) throw new Error(`tile ${key} HTTP ${resp.status}`);
+    const resp = await fetchTileResponse(x, y);
     const buf = new Uint8Array(await resp.arrayBuffer());
     idbPut(key, { bytes: buf, fetchedAt: Date.now() });
     return { bytes: buf, fromCache: false };
+  }
+  // Test seam: forget the resolved template and its memo.
+  function _resetTileUrlForTest() {
+    _tileUrl = TILE_URL_FALLBACK; _tileUrlSource = 'pinned';
+    _tileUrlPromise = null; _tileUrlAskedAt = 0;
   }
 
   // Deterministic small PRNG seeded from integers (mulberry32)
@@ -4541,6 +4661,11 @@
 
   global.WorldGen = {
     Z, CELL_M, TILE_PX, T, TILE_URL, rasterizeTileSliced,
+    // The live tile source (see the TILE_HOST block at the top): TILE_URL
+    // above is only the pinned fallback. tileUrlTemplate() is what tiles are
+    // actually fetched under right now; resolveTileUrl asks the TileJSON.
+    TILE_URL_FALLBACK, TILEJSON_URL, tileUrlTemplate, tileUrlFor, resolveTileUrl,
+    fetchTileBytes, _resetTileUrlForTest,
     // The step generator itself, so the block audit
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which

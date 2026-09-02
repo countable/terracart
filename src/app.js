@@ -2083,8 +2083,16 @@ class MapScene extends Phaser.Scene {
       });
 
     // Network status
-    window.addEventListener('offline', () => this.showBanner(true));
-    window.addEventListener('online', () => this.showBanner(false));
+    window.addEventListener('offline', () => this.showBanner(true, 'offline'));
+    // Back online: hide the banner AND fetch now. The retry timer may be a
+    // minute out by this point (it doubles on every miss), and the player
+    // is standing on ground that could load this instant.
+    window.addEventListener('online', () => {
+      this.showBanner(false);
+      if (this._tileRetryTimer) { clearTimeout(this._tileRetryTimer); this._tileRetryTimer = null; }
+      this._tileRetryMs = 0;
+      this.ensureTilesAround?.().catch?.(() => {});
+    });
 
     // Movement-stick state. The stick is ALWAYS on screen (the debug pad is
     // the only thing that ever takes its slot) — it's the control that walks
@@ -2614,8 +2622,18 @@ class MapScene extends Phaser.Scene {
   hapticOk()     { this.haptic(15); }
   hapticReject() { this.haptic(40); }
 
-  showBanner(on) {
+  // `reason` is the failure as the tile path reported it ("HTTP 504",
+  // "Failed to fetch", "offline"), shown in the banner so a report from a
+  // phone says WHICH of the three things this banner covers happened — a
+  // host that answered, a radio that didn't, or a browser that thinks it is
+  // offline — instead of the same seven words for all of them.
+  showBanner(on, reason) {
     this.banner.style.display = on ? 'block' : 'none';
+    if (on) {
+      const why = reason ? String(reason).replace(/^tile \S+ /, '').slice(0, 40) : '';
+      this._bannerText = "can't reach the map" + (why ? ` (${why})` : '') + ' — tap to retry';
+      this.banner.textContent = this._bannerText;
+    }
     // Wire tap-to-retry once: drop the failed tiles so the next ensureTiles
     // refetches them rather than serving the cached failure.
     if (on && !this.banner._retryWired) {
@@ -2625,7 +2643,9 @@ class MapScene extends Phaser.Scene {
         for (const [k, t] of WorldGen.tileCache) if (t && t.status !== 'ready') WorldGen.tileCache.delete(k);
         this.banner.textContent = 'retrying…';
         this.ensureTilesAround?.().finally?.(() => {
-          this.banner.textContent = "can't reach the map — tap to retry";
+          // The pass's own settle() has already re-run showBanner with the
+          // fresh outcome; only restore the text it chose.
+          this.banner.textContent = this._bannerText || "can't reach the map — tap to retry";
         });
       });
     }
@@ -2895,7 +2915,7 @@ class MapScene extends Phaser.Scene {
     //     say nothing.
     //   permanent    — the server ANSWERED, with a 4xx. There is nothing to
     //     retry and nothing was unreachable, so neither of the above.
-    let centreFailed = false;
+    let centreFailed = false, centreWhy = "";
     let anyRetry = false;
     // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY rather than one
     // tile at a time. This used to be a serial `for...of` with an `await`
@@ -2942,8 +2962,9 @@ class MapScene extends Phaser.Scene {
       } catch (e) {
         const kind = this._tileFailureKind(e, entry);
         if (kind !== 'permanent') anyRetry = true;
-        if (kind === 'failed' && k === centreKey) centreFailed = true;
+        if (kind === 'failed' && k === centreKey) { centreFailed = true; centreWhy = e.message; }
         console.warn('tile fetch failed', k, e.message, `(${kind})`);
+        window.__boot?.mark(`tile ${k} failed: ${e.message} (${kind})`);
       } finally {
         // Feeds the boot overlay's progress bar for the one stretch it used
         // to have no visibility into (index.html hands off to this call the
@@ -2969,7 +2990,7 @@ class MapScene extends Phaser.Scene {
     // and if the player does walk that way the tile becomes the centre and
     // earns the banner then.
     const settle = () => {
-      this.showBanner(centreFailed);
+      this.showBanner(centreFailed, centreWhy);
       this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
       this._scheduleTileRetry(anyRetry);
     };

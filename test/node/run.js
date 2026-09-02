@@ -401,8 +401,8 @@ try {
   for (const [re, what] of [
     [/const kind = this\._tileFailureKind\(e, entry\);/, 'consult _tileFailureKind'],
     [/if \(kind !== 'permanent'\) anyRetry = true;/, 'skip the retry on a permanent failure'],
-    [/if \(kind === 'failed' && k === centreKey\) centreFailed = true;/, 'banner only on the centre tile'],
-    [/this\.showBanner\(centreFailed\);/, 'show the banner from centreFailed'],
+    [/if \(kind === 'failed' && k === centreKey\) \{ centreFailed = true; centreWhy = e\.message; \}/, 'banner only on the centre tile'],
+    [/this\.showBanner\(centreFailed, centreWhy\);/, 'show the banner from centreFailed'],
   ]) {
     if (!re.test(src)) {
       console.error(`ensureTilesAround no longer appears to ${what} — update run.js`);
@@ -699,6 +699,9 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.RENDER_SRC = readSrc('render.js');
+// worldgen.js loads headlessly, but tile_url.test.js also pins that the only
+// raw tile fetch in it goes through the resolver — a text pin, like the above.
+ctx.WORLDGEN_SRC = readSrc('worldgen.js');
 
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
