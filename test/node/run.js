@@ -746,6 +746,17 @@ try {
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 
+// app.js can't load headlessly (it needs Phaser — see above), so the perf-
+// profiler hooks that live there (the update()/drawCells/drawObjects ticks,
+// the 'phaser render' game-event wiring, the window.__boot.device line) can
+// only be pinned as source text. render.js DOES load, but the border-
+// crossing stamp and the fog-paint tick sit deep inside Render.drawCells,
+// which needs a full Graphics-shaped scene fixture to run end-to-end (nothing
+// else in this suite builds one) — so those two are pinned as text too, same
+// as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
+ctx.APP_JS_SRC = readSrc('app.js');
+ctx.RENDER_SRC = readSrc('render.js');
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];
