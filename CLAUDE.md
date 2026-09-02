@@ -186,6 +186,22 @@
   `starter_relic.test.js` drives `_placeStarterTrail` directly and passed
   throughout the bug — the trail was fine, the CALL to it was not.
 
+- **The tile URL is RESOLVED, never pinned.** OpenFreeMap serves each weekly
+  planet build from a dated directory (`/planet/20260520_001001_pt/…`) and its
+  host keeps two versions, deleting the rest — so a version baked into
+  `src/worldgen.js` stops answering within weeks, and it fails as a NETWORK
+  error, not a tile 404 (there is no location block for a gone version). That
+  was "can't reach the map — tap to retry" on a blank ground that no tap could
+  clear, invisible to anyone whose home tiles were already in IndexedDB.
+  `WorldGen.resolveTileUrl` asks the TileJSON (`TILEJSON_URL`) for the live
+  template at the first fetch, remembers it in IndexedDB for a day, and
+  `fetchTileResponse` re-asks it ONCE when a tile fetch fails — a rotation
+  mid-session heals on the next tile. `TILE_URL_FALLBACK` is only the
+  last-known-good for an offline first run; bumping it is never the fix.
+  **Every tile fetch goes through `fetchTileResponse`** — a raw
+  `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
+  **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
