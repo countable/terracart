@@ -926,6 +926,44 @@ class MapScene extends Phaser.Scene {
     this._endPreload?.(); this._endPreload = null;
     const _endCreate = window.__boot?.begin('scene create (world + textures)');
     window.__bootStatus?.(0.9, 'Surveying the neighbourhood…');
+    // ── Phaser's own render step, timed from OUTSIDE it ──────────────────
+    // Frame time minus our 'update (all)' tick has always been a black box:
+    // is the rest of the frame our JS, or Phaser's (Graphics tessellation,
+    // sprite batching, the GPU upload)? Game.prototype.step in
+    // vendor/phaser.js runs scene.update() (our 'update (all)') THEN
+    // renderer.preRender() / scene.render(s) / renderer.postRender(),
+    // bracketed by the game's own 'prerender'/'postrender' events — so
+    // timing exactly those two events is Phaser's render cost and nothing
+    // of ours. Registered once here: create() runs exactly once for this
+    // game's single scene (MapScene is never restarted).
+    let _renderT0 = 0;
+    this.game.events.on('prerender', () => { _renderT0 = performance.now(); });
+    this.game.events.on('postrender', () => {
+      window.__boot?.tick('phaser render', performance.now() - _renderT0);
+    });
+    // ── Device line for the load profile ─────────────────────────────────
+    // "What is the slow device" needs a device to name: renderer type
+    // (WebGL vs the Canvas fallback), navigator.deviceMemory where the
+    // browser reports it, and the unmasked WebGL vendor/renderer strings
+    // (WEBGL_debug_renderer_info — not every browser exposes it, hence the
+    // guard). Read once here, not live in the report handler: the GL
+    // extension lookup is cheap once, not something to redo on every menu
+    // tap.
+    if (window.__boot) {
+      const device = { deviceMemory: navigator.deviceMemory || null };
+      const renderer = this.game.renderer;
+      device.rendererType = renderer && renderer.type === Phaser.WEBGL ? 'WebGL'
+        : renderer && renderer.type === Phaser.CANVAS ? 'Canvas' : 'unknown';
+      try {
+        const gl = renderer && renderer.gl;
+        const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) {
+          device.gpuRenderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+          device.gpuVendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL);
+        }
+      } catch (_) { /* extension unavailable on this browser — leave gpu* unset */ }
+      window.__boot.device = device;
+    }
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
@@ -4849,9 +4887,21 @@ class MapScene extends Phaser.Scene {
   // === Tick ===
   update(_, dtMs) {
     const _uB = window.__boot;
-    const _ut0 = _uB ? performance.now() : 0;
-    if (_uB) { try { return this._updateTimed(_, dtMs); } finally { _uB.tick('update (all)', performance.now() - _ut0); } }
-    return this._updateTimed(_, dtMs);
+    if (!_uB) return this._updateTimed(_, dtMs);
+    const _ut0 = performance.now();
+    try {
+      return this._updateTimed(_, dtMs);
+    } finally {
+      const _dt = performance.now() - _ut0;
+      _uB.tick('update (all)', _dt);
+      // Border/road/building/fog layers all rebuild on the same frame the
+      // player crosses a cell boundary (drawCells sets _boot_crossing from
+      // its own borderDirty — see render.js). A second tick under a
+      // different label, using the SAME measured span, separates those
+      // periodic hitches from steady-state frames instead of averaging them
+      // into invisibility.
+      if (this._boot_crossing) _uB.tick('update @crossing', _dt);
+    }
   }
 
   _updateTimed(_, dtMs) {
@@ -6703,7 +6753,16 @@ class MapScene extends Phaser.Scene {
     if (!B) return Render.drawCells(this);
     const t0 = performance.now();
     Render.drawCells(this);
-    B.tick('drawCells', performance.now() - t0);
+    const dt = performance.now() - t0;
+    B.tick('drawCells', dt);
+    // Border geometry, the biome-seam wave and the atmosphere resample all
+    // gate on borderDirty INSIDE this same pass rather than as separable
+    // calls (see the borderDirty comment in render.js), so they can't be
+    // ticked apart without splitting the cell-paint loop itself. A second
+    // tick under a different label, over the SAME measured span, still
+    // answers "how much extra does the crossing frame cost here" —
+    // this._boot_crossing was just stamped by the Render.drawCells call above.
+    if (this._boot_crossing) B.tick('drawCells @crossing', dt);
   }
   drawRoadGeometry() { if (typeof RoadOverlay !== 'undefined') RoadOverlay.draw(this); }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
