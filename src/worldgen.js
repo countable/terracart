@@ -1644,6 +1644,83 @@
       }
     }
 
+    // Scattered trees on wood/forest landcover — same reason as spawnDebrisSteps
+    // above: one call can be the whole tile (a park or greenbelt polygon), and
+    // called plainly (a bare double `for` with no yield) this was a single
+    // unbroken block — measured at 137 ms headless over a whole-tile `wood`
+    // polygon at real scale (cellsPerEdge 338), so ~700 ms on the target
+    // phone. Every sibling scatter in this loop already yields; this one and
+    // spawnFruitTreesSteps below were missed. Delegated with `yield*`,
+    // yielding every 8 rows — same cadence as spawnDebrisSteps/
+    // spawnHedgeMazeSteps. `yield` consumes no rng, so rng() fires in exactly
+    // the same order sliced or not — the forest this produces is identical.
+    function* spawnForestTreesSteps(rings, polyKey) {
+      // Each polygon picks ONE species (maple/pine/birch/mahogany) so a single
+      // forest reads as a single woodland type instead of a jumbled mix. Each
+      // species has its own real sprite sheet (no tint pass needed).
+      const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      const bb = bboxOf(rings);
+      // ~one candidate per 11.3m. Every in-polygon candidate becomes a tree
+      // (there is no thin-out roll), so tree density is set entirely by this
+      // grid pitch: 8m read as twice too dense, and 8·√2 halves the trees
+      // per area.
+      const stepMvt = 11.3 / mvtToM;
+      let _row = 0;
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'forest tree scatter rows';
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          const jx = xx + (rng() - 0.5) * stepMvt;
+          const jy = yy + (rng() - 0.5) * stepMvt;
+          if (pointInRings(rings, jx, jy)) {
+            // Snap to this tile's cell grid (shared with rocks/wildplants/
+            // flora) so the occupancy pass can dedupe — and it keeps the
+            // forest from looking jittery.
+            const { cx, cy } = snapCell(jx, jy);
+            // Stable per-cell id so chop tracking can target an individual
+            // tree. Pre-fix, every forest tree spawned with `id === undefined`;
+            // pushing one undefined into save.chopped made
+            // choppedSet.has(undefined) match every other tree → felling one
+            // cleared the grove.
+            objects.push({ kind: 'tree', x: cx, y: cy,
+              variant: 1 + Math.floor(rng() * 4),
+              // Trees near the start are softwood (home.js) for easy early wood.
+              // (Procedural forest trees carry no size → never bush-tier.)
+              species: (typeof HomeArea !== 'undefined')
+                ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
+              id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
+          }
+        }
+      }
+      // (Forest mushrooms + woodland flowers now spawn via the BIOME_PROFILES
+      // flora loop above — see the FOREST profile in src/biome_profiles.js.)
+    }
+
+    // Fruit trees on ORCHARD landcover — same fix, same reason: a whole-tile
+    // orchard polygon ran this loop with no yield either. Unlike the forest
+    // scatter above this draws no rng() at all (fixed grid, no jitter), so
+    // there is no draw order to preserve — only the yield cadence is new.
+    function* spawnFruitTreesSteps(rings, polyKey) {
+      // Only two fruit-tree species are available in the world now: common
+      // apple, rare peach. Peach is 6x as rare → 1 orchard polygon in 7 is
+      // peach. One species per orchard polygon.
+      const FRUIT_SPECIES = ((polyKey >>> 8) % 7 === 0) ? ['peach'] : ['apple'];
+      const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
+      const species = FRUIT_SPECIES[speciesIdx];
+      const bb = bboxOf(rings);
+      const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
+      let _row = 0;
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'fruit tree scatter rows';
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
+          objects.push({ kind: 'fruittree', x: cx, y: cy, species,
+            id: `ft_${tx}_${ty}_${ix}_${iy}` });
+        }
+      }
+    }
+
     // mvt(x,y) within this tile -> ABSOLUTE world meters (anchor: tile(0,0) NW corner at z14).
     const tileOriginMx = tx * tileEdgeM;
     const tileOriginMy = ty * tileEdgeM;
@@ -1831,68 +1908,18 @@
               }
             }
 
-            // Scattered Trees on wood/forest landcover. Each polygon picks ONE
-            // species (maple/pine/birch/mahogany) so a single forest reads as a
-            // single woodland type instead of a jumbled mix. Each species has
-            // its own real sprite sheet (no tint pass needed).
+            // Scattered trees on wood/forest landcover, and fruit trees on
+            // orchard landcover — both delegated as generators (see
+            // spawnForestTreesSteps / spawnFruitTreesSteps above for why: a
+            // whole-tile polygon runs either loop tens of thousands of times
+            // with no yield if written plainly here).
             if (name === 'landcover') {
               const cls = f.tags.class || f.tags.subclass;
               if (cls === 'wood' || cls === 'forest') {
-                const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
-                const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
-                const bb = bboxOf(f.geom);
-                // ~one candidate per 11.3m. Every in-polygon candidate becomes
-                // a tree (there is no thin-out roll), so tree density is set
-                // entirely by this grid pitch: 8m read as twice too dense, and
-                // 8·√2 halves the trees per area.
-                const stepMvt = 11.3 / mvtToM;
-                for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-                  for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                    const jx = xx + (rng() - 0.5) * stepMvt;
-                    const jy = yy + (rng() - 0.5) * stepMvt;
-                    if (pointInRings(f.geom, jx, jy)) {
-                      // Snap to the tile cell grid (shared with rocks/wildplants/
-                      // flora) so the occupancy pass can dedupe — and it keeps the
-                      // forest from looking jittery.
-                      const { cx, cy } = snapCell(jx, jy);
-                      // Stable per-cell id so chop tracking can target an
-                      // individual tree. Pre-fix, every forest tree spawned
-                      // with `id === undefined`; pushing one undefined into
-                      // save.chopped made `choppedSet.has(undefined)` match
-                      // every other tree → felling one cleared the grove.
-                      objects.push({ kind: 'tree', x: cx, y: cy,
-                        variant: 1 + Math.floor(rng() * 4),
-                        // Trees near the start are softwood (home.js) for easy early wood.
-                        // (Procedural forest trees carry no size → never bush-tier.)
-                        species: (typeof HomeArea !== 'undefined')
-                          ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
-                        id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
-                    }
-                  }
-                }
-                // (Forest mushrooms + woodland flowers now spawn via the
-                // BIOME_PROFILES flora loop above — see the FOREST profile in
-                // src/biome_profiles.js.)
+                yield* spawnForestTreesSteps(f.geom, polyKey);
               }
-              // Fruit trees on ORCHARD landcover. One species per polygon so a single
-              // orchard reads as one fruit type.
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                // Only two fruit-tree species are available in the world now:
-                // common apple, rare peach. Peach is 6x as rare → 1 orchard
-                // polygon in 7 is peach. One species per orchard polygon.
-                const FRUIT_SPECIES = ((polyKey >>> 8) % 7 === 0) ? ['peach'] : ['apple'];
-                const speciesIdx = (polyKey >>> 8) % FRUIT_SPECIES.length;
-                const species = FRUIT_SPECIES[speciesIdx];
-                const bb = bboxOf(f.geom);
-                const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
-                for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
-                  for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-                    if (!pointInRings(f.geom, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
-                    const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
-                    objects.push({ kind: 'fruittree', x: cx, y: cy, species,
-                      id: `ft_${tx}_${ty}_${ix}_${iy}` });
-                  }
-                }
+                yield* spawnFruitTreesSteps(f.geom, polyKey);
               }
             }
 
@@ -3291,7 +3318,15 @@
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
-      maybePlaceCaveEntrance(entry, x, y, tileEdgeM);
+      //
+      // Pass the PRE-dedup `objects`, not entry.objects (filteredObjects,
+      // just above) — see maybePlaceCaveEntrance's own comment for why: the
+      // cross-tile dedup result is volatile across a rebuild (a tile can be
+      // REBUILT under you — see CLAUDE.md), and once a player has descended,
+      // loadCaveTile has already baked this tile's staircase position into a
+      // cached cave level (its 'up' stair is minted at that exact x,y). If a
+      // later rebuild moved the surface stair, that cached level is orphaned.
+      maybePlaceCaveEntrance(entry, x, y, tileEdgeM, objects);
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
@@ -4246,10 +4281,38 @@
   // beside them (so caves are common in town), and every tile is guaranteed at
   // least one entrance — anchored to a cave rock where one exists, otherwise on
   // a random walkable cell.
-  function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM) {
+  //
+  // `stableObjects` — the tile's PRE-dedup object list — is what occupancy
+  // (objCells/nearChest) is judged against, NOT entry.objects. entry.objects
+  // is filteredObjects (see loadTile): the survivor of cross-tile chest/house
+  // dedup, whose outcome depends on which OTHER tiles happen to be cached at
+  // build time. A tile can be REBUILT under you (see CLAUDE.md) once its
+  // Overpass bin arrives, and by then more neighbour tiles are usually
+  // cached, so the SAME tile's dedup can drop or keep a different set of
+  // chests/houses than it did the first time. Once a player has descended,
+  // loadCaveTile has already baked this tile's staircase x,y into a cached
+  // cave level (its 'up' stair is minted at that exact point) — if the
+  // occupancy check that placed it depends on the volatile dedup outcome, a
+  // rebuild can move the staircase and orphan that cached level. The raw,
+  // pre-dedup object list is a pure function of this tile's own MVT bytes and
+  // coordinates (see rasterizeTileSliced) — stable no matter what else is
+  // cached — and it is a safe SUPERSET of what survives dedup (dedup only
+  // ever drops a chest/house, never moves one), so judging occupancy against
+  // it never lets a stair land on a chest/house that did survive. Falls back
+  // to entry.objects when no separate list is given (fixtures/tests that
+  // build a synthetic entry with nothing to dedup).
+  function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects) {
+    const occupancySource = stableObjects || entry.objects || [];
     const caveRocks = (entry.objects || []).filter(
       o => o.kind === 'mineralrock' && o.caveVariant != null);
     const N = entry.cellsPerEdge, grid = entry.grid;
+    // See roadMask in rasterizeTile / entry.roadMask above: the terrain grid
+    // under-reports the road (one cell wide however wide the carriageway
+    // really is, and a parking lot's aisles paint no cell at all), so a
+    // staircase gate that only reads grid[] can seat a descend ladder in the
+    // middle of a motorway's band or a parking lot the grid still calls
+    // landuse. stairCellOK below must consult it, same as every other spawner.
+    const roadMask = entry.roadMask;
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
     const used = new Set();
 
@@ -4272,7 +4335,7 @@
     //   • never on or beside a POI chest / its concrete plaza pad
     const objCells = new Set();
     const chestCells = [];
-    for (const o of entry.objects) {
+    for (const o of occupancySource) {
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
@@ -4294,7 +4357,8 @@
     const stairCellOK = (lix, liy, idx) =>
       !used.has(idx) && isWalkable(grid[idx]) && !tooClose(lix, liy)
       && !objCells.has(idx) && !(pads && pads.has(idx))
-      && !nearBuilding(lix, liy) && !nearChest(lix, liy);
+      && !nearBuilding(lix, liy) && !nearChest(lix, liy)
+      && !(roadMask && roadMask[idx]);   // never under a drawn road band (see above)
 
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
     // true on success; de-dupes so two clusters can't stack stairs on one cell,
@@ -4600,5 +4664,13 @@
     setOverpassLive: (b) => { _overpassLive = !!b; },
     warmOverpass,        // schedule Overpass fetch for one tile (centre only)
     overpassTileInfo,   // one-line status for a tile, surfaced in TILE DEBUG
+    // Cave-entrance placement — exported so the headless tests can pin that a
+    // descend staircase never lands under a road band (roadMask), the same
+    // rule every other spawner in this file is held to
+    // (test/node/spawn_roads.test.js). loadTile calls this straight off
+    // rasterizeTileSliced's result, so a fixture only needs to hand-build the
+    // minimal `entry` shape it reads (grid/cellsPerEdge/objects/roadMask/
+    // poiPadCells) rather than driving a full tile load.
+    maybePlaceCaveEntrance,
   };
 })(window);

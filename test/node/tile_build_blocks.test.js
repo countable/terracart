@@ -70,8 +70,14 @@ function townLayers(nb) {
   return [
     { name: 'landcover', features: [
       { type: 3, tags: { class: 'grass' }, geom: [rect(0, 0, TILE_EDGE_M, TILE_EDGE_M)] },
-      { type: 3, tags: { class: 'wood' }, geom: [rect(1300, 1300, 600, 600)] },
-      { type: 3, tags: { class: 'orchard' }, geom: [rect(200, 1400, 300, 300)] },
+      // Big — a park/greenbelt-sized wood and orchard, not a corner planter.
+      // The forest/fruit-tree scatters (spawnForestTreesSteps /
+      // spawnFruitTreesSteps) walk every candidate in the polygon's bbox at
+      // an ~11-13m pitch, so a patch this size is thousands of candidates —
+      // big enough that an un-sliced version of either loop would actually
+      // show up as the worst block below, not hide under smaller passes.
+      { type: 3, tags: { class: 'wood' }, geom: [rect(50, 50, TILE_EDGE_M - 100, 900)] },
+      { type: 3, tags: { class: 'orchard' }, geom: [rect(50, 1050, TILE_EDGE_M - 100, 900)] },
     ] },
     { name: 'landuse', features: [
       { type: 3, tags: { class: 'residential' }, geom: [rect(0, 0, TILE_EDGE_M, TILE_EDGE_M)] },
@@ -120,6 +126,31 @@ test('tile build: the worst block does not blow up with the building count', () 
   // scales with H^2 fails at the larger one however fast the box is.
   const { worst, at } = worstBlock(townLayers(6000), CPE, TILE_EDGE_M);
   assert.lt(worst, BLOCK_CAP_MS, `worst unbroken block ${worst}ms, ending at "${at}" — that pass needs a yield`);
+});
+
+// The forest/fruit-tree scatters (src/worldgen.js: spawnForestTreesSteps,
+// spawnFruitTreesSteps) were the two scatters in this whole file that never
+// yielded — a whole-tile wood polygon ran one unbroken ~137ms on the profiled
+// device (worse on a phone), while every sibling scatter in the same loop
+// (spawnDebrisSteps, spawnHedgeMazeSteps, _spawnRockClustersSteps) already
+// broke every 8 rows. A wall-clock cap alone can't pin this reliably — a fast
+// CI box can run the whole unsliced loop under BLOCK_CAP_MS and the test
+// would pass vacuously either way — so this asserts the mechanism directly:
+// over townLayers' park-sized wood/orchard patch, the generator MUST yield
+// 'forest tree scatter rows' / 'fruit tree scatter rows' more than once each.
+// A version that scatters the whole polygon between two yields (or between
+// none) fails here regardless of how fast the machine is.
+test('tile build: forest and fruit-tree scatter yield row-by-row, not as one block', () => {
+  const it = WorldGen.rasterizeTileSteps(townLayers(200), CPE, 13699, 7523, TILE_EDGE_M);
+  const counts = {};
+  for (let r = it.next(); !r.done; r = it.next()) {
+    const label = r.value || 'unlabelled';
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  assert.gt(counts['forest tree scatter rows'] || 0, 1,
+    'the wood patch is big enough that a sliced scatter must yield more than once');
+  assert.gt(counts['fruit tree scatter rows'] || 0, 1,
+    'the orchard patch is big enough that a sliced scatter must yield more than once');
 });
 
 // ── The thinning rule itself, pinned apart from its cost ──────────────────
