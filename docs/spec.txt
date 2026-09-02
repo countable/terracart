@@ -804,9 +804,16 @@ ECONOMY (buying & selling)
    wood price FOLLOWS A PROGRESSION across forts: FORT_UNLOCK_WOOD_START (6) for
    the first fort, +FORT_UNLOCK_WOOD_STEP (6) per fort already unsealed — 6, 12,
    18, 24, 30 … — capped at FORT_UNLOCK_WOOD (30). CASTLES/TOWERS
-   (BUILDING_LARGE): never run out, always sell RELICS (at 4× base, minus bow
-   discount), and are never "busy". Plain houses do 1 deal/hour. Hour buckets
-   are per-house.
+   (BUILDING_LARGE) unsealed but not yet CLAIMED (opened only via the delivery
+   gate below, quest unsolved): never run out, always sell RELICS (at 4× base,
+   minus bow discount), and are never "busy". A CLAIMED castle (the player
+   solved its quest board there) no longer trades relics — instead its
+   castellan greets the player ("Thank you for visiting us, my lord.") and
+   offers ONE daily favour, gated per castle per UTC day
+   (save.castleServiceClaimed): REST for CASTLE_REST_FRAC (10%) of the energy
+   bar, or COLLECT CASTLE_TAX_GOLD ($10) in gold — see presentCastleServiceOffer
+   / _castleRest / _castleTax in app.js. Plain houses do 1 deal/hour. Hour
+   buckets are per-house.
  - CASTLE DELIVERY GATE: every castle begins sealed by corrupt post-apocalyptic
    residents and stays shut until you've proven yourself on the delivery routes —
    completed LIFETIME deliveries (save.deliveryCount). The gate also FOLLOWS A

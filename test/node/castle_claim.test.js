@@ -1,4 +1,5 @@
-// Claiming a castle: which castle it IS, what claiming does, and the hearth.
+// Claiming a castle: which castle it IS, what claiming does, and its daily
+// favour (rest for energy, or collect a small tax) once it's the player's.
 //
 // WHY THE IDENTITY HALF EXISTS. A castle is the one building the data model
 // has no object for. worldgen skips the sprite for BUILDING_LARGE, so a castle
@@ -77,7 +78,7 @@ test('castle identity: the key is stable across a rebuild', () => {
   assert.eq(b.join('|'), a.join('|'), 'same tile, same keys');
 });
 
-// ── Claiming, and the hearth ──────────────────────────────────────────────
+// ── Claiming, and the daily favour ──────────────────────────────────────────
 
 const ccScene = (over = {}) => Object.assign({
   save: { energy: 40 },
@@ -125,71 +126,81 @@ test('castle claim: a building with no castle key can never be claimed', () => {
   assert.falsy(s.isCastleClaimed(null), 'nor does nothing');
 });
 
-test('castle hearth: an unclaimed castle gives nothing', () => {
+test('castle service: an unclaimed castle gives nothing, either way', () => {
   const s = ccScene();
-  s._castleHearth(0, 0, ccTower('b_1_1'));
-  assert.eq(s.save.energy, 40, 'no claim, no hearth');
+  s._castleRest(0, 0, ccTower('b_1_1'));
+  assert.eq(s.save.energy, 40, 'no claim, no rest');
+  s._castleTax(0, 0, ccTower('b_1_1'));
+  assert.eq(s.save.money, undefined, 'no claim, no tax either');
 });
 
-test('castle hearth: arriving at a claimed castle gives back a tenth of the bar', () => {
+test('castle service: resting at a claimed castle gives back a tenth of the bar', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleHearth(0, 0, t);
+  s._castleRest(0, 0, t);
   assert.eq(s.save.energy, 40 + Math.round(100 * CASTLE_REST_FRAC), 'a tenth of max');
 });
 
-test('castle hearth: it will not pour twice within the hour', () => {
+test('castle service: collecting taxes adds the flat gold amount', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleHearth(0, 0, t);
+  s._castleTax(0, 0, t);
+  assert.eq(s.save.money, CASTLE_TAX_GOLD, 'flat tax collected');
+  assert.eq(s.save.energy, 40, 'and no energy changed hands');
+});
+
+test('castle service: it will not pour twice in the same day', () => {
+  const s = ccScene();
+  const t = ccTower('b_1_1');
+  s._claimCastle(t);
+  s._castleRest(0, 0, t);
   const after = s.save.energy;
-  s._castleHearth(0, 0, t);
-  s._castleHearth(0, 0, t);
+  s._castleRest(0, 0, t);
+  s._castleRest(0, 0, t);
   assert.eq(s.save.energy, after, 'walking in and out changes nothing');
 });
 
-test('castle hearth: an hour later it pours again', () => {
+test('castle service: resting and collecting share the same daily gate', () => {
+  // One favour a day, whichever it is — picking one closes off the other
+  // until tomorrow rather than opening a second, different freebie.
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleHearth(0, 0, t);
-  const after = s.save.energy;
-  s.save.claimedCastles['b_1_1'] = Date.now() - CASTLE_REST_COOLDOWN_MS - 1;
-  s._castleHearth(0, 0, t);
-  assert.gt(s.save.energy, after, 'the cooldown has run out');
+  s._castleRest(0, 0, t);
+  const afterRest = s.save.energy;
+  s._castleTax(0, 0, t);
+  assert.eq(s.save.money, undefined, 'already spent today\'s favour on rest');
+  assert.eq(s.save.energy, afterRest, 'and resting again does nothing either');
 });
 
-test('castle hearth: the cooldown is per castle, not global', () => {
+test('castle service: a new day pours again', () => {
+  const s = ccScene();
+  const t = ccTower('b_1_1');
+  s._claimCastle(t);
+  s._castleRest(0, 0, t);
+  const after = s.save.energy;
+  s.save.castleServiceClaimed['b_1_1'] = '20000101';   // long-stale UTC day stamp
+  s._castleRest(0, 0, t);
+  assert.gt(s.save.energy, after, 'the day rolled over');
+});
+
+test('castle service: the daily gate is per castle, not global', () => {
   const s = ccScene();
   const a = ccTower('b_1_1'), b = ccTower('b_9_9');
   s._claimCastle(a); s._claimCastle(b);
-  s._castleHearth(0, 0, a);
+  s._castleRest(0, 0, a);
   const afterA = s.save.energy;
-  s._castleHearth(0, 0, b);
-  assert.gt(s.save.energy, afterA, 'a second castle has its own hearth');
+  s._castleRest(0, 0, b);
+  assert.gt(s.save.energy, afterA, 'a second castle has its own favour');
 });
 
-test('castle hearth: a full bar spends no cooldown', () => {
-  // Nothing to give back, so nothing is taken: the player who walks in full
-  // can still draw on it when they come back tired.
-  const s = ccScene({ save: { energy: 100 } });
-  const t = ccTower('b_1_1');
-  s._claimCastle(t);
-  s._castleHearth(0, 0, t);
-  assert.eq(s.save.energy, 100, 'still full');
-  assert.eq(s.save.claimedCastles['b_1_1'], 0, 'and the hour has not started');
-  s.save.energy = 50;
-  s._castleHearth(0, 0, t);
-  assert.gt(s.save.energy, 50, 'so it pours when they actually need it');
-});
-
-test('castle hearth: it never overfills', () => {
+test('castle service: it never overfills', () => {
   const s = ccScene({ save: { energy: 97 } });
   const t = ccTower('b_1_1');
   s._claimCastle(t);
-  s._castleHearth(0, 0, t);
+  s._castleRest(0, 0, t);
   assert.eq(s.save.energy, 100, 'clamped to max');
 });
 })();

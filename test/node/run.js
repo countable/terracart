@@ -312,10 +312,11 @@ try {
 }
 
 // Claiming a castle — which castle it IS (a castle emits no house object; it is
-// a footprint plus a scatter of turrets), whether it has been claimed, and the
-// hearth that gives energy back on arrival. Pure save + clock logic on the
-// Phaser scene class, so lift the four methods as text and let
-// castle_claim.test.js drive the real ones.
+// a footprint plus a scatter of turrets), whether it has been claimed, and its
+// once-a-day favour (rest or a tax collection). Pure save + clock logic on the
+// Phaser scene class, so lift the methods as text and let castle_claim.test.js
+// drive the real ones. Depends on the global Delivery (delivery.js, loaded
+// above) for its day-key.
 {
   const src = readSrc('app.js');
   const grab = (head) => {
@@ -333,23 +334,25 @@ try {
     return src.slice(bodyStart, end);
   };
   let decls = '';
-  for (const n of ['CASTLE_REST_COOLDOWN_MS']) {
-    const m = src.match(new RegExp(`const ${n} = ([^;]+);`));
-    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${n} = ${m[1]};\n`;
-  }
   const frac = src.match(/const CASTLE_REST_FRAC = ([\d.]+);/);
   if (!frac) { console.error('Could not find CASTLE_REST_FRAC in src/app.js — update run.js'); process.exit(2); }
   decls += `const CASTLE_REST_FRAC = ${frac[1]};\n`;
+  const tax = src.match(/const CASTLE_TAX_GOLD = (\d+);/);
+  if (!tax) { console.error('Could not find CASTLE_TAX_GOLD in src/app.js — update run.js'); process.exit(2); }
+  decls += `const CASTLE_TAX_GOLD = ${tax[1]};\n`;
   vm.runInContext(
     decls
     + 'globalThis.CASTLE_REST_FRAC = CASTLE_REST_FRAC;\n'
-    + 'globalThis.CASTLE_REST_COOLDOWN_MS = CASTLE_REST_COOLDOWN_MS;\n'
+    + 'globalThis.CASTLE_TAX_GOLD = CASTLE_TAX_GOLD;\n'
     + 'globalThis.CastleMethods = {\n'
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
     + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
     + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _castleHearth(sx, sy, house) {\n' + grab('  _castleHearth(sx, sy, house) {\n') + '\n  },\n'
+    + '  _castleServiceDayKey() {\n' + grab('  _castleServiceDayKey() {\n') + '\n  },\n'
+    + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
+    + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
+    + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
+    + '  _castleTax(sx, sy, house) {\n' + grab('  _castleTax(sx, sy, house) {\n') + '\n  },\n'
     + '};', ctx, { filename: 'castleClaim.js' });
 }
 

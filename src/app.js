@@ -641,15 +641,16 @@ const HOME_FULL_REST_S = 90;
 // The trade-off: a fire also repels slimes nearby, so it makes a safe, slow
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
-// A CLAIMED castle is a hearth. Visiting one gives back a tenth of the bar,
-// once an hour per castle (save.claimedCastles[key] holds the last draw).
-// Deliberately a lump on arrival rather than a rest rate like the ones above:
-// the castle is somewhere you travel to, so the payoff should land the moment
-// you get there instead of asking you to stand still on it. Small enough that
-// it can't replace food or sleeping at Home — a tenth of a bar an hour is a
-// courtesy for the walk, not an income.
+// A CLAIMED castle no longer trades relics — it's the player's own — and
+// instead its castellan offers ONE favour a day (save.castleServiceClaimed[key]
+// holds the UTC day it was last used, same day-key idiom as houseSatisfied):
+// REST, a lump of a tenth of the bar handed over on arrival rather than a
+// rest rate like the ones above (the castle is somewhere you travel to, so
+// the payoff should land the moment you get there), or COLLECT, a flat tax
+// take in gold. Small enough either way that it can't replace food or
+// sleeping at Home — once a day is a courtesy for the walk, not an income.
 const CASTLE_REST_FRAC = 0.10;
-const CASTLE_REST_COOLDOWN_MS = 60 * 60 * 1000;
+const CASTLE_TAX_GOLD = 10;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
@@ -9129,9 +9130,11 @@ class MapScene extends Phaser.Scene {
     // a bouquet at a barter trader / wizard / delivery house would buy
     // nothing, so those never offer to take one. Checked after the busy gate
     // so a bouquet can't be spent on a shut door, and skipped while a charm
-    // is already running so repeat taps don't burn the stack.
+    // is already running so repeat taps don't burn the stack. A RESTORED
+    // castle is excluded too — it no longer sells anything to discount, only
+    // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
-        && (isCastle || isFort || shopType === 'market')
+        && ((isCastle && !this.isCastleClaimed(house)) || isFort || shopType === 'market')
         && this.shopCharmMul(house) === 1) {
       this.showOfferModal({
         kind: 'shop',
@@ -9198,9 +9201,6 @@ class MapScene extends Phaser.Scene {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (isCastle) {
-      // The hearth first: a castle you claimed gives energy back on arrival,
-      // before any trading, so the player has the bar to act on what's inside.
-      this._castleHearth(sx, sy, house);
       // First time the player reaches this (now-unsealed) vault, record it so
       // the NEXT un-opened castle ramps to a higher delivery gate (see
       // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
@@ -9209,6 +9209,15 @@ class MapScene extends Phaser.Scene {
         this.save.openedCastles = this.save.openedCastles || {};
         this.save.openedCastles[house.id] = true;
         persistSave(this.save);
+      }
+      // A RESTORED castle (the player solved its quest here — see
+      // showQuestBoard/_claimCastle) is home turf: instead of the vault's
+      // relic trade, its castellan offers one daily favour. Every other
+      // open-but-unclaimed castle (reached only via the delivery-count gate)
+      // still deals in relics below, same as before.
+      if (this.isCastleClaimed(house)) {
+        this.presentCastleServiceOffer(sx, sy, house);
+        return;
       }
       const offer = this.peekOrBuildRelicOffer(house);
       // No re-roll at castles per balance pass — the castle's draw is the
@@ -10945,25 +10954,76 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // The hearth: arriving at a castle you claimed gives back CASTLE_REST_FRAC of
-  // the bar, at most once an hour per castle. Silent when the castle is on
-  // cooldown or the bar is already full — a toast saying "nothing happened" is
-  // worse than nothing happening.
-  _castleHearth(sx, sy, house) {
-    if (!this.isCastleClaimed(house)) return;
+  // The castle's daily favour, gated to once per castle per UTC day. Reuses
+  // the exact day-key Delivery.dayKey() already provides (see
+  // _deliveryDayKey, its scene wrapper) rather than the coin-burst POI's
+  // composite-key idiom, since there's only ever one thing to remember per
+  // castle: the day its service was last used.
+  _castleServiceDayKey() {
+    return Delivery.dayKey();
+  }
+  _castleServiceUsedToday(house) {
     const key = this._castleKey(house);
-    const now = Date.now();
-    const last = this.save.claimedCastles[key] || 0;
-    if (last && now - last < CASTLE_REST_COOLDOWN_MS) return;
+    return !!key && this.save.castleServiceClaimed?.[key] === this._castleServiceDayKey();
+  }
+  _markCastleServiceUsed(house) {
+    const key = this._castleKey(house);
+    if (!key) return;
+    const dayKey = this._castleServiceDayKey();
+    this.save.castleServiceClaimed = this.save.castleServiceClaimed || {};
+    // Prune every OTHER castle's stale day stamp while we're here — the map
+    // can't grow without bound across weeks of play.
+    for (const k of Object.keys(this.save.castleServiceClaimed)) {
+      if (this.save.castleServiceClaimed[k] !== dayKey) delete this.save.castleServiceClaimed[k];
+    }
+    this.save.castleServiceClaimed[key] = dayKey;
+  }
+  // REST: a lump of CASTLE_REST_FRAC of the bar, same fraction the old hourly
+  // hearth gave — just once a day now instead of once an hour. Silent (no-op)
+  // once the day's favour is already spent or the castle isn't claimed; the
+  // modal that calls this never offers the choice in either case.
+  _castleRest(sx, sy, house) {
+    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
     const maxE = this.getMaxEnergy();
     const cur = this.save.energy ?? 0;
-    if (cur >= maxE) return;                       // nothing to give back
     const gain = Math.max(1, Math.round(maxE * CASTLE_REST_FRAC));
     this.save.energy = Math.min(maxE, cur + gain);
-    this.save.claimedCastles[key] = now;
+    this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
     this.flashLoot(`💚 +${Math.min(gain, maxE - cur)} energy`, '#a7ffb0');
+  }
+  // COLLECT: a flat CASTLE_TAX_GOLD from the crown's coffers instead of rest.
+  _castleTax(sx, sy, house) {
+    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
+    addMoney(this.save, CASTLE_TAX_GOLD);
+    this._markCastleServiceUsed(house);
+    if (typeof persistSave === 'function') persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`🪙 +$${CASTLE_TAX_GOLD} taxes`, '#ffe066');
+  }
+  // The castellan's greeting and daily offer. A RESTORED castle (the player
+  // solved its quest — see showQuestBoard/_claimCastle) no longer sells
+  // relics: it's home turf, so instead of a trade it's a favour, once a day.
+  presentCastleServiceOffer(sx, sy, house) {
+    if (this._castleServiceUsedToday(house)) {
+      this.flash('Thank you for visiting us, my lord. Come back tomorrow.', sx, sy);
+      return;
+    }
+    this.showOfferModal({
+      kind: 'shop',
+      title: 'Thank you for visiting us, my lord.',
+      get: 'One favour a day — your call.',
+      blurb: "Whichever you pick, it won't be on offer again until tomorrow.",
+      canAfford: true,
+      acceptLabel: 'Rest',
+      secondary: {
+        label: `Collect $${CASTLE_TAX_GOLD} taxes`,
+        onClick: () => this._castleTax(sx, sy, house),
+      },
+      cancelLabel: 'Later',
+      onAccept: () => this._castleRest(sx, sy, house),
+    });
   }
 
   // Quest board modal for castles. Shows the active quest's progress; when the
