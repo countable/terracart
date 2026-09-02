@@ -2426,6 +2426,26 @@
                   if (BUILDING(grid[nidx])) { seen.add(nidx); stack.push([nx, ny]); }
                 }
               }
+              // buildingShapes was already pushed at this footprint's ORIGINAL tier
+              // during the 'building' layer's own pass (`order` runs building before
+              // poi — see above), so the flood-fill's grid promotion above never
+              // reaches it. Left alone, the polygon overlay (BuildingOverlay, on by
+              // default) keeps drawing the source ring as a house or a palisade-
+              // fenced fort floor forever, while the grid — and the castle-tower
+              // scan that reads it later — correctly treat these cells as one
+              // civic slab. That mismatch is what puts turrets on a palisade floor.
+              // Match buildingShapes entries to dissolved cells via the same
+              // ownerKey the tower/claim logic already keys castles and houses by.
+              const dissolvedKeys = new Set();
+              for (const idx of seen) {
+                const key = ownerKeys[owners[idx]];
+                if (key) dissolvedKeys.add(key);
+              }
+              if (dissolvedKeys.size) {
+                for (const shape of buildingShapes) {
+                  if (shape.key && dissolvedKeys.has(shape.key)) shape.tier = T.BUILDING_LARGE;
+                }
+              }
               // Remove every house sprite whose centroid falls inside the dissolved footprint.
               // A school/mall is often several adjacent building polygons, each of which pushed
               // its own house sprite — removing only the nearest leaves the others on the pad.
