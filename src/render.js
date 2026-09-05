@@ -735,6 +735,111 @@ const _mulTints = (a, b) => {
   const ch = (sh) => Math.round((((a >> sh) & 255) * ((b >> sh) & 255)) / 255);
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 };
+// A wash laid on the GROUND, expressed as the multiply tint that lands a
+// SPRITE in the same place — white lerped `alpha` of the way to the wash
+// colour, exactly the construction UNCLAIMED_SPRITE_TINT is built with. A
+// multiply can't reproduce a lerp exactly; what it does reproduce is the
+// mid-tones, which is what makes a sprite read as standing in the same light
+// as the cells under it.
+const _washTint = (color, alpha) => {
+  const ch = (sh) => Math.round(255 * (1 - alpha) + ((color >> sh) & 255) * alpha);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
+// ── The out-of-reach wash, in ONE place ───────────────────────────────────
+// drawCells PAINTS it over every unlit cell (on the lighting layer); the wreck
+// sprite tint in drawObjects READS it, so a roof whose footprint just went
+// dark goes dark by the same amount instead of by a number of its own. Both
+// halves are the same expressions the ground pass has always used: the biome's
+// `dim` at 0.38 on the surface, pure black deepening half a step per level
+// underground (see the long note at the wash itself for why each is what it
+// is).
+Render.reachDimColor = (scene) =>
+  ((scene.depth ?? 0) > 0 ? 0x000000 : (scene._atmos ? scene._atmos.dim : 0x000000));
+Render.reachDimAlpha = (scene) => {
+  const d = scene.depth ?? 0;
+  return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
+};
+Render.reachDimTint = (scene) => _washTint(Render.reachDimColor(scene), Render.reachDimAlpha(scene));
+
+// "Is this object standing outside the lit reach bubble?" Asked only by the
+// wreck dim in spriteTint — every other sprite is deliberately exempt from the
+// reach wash. Goes through coords.js's cellInReach so the lit cells, the
+// tap-accept gate and this agree by construction; falls back to "lit" (no
+// extra dim) when coords.js isn't loaded, so a bare harness still renders.
+const _outOfReach = (o, scene) => {
+  if (typeof cellInReach !== 'function' || typeof worldMetersToAbsCell !== 'function') return false;
+  const c = worldMetersToAbsCell(scene, o.x, o.y);
+  return !cellInReach(scene, c.cellIX, c.cellIY);
+};
+
+// The multiply tint a world sprite wears, resolved in ONE place so the rules
+// compose in a fixed order instead of racing each other down configureObject:
+// a shiny's sheen, then the biome's, then — for a house that isn't the
+// player's — the derelict wash and, outside the lit bubble, the reach dim.
+// Pure (object + scene in, a colour out), which is also what makes it
+// auditable headlessly: test/node/wreck_dim.test.js drives it directly.
+Render.spriteTint = function spriteTint(o, scene) {
+  // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
+  // table lives in shops.js so adding a new shop type is one-file work.
+  // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
+  // the sprite itself signals the role; tinting would discolour the art.
+  // Starter still gets the gold tint (in case the trailer sprite isn't
+  // available the player still spots the inaugural shop), but the
+  // themed-house branch already returned 'plain' for non-themed roles.
+  let tint = 0xffffff;
+  // Houses: a resolved role of 'plain' is genuine residential (a delivery
+  // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
+  // wizard) carry their own sprite (house_<role>) and resolve to that role,
+  // not 'plain', so they never want a tint either. We deliberately do NOT
+  // fall back to the legacy address-based Shops.shopTint() here: it keyed off
+  // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
+  // delivery host whose address merely ENDED in 9 got painted dark steel —
+  // the "potato+onion house is tinted dark" bug. Address-shop houses get
+  // their look from being restored INTO a themed role, not from this tint.
+  // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
+  // player can spot a shiny harvest from across the tile.
+  if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
+    tint = SHINY_TINT;
+  }
+  // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
+  // industrial lot) — only when nothing more specific (shop/shiny) already
+  // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
+  // A spec.after hook (e.g. mineralrock tier shading) may still override.
+  if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+    const bt = BiomeProfiles.tint(o._biome, o.kind);
+    if (bt) tint = bt;
+  }
+  // A HOUSE that isn't the player's is washed toward dark green with the rest
+  // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
+  // that canvas — the roof is a pooled image above it — so the same shift is
+  // applied here as a multiply tint. Multiply can't reproduce a
+  // lerp exactly, so the tint is white lerped 35% toward the wash colour:
+  // mid-tones land where the wash puts them and the art keeps its shading.
+  // Applied last so it also carries over a shop's own role tint.
+  // (A TURRET is exempt: it swaps to its own baked texture above rather than
+  // taking the tint, so applying this as well would shade it twice.)
+  if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
+    tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
+    // …and the SECOND wash its footprint takes: the out-of-reach dim. That
+    // one is painted on the lighting layer, which sits below the sprites on
+    // purpose (reach dims the ground, distance dims the objects — see the
+    // note at reachGfx in app.js create()), and a wreck is the one sprite
+    // that can't live with the exemption: its roof is standing in for the
+    // footprint's own colour, so a bright roof on a footprint that just went
+    // dark reads as a sticker on the ground rather than a building on it.
+    // Same source the ground pass paints from, so the two can't drift, and
+    // composed rather than replacing the wash above — a wreck outside the
+    // bubble is BOTH derelict and unlit.
+    // Judged on the footprint's centroid cell, through the shared
+    // cellInReach: the lit area, the tap-accept gate and this all agree by
+    // construction. Only a handful of houses are ever on screen, so it goes
+    // through the helper rather than re-inlining its maths the way the
+    // ~1000-call-a-frame cell loop in drawCells has to.
+    if (_outOfReach(o, scene)) tint = _mulTints(tint, Render.reachDimTint(scene));
+  }
+  return tint;
+};
+
 // Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
 // tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
 // the survey-line shimmer — the tile-loading indicator); values in between =
@@ -1889,8 +1994,8 @@ Render.drawCells = function drawCells(scene) {
     gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
     gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
   }
-  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
-  gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
+  const dimAlpha = Render.reachDimAlpha(scene);
+  gr.fillStyle(Render.reachDimColor(scene), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -1970,7 +2075,7 @@ Render.drawCells = function drawCells(scene) {
     const FALLOFF_A = 0.90;
     const FALLOFF_P = 1.5;
     const STEP = 2;
-    const colour = depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000);
+    const colour = Render.reachDimColor(scene);
     // Quantise the colour to 3 bits per channel, as drawAtmosRim does: the
     // biome ease is continuous, and a key on the raw value would rebuild every
     // frame of every transition for a change nobody can see.
@@ -3085,48 +3190,7 @@ Render.drawObjects = function drawObjects(scene) {
       frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== frameVal) s.setFrame(frameVal);
     }
-    // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
-    // table lives in shops.js so adding a new shop type is one-file work.
-    // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
-    // the sprite itself signals the role; tinting would discolour the art.
-    // Starter still gets the gold tint (in case the trailer sprite isn't
-    // available the player still spots the inaugural shop), but the
-    // themed-house branch already returned 'plain' for non-themed roles.
-    let tint = 0xffffff;
-    // Houses: a resolved role of 'plain' is genuine residential (a delivery
-    // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
-    // wizard) carry their own sprite (house_<role>) and resolve to that role,
-    // not 'plain', so they never want a tint either. We deliberately do NOT
-    // fall back to the legacy address-based Shops.shopTint() here: it keyed off
-    // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
-    // delivery host whose address merely ENDED in 9 got painted dark steel —
-    // the "potato+onion house is tinted dark" bug. Address-shop houses get
-    // their look from being restored INTO a themed role, not from this tint.
-    // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
-    // player can spot a shiny harvest from across the tile.
-    if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
-      tint = SHINY_TINT;
-    }
-    // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
-    // industrial lot) — only when nothing more specific (shop/shiny) already
-    // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
-    // A spec.after hook (e.g. mineralrock tier shading) may still override.
-    if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
-      const bt = BiomeProfiles.tint(o._biome, o.kind);
-      if (bt) tint = bt;
-    }
-    // A HOUSE that isn't the player's is washed toward dark green with the rest
-    // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
-    // that canvas — the roof is a pooled image above it — so the same shift is
-    // applied here as a multiply tint. Multiply can't reproduce a
-    // lerp exactly, so the tint is white lerped 35% toward the wash colour:
-    // mid-tones land where the wash puts them and the art keeps its shading.
-    // Applied last so it also carries over a shop's own role tint.
-    // (A TURRET is exempt: it swaps to its own baked texture above rather than
-    // taking the tint, so applying this as well would shade it twice.)
-    if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
-      tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
-    }
+    const tint = Render.spriteTint(o, scene);
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
