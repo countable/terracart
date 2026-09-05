@@ -27,7 +27,12 @@ test('feet anchor: feetOffsetM is 0 — the feet stand on playerM', () => {
 test('feet anchor: the sprite is raised by its own feet drop, so the feet sit on viewCentre', () => {
   const m = app.match(/this\.playerFeetNudgeY = -\((\d+) \/ ([\d.]+)\) \* this\.playerScale;/);
   assert.truthy(m, 'playerFeetNudgeY is the NEGATIVE feet drop');
-  const scale = Number(app.match(/this\.playerScale = ([\d.]+);/)[1]);
+  // The scale is written as a product of its history (1.35 × 0.9 × 0.85);
+  // evaluate the factors rather than pinning the number.
+  const sm = app.match(/this\.playerScale = ([\d.]+(?: \* [\d.]+)*);/);
+  assert.truthy(sm, 'playerScale is a plain numeric product');
+  const scale = sm[1].split(' * ').map(Number).reduce((a, b) => a * b, 1);
+  assert.truthy(scale > 0.9 && scale < 1.1, `scale ${scale} is the 15%-shorter walker`);
   const nudge = -(Number(m[1]) / Number(m[2])) * scale;
   // The frame's feet are 14/1.35 texture px below its centre; at the sprite's
   // scale that drop plus the nudge must cancel to zero — feet ON the point.
