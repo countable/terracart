@@ -11681,6 +11681,12 @@ class MapScene extends Phaser.Scene {
       #move-pad .nub {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
         width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        /* border-box because HALF is derived as (PAD - NUB) / 2 — that only
+           centres the cap in the well if NUB is the cap's OUTER size. Under
+           content-box the 2px rim pushed the cap 2px down-and-right of the
+           well's centre (and 2px past the rim at full deflection), which is
+           what left the countdown digit below looking off-centre on it. */
+        box-sizing: border-box;
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
@@ -11721,17 +11727,23 @@ class MapScene extends Phaser.Scene {
           0 0 12px rgba(255,224,102,0.6);
       }
       /* Walk-home countdown: the seconds until the character heads back to
-         the GPS, stamped on the resting cap. Dark on the brass so it reads
-         against the cap's highlight, with a pale halo so the digit holds up on
-         the darker rim of the dome. Hidden while the stick is held (the cap
-         is under a thumb, and there is nothing to count down to). */
+         the GPS, stamped on the resting cap. Gold, because it is a readout of
+         a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
+         box is the cap's box exactly (same left/top/size, and the cap is
+         border-box above), so the digit centres on the cap rather than near
+         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         glyph evenly, so the gold holds up over the cap's bright highlight and
+         its darker rim alike without reading as lit from one side. Hidden
+         while the stick is held (the cap is under a thumb, and there is
+         nothing to count down to). */
       #move-pad .countdown {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
+        box-sizing: border-box;
         width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
         text-align: center; pointer-events: none;
-        font: ${fontMono(`700 22px/${NUB}px`)};
-        color: rgba(66,48,12,0.95);
-        text-shadow: 0 0 3px rgba(255,247,203,0.9), 0 1px 0 rgba(255,247,203,0.6);
+        font: ${fontMono(`700 18px/${NUB}px`)};
+        color: ${UI_GOLD};
+        text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
         display: none;
       }
       #move-pad .countdown.on { display: block; }
