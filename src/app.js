@@ -64,6 +64,16 @@ const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
+// Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
+// buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
+// capped at DEBUG_SPEED_MUL, so a small gap is closed at a stroll and a big one
+// at a run. It was one CELL (7 m) per ×, which put full speed 63 m out — most
+// of GPS_SNAP_M, so an ordinary walking fix landing 20-30 m ahead was chased at
+// half pace and the character spent the whole gap visibly behind the player.
+// 4 m per × reaches the cap at 36 m instead, which is inside the range a real
+// fix actually lands at. Not a cell multiple on purpose: this measures GPS lag,
+// which has nothing to do with the grid.
+const FOLLOW_RAMP_M = 4;
 // ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
 // How far the camera may slide off the player, in cells. Three cells is a
 // little over half the 5.5-cell half-view: enough to see what the frame was
@@ -7623,18 +7633,22 @@ class MapScene extends Phaser.Scene {
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
   // the GPS dot quietly getting closer. So while it runs, draw a lead: a thin
-  // dashed line from the feet to the dot with the dashes marching that way
-  // and a chevron at the far end. It says "on my way back there" in the one
-  // place the player is already looking, and it costs nothing to ignore.
+  // dashed line from the feet to the dot with the dashes marching that way,
+  // running all the way into the crosshair. It says "on my way back there" in
+  // the one place the player is already looking, and it costs nothing to
+  // ignore. No arrowhead: the line lands ON the marker, and the marker is
+  // already the thing being pointed at — a chevron a few px short of it just
+  // pointed at a target it was covering.
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
   // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". White and translucent — quieter
-  // than the coloured compasses (the green tutorial arrow, the magenta pairy
-  // blink): this is ambient "on my way" information, not a call to action, and
-  // white doesn't claim membership of any of the game's colour languages.
+  // enough off your real position to matter". Gold and translucent — the same
+  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
+  // and the marker it runs to read as one piece of furniture rather than two
+  // unrelated marks, and it stays quieter than the coloured compasses (the
+  // green tutorial arrow, the magenta pairy blink) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -7649,8 +7663,11 @@ class MapScene extends Phaser.Scene {
     const y1 = this.gpsGhost.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
-    // Stop short at both ends so the line never runs into either character.
-    const NEAR_GAP = 11, FAR_GAP = 13;
+    // Stop short of the character at the near end so the line never runs into
+    // the sprite. At the far end it stops on the crosshair's RING (baked at
+    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
+    // the line is meant to reach the marker, so it touches it.
+    const NEAR_GAP = 11, FAR_GAP = 5;
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const ux = dx / len, uy = dy / len;
     const from = NEAR_GAP, to = len - FAR_GAP;
@@ -7658,9 +7675,9 @@ class MapScene extends Phaser.Scene {
     if (!this._reducedMotion) {
       this._walkHomeDashPhase = (this._walkHomeDashPhase + MARCH * dt) % PERIOD;
     }
-    // Collected first, stroked twice: a soft dark pass under the blue one, so
+    // Collected first, stroked twice: a soft dark pass under the gold one, so
     // the line holds up over pale ground (roads, sand) as well as grass — the
-    // same keyline trick the stick's rim uses.
+    // same keyline trick the stick's rim and the crosshair itself use.
     const segs = [];
     // One period of lead-in so the dash entering at the near end is drawn
     // clipped rather than popping into existence at full length.
@@ -7668,14 +7685,6 @@ class MapScene extends Phaser.Scene {
       const a = Math.max(s, from), b = Math.min(s + DASH, to);
       if (b > a) segs.push([x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b]);
     }
-    // Chevron at the dot end — the arrowhead the dashes are walking into.
-    const px = -uy, py = ux;
-    const H = 6, W = 4.5;
-    const hx = x0 + ux * to, hy = y0 + uy * to;
-    const head = [
-      [hx - ux * H + px * W, hy - uy * H + py * W, hx, hy],
-      [hx, hy, hx - ux * H - px * W, hy - uy * H - py * W],
-    ];
     const stroke = (list, width, colour, alpha) => {
       g.lineStyle(width, colour, alpha);
       for (const [ax, ay, bx, by] of list) {
@@ -7686,9 +7695,7 @@ class MapScene extends Phaser.Scene {
       }
     };
     stroke(segs, 3.5, 0x0a1420, 0.22);
-    stroke(head, 3.5, 0x0a1420, 0.26);
-    stroke(segs, 2, 0xffffff, 0.42);
-    stroke(head, 2, 0xffffff, 0.7);
+    stroke(segs, 2, 0xffe066, 0.55);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and
@@ -7775,7 +7782,9 @@ class MapScene extends Phaser.Scene {
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
     // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
-    // big jump still reads as travel rather than a warp.
+    // big jump still reads as travel rather than a warp. One extra × per
+    // FOLLOW_RAMP_M of gap — see that constant for why the rate is what it is.
+    // `move` is clamped to `dist` besides, so no ramp can overshoot the target.
     //
     // While the STICK is held, floor it at the player's own stick speed: you
     // can never outrun your own legs. Without this the body settles
@@ -7788,7 +7797,7 @@ class MapScene extends Phaser.Scene {
     // the floor would silently cancel it.
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
-                         Math.max(stickMul, 1 + dist / this.cellM));
+                         Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -9378,11 +9387,13 @@ class MapScene extends Phaser.Scene {
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
+      // the price from half (no sword) up to full base value at tier 7, and
+      // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js).
       // No shop specialty bonus at home — it's a private sale, not a
       // shopkeep's bid.
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const unitPrice = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const unitPrice = (typeof trailerSellPrice === 'function')
+        ? trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics)
+        : Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * 0.5 * 0.75));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       const maxQty = Math.max(1, sel.count | 0);
