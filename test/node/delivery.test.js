@@ -33,6 +33,13 @@ test('tierCap: steps up one tier every TIER_UNLOCK_EVERY deliveries, clamped at 
   assert.eq(Delivery.tierCap({ deliveryCount: toMax * 5 }), Delivery.PRODUCE_TIER_MAX, 'clamped past MAX');
 });
 
+// N plain houses named h0..h(N-1), so houseOrder(hK) === K.
+function plainHouses(n) {
+  const rh = {};
+  for (let i = 0; i < n; i++) rh['h' + i] = 'plain';
+  return rh;
+}
+
 test('houseOrder / isEarly: 0-based index among restored plain houses', () => {
   // Mixed roles; only 'plain' entries count, in insertion order.
   const save = { restoredHouses: { a: 'plain', shop: 'blacksmith', b: 'plain', c: 'plain', d: 'plain' } };
@@ -41,9 +48,13 @@ test('houseOrder / isEarly: 0-based index among restored plain houses', () => {
   assert.eq(Delivery.houseOrder(save, { id: 'd' }), 3);
   assert.eq(Delivery.houseOrder(save, { id: 'shop' }), -1, 'non-plain → -1');
   assert.eq(Delivery.houseOrder(save, { id: 'ghost' }), -1, 'unknown → -1');
-  assert.eq(Delivery.isEarly(save, { id: 'a' }), true, 'order 0 is early');
-  assert.eq(Delivery.isEarly(save, { id: 'c' }), true, 'order 2 is early');
-  assert.eq(Delivery.isEarly(save, { id: 'd' }), false, 'order 3 is not early');
+  const last = Delivery.EARLY_HOUSES - 1;
+  const wide = { restoredHouses: plainHouses(Delivery.EARLY_HOUSES + 1) };
+  assert.eq(Delivery.isEarly(wide, { id: 'h0' }), true, 'order 0 is early');
+  assert.eq(Delivery.isEarly(wide, { id: 'h' + last }), true, 'the last early order is early');
+  assert.eq(Delivery.isEarly(wide, { id: 'h' + Delivery.EARLY_HOUSES }), false,
+    'the first order past EARLY_HOUSES is not early');
+  assert.eq(Delivery.isEarly(save, { id: 'ghost' }), false, 'not a delivery house → not early');
 });
 
 test('isSatisfied: matches today’s day key in save.houseSatisfied', () => {
@@ -54,7 +65,8 @@ test('isSatisfied: matches today’s day key in save.houseSatisfied', () => {
 });
 
 test('wantedProduce: 2-3 real produce ids, deterministic + cached per day', () => {
-  const save = { deliveryCount: 50, restoredHouses: { h: 'plain', x: 'plain', y: 'plain', z: 'plain' } };
+  // 'h' lands past the scripted ladder, so it rolls a real bundle.
+  const save = { deliveryCount: 50, restoredHouses: { ...plainHouses(Delivery.EARLY_HOUSES), h: 'plain' } };
   const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
   assert.inRange(got.length, 2, 3, 'asks for 2-3 items');
   for (const id of got) assert.truthy(ITEM_BY_ID[id] && ITEM_BY_ID[id].kind === 'produce', id + ' is real produce');
@@ -68,22 +80,64 @@ test('wantedProduce: 2-3 real produce ids, deterministic + cached per day', () =
   assert.eq(house._wantedProduceDay, '20260606', 'cache stamped with the day');
 });
 
-test('wantedProduce: 1st house is scripted to potato + onion', () => {
-  const save = { deliveryCount: 80, restoredHouses: { h: 'plain' } };   // h → order 0
-  const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
-  assert.eq(JSON.stringify(got), JSON.stringify(['potato', 'onion']), 'starter kitchen-garden pair');
+test('SCRIPTED_SINGLES: the ladder opens with a run of FIVE single-item asks', () => {
+  const ladder = Delivery.SCRIPTED_WISHLISTS;
+  assert.eq(Delivery.SCRIPTED_SINGLES, 5, 'five houses in a row want exactly one item');
+  for (let i = 0; i < Delivery.SCRIPTED_SINGLES; i++) {
+    assert.eq(ladder[i].length, 1, 'scripted house ' + i + ' asks for a single item');
+  }
+  assert.truthy(ladder.length > Delivery.SCRIPTED_SINGLES, 'bundles follow the singles');
+  assert.truthy(ladder[Delivery.SCRIPTED_SINGLES].length > 1, 'the first non-single is a bundle');
+  // Every id in the ladder is real produce. Deliberately NOT a tier assertion:
+  // the ladder is hand-picked and overrides the early tier cap — the onion is a
+  // T2 whose seed the first market stocks, and the three field flowers are
+  // T2/T3 only because they're foraged wild plants (biome_profiles.js spawns
+  // them in grassland/forest), not crops the tier cap gates.
+  for (const w of ladder) {
+    for (const id of w) {
+      assert.truthy(ITEM_BY_ID[id] && ITEM_BY_ID[id].kind === 'produce', id + ' is real produce');
+    }
+  }
+  // The bundles are drawn from the SAME produce the singles already asked for —
+  // the shifted-later pair/trio, not new demands.
+  const singles = new Set(ladder.slice(0, Delivery.SCRIPTED_SINGLES).flat());
+  for (const w of ladder.slice(Delivery.SCRIPTED_SINGLES)) {
+    for (const id of w) assert.truthy(singles.has(id), id + ' was already asked for as a single');
+  }
 });
 
-test('wantedProduce: 2nd house is scripted to the colored field-flower trio', () => {
-  const save = { deliveryCount: 80, restoredHouses: { a: 'plain', h: 'plain' } };   // h → order 1
-  const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
-  assert.eq(JSON.stringify(got), JSON.stringify(['marigold', 'forgetmenot', 'wildrose']), 'three field flowers');
+test('wantedProduce: the first five houses each ask for ONE item', () => {
+  const save = { deliveryCount: 80, restoredHouses: plainHouses(Delivery.SCRIPTED_SINGLES) };
+  const seen = [];
+  for (let i = 0; i < Delivery.SCRIPTED_SINGLES; i++) {
+    const got = Delivery.wantedProduce(save, { id: 'h' + i }, JUNE6);
+    assert.eq(got.length, 1, 'house ' + i + ' wants a single item');
+    assert.eq(JSON.stringify(got), JSON.stringify(Delivery.SCRIPTED_WISHLISTS[i]), 'follows the ladder');
+    seen.push(got[0]);
+  }
+  assert.eq(JSON.stringify(seen), JSON.stringify(['potato', 'onion', 'marigold', 'forgetmenot', 'wildrose']),
+    'potato, onion, then the three field flowers — one per house');
+  assert.eq(new Set(seen).size, seen.length, 'no house repeats another single');
 });
 
-test('wantedProduce: early house (order 2) asks only for TIER-1 produce', () => {
-  // Orders 0/1 are scripted; order 2 is the first to hit the early random pool.
-  const save = { deliveryCount: 80, restoredHouses: { a: 'plain', b: 'plain', h: 'plain' } };   // h → order 2
-  const got = Delivery.wantedProduce(save, { id: 'h' }, JUNE6);
+test('wantedProduce: the pair + trio are SHIFTED behind the singles', () => {
+  const save = { deliveryCount: 80, restoredHouses: plainHouses(Delivery.SCRIPTED_WISHLISTS.length) };
+  const pair = Delivery.wantedProduce(save, { id: 'h5' }, JUNE6);
+  assert.eq(JSON.stringify(pair), JSON.stringify(['potato', 'onion']), 'starter kitchen-garden pair, 6th');
+  const trio = Delivery.wantedProduce(save, { id: 'h6' }, JUNE6);
+  assert.eq(JSON.stringify(trio), JSON.stringify(['marigold', 'forgetmenot', 'wildrose']),
+    'three field flowers, 7th');
+});
+
+test('wantedProduce: the early house past the ladder asks only for TIER-1 produce', () => {
+  // The scripted orders are pinned; the next one is the first to hit the early
+  // random pool, and it is still capped at tier 1.
+  const order = Delivery.SCRIPTED_WISHLISTS.length;
+  const save = { deliveryCount: 80, restoredHouses: plainHouses(order + 1) };
+  const house = { id: 'h' + order };
+  assert.eq(Delivery.isEarly(save, house), true, 'still an early house');
+  const got = Delivery.wantedProduce(save, house, JUNE6);
+  assert.inRange(got.length, 2, 3, 'back to a 2-3 item bundle');
   for (const id of got) assert.eq(Delivery.produceTier(id), 1, id + ' must be T1 for an early house');
 });
 
@@ -100,14 +154,15 @@ test('bundleTheme: stable per house id, always a known theme key', () => {
 });
 
 test('wantedProduce: a standing house draws a coherent bundle from its theme', () => {
-  // 6 plain houses, fully unlocked tier cap → house "e" (order 4) is past the
-  // early/4th special cases, so it should draw from its theme pool.
+  // Fully unlocked tier cap, and 'e' sits one past the early window, so it
+  // should draw from its theme pool rather than the scripted ladder.
   const save = {
     deliveryCount: 500,
-    restoredHouses: { a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain' },
+    restoredHouses: { ...plainHouses(Delivery.EARLY_HOUSES), e: 'plain', f: 'plain' },
   };
   const house = { id: 'e' };
-  assert.eq(Delivery.houseOrder(save, house), 4, 'house e is order 4 (not early, not the 4th)');
+  assert.eq(Delivery.houseOrder(save, house), Delivery.EARLY_HOUSES, 'house e is the first standing house');
+  assert.eq(Delivery.isEarly(save, house), false, 'past the early window');
   const theme = Delivery.bundleTheme(house);
   const pool = Delivery.BUNDLE_THEMES[theme];
   const got = Delivery.wantedProduce(save, house, JUNE6);

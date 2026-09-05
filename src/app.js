@@ -64,6 +64,30 @@ const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
+// Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
+// buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
+// capped at DEBUG_SPEED_MUL, so a small gap is closed at a stroll and a big one
+// at a run. It was one CELL (7 m) per ×, which put full speed 63 m out — most
+// of GPS_SNAP_M, so an ordinary walking fix landing 20-30 m ahead was chased at
+// half pace and the character spent the whole gap visibly behind the player.
+// 4 m per × reaches the cap at 36 m instead, which is inside the range a real
+// fix actually lands at. Not a cell multiple on purpose: this measures GPS lag,
+// which has nothing to do with the grid.
+const FOLLOW_RAMP_M = 4;
+// ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
+// How far the camera may slide off the player, in cells. Three cells is a
+// little over half the 5.5-cell half-view: enough to see what the frame was
+// cutting off without the character leaving the map, and far inside the loaded
+// 3×3 tile neighbourhood every world pass scans.
+const PEEK_MAX_CELLS = 3;
+// Screen pixels a pointer must travel before it stops being a tap and becomes a
+// drag. Below this a finger that rolled a little on the way down still taps the
+// thing it landed on; above it nothing is tapped, however the drag ends.
+const PEEK_DRAG_SLOP_PX = 8;
+// Spring-back time constant once the finger lifts. An exponential ease, so this
+// is the 1/e time rather than a duration — the camera is home (sub-pixel) in
+// about 3× this.
+const PEEK_RETURN_MS = 90;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -402,14 +426,25 @@ const DEBUG_SPEED_MUL = 10;
 //
 // HOME is the player's own block, which they are not discovering: the tutorial
 // pocket _placeStarterTrail clears and curates (CLEAR_R = HomeArea.POCKET_CELLS)
-// AND the near half of the starter ring seated just outside it, so the trees
-// and rocks ringing the opening screen are lit rather than sitting under the
-// wash. It stays 10 even though the pocket is now 5 for exactly that reason —
-// a reveal cut back to the pocket would re-fog the ring. TRAIL is the margin
-// around each crate and the relic chest, wide enough that a crate reads as
-// sitting on ground rather than punched out of the dark, and narrow enough
-// that the map still opens up by being walked rather than by spawning.
-const HOME_REVEAL_CELLS = 10;
+// AND the first ring of scenery seated just outside it, so the trees and rocks
+// ringing the opening screen are lit rather than sitting under the wash.
+//
+// It is ONE CELL PAST WHAT THE PLAYER CAN SEE, and that is the whole rule:
+// the viewport is VIEW_CELLS (11) across with the player in the middle, so
+// sight reaches 5 cells and the fog starts at 6 — visible at the corners of
+// the opening screen, a step away on every axis. Derived from VIEW_CELLS, not
+// picked: floor(VIEW_CELLS / 2) + 1, kept as a literal only because the node
+// harness lifts these constants out of the source text (test/node/run.js).
+// It was 10 until Sep 2026 — nearly two screens of free map, so a new save
+// opened with no fog anywhere in frame and the feature only announced itself
+// several streets from home. Anything BELOW 6 is the other bug: the reveal
+// stops short of the rendered frame and the player spawns inside a ring of
+// wash around their own house (both bounds are pinned in fog.test.js).
+// TRAIL is the margin around each crate and the relic chest, wide enough that
+// a crate reads as sitting on ground rather than punched out of the dark, and
+// narrow enough that the map still opens up by being walked rather than by
+// spawning — it is what carries the sightline chain now that HOME does not.
+const HOME_REVEAL_CELLS = 6;
 const TRAIL_REVEAL_CELLS = 5;
 // How close a road or path has to pass to the starting anchor for the supply
 // crates to be laid along its shoulder instead of spread down the walk to the
@@ -421,6 +456,22 @@ const TRAIL_REVEAL_CELLS = 5;
 const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
+//
+// The dots were round and 3px, dropped dead on the body's centreline — one
+// track of pebbles, which read as a dotted line rather than as somebody having
+// walked past. These four numbers turn them into prints: smaller, oval, laid
+// along the step, and alternating either side of the line of travel like a
+// real pair of feet.
+//
+// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
+// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
+// the midline. Scaled by playerScale at draw time, that is where the sprite's
+// own feet are, so a print lands under the foot that made it.
+const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
+const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
+const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
+const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -448,6 +499,13 @@ const WALK_HOME_IDLE_MS = 5000;
 // interrupted nudge from reading as the character fighting you — and the last
 // stretch is at normal walking speed.
 const WALK_HOME_RAMP_MS = 1100;
+// The walk home is a little BRISKER than a stick walk. The player has already
+// stopped and is watching the character close a gap they didn't ask for frame
+// by frame, so the return should read as purposeful, not as the same stroll
+// that opened it — but it is still a walk (the too-far case below places the
+// body outright), so it stays well under the 2× that would read as running.
+// Multiplies the stick pace (walk × amulet) once the ramp is at full.
+const WALK_HOME_SPEED_MUL = 1.5;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
@@ -1063,6 +1121,11 @@ class MapScene extends Phaser.Scene {
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
+    // Camera offset from the player, in metres — non-zero only while a peek
+    // drag is live or springing back. Set up here, with the rest of the view,
+    // so it exists before anything can draw; the drag that moves it and the
+    // rules it obeys are in the PEEK DRAG block further down.
+    this.peekM = { x: 0, y: 0 };
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -1075,14 +1138,21 @@ class MapScene extends Phaser.Scene {
     // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
     // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
     Fog.init(this.save, this.cellsPerTile);
-    // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
-    // visual feet sit ~14px below the sprite centre (same anchor as the
-    // footprint dot). The reach is cell-quantised and centres on the CELL the
-    // player stands in, so we offset the cell lookup down to the feet: 24px
-    // (0.75 cell) overshot into the cell to the SOUTH (reach appeared a cell
-    // low); 14px (~0.44 cell) keeps the lookup in the feet's own cell so the
-    // reach centres on the player. ~2.6m.
-    this.feetOffsetM = (14 / CELL_PX) * this.cellM;
+    // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
+    // sprite is seated so its visible feet land exactly on it (see
+    // playerFeetNudgeY below) — so the ground under your real position is the
+    // ground the character is standing on. Until Sep 2026 the sprite was
+    // CENTRED on the fix and the feet hung 14px (3 m) south of it: standing on
+    // a road's centreline put the band through the character's waist and the
+    // feet on the south shoulder, and the whole map read as shifted north of
+    // where you were. feetOffsetM is the metres the feet sit south of playerM;
+    // it is kept as a field because every reach / collision / stair site adds
+    // it, and it is now 0 by construction. If you are tempted to seat the feet
+    // below the fix again and compensate here, that is the bug coming back.
+    this.feetOffsetM = 0;
+    // Screen pixels per cell, published for modules that size sprite boxes in
+    // metres (interact.js' creature hit-test) without an app.js global.
+    this.cellPx = CELL_PX;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
     // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
@@ -1505,6 +1575,7 @@ class MapScene extends Phaser.Scene {
     // ramparts); every other world object shares objectPool.
     this.towerPool = [];
     this.castleFlagPool = [];   // the claimed-castle banner, one per castle
+    this.fruitPool = [];        // ripe fruit worn on a bearing fruit tree's crown (render.js)
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -1829,32 +1900,43 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). With the default 0.5/0.5
-    // origin the projected world position lands at the sprite CENTRE and the
-    // feet sat 14px below it at 1.35× (footprint anchor, see drawFootprints).
-    // That 14px is a texture offset of 14/1.35 ≈ 10.37px; at 1.215× the feet
-    // would ride up to 10.37 × 1.215 ≈ 12.6px below centre. Nudge every player
-    // sprite DOWN by the difference (~1.4px) so the feet — and the +14
-    // footprint anchor — stay exactly where they were.
-    this.playerScale = 1.215;
+    // Scale 1.033 = 1.35 × 0.9 × 0.85: the original 1.35, shrunk 10% once and
+    // a further 15% in Sep 2026 so the walker reads closer to a real person
+    // against the 7 m cells while staying clearly visible. The frame's
+    // visible feet sit 14/1.35 ≈ 10.37 texture px below its centre (measured
+    // at the original 1.35× as a 14px drop); playerFeetNudgeY below derives
+    // the on-screen drop from THIS number, so the feet stay on the fix at any
+    // scale — change the scale here and nothing else.
+    this.playerScale = 1.35 * 0.9 * 0.85;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
-    this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
+    // FEET ON THE FIX: the projected world position (viewCentre for the local
+    // player, the fix's screen point for a peer) is where the FEET go, so
+    // every player sprite is drawn this much ABOVE its point — the negative
+    // of the feet drop. Anything that wants the sprite's body centre adds
+    // this to the point; anything on the ground (shadow, footprints, the GPS
+    // and target markers) sits on the point itself. It was +1.4 until Sep
+    // 2026 — sprite centred on the fix, feet 14px (3 m) south of it — which
+    // put the map a body-length north of where the player stood (see
+    // feetOffsetM in create()).
+    this.playerFeetNudgeY = -(14 / 1.35) * this.playerScale;
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
       .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
     // Contact shadow under the player's feet. The player is camera-locked at
-    // viewCentre, so this never moves — it just sits at the footprint anchor
-    // (+14px, the same point drawFootprints drops its dots at). Depth 9.5:
-    // above the footprint trail (9) so a fresh dot can't sit on top of the
-    // shadow, below the character (10). Created here rather than in the
-    // per-frame pass because there is exactly one and it never relocates.
-    // 'bldg_shadow' is baked further up in create(), so it always exists.
-    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY + 13, 'bldg_shadow')
+    // viewCentre, so this never moves — it just sits at the feet, which ARE
+    // viewCentre (a pixel above it, so the sole reads as resting on the
+    // shadow rather than cut by it — the same 1px the footprint dots keep).
+    // Depth 9.5: above the footprint trail (9) so a fresh dot can't sit on
+    // top of the shadow, below the character (10). Created here rather than
+    // in the per-frame pass because there is exactly one and it never
+    // relocates. 'bldg_shadow' is baked further up in create(), so it always
+    // exists.
+    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
       .setAlpha(0.34)
@@ -1871,12 +1953,16 @@ class MapScene extends Phaser.Scene {
     // Walk-target marker. Movement is target-follow at every depth: GPS fixes
     // and steering input move a free-flying target (this._targetM) and the
     // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where the
-    // target is whenever it has pulled away from the body; it stays hidden once
-    // the two coincide. A plain marker, not a player-shaped sprite — the only
-    // player sprites on the map belong to real bodies (this.player, and any
-    // other live player — see multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffffff, 0.55)
+    // through rock, which the body mines out. This small dot marks where that
+    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
+    // ahead of the dig. On the surface the target is the GPS fix, which the
+    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
+    // floating ahead of an auto-walking character — see the marker block in
+    // update(), which is the one place its visibility is decided. A plain
+    // marker, not a player-shaped sprite — the only player sprites on the map
+    // belong to real bodies (this.player, and any other live player — see
+    // multiplayer.js).
+    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
       .setStrokeStyle(1.5, 0x000000, 0.4)
       .setDepth(10)
       .setVisible(false)
@@ -1900,7 +1986,7 @@ class MapScene extends Phaser.Scene {
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
     // over and collect. See the 'gps_crosshair' bake above.
-    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'gps_crosshair')
+    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_crosshair')
       .setOrigin(0.5, 0.5)
       .setDepth(9.8)
       .setVisible(false)
@@ -1944,11 +2030,13 @@ class MapScene extends Phaser.Scene {
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
     this._nextSwingT = 0;              // performance.now() ms the next swing may fire
-    // Footprint trail — small 50% grey dots dropped as the player moves, each
-    // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
+    // Footprint trail — small dark ovals dropped as the player moves, laid
+    // along the step and alternating left/right foot (see _fillFootprint),
+    // each fading 20% per new drop so ~5 are visible. Under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
-    this.footprints = [];               // [{ x, y, alpha }, …] in world meters
+    this.footprints = [];               // [{ x, y, alpha, ux, uy, side }, …], world metres
     this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+    this._footSide = 1;                 // flipped on each drop: left, right, left…
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -1975,12 +2063,56 @@ class MapScene extends Phaser.Scene {
     this._fastWalk = false;
     this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
 
-    // World tap (player handler runs first and stops propagation). Ping mode
-    // (multiplayer.js — "tap 📍, then tap the map") takes the tap first.
+    // World tap + PEEK DRAG. One pointer does both, and which one it was is
+    // only known when it lifts: a pointer that never travelled PEEK_DRAG_SLOP_PX
+    // is a tap and fires on the up (it used to fire on the down — the few ms
+    // between the two is not something a hand can feel, and it is the whole
+    // price of being able to drag). A pointer that DID travel drags the camera
+    // and taps nothing: you cannot chop a tree by sliding the map off it.
+    //
+    // Ping mode (multiplayer.js — "tap 📍, then tap the map") still takes the
+    // tap first, on the tap path only — a drag isn't a ping either.
+    this._peekPointerId = null;        // the one pointer that owns the drag
+    this._peekDragging = false;        // past the slop — this is a drag, not a tap
+    this._peekReturning = false;       // finger's gone, camera easing home
     this.input.on('pointerdown', (p) => {
+      // Second finger down mid-drag is left alone: the drag keeps the pointer
+      // it started with, and a pinch never becomes a tap. But only while that
+      // pointer is REALLY still down — a touch whose release never reached
+      // Phaser (the stuck-touch case the sweeper below exists for) would
+      // otherwise own the map forever and swallow every tap after it.
+      if (this._peekPointerId !== null && this._peekPointer?.isDown) return;
+      this._peekPointer = p;
+      this._peekPointerId = p.id;
+      this._peekDownX = p.x;
+      this._peekDownY = p.y;
+      this._peekDragging = false;
+      this._peekReturning = false;     // a new grab cancels the spring-back
+      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+    });
+    this.input.on('pointermove', (p) => {
+      if (p.id !== this._peekPointerId || !p.isDown) return;
+      const dx = p.x - this._peekDownX, dy = p.y - this._peekDownY;
+      if (!this._peekDragging && Math.hypot(dx, dy) < PEEK_DRAG_SLOP_PX) return;
+      this._peekDragging = true;
+      // Measured from where the camera was when the finger landed, so grabbing
+      // the map again mid-spring-back continues from there rather than jumping.
+      const k = CELL_PX / this.cellM;
+      this._setPeekFromDrag(dx - this._peekFromM.x * k, dy - this._peekFromM.y * k);
+    });
+    const endPeekPointer = (p) => {
+      if (p.id !== this._peekPointerId) return;
+      const wasDrag = this._peekDragging;
+      this._releasePeek();
+      if (wasDrag) return;             // dragged the map; nothing was tapped
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, p.x, p.y)) return;
       this.handleWorldTap(p.x, p.y);
-    });
+    };
+    this.input.on('pointerup', endPeekPointer);
+    // A touch that ends off the canvas (or is stolen by the browser) never
+    // reaches 'pointerup'. Without this the drag would stay latched and the
+    // next tap would be swallowed as its release.
+    this.input.on('pointerupoutside', endPeekPointer);
 
     // Stuck-touch-pointer sweeper. Phaser frees a touch pointer only when its
     // touchend/touchcancel reaches its handlers with a matching identifier —
@@ -2000,6 +2132,11 @@ class MapScene extends Phaser.Scene {
       const sweep = (e) => {
         if (e.touches && e.touches.length) return;   // fingers still down
         setTimeout(() => {
+          // A peek drag whose finger left without a 'pointerup' (a cancelled
+          // touch, an event eaten on the way out) would stay latched and
+          // swallow the next tap as its release. The last finger is off the
+          // glass here, so let the camera spring home.
+          if (this._peekPointerId !== null) this._releasePeek();
           const pointers = this.input?.manager?.pointers;
           if (!pointers) return;
           for (const p of pointers) {
@@ -4769,6 +4906,33 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // One footprint: a slight oval, long axis along the step that made it,
+  // sitting under the foot that made it rather than on the body's centreline.
+  // The lateral shift is the sprite's own half-stance (see
+  // FOOT_STANCE_HALF_ART_PX) taken perpendicular to the step and signed by
+  // fp.side, so consecutive prints fall either side of the line of travel and
+  // the pair straddles it — this is NOT a feet offset of the kind the ground
+  // marks used to carry (see feet_anchor.test.js): the two sides cancel, and
+  // the track's centreline is still the point the body walked through.
+  //
+  // Graphics has no rotated-ellipse fill, so the oval is a polygon — 14 points
+  // is smooth at this size (a 4px-wide shape), and cheap: at most 5 prints are
+  // alive at once.
+  _fillFootprint(g, cx, cy, fp) {
+    const { ux, uy } = fp;                  // every print carries its step
+    const px = -uy, py = ux;                // perpendicular to it
+    const off = FOOT_STANCE_HALF_ART_PX * this.playerScale * fp.side;
+    const ox = cx + px * off, oy = cy + py * off;
+    const pts = [];
+    const N = 14;
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * Math.PI * 2;
+      const a = Math.cos(t) * FOOT_DOT_LONG, b = Math.sin(t) * FOOT_DOT_ACROSS;
+      pts.push({ x: ox + ux * a + px * b, y: oy + uy * a + py * b });
+    }
+    g.fillPoints(pts, true);
+  }
+
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
   // world-space target. Three callers share it — the pairy chest compass, the
   // delivery waypoint, and the starter-crate trail — so the ring geometry
@@ -4801,11 +4965,18 @@ class MapScene extends Phaser.Scene {
     //
     // Half a cell of inset so a target sitting right on the mask edge — drawn
     // half-clipped, easy to miss — still gets its arrow.
-    const sx = ((targetWX - pWX) / this.cellM) * CELL_PX;
-    const sy = ((targetWY - pWY) / this.cellM) * CELL_PX;
+    //
+    // "Can I see it?" is a question about the SCREEN, so it's asked of the
+    // camera anchor (a peek drag can bring the target into view without the
+    // player having moved a step); the arrow itself is a bearing from the body,
+    // so it rings the player wherever they now are on screen.
+    const ts = this.worldMetersToScreen(targetWX, targetWY);
+    const sx = ts.x - this.viewCenterX;
+    const sy = ts.y - this.viewCenterY;
     const half = this.viewSize / 2 - CELL_PX / 2;
     if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
-    const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
+    const ps = this.playerScreen();
+    const tipX = ps.x + ux * dist, tipY = ps.y + uy * dist;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
     const back = 14, halfW = 7;
@@ -4982,6 +5153,20 @@ class MapScene extends Phaser.Scene {
     this._modalGateTick = (this._modalGateTick || 0) + 1;
     if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
     const dt = dtMs / 1000;
+    // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
+    // every projection below — and every draw pass this frame — reads one
+    // settled camera position rather than two.
+    this._tickPeek(dt);
+    // Everything drawn AT the player rather than at a world position rides
+    // this: the camera is normally on them, so it's the viewport centre, but a
+    // peek drag slides them across the map like anything else standing on it.
+    // playerScreen() is the GROUND point (feet-on-the-fix, the same point the
+    // body's world position projects to); the sprite's centre rises
+    // playerFeetNudgeY above it and the contact shadow sits a pixel under it —
+    // the two offsets they were created with.
+    const pScreen = this.playerScreen();
+    this.player?.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with a tier-8 amulet's
@@ -4998,7 +5183,9 @@ class MapScene extends Phaser.Scene {
       const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
       this.dragonTimerText
         .setText(`${secs}s`)
-        .setPosition(this.viewCenterX, this.viewCenterY - 34)
+        // Over the head: measured from the SPRITE CENTRE (the player's screen
+        // point is the feet, and the body rises playerFeetNudgeY above it).
+        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
         .setVisible(true);
     }
     let vx = 0, vy = 0;
@@ -5054,15 +5241,19 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: show where the body is headed whenever the target has
-    // pulled away from it (underground: trailing / mining; on the surface: the
-    // GPS says you're over there and the body is still catching up). When the
-    // two are basically coincident — arrived — keep it hidden so nothing
-    // diverges. The surface threshold is far looser: a GPS fix jitters a few
-    // metres every second even when the player is standing still, and a marker
-    // strobing on and off with the noise is worse than no marker.
-    const markerDiv = this.cellM * (this.depth > 0 ? 0.5 : 3);
-    if (this._targetM) {
+    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
+    // the player is actively steering — it leads the body through rock and the
+    // body mines its way after it, so while the two are apart the marker is the
+    // only thing saying where the dig is headed (the compass arrow rides it,
+    // below). On the SURFACE the target is just the GPS fix, and the marker was
+    // a second blob for a point the crosshair (gpsGhost) already marks: it
+    // showed up as a grey dot a few metres ahead whenever a fix landed and the
+    // body auto-walked to catch up, which is every fix you take a step on.
+    // Hidden there — the character walking itself over is the whole message.
+    // When target and body are basically coincident — arrived — hide it too, so
+    // nothing diverges.
+    const markerDiv = this.cellM * 0.5;
+    if (this._targetM && this.depth > 0) {
       const gdx = this._targetM.x - this.playerM.x;
       const gdy = this._targetM.y - this.playerM.y;
       const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
@@ -5070,7 +5261,9 @@ class MapScene extends Phaser.Scene {
         const p = worldMetersToScreen(this,
           this.startWorldM.x + this._targetM.x,
           this.startWorldM.y + this._targetM.y);
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY)).setVisible(true);
+        // On the point itself: the marker is a ground mark, and the ground
+        // point is where a body's FEET would stand (feet-on-the-fix).
+        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
       } else {
         this.targetGhost.setVisible(false);
       }
@@ -5090,7 +5283,7 @@ class MapScene extends Phaser.Scene {
         const g = worldMetersToScreen(this,
           this.startWorldM.x + this.gpsM.x,
           this.startWorldM.y + this.gpsM.y);
-        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y + this.playerFeetNudgeY)).setVisible(true);
+        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
       } else {
         this.gpsGhost.setVisible(false);
       }
@@ -5098,6 +5291,7 @@ class MapScene extends Phaser.Scene {
       this.gpsGhost.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
+    this._updateWalkHomeCountdown();
     this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -5189,13 +5383,15 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
+      // The sprite's centre is its ground point plus playerFeetNudgeY (the
+      // feet are on the point, the body rises above it).
+      let cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits at sprite-center
-        // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
-        // used at the viewport center so the arrow hovers identically.
+        // Anchor over the target marker's head. targetGhost sits on the
+        // ground point; a body standing there would have its centre the
+        // same nudge above it, so apply the identical offset.
         cx = this.targetGhost.x;
-        cy = this.targetGhost.y - this.playerFeetNudgeY - HEAD_DY;
+        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
       }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
@@ -5221,26 +5417,35 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.8;
-        this.footprints.push({ x: bodyM.x, y: bodyM.y, alpha: 0.45 });
+        // Freeze the STEP onto the print: which way it went (unit vector —
+        // world axes are the screen's, so this is also its screen direction)
+        // and which foot made it, alternating. Both are recorded at drop time
+        // rather than read from the player each frame, because a print is a
+        // mark left in the ground: turning around must not swivel the ones
+        // already behind you.
+        const n = Math.hypot(dx, dy) || 1;
+        this._footSide = -(this._footSide || 1);
+        this.footprints.push({
+          x: bodyM.x, y: bodyM.y, alpha: 0.45,
+          ux: dx / n, uy: dy / n, side: this._footSide,
+        });
         // Cap at 5 so the trail stays short — the 20%/step fade alone would
         // keep ~11 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
       this.footprintGfx.clear();
-      // Camera anchor stays on playerM, so footprints drawn at body world
-      // coords land at the body's screen offset.
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
+      // Dots pressed into the GROUND, so they project like any other world
+      // point (worldMetersToScreen → the camera anchor) and slide with a peek.
       for (const fp of this.footprints) {
-        const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +14 lands the dot right at the sprite's feet. (Sprite scale 1.35 × 32
-        // ≈ 43, origin (.5,.5) so the sprite's nominal bottom is ~+22, but the
-        // visible foot pixels sit several px above the bottom of the texture —
-        // +14 lines up with where the shoes actually meet the ground.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 14;
+        // The body's world point IS its feet (feet-on-the-fix), so the dot
+        // goes on the projected point with no anchor offset — the same point
+        // the contact shadow sits on.
+        const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
+                                            fp.y + this.startWorldM.y);
+        const sx2 = s2.x, sy2 = s2.y;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
+        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
       }
     }
 
@@ -5902,8 +6107,9 @@ class MapScene extends Phaser.Scene {
     const startA = baseAngle - SWEEP / 2;
     const headA = startA + SWEEP * t;
     const tailA = startA + SWEEP * Math.max(0, t - 0.35);
-    const cx = this.viewCenterX;
-    const cy = this.viewCenterY + this.playerFeetNudgeY - 8;   // roughly chest height
+    const ps = this.playerScreen();
+    const cx = ps.x;
+    const cy = ps.y + this.playerFeetNudgeY - 8;   // roughly chest height
     const R = 15;
     // Fade only in the closing stretch — a slash that's visible then vanishes
     // instantly reads as a glitch, not a completed swing.
@@ -6912,6 +7118,91 @@ class MapScene extends Phaser.Scene {
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); }
+
+  // === The PEEK DRAG ======================================================
+  // Drag the map to look a little way past the edge of the viewport, let go and
+  // it springs back. The character is not a camera mount: the map is a small
+  // window and half of "where do I go next" lives just outside it.
+  //
+  // It is a CAMERA offset (this.peekM, metres, player→camera) and nothing else.
+  // playerM never moves, so reach, the tap gates, fog reveal and tile loading
+  // all still measure from the body — peeking at a crate three cells away and
+  // tapping it correctly says "too far", exactly as it would with the crate on
+  // screen at the same distance. Everything that DRAWS goes through
+  // coords.js viewAnchorWorldM / viewAnchorCell, which add this offset.
+  //
+  // The drawn window re-anchors with the camera, so a peek costs nothing: the
+  // same 11×11 pass paints a different patch of ground. The cap is what keeps
+  // it honest — PEEK_MAX_CELLS stays well inside the loaded 3×3 tile
+  // neighbourhood every world pass scans (a tile is hundreds of cells wide).
+
+  // Player's screen position. The camera normally sits on them, so this is the
+  // viewport centre; a peek slides them off it by the drag. Everything drawn AT
+  // the player rather than at a world position (the sprite and its shadow /
+  // halo / arrow / swing) reads its centre from here — never viewCenterX/Y.
+  playerScreen() {
+    const k = CELL_PX / this.cellM;
+    return {
+      x: this.viewCenterX - this.peekM.x * k,
+      y: this.viewCenterY - this.peekM.y * k,
+    };
+  }
+
+  // Is the camera off the player right now (drag live, or still springing back)?
+  isPeeking() {
+    return this.peekM.x !== 0 || this.peekM.y !== 0;
+  }
+
+  // Set the peek from a drag delta in SCREEN pixels — the finger drags the
+  // ground, so the camera moves the other way — clamped to a disc of
+  // PEEK_MAX_CELLS so no drag can outrun the loaded world.
+  _setPeekFromDrag(dxPx, dyPx) {
+    const k = this.cellM / CELL_PX;
+    let mx = -dxPx * k, my = -dyPx * k;
+    const maxM = PEEK_MAX_CELLS * this.cellM;
+    const mag = Math.hypot(mx, my);
+    if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
+    this.peekM.x = mx;
+    this.peekM.y = my;
+  }
+
+  // Let go and the camera slides home. Eased per frame rather than tweened so
+  // it survives a dropped pointerup (see the stuck-touch sweeper) and can be
+  // cut short by the next drag without leaving a tween fighting the finger.
+  _releasePeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    if (this.isPeeking()) this._peekReturning = true;
+  }
+
+  // Snap the camera back to the player at once, no spring. Used when something
+  // OTHER than the drag has moved the view's meaning — a teleport, a descent,
+  // a modal taking the screen.
+  clearPeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    this._peekReturning = false;
+    if (!this.peekM) return;      // called before the view was set up
+    this.peekM.x = 0;
+    this.peekM.y = 0;
+  }
+
+  // Per-frame spring-back. Exponential ease (frame-rate independent), with a
+  // sub-pixel floor so it lands exactly on zero instead of creeping.
+  _tickPeek(dt) {
+    if (!this._peekReturning) return;
+    const k = Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    this.peekM.x *= k;
+    this.peekM.y *= k;
+    const snapM = 0.5 * (this.cellM / CELL_PX);       // half a screen pixel
+    if (Math.abs(this.peekM.x) < snapM && Math.abs(this.peekM.y) < snapM) {
+      this.peekM.x = 0;
+      this.peekM.y = 0;
+      this._peekReturning = false;
+    }
+  }
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
   // this method just forwards to it.
@@ -7102,6 +7393,10 @@ class MapScene extends Phaser.Scene {
   // Without this the stale target survives the warp and the body immediately
   // sets off walking back to wherever it used to be headed.
   syncMoveTarget() {
+    // A peek is a look at the ground AROUND YOU; after a warp that ground is
+    // somewhere else, so the camera snaps back onto the body rather than
+    // spring-easing across a view that has nothing to do with the old one.
+    this.clearPeek();
     this._targetM = { x: this.playerM.x, y: this.playerM.y };
     this._manualOffsetM = { x: 0, y: 0 };
     this._steerDistAccrue = 0;
@@ -7291,7 +7586,8 @@ class MapScene extends Phaser.Scene {
     const rampT = Math.min(1, (Date.now() - (this._lastStickT || 0) - WALK_HOME_IDLE_MS)
                               / WALK_HOME_RAMP_MS);
     const ease = rampT * rampT;
-    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * ease * dt);
+    const step = Math.min(mag, WALK_M_S * WALK_HOME_SPEED_MUL
+                                 * steerSpeedMul(this._walkRelics()) * ease * dt);
     if (step <= 0) return;
     const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
     off.x += dx; off.y += dy;
@@ -7300,37 +7596,74 @@ class MapScene extends Phaser.Scene {
     this._targetM.y += dy;
     this._followPaused = false;
   }
+  // Seconds left on the walk-home debounce, for the stick's countdown — or
+  // null when there is nothing to count down to. The gates are _driftHome's
+  // own: it only counts while a return is actually pending (surface, a fix
+  // driving, the stick let go, no wheel, and an offset to bleed), so the
+  // number on the stick is always a promise the walk will keep. Whole
+  // seconds, rounded UP: "5" the instant you let go, "1" for the last second,
+  // gone when the walk starts. Pure — no DOM — so the test suite drives it.
+  _walkHomeCountdownS() {
+    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return null;
+    if (this._busyWheel() || this._stickPushed()) return null;
+    const off = this._manualOffsetM;
+    if (!off || Math.hypot(off.x, off.y) < 0.01) return null;
+    const left = WALK_HOME_IDLE_MS - (Date.now() - (this._lastStickT || 0));
+    if (left <= 0) return null;
+    return Math.ceil(left / 1000);
+  }
+  // Write the countdown onto the stick. The label lives on the pad itself (see
+  // buildMovePad) so the number sits under the thumb that just let go — the
+  // one place the player is looking when they wonder whether the character is
+  // about to walk off. Only touches the DOM when the number changes.
+  _updateWalkHomeCountdown() {
+    const el = this._movePadCountdownEl;
+    if (!el || !el.isConnected) return;
+    const s = this._walkHomeCountdownS();
+    const text = s == null ? '' : String(s);
+    if (text === this._movePadCountdownText) return;
+    this._movePadCountdownText = text;
+    el.textContent = text;
+    el.classList.toggle('on', !!text);
+  }
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
   // the GPS dot quietly getting closer. So while it runs, draw a lead: a thin
-  // dashed line from the feet to the dot with the dashes marching that way
-  // and a chevron at the far end. It says "on my way back there" in the one
-  // place the player is already looking, and it costs nothing to ignore.
+  // dashed line from the feet to the dot with the dashes marching that way,
+  // running all the way into the crosshair. It says "on my way back there" in
+  // the one place the player is already looking, and it costs nothing to
+  // ignore. No arrowhead: the line lands ON the marker, and the marker is
+  // already the thing being pointed at — a chevron a few px short of it just
+  // pointed at a target it was covering.
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
   // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". White and translucent — quieter
-  // than the coloured compasses (the green tutorial arrow, the magenta pairy
-  // blink): this is ambient "on my way" information, not a call to action, and
-  // white doesn't claim membership of any of the game's colour languages.
+  // enough off your real position to matter". Gold and translucent — the same
+  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
+  // and the marker it runs to read as one piece of furniture rather than two
+  // unrelated marks, and it stays quieter than the coloured compasses (the
+  // green tutorial arrow, the magenta pairy blink) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
     g.clear();
     if (!this._driftingHome || !this.gpsGhost?.visible) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_HINT_IDLE_MS) return;
-    // Both markers are drawn from their centre with the same nudge, so backing
-    // it out and adding the footprint anchor puts each endpoint at the feet.
-    const FEET = 13;
-    const x0 = this.viewCenterX, y0 = this.viewCenterY + FEET;
+    // Both endpoints are ground points: the character's feet are the player's
+    // own screen point (feet-on-the-fix) and the GPS marker sits on the fix.
+    const ps = this.playerScreen();
+    const x0 = ps.x, y0 = ps.y;
     const x1 = this.gpsGhost.x;
-    const y1 = this.gpsGhost.y - this.playerFeetNudgeY + FEET;
+    const y1 = this.gpsGhost.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
-    // Stop short at both ends so the line never runs into either character.
-    const NEAR_GAP = 11, FAR_GAP = 13;
+    // Stop short of the character at the near end so the line never runs into
+    // the sprite. At the far end it stops on the crosshair's RING (baked at
+    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
+    // the line is meant to reach the marker, so it touches it.
+    const NEAR_GAP = 11, FAR_GAP = 5;
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const ux = dx / len, uy = dy / len;
     const from = NEAR_GAP, to = len - FAR_GAP;
@@ -7338,9 +7671,9 @@ class MapScene extends Phaser.Scene {
     if (!this._reducedMotion) {
       this._walkHomeDashPhase = (this._walkHomeDashPhase + MARCH * dt) % PERIOD;
     }
-    // Collected first, stroked twice: a soft dark pass under the blue one, so
+    // Collected first, stroked twice: a soft dark pass under the gold one, so
     // the line holds up over pale ground (roads, sand) as well as grass — the
-    // same keyline trick the stick's rim uses.
+    // same keyline trick the stick's rim and the crosshair itself use.
     const segs = [];
     // One period of lead-in so the dash entering at the near end is drawn
     // clipped rather than popping into existence at full length.
@@ -7348,14 +7681,6 @@ class MapScene extends Phaser.Scene {
       const a = Math.max(s, from), b = Math.min(s + DASH, to);
       if (b > a) segs.push([x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b]);
     }
-    // Chevron at the dot end — the arrowhead the dashes are walking into.
-    const px = -uy, py = ux;
-    const H = 6, W = 4.5;
-    const hx = x0 + ux * to, hy = y0 + uy * to;
-    const head = [
-      [hx - ux * H + px * W, hy - uy * H + py * W, hx, hy],
-      [hx, hy, hx - ux * H - px * W, hy - uy * H - py * W],
-    ];
     const stroke = (list, width, colour, alpha) => {
       g.lineStyle(width, colour, alpha);
       for (const [ax, ay, bx, by] of list) {
@@ -7366,9 +7691,7 @@ class MapScene extends Phaser.Scene {
       }
     };
     stroke(segs, 3.5, 0x0a1420, 0.22);
-    stroke(head, 3.5, 0x0a1420, 0.26);
-    stroke(segs, 2, 0xffffff, 0.42);
-    stroke(head, 2, 0xffffff, 0.7);
+    stroke(segs, 2, 0xffe066, 0.55);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and
@@ -7407,10 +7730,11 @@ class MapScene extends Phaser.Scene {
       // Strength follows the same k as the tint for the far case, so a halo
       // never shouts before the character has visibly dimmed.
       const strength = spent ? 1 : Math.min(1, (away - nearM) / (nearM * 2));
+      const ps = this.playerScreen();
       this.playerHalo
         .setDisplaySize(38 + 6 * wave, 38 + 6 * wave)
         .setAlpha((0.25 + 0.35 * wave) * strength)
-        .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY)
+        .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
         .setVisible(true);
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
@@ -7454,7 +7778,9 @@ class MapScene extends Phaser.Scene {
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
     // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
-    // big jump still reads as travel rather than a warp.
+    // big jump still reads as travel rather than a warp. One extra × per
+    // FOLLOW_RAMP_M of gap — see that constant for why the rate is what it is.
+    // `move` is clamped to `dist` besides, so no ramp can overshoot the target.
     //
     // While the STICK is held, floor it at the player's own stick speed: you
     // can never outrun your own legs. Without this the body settles
@@ -7467,7 +7793,7 @@ class MapScene extends Phaser.Scene {
     // the floor would silently cancel it.
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
-                         Math.max(stickMul, 1 + dist / this.cellM));
+                         Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -9000,7 +9326,11 @@ class MapScene extends Phaser.Scene {
     // 'buy'
     if (isCastle) return "From the castle's vault:";
     if (isFort)   return 'The fort quartermaster offers:';
-    if (st === 'market')     return 'The market has fresh stock:';
+    // Named for its stock, so the line matches the sign outside: "The produce
+    // shop has fresh stock:", or "The seed shop …" for the tutorial's first one.
+    if (st === 'market') {
+      return `The ${Shops.roleLabel('market', this.isFirstMarket(house)).toLowerCase()} has fresh stock:`;
+    }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
     if (st === 'wizard')     return 'The wizard conjures a relic:';
@@ -9180,7 +9510,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
+    // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
@@ -9703,14 +10033,15 @@ class MapScene extends Phaser.Scene {
   // 0-based position of this house among restored residential (delivery)
   // houses, in restore order; -1 if it isn't a (restored) delivery house.
   // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
-  // the Nth-restored delivery house. Drives the scripted early wishlists
-  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
+  // the Nth-restored delivery house. Drives the scripted opening ladder in
+  // delivery.js (five single-item asks, then the starter pair, then the
+  // foraged-flower trio) and the TIER-1 pin on the early houses.
   deliveryHouseOrder(house) {
     return Delivery.houseOrder(this.save, house);
   }
 
-  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
-  // produce wishlists (see wantedProduce).
+  // True for the first Delivery.EARLY_HOUSES RESTORED delivery houses — they get
+  // pinned to TIER-1 produce wishlists (see wantedProduce).
   isEarlyDeliveryHouse(house) {
     return Delivery.isEarly(this.save, house);
   }
@@ -9960,8 +10291,10 @@ class MapScene extends Phaser.Scene {
     return Delivery.produceTier(id);
   }
 
-  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
+  // 1-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
   // cached on the house per day so the render sign and interact handler agree).
+  // The first restored houses walk delivery.js's scripted ladder, which opens
+  // with five single-item asks before any bundle.
   wantedProduce(house) {
     return Delivery.wantedProduce(this.save, house);
   }
@@ -9973,12 +10306,18 @@ class MapScene extends Phaser.Scene {
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 2-3 wanted produce, delivered together. Tap with the full set in
+  // their 1-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
   // sellMul, no specialty bonus); the quantity selector lets you turn in
   // multiple complete sets at once. Tap without the full set → flash the
-  // wanted icons so the player can see what to gather. Selling a single item
-  // type isn't accepted here; that keeps plain houses distinct from markets.
+  // wanted icons so the player can see what to gather. Selling a produce the
+  // house didn't ask for isn't accepted here; that keeps plain houses distinct
+  // from markets.
+  //
+  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
+  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
+  // drops the set wording (and the "sets" stepper unit) in that case, so the
+  // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed today — the household is happy and won't take another
     // bundle until tomorrow. They'll want a fresh one on the next day.
@@ -9988,6 +10327,7 @@ class MapScene extends Phaser.Scene {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    const single = wanted.length === 1;
     const invCount = (id) => {
       const s = (this.save.inv || []).find(e => e && e.id === id);
       return s ? (s.count ?? 0) : 0;
@@ -9998,7 +10338,7 @@ class MapScene extends Phaser.Scene {
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
-      this.flash(`wants the set: ${names}`, sx, sy);
+      this.flash(single ? `wants: ${names}` : `wants the set: ${names}`, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price, plus a
@@ -10011,13 +10351,15 @@ class MapScene extends Phaser.Scene {
     const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
-      cost: `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
+      cost: single
+        ? `${q} × [ ${setIcons} ${setNames} ]`
+        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
       canAfford: true,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'delivery',
-      title: 'The household wants the full set:',
+      title: single ? 'The household wants:' : 'The household wants the full set:',
       cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
@@ -10028,7 +10370,10 @@ class MapScene extends Phaser.Scene {
         // Re-validate against live bags so a stale modal can't over-deliver.
         const sets = Math.max(1, Math.min(q ?? 1,
           wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) { this.flash('Set incomplete now.', sx, sy); return; }
+        if (!sets || sets === Infinity) {
+          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+          return;
+        }
         for (const id of wanted) {
           const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
           if (idx < 0) continue;
@@ -10816,19 +11161,27 @@ class MapScene extends Phaser.Scene {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
           const role = this._restoredRole(house);
+          // Names come from Shops.roleLabel so the card, the sign outside and
+          // the offer modal all call the building the same thing. The produce
+          // shop's blurb follows its label: the first one restored stocks
+          // seeds, so it's introduced as the Seed Shop and its blurb says so.
+          const seedShop = role === 'market' && this.isFirstMarket(house);
           const INFO = {
-            blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
-            trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
+            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { blurb: seedShop
+              ? 'Buys your crops at a premium — and stocks the starter seeds to grow more.'
+              : 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
+          const name = info.name || Shops.roleLabel(role, seedShop) || INFO.plain.name;
           this.showChestRewardModal({
             kind: 'build',
             iconHTML: this.buildingImgHTML(role, 72),
             header: 'Restored!',
-            name: `You restored a ${info.name}`,
+            name: `You restored a ${name}`,
             sub: info.blurb,
             color: '#a7ffb0', accent: '#a7ffb0',
           });
@@ -11506,6 +11859,14 @@ class MapScene extends Phaser.Scene {
     const nub = document.createElement('div');
     nub.className = 'nub';
     pad.appendChild(nub);
+    // The walk-home countdown (see _walkHomeCountdownS): seconds until the
+    // character walks itself back to the GPS, drawn over the resting nub.
+    const countdown = document.createElement('div');
+    countdown.className = 'countdown';
+    countdown.setAttribute('aria-hidden', 'true');
+    pad.appendChild(countdown);
+    this._movePadCountdownEl = countdown;
+    this._movePadCountdownText = '';
     document.body.appendChild(pad);
 
     let activePtr = null;
@@ -11612,6 +11973,12 @@ class MapScene extends Phaser.Scene {
       #move-pad .nub {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
         width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        /* border-box because HALF is derived as (PAD - NUB) / 2 — that only
+           centres the cap in the well if NUB is the cap's OUTER size. Under
+           content-box the 2px rim pushed the cap 2px down-and-right of the
+           well's centre (and 2px past the rim at full deflection), which is
+           what left the countdown digit below looking off-centre on it. */
+        box-sizing: border-box;
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
@@ -11651,6 +12018,28 @@ class MapScene extends Phaser.Scene {
           0 3px 10px rgba(0,0,0,0.5),
           0 0 12px rgba(255,224,102,0.6);
       }
+      /* Walk-home countdown: the seconds until the character heads back to
+         the GPS, stamped on the resting cap. Gold, because it is a readout of
+         a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
+         box is the cap's box exactly (same left/top/size, and the cap is
+         border-box above), so the digit centres on the cap rather than near
+         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         glyph evenly, so the gold holds up over the cap's bright highlight and
+         its darker rim alike without reading as lit from one side. Hidden
+         while the stick is held (the cap is under a thumb, and there is
+         nothing to count down to). */
+      #move-pad .countdown {
+        position: absolute; left: ${HALF}px; top: ${HALF}px;
+        box-sizing: border-box;
+        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
+        text-align: center; pointer-events: none;
+        font: ${fontMono(`700 18px/${NUB}px`)};
+        color: ${UI_GOLD};
+        text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
+        display: none;
+      }
+      #move-pad .countdown.on { display: block; }
+      #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
       @media (prefers-reduced-motion: reduce) {

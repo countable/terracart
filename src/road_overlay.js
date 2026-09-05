@@ -502,7 +502,11 @@
       return;
     }
 
-    const pc = scene.playerToWorldCell();
+    // Camera anchor, not the body — a peek drag repaints the bands over the
+    // ground they belong to (coords.js viewAnchorCell). The rebuild key below
+    // is the snapped anchor cell, so a peek that crosses a cell boundary
+    // repaints exactly as walking across one does.
+    const pc = viewAnchorCell(scene);
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
     const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
@@ -595,8 +599,9 @@
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
     const g = strokeTarget(scene);
     g.clear();
-    const pWorldX = scene.startWorldM.x + scene.playerM.x;
-    const pWorldY = scene.startWorldM.y + scene.playerM.y;
+    const _a = viewAnchorWorldM(scene);
+    const pWorldX = _a.x;
+    const pWorldY = _a.y;
     // Cell-snapped projection (the container re-applies the sub-cell offset).
     const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;
     const projY = (wmy) => scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX + fracY * CELL_PX;

@@ -365,6 +365,14 @@ INTERACTION MODEL
    ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
    and the first that matches consumes the tap and stops. Tapping the player is
    treated as a tap on the player's own cell.
+ - A TAP IS A POINTER THAT DIDN'T TRAVEL. Dragging the map instead PEEKS: the
+   camera slides off the player by up to 3 cells so you can see what the frame
+   was cutting off, and springs back when you let go. A pointer that moved more
+   than a few pixels taps NOTHING, however it ends — sliding the map off a tree
+   must not chop it — so the tap fires on the pointer's release, not its press.
+   The peek is a camera offset and nothing else: the body never moves, so reach,
+   every tap gate, fog reveal and tile loading still measure from the player.
+   Peeking at a crate three cells away and tapping it still says "too far".
  - TAP TARGETS ARE CELL-BOUNDED. Everything except FAUNA is hit-tested against
    the ONE CELL it stands in: a tap inside that cell hits it, a tap outside
    never does — however far the artwork rises above the cell (tall trees, the
@@ -518,6 +526,10 @@ ORCHARD FRUIT TREES
    tree then resets its timer. No chopping required — fruit trees are never
    destroyed. Each tree's fruit type is seeded from its cell position (apple,
    cherry, peach, banana, orange, mango, coconut, apricot).
+ - a tree that is BEARING wears its fruit: the fruit's own icon, drawn on the
+   tree's canopy as a separate little sprite. Picking removes the fruit and
+   leaves the tree exactly as it was — the tree's art never changes, so a
+   worked orchard still reads as an orchard and what's ripe reads at a glance.
 
 ================================================================================
 FISHING
