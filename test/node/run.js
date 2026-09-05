@@ -82,6 +82,7 @@ const FILES = [
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
@@ -695,6 +696,10 @@ try {
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
   // it consults the shared one-place-one-chest rule before pushing a chest.
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
+  // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
+  // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
+  // hooks apply the shared tool-gate fade rather than a local copy of it.
+  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
 }
 
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
