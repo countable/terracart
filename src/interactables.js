@@ -573,6 +573,24 @@ const INTERACTABLES = {
 //             'skip', e.g. a chopped tree stump that shouldn't block the cell)
 //   true    — the tap was consumed (gate blocked, work started, or custom done)
 //   false   — `o.kind` is not registered (caller falls through to other blocks)
+// ── Tool-gate fade ──────────────────────────────────────────────────────────
+// A tree or rock the player's current tool can't work is drawn at half alpha,
+// so what is reachable NOW reads at a glance instead of by tapping everything
+// and reading refusals. "Can't work" is the entry's own tierShort — the same
+// number the tap gate refuses on (and offers the slow grind at exactly 1) — so
+// the fade and the refusal can never disagree. Kinds without a tool gate
+// (fruit trees, chests, plants) are never faded; nor is a bush (axe tier 0) or
+// a plain rock (ungated). render.js applies it in the tree / mineralrock
+// `after` hooks; it lives here so it reads the shipping gate, not a copy.
+const TOOL_GATED_ALPHA = 0.5;
+function isToolGated(o, save) {
+  const def = INTERACTABLES[o.kind];
+  return !!(def && def.tierShort && def.tierShort(o, save || {}) > 0);
+}
+function toolGatedAlpha(o, save) {
+  return isToolGated(o, save) ? TOOL_GATED_ALPHA : 1;
+}
+
 function runInteractable(ctx, o) {
   const def = INTERACTABLES[o.kind];
   if (!def) return false;
