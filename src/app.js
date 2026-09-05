@@ -7629,18 +7629,22 @@ class MapScene extends Phaser.Scene {
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
   // the GPS dot quietly getting closer. So while it runs, draw a lead: a thin
-  // dashed line from the feet to the dot with the dashes marching that way
-  // and a chevron at the far end. It says "on my way back there" in the one
-  // place the player is already looking, and it costs nothing to ignore.
+  // dashed line from the feet to the dot with the dashes marching that way,
+  // running all the way into the crosshair. It says "on my way back there" in
+  // the one place the player is already looking, and it costs nothing to
+  // ignore. No arrowhead: the line lands ON the marker, and the marker is
+  // already the thing being pointed at — a chevron a few px short of it just
+  // pointed at a target it was covering.
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
   // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". White and translucent — quieter
-  // than the coloured compasses (the green tutorial arrow, the magenta pairy
-  // blink): this is ambient "on my way" information, not a call to action, and
-  // white doesn't claim membership of any of the game's colour languages.
+  // enough off your real position to matter". Gold and translucent — the same
+  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
+  // and the marker it runs to read as one piece of furniture rather than two
+  // unrelated marks, and it stays quieter than the coloured compasses (the
+  // green tutorial arrow, the magenta pairy blink) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -7655,8 +7659,11 @@ class MapScene extends Phaser.Scene {
     const y1 = this.gpsGhost.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
-    // Stop short at both ends so the line never runs into either character.
-    const NEAR_GAP = 11, FAR_GAP = 13;
+    // Stop short of the character at the near end so the line never runs into
+    // the sprite. At the far end it stops on the crosshair's RING (baked at
+    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
+    // the line is meant to reach the marker, so it touches it.
+    const NEAR_GAP = 11, FAR_GAP = 5;
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const ux = dx / len, uy = dy / len;
     const from = NEAR_GAP, to = len - FAR_GAP;
@@ -7664,9 +7671,9 @@ class MapScene extends Phaser.Scene {
     if (!this._reducedMotion) {
       this._walkHomeDashPhase = (this._walkHomeDashPhase + MARCH * dt) % PERIOD;
     }
-    // Collected first, stroked twice: a soft dark pass under the blue one, so
+    // Collected first, stroked twice: a soft dark pass under the gold one, so
     // the line holds up over pale ground (roads, sand) as well as grass — the
-    // same keyline trick the stick's rim uses.
+    // same keyline trick the stick's rim and the crosshair itself use.
     const segs = [];
     // One period of lead-in so the dash entering at the near end is drawn
     // clipped rather than popping into existence at full length.
@@ -7674,14 +7681,6 @@ class MapScene extends Phaser.Scene {
       const a = Math.max(s, from), b = Math.min(s + DASH, to);
       if (b > a) segs.push([x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b]);
     }
-    // Chevron at the dot end — the arrowhead the dashes are walking into.
-    const px = -uy, py = ux;
-    const H = 6, W = 4.5;
-    const hx = x0 + ux * to, hy = y0 + uy * to;
-    const head = [
-      [hx - ux * H + px * W, hy - uy * H + py * W, hx, hy],
-      [hx, hy, hx - ux * H - px * W, hy - uy * H - py * W],
-    ];
     const stroke = (list, width, colour, alpha) => {
       g.lineStyle(width, colour, alpha);
       for (const [ax, ay, bx, by] of list) {
@@ -7692,9 +7691,7 @@ class MapScene extends Phaser.Scene {
       }
     };
     stroke(segs, 3.5, 0x0a1420, 0.22);
-    stroke(head, 3.5, 0x0a1420, 0.26);
-    stroke(segs, 2, 0xffffff, 0.42);
-    stroke(head, 2, 0xffffff, 0.7);
+    stroke(segs, 2, 0xffe066, 0.55);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and
