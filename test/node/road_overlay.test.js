@@ -176,12 +176,14 @@ const widthOfWay = (tags) => {
   return scene.roadGeomGfx.paths[0].style.w;
 };
 
-test('road overlay: a residential street is stroked at its real 5 m width', () => {
-  assert.eq(widthOfWay({ class: 'street' }), px(5), 'street');
-  assert.eq(widthOfWay({ class: 'minor' }), px(5), 'minor');
+test('road overlay: a residential street is stroked at its real 5.5 m width', () => {
+  // 5.5 m: the table was 5 until Sep 2026, when the band was measured ~10%
+  // narrower than the street underfoot (see roadWidthM in worldgen.js).
+  assert.eq(widthOfWay({ class: 'street' }), px(5.5), 'street');
+  assert.eq(widthOfWay({ class: 'minor' }), px(5.5), 'minor');
   // Which is a little under the one cell the rasterizer paints for it — the
   // game's cell is 7 m, so a residential street doesn't fill its own band.
-  assert.lt(5, WorldGen.CELL_M, 'a street is narrower than a game cell');
+  assert.lt(5.5, WorldGen.CELL_M, 'a street is narrower than a game cell');
 });
 
 test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
@@ -190,8 +192,8 @@ test('road overlay: bigger classes are drawn wider, in real-world proportion', (
   assert.eq(widthOfWay({ class: 'motorway' }),  px(12 * 1.5), 'motorway');
   assert.eq(widthOfWay({ class: 'trunk' }),     px(12 * 1.5), 'trunk');
   assert.eq(widthOfWay({ class: 'primary' }),   px(10 * 1.5), 'primary');
-  assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
-  assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
+  assert.eq(widthOfWay({ class: 'secondary' }),  px(9), 'secondary');
+  assert.eq(widthOfWay({ class: 'tertiary' }),   px(7.5), 'tertiary');
   // A motorway is wider than a game cell — it spills past the single-cell band
   // the rasterizer gives it, which is the whole point of drawing true widths.
   assert.gt(12, WorldGen.CELL_M, 'a motorway is wider than a game cell');

@@ -46,6 +46,27 @@
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
 
+- **The camera is not the player.** Since the peek drag (drag the map to look a
+  few cells past the edge; it springs back on release), the viewport centres on
+  a CAMERA ANCHOR — the player plus `scene.peekM`. The split is absolute:
+  anything asking **"where do I DRAW this?"** goes through
+  **`coords.js` › `viewAnchorWorldM` / `viewAnchorCell`** (or `worldMetersToScreen`
+  / `screenToWorldMeters` / `cellScreenXY`, which already do), and anything
+  asking **"where IS the player?"** keeps using `playerM` / `playerToWorldCell()`
+  — reach, every tap gate, fog reveal, tile loading, the 3×3 tile scans. Mixing
+  them is the bug in both directions: a draw pass left on the body tears that
+  layer off the ground under a peek (the road bands, the building footprints and
+  the reach glow each had to be re-anchored), and a gameplay test moved onto the
+  anchor would let a peek reach three cells further than the arm does.
+  Anything drawn AT the player rather than at a world position — the sprite, its
+  shadow, halo, facing arrow, sword swing — reads `scene.playerScreen()`, never
+  `viewCenterX/Y`. **When you add a world-drawn layer, anchor it; when you add a
+  reach or gate test, don't.**
+  **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
+  lifted shipping code: the projection round-trip under a peek, that a tap lands
+  in the cell it was drawn over, that reach is unmoved by the camera, and that a
+  pointer which dragged taps nothing.
+
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
   `src/render.js` › drawObjects (a sprite in a lower screen row always draws
@@ -83,6 +104,26 @@
   drifted, and verifies every seated sprite obeys the rule. When art changes,
   regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
   it into `src/sprite_layout.js`.
+
+- **What the art SHOWS is what it DROPS.** A sprite variant is not free
+  cosmetics when the variants differ in COUNT. The plain rock's four looks
+  (mineralrock sheet row 15, cols 3..6) include one that draws a PAIR of
+  stones — and until Sep 2026 the variant was a bare `(x+y) % 4` hash in
+  `render.js` while every plain rock dropped the same `randInt(1,3)`, so the
+  double rock could hand you one and a lone pebble could hand you three. The
+  answer is the same discipline as `roadOverlayWidthM`: **one table both sides
+  read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
+  draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
+  and both callers resolve the variant through `SpriteLayout.plainRockVariant`
+  so they can't pick different rocks. A surface with no rock sprite promises
+  nothing and passes `stones = null` for the old flat roll — that's the cave
+  WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
+  can count it: `stones` is authored, and the tripwire if the sheet is re-cut
+  is the `ART_BOUNDS` width drift check in `tools/sprite_audit.js`.
+  **And say the real number.** The plain-rock toast read `+1 Rock` while
+  handing over three — if a loot path rolls a quantity, its flash prints that
+  quantity.
+  **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
 
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
@@ -201,6 +242,29 @@
   **Every tile fetch goes through `fetchTileResponse`** — a raw
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
+
+- **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
+  and every world layer (ground cells, the road band, the building polygons)
+  is drawn in that one frame with the fix at `viewCenter`. The player sprite
+  is seated so its visible feet land ON that point: `playerFeetNudgeY` (app.js
+  create()) is the NEGATIVE of the frame's feet drop, the sprite is drawn that
+  much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
+  shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
+  in `multiplayer.js` — sit on the point itself; anything that wants the
+  body's centre (the facing arrow, the dragon timer, the swing arc, the halo)
+  adds `playerFeetNudgeY` to it. **Until Sep 2026 the sprite was CENTRED on
+  the fix** and the feet hung 14px (3 m) south of it, with every ground mark
+  carrying its own +13/+14 to follow them down — so standing on a road's
+  centreline put the band through the character's waist and the whole map
+  read as shifted a body-length north of where you stood. If the map looks
+  offset from the feet along one axis, the seating has drifted; never fix it
+  by moving the projection or by re-adding a per-mark offset.
+  The road band's WIDTH is a different question: it is drawn at true scale
+  (`widthPxFor` = metres × CELL_PX / cellM) from the per-class guess table in
+  `WorldGen.roadWidthM` (the tiles carry no width tag), so a band that reads
+  too narrow or wide against the real street is that table's number to change.
+  **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`
+  pins the seating as source text (app.js can't load headlessly).
 
 ## Testing
 

@@ -38,6 +38,14 @@
 //     unclaimed castle palette with, applied to the colours rather than washed
 //     over the top, so two overlapping footprints can't wash one twice.
 //
+// …and one thing the cells never did: a DILAPIDATED footprint (unclaimed — the
+// wreck you can still restore) grows dark green slime splotches across its
+// floor. See the slime block below; the short version is that they are seeded
+// from the building's own identity (so they don't crawl as you walk), scattered
+// inside the ring rather than its bounding box, and coloured by running the
+// unclaimed shade over the floor twice more — restore the building and both the
+// shade and its slime lift in the same frame.
+//
 // Painter rule (CLAUDE.md): the LOWER object renders in front. Shapes are
 // drawn in order of their SOUTHERNMOST point, so a building's wall face lands
 // over the floor of whatever sits north of it, exactly as the cell-row z-order
@@ -120,6 +128,137 @@
     if (claimed || typeof unclaimedShade !== 'function') return (c) => c;
     return (c) => unclaimedShade(c);
   };
+
+  // ── Slime: what "dilapidated" looks like up close ────────────────────────
+  // An unclaimed footprint is a wreck, and the shade alone only tells you it's
+  // dim. Splotches of dark green growth across the floor say WHY. They are for
+  // unclaimed buildings only, so the moment a restore lands the floor comes up
+  // clean in the same repaint the claim epoch already forces.
+  //
+  // The colour is DERIVED, not picked: the unclaimed shade run over the already
+  // shaded floor twice more. That transform is a lerp half-way to
+  // textures.js's own green wash each time, so three shades deep lands a dark
+  // green that is by construction the same green the rest of a derelict wears —
+  // retune UNCLAIMED_SHADE and the slime follows it instead of drifting into a
+  // second green of its own. SLIME_FALLBACK is only reached when textures.js
+  // isn't loaded at all (the headless suite), where the shade is a no-op.
+  const SLIME_FALLBACK = 0x1e3b24;      // = textures.js UNCLAIMED_SHADE.wash
+  const SLIME_FALLBACK_A = 0.75;        // ≈ where three halvings land
+  // Translucent, so the floor's own material grains through the stain: growth
+  // ON the cobbles rather than a hole cut in them. Each splotch is painted once
+  // per building, so unlike the whole-footprint wash this can't double up on
+  // itself.
+  const SLIME_ALPHA = 0.6;
+  // One splotch per ~44×44 px of floor — about two on a small house, a dozen
+  // across a derelict block — with a hard cap so a cathedral-sized footprint
+  // stays speckled instead of turning solid.
+  const SLIME_PER_PX2 = 1 / (44 * 44);
+  const SLIME_MAX = 14;
+  const SLIME_MIN_R = 4, SLIME_MAX_R = 11;   // px
+  const SLIME_LOBES = 9;                     // points around one blob
+  const SLIME_WOBBLE = 0.45;                 // radius jitter, ± of the mean
+  const SLIME_TRIES = 6;                     // rejection sampling per splotch
+  const SLIME_CACHE_MAX = 2048;
+
+  const mix = (a, b, t) => {
+    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
+    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  };
+  const slimeColor = (floor, shade) => {
+    const s = shade(shade(floor));
+    return s === floor ? mix(floor, SLIME_FALLBACK, SLIME_FALLBACK_A) : s;
+  };
+
+  // The seed. A building's splotches have to be the SAME splotches every
+  // rebuild — the layer repaints on every cell crossing, and slime that
+  // re-rolled each time would crawl over the floor as you walked. So the
+  // scatter is a pure function of the building's own identity: its ownerKey
+  // where it has one, its tile and its first vertex where it doesn't (a sliver
+  // clipped at a tile seam owns no cells and so carries no key).
+  const seedOf = (tx, ty, ring, key) => {
+    let h = (0x811c9dc5 ^ ((tx & 0xffff) << 16) ^ (ty & 0xffff)) >>> 0;
+    const eat = (n) => { h = Math.imul(h ^ (n | 0), 0x01000193) >>> 0; };
+    if (key) for (let i = 0; i < key.length; i++) eat(key.charCodeAt(i));
+    // …and the whole ring, not just its first vertex: the seed is also the
+    // blob cache's key, so two footprints that shared one it would share their
+    // splotches — and a scatter generated for the wrong size would be the
+    // wrong scatter, not merely a repeated one.
+    for (let i = 0; i < ring.length; i++) eat(Math.round(ring[i] * 16));
+    return h >>> 0;
+  };
+  // mulberry32 — small, fast, and deterministic from that seed.
+  const rngFrom = (seed) => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  // Shoelace area and a ray-cast containment test, both on the PROJECTED ring.
+  // Area drives the splotch count off the real footprint rather than its
+  // bounding box, and containment keeps the scatter off the empty quadrant of
+  // an L-shaped block — the clip would hide a splotch dropped there, so
+  // sampling the box alone would quietly thin the growth on exactly the
+  // buildings whose shape is the reason this layer exists.
+  const polyArea = (pts) => {
+    let a = 0;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      a += pts[j].x * pts[i].y - pts[i].x * pts[j].y;
+    }
+    return Math.abs(a) / 2;
+  };
+  const inPoly = (pts, x, y) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const yi = pts[i].y, yj = pts[j].y;
+      if ((yi > y) !== (yj > y)
+        && x < ((pts[j].x - pts[i].x) * (y - yi)) / (yj - yi) + pts[i].x) inside = !inside;
+    }
+    return inside;
+  };
+
+  // Blobs are generated in LOCAL px (relative to the footprint's NW bbox
+  // corner) and translated at draw time — the projection is a pure translation
+  // at a fixed scale, so a building's local geometry never changes and one
+  // generation serves every rebuild for the life of the session.
+  const slimeCache = new Map();
+  function slimeBlobs(d) {
+    let blobs = slimeCache.get(d.seed);
+    if (blobs) return blobs;
+    const w = d.right - d.left, h = d.south - d.north;
+    const area = polyArea(d.pts);
+    const n = Math.max(1, Math.min(SLIME_MAX, Math.round(area * SLIME_PER_PX2)));
+    // A splotch can't be a third of the building: on a shed, the cap comes off
+    // the footprint's own size rather than the constant.
+    const maxR = Math.max(2, Math.min(SLIME_MAX_R, Math.sqrt(area) / 3));
+    const minR = Math.min(SLIME_MIN_R, maxR);
+    const rnd = rngFrom(d.seed);
+    blobs = [];
+    for (let i = 0; i < n; i++) {
+      let cx = 0, cy = 0, ok = false;
+      for (let t = 0; t < SLIME_TRIES && !ok; t++) {
+        cx = d.left + rnd() * w;
+        cy = d.north + rnd() * h;
+        ok = inPoly(d.pts, cx, cy);
+      }
+      if (!ok) continue;                    // a spindly ring: fewer splotches, none outside it
+      const r = minR + rnd() * (maxR - minR);
+      const spin = rnd() * Math.PI * 2;
+      const pts = [];
+      for (let k = 0; k < SLIME_LOBES; k++) {
+        const a = spin + (k / SLIME_LOBES) * Math.PI * 2;
+        const rr = r * (1 + (rnd() * 2 - 1) * SLIME_WOBBLE);
+        pts.push({ x: cx - d.left + Math.cos(a) * rr, y: cy - d.north + Math.sin(a) * rr });
+      }
+      blobs.push(pts);
+    }
+    if (slimeCache.size >= SLIME_CACHE_MAX) slimeCache.clear();
+    slimeCache.set(d.seed, blobs);
+    return blobs;
+  }
 
   // Castle masonry, from the shared palette so a polygon rampart is the same
   // stone as the turret sprites standing on it.
@@ -327,6 +466,27 @@
         ctx.stroke();
         ctx.restore();
       },
+      // The dilapidated floor's slime, clipped to the ring so a splotch that
+      // overhangs the wall is cut off at it. `blobs` arrive in local px
+      // (relative to the ring's NW bbox corner) and are offset here — see
+      // slimeBlobs().
+      blobsPoly(pts, blobs, ox, oy, color, alpha) {
+        if (!pts || pts.length < 3 || !blobs || !blobs.length) return;
+        ctx.save();
+        trace(pts);
+        ctx.clip();
+        ctx.fillStyle = rgbaOf(color, alpha);
+        ctx.beginPath();
+        for (const b of blobs) {
+          ctx.moveTo(b[0].x + ox - originX, b[0].y + oy - originY);
+          for (let i = 1; i < b.length; i++) ctx.lineTo(b[i].x + ox - originX, b[i].y + oy - originY);
+          ctx.closePath();
+        }
+        // One path for every splotch on the building: two that overlap fill as
+        // one puddle instead of stacking two alphas into a dark spot.
+        ctx.fill();
+        ctx.restore();
+      },
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
@@ -382,7 +542,9 @@
       return;
     }
 
-    const pc = scene.playerToWorldCell();
+    // Camera anchor, not the body — a peek drag slides these footprints with
+    // the ground they're painted on (coords.js viewAnchorCell).
+    const pc = viewAnchorCell(scene);
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
     const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
@@ -436,8 +598,9 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = fillTarget(scene);
     g.clear();
-    const pWorldX = scene.startWorldM.x + scene.playerM.x;
-    const pWorldY = scene.startWorldM.y + scene.playerM.y;
+    const _a = viewAnchorWorldM(scene);
+    const pWorldX = _a.x;
+    const pWorldY = _a.y;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with.
     const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;
@@ -481,7 +644,11 @@
         // Cull on the bounding box, grown by the wall depth so a building just
         // off the north edge still drops its face into view.
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
-        draws.push({ pts, south: by1, left: bx0, tier: shape.tier, key: shape.key });
+        draws.push({
+          pts, south: by1, left: bx0, north: by0, right: bx1,
+          tier: shape.tier, key: shape.key,
+          seed: seedOf(tx, ty, r, shape.key),
+        });
       }
     }
 
@@ -508,6 +675,12 @@
       g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier)));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+      // Dilapidated: the slime, over the floor and its material (it is growing
+      // on them) but under the lattice, the rampart and the outline — the
+      // building's own lines stay clean, only its floor is overgrown.
+      if (!isMine && g.blobsPoly) {
+        g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, slimeColor(floor, shade), SLIME_ALPHA);
+      }
       // The cell grid goes on OVER the floor and its material. The tiled
       // floors wore it a layer lower (gridContainer sits under noiseContainer),
       // but a hairline this faint loses to a cobble or plank pattern laid on

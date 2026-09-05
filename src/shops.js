@@ -1,7 +1,7 @@
 // Shop registry: specialty-shop taxonomy + per-type config (label, tint) for
 // small-house shops. Address ending → role mapping:
 //   9       → blacksmith (sooty tint, gem→relic forge)
-//   2 / 6   → market    (red tint, produce-only stock)
+//   2 / 6   → market    (red tint, produce-only stock — signs "Produce Shop")
 //   1 / 8   → trader    (no tint, barter-only deals)
 // Forts (BUILDING_MED) and civic slabs (BUILDING_LARGE) are excluded — the
 // shopType helper returns null for any house that isn't the small tier.
@@ -12,6 +12,7 @@
 // Exports as globals:
 //   Shops.shopType(house)         → 'blacksmith' | 'market' | 'trader' | null
 //   Shops.shopInk(house)          → signage lettering colour or null
+//   Shops.roleLabel(role, seed)   → the player-facing NAME of a shop role
 //   Shops.toRoman(n)              → "XXVI" for 26 (clamped 1..3999)
 //
 // shopTint() and shopLabel() used to live here too, but render.js deliberately
@@ -34,6 +35,38 @@
     trader:     { ink: '#ffe066' },  // gold
   };
 
+  // ── What the player calls each shop ───────────────────────────────────────
+  // ONE table for every player-facing name: the map sign (render.js
+  // _houseSignText), the restoration card (app.js shopInteract) and the offer
+  // modal's flavour line (app.js buildingFlavorTitle) all read it, so a rename
+  // lands in all three at once instead of drifting between them.
+  //
+  // The produce storefront is named for the GOODS IT SELLS, not for the trade
+  // idiom — it signs as "Produce Shop", never "Market". Its stock is the shop's
+  // identity, so the one that carries something else says so: the tutorial's
+  // FIRST market stocks starter seeds instead of produce (app.js isFirstMarket)
+  // and signs as "Seed Shop", so no sign promises stock the shop doesn't have.
+  // Category, not item: the specific produce rotates with save.buyIndex, so a
+  // per-item name would rewrite the sign every time the player bought anything.
+  //
+  // The role KEY stays 'market'. It is persisted in save.restoredHouses and
+  // stamped on save.firstMarketId, so renaming it would strand every save.
+  const ROLE_LABEL = {
+    blacksmith: 'Blacksmith',
+    market:     'Produce Shop',
+    trader:     'Trader',
+    wizard:     'Wizard',
+  };
+  // What the produce shop signs as when it stocks seeds instead.
+  const SEED_SHOP_LABEL = 'Seed Shop';
+
+  // Player-facing name for a shop role, or null for a role with no sign.
+  // `seedStock` flips the produce shop to its seed variant.
+  function roleLabel(role, seedStock = false) {
+    if (role === 'market' && seedStock) return SEED_SHOP_LABEL;
+    return ROLE_LABEL[role] ?? null;
+  }
+
   function shopType(house) {
     if (!house || house.kind !== 'house') return null;
     if (house.tier !== WorldGen.T.BUILDING) return null;   // forts / civic slabs excluded
@@ -51,8 +84,8 @@
   // SHOP_INK_BG (warm dark wood — see the label block in render.js).
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
-  // Roman numeral renderer (1..3999). Used for the "Market XXVI" labels above
-  // specialty shops.
+  // Roman numeral renderer (1..3999). Used for the "Produce Shop XXVI" labels
+  // above specialty shops.
   function toRoman(n) {
     n = Math.max(1, Math.min(3999, n | 0));
     const v = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
@@ -66,6 +99,7 @@
 
   global.Shops = {
     shopType, shopInk,
+    ROLE_LABEL, SEED_SHOP_LABEL, roleLabel,
     toRoman,
   };
 })(window);

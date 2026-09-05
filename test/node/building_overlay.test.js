@@ -37,6 +37,9 @@ function makeGfx() {
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
     texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
+    blobsPoly(pts, blobs, ox, oy, color, alpha) {
+      this.ops.push({ op: 'slime', pts, blobs, ox, oy, color, alpha });
+    },
     gridPoly(pts, style) { this.ops.push({ op: 'grid', pts, style }); },
     texturePhase(x, y) { this.phase = { x, y }; },
     commit() { this.commits++; },
@@ -380,6 +383,185 @@ test('building overlay: a keyless shape is never shaded', () => {
   const scene = makeScene({ isClaimedKey: () => { asked++; return false; } });
   BuildingOverlay.draw(scene);
   assert.eq(asked, 0, 'the save was not asked about a keyless shape');
+});
+
+// ─── Dilapidated: the slime splotches ───────────────────────────────────────
+// An unclaimed footprint is a wreck; the splotches are what says so up close.
+// What matters is that they belong to the BUILDING — same scatter every
+// rebuild, inside the ring rather than its bounding box, gone the moment the
+// place is restored.
+
+// Blob points come back in local px (relative to the footprint's NW bbox
+// corner); this puts one back on screen.
+const blobCentre = (blob, ox, oy) => {
+  let x = 0, y = 0;
+  for (const p of blob) { x += p.x; y += p.y; }
+  return { x: x / blob.length + ox, y: y / blob.length + oy };
+};
+const inRing = (pts, x, y) => {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const yi = pts[i].y, yj = pts[j].y;
+    if ((yi > y) !== (yj > y)
+      && x < ((pts[j].x - pts[i].x) * (y - yi)) / (yj - yi) + pts[i].x) inside = !inside;
+  }
+  return inside;
+};
+const unclaimedScene = (over) => makeScene({ isClaimedKey: () => false, ...over });
+
+test('building overlay: a dilapidated footprint grows slime, a restored one does not', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1')]);
+  const wreck = unclaimedScene();
+  BuildingOverlay.draw(wreck);
+  assert.eq(wreck.buildingGeomGfx.only('slime').length, 1, 'one slime pass over the wreck');
+  assert.gt(wreck.buildingGeomGfx.only('slime')[0].blobs.length, 0, 'with splotches on it');
+
+  const restored = makeScene({ isClaimedKey: () => true });
+  BuildingOverlay.draw(restored);
+  assert.eq(restored.buildingGeomGfx.only('slime').length, 0, 'a claimed building is clean');
+});
+
+test('building overlay: slime is dark green, derived from the unclaimed shade', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1')]);
+  // The rule: the shade run over the already-shaded floor twice more. Pinned
+  // through a stub so it can't be satisfied by a hand-picked green.
+  const had = typeof unclaimedShade !== 'undefined';
+  const prev = had ? unclaimedShade : undefined;
+  const shade = (c) => ((c >> 1) & 0x7f7f7f) | 0x001000;
+  globalThis.unclaimedShade = shade;
+  try {
+    const scene = unclaimedScene();
+    BuildingOverlay.draw(scene);
+    const floor = scene.buildingGeomGfx.only('fill')[1].color;
+    assert.eq(scene.buildingGeomGfx.only('slime')[0].color, shade(shade(floor)),
+      'two shades deeper than the floor it grows on');
+  } finally {
+    if (had) globalThis.unclaimedShade = prev; else delete globalThis.unclaimedShade;
+  }
+  // …and with textures.js absent (this suite), the fallback still lands a
+  // green: darker than the floor in every channel, with green the one that
+  // survives best.
+  const scene = unclaimedScene();
+  BuildingOverlay.draw(scene);
+  const floor = scene.buildingGeomGfx.only('fill')[1].color;
+  const slime = scene.buildingGeomGfx.only('slime')[0].color;
+  const ch = (c, sh) => (c >> sh) & 255;
+  for (const sh of [16, 8, 0]) assert.lte(ch(slime, sh), ch(floor, sh), `channel ${sh} darkened`);
+  assert.gt(ch(slime, 8), ch(slime, 16), 'greener than red');
+  assert.gt(ch(slime, 8), ch(slime, 0), 'greener than blue');
+  // Translucent, so the floor's material grains through the stain.
+  assert.inRange(scene.buildingGeomGfx.only('slime')[0].alpha, 0.2, 0.85, 'a stain, not a blot');
+});
+
+test('building overlay: slime stays put as the camera moves', () => {
+  // The layer repaints on every cell crossing. Splotches re-rolled per rebuild
+  // would crawl across the floor as the player walked, which is the whole
+  // reason the scatter is seeded from the building rather than Math.random.
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1')]);
+  const a = unclaimedScene();
+  BuildingOverlay.draw(a);
+  const b = unclaimedScene({ playerM: { x: 5, y: 5 } });   // one cell SE
+  BuildingOverlay.draw(b);
+  const sa = a.buildingGeomGfx.only('slime')[0], sb = b.buildingGeomGfx.only('slime')[0];
+  assert.eq(JSON.stringify(sa.blobs), JSON.stringify(sb.blobs), 'the same splotches, unmoved');
+  // …and they ride the footprint: the offset moved exactly as the ring did.
+  assert.eq(sb.ox - sa.ox, sb.pts[0].x - sa.pts[0].x, 'slime tracked the ring west');
+  assert.eq(sb.oy - sa.oy, sb.pts[0].y - sa.pts[0].y, 'and north');
+});
+
+test('building overlay: two different footprints get different splotches', () => {
+  clearTiles();
+  putShapes(0, 0, [
+    rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1'),
+    rectShape(0, 30, 20, 50, T.BUILDING, 'h_1_2'),
+  ]);
+  const scene = unclaimedScene();
+  BuildingOverlay.draw(scene);
+  const [a, b] = scene.buildingGeomGfx.only('slime');
+  assert.eq(JSON.stringify(a.blobs) !== JSON.stringify(b.blobs), true,
+    'the scatter is seeded per building, not per map');
+});
+
+test('building overlay: every splotch sits inside the ring, not its bounding box', () => {
+  // An L-shaped block: two thirds of its bounding box is somewhere else. The
+  // clip would hide a splotch dropped in the empty quadrant, so sampling the
+  // box alone would quietly thin the growth on exactly the shapes this layer
+  // exists to draw.
+  clearTiles();
+  const L = {
+    ring: Float32Array.from([0, 0, 8, 0, 8, 24, 24, 24, 24, 32, 0, 32]),
+    tier: T.BUILDING, areaM2: 448, key: 'h_L',
+  };
+  putShapes(0, 0, [L]);
+  const scene = unclaimedScene();
+  BuildingOverlay.draw(scene);
+  const s = scene.buildingGeomGfx.only('slime')[0];
+  assert.gt(s.blobs.length, 1, 'the block is speckled');
+  // The notch — everything east of the upright and north of the foot. A
+  // splotch straddles its own centre, so a blob seated against a real wall can
+  // put a lobe (and with it a hair of its centroid) over the line; the clip
+  // trims that. What may not happen is a splotch SEATED out here, where the
+  // building isn't — so the notch is pulled in by one lobe along the two walls
+  // it shares with the L, and the footprint check is let out by the same.
+  const LOBE = 11;
+  const notch = [
+    { x: px(8) + LOBE, y: px(0) }, { x: px(24), y: px(0) },
+    { x: px(24), y: px(24) - LOBE }, { x: px(8) + LOBE, y: px(24) - LOBE },
+  ];
+  for (const blob of s.blobs) {
+    const c = blobCentre(blob, s.ox, s.oy);
+    assert.falsy(inRing(notch, c.x, c.y), `splotch at ${c.x|0},${c.y|0} is off the building`);
+    assert.inRange(c.x, px(0) - LOBE, px(24) + LOBE, 'and within the footprint east–west');
+    assert.inRange(c.y, px(0) - LOBE, px(32) + LOBE, 'and north–south');
+  }
+});
+
+test('building overlay: a big wreck is speckled, a shed gets a splotch or two', () => {
+  clearTiles();
+  putShapes(0, 0, [
+    rectShape(0, 0, 6, 6, T.BUILDING, 'h_shed'),
+    rectShape(0, 20, 45, 45, T.BUILDING, 'h_block'),
+  ]);
+  const scene = unclaimedScene();
+  BuildingOverlay.draw(scene);
+  const [shed, block] = scene.buildingGeomGfx.only('slime');
+  assert.gt(block.blobs.length, shed.blobs.length, 'the count comes off the floor area');
+  assert.lte(block.blobs.length, 14, 'and is capped, so a big block stays speckled');
+  // A splotch can never be most of a shed.
+  const spanOf = (blob) => {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const p of blob) { if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; }
+    return x1 - x0;
+  };
+  const shedW = 6 * PX_PER_M;
+  for (const blob of shed.blobs) assert.lt(spanOf(blob), shedW, 'a splotch fits on the shed');
+});
+
+test('building overlay: slime goes over the floor, under the lattice and the outline', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1')]);
+  const scene = unclaimedScene();
+  BuildingOverlay.draw(scene);
+  const seq = scene.buildingGeomGfx.ops.map(o => o.op);
+  assert.gt(seq.indexOf('slime'), seq.indexOf('fill'), 'grows on the floor');
+  assert.gt(seq.indexOf('slime'), seq.indexOf('texture'), 'and on its material');
+  assert.lt(seq.indexOf('slime'), seq.indexOf('grid'), 'the ground lattice still reads across it');
+  assert.lt(seq.indexOf('slime'), seq.indexOf('stroke'), 'the silhouette stays clean');
+});
+
+test('building overlay: restoring a wreck lifts its slime in the same repaint', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING, 'h_1_1')]);
+  const save = { restoredHouses: {} };
+  const scene = makeScene({ save, isClaimedKey: (k) => !!save.restoredHouses[k] });
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('slime').length, 1, 'mossy while it is a wreck');
+  save.restoredHouses['h_1_1'] = true;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('slime').length, 0, 'clean once it is yours');
 });
 
 // ─── Culling + the redraw cache ─────────────────────────────────────────────

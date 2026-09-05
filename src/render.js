@@ -130,21 +130,30 @@ const ROAD_COBBLE_DENSITY_PCT = 15;
 const PATH_STONE_FLASH_MS = 900;
 const PATH_STONE_FLASH_BOUNCE = 0.4;
 
+// Both directions of the world⇄screen projection are defined against the CAMERA
+// ANCHOR (coords.js viewAnchorWorldM), not the player: they are the same thing
+// until a peek drag slides the camera off the body, and going through the
+// anchor is what keeps a tap landing on the cell it was drawn over while it has.
+// The anchor is spelled out here rather than taken from viewAnchorWorldM: these
+// two run per object, per creature and per label EVERY frame, and the helper's
+// return object would be a second allocation on each of them.
 function worldMetersToScreen(scene, wmx, wmy) {
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
+  const p = peekM(scene);
+  const ax = scene.startWorldM.x + scene.playerM.x + p.x;
+  const ay = scene.startWorldM.y + scene.playerM.y + p.y;
   return {
-    x: scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX,
-    y: scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX,
+    x: scene.viewCenterX + ((wmx - ax) / scene.cellM) * CELL_PX,
+    y: scene.viewCenterY + ((wmy - ay) / scene.cellM) * CELL_PX,
   };
 }
 
 function screenToWorldMeters(scene, sx, sy) {
+  const p = peekM(scene);
   const dx = (sx - scene.viewCenterX) / CELL_PX * scene.cellM;
   const dy = (sy - scene.viewCenterY) / CELL_PX * scene.cellM;
   return {
-    x: scene.startWorldM.x + scene.playerM.x + dx,
-    y: scene.startWorldM.y + scene.playerM.y + dy,
+    x: scene.startWorldM.x + scene.playerM.x + p.x + dx,
+    y: scene.startWorldM.y + scene.playerM.y + p.y + dy,
   };
 }
 
@@ -194,6 +203,16 @@ function setPaddingOnce(tx, key, left, top) {
   if (tx._lastPad === key) return;
   tx._lastPad = key;
   tx.setPadding(left, top);
+}
+
+// The peek drag in SCREEN pixels — how far the camera has slid off the player
+// (coords.js peekM, converted through the fixed cell size). Cached geometry
+// that is drawn about the viewport centre because the player is normally there
+// rides it with setPosition(-x, -y) instead of being rebuilt every frame.
+function peekPxOf(scene) {
+  const p = peekM(scene);
+  const k = CELL_PX / scene.cellM;
+  return { x: p.x * k, y: p.y * k };
 }
 
 // Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
@@ -735,6 +754,111 @@ const _mulTints = (a, b) => {
   const ch = (sh) => Math.round((((a >> sh) & 255) * ((b >> sh) & 255)) / 255);
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 };
+// A wash laid on the GROUND, expressed as the multiply tint that lands a
+// SPRITE in the same place — white lerped `alpha` of the way to the wash
+// colour, exactly the construction UNCLAIMED_SPRITE_TINT is built with. A
+// multiply can't reproduce a lerp exactly; what it does reproduce is the
+// mid-tones, which is what makes a sprite read as standing in the same light
+// as the cells under it.
+const _washTint = (color, alpha) => {
+  const ch = (sh) => Math.round(255 * (1 - alpha) + ((color >> sh) & 255) * alpha);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
+// ── The out-of-reach wash, in ONE place ───────────────────────────────────
+// drawCells PAINTS it over every unlit cell (on the lighting layer); the wreck
+// sprite tint in drawObjects READS it, so a roof whose footprint just went
+// dark goes dark by the same amount instead of by a number of its own. Both
+// halves are the same expressions the ground pass has always used: the biome's
+// `dim` at 0.38 on the surface, pure black deepening half a step per level
+// underground (see the long note at the wash itself for why each is what it
+// is).
+Render.reachDimColor = (scene) =>
+  ((scene.depth ?? 0) > 0 ? 0x000000 : (scene._atmos ? scene._atmos.dim : 0x000000));
+Render.reachDimAlpha = (scene) => {
+  const d = scene.depth ?? 0;
+  return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
+};
+Render.reachDimTint = (scene) => _washTint(Render.reachDimColor(scene), Render.reachDimAlpha(scene));
+
+// "Is this object standing outside the lit reach bubble?" Asked only by the
+// wreck dim in spriteTint — every other sprite is deliberately exempt from the
+// reach wash. Goes through coords.js's cellInReach so the lit cells, the
+// tap-accept gate and this agree by construction; falls back to "lit" (no
+// extra dim) when coords.js isn't loaded, so a bare harness still renders.
+const _outOfReach = (o, scene) => {
+  if (typeof cellInReach !== 'function' || typeof worldMetersToAbsCell !== 'function') return false;
+  const c = worldMetersToAbsCell(scene, o.x, o.y);
+  return !cellInReach(scene, c.cellIX, c.cellIY);
+};
+
+// The multiply tint a world sprite wears, resolved in ONE place so the rules
+// compose in a fixed order instead of racing each other down configureObject:
+// a shiny's sheen, then the biome's, then — for a house that isn't the
+// player's — the derelict wash and, outside the lit bubble, the reach dim.
+// Pure (object + scene in, a colour out), which is also what makes it
+// auditable headlessly: test/node/wreck_dim.test.js drives it directly.
+Render.spriteTint = function spriteTint(o, scene) {
+  // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
+  // table lives in shops.js so adding a new shop type is one-file work.
+  // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
+  // the sprite itself signals the role; tinting would discolour the art.
+  // Starter still gets the gold tint (in case the trailer sprite isn't
+  // available the player still spots the inaugural shop), but the
+  // themed-house branch already returned 'plain' for non-themed roles.
+  let tint = 0xffffff;
+  // Houses: a resolved role of 'plain' is genuine residential (a delivery
+  // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
+  // wizard) carry their own sprite (house_<role>) and resolve to that role,
+  // not 'plain', so they never want a tint either. We deliberately do NOT
+  // fall back to the legacy address-based Shops.shopTint() here: it keyed off
+  // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
+  // delivery host whose address merely ENDED in 9 got painted dark steel —
+  // the "potato+onion house is tinted dark" bug. Address-shop houses get
+  // their look from being restored INTO a themed role, not from this tint.
+  // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
+  // player can spot a shiny harvest from across the tile.
+  if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
+    tint = SHINY_TINT;
+  }
+  // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
+  // industrial lot) — only when nothing more specific (shop/shiny) already
+  // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
+  // A spec.after hook (e.g. mineralrock tier shading) may still override.
+  if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+    const bt = BiomeProfiles.tint(o._biome, o.kind);
+    if (bt) tint = bt;
+  }
+  // A HOUSE that isn't the player's is washed toward dark green with the rest
+  // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
+  // that canvas — the roof is a pooled image above it — so the same shift is
+  // applied here as a multiply tint. Multiply can't reproduce a
+  // lerp exactly, so the tint is white lerped 35% toward the wash colour:
+  // mid-tones land where the wash puts them and the art keeps its shading.
+  // Applied last so it also carries over a shop's own role tint.
+  // (A TURRET is exempt: it swaps to its own baked texture above rather than
+  // taking the tint, so applying this as well would shade it twice.)
+  if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
+    tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
+    // …and the SECOND wash its footprint takes: the out-of-reach dim. That
+    // one is painted on the lighting layer, which sits below the sprites on
+    // purpose (reach dims the ground, distance dims the objects — see the
+    // note at reachGfx in app.js create()), and a wreck is the one sprite
+    // that can't live with the exemption: its roof is standing in for the
+    // footprint's own colour, so a bright roof on a footprint that just went
+    // dark reads as a sticker on the ground rather than a building on it.
+    // Same source the ground pass paints from, so the two can't drift, and
+    // composed rather than replacing the wash above — a wreck outside the
+    // bubble is BOTH derelict and unlit.
+    // Judged on the footprint's centroid cell, through the shared
+    // cellInReach: the lit area, the tap-accept gate and this all agree by
+    // construction. Only a handful of houses are ever on screen, so it goes
+    // through the helper rather than re-inlining its maths the way the
+    // ~1000-call-a-frame cell loop in drawCells has to.
+    if (_outOfReach(o, scene)) tint = _mulTints(tint, Render.reachDimTint(scene));
+  }
+  return tint;
+};
+
 // Parallel ring: per-cell "unmapped veil" strength, 0..1. 1 = the cell's map
 // tile hasn't loaded (the cell is stamped UNMAPPED_T and renders as fog with
 // the survey-line shimmer — the tile-loading indicator); values in between =
@@ -881,7 +1005,10 @@ Render.drawCells = function drawCells(scene) {
   // One clock read per pass for the animated biome textures (water) — every
   // cell must sample the same instant or a pass could straddle a phase step.
   const texNow = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-  const pc = scene.playerToWorldCell();
+  // The drawn window hangs off the CAMERA ANCHOR, not the body — a peek drag
+  // moves this and the whole 11×11 pass paints a different patch of ground for
+  // the same cost (see coords.js viewAnchorCell).
+  const pc = viewAnchorCell(scene);
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
   const _wBaseY = pc.cy + pc.ty * scene.cellsPerTile;
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -900,8 +1027,9 @@ Render.drawCells = function drawCells(scene) {
   // are unchanged.
   const _plantedNear = [];
   if (scene.save.planted && scene.save.planted.length) {
-    const _pcx = scene.startWorldM.x + scene.playerM.x;
-    const _pcy = scene.startWorldM.y + scene.playerM.y;
+    const _a = viewAnchorWorldM(scene);
+    const _pcx = _a.x;
+    const _pcy = _a.y;
     const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
     for (const pp of scene.save.planted) {
       if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
@@ -1889,8 +2017,8 @@ Render.drawCells = function drawCells(scene) {
     gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
     gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
   }
-  const dimAlpha = depth > 0 ? Math.min(0.88, 0.74 + 0.06 * (depth - 1)) : 0.38;
-  gr.fillStyle(depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000), dimAlpha);
+  const dimAlpha = Render.reachDimAlpha(scene);
+  gr.fillStyle(Render.reachDimColor(scene), dimAlpha);
   for (let row = -1; row <= VIEW_CELLS; row++) {
     for (let col = -1; col <= VIEW_CELLS; col++) {
       if (isReach(col, row)) continue;
@@ -1970,12 +2098,20 @@ Render.drawCells = function drawCells(scene) {
     const FALLOFF_A = 0.90;
     const FALLOFF_P = 1.5;
     const STEP = 2;
-    const colour = depth > 0 ? 0x000000 : (atmos ? atmos.dim : 0x000000);
+    const colour = Render.reachDimColor(scene);
     // Quantise the colour to 3 bits per channel, as drawAtmosRim does: the
     // biome ease is continuous, and a key on the raw value would rebuild every
     // frame of every transition for a change nobody can see.
     const cKey = ((colour >> 21) & 0x7) << 6 | ((colour >> 13) & 0x7) << 3 | ((colour >> 5) & 0x7);
     const key = `${Math.round(r0)}|${cKey}|${FALLOFF_A}|${FALLOFF_P}`;
+    // The ramp is a bubble around the PLAYER, cached as rings about the
+    // viewport centre because that is normally where they stand. A peek drag
+    // moves them off it, so slide the whole cached image rather than rebuilding
+    // ~100 strokeCircles at a new centre every frame of the drag.
+    {
+      const pk = peekPxOf(scene);
+      scene.atmosFalloffGfx.setPosition(-pk.x, -pk.y);
+    }
     if (scene._falloffKey !== key) {
       scene._falloffKey = key;
       const fg = scene.atmosFalloffGfx;
@@ -2080,9 +2216,13 @@ Render.drawCells = function drawCells(scene) {
   }
   scene.gridContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
 
-  // Treasure marks — subtle X on the ground (unfound only).
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
+  // Treasure marks — subtle X on the ground (unfound only). Drawn from the
+  // camera anchor (they're marks on the ground, so they slide with a peek);
+  // the 3×3 tile scan below stays on the PLAYER's tile, which covers the
+  // peeked window many times over (a tile is hundreds of cells wide).
+  const _anchor = viewAnchorWorldM(scene);
+  const pWorldX = _anchor.x;
+  const pWorldY = _anchor.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const found = setOf(scene.save.foundTreasures);
   g.lineStyle(2, 0x2a1d10, 0.55);
@@ -2270,9 +2410,15 @@ Render.drawObjects = function drawObjects(scene) {
   // ~3.5 cells wide, so 2.2 cells of roof either side of the centroid covers it
   // with margin). Pinned by test/node/house_scale.test.js.
   const HOUSE_PAD_M = 2.2 * scene.cellM;
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
-  // Per-object screen projection: world-meter delta (dx, dy from the player)
+  // Both the cull and the projection measure from the CAMERA ANCHOR (normally
+  // the player; offset from them while a peek drag is live), so a sprite that
+  // slides into view at the leading edge of a peek is kept and drawn where the
+  // ground under it went. The tile-neighbourhood scan below stays on the
+  // player's own tile — a peek is a few cells, a tile is hundreds.
+  const _anchor = viewAnchorWorldM(scene);
+  const pWorldX = _anchor.x;
+  const pWorldY = _anchor.y;
+  // Per-object screen projection: world-meter delta (dx, dy from the anchor)
   // → screen pixels. Every sprite/label/diamond in this pass shares the exact
   // same projection, so define it once here (viewCenterX/Y, cellM, CELL_PX are
   // all in scope for the whole function).
@@ -2545,12 +2691,19 @@ Render.drawObjects = function drawObjects(scene) {
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
-  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom, 7 fruiting (apples).
-  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom, 5 fruiting (peaches).
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
+  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
   // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  //
+  // A BEARING tree keeps the mature frame and wears its fruit as a separate
+  // sprite on the canopy (the fruit pass at the end of this function), so the
+  // sheets' own fruiting cells — apple 7, peach 5 — are no longer drawn: a
+  // pick removes a fruit rather than repainting the tree. That's why `grow`
+  // ends on the mature frame it already passed through at stage 2: stage 3 is
+  // blossom, and stage 4 is the same mature tree with fruit hung on it.
   const FRUIT_FRAMES = {
-    apple: { grow: [0, 2, 4, 5, 7], fruit: 7, bare: 4 },
-    peach: { grow: [0, 2, 3, 4, 5], fruit: 5, bare: 3 },
+    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
+    peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
   const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;   // 1 day/stage → 4 days sprout→fruit
@@ -2563,6 +2716,12 @@ Render.drawObjects = function drawObjects(scene) {
     const at = fp && fp[o.id];
     return at && Date.now() - at < FRUIT_RESPAWN_MS;
   };
+  // Is this tree carrying ripe fruit right now? Wild trees are mature from the
+  // start; a planted sapling has to reach its fruiting stage first. Either way
+  // a pick empties it until the fruit regrows. This is the ONE condition the
+  // fruit overlay draws on (see the fruit pass) — the tree's own art doesn't
+  // change either side of it.
+  const _ftBearing = (o) => (!o.planted || _ftStage(o) >= 4) && !_ftPicked(o);
   // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
   // multiplicative tint shifts the sprite's hue without darkening it to mud.
   const _crownTint = (hex) => {
@@ -2624,6 +2783,12 @@ Render.drawObjects = function drawObjects(scene) {
     const h = fr.height * _houseScale(o);
     return _houseRole(o) === 'wizard' ? h - CELL_PX * 0.5 : h * 0.5;
   };
+
+  // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
+  // `after` hook as each tree is configured, drained by the fruit pass after
+  // the object pool has rendered. Rebuilt every frame, like everything else
+  // in this pass.
+  const fruitList = [];
 
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
@@ -2701,10 +2866,11 @@ Render.drawObjects = function drawObjects(scene) {
              origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
-    // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
-    // + root base — fits in one frame. Column 3 is a full mature green tree
-    // on every species sheet. Origin sits a touch above the very bottom
-    // because the 64px frame includes a few px of empty space under the roots.
+    // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
+    // + root base — fits in one frame and nothing from the sheet's lower band
+    // leaks in under it. Column 3 is a full mature green tree on every
+    // species sheet. Origin is only the no-SpriteLayout fallback: the seat
+    // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
                 // Smallest crown tier renders as a bush, not a tree.
                 if (treeSizeClass(o) === 'bush') return 'bushes';
@@ -2754,14 +2920,17 @@ Render.drawObjects = function drawObjects(scene) {
               // cell's bottom edge (or centred when it fits) and the canopy
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
-              // the 32×64 pine/birch/mahogany root padding) and size classes.
+              // the 32×48 pine/birch/mahogany root padding) and size classes.
               seat: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
               // every bush renders as the same plain green sprite (an odd
               // sampled colour otherwise made some bushes look broken).
-              after: (s, o) => {
+              after: (s, o, scene) => {
                 if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+                // Out of reach of the current axe → half alpha (interactables.js
+                // toolGatedAlpha reads the same gate the tap refuses on).
+                s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
@@ -2822,15 +2991,12 @@ Render.drawObjects = function drawObjects(scene) {
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
-                if (o.planted) {
-                  // Planted sapling grows through the art's life-cycle frames.
-                  const st = _ftStage(o);
-                  if (st >= 4 && _ftPicked(o)) return fr.bare;  // regrowing
-                  return fr.grow[st];
-                }
-                // Wild (detected/orchard) trees are mature & fruiting; show the
-                // fruitless mature frame briefly after a pick.
-                return _ftPicked(o) ? fr.bare : fr.fruit;
+                // A planted sapling still walks the sheet's life-cycle frames
+                // as it grows; a wild (detected/orchard) tree is mature from
+                // the start. Whether either is BEARING doesn't touch the frame
+                // — the fruit is its own sprite (the fruit pass below), so the
+                // tree's art is the same before and after a pick.
+                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
               },
               origin: [0.5, 0.95],
               scale: (o) => {
@@ -2850,12 +3016,35 @@ Render.drawObjects = function drawObjects(scene) {
               scaleYMul: 1.10,
               // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
               seat: true,
-              after: (s, o) => {
-                // Dim a wild tree only while its fruit is regrowing; a planted
-                // sapling that hasn't matured yet is full-alpha (it's growing,
-                // not picked).
-                const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
-                s.setAlpha(dim ? 0.7 : 1);
+              after: (s, o, scene) => {
+                // Hand the fruit pass everything it needs to hang this tree's
+                // fruit on it, measured off the sprite as it was just drawn:
+                // position, origin and scale are all final by now, so the
+                // fruit lands on the crown of the art actually on screen.
+                // (A picked tree simply contributes nothing — its fruit is
+                // gone, and nothing about the tree itself dimmed or changed.)
+                if (!_ftBearing(o)) return;
+                const src = inventoryIconSource(o.species);
+                if (!src || !scene.textures.exists(src.sheet)) return;
+                const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+                const off = SL && SL.fruitCrownOffset
+                  ? SL.fruitCrownOffset(s.texture.key, s.frame.name,
+                                        s.originX, s.originY, s.scaleX, s.scaleY)
+                  : null;
+                if (!off) return;
+                fruitList.push({
+                  key: src.sheet, frame: src.frame ?? 0,
+                  x: s.x + off.dxPx, y: s.y + off.dyPx,
+                  // The fruit is drawn at the TREE's scale, so it stays in the
+                  // same pixel scale as the art it hangs on however big that
+                  // tree is drawn. (scaleX, not scaleY — the tree's 1.10 Y
+                  // stretch is a tree thing; a stretched apple is an egg.)
+                  scale: s.scaleX,
+                  // Painter rule: immediately above its OWN tree, and still
+                  // under anything in a lower screen row (see the z-order
+                  // pass — world depths are the integers 0..n).
+                  depth: s.depth + 0.5,
+                });
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
@@ -2865,7 +3054,11 @@ Render.drawObjects = function drawObjects(scene) {
               //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
               //           the user identified; 4 vars). Used by cave rock AND
               //           T1 ore — T1 shows no visible ore, it's just plain
-              //           rock that happens to yield a little copper.
+              //           rock that happens to yield a little copper. The
+              //           variant is NOT free cosmetics: col 3 draws a PAIR of
+              //           stones and pays out one more rock for it, so the
+              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
+              //           the same table interactables.js rolls the yield off.
               //   ORE   → row 0, the ore-stone per yield tier. The top row is
               //           ore stones in tier order starting at copper — copper
               //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
@@ -2875,10 +3068,7 @@ Render.drawObjects = function drawObjects(scene) {
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
-                  const v = o.caveVariant != null
-                    ? (o.caveVariant % 4)
-                    : (((Math.round(o.x) + Math.round(o.y)) % 4) + 4) % 4;
-                  return 15 * MINERALROCK_COLS + (3 + v);   // cols 3..6
+                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
                 }
                 // T2-T7 → ore-stone column. Index by yieldTier; col 4 is
                 // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
@@ -2895,7 +3085,10 @@ Render.drawObjects = function drawObjects(scene) {
               // Seat per the "one cell" rule — centres the small rock art in
               // its cell (the art sits low in the 16px frame). origin/dyPx
               // below are the no-SpriteLayout fallback.
-              origin: [0.5, 0.5], scale: 1.6, seat: true },
+              origin: [0.5, 0.5], scale: 1.6, seat: true,
+              // Ore the current pick can't mine → half alpha; plain rock is
+              // ungated and always full (interactables.js toolGatedAlpha).
+              after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
     // Stone pillar — decorative stand-in for OSM utility poles / posts.
     // Purely decorative: no interact.js branch matches 'pole', so taps fall
     // through.
@@ -3078,48 +3271,7 @@ Render.drawObjects = function drawObjects(scene) {
       frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
       if (s.frame.name !== frameVal) s.setFrame(frameVal);
     }
-    // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
-    // table lives in shops.js so adding a new shop type is one-file work.
-    // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
-    // the sprite itself signals the role; tinting would discolour the art.
-    // Starter still gets the gold tint (in case the trailer sprite isn't
-    // available the player still spots the inaugural shop), but the
-    // themed-house branch already returned 'plain' for non-themed roles.
-    let tint = 0xffffff;
-    // Houses: a resolved role of 'plain' is genuine residential (a delivery
-    // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
-    // wizard) carry their own sprite (house_<role>) and resolve to that role,
-    // not 'plain', so they never want a tint either. We deliberately do NOT
-    // fall back to the legacy address-based Shops.shopTint() here: it keyed off
-    // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
-    // delivery host whose address merely ENDED in 9 got painted dark steel —
-    // the "potato+onion house is tinted dark" bug. Address-shop houses get
-    // their look from being restored INTO a themed role, not from this tint.
-    // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
-    // player can spot a shiny harvest from across the tile.
-    if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
-      tint = SHINY_TINT;
-    }
-    // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
-    // industrial lot) — only when nothing more specific (shop/shiny) already
-    // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
-    // A spec.after hook (e.g. mineralrock tier shading) may still override.
-    if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
-      const bt = BiomeProfiles.tint(o._biome, o.kind);
-      if (bt) tint = bt;
-    }
-    // A HOUSE that isn't the player's is washed toward dark green with the rest
-    // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
-    // that canvas — the roof is a pooled image above it — so the same shift is
-    // applied here as a multiply tint. Multiply can't reproduce a
-    // lerp exactly, so the tint is white lerped 35% toward the wash colour:
-    // mid-tones land where the wash puts them and the art keeps its shading.
-    // Applied last so it also carries over a shop's own role tint.
-    // (A TURRET is exempt: it swaps to its own baked texture above rather than
-    // taking the tint, so applying this as well would shade it twice.)
-    if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
-      tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
-    }
+    const tint = Render.spriteTint(o, scene);
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
@@ -3147,13 +3299,33 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
-    // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
-    if (typeof spec.after === 'function') spec.after(s, o);
+    // hooks can override (the tool-gate fade on trees / rocks, the fruittree
+    // picked-dim). Handed the scene so a hook can read the save (tool tiers).
+    if (typeof spec.after === 'function') spec.after(s, o, scene);
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
   Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  // ── Ripe fruit ────────────────────────────────────────────────────────────
+  // A bearing fruit tree wears its fruit: the same icon the fruit carries in
+  // the inventory, drawn as its own small sprite on the tree's canopy. The
+  // tree's art never changes — picking removes the fruit and leaves the tree
+  // standing exactly as it was, so an orchard still reads as an orchard once
+  // it's been worked, and what's ripe reads at a glance across the tile.
+  // Every number here came off the tree sprite itself in the `after` hook
+  // above (crown from SpriteLayout.CROWN_BOUNDS, scale and depth from the
+  // sprite) — nothing about the fruit is placed by hand.
+  Render.renderPool(scene, scene.fruitPool, scene.objectsContainer, fruitList, (s, item) => {
+    setTextureIfDifferent(s, item.key);
+    if (s.frame.name !== item.frame) s.setFrame(item.frame);
+    s.setOrigin(0.5, 0.5)
+     .setScale(item.scale)
+     .setAlpha(1)
+     .clearTint()
+     .setDepth(item.depth)
+     .setPosition(item.x, item.y);
+  });
   // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
   // marks exactly one of a footprint's towers `flagPost`, so a castle with six
   // turrets flies one flag rather than six.
@@ -3365,7 +3537,7 @@ Render.drawObjects = function drawObjects(scene) {
   }
   hidePoolFrom(scene.chestLabelPool, li);
 
-  // Specialty-shop labels above small-house shops (markets / blacksmiths /
+  // Specialty-shop labels above small-house shops (produce shops / blacksmiths /
   // traders). Plain coloured glyphs with a dark stroke + hard drop shadow —
   // no background plank — so the lettering floats over the building art.
   // Lettering colour comes from Shops.shopInk so each shop type's signage
@@ -3376,12 +3548,16 @@ Render.drawObjects = function drawObjects(scene) {
   // should still spot their base across the map. Shops.shopLabel() returns
   // null for non-shopType houses, so we wrap it here so the renderer can
   // also handle the starter case without changing the Shops module.
-  // Display labels for the role-keyed shop signs. Restore-order roles no longer
-  // track the street address, so the label comes from the role rather than
-  // Shops.shopLabel (which is address-derived and would mislabel them).
-  const _ROLE_LABEL = {
-    blacksmith: 'Blacksmith', trader: 'Trader', market: 'Market', wizard: 'Wizard',
-  };
+  // Display labels for the role-keyed shop signs come from Shops.roleLabel —
+  // the one table app.js's restoration card and offer titles read too, so the
+  // sign over a shop and the words inside its modal can't drift apart. NOT
+  // Shops.shopLabel (deleted): that was address-derived, and restore-order
+  // roles no longer track the street address, so it would mislabel them.
+  //
+  // The produce shop's sign follows its STOCK: the tutorial's first one carries
+  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel).
+  const _roleLabel = (role, o) => Shops.roleLabel(role,
+    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o));
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
@@ -3396,8 +3572,9 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Frozen restore-order shop role (blacksmith / trader / market / wizard).
     const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-    if (role && _ROLE_LABEL[role]) {
-      return `${_ROLE_LABEL[role]} ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    const label = role ? _roleLabel(role, o) : null;
+    if (label) {
+      return `${label} ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
     // No specialty? Still give the building a label so the map reads as a
     // populated street instead of rows of anonymous huts. Roman-numeral

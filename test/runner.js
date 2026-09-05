@@ -40,12 +40,11 @@ function teleport(scene, wx, wy) {
 // Project a world-meter point to screen pixels (the same maths handleWorldTap
 // reverses). Returns the (sx, sy) the tap handler expects.
 function worldToScreen(scene, wx, wy) {
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
-  const dx = wx - pWorldX, dy = wy - pWorldY;
-  const sx = scene.viewCenterX + (dx / scene.cellM) * 32;   // CELL_PX = 32
-  const sy = scene.viewCenterY + (dy / scene.cellM) * 32;
-  return { sx, sy };
+  // The scene's own projection, so this can't drift from the one the tap
+  // handler reverses — it measures from the CAMERA ANCHOR, which is the player
+  // except while a peek drag is live (app.js PEEK DRAG).
+  const p = scene.worldMetersToScreen(wx, wy);
+  return { sx: p.x, sy: p.y };
 }
 
 // Tap a world-meter point as if the user clicked there.

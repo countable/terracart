@@ -117,6 +117,9 @@ function walkHomeScene(awayM, opts = {}) {
     targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
+    // A warp snaps the peek camera home; this scene never peeks (no peekM), so
+    // the real method early-outs — it just has to be here to be called.
+    clearPeek: __walkHome.clearPeek,
   };
 }
 const drift = (scene, dt = 1 / 60) => __walkHome._driftHome.call(scene, dt);
@@ -175,6 +178,58 @@ test('walk home: the body is never placed underground', () => {
   drift(scene);
   assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 500,
     'underground the return stays a walk, however far');
+});
+
+// ── Pace ──────────────────────────────────────────────────────────────────
+// The return is a little brisker than the stick walk that opened the gap: the
+// player has stopped and is watching a gap they didn't ask for close, so it
+// should read as purposeful — but it is still a walk, not a run.
+
+test('walk home: the return is brisker than a stick walk, but still a walk', () => {
+  assert.gt(WALK_HOME_SPEED_MUL, 1, 'the walk home should outpace the stroll that opened the gap');
+  assert.lt(WALK_HOME_SPEED_MUL, 2, 'double pace reads as running, not walking home');
+});
+
+test('walk home: once the ramp is at full, the offset bleeds at the brisker pace', () => {
+  // Idle long past the ramp: one frame should close exactly one frame of the
+  // stick pace (WALK_M_S × steerSpeedMul, no amulet here) × WALK_HOME_SPEED_MUL
+  // — the multiplier is applied to the return itself, not just declared.
+  const dt = 1 / 60;
+  const scene = walkHomeScene(30);
+  drift(scene, dt);
+  const off = Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y);
+  const perFrame = WALK_M_S * steerSpeedMul(scene._walkRelics()) * WALK_HOME_SPEED_MUL * dt;
+  assert.lt(Math.abs((30 - off) - perFrame), 1e-6,
+    `one full-pace frame should bleed ${perFrame.toFixed(4)}m, got ${(30 - off).toFixed(4)}m`);
+});
+
+// ── The countdown on the stick ────────────────────────────────────────────
+// Let go of the stick and the cap shows the seconds until the character walks
+// itself back. It reads the same gates as _driftHome (lifted alongside it by
+// run.js), so the number is only ever shown for a walk that will happen.
+
+test('walk home countdown: counts whole seconds down from the moment the stick is released', () => {
+  const at = (idleMs) => __walkHome._walkHomeCountdownS.call(walkHomeScene(30, { idleMs }));
+  assert.eq(at(0), Math.ceil(WALK_HOME_IDLE_MS / 1000), 'the full count the instant you let go');
+  assert.eq(at(1000), Math.ceil((WALK_HOME_IDLE_MS - 1000) / 1000), 'one second later, one less');
+  assert.eq(at(WALK_HOME_IDLE_MS - 100), 1, 'the last fraction of a second still reads 1, never 0');
+  assert.eq(at(WALK_HOME_IDLE_MS), null, 'gone the moment the walk starts');
+  assert.eq(at(WALK_HOME_IDLE_MS + 5000), null, 'and stays gone while it walks');
+});
+
+test('walk home countdown: only shown when there is a walk to count down to', () => {
+  const idleMs = 1000;
+  const count = (opts, patch) => {
+    const scene = Object.assign(walkHomeScene(30, { idleMs, ...opts }), patch || {});
+    return __walkHome._walkHomeCountdownS.call(scene);
+  };
+  assert.truthy(count({}) > 0, 'baseline: off the GPS, stick released → counting');
+  assert.eq(count({ offset: 0 }), null, 'standing on the fix: nothing to walk back');
+  assert.eq(count({}, { _stickPushed: () => true }), null, 'stick still pushed: no walk pending');
+  assert.eq(count({}, { _workProgress: { auto: false } }), null, 'mid-wheel: busy, not idle');
+  assert.eq(count({ depth: 2 }), null, 'underground there is no walk home');
+  assert.eq(count({ noGps: true }), null, 'no fix driving: nothing to return to');
+  assert.eq(count({}, { _gpsManualOverride: true }), null, 'keyboard takeover owns the target');
 });
 
 test('walk home: a body lagging behind a spent offset is still brought home', () => {
