@@ -67,6 +67,54 @@
     'bonfire:0':       { fw: 16, fh: 32, minX: 1,  minY: 9,  maxX: 14, maxY: 31 },
   };
 
+  // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
+  // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
+  // are NOT interchangeable: col 3 draws a PAIR of stones — a small one
+  // overlapping a larger one — and cols 4..6 draw a single stone. Until Sep
+  // 2026 the variant was a pure cosmetic hash and every one of them dropped the
+  // same randInt(1,3), so the pair-of-stones rock could hand you one rock and a
+  // lone pebble could hand you three. The art made a promise the loot ignored.
+  //
+  // `stones` is that promise, written down once: render.js picks the frame from
+  // `col` and interactables.js rolls the yield off `stones`, so the rock you
+  // see and the count you get can't drift apart (same discipline as
+  // roadOverlayWidthM and CREATURE_ART).
+  //
+  // NOTE the pair is a SINGLE connected blob (the two stones touch), so no
+  // pixel pass can count them for us — `stones` is authored, not measured. The
+  // tripwire if the sheet is ever re-cut is the ART_BOUNDS drift check in
+  // tools/sprite_audit.js: it pins 'mineralrock:168' at 15px wide against the
+  // singles' 9-13, and fails if the art moves without the table.
+  const PLAIN_ROCK_VARIANTS = [
+    { col: 3, stones: 2 },   // a pair — small stone overlapping a larger one
+    { col: 4, stones: 1 },   // single, small
+    { col: 5, stones: 1 },   // single, small
+    { col: 6, stones: 1 },   // single, chunkier
+  ];
+  // Row 15 of the sheet (11 cols) holds the small rock variants; the other rows
+  // are boulder-sized art that bleeds past the 16×16 frame at render scale.
+  const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
+
+  // Which variant a given plain rock wears. Stable per rock: a cave rock keys
+  // off its caveVariant, a surface rock off its cell so the same spot always
+  // renders (and yields) the same. BOTH callers go through here — the frame in
+  // render.js and the yield in interactables.js — so neither can pick a
+  // different rock than the other.
+  function plainRockVariant(o) {
+    const v = (o && o.caveVariant != null)
+      ? (o.caveVariant % PLAIN_ROCK_VARIANTS.length)
+      : ((((Math.round((o && o.x) || 0) + Math.round((o && o.y) || 0))
+          % PLAIN_ROCK_VARIANTS.length) + PLAIN_ROCK_VARIANTS.length)
+          % PLAIN_ROCK_VARIANTS.length);
+    return PLAIN_ROCK_VARIANTS[v];
+  }
+  // Sheet frame index for a plain rock — what render.js draws.
+  function plainRockFrame(o) {
+    return PLAIN_ROCK_ROW * MINERALROCK_COLS + plainRockVariant(o).col;
+  }
+  // How many stones the art shows — what interactables.js pays out.
+  function plainRockStones(o) { return plainRockVariant(o).stones; }
+
   // Given a frame's trimmed bounds (max exclusive), its origin (anchor as a
   // fraction of the frame box) and its X/Y scale, return the { dxPx, dyPx }
   // offset from the projected cell CENTRE that places the art per the rule.
@@ -209,6 +257,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
+    PLAIN_ROCK_VARIANTS, plainRockVariant, plainRockFrame, plainRockStones,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     creatureFoot, creatureWheelDy, creatureHealthBarTop,

@@ -84,6 +84,26 @@
   regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
   it into `src/sprite_layout.js`.
 
+- **What the art SHOWS is what it DROPS.** A sprite variant is not free
+  cosmetics when the variants differ in COUNT. The plain rock's four looks
+  (mineralrock sheet row 15, cols 3..6) include one that draws a PAIR of
+  stones — and until Sep 2026 the variant was a bare `(x+y) % 4` hash in
+  `render.js` while every plain rock dropped the same `randInt(1,3)`, so the
+  double rock could hand you one and a lone pebble could hand you three. The
+  answer is the same discipline as `roadOverlayWidthM`: **one table both sides
+  read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
+  draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
+  and both callers resolve the variant through `SpriteLayout.plainRockVariant`
+  so they can't pick different rocks. A surface with no rock sprite promises
+  nothing and passes `stones = null` for the old flat roll — that's the cave
+  WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
+  can count it: `stones` is authored, and the tripwire if the sheet is re-cut
+  is the `ART_BOUNDS` width drift check in `tools/sprite_audit.js`.
+  **And say the real number.** The plain-rock toast read `+1 Rock` while
+  handing over three — if a loot path rolls a quantity, its flash prints that
+  quantity.
+  **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
+
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
   work-progress wheel drawn over one is not free-floating: it **rests on** that

@@ -2869,7 +2869,11 @@ Render.drawObjects = function drawObjects(scene) {
               //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
               //           the user identified; 4 vars). Used by cave rock AND
               //           T1 ore — T1 shows no visible ore, it's just plain
-              //           rock that happens to yield a little copper.
+              //           rock that happens to yield a little copper. The
+              //           variant is NOT free cosmetics: col 3 draws a PAIR of
+              //           stones and pays out one more rock for it, so the
+              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
+              //           the same table interactables.js rolls the yield off.
               //   ORE   → row 0, the ore-stone per yield tier. The top row is
               //           ore stones in tier order starting at copper — copper
               //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
@@ -2879,10 +2883,7 @@ Render.drawObjects = function drawObjects(scene) {
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
-                  const v = o.caveVariant != null
-                    ? (o.caveVariant % 4)
-                    : (((Math.round(o.x) + Math.round(o.y)) % 4) + 4) % 4;
-                  return 15 * MINERALROCK_COLS + (3 + v);   // cols 3..6
+                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
                 }
                 // T2-T7 → ore-stone column. Index by yieldTier; col 4 is
                 // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
