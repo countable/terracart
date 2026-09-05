@@ -95,12 +95,17 @@ const HomeArea = {
   //                     every side of the display.
   //
   // The pocket used to be 10 cells and the ring 11..16 — twice as far out as a
-  // player can see, and past HOME_REVEAL_CELLS (10) as well. So a new save
+  // player can see, and past the home fog reveal as well. So a new save
   // opened on bald ground to every edge of the screen, and the ring of trees
   // and rocks around home was seated exactly as designed, two screens out,
   // under fog: correct in the tile, invisible in the game. If the pocket is
   // ever widened again, widen the view with it or the ring goes missing the
   // same way.
+  //
+  // RING_MIN is also exactly where the fog now begins: app.js
+  // HOME_REVEAL_CELLS is 6, one cell past the player's 5 cells of sight, so
+  // the first ring of scenery is lit and the wash starts immediately behind
+  // it. The rest of the band (7..16) is walked to, not given.
   POCKET_CELLS: 5,
   RING_MIN_CELLS: 6,
   RING_MAX_CELLS: 16,

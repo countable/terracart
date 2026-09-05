@@ -228,6 +228,16 @@ test('fog: the home reveal covers the starter ring that is on screen', () => {
     'the ring in frame at spawn must not be seated under the fog wash');
 });
 
+test('fog: the home reveal stops just outside what the player can see', () => {
+  // The counterpart ceiling, and the point of the feature: fog of war that
+  // only starts two screens out is fog nobody meets. The reveal ends one cell
+  // past the viewport half-width — the corners of the opening screen already
+  // carry wash, and one step in any direction walks into it. It was 10 (nearly
+  // two screens of free map) until Sep 2026.
+  assert.lte(HOME_REVEAL_CELLS, (VIEW_CELLS + 1) / 2,
+    'the fog must begin just outside the opening screen, not streets away');
+});
+
 test('fog: the home reveal reaches past the opening screen', () => {
   // If home reveals less than the viewport half-width, the player spawns
   // looking at a ring of fog around their own house.
