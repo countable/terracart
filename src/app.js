@@ -1519,6 +1519,7 @@ class MapScene extends Phaser.Scene {
     // ramparts); every other world object shares objectPool.
     this.towerPool = [];
     this.castleFlagPool = [];   // the claimed-castle banner, one per castle
+    this.fruitPool = [];        // ripe fruit worn on a bearing fruit tree's crown (render.js)
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];

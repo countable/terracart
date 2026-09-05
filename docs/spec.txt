@@ -518,6 +518,10 @@ ORCHARD FRUIT TREES
    tree then resets its timer. No chopping required — fruit trees are never
    destroyed. Each tree's fruit type is seeded from its cell position (apple,
    cherry, peach, banana, orange, mango, coconut, apricot).
+ - a tree that is BEARING wears its fruit: the fruit's own icon, drawn on the
+   tree's canopy as a separate little sprite. Picking removes the fruit and
+   leaves the tree exactly as it was — the tree's art never changes, so a
+   worked orchard still reads as an orchard and what's ripe reads at a glance.
 
 ================================================================================
 FISHING
