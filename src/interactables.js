@@ -317,6 +317,16 @@ const INTERACTABLES = {
         return true;
       }
       save.fruitPicked[o.id] = Date.now();
+      // A fruit tree's species IS the item it hands out, so it must be one.
+      // The starter provisioning once tamed the fruit tree nearest spawn into
+      // species 'pine' (home.js makeStarterUsable — fixed there), and 'pine'
+      // is not an item: the pick flashed "harvested pine" and Inventory.add
+      // dropped it on the floor. The source is fixed, but the bin objects a
+      // tile is rebuilt from are shared for the session and a stale cached
+      // home.js can still stamp them, so the tree repairs itself here: a
+      // species that is not a produce item reverts to apple, in place, so the
+      // pick, the flash and the shiny bonus all agree on one real fruit.
+      if (!ITEM_BY_ID[o.species] || ITEM_BY_ID[o.species].kind !== 'produce') o.species = 'apple';
       let n = randInt(1, 2);
       // Amulet luck: a chance at one bonus fruit (short-circuits before
       // Math.random() when luck is off, keeping the off-path identical).
@@ -573,6 +583,24 @@ const INTERACTABLES = {
 //             'skip', e.g. a chopped tree stump that shouldn't block the cell)
 //   true    — the tap was consumed (gate blocked, work started, or custom done)
 //   false   — `o.kind` is not registered (caller falls through to other blocks)
+// ── Tool-gate fade ──────────────────────────────────────────────────────────
+// A tree or rock the player's current tool can't work is drawn at half alpha,
+// so what is reachable NOW reads at a glance instead of by tapping everything
+// and reading refusals. "Can't work" is the entry's own tierShort — the same
+// number the tap gate refuses on (and offers the slow grind at exactly 1) — so
+// the fade and the refusal can never disagree. Kinds without a tool gate
+// (fruit trees, chests, plants) are never faded; nor is a bush (axe tier 0) or
+// a plain rock (ungated). render.js applies it in the tree / mineralrock
+// `after` hooks; it lives here so it reads the shipping gate, not a copy.
+const TOOL_GATED_ALPHA = 0.5;
+function isToolGated(o, save) {
+  const def = INTERACTABLES[o.kind];
+  return !!(def && def.tierShort && def.tierShort(o, save || {}) > 0);
+}
+function toolGatedAlpha(o, save) {
+  return isToolGated(o, save) ? TOOL_GATED_ALPHA : 1;
+}
+
 function runInteractable(ctx, o) {
   const def = INTERACTABLES[o.kind];
   if (!def) return false;

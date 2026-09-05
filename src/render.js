@@ -2701,10 +2701,11 @@ Render.drawObjects = function drawObjects(scene) {
              origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
-    // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
-    // + root base — fits in one frame. Column 3 is a full mature green tree
-    // on every species sheet. Origin sits a touch above the very bottom
-    // because the 64px frame includes a few px of empty space under the roots.
+    // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
+    // + root base — fits in one frame and nothing from the sheet's lower band
+    // leaks in under it. Column 3 is a full mature green tree on every
+    // species sheet. Origin is only the no-SpriteLayout fallback: the seat
+    // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
                 // Smallest crown tier renders as a bush, not a tree.
                 if (treeSizeClass(o) === 'bush') return 'bushes';
@@ -2754,14 +2755,17 @@ Render.drawObjects = function drawObjects(scene) {
               // cell's bottom edge (or centred when it fits) and the canopy
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
-              // the 32×64 pine/birch/mahogany root padding) and size classes.
+              // the 32×48 pine/birch/mahogany root padding) and size classes.
               seat: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
               // every bush renders as the same plain green sprite (an odd
               // sampled colour otherwise made some bushes look broken).
-              after: (s, o) => {
+              after: (s, o, scene) => {
                 if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+                // Out of reach of the current axe → half alpha (interactables.js
+                // toolGatedAlpha reads the same gate the tap refuses on).
+                s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
     chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
                         : (produceStandFor(o) ? 'market_stand'
@@ -2895,7 +2899,10 @@ Render.drawObjects = function drawObjects(scene) {
               // Seat per the "one cell" rule — centres the small rock art in
               // its cell (the art sits low in the 16px frame). origin/dyPx
               // below are the no-SpriteLayout fallback.
-              origin: [0.5, 0.5], scale: 1.6, seat: true },
+              origin: [0.5, 0.5], scale: 1.6, seat: true,
+              // Ore the current pick can't mine → half alpha; plain rock is
+              // ungated and always full (interactables.js toolGatedAlpha).
+              after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
     // Stone pillar — decorative stand-in for OSM utility poles / posts.
     // Purely decorative: no interact.js branch matches 'pole', so taps fall
     // through.
@@ -3147,8 +3154,9 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
-    // hooks can override (e.g. mineralrock darkening, fruittree picked-dim).
-    if (typeof spec.after === 'function') spec.after(s, o);
+    // hooks can override (the tool-gate fade on trees / rocks, the fruittree
+    // picked-dim). Handed the scene so a hook can read the save (tool tiers).
+    if (typeof spec.after === 'function') spec.after(s, o, scene);
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;

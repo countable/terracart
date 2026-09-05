@@ -448,6 +448,13 @@ const WALK_HOME_IDLE_MS = 5000;
 // interrupted nudge from reading as the character fighting you — and the last
 // stretch is at normal walking speed.
 const WALK_HOME_RAMP_MS = 1100;
+// The walk home is a little BRISKER than a stick walk. The player has already
+// stopped and is watching the character close a gap they didn't ask for frame
+// by frame, so the return should read as purposeful, not as the same stroll
+// that opened it — but it is still a walk (the too-far case below places the
+// body outright), so it stays well under the 2× that would read as running.
+// Multiplies the stick pace (walk × amulet) once the ramp is at full.
+const WALK_HOME_SPEED_MUL = 1.5;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
@@ -1075,14 +1082,21 @@ class MapScene extends Phaser.Scene {
     // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
     // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
     Fog.init(this.save, this.cellsPerTile);
-    // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
-    // visual feet sit ~14px below the sprite centre (same anchor as the
-    // footprint dot). The reach is cell-quantised and centres on the CELL the
-    // player stands in, so we offset the cell lookup down to the feet: 24px
-    // (0.75 cell) overshot into the cell to the SOUTH (reach appeared a cell
-    // low); 14px (~0.44 cell) keeps the lookup in the feet's own cell so the
-    // reach centres on the player. ~2.6m.
-    this.feetOffsetM = (14 / CELL_PX) * this.cellM;
+    // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
+    // sprite is seated so its visible feet land exactly on it (see
+    // playerFeetNudgeY below) — so the ground under your real position is the
+    // ground the character is standing on. Until Sep 2026 the sprite was
+    // CENTRED on the fix and the feet hung 14px (3 m) south of it: standing on
+    // a road's centreline put the band through the character's waist and the
+    // feet on the south shoulder, and the whole map read as shifted north of
+    // where you were. feetOffsetM is the metres the feet sit south of playerM;
+    // it is kept as a field because every reach / collision / stair site adds
+    // it, and it is now 0 by construction. If you are tempted to seat the feet
+    // below the fix again and compensate here, that is the bug coming back.
+    this.feetOffsetM = 0;
+    // Screen pixels per cell, published for modules that size sprite boxes in
+    // metres (interact.js' creature hit-test) without an app.js global.
+    this.cellPx = CELL_PX;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
     // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
@@ -1829,32 +1843,43 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). With the default 0.5/0.5
-    // origin the projected world position lands at the sprite CENTRE and the
-    // feet sat 14px below it at 1.35× (footprint anchor, see drawFootprints).
-    // That 14px is a texture offset of 14/1.35 ≈ 10.37px; at 1.215× the feet
-    // would ride up to 10.37 × 1.215 ≈ 12.6px below centre. Nudge every player
-    // sprite DOWN by the difference (~1.4px) so the feet — and the +14
-    // footprint anchor — stay exactly where they were.
-    this.playerScale = 1.215;
+    // Scale 1.033 = 1.35 × 0.9 × 0.85: the original 1.35, shrunk 10% once and
+    // a further 15% in Sep 2026 so the walker reads closer to a real person
+    // against the 7 m cells while staying clearly visible. The frame's
+    // visible feet sit 14/1.35 ≈ 10.37 texture px below its centre (measured
+    // at the original 1.35× as a 14px drop); playerFeetNudgeY below derives
+    // the on-screen drop from THIS number, so the feet stay on the fix at any
+    // scale — change the scale here and nothing else.
+    this.playerScale = 1.35 * 0.9 * 0.85;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
-    this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
+    // FEET ON THE FIX: the projected world position (viewCentre for the local
+    // player, the fix's screen point for a peer) is where the FEET go, so
+    // every player sprite is drawn this much ABOVE its point — the negative
+    // of the feet drop. Anything that wants the sprite's body centre adds
+    // this to the point; anything on the ground (shadow, footprints, the GPS
+    // and target markers) sits on the point itself. It was +1.4 until Sep
+    // 2026 — sprite centred on the fix, feet 14px (3 m) south of it — which
+    // put the map a body-length north of where the player stood (see
+    // feetOffsetM in create()).
+    this.playerFeetNudgeY = -(14 / 1.35) * this.playerScale;
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
       .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
     // Contact shadow under the player's feet. The player is camera-locked at
-    // viewCentre, so this never moves — it just sits at the footprint anchor
-    // (+14px, the same point drawFootprints drops its dots at). Depth 9.5:
-    // above the footprint trail (9) so a fresh dot can't sit on top of the
-    // shadow, below the character (10). Created here rather than in the
-    // per-frame pass because there is exactly one and it never relocates.
-    // 'bldg_shadow' is baked further up in create(), so it always exists.
-    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY + 13, 'bldg_shadow')
+    // viewCentre, so this never moves — it just sits at the feet, which ARE
+    // viewCentre (a pixel above it, so the sole reads as resting on the
+    // shadow rather than cut by it — the same 1px the footprint dots keep).
+    // Depth 9.5: above the footprint trail (9) so a fresh dot can't sit on
+    // top of the shadow, below the character (10). Created here rather than
+    // in the per-frame pass because there is exactly one and it never
+    // relocates. 'bldg_shadow' is baked further up in create(), so it always
+    // exists.
+    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
       .setAlpha(0.34)
@@ -1876,7 +1901,7 @@ class MapScene extends Phaser.Scene {
     // the two coincide. A plain marker, not a player-shaped sprite — the only
     // player sprites on the map belong to real bodies (this.player, and any
     // other live player — see multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffffff, 0.55)
+    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
       .setStrokeStyle(1.5, 0x000000, 0.4)
       .setDepth(10)
       .setVisible(false)
@@ -1900,7 +1925,7 @@ class MapScene extends Phaser.Scene {
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
     // over and collect. See the 'gps_crosshair' bake above.
-    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'gps_crosshair')
+    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_crosshair')
       .setOrigin(0.5, 0.5)
       .setDepth(9.8)
       .setVisible(false)
@@ -4998,7 +5023,9 @@ class MapScene extends Phaser.Scene {
       const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
       this.dragonTimerText
         .setText(`${secs}s`)
-        .setPosition(this.viewCenterX, this.viewCenterY - 34)
+        // Over the head: measured from the SPRITE CENTRE (viewCentre is the
+        // feet now, and the body rises playerFeetNudgeY above it).
+        .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY - 35)
         .setVisible(true);
     }
     let vx = 0, vy = 0;
@@ -5070,7 +5097,9 @@ class MapScene extends Phaser.Scene {
         const p = worldMetersToScreen(this,
           this.startWorldM.x + this._targetM.x,
           this.startWorldM.y + this._targetM.y);
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY)).setVisible(true);
+        // On the point itself: the marker is a ground mark, and the ground
+        // point is where a body's FEET would stand (feet-on-the-fix).
+        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
       } else {
         this.targetGhost.setVisible(false);
       }
@@ -5090,7 +5119,7 @@ class MapScene extends Phaser.Scene {
         const g = worldMetersToScreen(this,
           this.startWorldM.x + this.gpsM.x,
           this.startWorldM.y + this.gpsM.y);
-        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y + this.playerFeetNudgeY)).setVisible(true);
+        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
       } else {
         this.gpsGhost.setVisible(false);
       }
@@ -5098,6 +5127,7 @@ class MapScene extends Phaser.Scene {
       this.gpsGhost.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
+    this._updateWalkHomeCountdown();
     this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -5189,13 +5219,15 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
+      // The sprite's centre is its ground point plus playerFeetNudgeY (the
+      // feet are on the point, the body rises above it).
+      let cx = this.viewCenterX, cy = this.viewCenterY + this.playerFeetNudgeY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits at sprite-center
-        // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
-        // used at the viewport center so the arrow hovers identically.
+        // Anchor over the target marker's head. targetGhost sits on the
+        // ground point; a body standing there would have its centre the
+        // same nudge above it, so apply the identical offset.
         cx = this.targetGhost.x;
-        cy = this.targetGhost.y - this.playerFeetNudgeY - HEAD_DY;
+        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
       }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
@@ -5234,11 +5266,10 @@ class MapScene extends Phaser.Scene {
       const pWY = this.startWorldM.y + this.playerM.y;
       for (const fp of this.footprints) {
         const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +14 lands the dot right at the sprite's feet. (Sprite scale 1.35 × 32
-        // ≈ 43, origin (.5,.5) so the sprite's nominal bottom is ~+22, but the
-        // visible foot pixels sit several px above the bottom of the texture —
-        // +14 lines up with where the shoes actually meet the ground.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 14;
+        // The body's world point IS its feet (feet-on-the-fix), so the dot
+        // goes on the projected point with no anchor offset — the same point
+        // the contact shadow sits on.
+        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
         this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
       }
@@ -7291,7 +7322,8 @@ class MapScene extends Phaser.Scene {
     const rampT = Math.min(1, (Date.now() - (this._lastStickT || 0) - WALK_HOME_IDLE_MS)
                               / WALK_HOME_RAMP_MS);
     const ease = rampT * rampT;
-    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * ease * dt);
+    const step = Math.min(mag, WALK_M_S * WALK_HOME_SPEED_MUL
+                                 * steerSpeedMul(this._walkRelics()) * ease * dt);
     if (step <= 0) return;
     const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
     off.x += dx; off.y += dy;
@@ -7299,6 +7331,36 @@ class MapScene extends Phaser.Scene {
     this._targetM.x += dx;
     this._targetM.y += dy;
     this._followPaused = false;
+  }
+  // Seconds left on the walk-home debounce, for the stick's countdown — or
+  // null when there is nothing to count down to. The gates are _driftHome's
+  // own: it only counts while a return is actually pending (surface, a fix
+  // driving, the stick let go, no wheel, and an offset to bleed), so the
+  // number on the stick is always a promise the walk will keep. Whole
+  // seconds, rounded UP: "5" the instant you let go, "1" for the last second,
+  // gone when the walk starts. Pure — no DOM — so the test suite drives it.
+  _walkHomeCountdownS() {
+    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return null;
+    if (this._busyWheel() || this._stickPushed()) return null;
+    const off = this._manualOffsetM;
+    if (!off || Math.hypot(off.x, off.y) < 0.01) return null;
+    const left = WALK_HOME_IDLE_MS - (Date.now() - (this._lastStickT || 0));
+    if (left <= 0) return null;
+    return Math.ceil(left / 1000);
+  }
+  // Write the countdown onto the stick. The label lives on the pad itself (see
+  // buildMovePad) so the number sits under the thumb that just let go — the
+  // one place the player is looking when they wonder whether the character is
+  // about to walk off. Only touches the DOM when the number changes.
+  _updateWalkHomeCountdown() {
+    const el = this._movePadCountdownEl;
+    if (!el || !el.isConnected) return;
+    const s = this._walkHomeCountdownS();
+    const text = s == null ? '' : String(s);
+    if (text === this._movePadCountdownText) return;
+    this._movePadCountdownText = text;
+    el.textContent = text;
+    el.classList.toggle('on', !!text);
   }
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
@@ -7321,12 +7383,11 @@ class MapScene extends Phaser.Scene {
     g.clear();
     if (!this._driftingHome || !this.gpsGhost?.visible) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_HINT_IDLE_MS) return;
-    // Both markers are drawn from their centre with the same nudge, so backing
-    // it out and adding the footprint anchor puts each endpoint at the feet.
-    const FEET = 13;
-    const x0 = this.viewCenterX, y0 = this.viewCenterY + FEET;
+    // Both endpoints are ground points: the character's feet are viewCentre
+    // (feet-on-the-fix) and the GPS marker sits on the fix itself.
+    const x0 = this.viewCenterX, y0 = this.viewCenterY;
     const x1 = this.gpsGhost.x;
-    const y1 = this.gpsGhost.y - this.playerFeetNudgeY + FEET;
+    const y1 = this.gpsGhost.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
     // Stop short at both ends so the line never runs into either character.
@@ -11506,6 +11567,14 @@ class MapScene extends Phaser.Scene {
     const nub = document.createElement('div');
     nub.className = 'nub';
     pad.appendChild(nub);
+    // The walk-home countdown (see _walkHomeCountdownS): seconds until the
+    // character walks itself back to the GPS, drawn over the resting nub.
+    const countdown = document.createElement('div');
+    countdown.className = 'countdown';
+    countdown.setAttribute('aria-hidden', 'true');
+    pad.appendChild(countdown);
+    this._movePadCountdownEl = countdown;
+    this._movePadCountdownText = '';
     document.body.appendChild(pad);
 
     let activePtr = null;
@@ -11612,6 +11681,12 @@ class MapScene extends Phaser.Scene {
       #move-pad .nub {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
         width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        /* border-box because HALF is derived as (PAD - NUB) / 2 — that only
+           centres the cap in the well if NUB is the cap's OUTER size. Under
+           content-box the 2px rim pushed the cap 2px down-and-right of the
+           well's centre (and 2px past the rim at full deflection), which is
+           what left the countdown digit below looking off-centre on it. */
+        box-sizing: border-box;
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
@@ -11651,6 +11726,28 @@ class MapScene extends Phaser.Scene {
           0 3px 10px rgba(0,0,0,0.5),
           0 0 12px rgba(255,224,102,0.6);
       }
+      /* Walk-home countdown: the seconds until the character heads back to
+         the GPS, stamped on the resting cap. Gold, because it is a readout of
+         a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
+         box is the cap's box exactly (same left/top/size, and the cap is
+         border-box above), so the digit centres on the cap rather than near
+         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         glyph evenly, so the gold holds up over the cap's bright highlight and
+         its darker rim alike without reading as lit from one side. Hidden
+         while the stick is held (the cap is under a thumb, and there is
+         nothing to count down to). */
+      #move-pad .countdown {
+        position: absolute; left: ${HALF}px; top: ${HALF}px;
+        box-sizing: border-box;
+        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
+        text-align: center; pointer-events: none;
+        font: ${fontMono(`700 18px/${NUB}px`)};
+        color: ${UI_GOLD};
+        text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
+        display: none;
+      }
+      #move-pad .countdown.on { display: block; }
+      #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
       @media (prefers-reduced-motion: reduce) {

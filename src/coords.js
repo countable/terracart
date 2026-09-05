@@ -58,6 +58,9 @@ function sameAbsCell(scene, ax, ay, bx, by) {
 // and every too-far gate measure distance from. X is the body cell column
 // (no horizontal feet offset); Y is the FEET cell row (feetOffsetM south
 // of the body), so the reach snaps when the visible feet cross a gridline.
+// feetOffsetM is 0 in the game now — the sprite is seated with its feet ON
+// playerM (app.js create()) — but the term stays so the rule reads as
+// "the feet", and so a scene that seats them elsewhere still gets it right.
 // Returns { cellIX, cellIY }.
 function playerReachCell(scene) {
   const wx = scene.originPx.x + scene.playerM.x / scene.mPerPx;

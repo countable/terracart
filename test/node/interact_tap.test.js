@@ -748,7 +748,7 @@ function runCreatureTap(kind, wm, cellInReach) {
   const orig = {
     WG: globalThis.WorldGen, CIR: globalThis.cellInReach, WMC: globalThis.worldMetersToAbsCell,
   };
-  const scene = Object.assign(makeScene(), { feetOffsetM: (14 / 32) * 7, cellM: 7, flash: () => {} });
+  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} });
   const save  = { caught: [], inv: [], selSlot: 0 };
   const ctx   = Object.assign(makeCtx(scene, save), { wm });
   const h = TAP_HANDLERS.find(x => x.name === 'creature');

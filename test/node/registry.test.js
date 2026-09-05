@@ -83,6 +83,57 @@ test('fruittree: harvest yields 1-2 fruit, then is respawn-gated', () => {
   assert.inRange(scene.invCount('apple'), 1, 2, 'respawn gate blocks a second pick');
 });
 
+test('fruittree: a pick always yields a REAL item, even after the starter-home pass', () => {
+  // The pick hands out the item named by `o.species`, and the headless
+  // makeScene stub accepts any id — so drive the REAL Inventory.add, which
+  // (like app.js addToInv) drops an unknown id silently. That silence is the
+  // bug this pins: starter provisioning used to tame a fruit tree near spawn
+  // to species 'pine', so the pick flashed "harvested pine" and gave nothing.
+  for (const species of ['apple', 'peach']) {
+    const o = { kind: 'fruittree', id: `ft_${species}`, x: 84, y: 0, species, wild: true };
+    const plan = HomeArea.planStarterProvision([o], 0, 0, 7);
+    for (const d of plan.downgrade) HomeArea.makeStarterUsable(d);
+    assert.truthy(ITEM_BY_ID[o.species], `${species} tree still names a real item after the pass`);
+    const save = { inv: [], selSlot: 0 };
+    const msgs = [];
+    const scene = makeScene({
+      addToInv: (id, n) => { const r = Inventory.add(save, id, n, { pageSize: 5 }); return r.valid ? r.accepted : 0; },
+      flashLoot: (m) => msgs.push(m),
+    });
+    assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed');
+    const got = save.inv.find(s => s && s.id === species);
+    assert.truthy(got && got.count >= 1, `picked ${species}: ${JSON.stringify(save.inv)}`);
+    assert.truthy(msgs.some(m => m.includes(ITEM_BY_ID[species].name)),
+      `flash names the fruit, got ${JSON.stringify(msgs)}`);
+  }
+});
+
+test('fruittree: a tree already stamped with a non-fruit species repairs itself on the pick', () => {
+  // The source of the 'pine' stamp is fixed, but a bin object a tile is
+  // rebuilt from is shared for the session, and a stale cached home.js can
+  // still tame it — so a tree that reaches the pick with a species that is not
+  // a produce item must hand out a real fruit anyway, and flash it.
+  for (const bad of ['pine', 'maple', undefined, 'wood']) {
+    const o = { kind: 'fruittree', id: `ft_bad_${bad}`, x: 84, y: 0, species: bad, wild: true };
+    const save = { inv: [], selSlot: 0 };
+    const msgs = [];
+    const scene = makeScene({
+      addToInv: (id, n) => { const r = Inventory.add(save, id, n, { pageSize: 5 }); return r.valid ? r.accepted : 0; },
+      flashLoot: (m) => msgs.push(m),
+    });
+    assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed');
+    assert.eq(o.species, 'apple', `species ${JSON.stringify(bad)} repaired in place to apple`);
+    const got = save.inv.find(s => s && s.id === 'apple');
+    assert.truthy(got && got.count >= 1, `picked an apple: ${JSON.stringify(save.inv)}`);
+    assert.truthy(msgs.some(m => m.includes('Apple')), `flash names Apple, got ${JSON.stringify(msgs)}`);
+    assert.falsy(msgs.some(m => /pine|maple|wood|undefined/.test(m)), 'never flashes the bad species');
+  }
+  // A real fruit is left alone.
+  const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'peach', wild: true };
+  runInteractable(makeCtx(makeScene(), {}), peach);
+  assert.eq(peach.species, 'peach', 'a peach tree stays a peach tree');
+});
+
 // --- Gather luck flag -------------------------------------------------------
 test('gather luck: OFF by default → zeroed multipliers', () => {
   assert.eq(gatherLuckEnabled(), false, 'flag defaults off');

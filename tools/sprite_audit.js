@@ -117,6 +117,34 @@ function trimFrame(img, fx, fy, fw, fh) {
   return any ? { minX, minY, maxX, maxY } : null;
 }
 
+// Longest run of fully transparent rows BETWEEN opaque rows of one frame. A
+// seated sprite is one piece of art — a tree is canopy over trunk over roots
+// with no gap — so a gap means the frame box reaches past its own art into a
+// neighbour on the sheet. That is how the birch went wrong: sliced 32×64 on
+// a 96px sheet, its frame took in the tip of the red tree from the band
+// below, the trimmed bounds ran to the frame's bottom, and the seat pass
+// stood the birch on the wrong tree's crown, 16px too high in its cell.
+function frameRowGap(img, fx, fy, fw, fh) {
+  let gap = 0, run = 0, seen = false;
+  for (let y = 0; y < fh; y++) {
+    const row = (fy + y) * img.w * 4;
+    let opaque = false;
+    for (let x = 0; x < fw && !opaque; x++) opaque = img.data[row + (fx + x) * 4 + 3] >= ALPHA_MIN;
+    if (opaque) { if (seen && run > gap) gap = run; run = 0; seen = true; }
+    else if (seen) run++;
+  }
+  return gap;
+}
+function sheetFrameRowGap(file, fw, fh, frameIdx) {
+  const img = loadPng(file);
+  const cols = Math.floor(img.w / fw);
+  const col = frameIdx % cols, row = Math.floor(frameIdx / cols);
+  return frameRowGap(img, col * fw, row * fh, fw, fh);
+}
+// A run of empty rows this long inside one frame is another sprite, not a
+// feature of this one (a flame lifting off its logs is a couple of rows).
+const MAX_ROW_GAP = 4;
+
 // Trim a sheet by (textureKey, frameIndex) using the sheet metadata table.
 function trimSheetFrame(file, fw, fh, frameIdx) {
   const img = loadPng(file);
@@ -136,9 +164,11 @@ const treeScale = treeCtx.treeScale;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
   trees:         { file: 'assets/Objects/Maple Tree.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
-  pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 64, frames: [3] },
-  birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 64, frames: [3] },
-  mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 64, frames: [3] },
+  // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
+  // band and picked up the tip of the red autumn tree (see assets.js).
+  pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 48, frames: [3] },
+  birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 48, frames: [3] },
+  mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 48, frames: [3] },
   bushes:        { file: 'assets/Objects/Wilderness/bushes.png',             fw: 48, fh: 32, frames: [0] },
   apple_tree:    { file: 'assets/Objects/Wilderness/Apple Tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5, 7] },
   peach_tree:    { file: 'assets/Objects/Wilderness/Peach Tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4, 5] },
@@ -196,6 +226,13 @@ function evaluate(s) {
              table.maxX !== fresh.maxX || table.maxY !== fresh.maxY ||
              table.fw !== sheet.fw || table.fh !== sheet.fh) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
+  }
+  // One frame, one piece of art: a gap of empty rows inside the frame means
+  // the slice reaches into a neighbouring sprite on the sheet (see frameRowGap).
+  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, s.frameIdx);
+  if (gap > MAX_ROW_GAP) {
+    violations.push(`frame holds two pieces of art (${gap} empty rows between opaque rows) — ` +
+      `the ${sheet.fw}×${sheet.fh} slice reaches into a neighbour on the sheet`);
   }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
