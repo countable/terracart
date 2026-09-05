@@ -771,6 +771,10 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.RENDER_SRC = readSrc('render.js');
+// multiplayer.js draws peers with the same feet-on-the-fix seating app.js
+// gives the local player; feet_anchor.test.js pins both as text.
+ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
+ctx.INTERACT_SRC = readSrc('interact.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');

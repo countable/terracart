@@ -202,6 +202,29 @@
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
 
+- **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
+  and every world layer (ground cells, the road band, the building polygons)
+  is drawn in that one frame with the fix at `viewCenter`. The player sprite
+  is seated so its visible feet land ON that point: `playerFeetNudgeY` (app.js
+  create()) is the NEGATIVE of the frame's feet drop, the sprite is drawn that
+  much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
+  shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
+  in `multiplayer.js` — sit on the point itself; anything that wants the
+  body's centre (the facing arrow, the dragon timer, the swing arc, the halo)
+  adds `playerFeetNudgeY` to it. **Until Sep 2026 the sprite was CENTRED on
+  the fix** and the feet hung 14px (3 m) south of it, with every ground mark
+  carrying its own +13/+14 to follow them down — so standing on a road's
+  centreline put the band through the character's waist and the whole map
+  read as shifted a body-length north of where you stood. If the map looks
+  offset from the feet along one axis, the seating has drifted; never fix it
+  by moving the projection or by re-adding a per-mark offset.
+  The road band's WIDTH is a different question: it is drawn at true scale
+  (`widthPxFor` = metres × CELL_PX / cellM) from the per-class guess table in
+  `WorldGen.roadWidthM` (the tiles carry no width tag), so a band that reads
+  too narrow or wide against the real street is that table's number to change.
+  **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`
+  pins the seating as source text (app.js can't load headlessly).
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
