@@ -317,6 +317,16 @@ const INTERACTABLES = {
         return true;
       }
       save.fruitPicked[o.id] = Date.now();
+      // A fruit tree's species IS the item it hands out, so it must be one.
+      // The starter provisioning once tamed the fruit tree nearest spawn into
+      // species 'pine' (home.js makeStarterUsable — fixed there), and 'pine'
+      // is not an item: the pick flashed "harvested pine" and Inventory.add
+      // dropped it on the floor. The source is fixed, but the bin objects a
+      // tile is rebuilt from are shared for the session and a stale cached
+      // home.js can still stamp them, so the tree repairs itself here: a
+      // species that is not a produce item reverts to apple, in place, so the
+      // pick, the flash and the shiny bonus all agree on one real fruit.
+      if (!ITEM_BY_ID[o.species] || ITEM_BY_ID[o.species].kind !== 'produce') o.species = 'apple';
       let n = randInt(1, 2);
       // Amulet luck: a chance at one bonus fruit (short-circuits before
       // Math.random() when luck is off, keeping the off-path identical).
