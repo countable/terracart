@@ -86,16 +86,23 @@ const ASSETS = {
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 32, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 32, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
-  // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
-  // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)
-  // holds separate ground decorations (snow piles / extra saplings). Slicing
-  // at 32×32 cut every tree in half — frame 4 showed canopy only, no trunk.
-  // Slicing 32×64 captures the WHOLE tree per column: Pine/Birch 256×96 → 8
-  // frames (cols 0–7), Mahogany 384×96 → 12 frames. Column index = growth
+  // tree is ~1.5 cells TALL (canopy + trunk + root base). The sheets are
+  // 96px tall: the top 48px are the standing tree, the bottom 48px hold
+  // separate ground decorations (snow piles / extra saplings / the autumn
+  // variants). Slicing at 32×32 cut every tree in half — frame 4 showed
+  // canopy only, no trunk. Slicing 32×48 captures the WHOLE tree per column
+  // (every standing tree's roots end by row 48 on all three sheets — see
+  // tools/sprite_audit.js) and NOTHING below it: Pine/Birch 256×96 → 8 frames
+  // (cols 0–7, row 0), Mahogany 384×96 → 12 frames. Column index = growth
   // stage; render.js uses col 3 (a full mature green tree on every sheet).
-  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 64 },
-  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 64 },
-  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 64 },
+  // These were sliced 32×64 until Sep 2026, and on the birch sheet the tip of
+  // the red autumn tree in the lower band rises to row 62 — inside the frame.
+  // The trimmed art bounds then ran to the frame's very bottom, so the seat
+  // pass took that tip for the trunk base: the birch sat 16px too high in its
+  // cell with a sliver of red foliage under its roots.
+  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 48 },
+  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 48 },
+  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 48 },
   // Fantasy Mushroom sheet (96x288) — declared as spritesheet so renderer can pick any single 32x32 mushroom.
   mushroom_world: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.

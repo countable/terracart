@@ -2701,10 +2701,11 @@ Render.drawObjects = function drawObjects(scene) {
              origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
-    // sheets sliced 32×64 (see assets.js) so the WHOLE tree — canopy + trunk
-    // + root base — fits in one frame. Column 3 is a full mature green tree
-    // on every species sheet. Origin sits a touch above the very bottom
-    // because the 64px frame includes a few px of empty space under the roots.
+    // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
+    // + root base — fits in one frame and nothing from the sheet's lower band
+    // leaks in under it. Column 3 is a full mature green tree on every
+    // species sheet. Origin is only the no-SpriteLayout fallback: the seat
+    // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
                 // Smallest crown tier renders as a bush, not a tree.
                 if (treeSizeClass(o) === 'bush') return 'bushes';
@@ -2754,7 +2755,7 @@ Render.drawObjects = function drawObjects(scene) {
               // cell's bottom edge (or centred when it fits) and the canopy
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
-              // the 32×64 pine/birch/mahogany root padding) and size classes.
+              // the 32×48 pine/birch/mahogany root padding) and size classes.
               seat: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
