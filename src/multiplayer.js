@@ -317,9 +317,13 @@ const Multiplayer = (function () {
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
       playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
+      // (dx, dy) is the peer's fix on screen, and their FEET stand on it —
+      // the sprite rises playerFeetNudgeY above it exactly like the local
+      // player's (app.js), the contact shadow sits on it, and the name tag
+      // floats a fixed gap over the head (23px above the sprite centre).
       p.spr.setPosition(p.dx, p.dy + scene.playerFeetNudgeY).setVisible(true);
-      p.sh.setPosition(p.dx, p.dy + 13).setVisible(true);
-      p.lbl.setPosition(p.dx, p.dy - 22).setVisible(true);
+      p.sh.setPosition(p.dx, p.dy - 1).setVisible(true);
+      p.lbl.setPosition(p.dx, p.dy + scene.playerFeetNudgeY - 23).setVisible(true);
     }
   }
 
