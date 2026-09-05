@@ -130,6 +130,7 @@ try {
 {
   const src = readSrc('app.js');
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      'WALK_HOME_SPEED_MUL',
                       // The walk-home behaviour tests below drive the REAL
                       // _driftHome, so they need the numbers it reads: walking
                       // pace, and the gap past which a return is placed rather
@@ -177,11 +178,14 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {']
+  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {',
+                   // The stick's countdown to that walk — same gates, so it's
+                   // tested against the same stub scene.
+                   '_walkHomeCountdownS() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
-  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM']) {
+  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
