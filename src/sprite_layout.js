@@ -43,12 +43,10 @@
     'apple_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 29, maxY: 48 },
     'apple_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'apple_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
-    'apple_tree:7':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'peach_tree:0':    { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
     'peach_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 28, maxY: 48 },
     'peach_tree:3':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'peach_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
-    'peach_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'chest:0':         { fw: 32, fh: 32, minX: 1,  minY: 8,  maxX: 32, maxY: 31 },
     'box:0':           { fw: 16, fh: 16, minX: 0,  minY: 0,  maxX: 16, maxY: 16 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1,  minY: 5,  maxX: 16, maxY: 15 },
@@ -84,6 +82,42 @@
     const artMidX = (box.minX + box.maxX) / 2 - originX * box.fw;
     const dxPx = -artMidX * scaleX;
     return { dxPx, dyPx, fits };
+  }
+
+  // ── Fruit-tree crowns ────────────────────────────────────────────────────
+  // A fruit tree that is BEARING wears the fruit as its own little sprite on
+  // the canopy (render.js's fruit pass) rather than the tree swapping to its
+  // sheet's fruiting frame — so a pick takes the fruit away, it doesn't change
+  // the tree.
+  //
+  // That overlay has to sit on the LEAFY MASS, and the leafy mass is not the
+  // art's full bounds: those run on down through the trunk to the root base,
+  // and their midline lands on bare bark. CROWN_BOUNDS is the canopy box of
+  // the mature frame each species renders — the rows above where the leaves
+  // give out and the trunk begins.
+  // GENERATED — `node tools/sprite_audit.js --emit-bounds` prints it beneath
+  // ART_BOUNDS; the audit re-derives it from the real PNGs (canopy = down to
+  // the first row past the widest whose span drops under half that width) and
+  // fails if this table has drifted from the art.
+  const CROWN_BOUNDS = {
+    'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 34 },
+    'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
+  };
+
+  // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
+  // the seat pass put it) to the centre of its crown, which is where the fruit
+  // goes. Derived from the art the tree is actually drawing and the origin /
+  // scale it drew at, so a re-seated, re-scaled or re-framed tree carries its
+  // fruit with it instead of leaving it behind at a hand-picked offset.
+  // Returns null for a frame with no crown box — a sprout or a young tree
+  // can't be bearing, so it never needs one.
+  function fruitCrownOffset(texKey, frame, originX, originY, scaleX, scaleY) {
+    const c = CROWN_BOUNDS[`${texKey}:${frame}`];
+    if (!c) return null;
+    return {
+      dxPx: ((c.minX + c.maxX) / 2 - originX * c.fw) * scaleX,
+      dyPx: ((c.minY + c.maxY) / 2 - originY * c.fh) * scaleY,
+    };
   }
 
   // ── Creatures ────────────────────────────────────────────────────────────
@@ -209,6 +243,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
+    CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     creatureFoot, creatureWheelDy, creatureHealthBarTop,
