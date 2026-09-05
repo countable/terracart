@@ -64,6 +64,16 @@ const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
+// Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
+// buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
+// capped at DEBUG_SPEED_MUL, so a small gap is closed at a stroll and a big one
+// at a run. It was one CELL (7 m) per ×, which put full speed 63 m out — most
+// of GPS_SNAP_M, so an ordinary walking fix landing 20-30 m ahead was chased at
+// half pace and the character spent the whole gap visibly behind the player.
+// 4 m per × reaches the cap at 36 m instead, which is inside the range a real
+// fix actually lands at. Not a cell multiple on purpose: this measures GPS lag,
+// which has nothing to do with the grid.
+const FOLLOW_RAMP_M = 4;
 // ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
 // How far the camera may slide off the player, in cells. Three cells is a
 // little over half the 5.5-cell half-view: enough to see what the frame was
@@ -7771,7 +7781,9 @@ class MapScene extends Phaser.Scene {
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
     // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
-    // big jump still reads as travel rather than a warp.
+    // big jump still reads as travel rather than a warp. One extra × per
+    // FOLLOW_RAMP_M of gap — see that constant for why the rate is what it is.
+    // `move` is clamped to `dist` besides, so no ramp can overshoot the target.
     //
     // While the STICK is held, floor it at the player's own stick speed: you
     // can never outrun your own legs. Without this the body settles
@@ -7784,7 +7796,7 @@ class MapScene extends Phaser.Scene {
     // the floor would silently cancel it.
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
-                         Math.max(stickMul, 1 + dist / this.cellM));
+                         Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
