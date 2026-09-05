@@ -3615,19 +3615,12 @@
         // poiClass drives loot / tier / label / coin-burst via loot.js + the
         // render/interact chest paths.
         //
-        // Area-derived sidecar POIs (way centroids: pitches, playgrounds,
-        // gardens, pools) usually describe the SAME real-world feature the MVT
-        // poi layer already spawned a chest for — but the two pipelines snap on
-        // different bases (MVT label point + placement offset vs Overpass way
-        // centroid on the global 5 m grid), so the same field's two chests land
-        // several metres apart and the cell-occupancy check can't catch them
-        // (this is what duplicated the Children's Yard / Tourney Grounds
-        // chests). Skip the sidecar copy when a same-class chest already sits
-        // within ~25 m — point-furniture classes (bus stops, signals, …) keep
-        // the cell-only dedupe, since two distinct real stops can legitimately
-        // sit ~15 m apart.
-        const SX_AREA_POI = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
-        const AREA_DUP_R2 = 25 * 25;
+        // One real-world place, one chest. Two sidecar chests of the same class
+        // within a short distance describe the same thing — see isDupPoiChest
+        // for the two radii and the two bugs behind them — so the later copy is
+        // skipped. Checked against entry.objects as it grows, so the rule
+        // covers MVT chests already on the tile AND the sidecar chests
+        // injected just before this one.
         // A chest outranks SCENERY on its cell, not just later injections: the
         // occupied set is seeded from everything rasterizeTile placed, so a
         // bus stop / crossing whose cell happened to hold a rasterized rock,
@@ -3651,10 +3644,7 @@
         for (const ch of (bin.chests || [])) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           if (!_sxYardOK(ch.x, ch.y)) continue;
-          if (SX_AREA_POI.has(ch.poiClass) && entry.objects.some((o) =>
-                o.kind === 'chest' && o.poiClass === ch.poiClass &&
-                (o.x - ch.x) * (o.x - ch.x) + (o.y - ch.y) * (o.y - ch.y) <= AREA_DUP_R2))
-            continue;
+          if (isDupPoiChest(entry.objects, ch)) continue;
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k) && !evictSceneryAt(k)) continue;
           occupied.add(k);
@@ -4122,6 +4112,45 @@
     return { trees: [], fruittrees: [], shrubs: [], poles: [],
              wells: [], chests: [], parking: [] };
   }
+  // ── POI chest dedupe: one real-world place, one chest ─────────────────────
+  // Two chests of the same class this close together are the same place, and
+  // only the first is kept. Two radii, for two ways OSM hands us the same
+  // thing twice:
+  //   AREA (pitches, playgrounds, gardens, pools): the MVT poi layer and the
+  //   Overpass sidecar both carry the field, but snap on different bases (MVT
+  //   label point + placement offset vs the way centroid on the global 5 m
+  //   grid), so the one field's two chests land several metres apart — this is
+  //   what duplicated the Children's Yard / Tourney Grounds chests.
+  //   POINT (crossings, signals, stops, bus stops, bike racks, …): OSM maps ONE
+  //   crossing as a node per carriageway and turn lane it crosses — Gordon Dr
+  //   at KLO Rd is six highway=crossing nodes inside 8 m — and a bank of bike
+  //   lockers as a node per locker 2 m apart. Each node became its own chest,
+  //   and at 5 m cells they sat in adjacent cells: "duplicated side by side".
+  //   The cell-only occupancy check can never see that.
+  // The point radius stays UNDER the ~15 m that separates two genuinely
+  // distinct stops (a bus stop on each side of the street), which must both
+  // survive. The 4 legs of an intersection (15–25 m apart) are also kept: they
+  // are different crossings, and a bigger radius would eat the far stop too.
+  const POI_DUP_AREA_M  = 25;
+  const POI_DUP_POINT_M = 12;
+  const POI_AREA_CLASSES = new Set(['pitch', 'playground', 'garden', 'swimming_pool']);
+  function poiDupRadiusM(poiClass) {
+    return POI_AREA_CLASSES.has(poiClass) ? POI_DUP_AREA_M : POI_DUP_POINT_M;
+  }
+  // Does `objects` already hold a chest of ch's class within its radius?
+  // Same class only — a signal post beside a crossing is two places.
+  function isDupPoiChest(objects, ch) {
+    const r = poiDupRadiusM(ch.poiClass);
+    const r2 = r * r;
+    for (let i = 0; i < objects.length; i++) {
+      const o = objects[i];
+      if (o.kind !== 'chest' || o.poiClass !== ch.poiClass) continue;
+      const dx = o.x - ch.x, dy = o.y - ch.y;
+      if (dx * dx + dy * dy <= r2) return true;
+    }
+    return false;
+  }
+
   // Inverse slippy-map: z14 tile index → lon/lat of its NW corner.
   function tileLon(xt) { return xt / (1 << Z) * 360 - 180; }
   function tileLat(yt) {
@@ -4781,6 +4810,9 @@
     // tile being rebuilt in place is excluded from its own dedup index (the
     // bug that stripped every house sprite off rebuilt tiles).
     collectDedupIndex,
+    // POI chest dedupe (one place, one chest) — exported so the headless tests
+    // can pin the radii against the real Gordon-at-KLO crossing cluster.
+    isDupPoiChest, poiDupRadiusM, POI_DUP_AREA_M, POI_DUP_POINT_M,
     erodePavementBlobs,
     // Road/path rasterization — exported for the headless tests, which pin the
     // "a vertex paints the cell that contains it" rule (no half-cell bias).
