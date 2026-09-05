@@ -1397,7 +1397,10 @@ const TAP_HANDLERS = [
       // Cave walls take the shared BASE table (interactables.js
       // plainRockBaseDrop) — no ring/amulet luck applied, unlike the
       // mineralrock isPlain branch, which layers its own luck on top.
-      const qty = plainRockBaseDrop(scene);
+      // `stones` is null deliberately: a wall face draws no rock sprite, so it
+      // promises no particular number of stones and keeps the flat randInt(1,3)
+      // rather than inheriting a rock variant's count.
+      const qty = plainRockBaseDrop(scene, null);
       persistSave(save);
       const item = ITEM_BY_ID['rockfruit'];
       scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');

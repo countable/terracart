@@ -402,14 +402,25 @@ const DEBUG_SPEED_MUL = 10;
 //
 // HOME is the player's own block, which they are not discovering: the tutorial
 // pocket _placeStarterTrail clears and curates (CLEAR_R = HomeArea.POCKET_CELLS)
-// AND the near half of the starter ring seated just outside it, so the trees
-// and rocks ringing the opening screen are lit rather than sitting under the
-// wash. It stays 10 even though the pocket is now 5 for exactly that reason —
-// a reveal cut back to the pocket would re-fog the ring. TRAIL is the margin
-// around each crate and the relic chest, wide enough that a crate reads as
-// sitting on ground rather than punched out of the dark, and narrow enough
-// that the map still opens up by being walked rather than by spawning.
-const HOME_REVEAL_CELLS = 10;
+// AND the first ring of scenery seated just outside it, so the trees and rocks
+// ringing the opening screen are lit rather than sitting under the wash.
+//
+// It is ONE CELL PAST WHAT THE PLAYER CAN SEE, and that is the whole rule:
+// the viewport is VIEW_CELLS (11) across with the player in the middle, so
+// sight reaches 5 cells and the fog starts at 6 — visible at the corners of
+// the opening screen, a step away on every axis. Derived from VIEW_CELLS, not
+// picked: floor(VIEW_CELLS / 2) + 1, kept as a literal only because the node
+// harness lifts these constants out of the source text (test/node/run.js).
+// It was 10 until Sep 2026 — nearly two screens of free map, so a new save
+// opened with no fog anywhere in frame and the feature only announced itself
+// several streets from home. Anything BELOW 6 is the other bug: the reveal
+// stops short of the rendered frame and the player spawns inside a ring of
+// wash around their own house (both bounds are pinned in fog.test.js).
+// TRAIL is the margin around each crate and the relic chest, wide enough that
+// a crate reads as sitting on ground rather than punched out of the dark, and
+// narrow enough that the map still opens up by being walked rather than by
+// spawning — it is what carries the sightline chain now that HOME does not.
+const HOME_REVEAL_CELLS = 6;
 const TRAIL_REVEAL_CELLS = 5;
 // How close a road or path has to pass to the starting anchor for the supply
 // crates to be laid along its shoulder instead of spread down the walk to the
@@ -421,6 +432,22 @@ const TRAIL_REVEAL_CELLS = 5;
 const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
+//
+// The dots were round and 3px, dropped dead on the body's centreline — one
+// track of pebbles, which read as a dotted line rather than as somebody having
+// walked past. These four numbers turn them into prints: smaller, oval, laid
+// along the step, and alternating either side of the line of travel like a
+// real pair of feet.
+//
+// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
+// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
+// the midline. Scaled by playerScale at draw time, that is where the sprite's
+// own feet are, so a print lands under the foot that made it.
+const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
+const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
+const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
+const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -1519,6 +1546,7 @@ class MapScene extends Phaser.Scene {
     // ramparts); every other world object shares objectPool.
     this.towerPool = [];
     this.castleFlagPool = [];   // the claimed-castle banner, one per castle
+    this.fruitPool = [];        // ripe fruit worn on a bearing fruit tree's crown (render.js)
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -1969,11 +1997,13 @@ class MapScene extends Phaser.Scene {
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
     this._nextSwingT = 0;              // performance.now() ms the next swing may fire
-    // Footprint trail — small 50% grey dots dropped as the player moves, each
-    // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
+    // Footprint trail — small dark ovals dropped as the player moves, laid
+    // along the step and alternating left/right foot (see _fillFootprint),
+    // each fading 20% per new drop so ~5 are visible. Under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
-    this.footprints = [];               // [{ x, y, alpha }, …] in world meters
+    this.footprints = [];               // [{ x, y, alpha, ux, uy, side }, …], world metres
     this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+    this._footSide = 1;                 // flipped on each drop: left, right, left…
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -4794,6 +4824,33 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // One footprint: a slight oval, long axis along the step that made it,
+  // sitting under the foot that made it rather than on the body's centreline.
+  // The lateral shift is the sprite's own half-stance (see
+  // FOOT_STANCE_HALF_ART_PX) taken perpendicular to the step and signed by
+  // fp.side, so consecutive prints fall either side of the line of travel and
+  // the pair straddles it — this is NOT a feet offset of the kind the ground
+  // marks used to carry (see feet_anchor.test.js): the two sides cancel, and
+  // the track's centreline is still the point the body walked through.
+  //
+  // Graphics has no rotated-ellipse fill, so the oval is a polygon — 14 points
+  // is smooth at this size (a 4px-wide shape), and cheap: at most 5 prints are
+  // alive at once.
+  _fillFootprint(g, cx, cy, fp) {
+    const { ux, uy } = fp;                  // every print carries its step
+    const px = -uy, py = ux;                // perpendicular to it
+    const off = FOOT_STANCE_HALF_ART_PX * this.playerScale * fp.side;
+    const ox = cx + px * off, oy = cy + py * off;
+    const pts = [];
+    const N = 14;
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * Math.PI * 2;
+      const a = Math.cos(t) * FOOT_DOT_LONG, b = Math.sin(t) * FOOT_DOT_ACROSS;
+      pts.push({ x: ox + ux * a + px * b, y: oy + uy * a + py * b });
+    }
+    g.fillPoints(pts, true);
+  }
+
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
   // world-space target. Three callers share it — the pairy chest compass, the
   // delivery waypoint, and the starter-crate trail — so the ring geometry
@@ -5253,7 +5310,18 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.8;
-        this.footprints.push({ x: bodyM.x, y: bodyM.y, alpha: 0.45 });
+        // Freeze the STEP onto the print: which way it went (unit vector —
+        // world axes are the screen's, so this is also its screen direction)
+        // and which foot made it, alternating. Both are recorded at drop time
+        // rather than read from the player each frame, because a print is a
+        // mark left in the ground: turning around must not swivel the ones
+        // already behind you.
+        const n = Math.hypot(dx, dy) || 1;
+        this._footSide = -(this._footSide || 1);
+        this.footprints.push({
+          x: bodyM.x, y: bodyM.y, alpha: 0.45,
+          ux: dx / n, uy: dy / n, side: this._footSide,
+        });
         // Cap at 5 so the trail stays short — the 20%/step fade alone would
         // keep ~11 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
@@ -5271,7 +5339,7 @@ class MapScene extends Phaser.Scene {
         // the contact shadow sits on.
         const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
+        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
       }
     }
 
@@ -9241,7 +9309,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
+    // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
@@ -9764,14 +9832,15 @@ class MapScene extends Phaser.Scene {
   // 0-based position of this house among restored residential (delivery)
   // houses, in restore order; -1 if it isn't a (restored) delivery house.
   // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
-  // the Nth-restored delivery house. Drives the scripted early wishlists
-  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
+  // the Nth-restored delivery house. Drives the scripted opening ladder in
+  // delivery.js (five single-item asks, then the starter pair, then the
+  // foraged-flower trio) and the TIER-1 pin on the early houses.
   deliveryHouseOrder(house) {
     return Delivery.houseOrder(this.save, house);
   }
 
-  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
-  // produce wishlists (see wantedProduce).
+  // True for the first Delivery.EARLY_HOUSES RESTORED delivery houses — they get
+  // pinned to TIER-1 produce wishlists (see wantedProduce).
   isEarlyDeliveryHouse(house) {
     return Delivery.isEarly(this.save, house);
   }
@@ -10021,8 +10090,10 @@ class MapScene extends Phaser.Scene {
     return Delivery.produceTier(id);
   }
 
-  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
+  // 1-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
   // cached on the house per day so the render sign and interact handler agree).
+  // The first restored houses walk delivery.js's scripted ladder, which opens
+  // with five single-item asks before any bundle.
   wantedProduce(house) {
     return Delivery.wantedProduce(this.save, house);
   }
@@ -10034,12 +10105,18 @@ class MapScene extends Phaser.Scene {
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 2-3 wanted produce, delivered together. Tap with the full set in
+  // their 1-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
   // sellMul, no specialty bonus); the quantity selector lets you turn in
   // multiple complete sets at once. Tap without the full set → flash the
-  // wanted icons so the player can see what to gather. Selling a single item
-  // type isn't accepted here; that keeps plain houses distinct from markets.
+  // wanted icons so the player can see what to gather. Selling a produce the
+  // house didn't ask for isn't accepted here; that keeps plain houses distinct
+  // from markets.
+  //
+  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
+  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
+  // drops the set wording (and the "sets" stepper unit) in that case, so the
+  // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed today — the household is happy and won't take another
     // bundle until tomorrow. They'll want a fresh one on the next day.
@@ -10049,6 +10126,7 @@ class MapScene extends Phaser.Scene {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    const single = wanted.length === 1;
     const invCount = (id) => {
       const s = (this.save.inv || []).find(e => e && e.id === id);
       return s ? (s.count ?? 0) : 0;
@@ -10059,7 +10137,7 @@ class MapScene extends Phaser.Scene {
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
-      this.flash(`wants the set: ${names}`, sx, sy);
+      this.flash(single ? `wants: ${names}` : `wants the set: ${names}`, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price, plus a
@@ -10072,13 +10150,15 @@ class MapScene extends Phaser.Scene {
     const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
-      cost: `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
+      cost: single
+        ? `${q} × [ ${setIcons} ${setNames} ]`
+        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
       canAfford: true,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'delivery',
-      title: 'The household wants the full set:',
+      title: single ? 'The household wants:' : 'The household wants the full set:',
       cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
@@ -10089,7 +10169,10 @@ class MapScene extends Phaser.Scene {
         // Re-validate against live bags so a stale modal can't over-deliver.
         const sets = Math.max(1, Math.min(q ?? 1,
           wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) { this.flash('Set incomplete now.', sx, sy); return; }
+        if (!sets || sets === Infinity) {
+          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+          return;
+        }
         for (const id of wanted) {
           const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
           if (idx < 0) continue;
@@ -11681,6 +11764,12 @@ class MapScene extends Phaser.Scene {
       #move-pad .nub {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
         width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        /* border-box because HALF is derived as (PAD - NUB) / 2 — that only
+           centres the cap in the well if NUB is the cap's OUTER size. Under
+           content-box the 2px rim pushed the cap 2px down-and-right of the
+           well's centre (and 2px past the rim at full deflection), which is
+           what left the countdown digit below looking off-centre on it. */
+        box-sizing: border-box;
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
@@ -11721,17 +11810,23 @@ class MapScene extends Phaser.Scene {
           0 0 12px rgba(255,224,102,0.6);
       }
       /* Walk-home countdown: the seconds until the character heads back to
-         the GPS, stamped on the resting cap. Dark on the brass so it reads
-         against the cap's highlight, with a pale halo so the digit holds up on
-         the darker rim of the dome. Hidden while the stick is held (the cap
-         is under a thumb, and there is nothing to count down to). */
+         the GPS, stamped on the resting cap. Gold, because it is a readout of
+         a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
+         box is the cap's box exactly (same left/top/size, and the cap is
+         border-box above), so the digit centres on the cap rather than near
+         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         glyph evenly, so the gold holds up over the cap's bright highlight and
+         its darker rim alike without reading as lit from one side. Hidden
+         while the stick is held (the cap is under a thumb, and there is
+         nothing to count down to). */
       #move-pad .countdown {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
+        box-sizing: border-box;
         width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
         text-align: center; pointer-events: none;
-        font: ${fontMono(`700 22px/${NUB}px`)};
-        color: rgba(66,48,12,0.95);
-        text-shadow: 0 0 3px rgba(255,247,203,0.9), 0 1px 0 rgba(255,247,203,0.6);
+        font: ${fontMono(`700 18px/${NUB}px`)};
+        color: ${UI_GOLD};
+        text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
         display: none;
       }
       #move-pad .countdown.on { display: block; }
