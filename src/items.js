@@ -612,13 +612,13 @@ const PLAY_TIPS = [
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are Markets, stocked with produce. Endings 1 and 8 are Traders, who barter only.',
+  'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
   'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
   'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
   'Castles deal only in relics — and never run out of stock.',
   // ── Progression gates ─────────────────────────────────────
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a market, trader or smithy.',
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
   'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
   'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',

@@ -3432,7 +3432,7 @@ Render.drawObjects = function drawObjects(scene) {
   }
   hidePoolFrom(scene.chestLabelPool, li);
 
-  // Specialty-shop labels above small-house shops (markets / blacksmiths /
+  // Specialty-shop labels above small-house shops (produce shops / blacksmiths /
   // traders). Plain coloured glyphs with a dark stroke + hard drop shadow —
   // no background plank — so the lettering floats over the building art.
   // Lettering colour comes from Shops.shopInk so each shop type's signage
@@ -3443,12 +3443,16 @@ Render.drawObjects = function drawObjects(scene) {
   // should still spot their base across the map. Shops.shopLabel() returns
   // null for non-shopType houses, so we wrap it here so the renderer can
   // also handle the starter case without changing the Shops module.
-  // Display labels for the role-keyed shop signs. Restore-order roles no longer
-  // track the street address, so the label comes from the role rather than
-  // Shops.shopLabel (which is address-derived and would mislabel them).
-  const _ROLE_LABEL = {
-    blacksmith: 'Blacksmith', trader: 'Trader', market: 'Market', wizard: 'Wizard',
-  };
+  // Display labels for the role-keyed shop signs come from Shops.roleLabel —
+  // the one table app.js's restoration card and offer titles read too, so the
+  // sign over a shop and the words inside its modal can't drift apart. NOT
+  // Shops.shopLabel (deleted): that was address-derived, and restore-order
+  // roles no longer track the street address, so it would mislabel them.
+  //
+  // The produce shop's sign follows its STOCK: the tutorial's first one carries
+  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel).
+  const _roleLabel = (role, o) => Shops.roleLabel(role,
+    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o));
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
@@ -3463,8 +3467,9 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Frozen restore-order shop role (blacksmith / trader / market / wizard).
     const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-    if (role && _ROLE_LABEL[role]) {
-      return `${_ROLE_LABEL[role]} ${Shops.toRoman((o.address ?? 0) + 1)}`;
+    const label = role ? _roleLabel(role, o) : null;
+    if (label) {
+      return `${label} ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
     // No specialty? Still give the building a label so the map reads as a
     // populated street instead of rows of anonymous huts. Roman-numeral
