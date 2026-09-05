@@ -1516,12 +1516,14 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
   scene.save.restoredHouses[house.id] = true;
   teleport(scene, house.x, house.y - 2);
   const shopMul = 1;   // home shop has no specialty bonus
-  const expected = Math.max(1, Math.ceil(PRICES.potato * sellMultiplier(scene.save.relics) * shopMul));
+  // The trailer pays the sword-scaled price less its 25% haircut
+  // (trailerSellPrice / TRAILER_SELL_MUL, items.js).
+  const expected = trailerSellPrice(PRICES.potato * shopMul, scene.save.relics);
   scene.shopInteract(0, 0, house);
   const modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'sell modal opened');
   assert.truthy(modal.innerHTML.includes(`+$${expected}`),
-    `sells potato at $${expected} with T7 sword (mul=1.0, shopMul=${shopMul})`);
+    `sells potato at $${expected} with T7 sword (mul=1.0 × 0.75 trailer, shopMul=${shopMul})`);
   document.getElementById('offer-modal')?.remove();
 });
 

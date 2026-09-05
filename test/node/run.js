@@ -88,6 +88,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
+  TRAILER_SELL_MUL,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,

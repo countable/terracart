@@ -626,7 +626,7 @@ const PLAY_TIPS = [
   'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
+  'A Sword raises your sell price — a Frost sword doubles what the trailer pays for a haul.',
   'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
   'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
   'Arrows fly where the compass points, not at what you tap. Turn to aim.',
@@ -1038,6 +1038,27 @@ function steerEnergyCost(relics) {
 function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
+}
+// The TRAILER (home) is the only place a haul can be cashed out, so what it
+// pays IS the sell economy — a haul is worth exactly what home hands over.
+// That payout is a 25% haircut off the sword-scaled price: the sword ladder
+// above still governs how much better selling gets as the player levels, this
+// only sets where the whole ladder sits. It is deliberately a separate number
+// from sellMultiplier so the stand's anti-arbitrage floor (shops_math.js
+// standBuyMul, which prices off sellMultiplier) is unaffected — a smaller
+// trailer payout only widens the margin that keeps buy-low-sell-high shut,
+// never narrows it.
+// One number, one place: every home sale goes through trailerSellPrice, so the
+// price the modal quotes and the cash addMoney pays can't drift apart.
+const TRAILER_SELL_MUL = 0.75;
+function trailerSellMultiplier(relics) {
+  return sellMultiplier(relics) * TRAILER_SELL_MUL;
+}
+// Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
+// a $1 floor, same as every other price path — so a $1 item still sells for $1
+// and the haircut only bites above the floor.
+function trailerSellPrice(baseValue, relics) {
+  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
 }
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a

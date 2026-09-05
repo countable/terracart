@@ -9386,11 +9386,13 @@ class MapScene extends Phaser.Scene {
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
+      // the price from half (no sword) up to full base value at tier 7, and
+      // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js).
       // No shop specialty bonus at home — it's a private sale, not a
       // shopkeep's bid.
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const unitPrice = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const unitPrice = (typeof trailerSellPrice === 'function')
+        ? trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics)
+        : Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * 0.5 * 0.75));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       const maxQty = Math.max(1, sel.count | 0);
