@@ -382,7 +382,9 @@
       return;
     }
 
-    const pc = scene.playerToWorldCell();
+    // Camera anchor, not the body — a peek drag slides these footprints with
+    // the ground they're painted on (coords.js viewAnchorCell).
+    const pc = viewAnchorCell(scene);
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
     const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
@@ -436,8 +438,9 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = fillTarget(scene);
     g.clear();
-    const pWorldX = scene.startWorldM.x + scene.playerM.x;
-    const pWorldY = scene.startWorldM.y + scene.playerM.y;
+    const _a = viewAnchorWorldM(scene);
+    const pWorldX = _a.x;
+    const pWorldY = _a.y;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with.
     const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;

@@ -10,6 +10,9 @@
 //   worldMetersToAbsCell(scene, wmx, wmy)    — { cellIX, cellIY }
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
 //   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
+//   peekM(scene)                             — the peek-drag camera offset
+//   viewAnchorWorldM(scene)                  — world point the viewport centres on
+//   viewAnchorCell(scene)                    — that point's { tx, ty, cx, cy }
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
 
@@ -52,6 +55,51 @@ function sameAbsCell(scene, ax, ay, bx, by) {
   const a = worldMetersToAbsCell(scene, ax, ay);
   const b = worldMetersToAbsCell(scene, bx, by);
   return a.cellIX === b.cellIX && a.cellIY === b.cellIY;
+}
+
+// ─── The CAMERA ANCHOR ───────────────────────────────────────────────────────
+// The camera normally sits on the player: every world→screen projection in
+// render.js and the two geometry overlays measures from the player's world
+// position, which is why the character is drawn at the dead centre of the
+// viewport and never moves.
+//
+// A PEEK DRAG (app.js `_peek*`) slides the camera off the player for a moment
+// so you can look at the ground just past the edge of the map. It is a CAMERA
+// offset and nothing else: `playerM` is untouched, so reach, tap gates, fog
+// reveal, tile loading and every other gameplay test still measure from the
+// body. The rule is therefore: anything that asks "where do I DRAW this?"
+// measures from the anchor below, and anything that asks "where IS the player?"
+// keeps using playerM / playerToWorldCell().
+//
+// scene.peekM is optional — a stub scene in the headless tests won't have it,
+// and then the anchor collapses to the player exactly as before.
+const _NO_PEEK = { x: 0, y: 0 };
+function peekM(scene) {
+  return scene.peekM || _NO_PEEK;
+}
+
+// The world point (metres, same frame as an object's x/y) the viewport centres
+// on. worldMetersToScreen / screenToWorldMeters are both defined against it.
+function viewAnchorWorldM(scene) {
+  const p = peekM(scene);
+  return {
+    x: scene.startWorldM.x + scene.playerM.x + p.x,
+    y: scene.startWorldM.y + scene.playerM.y + p.y,
+  };
+}
+
+// The anchor's tile + intra-tile cell address — the origin of the drawn window.
+// Same shape as scene.playerToWorldCell() (which is this with no peek), so a
+// pass can swap one for the other and keep its fracX/fracY / baseCellI* maths.
+function viewAnchorCell(scene) {
+  const p = peekM(scene);
+  const wx = scene.originPx.x + (scene.playerM.x + p.x) / scene.mPerPx;
+  const wy = scene.originPx.y + (scene.playerM.y + p.y) / scene.mPerPx;
+  const tilePx = WorldGen.TILE_PX;
+  const tx = Math.floor(wx / tilePx);
+  const ty = Math.floor(wy / tilePx);
+  const cps = tilePx / scene.cellsPerTile;
+  return { tx, ty, cx: (wx - tx * tilePx) / cps, cy: (wy - ty * tilePx) / cps };
 }
 
 // Player's "reach origin" — the absolute cell the visual reach silhouette

@@ -969,11 +969,12 @@
       const reposition = () => {
         const data = scene._sandboxLabelData;
         if (!data) return;
-        const pWX = scene.startWorldM.x + scene.playerM.x;
-        const pWY = scene.startWorldM.y + scene.playerM.y;
+        // Camera anchor, so the labels ride the ground under a peek drag the
+        // same way the sprites they name do (coords.js viewAnchorWorldM).
+        const a = viewAnchorWorldM(scene);
         const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
         for (const d of data) {
-          const dx = d.wx - pWX, dy = d.wy - pWY;
+          const dx = d.wx - a.x, dy = d.wy - a.y;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) { d.t.setVisible(false); continue; }
           const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
           const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;

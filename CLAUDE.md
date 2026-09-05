@@ -46,6 +46,27 @@
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
 
+- **The camera is not the player.** Since the peek drag (drag the map to look a
+  few cells past the edge; it springs back on release), the viewport centres on
+  a CAMERA ANCHOR — the player plus `scene.peekM`. The split is absolute:
+  anything asking **"where do I DRAW this?"** goes through
+  **`coords.js` › `viewAnchorWorldM` / `viewAnchorCell`** (or `worldMetersToScreen`
+  / `screenToWorldMeters` / `cellScreenXY`, which already do), and anything
+  asking **"where IS the player?"** keeps using `playerM` / `playerToWorldCell()`
+  — reach, every tap gate, fog reveal, tile loading, the 3×3 tile scans. Mixing
+  them is the bug in both directions: a draw pass left on the body tears that
+  layer off the ground under a peek (the road bands, the building footprints and
+  the reach glow each had to be re-anchored), and a gameplay test moved onto the
+  anchor would let a peek reach three cells further than the arm does.
+  Anything drawn AT the player rather than at a world position — the sprite, its
+  shadow, halo, facing arrow, sword swing — reads `scene.playerScreen()`, never
+  `viewCenterX/Y`. **When you add a world-drawn layer, anchor it; when you add a
+  reach or gate test, don't.**
+  **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
+  lifted shipping code: the projection round-trip under a peek, that a tap lands
+  in the cell it was drawn over, that reach is unmoved by the camera, and that a
+  pointer which dragged taps nothing.
+
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
   `src/render.js` › drawObjects (a sprite in a lower screen row always draws

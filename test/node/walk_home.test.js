@@ -117,6 +117,9 @@ function walkHomeScene(awayM, opts = {}) {
     targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
+    // A warp snaps the peek camera home; this scene never peeks (no peekM), so
+    // the real method early-outs — it just has to be here to be called.
+    clearPeek: __walkHome.clearPeek,
   };
 }
 const drift = (scene, dt = 1 / 60) => __walkHome._driftHome.call(scene, dt);

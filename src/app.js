@@ -64,6 +64,20 @@ const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 const WALK_M_S = 1.4;
+// ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
+// How far the camera may slide off the player, in cells. Three cells is a
+// little over half the 5.5-cell half-view: enough to see what the frame was
+// cutting off without the character leaving the map, and far inside the loaded
+// 3×3 tile neighbourhood every world pass scans.
+const PEEK_MAX_CELLS = 3;
+// Screen pixels a pointer must travel before it stops being a tap and becomes a
+// drag. Below this a finger that rolled a little on the way down still taps the
+// thing it landed on; above it nothing is tapped, however the drag ends.
+const PEEK_DRAG_SLOP_PX = 8;
+// Spring-back time constant once the finger lifts. An exponential ease, so this
+// is the 1/e time rather than a duration — the camera is home (sub-pixel) in
+// about 3× this.
+const PEEK_RETURN_MS = 90;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -1070,6 +1084,11 @@ class MapScene extends Phaser.Scene {
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
+    // Camera offset from the player, in metres — non-zero only while a peek
+    // drag is live or springing back. Set up here, with the rest of the view,
+    // so it exists before anything can draw; the drag that moves it and the
+    // rules it obeys are in the PEEK DRAG block further down.
+    this.peekM = { x: 0, y: 0 };
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -1982,12 +2001,56 @@ class MapScene extends Phaser.Scene {
     this._fastWalk = false;
     this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
 
-    // World tap (player handler runs first and stops propagation). Ping mode
-    // (multiplayer.js — "tap 📍, then tap the map") takes the tap first.
+    // World tap + PEEK DRAG. One pointer does both, and which one it was is
+    // only known when it lifts: a pointer that never travelled PEEK_DRAG_SLOP_PX
+    // is a tap and fires on the up (it used to fire on the down — the few ms
+    // between the two is not something a hand can feel, and it is the whole
+    // price of being able to drag). A pointer that DID travel drags the camera
+    // and taps nothing: you cannot chop a tree by sliding the map off it.
+    //
+    // Ping mode (multiplayer.js — "tap 📍, then tap the map") still takes the
+    // tap first, on the tap path only — a drag isn't a ping either.
+    this._peekPointerId = null;        // the one pointer that owns the drag
+    this._peekDragging = false;        // past the slop — this is a drag, not a tap
+    this._peekReturning = false;       // finger's gone, camera easing home
     this.input.on('pointerdown', (p) => {
+      // Second finger down mid-drag is left alone: the drag keeps the pointer
+      // it started with, and a pinch never becomes a tap. But only while that
+      // pointer is REALLY still down — a touch whose release never reached
+      // Phaser (the stuck-touch case the sweeper below exists for) would
+      // otherwise own the map forever and swallow every tap after it.
+      if (this._peekPointerId !== null && this._peekPointer?.isDown) return;
+      this._peekPointer = p;
+      this._peekPointerId = p.id;
+      this._peekDownX = p.x;
+      this._peekDownY = p.y;
+      this._peekDragging = false;
+      this._peekReturning = false;     // a new grab cancels the spring-back
+      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+    });
+    this.input.on('pointermove', (p) => {
+      if (p.id !== this._peekPointerId || !p.isDown) return;
+      const dx = p.x - this._peekDownX, dy = p.y - this._peekDownY;
+      if (!this._peekDragging && Math.hypot(dx, dy) < PEEK_DRAG_SLOP_PX) return;
+      this._peekDragging = true;
+      // Measured from where the camera was when the finger landed, so grabbing
+      // the map again mid-spring-back continues from there rather than jumping.
+      const k = CELL_PX / this.cellM;
+      this._setPeekFromDrag(dx - this._peekFromM.x * k, dy - this._peekFromM.y * k);
+    });
+    const endPeekPointer = (p) => {
+      if (p.id !== this._peekPointerId) return;
+      const wasDrag = this._peekDragging;
+      this._releasePeek();
+      if (wasDrag) return;             // dragged the map; nothing was tapped
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, p.x, p.y)) return;
       this.handleWorldTap(p.x, p.y);
-    });
+    };
+    this.input.on('pointerup', endPeekPointer);
+    // A touch that ends off the canvas (or is stolen by the browser) never
+    // reaches 'pointerup'. Without this the drag would stay latched and the
+    // next tap would be swallowed as its release.
+    this.input.on('pointerupoutside', endPeekPointer);
 
     // Stuck-touch-pointer sweeper. Phaser frees a touch pointer only when its
     // touchend/touchcancel reaches its handlers with a matching identifier —
@@ -2007,6 +2070,11 @@ class MapScene extends Phaser.Scene {
       const sweep = (e) => {
         if (e.touches && e.touches.length) return;   // fingers still down
         setTimeout(() => {
+          // A peek drag whose finger left without a 'pointerup' (a cancelled
+          // touch, an event eaten on the way out) would stay latched and
+          // swallow the next tap as its release. The last finger is off the
+          // glass here, so let the camera spring home.
+          if (this._peekPointerId !== null) this._releasePeek();
           const pointers = this.input?.manager?.pointers;
           if (!pointers) return;
           for (const p of pointers) {
@@ -4808,11 +4876,18 @@ class MapScene extends Phaser.Scene {
     //
     // Half a cell of inset so a target sitting right on the mask edge — drawn
     // half-clipped, easy to miss — still gets its arrow.
-    const sx = ((targetWX - pWX) / this.cellM) * CELL_PX;
-    const sy = ((targetWY - pWY) / this.cellM) * CELL_PX;
+    //
+    // "Can I see it?" is a question about the SCREEN, so it's asked of the
+    // camera anchor (a peek drag can bring the target into view without the
+    // player having moved a step); the arrow itself is a bearing from the body,
+    // so it rings the player wherever they now are on screen.
+    const ts = this.worldMetersToScreen(targetWX, targetWY);
+    const sx = ts.x - this.viewCenterX;
+    const sy = ts.y - this.viewCenterY;
     const half = this.viewSize / 2 - CELL_PX / 2;
     if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
-    const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
+    const ps = this.playerScreen();
+    const tipX = ps.x + ux * dist, tipY = ps.y + uy * dist;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
     const back = 14, halfW = 7;
@@ -4989,6 +5064,16 @@ class MapScene extends Phaser.Scene {
     this._modalGateTick = (this._modalGateTick || 0) + 1;
     if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
     const dt = dtMs / 1000;
+    // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
+    // every projection below — and every draw pass this frame — reads one
+    // settled camera position rather than two.
+    this._tickPeek(dt);
+    // Everything drawn AT the player rather than at a world position rides
+    // this: the camera is normally on them, so it's the viewport centre, but a
+    // peek drag slides them across the map like anything else standing on it.
+    const pScreen = this.playerScreen();
+    this.player.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    this.playerShadow.setPosition(pScreen.x, pScreen.y + 13);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with a tier-8 amulet's
@@ -5005,7 +5090,7 @@ class MapScene extends Phaser.Scene {
       const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
       this.dragonTimerText
         .setText(`${secs}s`)
-        .setPosition(this.viewCenterX, this.viewCenterY - 34)
+        .setPosition(pScreen.x, pScreen.y - 34)
         .setVisible(true);
     }
     let vx = 0, vy = 0;
@@ -5197,7 +5282,7 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
+      let cx = pScreen.x, cy = pScreen.y - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
         // Anchor over the target marker's head. targetGhost sits at sprite-center
         // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
@@ -5236,17 +5321,17 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
       this.footprintGfx.clear();
-      // Camera anchor stays on playerM, so footprints drawn at body world
-      // coords land at the body's screen offset.
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
+      // Dots pressed into the GROUND, so they project like any other world
+      // point (worldMetersToScreen → the camera anchor) and slide with a peek.
       for (const fp of this.footprints) {
-        const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
+        const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
+                                            fp.y + this.startWorldM.y);
+        const sx2 = s2.x;
         // +14 lands the dot right at the sprite's feet. (Sprite scale 1.35 × 32
         // ≈ 43, origin (.5,.5) so the sprite's nominal bottom is ~+22, but the
         // visible foot pixels sit several px above the bottom of the texture —
         // +14 lines up with where the shoes actually meet the ground.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 14;
+        const sy2 = s2.y + 14;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
         this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
       }
@@ -5910,8 +5995,9 @@ class MapScene extends Phaser.Scene {
     const startA = baseAngle - SWEEP / 2;
     const headA = startA + SWEEP * t;
     const tailA = startA + SWEEP * Math.max(0, t - 0.35);
-    const cx = this.viewCenterX;
-    const cy = this.viewCenterY + this.playerFeetNudgeY - 8;   // roughly chest height
+    const ps = this.playerScreen();
+    const cx = ps.x;
+    const cy = ps.y + this.playerFeetNudgeY - 8;   // roughly chest height
     const R = 15;
     // Fade only in the closing stretch — a slash that's visible then vanishes
     // instantly reads as a glitch, not a completed swing.
@@ -6920,6 +7006,91 @@ class MapScene extends Phaser.Scene {
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); }
+
+  // === The PEEK DRAG ======================================================
+  // Drag the map to look a little way past the edge of the viewport, let go and
+  // it springs back. The character is not a camera mount: the map is a small
+  // window and half of "where do I go next" lives just outside it.
+  //
+  // It is a CAMERA offset (this.peekM, metres, player→camera) and nothing else.
+  // playerM never moves, so reach, the tap gates, fog reveal and tile loading
+  // all still measure from the body — peeking at a crate three cells away and
+  // tapping it correctly says "too far", exactly as it would with the crate on
+  // screen at the same distance. Everything that DRAWS goes through
+  // coords.js viewAnchorWorldM / viewAnchorCell, which add this offset.
+  //
+  // The drawn window re-anchors with the camera, so a peek costs nothing: the
+  // same 11×11 pass paints a different patch of ground. The cap is what keeps
+  // it honest — PEEK_MAX_CELLS stays well inside the loaded 3×3 tile
+  // neighbourhood every world pass scans (a tile is hundreds of cells wide).
+
+  // Player's screen position. The camera normally sits on them, so this is the
+  // viewport centre; a peek slides them off it by the drag. Everything drawn AT
+  // the player rather than at a world position (the sprite and its shadow /
+  // halo / arrow / swing) reads its centre from here — never viewCenterX/Y.
+  playerScreen() {
+    const k = CELL_PX / this.cellM;
+    return {
+      x: this.viewCenterX - this.peekM.x * k,
+      y: this.viewCenterY - this.peekM.y * k,
+    };
+  }
+
+  // Is the camera off the player right now (drag live, or still springing back)?
+  isPeeking() {
+    return this.peekM.x !== 0 || this.peekM.y !== 0;
+  }
+
+  // Set the peek from a drag delta in SCREEN pixels — the finger drags the
+  // ground, so the camera moves the other way — clamped to a disc of
+  // PEEK_MAX_CELLS so no drag can outrun the loaded world.
+  _setPeekFromDrag(dxPx, dyPx) {
+    const k = this.cellM / CELL_PX;
+    let mx = -dxPx * k, my = -dyPx * k;
+    const maxM = PEEK_MAX_CELLS * this.cellM;
+    const mag = Math.hypot(mx, my);
+    if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
+    this.peekM.x = mx;
+    this.peekM.y = my;
+  }
+
+  // Let go and the camera slides home. Eased per frame rather than tweened so
+  // it survives a dropped pointerup (see the stuck-touch sweeper) and can be
+  // cut short by the next drag without leaving a tween fighting the finger.
+  _releasePeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    if (this.isPeeking()) this._peekReturning = true;
+  }
+
+  // Snap the camera back to the player at once, no spring. Used when something
+  // OTHER than the drag has moved the view's meaning — a teleport, a descent,
+  // a modal taking the screen.
+  clearPeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    this._peekReturning = false;
+    if (!this.peekM) return;      // called before the view was set up
+    this.peekM.x = 0;
+    this.peekM.y = 0;
+  }
+
+  // Per-frame spring-back. Exponential ease (frame-rate independent), with a
+  // sub-pixel floor so it lands exactly on zero instead of creeping.
+  _tickPeek(dt) {
+    if (!this._peekReturning) return;
+    const k = Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    this.peekM.x *= k;
+    this.peekM.y *= k;
+    const snapM = 0.5 * (this.cellM / CELL_PX);       // half a screen pixel
+    if (Math.abs(this.peekM.x) < snapM && Math.abs(this.peekM.y) < snapM) {
+      this.peekM.x = 0;
+      this.peekM.y = 0;
+      this._peekReturning = false;
+    }
+  }
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
   // this method just forwards to it.
@@ -7110,6 +7281,10 @@ class MapScene extends Phaser.Scene {
   // Without this the stale target survives the warp and the body immediately
   // sets off walking back to wherever it used to be headed.
   syncMoveTarget() {
+    // A peek is a look at the ground AROUND YOU; after a warp that ground is
+    // somewhere else, so the camera snaps back onto the body rather than
+    // spring-easing across a view that has nothing to do with the old one.
+    this.clearPeek();
     this._targetM = { x: this.playerM.x, y: this.playerM.y };
     this._manualOffsetM = { x: 0, y: 0 };
     this._steerDistAccrue = 0;
@@ -7363,7 +7538,8 @@ class MapScene extends Phaser.Scene {
     // Both markers are drawn from their centre with the same nudge, so backing
     // it out and adding the footprint anchor puts each endpoint at the feet.
     const FEET = 13;
-    const x0 = this.viewCenterX, y0 = this.viewCenterY + FEET;
+    const ps = this.playerScreen();
+    const x0 = ps.x, y0 = ps.y + FEET;
     const x1 = this.gpsGhost.x;
     const y1 = this.gpsGhost.y - this.playerFeetNudgeY + FEET;
     const dx = x1 - x0, dy = y1 - y0;
@@ -7446,10 +7622,11 @@ class MapScene extends Phaser.Scene {
       // Strength follows the same k as the tint for the far case, so a halo
       // never shouts before the character has visibly dimmed.
       const strength = spent ? 1 : Math.min(1, (away - nearM) / (nearM * 2));
+      const ps = this.playerScreen();
       this.playerHalo
         .setDisplaySize(38 + 6 * wave, 38 + 6 * wave)
         .setAlpha((0.25 + 0.35 * wave) * strength)
-        .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY)
+        .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
         .setVisible(true);
     } else {
       // At rest the farmer wears the save's own colour — the same tint other

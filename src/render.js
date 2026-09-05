@@ -130,21 +130,30 @@ const ROAD_COBBLE_DENSITY_PCT = 15;
 const PATH_STONE_FLASH_MS = 900;
 const PATH_STONE_FLASH_BOUNCE = 0.4;
 
+// Both directions of the world⇄screen projection are defined against the CAMERA
+// ANCHOR (coords.js viewAnchorWorldM), not the player: they are the same thing
+// until a peek drag slides the camera off the body, and going through the
+// anchor is what keeps a tap landing on the cell it was drawn over while it has.
+// The anchor is spelled out here rather than taken from viewAnchorWorldM: these
+// two run per object, per creature and per label EVERY frame, and the helper's
+// return object would be a second allocation on each of them.
 function worldMetersToScreen(scene, wmx, wmy) {
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
+  const p = peekM(scene);
+  const ax = scene.startWorldM.x + scene.playerM.x + p.x;
+  const ay = scene.startWorldM.y + scene.playerM.y + p.y;
   return {
-    x: scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX,
-    y: scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX,
+    x: scene.viewCenterX + ((wmx - ax) / scene.cellM) * CELL_PX,
+    y: scene.viewCenterY + ((wmy - ay) / scene.cellM) * CELL_PX,
   };
 }
 
 function screenToWorldMeters(scene, sx, sy) {
+  const p = peekM(scene);
   const dx = (sx - scene.viewCenterX) / CELL_PX * scene.cellM;
   const dy = (sy - scene.viewCenterY) / CELL_PX * scene.cellM;
   return {
-    x: scene.startWorldM.x + scene.playerM.x + dx,
-    y: scene.startWorldM.y + scene.playerM.y + dy,
+    x: scene.startWorldM.x + scene.playerM.x + p.x + dx,
+    y: scene.startWorldM.y + scene.playerM.y + p.y + dy,
   };
 }
 
@@ -194,6 +203,16 @@ function setPaddingOnce(tx, key, left, top) {
   if (tx._lastPad === key) return;
   tx._lastPad = key;
   tx.setPadding(left, top);
+}
+
+// The peek drag in SCREEN pixels — how far the camera has slid off the player
+// (coords.js peekM, converted through the fixed cell size). Cached geometry
+// that is drawn about the viewport centre because the player is normally there
+// rides it with setPosition(-x, -y) instead of being rebuilt every frame.
+function peekPxOf(scene) {
+  const p = peekM(scene);
+  const k = CELL_PX / scene.cellM;
+  return { x: p.x * k, y: p.y * k };
 }
 
 // Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
@@ -881,7 +900,10 @@ Render.drawCells = function drawCells(scene) {
   // One clock read per pass for the animated biome textures (water) — every
   // cell must sample the same instant or a pass could straddle a phase step.
   const texNow = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-  const pc = scene.playerToWorldCell();
+  // The drawn window hangs off the CAMERA ANCHOR, not the body — a peek drag
+  // moves this and the whole 11×11 pass paints a different patch of ground for
+  // the same cost (see coords.js viewAnchorCell).
+  const pc = viewAnchorCell(scene);
   const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
   const _wBaseY = pc.cy + pc.ty * scene.cellsPerTile;
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -900,8 +922,9 @@ Render.drawCells = function drawCells(scene) {
   // are unchanged.
   const _plantedNear = [];
   if (scene.save.planted && scene.save.planted.length) {
-    const _pcx = scene.startWorldM.x + scene.playerM.x;
-    const _pcy = scene.startWorldM.y + scene.playerM.y;
+    const _a = viewAnchorWorldM(scene);
+    const _pcx = _a.x;
+    const _pcy = _a.y;
     const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
     for (const pp of scene.save.planted) {
       if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
@@ -1976,6 +1999,14 @@ Render.drawCells = function drawCells(scene) {
     // frame of every transition for a change nobody can see.
     const cKey = ((colour >> 21) & 0x7) << 6 | ((colour >> 13) & 0x7) << 3 | ((colour >> 5) & 0x7);
     const key = `${Math.round(r0)}|${cKey}|${FALLOFF_A}|${FALLOFF_P}`;
+    // The ramp is a bubble around the PLAYER, cached as rings about the
+    // viewport centre because that is normally where they stand. A peek drag
+    // moves them off it, so slide the whole cached image rather than rebuilding
+    // ~100 strokeCircles at a new centre every frame of the drag.
+    {
+      const pk = peekPxOf(scene);
+      scene.atmosFalloffGfx.setPosition(-pk.x, -pk.y);
+    }
     if (scene._falloffKey !== key) {
       scene._falloffKey = key;
       const fg = scene.atmosFalloffGfx;
@@ -2080,9 +2111,13 @@ Render.drawCells = function drawCells(scene) {
   }
   scene.gridContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
 
-  // Treasure marks — subtle X on the ground (unfound only).
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
+  // Treasure marks — subtle X on the ground (unfound only). Drawn from the
+  // camera anchor (they're marks on the ground, so they slide with a peek);
+  // the 3×3 tile scan below stays on the PLAYER's tile, which covers the
+  // peeked window many times over (a tile is hundreds of cells wide).
+  const _anchor = viewAnchorWorldM(scene);
+  const pWorldX = _anchor.x;
+  const pWorldY = _anchor.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const found = setOf(scene.save.foundTreasures);
   g.lineStyle(2, 0x2a1d10, 0.55);
@@ -2270,9 +2305,15 @@ Render.drawObjects = function drawObjects(scene) {
   // ~3.5 cells wide, so 2.2 cells of roof either side of the centroid covers it
   // with margin). Pinned by test/node/house_scale.test.js.
   const HOUSE_PAD_M = 2.2 * scene.cellM;
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  const pWorldY = scene.startWorldM.y + scene.playerM.y;
-  // Per-object screen projection: world-meter delta (dx, dy from the player)
+  // Both the cull and the projection measure from the CAMERA ANCHOR (normally
+  // the player; offset from them while a peek drag is live), so a sprite that
+  // slides into view at the leading edge of a peek is kept and drawn where the
+  // ground under it went. The tile-neighbourhood scan below stays on the
+  // player's own tile — a peek is a few cells, a tile is hundreds.
+  const _anchor = viewAnchorWorldM(scene);
+  const pWorldX = _anchor.x;
+  const pWorldY = _anchor.y;
+  // Per-object screen projection: world-meter delta (dx, dy from the anchor)
   // → screen pixels. Every sprite/label/diamond in this pass shares the exact
   // same projection, so define it once here (viewCenterX/Y, cellM, CELL_PX are
   // all in scope for the whole function).
