@@ -9309,7 +9309,11 @@ class MapScene extends Phaser.Scene {
     // 'buy'
     if (isCastle) return "From the castle's vault:";
     if (isFort)   return 'The fort quartermaster offers:';
-    if (st === 'market')     return 'The market has fresh stock:';
+    // Named for its stock, so the line matches the sign outside: "The produce
+    // shop has fresh stock:", or "The seed shop …" for the tutorial's first one.
+    if (st === 'market') {
+      return `The ${Shops.roleLabel('market', this.isFirstMarket(house)).toLowerCase()} has fresh stock:`;
+    }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
     if (st === 'wizard')     return 'The wizard conjures a relic:';
@@ -11140,19 +11144,27 @@ class MapScene extends Phaser.Scene {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
           const role = this._restoredRole(house);
+          // Names come from Shops.roleLabel so the card, the sign outside and
+          // the offer modal all call the building the same thing. The produce
+          // shop's blurb follows its label: the first one restored stocks
+          // seeds, so it's introduced as the Seed Shop and its blurb says so.
+          const seedShop = role === 'market' && this.isFirstMarket(house);
           const INFO = {
-            blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
-            trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
+            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { blurb: seedShop
+              ? 'Buys your crops at a premium — and stocks the starter seeds to grow more.'
+              : 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
+          const name = info.name || Shops.roleLabel(role, seedShop) || INFO.plain.name;
           this.showChestRewardModal({
             kind: 'build',
             iconHTML: this.buildingImgHTML(role, 72),
             header: 'Restored!',
-            name: `You restored a ${info.name}`,
+            name: `You restored a ${name}`,
             sub: info.blurb,
             color: '#a7ffb0', accent: '#a7ffb0',
           });
