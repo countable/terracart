@@ -448,6 +448,13 @@ const WALK_HOME_IDLE_MS = 5000;
 // interrupted nudge from reading as the character fighting you — and the last
 // stretch is at normal walking speed.
 const WALK_HOME_RAMP_MS = 1100;
+// The walk home is a little BRISKER than a stick walk. The player has already
+// stopped and is watching the character close a gap they didn't ask for frame
+// by frame, so the return should read as purposeful, not as the same stroll
+// that opened it — but it is still a walk (the too-far case below places the
+// body outright), so it stays well under the 2× that would read as running.
+// Multiplies the stick pace (walk × amulet) once the ramp is at full.
+const WALK_HOME_SPEED_MUL = 1.5;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
@@ -5098,6 +5105,7 @@ class MapScene extends Phaser.Scene {
       this.gpsGhost.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
+    this._updateWalkHomeCountdown();
     this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -7291,7 +7299,8 @@ class MapScene extends Phaser.Scene {
     const rampT = Math.min(1, (Date.now() - (this._lastStickT || 0) - WALK_HOME_IDLE_MS)
                               / WALK_HOME_RAMP_MS);
     const ease = rampT * rampT;
-    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * ease * dt);
+    const step = Math.min(mag, WALK_M_S * WALK_HOME_SPEED_MUL
+                                 * steerSpeedMul(this._walkRelics()) * ease * dt);
     if (step <= 0) return;
     const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
     off.x += dx; off.y += dy;
@@ -7299,6 +7308,36 @@ class MapScene extends Phaser.Scene {
     this._targetM.x += dx;
     this._targetM.y += dy;
     this._followPaused = false;
+  }
+  // Seconds left on the walk-home debounce, for the stick's countdown — or
+  // null when there is nothing to count down to. The gates are _driftHome's
+  // own: it only counts while a return is actually pending (surface, a fix
+  // driving, the stick let go, no wheel, and an offset to bleed), so the
+  // number on the stick is always a promise the walk will keep. Whole
+  // seconds, rounded UP: "5" the instant you let go, "1" for the last second,
+  // gone when the walk starts. Pure — no DOM — so the test suite drives it.
+  _walkHomeCountdownS() {
+    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return null;
+    if (this._busyWheel() || this._stickPushed()) return null;
+    const off = this._manualOffsetM;
+    if (!off || Math.hypot(off.x, off.y) < 0.01) return null;
+    const left = WALK_HOME_IDLE_MS - (Date.now() - (this._lastStickT || 0));
+    if (left <= 0) return null;
+    return Math.ceil(left / 1000);
+  }
+  // Write the countdown onto the stick. The label lives on the pad itself (see
+  // buildMovePad) so the number sits under the thumb that just let go — the
+  // one place the player is looking when they wonder whether the character is
+  // about to walk off. Only touches the DOM when the number changes.
+  _updateWalkHomeCountdown() {
+    const el = this._movePadCountdownEl;
+    if (!el || !el.isConnected) return;
+    const s = this._walkHomeCountdownS();
+    const text = s == null ? '' : String(s);
+    if (text === this._movePadCountdownText) return;
+    this._movePadCountdownText = text;
+    el.textContent = text;
+    el.classList.toggle('on', !!text);
   }
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
@@ -11506,6 +11545,14 @@ class MapScene extends Phaser.Scene {
     const nub = document.createElement('div');
     nub.className = 'nub';
     pad.appendChild(nub);
+    // The walk-home countdown (see _walkHomeCountdownS): seconds until the
+    // character walks itself back to the GPS, drawn over the resting nub.
+    const countdown = document.createElement('div');
+    countdown.className = 'countdown';
+    countdown.setAttribute('aria-hidden', 'true');
+    pad.appendChild(countdown);
+    this._movePadCountdownEl = countdown;
+    this._movePadCountdownText = '';
     document.body.appendChild(pad);
 
     let activePtr = null;
@@ -11651,6 +11698,22 @@ class MapScene extends Phaser.Scene {
           0 3px 10px rgba(0,0,0,0.5),
           0 0 12px rgba(255,224,102,0.6);
       }
+      /* Walk-home countdown: the seconds until the character heads back to
+         the GPS, stamped on the resting cap. Dark on the brass so it reads
+         against the cap's highlight, with a pale halo so the digit holds up on
+         the darker rim of the dome. Hidden while the stick is held (the cap
+         is under a thumb, and there is nothing to count down to). */
+      #move-pad .countdown {
+        position: absolute; left: ${HALF}px; top: ${HALF}px;
+        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
+        text-align: center; pointer-events: none;
+        font: ${fontMono(`700 22px/${NUB}px`)};
+        color: rgba(66,48,12,0.95);
+        text-shadow: 0 0 3px rgba(255,247,203,0.9), 0 1px 0 rgba(255,247,203,0.6);
+        display: none;
+      }
+      #move-pad .countdown.on { display: block; }
+      #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
       @media (prefers-reduced-motion: reduce) {
