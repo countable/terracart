@@ -1,11 +1,13 @@
 // Delivery core — the seeded daily produce-demand logic extracted from app.js
 // so it's testable headlessly (no scene, no DOM).
 //
-// Plain (residential) houses each ask for a 2-3 item produce "wishlist" that is
+// Plain (residential) houses each ask for a 1-3 item produce "wishlist" that is
 // re-rolled once per UTC day, drawn from every produce up to a tier cap that
-// rises one step every 20 lifetime deliveries. The roll is deterministic in
-// (house.id, day) so the render-loop sign and the interact handler agree
-// without re-rolling, and it's cached on the house object per day.
+// rises one step every 20 lifetime deliveries. The first houses you restore run
+// a SCRIPTED opening ladder (see SCRIPTED_WISHLISTS) that starts at one item.
+// The roll is deterministic in (house.id, day) so the render-loop sign and the
+// interact handler agree without re-rolling, and it's cached on the house
+// object per day.
 //
 // Everything here is a pure function of (save, house): the house._wantedProduce
 // cache it writes is plain data, not scene state. The scene keeps thin wrappers
@@ -25,6 +27,37 @@
   const PRODUCE_TIER_MIN = 1;
   const PRODUCE_TIER_MAX = 7;
   const TIER_UNLOCK_EVERY = 20;
+
+  // ── The scripted opening ladder ────────────────────────────────────────────
+  // The first restored delivery houses don't roll — they walk a fixed list, so
+  // a new player's first errands are legible and always gatherable. The ladder
+  // is ordered by BUNDLE SIZE: the first SCRIPTED_SINGLES houses each want ONE
+  // item, and only then do the multi-item bundles (the starter kitchen-garden
+  // pair and the colored field-flower trio) appear — the same produce, asked
+  // for one at a time first and then as a set. Index = houseOrder.
+  //
+  // Ids missing from a build are filtered out at roll time; an entry that ends
+  // up empty falls through to the tier-1 early pool below, so the ladder can
+  // never hand a house an item that doesn't exist.
+  const SCRIPTED_WISHLISTS = [
+    ['potato'],                                    // 0 — one crop, one delivery
+    ['onion'],                                     // 1
+    ['marigold'],                                  // 2 — first foraged flower
+    ['forgetmenot'],                               // 3
+    ['wildrose'],                                  // 4
+    ['potato', 'onion'],                           // 5 — the starter kitchen-garden pair
+    ['marigold', 'forgetmenot', 'wildrose'],       // 6 — the colored field-flower trio
+  ];
+  // Length of the leading run of single-item asks — derived from the table, so
+  // adding or removing a single can't leave a hand-written count behind.
+  const SCRIPTED_SINGLES = (() => {
+    let n = 0;
+    while (n < SCRIPTED_WISHLISTS.length && SCRIPTED_WISHLISTS[n].length === 1) n++;
+    return n;
+  })();
+  // Houses pinned to TIER-1 produce: every scripted one, plus one more that
+  // rolls freely inside tier 1 before standing houses open up to their themes.
+  const EARLY_HOUSES = SCRIPTED_WISHLISTS.length + 1;
 
   // Themed wishlists — instead of a uniform grab-bag, every standing delivery
   // house has a "taste" so the bundle it asks for reads as a coherent set
@@ -106,10 +139,11 @@
     return BUNDLE_THEME_KEYS[h % BUNDLE_THEME_KEYS.length];
   }
 
-  // First 3 restored delivery houses get pinned to TIER-1 wishlists.
+  // First EARLY_HOUSES restored delivery houses get pinned to TIER-1 wishlists
+  // (the scripted ladder plus the one free tier-1 roll that follows it).
   function isEarly(save, house) {
     const o = houseOrder(save, house);
-    return o >= 0 && o < 3;
+    return o >= 0 && o < EARLY_HOUSES;
   }
 
   // Did this house already receive a bundle TODAY? (resets on the UTC boundary)
@@ -126,13 +160,14 @@
       : [];
   }
 
-  // 2-3 item ids this plain house wants today, cached on the house per day.
+  // 1-3 item ids this plain house wants today, cached on the house per day.
   // Each standing house draws a COHERENT bundle from its theme (beach / forage
   // / mining / harvest / animal) limited to what the tier cap has unlocked, so
   // wishlists read as themed sets rather than a random grab-bag. Special cases:
-  // the 1st house is scripted to potato + onion, the 2nd to the colored
-  // field-flower trio, and houses 3 (order 2) are pinned to gentle TIER-1
-  // produce before standing houses open up to their full themes.
+  // the first SCRIPTED_WISHLISTS.length houses walk the scripted ladder (five
+  // single-item asks, then the potato+onion pair, then the field-flower trio),
+  // and the house after it is pinned to gentle TIER-1 produce before standing
+  // houses open up to their full themes.
   function wantedProduce(save, house, now = new Date()) {
     if (!house?.id) return [];
     const dk = dayKey(now);
@@ -143,25 +178,19 @@
       return picks;
     };
 
-    // Scripted opening progression, by restore order:
-    //   1st house → potato + onion (the starter kitchen-garden pair).
-    //   2nd house → the three colored field flowers (nudge toward foraging
-    //               before the player has much under cultivation).
+    // Scripted opening progression, by restore order — one shared table so the
+    // ladder can't drift from the counts documented above (SCRIPTED_WISHLISTS).
     const order = houseOrder(save, house);
-    if (order === 0) {
-      const pair = ['potato', 'onion'].filter((id) => ITEM_BY_ID[id]);
-      if (pair.length) return remember(pair);
-    }
-    if (order === 1) {
-      const trio = ['marigold', 'forgetmenot', 'wildrose'].filter((id) => ITEM_BY_ID[id]);
-      if (trio.length) return remember(trio);
+    if (order >= 0 && order < SCRIPTED_WISHLISTS.length) {
+      const picks = SCRIPTED_WISHLISTS[order].filter((id) => ITEM_BY_ID[id]);
+      if (picks.length) return remember(picks);
     }
 
     const cap = tierCap(save);
     // Pick the pool this house draws from.
     let pool;
     if (isEarly(save, house)) {
-      // First 3 houses only ask for TIER-1 produce (the starter loop never
+      // Early houses only ask for TIER-1 produce (the starter loop never
       // demands a crop the player can't yet grow).
       const universe = produceUniverse();
       pool = universe.filter((id) => produceTier(id) <= 1);
@@ -196,6 +225,7 @@
 
   root.Delivery = {
     PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY, BUNDLE_THEMES,
+    SCRIPTED_WISHLISTS, SCRIPTED_SINGLES, EARLY_HOUSES,
     dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
     bundleTheme, wantedProduce,
   };

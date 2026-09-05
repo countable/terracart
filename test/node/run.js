@@ -751,6 +751,16 @@ try {
   // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
   // hooks apply the shared tool-gate fade rather than a local copy of it.
   ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
+  // The fruit-tree life-cycle frame table + its RENDER_SPEC entry, and the
+  // pass that draws the fruit ON the tree — all inside drawObjects, so
+  // fruit_overlay.test.js pins them as text: what has to hold is that the
+  // tree's ART never depends on whether it is bearing.
+  ctx.RENDER_FRUIT_FRAMES_SRC = slice(readSrc('render.js'),
+    '  const FRUIT_FRAMES = {', '};', 'the fruit-tree frame table');
+  ctx.RENDER_FRUITTREE_SPEC_SRC = slice(readSrc('render.js'),
+    '    fruittree: { key: (o) =>', '    mineralrock: {', 'the fruittree render spec');
+  ctx.RENDER_FRUIT_PASS_SRC = slice(readSrc('render.js'),
+    '  // ── Ripe fruit ─', '  });', 'the fruit render pass');
 }
 
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
@@ -822,6 +832,10 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.RENDER_SRC = readSrc('render.js');
+// multiplayer.js draws peers with the same feet-on-the-fix seating app.js
+// gives the local player; feet_anchor.test.js pins both as text.
+ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
+ctx.INTERACT_SRC = readSrc('interact.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
@@ -913,6 +927,14 @@ for (const f of testFiles) {
   for (const kind of Object.keys(audit.CREATURE_SHEETS)) {
     ctx.__tests.push({ name: `creature wheel (crown rule): ${kind}`, fn: () => {
       const r = audit.evaluateCreature(kind);
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // …and the fruit-tree crowns the fruit overlay hangs off: re-derived from
+  // the PNGs, so repainted tree art can't leave a bearing tree's fruit stuck
+  // on its trunk or floating over its canopy.
+  for (const r of audit.evaluateCrowns()) {
+    ctx.__tests.push({ name: `fruit-tree crown: ${r.lookup}`, fn: () => {
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }

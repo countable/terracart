@@ -44,12 +44,17 @@ test('mineralrock: ore is gated behind the pick tier', () => {
   assert.falsy(scene.brokenRockSet.has('mr-1'), 'gated rock is not broken');
 });
 
-test('mineralrock: plain rock drops 1-3 rockfruit and breaks', () => {
+// The stone count is the DRAWN one + a coin flip — see rock_yield.test.js for
+// the full per-variant pinning. Here we only check the rock breaks and pays out
+// what its own art promises, whichever variant cell (0,0) happens to hash to.
+test('mineralrock: plain rock drops what its sprite shows and breaks', () => {
   const scene = makeScene();
   const save = { relics: { pick: { tier: 7 } } };
   const o = { kind: 'mineralrock', id: 'mr-2', x: 0, y: 0, yieldTier: 1 };
+  const stones = SpriteLayout.plainRockStones(o);
   assert.eq(runInteractable(makeCtx(scene, save), o), true);
-  assert.inRange(scene.invCount('rockfruit'), 1, 3, 'plain rock = 1-3 stone');
+  assert.inRange(scene.invCount('rockfruit'), stones, stones + 1,
+    `plain rock showing ${stones} stone(s) = ${stones}-${stones + 1} stone`);
   assert.truthy(scene.brokenRockSet.has('mr-2'), 'rock recorded as broken');
 });
 
@@ -106,6 +111,32 @@ test('fruittree: a pick always yields a REAL item, even after the starter-home p
     assert.truthy(msgs.some(m => m.includes(ITEM_BY_ID[species].name)),
       `flash names the fruit, got ${JSON.stringify(msgs)}`);
   }
+});
+
+test('fruittree: a tree already stamped with a non-fruit species repairs itself on the pick', () => {
+  // The source of the 'pine' stamp is fixed, but a bin object a tile is
+  // rebuilt from is shared for the session, and a stale cached home.js can
+  // still tame it — so a tree that reaches the pick with a species that is not
+  // a produce item must hand out a real fruit anyway, and flash it.
+  for (const bad of ['pine', 'maple', undefined, 'wood']) {
+    const o = { kind: 'fruittree', id: `ft_bad_${bad}`, x: 84, y: 0, species: bad, wild: true };
+    const save = { inv: [], selSlot: 0 };
+    const msgs = [];
+    const scene = makeScene({
+      addToInv: (id, n) => { const r = Inventory.add(save, id, n, { pageSize: 5 }); return r.valid ? r.accepted : 0; },
+      flashLoot: (m) => msgs.push(m),
+    });
+    assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed');
+    assert.eq(o.species, 'apple', `species ${JSON.stringify(bad)} repaired in place to apple`);
+    const got = save.inv.find(s => s && s.id === 'apple');
+    assert.truthy(got && got.count >= 1, `picked an apple: ${JSON.stringify(save.inv)}`);
+    assert.truthy(msgs.some(m => m.includes('Apple')), `flash names Apple, got ${JSON.stringify(msgs)}`);
+    assert.falsy(msgs.some(m => /pine|maple|wood|undefined/.test(m)), 'never flashes the bad species');
+  }
+  // A real fruit is left alone.
+  const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'peach', wild: true };
+  runInteractable(makeCtx(makeScene(), {}), peach);
+  assert.eq(peach.species, 'peach', 'a peach tree stays a peach tree');
 });
 
 // --- Gather luck flag -------------------------------------------------------

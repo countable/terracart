@@ -445,7 +445,10 @@ const TAP_HANDLERS = [
     // the renderer uses. This keeps the tappable area byte-aligned with what's
     // on screen for tall sprites (cow/deer) and floated/hopping ones
     // (crow/butterfly/bat, slimes + the monsters that reuse the slime sheet).
-    const px2m = scene.feetOffsetM / 14;   // metres per screen pixel (14px == feetOffsetM)
+    // Metres per screen pixel: one cell is scene.cellM metres and
+    // scene.cellPx (app.js CELL_PX) pixels. (This used to be derived from
+    // feetOffsetM / 14, which is 0 / 14 now that the feet sit on the fix.)
+    const px2m = scene.cellM / scene.cellPx;
     const ORIGIN_Y = 0.9;                   // render.js setOrigin(0.5, 0.9)
     // [frameH px, scale, extra-lift px] — keep in sync with render.js creaturePool.
     // extra-lift folds in explicit floats (crow 14, butterfly 8) and the
@@ -1394,7 +1397,10 @@ const TAP_HANDLERS = [
       // Cave walls take the shared BASE table (interactables.js
       // plainRockBaseDrop) — no ring/amulet luck applied, unlike the
       // mineralrock isPlain branch, which layers its own luck on top.
-      const qty = plainRockBaseDrop(scene);
+      // `stones` is null deliberately: a wall face draws no rock sprite, so it
+      // promises no particular number of stones and keeps the flat randInt(1,3)
+      // rather than inheriting a rock variant's count.
+      const qty = plainRockBaseDrop(scene, null);
       persistSave(save);
       const item = ITEM_BY_ID['rockfruit'];
       scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');

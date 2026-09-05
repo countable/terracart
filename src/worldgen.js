@@ -360,13 +360,21 @@
   // rasterize one cell wide — see the wCells comment in rasterizeTile), but
   // the road-geometry overlay strokes each way at this width so the linework
   // it draws covers roughly the ground the real road covers.
+  // The vector tiles carry no width tag, so these are guesses per class,
+  // and they are tuned against the ground: measured in Sep 2026 the drawn
+  // band read ~10% narrower than the street the player was standing on, so
+  // the vehicle tiers below the weighted large classes were widened by
+  // about that much (residential 5 → 5.5, tertiary 7 → 7.5, secondary
+  // 8 → 9). The drawing itself is at true scale (road_overlay.js widthPxFor
+  // is metres × CELL_PX / cellM), so if a band looks wrong, this table is
+  // the number to change — not the projection.
   function roadWidthM(tags) {
     const c = tags.class || '';
     if (c === 'motorway' || c === 'trunk') return 12;
     if (c === 'primary') return 10;
-    if (c === 'secondary') return 8;
-    if (c === 'tertiary') return 7;
-    if (c === 'minor' || c === 'street' || c === 'service') return 5;
+    if (c === 'secondary') return 9;
+    if (c === 'tertiary') return 7.5;
+    if (c === 'minor' || c === 'street' || c === 'service') return 5.5;
     // Piers are narrow wooden walkways — keep them single-cell.
     if (c === 'pier') return 2;
     // Walkable classes: a pedestrian street or plaza is road-wide, a track is
@@ -2063,7 +2071,7 @@
             // rare end of the depth curve (~5 % copper). caveRockP makes the
             // underground levels (loadCaveTile) far richer.
             const _CAVE_ROCK_P = caveRockP(0);
-            const _CAVE_VARIANTS = 4;        // row 15 cols 3..6 — see render.js
+            const _CAVE_VARIANTS = 4;        // SpriteLayout.PLAIN_ROCK_VARIANTS.length
             // NOTE: we used to do an inline "blocked cell" / "near road"
             // check here, but it was racy — the MVT polygon loop processes
             // roads, buildings, and landuse in feature-order, so a
@@ -4613,7 +4621,7 @@
       : [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
     const cum = (ws) => { let t = 0; const c = ws.map(w => (t += w)); return { tierW: c, totalW: t }; };
     const baseTbl = cum(weights);
-    const CAVE_VARIANTS = 4;     // plain-rock art variants (render.js)
+    const CAVE_VARIANTS = 4;     // = SpriteLayout.PLAIN_ROCK_VARIANTS.length
     const PIVOT = 6;             // a cluster candidate every 6 cells
     const FIRE = 0.85;           // most candidates fire
     const CLUSTER_MIN = 3, CLUSTER_SPAN = 3;   // 3..5 rocks — ~2× sparser than before
