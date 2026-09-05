@@ -18,6 +18,8 @@
 //   • Starter blacksmith (1st restored) …… app.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
 //   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
 //   • First market sells T1/T2 seeds …… app.js  isFirstMarket
+//     (so it signs as the "Seed Shop", not the "Produce Shop" every other
+//      one gets — see shops.js roleLabel)
 //   • First 8 delivery houses → T1 produce app.js  isEarlyDeliveryHouse
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
 //      single-item asks, then the starter pair, then the flower trio)
