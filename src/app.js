@@ -1843,11 +1843,14 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). The frame's visible feet
-    // sit 14/1.35 ≈ 10.37 texture px below its centre (measured at the
-    // original 1.35× as a 14px drop), so at 1.215× they are 12.6px below the
-    // sprite's 0.5/0.5 origin.
-    this.playerScale = 1.215;
+    // Scale 1.033 = 1.35 × 0.9 × 0.85: the original 1.35, shrunk 10% once and
+    // a further 15% in Sep 2026 so the walker reads closer to a real person
+    // against the 7 m cells while staying clearly visible. The frame's
+    // visible feet sit 14/1.35 ≈ 10.37 texture px below its centre (measured
+    // at the original 1.35× as a 14px drop); playerFeetNudgeY below derives
+    // the on-screen drop from THIS number, so the feet stay on the fix at any
+    // scale — change the scale here and nothing else.
+    this.playerScale = 1.35 * 0.9 * 0.85;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
