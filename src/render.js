@@ -110,25 +110,34 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
-// Percent chance an UNCLAIMED path cell draws a decorative stepping-stone
-// pebble at all. A stone on every single 7m path cell read as a continuous
-// paved strip rather than scattered stepping stones (and busier than the
-// dense ROAD cluster it's supposed to look sparser than). CLAIMED stones
-// always draw regardless of this roll — see the `active` check below — so
-// thinning this out never hides the player's actual progress.
+// Percent chance a path cell draws a decorative stepping-stone pebble at all.
+// A stone on every single 7m path cell read as a continuous paved strip rather
+// than scattered stepping stones (and busier than the dense ROAD cluster it's
+// supposed to look sparser than). The roll is permanent and does NOT consult
+// `active`: a cell that rolled no stone stays bare even once lit, because a
+// stone popping into existence where there wasn't one reads as a bug rather
+// than as "lighting up". Claiming still counts that cell toward the trail, so
+// thinning never costs the player progress — only pebbles.
 const PATH_STONE_DENSITY_PCT = 50;
 // Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
 // cluster on every cell, which read as a continuously paved surface; at 15%
 // (an 85% cut) the clusters become occasional patches and the road band's own
 // paint carries the "this is a road" read instead.
 const ROAD_COBBLE_DENSITY_PCT = 15;
-// A freshly claimed path stone gets a brief scale-pop instead of silently
+// A freshly claimed cobble gets a brief scale-pop instead of silently
 // jumping to full opacity next frame, so claiming reads as an event. 450ms
 // played and decayed almost before the eye caught it, so it's slower now —
 // still short, just actually visible. app.js's flash-prune window has to
 // stay comfortably above this or an activation would get pruned mid-animation.
+// The bounce is the pop's SIZE — the fraction of its own width the stone
+// swells by at the instant it lights. Claiming is no longer a deliberate tap
+// on one stone: walking simply sweeps up every cobble that enters the lit
+// reach, so several pop at once a few cells from the player and the old 0.4
+// was too small to catch out of the corner of the eye. 0.85 briefly overflows
+// the cell, which is the point of a pop — it decays away inside the first few
+// frames and the stone never RESTS bigger than its cell.
 const PATH_STONE_FLASH_MS = 900;
-const PATH_STONE_FLASH_BOUNCE = 0.4;
+const PATH_STONE_FLASH_BOUNCE = 0.85;
 
 // Both directions of the world⇄screen projection are defined against the CAMERA
 // ANCHOR (coords.js viewAnchorWorldM), not the player: they are the same thing
@@ -337,6 +346,15 @@ const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]); 
 //   - PATH:                             frame 3 — single small pebble
 const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
 const PATH_FRAME = 3;
+// LIT cobbles. A claimed stone is drawn from a recoloured copy of its OWN
+// frame, baked once in app.js create() — one shared "lit" key would light a
+// motorway's dense cluster with a footpath's single pebble. The key function
+// lives here, beside the frame table it is derived from, so the baker and the
+// drawer can't disagree about what a frame is called.
+const litCobbleTexKey = (f) => `cobble_lit_${f}`;
+// Every frame that can be lit: the three vehicle tiers plus the path pebble.
+// Roads are claimable trails now too, so all four need a lit copy.
+const LIT_COBBLE_FRAMES = [ROAD_FRAME[7], ROAD_FRAME[13], ROAD_FRAME[14], PATH_FRAME];
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -1539,14 +1557,15 @@ Render.drawCells = function drawCells(scene) {
         const frame = isPier ? PIER_FRAME
                      : isRoad(type) ? ROAD_FRAME[type]
                      : (type === PATH ? PATH_FRAME : null);
-        // Named-path stones the player has tapped / stepped onto come up to
-        // FULL opacity and a recoloured "lit" texture (see cobble_path_active,
+        // Cobbles the player has lit by walking within reach of them come up
+        // to FULL opacity and a recoloured "lit" texture (litCobbleTexKey,
         // baked in app.js) — the same stone, lit rather than a different
-        // material dropped into the path. _isPathStoneActive is null-safe
+        // material dropped into the ground. ROADS count as well as paths: a
+        // street is a claimable trail too. _isPathStoneActive is null-safe
         // (returns false in test mode or before save state exists), so this
-        // check is always cheap. PIER is excluded — piers are not named paths.
+        // check is always cheap. PIER is excluded — piers carry no trail name.
         let active = false;
-        if (type === PATH && typeof scene._isPathStoneActive === 'function') {
+        if ((type === PATH || isRoad(type)) && typeof scene._isPathStoneActive === 'function') {
           // Cells outside the player's own tile fall back to the cell's
           // tile coords — paths span tile seams, and we want the same answer
           // on both sides of the boundary.
@@ -1606,13 +1625,14 @@ Render.drawCells = function drawCells(scene) {
               }
             }
           }
-          // Swap texture key — 'pier' for plank, 'cobble_path_active' for a
-          // claimed stone, 'cobble' for everything else. Pool sprites are
-          // created with the 'cobble' texture so reassign each frame; Phaser
-          // short-circuits if the key is already current.
-          const useActiveTex = active && scene.textures.exists('cobble_path_active');
+          // Swap texture key — 'pier' for plank, the lit copy of this frame
+          // for a claimed stone, 'cobble' for everything else. Pool sprites
+          // are created with the 'cobble' texture so reassign each frame;
+          // Phaser short-circuits if the key is already current.
+          const litKey = (active && frame != null) ? litCobbleTexKey(frame) : null;
+          const useActiveTex = !!litKey && scene.textures.exists(litKey);
           if (useActiveTex) {
-            cs.setTexture('cobble_path_active');
+            cs.setTexture(litKey);
           } else {
             cs.setTexture(isPier ? 'pier' : 'cobble', frame);
             cs.setFrame(frame);

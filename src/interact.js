@@ -985,21 +985,11 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // 2a-path) Path-stone tap. Tapping a named pedestrian-path cell claims
-  // it (same effect as stepping on it). Doesn't consume the tap — falls
-  // through so any other handler on the same cell still fires (e.g. a
-  // wildplant on the cell next to the path). The activation method is
-  // a no-op if the cell isn't a named path or is already claimed.
-  { name: 'path-stone', try: (ctx) => {
-    const { scene, cellIX, cellIY, cwmx, cwmy, cell } = ctx;
-    if (!cell || cell.type !== TERRAIN.PATH) return false;
-    const ctx_tx = Math.floor(cwmx / scene.tileEdgeM);
-    const ctx_ty = Math.floor(cwmy / scene.tileEdgeM);
-    if (typeof scene._activatePathStone === 'function') {
-      scene._activatePathStone(ctx_tx, ctx_ty, cellIX, cellIY);
-    }
-    return false;   // don't consume — let downstream handlers run
-  }},
+  // (There used to be a 'path-stone' handler here that claimed the cobble a
+  // tap landed on. Cobbles light by PROXIMITY now — app.js _sweepCobbleTrails
+  // lights every one inside the player's reach as they walk past — so the tap
+  // has nothing left to do, and a handler that claimed only the single tapped
+  // cell would be strictly worse than the sweep that already claimed it.)
 
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
   // player is within tap range of the cell. If that cell is a building tile

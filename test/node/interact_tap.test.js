@@ -602,7 +602,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'staircase',
     'object',
     'cell-resolve',
-    'path-stone',
     'building-zone',
     'release',
     'pickup-rock',
