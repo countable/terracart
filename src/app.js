@@ -421,6 +421,22 @@ const TRAIL_REVEAL_CELLS = 5;
 const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
+//
+// The dots were round and 3px, dropped dead on the body's centreline — one
+// track of pebbles, which read as a dotted line rather than as somebody having
+// walked past. These four numbers turn them into prints: smaller, oval, laid
+// along the step, and alternating either side of the line of travel like a
+// real pair of feet.
+//
+// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
+// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
+// the midline. Scaled by playerScale at draw time, that is where the sprite's
+// own feet are, so a print lands under the foot that made it.
+const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
+const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
+const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
+const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -1969,11 +1985,13 @@ class MapScene extends Phaser.Scene {
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
     this._nextSwingT = 0;              // performance.now() ms the next swing may fire
-    // Footprint trail — small 50% grey dots dropped as the player moves, each
-    // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
+    // Footprint trail — small dark ovals dropped as the player moves, laid
+    // along the step and alternating left/right foot (see _fillFootprint),
+    // each fading 20% per new drop so ~5 are visible. Under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
-    this.footprints = [];               // [{ x, y, alpha }, …] in world meters
+    this.footprints = [];               // [{ x, y, alpha, ux, uy, side }, …], world metres
     this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+    this._footSide = 1;                 // flipped on each drop: left, right, left…
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -4794,6 +4812,33 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // One footprint: a slight oval, long axis along the step that made it,
+  // sitting under the foot that made it rather than on the body's centreline.
+  // The lateral shift is the sprite's own half-stance (see
+  // FOOT_STANCE_HALF_ART_PX) taken perpendicular to the step and signed by
+  // fp.side, so consecutive prints fall either side of the line of travel and
+  // the pair straddles it — this is NOT a feet offset of the kind the ground
+  // marks used to carry (see feet_anchor.test.js): the two sides cancel, and
+  // the track's centreline is still the point the body walked through.
+  //
+  // Graphics has no rotated-ellipse fill, so the oval is a polygon — 14 points
+  // is smooth at this size (a 4px-wide shape), and cheap: at most 5 prints are
+  // alive at once.
+  _fillFootprint(g, cx, cy, fp) {
+    const { ux, uy } = fp;                  // every print carries its step
+    const px = -uy, py = ux;                // perpendicular to it
+    const off = FOOT_STANCE_HALF_ART_PX * this.playerScale * fp.side;
+    const ox = cx + px * off, oy = cy + py * off;
+    const pts = [];
+    const N = 14;
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * Math.PI * 2;
+      const a = Math.cos(t) * FOOT_DOT_LONG, b = Math.sin(t) * FOOT_DOT_ACROSS;
+      pts.push({ x: ox + ux * a + px * b, y: oy + uy * a + py * b });
+    }
+    g.fillPoints(pts, true);
+  }
+
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
   // world-space target. Three callers share it — the pairy chest compass, the
   // delivery waypoint, and the starter-crate trail — so the ring geometry
@@ -5253,7 +5298,18 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.8;
-        this.footprints.push({ x: bodyM.x, y: bodyM.y, alpha: 0.45 });
+        // Freeze the STEP onto the print: which way it went (unit vector —
+        // world axes are the screen's, so this is also its screen direction)
+        // and which foot made it, alternating. Both are recorded at drop time
+        // rather than read from the player each frame, because a print is a
+        // mark left in the ground: turning around must not swivel the ones
+        // already behind you.
+        const n = Math.hypot(dx, dy) || 1;
+        this._footSide = -(this._footSide || 1);
+        this.footprints.push({
+          x: bodyM.x, y: bodyM.y, alpha: 0.45,
+          ux: dx / n, uy: dy / n, side: this._footSide,
+        });
         // Cap at 5 so the trail stays short — the 20%/step fade alone would
         // keep ~11 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
@@ -5271,7 +5327,7 @@ class MapScene extends Phaser.Scene {
         // the contact shadow sits on.
         const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
+        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
       }
     }
 
