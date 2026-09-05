@@ -2071,7 +2071,7 @@
             // rare end of the depth curve (~5 % copper). caveRockP makes the
             // underground levels (loadCaveTile) far richer.
             const _CAVE_ROCK_P = caveRockP(0);
-            const _CAVE_VARIANTS = 4;        // row 15 cols 3..6 — see render.js
+            const _CAVE_VARIANTS = 4;        // SpriteLayout.PLAIN_ROCK_VARIANTS.length
             // NOTE: we used to do an inline "blocked cell" / "near road"
             // check here, but it was racy — the MVT polygon loop processes
             // roads, buildings, and landuse in feature-order, so a
@@ -4621,7 +4621,7 @@
       : [0.30, 0.25, 0.22, 0.08, 0.07, 0.05, 0.03];
     const cum = (ws) => { let t = 0; const c = ws.map(w => (t += w)); return { tierW: c, totalW: t }; };
     const baseTbl = cum(weights);
-    const CAVE_VARIANTS = 4;     // plain-rock art variants (render.js)
+    const CAVE_VARIANTS = 4;     // = SpriteLayout.PLAIN_ROCK_VARIANTS.length
     const PIVOT = 6;             // a cluster candidate every 6 cells
     const FIRE = 0.85;           // most candidates fire
     const CLUSTER_MIN = 3, CLUSTER_SPAN = 3;   // 3..5 rocks — ~2× sparser than before
