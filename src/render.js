@@ -2545,12 +2545,19 @@ Render.drawObjects = function drawObjects(scene) {
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
-  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom, 7 fruiting (apples).
-  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom, 5 fruiting (peaches).
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
+  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
   // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  //
+  // A BEARING tree keeps the mature frame and wears its fruit as a separate
+  // sprite on the canopy (the fruit pass at the end of this function), so the
+  // sheets' own fruiting cells — apple 7, peach 5 — are no longer drawn: a
+  // pick removes a fruit rather than repainting the tree. That's why `grow`
+  // ends on the mature frame it already passed through at stage 2: stage 3 is
+  // blossom, and stage 4 is the same mature tree with fruit hung on it.
   const FRUIT_FRAMES = {
-    apple: { grow: [0, 2, 4, 5, 7], fruit: 7, bare: 4 },
-    peach: { grow: [0, 2, 3, 4, 5], fruit: 5, bare: 3 },
+    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
+    peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
   const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;   // 1 day/stage → 4 days sprout→fruit
@@ -2563,6 +2570,12 @@ Render.drawObjects = function drawObjects(scene) {
     const at = fp && fp[o.id];
     return at && Date.now() - at < FRUIT_RESPAWN_MS;
   };
+  // Is this tree carrying ripe fruit right now? Wild trees are mature from the
+  // start; a planted sapling has to reach its fruiting stage first. Either way
+  // a pick empties it until the fruit regrows. This is the ONE condition the
+  // fruit overlay draws on (see the fruit pass) — the tree's own art doesn't
+  // change either side of it.
+  const _ftBearing = (o) => (!o.planted || _ftStage(o) >= 4) && !_ftPicked(o);
   // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
   // multiplicative tint shifts the sprite's hue without darkening it to mud.
   const _crownTint = (hex) => {
@@ -2624,6 +2637,12 @@ Render.drawObjects = function drawObjects(scene) {
     const h = fr.height * _houseScale(o);
     return _houseRole(o) === 'wizard' ? h - CELL_PX * 0.5 : h * 0.5;
   };
+
+  // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
+  // `after` hook as each tree is configured, drained by the fruit pass after
+  // the object pool has rendered. Rebuilt every frame, like everything else
+  // in this pass.
+  const fruitList = [];
 
   const RENDER_SPEC = {
     // Houses pick their texture by role — the generic 'house' frame stays
@@ -2826,15 +2845,12 @@ Render.drawObjects = function drawObjects(scene) {
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
-                if (o.planted) {
-                  // Planted sapling grows through the art's life-cycle frames.
-                  const st = _ftStage(o);
-                  if (st >= 4 && _ftPicked(o)) return fr.bare;  // regrowing
-                  return fr.grow[st];
-                }
-                // Wild (detected/orchard) trees are mature & fruiting; show the
-                // fruitless mature frame briefly after a pick.
-                return _ftPicked(o) ? fr.bare : fr.fruit;
+                // A planted sapling still walks the sheet's life-cycle frames
+                // as it grows; a wild (detected/orchard) tree is mature from
+                // the start. Whether either is BEARING doesn't touch the frame
+                // — the fruit is its own sprite (the fruit pass below), so the
+                // tree's art is the same before and after a pick.
+                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
               },
               origin: [0.5, 0.95],
               scale: (o) => {
@@ -2854,12 +2870,35 @@ Render.drawObjects = function drawObjects(scene) {
               scaleYMul: 1.10,
               // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
               seat: true,
-              after: (s, o) => {
-                // Dim a wild tree only while its fruit is regrowing; a planted
-                // sapling that hasn't matured yet is full-alpha (it's growing,
-                // not picked).
-                const dim = _ftPicked(o) && (!o.planted || _ftStage(o) >= 4);
-                s.setAlpha(dim ? 0.7 : 1);
+              after: (s, o, scene) => {
+                // Hand the fruit pass everything it needs to hang this tree's
+                // fruit on it, measured off the sprite as it was just drawn:
+                // position, origin and scale are all final by now, so the
+                // fruit lands on the crown of the art actually on screen.
+                // (A picked tree simply contributes nothing — its fruit is
+                // gone, and nothing about the tree itself dimmed or changed.)
+                if (!_ftBearing(o)) return;
+                const src = inventoryIconSource(o.species);
+                if (!src || !scene.textures.exists(src.sheet)) return;
+                const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+                const off = SL && SL.fruitCrownOffset
+                  ? SL.fruitCrownOffset(s.texture.key, s.frame.name,
+                                        s.originX, s.originY, s.scaleX, s.scaleY)
+                  : null;
+                if (!off) return;
+                fruitList.push({
+                  key: src.sheet, frame: src.frame ?? 0,
+                  x: s.x + off.dxPx, y: s.y + off.dyPx,
+                  // The fruit is drawn at the TREE's scale, so it stays in the
+                  // same pixel scale as the art it hangs on however big that
+                  // tree is drawn. (scaleX, not scaleY — the tree's 1.10 Y
+                  // stretch is a tree thing; a stretched apple is an egg.)
+                  scale: s.scaleX,
+                  // Painter rule: immediately above its OWN tree, and still
+                  // under anything in a lower screen row (see the z-order
+                  // pass — world depths are the integers 0..n).
+                  depth: s.depth + 0.5,
+                });
               } },
     mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
@@ -3163,6 +3202,25 @@ Render.drawObjects = function drawObjects(scene) {
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
   Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  // ── Ripe fruit ────────────────────────────────────────────────────────────
+  // A bearing fruit tree wears its fruit: the same icon the fruit carries in
+  // the inventory, drawn as its own small sprite on the tree's canopy. The
+  // tree's art never changes — picking removes the fruit and leaves the tree
+  // standing exactly as it was, so an orchard still reads as an orchard once
+  // it's been worked, and what's ripe reads at a glance across the tile.
+  // Every number here came off the tree sprite itself in the `after` hook
+  // above (crown from SpriteLayout.CROWN_BOUNDS, scale and depth from the
+  // sprite) — nothing about the fruit is placed by hand.
+  Render.renderPool(scene, scene.fruitPool, scene.objectsContainer, fruitList, (s, item) => {
+    setTextureIfDifferent(s, item.key);
+    if (s.frame.name !== item.frame) s.setFrame(item.frame);
+    s.setOrigin(0.5, 0.5)
+     .setScale(item.scale)
+     .setAlpha(1)
+     .clearTint()
+     .setDepth(item.depth)
+     .setPosition(item.x, item.y);
+  });
   // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
   // marks exactly one of a footprint's towers `flagPost`, so a castle with six
   // turrets flies one flag rather than six.

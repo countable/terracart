@@ -137,6 +137,14 @@ const ASSETS = {
   // variants). Spawns as wildplant-style debris on sand cells (and rarely
   // near water polygons). frame index is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
+  // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
+  // fruit; frame 1 a slice). These are the inventory icons (items.js
+  // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit
+  // tree wears one on its canopy (render.js's fruit pass) and a dropped stack
+  // of them renders through inventoryIconSource → the same key. Only the two
+  // species the world grows are loaded; the rest stay DOM-only icons.
+  icon_apple:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Apple.png', frameWidth: 16, frameHeight: 16 },
+  icon_peach:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Peach.png', frameWidth: 16, frameHeight: 16 },
   // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
