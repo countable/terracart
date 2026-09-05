@@ -5072,8 +5072,8 @@ class MapScene extends Phaser.Scene {
     // this: the camera is normally on them, so it's the viewport centre, but a
     // peek drag slides them across the map like anything else standing on it.
     const pScreen = this.playerScreen();
-    this.player.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
-    this.playerShadow.setPosition(pScreen.x, pScreen.y + 13);
+    this.player?.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    this.playerShadow?.setPosition(pScreen.x, pScreen.y + 13);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with a tier-8 amulet's
