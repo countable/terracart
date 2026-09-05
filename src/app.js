@@ -9241,7 +9241,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
+    // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
@@ -9764,14 +9764,15 @@ class MapScene extends Phaser.Scene {
   // 0-based position of this house among restored residential (delivery)
   // houses, in restore order; -1 if it isn't a (restored) delivery house.
   // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
-  // the Nth-restored delivery house. Drives the scripted early wishlists
-  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
+  // the Nth-restored delivery house. Drives the scripted opening ladder in
+  // delivery.js (five single-item asks, then the starter pair, then the
+  // foraged-flower trio) and the TIER-1 pin on the early houses.
   deliveryHouseOrder(house) {
     return Delivery.houseOrder(this.save, house);
   }
 
-  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
-  // produce wishlists (see wantedProduce).
+  // True for the first Delivery.EARLY_HOUSES RESTORED delivery houses — they get
+  // pinned to TIER-1 produce wishlists (see wantedProduce).
   isEarlyDeliveryHouse(house) {
     return Delivery.isEarly(this.save, house);
   }
@@ -10021,8 +10022,10 @@ class MapScene extends Phaser.Scene {
     return Delivery.produceTier(id);
   }
 
-  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
+  // 1-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
   // cached on the house per day so the render sign and interact handler agree).
+  // The first restored houses walk delivery.js's scripted ladder, which opens
+  // with five single-item asks before any bundle.
   wantedProduce(house) {
     return Delivery.wantedProduce(this.save, house);
   }
@@ -10034,12 +10037,18 @@ class MapScene extends Phaser.Scene {
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 2-3 wanted produce, delivered together. Tap with the full set in
+  // their 1-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
   // sellMul, no specialty bonus); the quantity selector lets you turn in
   // multiple complete sets at once. Tap without the full set → flash the
-  // wanted icons so the player can see what to gather. Selling a single item
-  // type isn't accepted here; that keeps plain houses distinct from markets.
+  // wanted icons so the player can see what to gather. Selling a produce the
+  // house didn't ask for isn't accepted here; that keeps plain houses distinct
+  // from markets.
+  //
+  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
+  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
+  // drops the set wording (and the "sets" stepper unit) in that case, so the
+  // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed today — the household is happy and won't take another
     // bundle until tomorrow. They'll want a fresh one on the next day.
@@ -10049,6 +10058,7 @@ class MapScene extends Phaser.Scene {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    const single = wanted.length === 1;
     const invCount = (id) => {
       const s = (this.save.inv || []).find(e => e && e.id === id);
       return s ? (s.count ?? 0) : 0;
@@ -10059,7 +10069,7 @@ class MapScene extends Phaser.Scene {
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
-      this.flash(`wants the set: ${names}`, sx, sy);
+      this.flash(single ? `wants: ${names}` : `wants the set: ${names}`, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price, plus a
@@ -10072,13 +10082,15 @@ class MapScene extends Phaser.Scene {
     const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
-      cost: `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
+      cost: single
+        ? `${q} × [ ${setIcons} ${setNames} ]`
+        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
       canAfford: true,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'delivery',
-      title: 'The household wants the full set:',
+      title: single ? 'The household wants:' : 'The household wants the full set:',
       cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
@@ -10089,7 +10101,10 @@ class MapScene extends Phaser.Scene {
         // Re-validate against live bags so a stale modal can't over-deliver.
         const sets = Math.max(1, Math.min(q ?? 1,
           wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) { this.flash('Set incomplete now.', sx, sy); return; }
+        if (!sets || sets === Infinity) {
+          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+          return;
+        }
         for (const id of wanted) {
           const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
           if (idx < 0) continue;

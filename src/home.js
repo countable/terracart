@@ -18,7 +18,9 @@
 //   • Starter blacksmith (1st restored) …… app.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
 //   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
 //   • First market sells T1/T2 seeds …… app.js  isFirstMarket
-//   • First 3 delivery houses → T1 produce app.js  isEarlyDeliveryHouse
+//   • First 8 delivery houses → T1 produce app.js  isEarlyDeliveryHouse
+//     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
+//      single-item asks, then the starter pair, then the flower trio)
 //   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
 //   • Starting money / no free tools …… items.js STARTING_MONEY, app.js starterToolsStripped
 //   • Fort unlock cost ………………………… app.js  FORT_UNLOCK_WOOD
