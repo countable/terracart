@@ -1943,11 +1943,15 @@ class MapScene extends Phaser.Scene {
     // Walk-target marker. Movement is target-follow at every depth: GPS fixes
     // and steering input move a free-flying target (this._targetM) and the
     // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where the
-    // target is whenever it has pulled away from the body; it stays hidden once
-    // the two coincide. A plain marker, not a player-shaped sprite — the only
-    // player sprites on the map belong to real bodies (this.player, and any
-    // other live player — see multiplayer.js).
+    // through rock, which the body mines out. This small dot marks where that
+    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
+    // ahead of the dig. On the surface the target is the GPS fix, which the
+    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
+    // floating ahead of an auto-walking character — see the marker block in
+    // update(), which is the one place its visibility is decided. A plain
+    // marker, not a player-shaped sprite — the only player sprites on the map
+    // belong to real bodies (this.player, and any other live player — see
+    // multiplayer.js).
     this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
       .setStrokeStyle(1.5, 0x000000, 0.4)
       .setDepth(10)
@@ -5227,15 +5231,19 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: show where the body is headed whenever the target has
-    // pulled away from it (underground: trailing / mining; on the surface: the
-    // GPS says you're over there and the body is still catching up). When the
-    // two are basically coincident — arrived — keep it hidden so nothing
-    // diverges. The surface threshold is far looser: a GPS fix jitters a few
-    // metres every second even when the player is standing still, and a marker
-    // strobing on and off with the noise is worse than no marker.
-    const markerDiv = this.cellM * (this.depth > 0 ? 0.5 : 3);
-    if (this._targetM) {
+    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
+    // the player is actively steering — it leads the body through rock and the
+    // body mines its way after it, so while the two are apart the marker is the
+    // only thing saying where the dig is headed (the compass arrow rides it,
+    // below). On the SURFACE the target is just the GPS fix, and the marker was
+    // a second blob for a point the crosshair (gpsGhost) already marks: it
+    // showed up as a grey dot a few metres ahead whenever a fix landed and the
+    // body auto-walked to catch up, which is every fix you take a step on.
+    // Hidden there — the character walking itself over is the whole message.
+    // When target and body are basically coincident — arrived — hide it too, so
+    // nothing diverges.
+    const markerDiv = this.cellM * 0.5;
+    if (this._targetM && this.depth > 0) {
       const gdx = this._targetM.x - this.playerM.x;
       const gdy = this._targetM.y - this.playerM.y;
       const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
