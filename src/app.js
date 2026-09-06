@@ -10339,6 +10339,43 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(title, body);
   }
 
+  // The auto-read fired by addToInv on pickup — framed as involuntary
+  // ("your curiosity compels you") rather than readBook's deliberate "you
+  // crack open the book", since nobody chose to read here. The page-count
+  // line is worth keeping (it's the one place the course's progress shows),
+  // so it survives as a lead-in line above the quote; the plain "you crack
+  // open the book" lead-in is dropped as redundant with the new title.
+  // `onDismiss` (optional) fires once THIS modal is tapped away — how
+  // _revealPendingBookReads chains multiple reads one at a time instead of
+  // stacking them.
+  _presentBookRead(onDismiss) {
+    const read = this._bookRead();   // mutates + the caller persists via this call
+    persistSave(this.save);
+    const detail = read.title.replace(/^📖\s*/, '');
+    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    this.showMessageModal({ title: 'Your curiosity compels you to read the book:', body, onDismiss });
+  }
+
+  // Fires any book read(s) addToInv deferred (via { deferBookRead: true })
+  // because the caller was about to show its own "you found a Book" modal
+  // right after — call this from THAT modal's onDismiss so the read shows
+  // once it's closed instead of stacking on top of it. No-op (calls
+  // `onDone` straight away) when nothing is queued — every non-book pickup
+  // never touches _pendingBookReads. Reads run ONE AT A TIME, each waiting
+  // for the last to be dismissed, so a rare multi-book grant can't stack
+  // its own modals either; `onDone` (e.g. draining the next trail prize)
+  // only fires after the last one closes.
+  _revealPendingBookReads(onDone) {
+    let remaining = this._pendingBookReads || 0;
+    this._pendingBookReads = 0;
+    const showNext = () => {
+      if (remaining <= 0) { if (typeof onDone === 'function') onDone(); return; }
+      remaining--;
+      this._presentBookRead(showNext);
+    };
+    showNext();
+  }
+
   // Drink a Potion of Reach (consumed): light up the whole visible view for
   // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
   // it's in the future, returns a full-screen radius regardless of energy — so
@@ -10779,7 +10816,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
-  showMessageModal({ title, body, okLabel = 'OK' }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: () => {}, kind: 'note' });
@@ -10788,7 +10825,11 @@ class MapScene extends Phaser.Scene {
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
-    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrap.remove();
+      if (typeof onDismiss === 'function') onDismiss();
+    });
     box.appendChild(btn);
     mount();
   }
@@ -12948,9 +12989,18 @@ class MapScene extends Phaser.Scene {
     }
     if (choices.length === 1) {
       // One option is not a choice — claim it and run the ceremony as before.
-      const card = this._claimTrailReward(choices[0]);
+      // A book grant defers its read (deferBookRead) so it doesn't stack on
+      // top of this ceremony modal. On dismiss, reveal it first and only
+      // THEN run the caller's own onDismiss (which may drain the next
+      // queued prize into its own ceremony modal) — otherwise the next
+      // prize's modal could open while the book read is still queued,
+      // stacking the two again just one call later.
+      const card = this._claimTrailReward(choices[0], { deferBookRead: true });
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
-      this.showChestRewardModal({ kind: 'trail', header, onDismiss, ...card });
+      this.showChestRewardModal({
+        kind: 'trail', header, ...card,
+        onDismiss: () => this._revealPendingBookReads(onDismiss),
+      });
       return;
     }
     // The pick. Each button IS a reward card (the shell takes HTML labels), so
@@ -13032,11 +13082,11 @@ class MapScene extends Phaser.Scene {
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
-  _claimTrailReward(reward) {
+  _claimTrailReward(reward, opts = {}) {
     const card = this._trailRewardCard(reward);
     if (!card) return null;
     if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty);
+      this.addToInv(reward.id, reward.qty, false, opts);
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
@@ -14507,21 +14557,27 @@ class MapScene extends Phaser.Scene {
   // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
-  addToInv(id, n = 1, silent = false) {
+  addToInv(id, n = 1, silent = false, opts = {}) {
     // A book triggers its read (a page of the course, or a chest hint) the
     // instant it's picked up rather than waiting in the bag for a manual
-    // Read tap — see readBook / _bookRead. It never occupies an inventory
-    // slot, so it skips Inventory.add entirely; it still counts as
-    // "accepted" for callers that adjust their pickup narration off the
-    // return value.
+    // Read tap — see readBook / _bookRead / _presentBookRead. It never
+    // occupies an inventory slot, so it skips Inventory.add entirely; it
+    // still counts as "accepted" for callers that adjust their pickup
+    // narration off the return value.
+    // opts.deferBookRead: the caller is about to show its OWN "you found a
+    // Book" modal (a chest/trail ceremony) right after this call — showing
+    // the read modal here too would stack two modals at once. Queue it
+    // instead; the caller must fire it from that modal's onDismiss via
+    // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
-        for (let i = 0; i < n; i++) {
-          const { title, body } = this._bookRead();
-          this.showMessageModal({ title, body });
-        }
-        persistSave(this.save);   // _bookRead advances save.tipsRead
+        this._pendingBookReads = (this._pendingBookReads || 0) + n;
+        // deferBookRead: the caller shows its own modal right after and will
+        // reveal these itself from that modal's onDismiss. Otherwise reveal
+        // now — _revealPendingBookReads shows multiple reads one at a time
+        // rather than stacking them, so even a rare qty>1 grant is safe.
+        if (!opts.deferBookRead) this._revealPendingBookReads();
       }
       return n;
     }
