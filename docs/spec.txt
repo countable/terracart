@@ -502,8 +502,8 @@ CHOPPING
  - ACORNS. A fell also has a chance of leaving an ACORN — a sapling that plants
    a new TIMBER tree, so a wood you clear is a wood you can replant. The chance
    is the AXE's, and it is the axe's only reward besides speed and cheap swings:
-   5% bare-handed (tier 0) up to 25% with a Frost axe, linear between
-   (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
+   10% bare-handed (tier 0) up to a guaranteed 100% with a Frost axe, GEOMETRIC
+   between (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
  - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
    tilled cell with it selected, like any sapling, but it grows a `tree` (the
    thing you chop) rather than a `fruittree` (the thing you pick). It is stored
@@ -682,7 +682,7 @@ COMBAT
               underground (the same collision the body walks into), and on
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
-     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (3.2
+     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (2.0
               cells/s, 7-cell range), but a bolt ignores the world entirely
               (goes through rock and timber alike) and damages EVERY foe on
               its line once each, not just the first. Costs 1 ENERGY per bolt
@@ -1026,7 +1026,8 @@ GEAR: RELICS & ARMOR
  - RELIC SLOTS and effects (items.js RELIC_DEFS):
      pick   — lets you break rocks; tier shortens the wheel + cuts energy
      axe    — lets you chop trees; tier shortens the wheel + cuts energy, and
-              raises the ACORN drop on a fell (5% → 25% at Frost, see CHOPPING)
+              raises the ACORN drop on a fell (10% → 100% at Frost, geometric,
+              see CHOPPING)
      hoe    — cheaper tilling, per-tier chance of free, AND sets the tilled
               cell's produce QUALITY (see FARMING)
      can    — a watering can spring the crop a growth stage (tier/7 chance)
