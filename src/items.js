@@ -1120,13 +1120,17 @@ function effectiveChopCost(relics, o, rng) {
 // that plants a new timber tree (items.js 'acorn', interact.js plant handler),
 // so clearing a wood is not a one-way trade. A clean fell recovers more of the
 // tree than a hacked one, so the chance climbs with the axe: bare hands (tier
-// 0) get the base 5%, a Frost axe 25%, linear between. Both ends are named so
-// the ladder is one subtraction rather than a magic slope.
-const ACORN_P_BASE = 0.05;   // bare hands
-const ACORN_P_FROST = 0.25;  // tier 7
+// 0) get the base 10%, a Frost axe a guaranteed 100%, GEOMETRIC between (each
+// tier multiplies the previous tier's chance by the same ratio, rather than
+// adding a flat step) so the early tiers move the needle less than the late
+// ones. Both ends are named so the ratio is one division rather than a magic
+// slope.
+const ACORN_P_BASE = 0.10;   // bare hands
+const ACORN_P_FROST = 1.0;   // tier 7
+const ACORN_GEOMETRIC_RATIO = Math.pow(ACORN_P_FROST / ACORN_P_BASE, 1 / 7);
 function acornDropChance(relics) {
   const t = Math.max(0, Math.min(7, relics?.axe?.tier || 0));
-  return ACORN_P_BASE + ((ACORN_P_FROST - ACORN_P_BASE) / 7) * t;
+  return Math.min(ACORN_P_FROST, ACORN_P_BASE * Math.pow(ACORN_GEOMETRIC_RATIO, t));
 }
 // Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
 // ALSO shortens the catch AND crow/deer hunt wheels (see toolDurationMs).
