@@ -1014,6 +1014,8 @@ const ICON_SHEETS = {
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
   // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
+  icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -9472,6 +9474,54 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // Rope: spend one to move a level UP (delta -1) or DOWN (delta +1), in
+  // place — the Use-button dialog asks which way (the rope row of CONSUMABLE
+  // in syncConsumableButton offers both). Up from the surface is refused:
+  // there is nowhere to climb to. Down on an empty tank is refused here, the
+  // same gate changeDepth applies to a staircase, so — like the sapphire —
+  // the rope is only consumed once the move actually happens.
+  //
+  // THE LANDING CELL IS OPENED BEFORE THE MOVE. Cave levels mirror the
+  // surface, so a floor cell here is floor on the next level too — except a
+  // cell the player MINED, which is dug on this level only and solid rock one
+  // level up or down. Stamping the landing into dugWalls at the target depth
+  // lets _applyDugWalls (run over every tile of every ensureTilesAround pass,
+  // cached or fresh, and a no-op on a cell that is floor already) open it as
+  // the new level comes in, so the rope never lowers the player into the wall
+  // of the tunnel they just dug. The surface has no walls to open.
+  useRope(delta) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'rope' || (sel.count ?? 0) <= 0) return false;
+    const target = (this.depth || 0) + delta;
+    if (target < 0) {
+      this.flash('Nowhere to climb — you are on the surface.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    if (delta > 0 && (this.save.energy ?? 0) <= 0) {
+      this.flash('Too exhausted to climb down — rest first.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    // Synthetic "stair" at the player's own world cell, as the portal does:
+    // changeDepth GPS-mirrors the feet onto it, so the move is straight up or
+    // down with no sideways step.
+    const anchor = {
+      x: this.startWorldM.x + this.playerM.x,
+      y: this.startWorldM.y + this.playerM.y + this.feetOffsetM,
+    };
+    if (target > 0) {
+      const c = this.cellAt(anchor.x, anchor.y);
+      const N = this.cellsPerTile;
+      this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.tx * N + c.ix, c.ty * N + c.iy)}`);
+      this.save.dugWalls = [...this.dugWallSet];
+    }
+    consumeSelected(this.save);
+    this.buildInventoryDOM();
+    this.changeDepth(delta, anchor);
+    return true;
+  }
+  useRopeUp()   { return this.useRope(-1); }
+  useRopeDown() { return this.useRope(+1); }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -13748,6 +13798,13 @@ class MapScene extends Phaser.Scene {
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
+      // Rope: the ONE consumable whose dialog is a choice, not a yes/no. The
+      // primary button lowers you a level (useRopeDown), the `secondary` one
+      // climbs (useRopeUp) — greyed on the surface, where there is no up. `get`
+      // is a function so the line can say which way is open right now.
+      rope: { verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
+              get: () => (this.depth > 0 ? '🪢 climb up a level, or lower yourself down one' : '🪢 lower yourself down a level'),
+              secondary: { label: 'Up', method: 'useRopeUp', disabled: () => !(this.depth > 0) } },
     };
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
@@ -13781,13 +13838,26 @@ class MapScene extends Phaser.Scene {
       // Mirror the interact.js use-consumable flow: confirmation modal,
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
+      // A `secondary` row (the rope's Up) becomes the modal's middle button:
+      // its own method, its own live disabled test, the same consume-then-
+      // resync flow as the primary.
+      const sec = entry.secondary;
+      const secondary = sec ? {
+        label: sec.label,
+        disabled: typeof sec.disabled === 'function' ? sec.disabled() : !!sec.disabled,
+        onClick: () => {
+          if (typeof this[sec.method] === 'function') this[sec.method]();
+          this.syncConsumableButton();
+        },
+      } : undefined;
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
-        get: entry.get,
+        get: typeof entry.get === 'function' ? entry.get() : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: true,
-        acceptLabel: entry.verb,
+        acceptLabel: entry.acceptLabel || entry.verb,
+        secondary,
         onAccept: () => { this[fn](); this.syncConsumableButton(); },
       });
     });
