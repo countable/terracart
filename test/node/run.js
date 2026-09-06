@@ -183,7 +183,11 @@ try {
                       // The campfire's warmth ring — lighting.js resolves the
                       // fire's light radius to it at call time, and
                       // lighting.test.js pins that the two are one number.
-                      'FIRE_REST_R']) {
+                      'FIRE_REST_R',
+                      // Home's ring, which is the same three-way rule one step
+                      // further: light, warmth AND ward. lighting.test.js pins
+                      // the light against it, home_ward.test.js the other two.
+                      'HOME_R']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -261,6 +265,34 @@ try {
   for (const k of ['_trailRewardCard', '_claimTrailReward']) {
     if (typeof ctx.__trailPrize[k] !== 'function') {
       console.error(`__trailPrize.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// HOME IS A CAMPFIRE YOU OWN — one ring (HOME_R) that lights, rests and wards.
+// The rest half is a plain distance test on a real method, so lift it and RUN
+// it: a radius pinned as source text says nothing about where it actually
+// rests you. homeWorldPos comes with it because it is the thing all three
+// effects ask, and its depth gate is half the answer.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#homeWorldPos' });
+  for (const k of ['homeWorldPos', 'isRestingAtHome']) {
+    if (typeof ctx.__home[k] !== 'function') {
+      console.error(`__home.${k} did not come back as a function — update run.js`);
       process.exit(2);
     }
   }

@@ -875,16 +875,19 @@ function pathStoneLocal(entry, ix, iy) {
   const N = entry.cellsPerEdge;
   return { lix: ((ix % N) + N) % N, liy: ((iy % N) + N) % N, N };
 }
-// Building interior cells — small house, fort, civic slab. Standing on one is
-// how a real adopted HOME is recognised (isRestingAtHome); it is not by itself
-// a rest spot any more.
+// Building interior cells — small house, fort, civic slab. Not a rest spot:
+// resting is Home's ring (HOME_R) or a campfire's, and nothing else. Read by
+// interact.js; Home stopped needing it when its rest became a radius.
 const BUILDING_TYPES = new Set([9, 11, 12]);
 // Resting AT Home (the starter trailer / adopted home shop) fills the bar in
 // this many seconds. YOUR OWN PLACE IS THE ONLY BUILDING THAT RESTS YOU: every
 // building cell used to regenerate energy at INDOOR_FULL_REST_S (300s), which
 // made a home no more than a faster version of the nearest stranger's roof and
 // meant a town was one continuous rest spot. A campfire (FIRE_FULL_REST_S)
-// covers the out-in-the-wild case; going home covers the rest.
+// covers the out-in-the-wild case; going home covers the rest. Like the fire,
+// it rests you anywhere inside its ring (HOME_R) — the doorstep is where the
+// player actually stands, and it used to rest them at neither the doormat nor
+// the doorstep.
 // Both rates PAUSE while a work wheel runs (see the `working` gate in
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
@@ -905,6 +908,18 @@ const FIRE_FULL_REST_S = 360;
 const CASTLE_REST_FRAC = 0.10;
 const CASTLE_TAX_GOLD = 10;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
+// HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
+// throws, the ring it rests you in, and the ring an enemy turns and walks out
+// of. Three effects, one number, for the reason the campfire's warmth and the
+// campfire's light are one number: Lighting.KINDS.trailer resolves its
+// radiusCells to HOME_R at call time exactly as the fire's row resolves to
+// FIRE_REST_R, so "stand in the light" is "stand in the warmth" is "stand
+// where nothing will bite you", and no two of them can drift apart.
+// It is WIDER than the fire's ring (and rests far faster, HOME_FULL_REST_S)
+// because a fire is the field expedient and Home is the place you built.
+// What Home has that a fire hasn't is the shop: the trade panel is a TAP on
+// the building, not an effect of the ring, and is untouched by any of this.
+const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
@@ -6001,18 +6016,15 @@ class MapScene extends Phaser.Scene {
     //
     // HOME ONLY. Standing on ANY building cell used to rest you (300s to a full
     // bar), which made a stranger's front room a rest spot and a town one
-    // continuous one. `indoors` survives because a real adopted home is
-    // recognised BY its building cell — it is the home test's input now, not a
-    // rest condition of its own.
+    // continuous one. Nothing reads a building cell here any more: Home is a
+    // ring (HOME_R), the same shape as the campfire's below.
     if (!window.__TEST_MODE) {
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
-      const here = this.cellAt(pWX, pWY);
-      const indoors = here.loaded && BUILDING_TYPES.has(here.type);
-      // A synthetic trailer paints no building cell underneath, so `indoors` is
-      // false there and atHome carries it (see ensureStarterTrailerObject +
-      // isRestingAtHome).
-      const atHome = this.isRestingAtHome(pWX, pWY, indoors);
+      // Home rests you anywhere inside its ring, the way a campfire does —
+      // no building-cell test, so the synthetic trailer (which paints no cell
+      // at all) and an adopted house work by the one rule. See HOME_R.
+      const atHome = this.isRestingAtHome(pWX, pWY);
       const maxE = this.getMaxEnergy();
       // WORKING IS NOT RESTING. A work wheel (till / chop / mine / cast / a
       // fight) suspends both rests below. The starter trailer is dropped under
@@ -7187,6 +7199,12 @@ class MapScene extends Phaser.Scene {
       });
     }
     const caughtSet = setOf(this.save.caught);
+    // HOME'S WARD, resolved ONCE per tick (homeWorldPos memoises, but every
+    // creature in the loop below asks the same question and the answer cannot
+    // change inside one tick). Null off the surface and before Home is placed,
+    // which is what switches the ward off.
+    const homePos = this.homeWorldPos();
+    const HOME_WARD_R2 = (HOME_R * this.cellM) * (HOME_R * this.cellM);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -7254,12 +7272,22 @@ class MapScene extends Phaser.Scene {
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
       // player), so the generic wander must not also drive it.
       if (c._beingCaught) return;
+      // WARDED BY HOME: this foe is standing inside Home's ring (HOME_R). It
+      // turns and walks out (the angle chain below) and it cannot bite while
+      // it goes — a ward that let a slime leech its way to the door would make
+      // the doorstep no safer, only slower to lose the bar on.
+      // Combat.isEnemy is the registered-hostile test (the wild slime, every
+      // cave monster), so a kind added to the monster table is warded the day
+      // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
+      const homeWard = !!homePos && !isTame && Combat.isEnemy(c) &&
+        (c.x - homePos.x) * (c.x - homePos.x) +
+        (c.y - homePos.y) * (c.y - homePos.y) <= HOME_WARD_R2;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime' && !isTame) {
+      if (c.kind === 'slime' && !isTame && !homeWard) {
         const STEAL_R = this.cellM;   // 1 cell — adjacent only
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
@@ -7282,7 +7310,7 @@ class MapScene extends Phaser.Scene {
       // (adjacent); the goblin archer reaches 3 cells, so it chips at you
       // before you can close. Accumulated + flashed once per window after the
       // loop, like the slime swarm.
-      if (isMonster(c.kind)) {
+      if (isMonster(c.kind) && !homeWard) {
         const m = MONSTERS[c.kind];
         const R = m.range * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
@@ -7517,6 +7545,19 @@ class MapScene extends Phaser.Scene {
           } else if (butterflyEscaping) {
             // Bolt away from the player, careening with wide jitter.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;
+          } else if (homeWard) {
+            // Away from HOME, not away from the PLAYER: away-from-player would
+            // shove the foe around the ring with the player still inside it,
+            // and one standing on the far side of Home would be driven
+            // straight through the door. Away-from-home always leaves.
+            //   And it is an ANGLE, not a refused target cell like the
+            // scarecrow and campfire wards below. A foe already deep inside
+            // the ring would have all six of its attempts rejected by a cell
+            // test — every hop it can reach is still inside — and it would
+            // freeze on the doorstep forever, which is the stall the
+            // "surrounded by scarecrows" comment further down warns about.
+            angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
+                  + (Math.random() - 0.5) * 0.8;
           } else if (c.kind === 'slime') {
             // Lazily drawn to the player: about half its hops amble toward
             // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
@@ -10914,38 +10955,54 @@ class MapScene extends Phaser.Scene {
     this._setStarterCratesAt(ax, ay);
   }
 
-  // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
-  // energy-rest rate. Home is either an adopted real house (which paints
-  // BUILDING cells into the grid) or a synthetic trailer dropped on open ground
-  // (which paints NO cell — see ensureStarterTrailerObject), so there are two
-  // cases:
-  //   • real house  → the player must be standing on a building cell (indoors)
-  //     AND the nearest loaded house to them must be Home, so a neighbour's
-  //     house next door doesn't read as Home.
-  //   • trailer     → the player must be standing on the trailer's own snapped
-  //     cell (there's no building cell to stand on, so `indoors` is false).
-  // The house scan only runs on indoor frames (rare — you have to be standing
-  // on a building), and ensureStarterShopId early-outs once Home is locked in.
-  isRestingAtHome(pWX, pWY, indoors) {
+  // WHERE HOME IS, in absolute world metres — the synthetic starter trailer's
+  // own position, or the object of the real house adopted in its place (both
+  // are save.starterShopId) — or null when Home isn't placed yet, or its tile
+  // isn't loaded, or the player is underground.
+  //   SURFACE ONLY, for the reason _nearAny refuses to let a placed ward cross
+  // depths: the world is GPS-mirrored down the levels, so a Home on the
+  // surface must not light, warm or ward a cave at the same (x, y).
+  //   MEMOISED on the home id, because all three of Home's effects ask this
+  // every frame and the adopted-house branch is a walk of every object in
+  // every cached tile. Only a HIT is memoised: a miss means the house's tile
+  // simply isn't loaded yet, and caching that would leave Home dark and
+  // unwarded until the player adopted somewhere else.
+  homeWorldPos() {
+    if ((this.depth || 0) !== 0) return null;
     this.ensureStarterShopId();
     const homeId = this.save.starterShopId;
-    if (!homeId) return false;
+    if (!homeId) return null;
     const st = this.save.starterTrailer;
-    if (st && st.id === homeId) {
-      const half = this.cellM / 2;     // within the trailer's snapped cell
-      return Math.abs(pWX - st.x) <= half && Math.abs(pWY - st.y) <= half;
-    }
-    if (!indoors) return false;        // real house only counts from inside it
-    let nearId = null, nearD2 = Infinity;
+    if (st && st.id === homeId) return st;   // O(1) — the common case
+    const memo = this._homePosMemo;
+    if (memo && memo.id === homeId) return memo.pos;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        const dx = o.x - pWX, dy = o.y - pWY;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < nearD2) { nearD2 = d2; nearId = o.id; }
+        if (o.kind !== 'house' || o.id !== homeId) continue;
+        this._homePosMemo = { id: homeId, pos: o };
+        return o;
       }
     }
-    return nearId === homeId;
+    return null;
+  }
+
+  // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
+  // energy-rest rate. It is a DISTANCE test — anywhere inside Home's ring
+  // (HOME_R), exactly like the campfire's _nearAny('fires', …, FIRE_REST_R) —
+  // because Home is a campfire you own: the same ring rests you, lights you
+  // and turns enemies away.
+  //   It used to be two special cases, and they agreed on nothing: an adopted
+  // house rested you only from INSIDE (standing on a building cell, plus a
+  // nearest-house scan so a neighbour's roof didn't read as Home), and the
+  // trailer only from its own snapped cell (it paints no building cell to
+  // stand on). Neither rested you on the DOORSTEP, which is where the player
+  // stands while farming the plot two cells away.
+  isRestingAtHome(pWX, pWY) {
+    const home = this.homeWorldPos();
+    if (!home) return false;
+    const r = HOME_R * this.cellM;
+    const dx = home.x - pWX, dy = home.y - pWY;
+    return dx * dx + dy * dy <= r * r;
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid

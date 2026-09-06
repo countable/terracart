@@ -4,7 +4,7 @@
 // warmth (FIRE_FULL_REST_S) — must pause while a work wheel runs. Until Sep
 // 2026 they didn't, and a new player's first till was free: the starter
 // trailer is dropped under the player at spawn and the starter plot is carved
-// two cells from it, inside reach from the trailer's own cell, so the Home
+// two cells from it — inside Home's rest ring (HOME_R), so the Home
 // rest ticked at maxE / HOME_FULL_REST_S under a wheel that had already cost
 // ENERGY_COST.till — and handed it back before the wheel finished. The bar
 // read the same number before and after ("tilling takes no energy").
@@ -20,7 +20,7 @@ const app = APP_JS_SRC;
 
 // The rest block of update(): from the HOME-ONLY comment to the cobble sweep.
 const block = (() => {
-  const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY, indoors);');
+  const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
   const b = app.indexOf('this._sweepCobbleTrails();', a);
   assert.truthy(a > 0 && b > a, 'found the passive-rest block in update()');
   return app.slice(a, b);
