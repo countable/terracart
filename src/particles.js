@@ -51,6 +51,11 @@
     goldPale:  (typeof UI_GOLD_PALE  === 'string') ? UI_GOLD_PALE  : '#fff3b0',
     green:     (typeof UI_GREEN      === 'string') ? UI_GREEN      : '#a7ffb0',
     trailLit:  (typeof UI_TRAIL_LIT  === 'string') ? UI_TRAIL_LIT  : '#9a8cff',
+    // Water is not in the UI palette on purpose: blue-white there means
+    // TREASURE (util.js UI_TREASURE_*), and a watering is not a gift from the
+    // world. This is the water tile's own murky teal (render.js terrain colour
+    // 3, 0x3f6b7a) lifted toward white so a drop reads against dark soil.
+    water:     '#8ed3e6',
   };
 
   // Phaser angles: 0 = right, 90 = DOWN (screen y grows downward), 270 = up.
@@ -89,6 +94,17 @@
       tex: { shape: 'leaf', color: C.green, vein: '#e6ffe8', size: 8 },
       count: 8, angle: [240, 300], speed: [25, 60], lifespan: [550, 900],
       gravityY: -50, scale: [0.9, 0.2], alpha: [1, 0], rotate: [-40, 40],
+    },
+    // A crop being WATERED — the tap on a dry plant, can or cupped hands. Until
+    // Sep 2026 watering was the one farm action with no visual at all: the tap
+    // flashed the stage readout and the cell looked exactly as it had. Drops
+    // are tossed up in a narrow cone and fall straight back onto the plant
+    // under a firm gravity — a sprinkle onto the cell, not a spray over the
+    // neighbours (reach at the fastest, longest drop is well under a cell).
+    water: {
+      tex: { shape: 'drop', color: C.water, core: '#ffffff', size: 8 },
+      count: 10, angle: [245, 295], speed: [40, 90], lifespan: [350, 600],
+      gravityY: 260, scale: [0.9, 0.35], alpha: [1, 0.1], rotate: [0, 0],
     },
   };
 
@@ -156,6 +172,11 @@
       g.fillStyle(hex(t.edge), 1); g.fillPoints(pts, true);
       g.fillStyle(hex(t.color), 1);
       g.fillPoints(pts.map((p) => ({ x: c + (p.x - c) * 0.6, y: c + (p.y - c) * 0.6 })), true);
+    } else if (t.shape === 'drop') {
+      // A water drop: a round bead, taller than wide, with a white glint
+      // off-centre so it reads as wet rather than as a blue dot.
+      g.fillStyle(hex(t.color), 1); g.fillEllipse(c, c, S * 0.6, S * 0.85);
+      g.fillStyle(hex(t.core), 0.9); g.fillCircle(c - S * 0.12, c - S * 0.18, Math.max(1, S * 0.12));
     } else {
       // A leaf: a small ellipse with a lighter vein down its length.
       g.fillStyle(hex(t.color), 1); g.fillEllipse(c, c, S * 0.9, S * 0.5);

@@ -1257,10 +1257,22 @@ const TAP_HANDLERS = [
         if (filled) save.canCharges -= 1;
       }
       ctx.dirty = true;
-      // Water the plant AND report its growth progress so the player can see
-      // how close it is to harvest (e.g. "Pairy 2/5").
-      scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout())
+      // Say what the tap DID, like every other farm action does ('tilled',
+      // 'planted …', 'harvested …'): until Sep 2026 this read only the stage
+      // readout — "Pairy 2/5 — 15m" — which is the same line a tap on an
+      // already-watered plant gives, so nothing told the player the watering
+      // had happened. With no can the verb also says HOW: bare hands are the
+      // tool, and naming them is the only hint the game gives that a better
+      // one exists.
+      // Then the growth readout, so the player can see how close it is to
+      // harvest (e.g. "Pairy 2/5").
+      const how = can?.tier ? 'watered' : 'you water by cupping your hands';
+      scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}`
+                          : `💧 ${how} — ${stageReadout()}`)
                   + growthLeft(), sx, sy);
+      // The visual cue: a sprinkle of drops onto the cell (particles.js
+      // 'water'). A jump adds the sprout burst on top — two things happened.
+      scene._burstAtWorld?.('water', cwmx, cwmy);
       if (jumped) scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
