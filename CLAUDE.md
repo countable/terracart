@@ -139,6 +139,21 @@
   quantity.
   **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
 
+- **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
+  soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
+  pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
+  and a transparent ring, so each cell reads as its own bed with the ground
+  colour showing between neighbours, and `render.js` paints NO soil fill under
+  it. Until Sep 2026 it painted one — and at a sand/residential zone corner it
+  was a `fillRoundedRect` wearing the ZONE's radii, which Phaser tessellates
+  into ~400 points and triangulates every frame (cellGfx is cleared each
+  frame). Any shape a cell wears every frame belongs in its texture, not in a
+  Graphics path. The watered darkening is a TINT on that pad sprite
+  (`WATERED_TINT`), set on every frame the pool sprite is reused: a wash under
+  an opaque pad is hidden, and one over it darkens the ground ring too.
+  **Audit it:** `node test/node/run.js` › `test/node/tilled_bed.test.js` runs
+  the real `drawTilledTex` against a recording 2D context.
+
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
   work-progress wheel drawn over one is not free-floating: it **rests on** that
