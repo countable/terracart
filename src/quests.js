@@ -55,11 +55,23 @@ const QUEST_TEMPLATES = [
 
 // A single enemy at rank 0 — "pest control starts with just a single of each" —
 // and a different foe each time the verb comes up. The surface slime leads
-// because it is the only one you can meet without going underground.
-const QUEST_ENEMIES = ['slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer'];
+// because it is the only one you can meet without going underground. The list
+// is ordered by how deep you must go to meet the kind, and rank r opens the
+// first r + 1 of them (see generate), so the giants — a level or three below
+// their base kinds — only come up on the board once a player has claimed a
+// handful of jobs. A GIANT IS ITS OWN KIND here: "defeat 2 goblins" is not
+// satisfied by a giant goblin, and a giant-goblin job is not by a goblin —
+// the board asks for exactly the foe it names (resolveDefeat credits
+// victim.kind as-is).
+const QUEST_ENEMIES = [
+  'slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer',
+  'giant_cave_slime', 'giant_purple_slime', 'giant_goblin', 'giant_goblin_archer',
+];
 const QUEST_ENEMY_NAMES = {
   slime: 'slime', cave_slime: 'cave slime', purple_slime: 'purple slime',
   goblin: 'goblin', goblin_archer: 'goblin archer',
+  giant_cave_slime: 'giant cave slime', giant_purple_slime: 'giant purple slime',
+  giant_goblin: 'giant goblin', giant_goblin_archer: 'giant goblin archer',
 };
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.
@@ -158,7 +170,8 @@ const Quests = {
     };
     if (tpl.id === 'kill') {
       q.target = (opener && opener.target)
-        || QUEST_ENEMIES[Math.min(QUEST_ENEMIES.length - 1, Math.floor(rnd() * (1 + Math.min(rank, 4))))];
+        || QUEST_ENEMIES[Math.min(QUEST_ENEMIES.length - 1,
+             Math.floor(rnd() * (1 + Math.min(rank, QUEST_ENEMIES.length - 1))))];
     }
     if (tpl.id === 'poi') q.target = QUEST_POIS[Math.floor(rnd() * QUEST_POIS.length)];
     q.title = tpl.title;
