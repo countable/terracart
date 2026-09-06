@@ -55,14 +55,17 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     // …scaled by the contrast knob, and by nothing else…
     assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), Lighting.AMBIENT_K),
       `ambient @${depth}`);
-    // …the cookie just outside the plateau lifts it back to the flat wash…
-    near((1 - p.farA) + p.edge, 1 - dimA, 1e-12, `edge restores the wash @${depth}`);
-    // …and inside the plateau to the lit level (full daylight on the surface).
-    near((1 - p.farA) + p.lit, 1 - Lighting.litDim(depth), 1e-12, `lit level @${depth}`);
+    // …the cookie just outside the plateau lifts it back to the flat wash,
+    // scaled down by the player's own output knob…
+    near((1 - p.farA) + p.edge / Lighting.PLAYER_OUTPUT_K, 1 - dimA, 1e-12, `edge restores the wash @${depth}`);
+    // …and inside the plateau to the lit level (full daylight on the surface), likewise scaled.
+    near((1 - p.farA) + p.lit / Lighting.PLAYER_OUTPUT_K, 1 - Lighting.litDim(depth), 1e-12, `lit level @${depth}`);
   }
   // The contrast knob darkens the FLOOR only: the ramp's edge level is the
-  // old wash's, so the reach step is untouched and only the dark got darker.
+  // old wash's (times PLAYER_OUTPUT_K), so the reach step is untouched and
+  // only the dark got darker.
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
+  assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.5, 1.0, 'a real dimming of the body light, not a blackout');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
   assert.lt(lum(Lighting.profile(scene()).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance');
   assert.eq(Lighting.litDim(0), 0, 'the surface bubble is full daylight');
@@ -325,7 +328,10 @@ test('lighting: night darkens the world but not the Inner Light, and never a cav
   assert.lt(lum(night.ambient), lum(noon.ambient) * 0.5, 'the floor goes much darker');
   assert.lt(night.edge, noon.edge, 'so does the ground just outside reach');
   // The plateau: lit + floor still sums to full daylight on the surface.
-  near((1 - night.farA) + night.lit, 1, 1e-12, 'the reach bubble stays fully lit at night');
+  // …fully lit at night, before PLAYER_OUTPUT_K takes its own bit off the top
+  // (the Inner Light still fully compensates for the night; it's just dimmer
+  // than daylight by the same knob that dims it by day).
+  near((1 - night.farA) + night.lit / Lighting.PLAYER_OUTPUT_K, 1, 1e-12, 'the reach bubble stays fully lit at night');
   assert.eq(night.litColour, 0xffffff);
   // A cave has no sun.
   const caveDay = Lighting.profile(scene({ depth: 1 }), 1), caveNight = Lighting.profile(scene({ depth: 1 }), 0);
