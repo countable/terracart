@@ -6185,6 +6185,14 @@ class MapScene extends Phaser.Scene {
         && !this._passingOut && !window.__TEST_MODE) {
       this._passOutToSurface();
     }
+    // Hard mode only: the surface is not risk-free either. Running the tank
+    // dry up top costs the same half-purse penalty as the underground
+    // blackout (_passOutOnSurface) — easy mode's surface stays exactly as it
+    // was, a hard stop with no cost (see the "too tired" flashes elsewhere).
+    if (this.depth === 0 && Difficulty.isHard() && (this.save.energy ?? 0) <= 0
+        && !this._passingOut && !window.__TEST_MODE) {
+      this._passOutOnSurface();
+    }
 
     // (Underground rock-wall collision is handled per-frame inside
     // _followStep, which steps the body toward the target and mines any wall
@@ -9178,6 +9186,25 @@ class MapScene extends Phaser.Scene {
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You pass out from exhaustion and wake up on the surface.',
+      sub: lost > 0 ? `Lost $${lost} while you were out cold.` : undefined,
+      color: '#ff8c3b', accent: '#ff8c3b',
+      onDismiss: () => { this._passingOut = false; },
+    });
+  }
+  // Hard mode's surface exhaustion: the same half-purse cost as the
+  // underground blackout above, but nothing else about it — no cave to wake
+  // up from, so position, depth and any in-progress work are all untouched.
+  // Easy mode never calls this (see the update() gate).
+  _passOutOnSurface() {
+    this._passingOut = true;
+    const lost = Math.floor((this.save.money ?? 0) / 2);
+    if (lost > 0) addMoney(this.save, -lost);
+    persistSave(this.save);
+    this.showChestRewardModal({
+      kind: 'rest',
+      header: 'Exhausted',
+      iconHTML: '<span style="font-size:42px">😵</span>',
+      name: 'You collapse from exhaustion.',
       sub: lost > 0 ? `Lost $${lost} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
