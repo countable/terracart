@@ -259,6 +259,13 @@ try {
   };
   const methods = ['_trailCounterAt(ix, iy) {', '_activatePathStone(tx, ty, ix, iy) {']
     .map(lift).join(',\n');
+  // The abs→tile-local cell conversion both stone methods share is a module
+  // function of app.js; carry it across as source text too.
+  const localFn = src.match(/\nfunction pathStoneLocal\(entry, ix, iy\) \{[\s\S]*?\n\}\n/);
+  if (!localFn) {
+    console.error('Could not lift pathStoneLocal out of src/app.js — update run.js');
+    process.exit(2);
+  }
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
   // numbers — a retune in app.js has to move the test with it.
@@ -272,7 +279,8 @@ try {
   };
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
-    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};`,
+    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
+    `globalThis.pathStoneLocal = ${localFn[0].trim()};`,
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
@@ -491,7 +499,7 @@ try {
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
     + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
     + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _castleServiceDayKey() {\n' + grab('  _castleServiceDayKey() {\n') + '\n  },\n'
+    + '  _dayKey() {\n' + grab('  _dayKey() {\n') + '\n  },\n'
     + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
     + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
@@ -890,7 +898,7 @@ try {
   // lookup) and it only closes over rng/N/entry/_spawnOpts/pestFree/caughtSet/
   // creatures/tx/ty, all cheap to stub.
   ctx.TRY_PLACE_SRC = grabBetween(
-    '    const tryPlace = (kindWant, classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
+    '    const tryPlace = (classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
 
   // FINDING 3(b), other half — spawnCaveCreatures is small and self-contained
   // enough (this.save.caught, this.tileEdgeM, WorldGen, MONSTERS, entry.* —
