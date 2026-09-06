@@ -15,7 +15,7 @@
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
-//   standWordItem, standNameItem, produceStandFor
+//   standWordItem, standNameItems, produceStandFor
 //   WILD_TREASURE
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
@@ -256,7 +256,7 @@ const STAND_ITEM_FRAME = {
   // dairy / egg (pale yellow, 5)
   milk: 5, egg: 5,
   // flowers / garden (pink, 6)
-  flowers: 6,
+  flowers: 6, marigold: 6, wildrose: 6,
 };
 // ── What a stall's SIGN says it sells, and what it actually sells ─────────
 // These have to agree. A stall's name is painted over it (render.js draws the
@@ -270,11 +270,16 @@ const STAND_ITEM_FRAME = {
 //
 // So the resolution is, in order:
 //   1. a SPECIFIC product word anywhere in the name  — "Freshly Squeezed" → orange
-//   2. a GENERIC venue word anywhere in the name     — "Corner Market"    → potato
-//   3. the POI's class                               — an unnamed cafe    → coffee
-// Specific beats generic wherever each sits in the name, because the product
-// word is the one that describes the goods; between two words of the same
-// strength the leftmost wins (shop names lead with what they are).
+//   2. the POI's class                               — an unnamed cafe    → coffee
+//   3. a GENERIC venue word anywhere in the name     — "Corner Market"    → potato
+// A product word beats everything, wherever it sits in the name, because it is
+// the one thing that describes the goods; between two product words the
+// leftmost wins (shop names lead with what they are). The CLASS outranks a
+// venue word because it is the more specific of the two — "Whole Foods Market"
+// is a supermarket that happens to have "market" in its name, and reading the
+// word instead of the class collapsed every such shop onto the same produce
+// stall. A venue word only speaks for a class that has nothing to say: the
+// generic `shop`, which is OSM's catch-all for retail it can't identify.
 //
 // Tokens are matched exactly first, then through a small suffix ladder
 // (standStem) so a plural or an -ery/-ly/-ed form of a word already in the
@@ -347,6 +352,7 @@ const STAND_KEYWORD_ITEM = {
   botanic: 'flowers', bouquet: 'flowers', posy: 'flowers', floral: 'flowers',
   greenhouse: 'flowers', orchid: 'flowers', rose: 'flowers', tulip: 'flowers',
   plant: 'flowers', plants: 'flowers',
+  marigold: 'marigold', marigolds: 'marigold', wildrose: 'wildrose',
 };
 // Words that say a place SELLS FOOD without saying what — a venue, an
 // adjective, a trade. They still theme a stall (a market with no product word
@@ -364,16 +370,34 @@ const STAND_GENERIC_ITEM = {
 // guess that can never fire (there is no `greengrocer` class in the tiles; that
 // word lives in the name table instead).
 //
-// A restaurant gets the same fallback as fast_food: they are the same kind of
-// place to a passer-by, and splitting them meant a food court's burger counter
-// ran a meat stall while the sit-down place beside it — identical but for the
-// OSM class — was a crate whenever its name wasn't in English.
+// EVERY CLASS SELLS SOMETHING DIFFERENT. Six of these used to collapse onto
+// potato and three more onto meat, so a street of unnamed shops was a row of
+// identical stalls — the fallback is what most stalls actually resolve by, so
+// the duplicates were most of the variety the player ever saw. One item each,
+// picked for what that kind of shop would put on the counter:
+//
+//   butcher       meat      the only butchery there is
+//   fast_food     potato    chips, the fast-food staple
+//   restaurant    mushroom  a cooked dish rather than a raw ingredient
+//   cafe          coffee    canonical
+//   bakery        egg       the baker's staple (there is no bread item)
+//   ice_cream     milk      the dairy it's churned from
+//   grocery       onion     the greengrocer's basket
+//   supermarket   apple     the produce aisle
+//   convenience   nut       the snack by the till
+//   alcohol_shop  berry     fruit wine — the closest the game grows to a still
+//   beer          cherry    a kriek; the game grows no grain to brew from
+//   florist       flowers   cut stems
+//   garden_centre marigold  a potted bloom, not a bouquet
+//
+// A name still outranks all of this (see standNameItem) — the class only
+// speaks for a shop whose sign says nothing about its goods.
 const STAND_CLASS_ITEM = {
-  butcher: 'meat', bakery: 'coffee', grocery: 'potato',
-  supermarket: 'potato', convenience: 'potato', florist: 'flowers',
-  garden_centre: 'flowers', ice_cream: 'milk',
-  cafe: 'coffee', fast_food: 'meat', restaurant: 'meat',
-  alcohol_shop: 'potato', beer: 'potato',
+  butcher: 'meat', fast_food: 'potato', restaurant: 'mushroom',
+  cafe: 'coffee', bakery: 'egg', ice_cream: 'milk',
+  grocery: 'onion', supermarket: 'apple', convenience: 'nut',
+  alcohol_shop: 'berry', beer: 'cherry',
+  florist: 'flowers', garden_centre: 'marigold',
 };
 const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
 // A stall is a SHOP. These classes land in a retail category for their LOOT
@@ -412,17 +436,19 @@ function standWordItem(tok) {
   return null;
 }
 
-// The item a whole POI name implies: the leftmost SPECIFIC word if the name has
-// one, else the leftmost generic word, else null.
-function standNameItem(name) {
-  let generic = null;
+// What a whole POI name implies, as { specific, generic } — the leftmost
+// product word and the leftmost venue word, either of which may be null. They
+// come back separately because they sit on OPPOSITE sides of the class guess in
+// the ladder above, so the caller has to be able to tell them apart.
+function standNameItems(name) {
+  let specific = null, generic = null;
   for (const tok of String(name || '').toLowerCase().split(/[^a-z]+/)) {
     const hit = standWordItem(tok);
     if (!hit) continue;
-    if (hit.specific) return hit.item;      // a product word ends the search
-    if (!generic) generic = hit.item;       // remember the first venue word
+    if (hit.specific) { specific = hit.item; break; }   // a product word ends the search
+    if (!generic) generic = hit.item;                   // remember the first venue word
   }
-  return generic;
+  return { specific, generic };
 }
 
 function produceStandFor(o) {
@@ -430,8 +456,10 @@ function produceStandFor(o) {
   if (o._standCache !== undefined) return o._standCache;   // computed once per object
   let res = null;
   if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass]) && !STAND_NEVER_CLASSES.has(o.poiClass)) {
-    // The shop's own branding wins; fall back to the class word.
-    const item = standNameItem(o.name) || STAND_CLASS_ITEM[o.poiClass] || null;
+    // A product word in the shop's own branding wins; then what kind of shop it
+    // is; then, for a class that names no goods, a venue word from the name.
+    const named = standNameItems(o.name);
+    const item = named.specific || STAND_CLASS_ITEM[o.poiClass] || named.generic || null;
     if (item && STAND_ITEM_FRAME[item] !== undefined &&
         (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
       res = { item, frame: STAND_ITEM_FRAME[item] };

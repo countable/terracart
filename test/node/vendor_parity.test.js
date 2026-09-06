@@ -40,7 +40,7 @@ test('vendor parity: the awning matches the goods', () => {
   assert.eq(st.frame, STAND_ITEM_FRAME[st.item], 'the frame is the item family, always');
 });
 
-// ── Specific beats generic, wherever each sits ────────────────────────────
+// ── Product word, then class, then venue word ─────────────────────────────
 test('vendor parity: a product word outranks a venue word before it', () => {
   assert.eq(sells('shop', 'Fresh Fish Market'), 'salmon', 'fish, not the "fresh" potato');
   assert.eq(sells('shop', 'Organic Flower Co'), 'flowers', 'flowers, not "organic" produce');
@@ -48,9 +48,24 @@ test('vendor parity: a product word outranks a venue word before it', () => {
   assert.eq(sells('convenience', 'Market Street Butchers'), 'meat', 'the butcher wins the sign');
 });
 
-test('vendor parity: a venue word still themes a stall that names no product', () => {
+test('vendor parity: a venue word themes a stall whose CLASS names no goods', () => {
+  // `shop` is OSM's catch-all for retail it couldn't identify — it has no class
+  // fallback, so a venue word in the name is all there is to go on.
   assert.eq(sells('shop', 'Corner Market'), 'potato', 'a plain market is a produce stall');
   assert.eq(sells('shop', 'Fresh & Organic'), 'potato', 'adjectives alone → produce');
+});
+
+test('vendor parity: the class outranks a venue word', () => {
+  // "Whole Foods Market" is a supermarket that happens to have "market" in its
+  // name. Reading the word instead of the class collapsed every such shop onto
+  // the same produce stall — which is most of the shops that carry one, since
+  // "market", "fresh" and "farmers" are in half the signs on a high street.
+  assert.eq(sells('supermarket', 'Whole Foods Market'), STAND_CLASS_ITEM.supermarket,
+    'a supermarket sells what supermarkets sell');
+  assert.eq(sells('grocery', 'Farmers Market'), STAND_CLASS_ITEM.grocery, 'so does a grocer');
+  assert.eq(sells('cafe', 'The Fresh Bar'), STAND_CLASS_ITEM.cafe, 'and a cafe');
+  // …but a PRODUCT word still beats the class, from either side of it.
+  assert.eq(sells('supermarket', 'Whole Foods Fish Market'), 'salmon', 'the product word wins');
 });
 
 // ── Stems ────────────────────────────────────────────────────────────────
@@ -79,10 +94,11 @@ test('vendor parity: a stem never invents a product', () => {
   assert.eq(sells('shop', 'Old Mill Brewery'), 'potato', 'a brewery is not a coffee brew');
 });
 
-// ── The class guess is the last resort ───────────────────────────────────
-test('vendor parity: the class only speaks when the name says nothing', () => {
+// ── A product word is the only thing that outranks the class ─────────────
+test('vendor parity: the class speaks unless the name names the goods', () => {
   assert.eq(sells('cafe', ''), 'coffee', 'an unnamed cafe pours coffee');
-  assert.eq(sells('fast_food', 'Chez Pierre'), 'meat', 'no product word → the class guess');
+  assert.eq(sells('fast_food', 'Chez Pierre'), STAND_CLASS_ITEM.fast_food,
+    'no product word → the class guess');
   assert.eq(sells('cafe', 'Chez Pierre Steakhouse'), 'meat', 'but a product word overrides it');
   assert.eq(sells('cafe', 'Le Petit Chou Florist'), 'flowers', 'even across the whole name');
 });
@@ -111,18 +127,35 @@ test('vendor parity: a garden is a place, not a shop — always a crate', () => 
   assert.eq(sells('florist', ''), 'flowers', 'a florist still sells');
 });
 
-test('vendor parity: a restaurant behaves like fast food', () => {
-  // Same kind of place to a passer-by; splitting them left a food court's
-  // burger counter running a stall while the sit-down place beside it was a
-  // crate whenever its name wasn't in English.
+test('vendor parity: a restaurant runs a stall like fast food does', () => {
+  // Same kind of place to a passer-by; before it had a class fallback, a food
+  // court's burger counter ran a stall while the sit-down place beside it was a
+  // crate whenever its name wasn't in English. What has to match is that BOTH
+  // always man a counter — the goods differ, one item per class (see below).
   const cases = ['', 'Chez Pierre', 'Osteria', '\u4e2d\u83ef\u6599\u7406'];
   for (const name of cases) {
-    assert.eq(sells('restaurant', name), sells('fast_food', name),
-      `"${name}" resolves the same either side`);
+    assert.truthy(sells('restaurant', name), `restaurant "${name}" is a stall, not a crate`);
+    assert.truthy(sells('fast_food', name), `fast_food "${name}" is a stall, not a crate`);
   }
-  assert.eq(sells('restaurant', ''), 'meat', 'and that shared answer is the meat fallback');
   // A named product still outranks the class on both, as everywhere else.
   assert.eq(sells('restaurant', 'Sushi California'), 'salmon', 'the name still wins');
+});
+
+test('vendor parity: every class sells something different', () => {
+  // The class fallback is what most stalls resolve by — a name that names its
+  // goods is the exception, not the rule — so duplicates here are most of the
+  // variety the player ever sees. Six classes used to collapse onto potato and
+  // three onto meat, which made a street of unnamed shops a row of identical
+  // stalls.
+  const byItem = new Map();
+  for (const [cls, item] of Object.entries(STAND_CLASS_ITEM)) {
+    if (!byItem.has(item)) byItem.set(item, []);
+    byItem.get(item).push(cls);
+  }
+  const shared = [...byItem].filter(([, classes]) => classes.length > 1)
+    .map(([item, classes]) => `${item}: ${classes.join(' + ')}`);
+  assert.eq(shared.length, 0, 'classes sharing an item: ' + shared.join('; '));
+  assert.eq(byItem.size, Object.keys(STAND_CLASS_ITEM).length, 'one item per class');
 });
 
 // ── Table hygiene: every promise is one the stall can keep ───────────────
