@@ -7,7 +7,7 @@
 // updateEnergyDOM, the 'too tired' / 'getting tired…' flashes, and the
 // energy-gain splash.
 //
-// Depends on globals from items.js: maxEnergyFromArmor, STARTING_ENERGY.
+// Depends on globals from items.js: STARTING_ENERGY.
 
 (function (root) {
   'use strict';
@@ -17,20 +17,24 @@
   // the formula it belongs to.
   const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
 
-  // Always derive the cap from currently-equipped armor (rather than a stale
-  // save.maxEnergy that may pre-date the latest armor change), writing it back
-  // so the UI and writers agree. Falls back to save.maxEnergy / STARTING_ENERGY.
-  //
-  // On top of the armor cap rides the FIRST-TASTE bonus: +1 max energy for
+  // The cap is STARTING_ENERGY plus the FIRST-TASTE bonus: +1 max energy for
   // every distinct edible the player has ever eaten (save.eaten, appended by
-  // app.js eatSelected). Folded in here — the one place the cap is derived —
-  // so every reader and writer sees the same number.
+  // app.js eatSelected). Derived fresh every call and written back, so a stale
+  // save.maxEnergy — one banked when armour still raised the cap, say — can
+  // never outlive the rule.
+  //
+  // ARMOUR IS NOT IN HERE ANY MORE. Until Sep 2026 each worn piece added
+  // `energyPerTier × tier` to this number, so a full set was simply a longer
+  // bar: it helped identically whether or not anything was hitting you, and a
+  // player who never fought got exactly as much out of a Frost chestplate as
+  // one who did. Armour now soaks the damage an attack takes off the bar
+  // instead (items.js armorReduction, spent by Combat.mitigate). If you are
+  // about to fold a gear bonus back into the cap, that is the bug returning.
   function maxEnergy(save) {
-    const fromArmor = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(save.armor) : null;
+    const base = (typeof STARTING_ENERGY !== 'undefined') ? STARTING_ENERGY : 100;
     const tasted = Array.isArray(save.eaten) ? save.eaten.length : 0;
-    if (fromArmor != null) { save.maxEnergy = fromArmor + tasted; return save.maxEnergy; }
-    return save.maxEnergy ?? (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
+    save.maxEnergy = base + tasted;
+    return save.maxEnergy;
   }
 
   // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
@@ -45,9 +49,8 @@
   // False while a Potion of Reach pins reach to the full view (nothing shrinks).
   function crossedTired(save, before, now = Date.now()) {
     if ((save.reachPotionUntil ?? 0) > now) return false;
-    // Refresh save.maxEnergy from equipped armor first so the tired line is
-    // computed against the current cap, not a value left stale by an armor
-    // change since the last maxEnergy() call.
+    // Refresh save.maxEnergy first so the tired line is computed against the
+    // current cap, not a value left stale since the last maxEnergy() call.
     maxEnergy(save);
     const tired = tiredThreshold(save);
     return before >= tired && (save.energy ?? 0) < tired;

@@ -168,9 +168,18 @@ test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still
   const ov = CROP_SPRITE.mushroom;
   assert.truthy(Array.isArray(ov.caveFrames) && ov.caveFrames.length >= 1, 'the crop declares its cave frames');
   for (const f of ov.caveFrames) assert.truthy(f !== ov.frame, 'a different cap from the surface toadstool');
-  const r = RENDER_SRC;
-  assert.truthy(/if \(p\._cave && ov\.caveFrames\) \{/.test(r), 'the planted pass picks the cave frame off _cave');
-  assert.truthy(/_cave: wp\._cave, _ix: wp\._ix, _iy: wp\._iy/.test(r), 'and the wildplant scan carries _cave (and the cell, for the variant hash) onto the draw item');
+  // The frame pick itself is items.js' wildplantFrame (one resolver for every
+  // custom sheet — see shell_variants.test.js); drive it rather than pin its
+  // shape, and pin only that the wildplant scan still carries `_cave` to it.
+  for (let i = 0; i < 50; i++) {
+    const id = `wp_3_4_${i}_7`;
+    assert.includes(ov.caveFrames, wildplantFrame({ crop: 'mushroom', id, _cave: true }),
+      'a mushroom grown underground wears a cave cap');
+    assert.eq(wildplantFrame({ crop: 'mushroom', id }), ov.frame,
+      'the same mushroom on the surface is the toadstool');
+  }
+  assert.truthy(/_cave: wp\._cave/.test(RENDER_SRC),
+    'the wildplant scan carries _cave onto the draw item');
 });
 
 // ── The torch on screen ────────────────────────────────────────────────────

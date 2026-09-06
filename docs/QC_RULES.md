@@ -33,8 +33,16 @@ sprite, not an error**.
       `col = frame % cols; row = floor(frame / cols)` — a wrong `cols` shifts
       every frame.
 - [ ] **Frame index points at non-empty art.** Confirm the chosen frame isn't a
-      blank cell or a half-clipped neighbour. *(Real bugs: mushroom frame 0 was
-      empty → switched to frame 2/35; frame 36 was a different clipped prop.)*
+      blank cell, a flat mask/silhouette row, or a half-clipped neighbour.
+      *(Real bugs: mushroom frame 0 was empty → switched to frame 2/35; frame 36
+      was a different clipped prop.)* For wildplants this is now automated —
+      `tools/sprite_audit.js` › `wildFrameRows` decodes the PNG behind every
+      frame a `CROP_SPRITE` entry declares.
+- [ ] **List the frames, never count the cells.** A sheet is a grid, not a set
+      of sprites: a variant COUNT claims every cell is art. *(Real bug: `shell`
+      declared `variants: 12` on a sheet with three shells, three keyline
+      duplicates, two mask rows and four blanks — 62 % of the shells on a beach
+      drew nothing.)*
 - [ ] **Inventory icon == map sprite** for the same item where both exist. If the
       world object uses a different sheet than the inventory icon, that's a
       deliberate choice — note it, don't let it drift. *(Real bug: shrub's

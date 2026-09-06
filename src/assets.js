@@ -152,9 +152,11 @@ const ASSETS = {
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
-  // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
-  // variants). Spawns as wildplant-style debris on sand cells (and rarely
-  // near water polygons). frame index is hashed off the spawn cell.
+  // Shell collectible — 48×64 = 3 cols × 4 rows of 16×16. Only the top row is
+  // shell art (three cowries); the rest is keyline duplicates, mask rows and
+  // blanks, so WHICH frames may be drawn is CROP_SPRITE.shell's `frames` list
+  // and nothing may roll a frame index over the sheet's size. Spawns as
+  // wildplant debris on sand cells; the frame is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
   // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
   // fruit; frame 1 a slice). These are the inventory icons (items.js

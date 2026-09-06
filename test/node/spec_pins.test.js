@@ -31,52 +31,47 @@ function seededPrng(seed) {
 // Spec (ENERGY & FOOD): "Equipping better armor bumps current energy by the
 // delta too."
 //
-// The audit reported the bug was in interact.js:108-116 (equipGearReward) and
-// two app.js paths. The equip math was extracted to Gear.equip (gear.js:23-36).
-// Current gear.js captures oldMax BEFORE mutating save.armor, so the delta is
-// computed correctly. All three test cases below should pass against spec.
+// SUPERSEDED (Sep 2026). Armor no longer touches the energy CAP at all: it
+// soaks the damage an attack takes off the bar instead (items.js
+// armorReduction, spent by Combat.mitigate), so there is no delta to bump and
+// the finding has nothing left to be a bug about. What replaces it is pinned
+// here — equipping is inert on energy, and what a piece is worth is read live
+// off save.armor at the moment a blow lands.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('#1 armor equip: first piece bumps current energy by the full delta', () => {
-  const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
-  const maxBefore = save.maxEnergy;
+test('#1 armor equip: fills the slot and leaves energy alone', () => {
+  const save = { relics: {}, armor: {}, energy: 40, maxEnergy: 100 };
   Gear.equip(save, 'armor', 'chest', 2);
-  // chest.energyPerTier=25 → delta = 25*2 = 50
-  const expectedDelta = 25 * 2;
-  assert.eq(save.maxEnergy, maxBefore + expectedDelta, 'maxEnergy raised correctly');
-  assert.eq(save.energy, 100 + expectedDelta, 'current energy bumped by full delta');
+  assert.eq(save.armor.chest.tier, 2, 'the slot is filled');
+  assert.eq(save.energy, 40, 'no headroom granted — armour is not a bigger bar');
+  assert.eq(Energy.maxEnergy(save), 100, 'and the cap is untouched by armour');
 });
 
-test('#1 armor equip: second piece bumps by ITS delta only (not the whole cap)', () => {
-  const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
-  Gear.equip(save, 'armor', 'helmet', 1);   // helmet +10
-  const capAfterHelmet = save.maxEnergy;    // 110
-  save.energy = 5;                          // spend down
-  Gear.equip(save, 'armor', 'boots', 3);    // boots.energyPerTier=8 → delta=24
-  const delta = save.maxEnergy - capAfterHelmet;
-  assert.eq(delta, 8 * 3, 'boots raised cap by boots-only delta');
-  assert.eq(save.energy, 5 + delta, 'energy bumped by boots delta only, not whole cap');
+test('#1 armor equip: a whole worn set never lengthens the bar', () => {
+  const save = { relics: {}, armor: {}, energy: 100, eaten: [] };
+  for (const slot of Object.keys(ARMOR_DEFS)) Gear.equip(save, 'armor', slot, 7);
+  assert.eq(Energy.maxEnergy(save), STARTING_ENERGY,
+    'a full Frost set is still the starting bar');
+  assert.gt(armorReduction(save.armor), 0, 'what it bought is a soak pool instead');
 });
 
-test('#1 armor equip: upgrading a slot bumps by the TIER difference, not the whole new value', () => {
-  // Player already has T1 helmet (10 energy), upgrades to T3 (30 energy).
-  // Delta should be +20, not +30.
-  const save = { relics: {}, armor: { helmet: { tier: 1 } }, energy: 50, maxEnergy: 110 };
+test('#1 armor equip: upgrading a slot replaces its tier (and its soak)', () => {
+  const save = { relics: {}, armor: { helmet: { tier: 1 } }, energy: 50 };
+  assert.eq(armorReduction(save.armor), 1, 'a Wood helmet soaks 1');
   Gear.equip(save, 'armor', 'helmet', 3);
-  // helmet energyPerTier=10; oldMax accounts for T1 (10); newMax includes T3 (30); delta=+20
-  assert.eq(save.maxEnergy, 130, 'cap raised from 110 to 130');
-  assert.eq(save.energy, 70, 'energy bumped by 20 (T3-T1 delta), not 30');
+  assert.eq(save.armor.helmet.tier, 3, 'the slot holds one piece, the newer one');
+  assert.eq(armorReduction(save.armor), 9, 'T3 soaks 9 — tier², not 1 + 9');
+  assert.eq(save.energy, 50, 'and the bar is where it was');
 });
 
-test('#1 equipGearReward: routes through Gear.equip — armor bump propagates from interact path', () => {
+test('#1 equipGearReward: the interact path equips the same way', () => {
   // equipGearReward is the global from interact.js. It delegates to Gear.equip.
-  // Verify energy bump still fires through the interact path.
   const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
   const scene = makeScene();
   equipGearReward({ kind: 'armor', slot: 'legs', tier: 2 }, save, scene);
-  // legs.energyPerTier=15 → delta=30
-  assert.eq(save.maxEnergy, 130, 'maxEnergy raised via equipGearReward');
-  assert.eq(save.energy, 130, 'current energy bumped by delta via equipGearReward');
+  assert.eq(save.armor.legs.tier, 2, 'looted armour lands in its slot');
+  assert.eq(armorReduction(save.armor), 4, 'and starts soaking immediately');
+  assert.eq(save.energy, 100, 'without touching the bar');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -218,6 +218,16 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
 vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
+const CROP_SPRITE = itemsCtx.CROP_SPRITE;
+
+// ── …and the texture table from assets.js, so the wildplant-frame audit below
+//    reads the SAME sheet geometry the game loads (path + frame size) rather
+//    than a third copy of it. The onLoad hooks are never called here.
+const assetsCtx = { Math, console, window: {} };
+vm.createContext(assetsCtx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
+  assetsCtx, { filename: 'assets.js' });
+const ASSETS = assetsCtx.window.ASSETS;
 
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
@@ -420,6 +430,71 @@ function emitBounds() {
   console.log('\n  const CROWN_BOUNDS = {\n' + crowns.join('\n') + '\n  };');
 }
 
+// ── Wildplant frames: every frame a crop DECLARES must carry art ──────────
+// A wildplant's sprite is picked from its CROP_SPRITE entry (`frame`, the
+// per-cell `frames` list, or `caveFrames`), and nothing in the renderer can
+// tell a frame index that holds a shell from one that holds nothing: a blank
+// frame draws a pickup the player can tap but not see. That is exactly how
+// the beaches emptied — `shell` declared `variants: 12` on a sheet whose 12
+// cells are 3 shells, 3 keyline duplicates, 2 flat masks and 4 blanks — so
+// this decodes the real PNG behind each declared frame and fails if it is
+// off the end of the sheet, transparent, or a single flat colour (a mask row
+// is opaque but it is a silhouette, not art).
+function frameInk(img, fw, fh, frameIdx) {
+  const cols = Math.floor(img.w / fw), rows = Math.floor(img.h / fh);
+  if (frameIdx < 0 || frameIdx >= cols * rows) return null;   // off the sheet
+  const fx = (frameIdx % cols) * fw, fy = Math.floor(frameIdx / cols) * fh;
+  const colours = new Set();
+  let opaque = 0;
+  for (let y = 0; y < fh; y++) {
+    const row = (fy + y) * img.w * 4;
+    for (let x = 0; x < fw; x++) {
+      const i = row + (fx + x) * 4;
+      if (img.data[i + 3] < ALPHA_MIN) continue;
+      opaque++;
+      colours.add((img.data[i] << 16) | (img.data[i + 1] << 8) | img.data[i + 2]);
+    }
+  }
+  return { opaque, colours: colours.size };
+}
+// One row per (crop, frame) a CROP_SPRITE entry declares on a custom sheet.
+function wildFrameRows() {
+  const rows = [];
+  for (const [crop, ov] of Object.entries(CROP_SPRITE)) {
+    if (!ov || !ov.custom) continue;
+    const declared = [];
+    if (ov.frame != null) declared.push(['frame', ov.frame]);
+    for (const f of (ov.frames || [])) declared.push(['frames', f]);
+    for (const f of (ov.caveFrames || [])) declared.push(['caveFrames', f]);
+    if (typeof ov.variants === 'number') {
+      // A COUNT can't be checked against the art without asserting that every
+      // cell of the sheet is a sprite, which is the assumption that broke.
+      rows.push({ name: `${crop}`, violations: [
+        `CROP_SPRITE.${crop} declares a variant COUNT (${ov.variants}); ` +
+        'list the frames that carry art instead (`frames: [...]`)'] });
+      continue;
+    }
+    for (const [field, frameIdx] of declared) {
+      const name = `${crop} ${field}[${frameIdx}]`;
+      const asset = ASSETS[ov.sheet];
+      const violations = [];
+      if (!asset) violations.push(`no ASSETS entry for sheet "${ov.sheet}"`);
+      else {
+        const fw = asset.frameWidth || 16, fh = asset.frameHeight || 16;
+        const ink = frameInk(loadPng(asset.path), fw, fh, frameIdx);
+        if (!ink) violations.push(`frame ${frameIdx} is off the end of ${ov.sheet}`);
+        else if (!ink.opaque) violations.push(`frame ${frameIdx} of ${ov.sheet} is blank`);
+        else if (ink.colours < 2) {
+          violations.push(`frame ${frameIdx} of ${ov.sheet} is one flat colour ` +
+            '— that is a mask/silhouette row, not the sprite');
+        }
+      }
+      rows.push({ name, violations });
+    }
+  }
+  return rows;
+}
+
 // ── Crown drift guard: CROWN_BOUNDS must still describe the real canopy ────
 function evaluateCrowns() {
   const rows = [];
@@ -451,8 +526,8 @@ function evaluateCrowns() {
 }
 
 module.exports = { decodePng, loadPng, trimFrame, trimSheetFrame, crownBox,
-  evaluate, evaluateCreature, evaluateCrowns, CREATURE_SHEETS, SCENARIOS,
-  SHEETS, CELL_PX };
+  evaluate, evaluateCreature, evaluateCrowns, wildFrameRows, frameInk,
+  CREATURE_SHEETS, SCENARIOS, SHEETS, ASSETS, CROP_SPRITE, CELL_PX };
 if (require.main !== module) return;
 
 if (process.argv.includes('--emit-bounds')) { emitBounds(); process.exit(0); }
@@ -508,7 +583,22 @@ for (const r of crownRows) {
 console.log('─'.repeat(80));
 console.log(`${crownRows.length - crBad} OK, ${crBad} need attention.`);
 
-console.log('Exempt (not audited): buildings (house/tower/shrine), produce stands,');
+// ── Wildplant frames: every frame a crop declares must carry art ──────────
+const wRows = wildFrameRows();
+console.log('\nWildplant frame audit — a declared frame must hold a sprite\n');
+console.log(pad('crop frame', 26), '  verdict');
+console.log('─'.repeat(80));
+let wBad = 0;
+for (const r of wRows) {
+  const ok = r.violations.length === 0;
+  if (!ok) wBad++;
+  console.log(pad(r.name, 26), '  ' + (ok ? '✓ OK' : '✗ ' + r.violations.join('; ')));
+}
+console.log('─'.repeat(80));
+console.log(`${wRows.length - wBad} OK, ${wBad} need attention.`);
+
+console.log('\nExempt (not audited): buildings (house/tower/shrine), produce stands,');
 console.log('pot-of-gold, crops/wildplants, dropped-item ground stacks. Creatures are');
-console.log('exempt from the SEAT rule — only their wheel placement is checked.\n');
-process.exit((bad + cBad + crBad) ? 1 : 0);
+console.log('exempt from the SEAT rule — only their wheel placement is checked;');
+console.log('wildplants only for the frames they declare (above).\n');
+process.exit((bad + cBad + crBad + wBad) ? 1 : 0);
