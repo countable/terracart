@@ -641,6 +641,35 @@
   sentence by name, pins the front-to-back read and the block order, and
   measures the school chest's book rate against every other chest.
 
+- **A street is restored ALONG THE WAY, never per cell — and the way is a
+  LINE of a feature, never the feature.** `src/streets.js` measures
+  restoration as float metre intervals of arclength along each
+  `transportation` line the tile hands us, keyed
+  `Streets.lineKey(feature, lineIdx)` (the MVT feature id, which real tiles
+  carry on every feature and keep across seams, plus a hash of the line's
+  endpoints, count and class — because a quarter of features are Planetiler
+  MERGES of every same-tagged way in the tile, one of them 42 disconnected
+  lines, so a feature-level key would be nonsense). Only the metres INSIDE
+  the tile square count (`tileSpans`): MVT geometry runs into the buffer and
+  the neighbour tile carries those metres itself. "In reach" is
+  `reachIntervals` over `cellInReach` from the player's reach cell (the
+  camera-anchor rule), an exact grid traversal, and the two-second dwell is
+  `createSight`'s sliding window: a stretch ripens only when it has been in
+  reach for EVERY instant of the window. The restored look is a SECOND
+  canvas in `road_overlay.js` rebuilt on `Streets.epoch(save)`, never a
+  per-frame path; the dwell preview and the shine are the one per-frame
+  Graphics (`RoadOverlay.drawLive`), drawn from `drawRoadGeometry` so they
+  seat against the same sub-cell scroll the band uses. The ladder
+  (`src/trail.js`) counts metres — `GOAL_STEP_M`, 200 m — and one blast and
+  one throttled counter fire per sweep, not per piece. Until Sep 2026 this
+  was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
+  thinned by a hash, so the counted stones and the drawn road were two
+  different things; do not bring a per-cell road state back.
+  **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` (the
+  algebra, the sight window, restore/epoch), `test/node/road_overlay.test.js`
+  (the restored pass and the tiles) and `test/node/trail.test.js` (the lifted
+  sweep on a synthetic tile).
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

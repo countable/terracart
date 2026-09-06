@@ -169,47 +169,48 @@ test('lighting: a POI breathes slowly, on its own phase', () => {
   assert.gt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_2_9') - a0), 0.02, 'phased by id, not in lockstep');
 });
 
-test('lighting: a lit cobble glows, small and in the trail violet, and breathes', () => {
-  // The stone's art sits UNDER the lightmap, so after dark a lit trail went
-  // as black as the road it ran along. This row is the walked trail glowing
-  // behind the player at night: one small pool per stone, in the same
-  // constant the stone and its counter are drawn in, breathing like a POI.
-  const c = Lighting.KINDS.cobble;
-  assert.truthy(c, 'the cobble row exists');
-  assert.eq(c.colour, parseInt(UI_TRAIL_LIT.slice(1), 16), 'the glow is UI_TRAIL_LIT — the stone\'s own colour');
-  assert.eq(Lighting.TRAIL_LIT, c.colour);
-  assert.lt(Lighting.radiusCells('cobble'), Lighting.radiusCells('mushroom'),
-    'smaller than a mushroom — a road can carry dozens in view');
-  assert.lt(c.peak, Lighting.KINDS.poi.peak, 'and dimmer than a place marker');
-  assert.gt(c.peak, 0, 'but it is a light');
-  assert.eq(c.flicker, 0, 'no flame flicker');
-  assert.gt(c.pulse, 0, 'it breathes');
-  assert.lt(c.pulse, 0.5, 'gently — never off');
+test('lighting: there is no cobble row, and no cell-light list at all', () => {
+  // A `cobble` row used to carry a small violet pool per lit trail stone,
+  // offered by drawCells onto its own `_cellLights` list. Restoring a street
+  // is arclength along the way now and road_overlay.js DRAWS it clean — a
+  // restored carriageway needs no light of its own — so the row, the list and
+  // the two functions that fed it are gone together. A row left behind would
+  // be a cookie baked for a kind nothing ever offers.
+  assert.falsy(Lighting.KINDS.cobble, 'no cobble row');
+  assert.falsy(Lighting.TRAIL_LIT, 'and no lit-cobble colour');
+  assert.eq(typeof Lighting.beginCells, 'undefined', 'no cell-light reset');
+  assert.eq(typeof Lighting.considerCobble, 'undefined', 'and nothing to offer one');
+  assert.falsy(/_cellLights/.test(LIGHTING_SRC), 'the list itself is gone from the module');
+  assert.falsy(/considerCobble/.test(RENDER_SRC), 'and render.js no longer offers one');
 });
 
 test('lighting: a BLAST is a transient light on its own clock, at any size', () => {
-  // A restoration moment — a cobble lighting, a wreck pulled back into a house
-  // — throws one wide near-white flash that fades as it swells. It used to be
-  // a per-cobble side effect re-offered by drawCells on every frame of the
-  // stone's scale-pop; it is one entry on scene._blasts now, fired once by the
-  // code that did the thing, carrying its OWN radius, colour and duration.
+  // A restoration moment — a stretch of street rebuilt, a wreck pulled back
+  // into a house — throws one wide near-white flash that fades as it swells.
+  // It used to be a per-cobble side effect re-offered by drawCells on every
+  // frame of the stone's scale-pop; it is one entry on scene._blasts now,
+  // fired once by the code that did the thing, carrying its OWN radius,
+  // colour and duration.
   const f = Lighting.KINDS.blast;
   assert.truthy(f, 'the blast row exists');
   assert.falsy(Lighting.KINDS.cobbleFlash, 'and the per-cobble flash row is gone');
-  assert.gt(Lighting.radiusCells('blast'), Lighting.radiusCells('cobble') * 2, 'the blast is wide');
+  assert.gt(Lighting.radiusCells('blast'), Lighting.radiusCells('poi'), 'the blast is wide');
   assert.gt(f.peak, Lighting.KINDS.poi.peak, 'and bright');
   // Near-white: every channel high, and blue over red (still a cool light).
   for (const sh of [16, 8, 0]) assert.gt(ch(f.colour, sh), 200, 'near-white');
   assert.gte(ch(f.colour, 0), ch(f.colour, 16), 'cool, not warm');
 
   // THE DEFAULTS ARE THE OLD PER-COBBLE NUMBERS EXACTLY: 2.5 cells across for
-  // the length of render.js's scale-pop (PATH_STONE_FLASH_MS = 900 ms), so a
-  // stone lighting looks precisely as it always did.
-  assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a stone's blast is 2.5 cells");
+  // the 900 ms the lit stone's scale-pop used to run, so a restoration flashes
+  // precisely as one always did.
+  assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a restoration's blast is 2.5 cells");
   assert.eq(Lighting.radiusCells('blast'), Lighting.BLAST_RADIUS_CELLS, 'and the row default matches');
-  assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the scale-pop\'s own 900 ms');
-  assert.eq(Lighting.BLAST_MS, +/const PATH_STONE_FLASH_MS = (\d+);/.exec(RENDER_SRC)[1],
-    'which IS render.js\'s PATH_STONE_FLASH_MS — the art and the light share a clock');
+  assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the old scale-pop\'s own 900 ms');
+  // The white SHINE app.js runs down a stretch it has just rebuilt is the same
+  // clock, re-derived rather than retyped: the flash and the shine are two
+  // halves of one moment and end together.
+  assert.eq(STREET_SHINE_MS, Lighting.BLAST_MS,
+    'app.js takes the shine\'s length from Lighting.BLAST_MS');
 
   const s = scene();
   const b = Lighting.blast(s, 100, 200, { t0: 0 });
@@ -293,43 +294,16 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
     'and draw() collects the live blasts against this frame\'s anchor');
 });
 
-test('lighting: a lit cobble offers only its steady glow — the flash is the sweep\'s to fire', () => {
-  const s = scene();
-  Lighting.beginCells(s);
-  assert.eq(s._cellLights.length, 0);
-  assert.eq(Lighting.considerCobble(s, 5, -10, 'k1'), 1, 'one light per stone, always');
-  assert.eq(s._cellLights[0].kind, 'cobble');
-  assert.eq(s._cellLights[0].dx, 5); assert.eq(s._cellLights[0].dy, -10);
-  assert.eq(Lighting.considerCobble(s, 0, 0, 'k2'), 1, 'and never a second one');
-  assert.truthy(s._cellLights.every((L) => L.kind === 'cobble'), 'no flash on the cell list');
-  Lighting.beginCells(s);
-  assert.eq(s._cellLights.length, 0, 'beginCells resets the cell list');
-  // A rebuilt list is a separate list from the object lights: beginFrame
-  // (which drawObjects calls AFTER drawCells) must not wipe the cobbles.
-  Lighting.considerCobble(s, 1, 1, 'k6');
-  Lighting.beginFrame(s);
-  assert.eq(s._cellLights.length, 1, 'beginFrame leaves the cell lights alone');
-});
-
-test('lighting: drawCells offers every lit stone, and draw() stamps the cell lights with their own alpha and scale', () => {
-  // The cobble is a CELL, so it never crosses drawObjects' scan — drawCells
-  // offers it, from the cobble draw (where `active` is known), anchored like
-  // every light (metres from the camera anchor: the cell's centre is
-  // ox + 0.5 - fracX cells from it), with the pop's clock for the blast.
-  const R = RENDER_SRC;
-  assert.truthy(/if \(LIGHTS\) LIGHTS\.beginCells\(scene\);/.test(R), 'drawCells begins the cell lights');
-  assert.truthy(/if \(active && LIGHTS\) \{\n\s+LIGHTS\.considerCobble\(scene, \(ox \+ 0\.5 - fracX\) \* scene\.cellM,\n\s+\(oy \+ 0\.5 - fracY\) \* scene\.cellM, tilledKey\);/.test(R),
-    'every ACTIVE stone is offered at its cell centre');
-  assert.falsy(/flashT/.test(R),
-    'and the per-frame flash clock is gone — one stone is one blast, fired by the sweep');
-  assert.truthy(/flashMul = 1 \+ PATH_STONE_FLASH_BOUNCE \* decay;/.test(R), 'the ART still pops');
-  // draw() honours the multipliers and reads both lists.
+test('lighting: draw() stamps a light with its own alpha and scale', () => {
+  // A blast drives both multipliers off its own clock; every other row leaves
+  // them null and gets the flicker curve alone. `_cellLights` used to be
+  // stamped after `_lights` here; there is only one list now.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(d), 'a light\'s own alpha multiplies in');
   assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(d), 'and its own scale');
-  assert.truthy(/for \(const L of scene\._lights\) stamp\(L\);\n\s+if \(scene\._cellLights\) for \(const L of scene\._cellLights\) stamp\(L\);/.test(d),
-    'the object lights and then the cell lights are stamped');
+  assert.truthy(/for \(const L of scene\._lights\) stamp\(L\);/.test(d), 'the frame\'s lights are stamped');
+  assert.falsy(/_cellLights/.test(d), 'and there is no second list');
 });
 
 test('lighting: the halo ping is gone — the POI light replaced it', () => {

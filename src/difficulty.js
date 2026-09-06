@@ -60,6 +60,13 @@
       // quiet income you can leave unattended. The tile spawner's own crows
       // are NOT this flag: both modes get those.
       cropPests: false,
+      // DERELICT LAIRS (src/lairs.js): a garrison of immobile slimes squatting
+      // in every unclaimed structure past a safe ring around home, growing
+      // with the building's tier and its distance from home. Off on easy —
+      // a ruin there is scenery you may rebuild at your leisure — and on hard
+      // it is what makes the map itself the difficulty curve: the far half of
+      // the world is worth more and costs more to walk into.
+      derelictLairs: false,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
@@ -98,6 +105,7 @@
       starterCrates: false,
       pestAmnesty: false,
       cropPests: true,          // crows are dispatched to your field, ~90 s apart
+      derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one

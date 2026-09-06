@@ -787,9 +787,11 @@ const PLAY_TIPS = [
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  'Roads and footpaths lie derelict until you stand by them: two seconds inside your light rebuilds that stretch for good. The first 200m restored pays a treasure, and each prize after asks 200m more.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
+  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen slimes. They never leave the ruin.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',

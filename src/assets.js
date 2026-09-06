@@ -67,7 +67,10 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
-  cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
+  // (There is no 'cobble' sheet any more. Road copiar.png stamped a pebble
+  // cluster per road cell and a stone per path cell until Sep 2026; a street
+  // is restored and drawn as arclength along the WAY now — road_overlay.js
+  // paints the carriageway itself — so nothing loads it.)
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
   // big multi-cell bridge structure; rows 4-13 are pairs of standalone 3-cell

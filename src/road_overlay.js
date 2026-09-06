@@ -26,11 +26,19 @@
 // finished linework in one pass, giving the bands a paved texture for the
 // cost of a single fill (see "Cobblestone" below).
 //
+// The band is DILAPIDATED by default — cracked, damp, lichened, missing the
+// odd stone (see "Weathering") — and the stretches the player has restored
+// (src/streets.js: exact float metre intervals along each way, kept in the
+// save) are drawn AGAIN on a second canvas above it in clean near-black
+// cobble with a hairline kerb (see "Restored"). So a street reads as rebuilt
+// exactly as far as the player has rebuilt it, down to the metre.
+//
 // Depends on:
-//   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
+//   scene fields (read-only): roadGeomGfx, roadRestoredGfx (headless only),
+//     roadGeomContainer, roadLiveGfx (created here), save,
 //     startWorldM, playerM, cellM, cellsPerTile, depth,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
-//     helper: playerToWorldCell()
+//     helpers: playerToWorldCell(), worldMetersToScreen() (drawLive only)
 //   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadOverlayWidthM,
 //                 WorldGen.PATH_CLASSES, WorldGen.tileKey,
 //                 WorldGen.T / WorldGen.isBuildingTerrain (the keep-out);
@@ -38,12 +46,21 @@
 //                 `entry.tileEdgeM`, and `entry.grid` (for the keep-out pass)
 //   coords.js — overlayFrame / overlayProjection / timedOverlayRebuild (the
 //               camera-anchored draw frame both geometry overlays share)
+//   streets.js — Streets.lineKey / restoredList / subLineM / epoch (the
+//               restored intervals). OPTIONAL: every use is guarded, so the
+//               base pass still draws if the module isn't loaded. The save's
+//               `streets` object is NEVER read directly — only through these.
 //   sprite_layout.js — SpriteLayout.CELL_PX
 //   app.js consts — CELL_PX
 //
 // Exports as globals:
 //   RoadOverlay.draw(scene)      — per-frame entry point (cheap when cached)
 //   RoadOverlay.invalidate(scene)— force a rebuild on the next draw
+//   RoadOverlay.drawLive(scene, runs) — per-frame overlay strokes (the dwell
+//                                  preview + the restore shine), on a Graphics
+//   RoadOverlay.paintWeatherTile / paintCleanTile — the two procedural tiles,
+//                                  exported so the headless suite can run them
+//                                  against a recording 2D context
 (function (global) {
   // Warm earth brown rather than black: the ways read as packed track over the
   // biome colours instead of as a shadow, and they sit in the same family as
@@ -330,6 +347,204 @@
     return stoneCanvas;
   }
 
+  // ── Weathering ───────────────────────────────────────────────────────────
+  // The dilapidated band is more than a faded colour: it is CRACKED. One more
+  // pattern tile, laid source-atop after the stones (so it lands on the ways
+  // and nowhere else), carrying the four marks a neglected street shows from
+  // above — jagged hairline cracks with a pale lifted lip beside them, soft
+  // dark damp patches, pale lichen/dust blooms, and a couple of dark pits
+  // where a stone has gone altogether.
+  //
+  // The alphas are bold on purpose: the whole canvas is shown at ALPHA (0.61),
+  // so a mark drawn at 0.3 arrives at the player as 0.18 and reads as nothing.
+  // Fixed-seed LCG like the stones — identical every session — and world-
+  // phased through the same texturePhase, so the cracks sit still on the road
+  // instead of crawling along it as the player walks.
+  //
+  // RAIL gets none of it: a railway's band is ballast, not paving, and it is
+  // already dressed with ties and rails. See commitBase for how the fill is
+  // held off the rail runs.
+  const WEATHER_TILE_PX = 64;
+  const WEATHER_CRACK_ALPHA = 0.85;   // the crack itself: 1px, near-black
+  const WEATHER_LIP_ALPHA = 0.18;     // the pale lifted lip beside it
+  const WEATHER_DAMP_ALPHA = 0.38;    // soft dark damp patches
+  const WEATHER_LICHEN_ALPHA = 0.16;  // pale lichen / dust blooms
+  const WEATHER_PIT_ALPHA = 0.6;      // a missing stone
+  const WEATHER_LICHEN_N = 3, WEATHER_DAMP_N = 2, WEATHER_CRACK_N = 3, WEATHER_PIT_N = 2;
+
+  // A soft round bloom: a radial gradient falling to zero, painted over its
+  // own bounding square (cheaper than a clipped arc and softer at the rim).
+  function weatherBlob(cx, x, y, r, rgb, alpha) {
+    const g = cx.createRadialGradient(x, y, 0, x, y, r);
+    if (!g || !g.addColorStop) return;
+    g.addColorStop(0, `rgba(${rgb},${alpha})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    cx.fillStyle = g;
+    cx.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+
+  // Paint one weathering tile into an arbitrary 2D context. Split out from the
+  // canvas builder below so the headless suite can run the real drawing code
+  // against a recording context (textures.js' tiles are tested the same way).
+  function paintWeatherTile(cx, size) {
+    const S = size || WEATHER_TILE_PX;
+    const rnd = lcg(0x51ed27);
+    for (let i = 0; i < WEATHER_LICHEN_N; i++)
+      weatherBlob(cx, rnd() * S, rnd() * S, 5 + rnd() * 6, '255,255,255', WEATHER_LICHEN_ALPHA);
+    for (let i = 0; i < WEATHER_DAMP_N; i++)
+      weatherBlob(cx, rnd() * S, rnd() * S, 6 + rnd() * 7, '0,0,0', WEATHER_DAMP_ALPHA);
+    // Cracks: a random walk that turns a little at every step, drawn twice —
+    // the pale lip one pixel down-right of the dark crack, so the split reads
+    // as an edge lifting rather than a pencil line.
+    cx.lineWidth = 1;
+    for (let i = 0; i < WEATHER_CRACK_N; i++) {
+      let x = rnd() * S, y = rnd() * S, a = rnd() * Math.PI * 2;
+      const pts = [[x, y]];
+      const n = 5 + Math.floor(rnd() * 5);
+      for (let k = 0; k < n; k++) {
+        a += (rnd() - 0.5) * 1.4;
+        const l = 3 + rnd() * 5;
+        x += Math.cos(a) * l; y += Math.sin(a) * l;
+        pts.push([x, y]);
+      }
+      cx.strokeStyle = `rgba(255,255,255,${WEATHER_LIP_ALPHA})`;
+      cx.beginPath();
+      for (let j = 0; j < pts.length; j++) {
+        if (j) cx.lineTo(pts[j][0] + 1, pts[j][1] + 1); else cx.moveTo(pts[j][0] + 1, pts[j][1] + 1);
+      }
+      cx.stroke();
+      cx.strokeStyle = `rgba(0,0,0,${WEATHER_CRACK_ALPHA})`;
+      cx.beginPath();
+      for (let j = 0; j < pts.length; j++) {
+        if (j) cx.lineTo(pts[j][0], pts[j][1]); else cx.moveTo(pts[j][0], pts[j][1]);
+      }
+      cx.stroke();
+    }
+    // …and a couple of missing stones.
+    for (let i = 0; i < WEATHER_PIT_N; i++) {
+      cx.fillStyle = `rgba(0,0,0,${WEATHER_PIT_ALPHA})`;
+      cx.beginPath();
+      cx.ellipse(rnd() * S, rnd() * S, 3.5, 2.5, rnd() * 3, 0, Math.PI * 2);
+      cx.fill();
+    }
+  }
+
+  let weatherCanvas;
+  function weatherTile() {
+    if (weatherCanvas !== undefined) return weatherCanvas;
+    weatherCanvas = null;
+    if (typeof document === 'undefined') return weatherCanvas;
+    const c = document.createElement('canvas');
+    c.width = c.height = WEATHER_TILE_PX;
+    const cx = c.getContext('2d');
+    if (!cx) return weatherCanvas;
+    paintWeatherTile(cx, WEATHER_TILE_PX);
+    weatherCanvas = c;
+    return weatherCanvas;
+  }
+
+  // ── Restored ─────────────────────────────────────────────────────────────
+  // A restored stretch is drawn on its OWN canvas, laid over the dilapidated
+  // one, so the two looks never have to be reconciled inside a single band:
+  // the base pass draws every way in full and the restored pass paints the
+  // rebuilt metres on top of it, edge to edge.
+  //
+  // Near-black rather than "clean grey": the point of the restored street is
+  // that it reads as a different surface from a hundred metres away, and the
+  // one thing the biome palette never contains is black. Paths restore to
+  // dark packed earth instead — a footway that turned into basalt setts would
+  // read as a road. Rail never restores at all.
+  const RESTORED_ALPHA = 0.92;         // near-opaque: the rebuilt street is the surface
+  const RESTORED_ROAD_COLOR = 0x161412;
+  const RESTORED_PATH_COLOR = 0x2e2620;
+  const RESTORED_TEX_KEY = 'roadgeom_restored';
+  const restoredColorFor = (tags) =>
+    (PATH_CLASSES.has((tags && tags.class) || '') ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR);
+
+  // The clean cobble tile: brick-staggered courses of small rounded setts on a
+  // pale mortar wash. Smaller and far more regular than the dilapidated
+  // stones — that regularity IS the restoration, so it is drawn as a laid
+  // course grid rather than the base pass's jittered lumps. Paths get the same
+  // tile with the mortar wash halved (packed earth has no mortar to speak of).
+  const CLEAN_TILE_PX = 32;
+  const CLEAN_MORTAR_ALPHA = 0.13;   // pale, so the seams read as clean lines on the black
+  const CLEAN_PATH_MORTAR_MUL = 0.5;
+  const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
+  const CLEAN_SETT_R = 1.6;          // corner radius
+  const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
+  const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
+  const CLEAN_BEVEL_ALPHA = 0.10;    // top bevel catch-light
+  const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
+
+  function roundRectPath(cx, x, y, w, h, r) {
+    cx.beginPath();
+    cx.moveTo(x + r, y);
+    cx.lineTo(x + w - r, y);
+    cx.quadraticCurveTo(x + w, y, x + w, y + r);
+    cx.lineTo(x + w, y + h - r);
+    cx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    cx.lineTo(x + r, y + h);
+    cx.quadraticCurveTo(x, y + h, x, y + h - r);
+    cx.lineTo(x, y + r);
+    cx.quadraticCurveTo(x, y, x + r, y);
+    cx.closePath();
+  }
+
+  // One sett: black body, a slight per-stone tone so neighbours aren't
+  // identical, and a catch-light along its top edge.
+  function paintSett(cx, x, y, w, h, tone) {
+    cx.fillStyle = '#000';
+    roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
+    cx.fillStyle = `rgba(255,255,255,${tone})`;
+    roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
+    cx.fillStyle = `rgba(255,255,255,${CLEAN_BEVEL_ALPHA})`;
+    roundRectPath(cx, x + 0.5, y + 0.5, w - 1, h * CLEAN_BEVEL_H, 1); cx.fill();
+  }
+
+  function paintCleanTile(cx, size, mortarAlpha) {
+    const S = size || CLEAN_TILE_PX;
+    const rnd = lcg(0xc0bb1e);
+    cx.fillStyle = `rgba(255,255,255,${mortarAlpha == null ? CLEAN_MORTAR_ALPHA : mortarAlpha})`;
+    cx.fillRect(0, 0, S, S);
+    const sw = S / CLEAN_COLS, sh = S / CLEAN_ROWS;
+    for (let row = 0; row < CLEAN_ROWS; row++) {
+      const off = (row % 2) * (sw / 2);   // brick stagger
+      for (let col = 0; col < CLEAN_COLS; col++) {
+        const x = col * sw + off + CLEAN_GAP_X / 2, y = row * sh + CLEAN_GAP_Y / 2;
+        const w = sw - CLEAN_GAP_X, h = sh - CLEAN_GAP_Y;
+        const tone = CLEAN_TONE_MIN + rnd() * (CLEAN_TONE_MAX - CLEAN_TONE_MIN);
+        paintSett(cx, x, y, w, h, tone);
+        // A staggered course's last sett runs off the tile's right edge; draw
+        // that same stone again one tile to the LEFT so the pattern meets
+        // itself where it repeats. The tile is CLEAN_COLS setts wide by
+        // construction — the wrap is a second copy, not a seventh stone.
+        if (x + w > S) paintSett(cx, x - S, y, w, h, tone);
+      }
+    }
+  }
+
+  const cleanCanvas = {};
+  function cleanTile(isPath) {
+    const k = isPath ? 'path' : 'road';
+    if (cleanCanvas[k] !== undefined) return cleanCanvas[k];
+    cleanCanvas[k] = null;
+    if (typeof document === 'undefined') return cleanCanvas[k];
+    const c = document.createElement('canvas');
+    c.width = c.height = CLEAN_TILE_PX;
+    const cx = c.getContext('2d');
+    if (!cx) return cleanCanvas[k];
+    paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1));
+    cleanCanvas[k] = c;
+    return cleanCanvas[k];
+  }
+
+  // The kerb: a hairline pale line along the outer edge of a restored band —
+  // the one cue that says "this street has a built edge" rather than "this
+  // street is darker". Painted by re-stroking the run pale at full width and
+  // covering all but the outer pixel back up (see commitRestored).
+  const KERB_ALPHA = 0.12;
+  const KERB_INSET_PX = 2;
+
   // ── Stroke target ────────────────────────────────────────────────────────
   // The overlay strokes into a Graphics-SHAPED object: clear / lineStyle /
   // beginPath / moveTo / lineTo / strokePath, plus an optional commit() once
@@ -346,139 +561,249 @@
   //     at ALPHA, so overlaps are opaque-on-opaque and the band stays even.
   // The texture covers the viewport plus PAD on each side (the same pad the
   // culler keeps), and the container scrolls it for the sub-cell offset.
+  // There are TWO of these canvases now, both in scene.roadGeomContainer: the
+  // dilapidated base (added first) and the restored pass over it. They share
+  // the recording front-end below — the difference is entirely in commit().
   const TEX_KEY = 'roadgeom_overlay';
-  function canvasTarget(scene) {
+
+  // A scratch canvas the size of a pass's texture. Needed wherever a pattern
+  // must land on SOME of the network instead of all of it: a pattern fill is
+  // a whole-canvas operation, so the strokes it should mask against are
+  // replayed here on their own, the pattern is composited against THOSE, and
+  // the finished layer is drawn back onto the real canvas.
+  function scratchLayer(size) {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const cx = c.getContext('2d');
+    if (!cx) return null;
+    cx.lineCap = 'round';
+    cx.lineJoin = 'round';
+    return { canvas: c, ctx: cx };
+  }
+
+  // One replay of a recorded op list. `delta` widens (fringe) or narrows
+  // (repair / kerb) every path; the floor keeps a hairline way from vanishing
+  // outright. `css` overrides the recorded colour (the kerb's pale pass).
+  function strokeOps(ctx, ops, delta, css) {
+    for (const op of ops) {
+      ctx.lineWidth = Math.max(1, op.w + delta);
+      ctx.strokeStyle = css || cssOf(op.c);
+      ctx.beginPath();
+      ctx.moveTo(op.pts[0], op.pts[1]);
+      for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
+      ctx.stroke();
+    }
+  }
+
+  // World-phased pattern fill (stones, edge noise, weathering and the clean
+  // setts all share the anchoring): translating by the phase pins the tile to
+  // the world, and the fill runs a tile wider on every side to cover what the
+  // shift pushes off the canvas. The phase is kept UNWRAPPED on the pass and
+  // wrapped per tile here — the tiles are different sizes (32 and 64), and a
+  // phase wrapped to the wrong one would jump the pattern half a tile every
+  // time the camera crossed a cell.
+  function patternFill(ctx, pass, pattern, composite, tilePx) {
+    const wrap = (v) => ((v % tilePx) + tilePx) % tilePx;
+    ctx.save();
+    ctx.globalCompositeOperation = composite;
+    ctx.fillStyle = pattern;
+    ctx.translate(wrap(pass.phaseX), wrap(pass.phaseY));
+    ctx.fillRect(-tilePx, -tilePx, pass.size + tilePx * 2, pass.size + tilePx * 2);
+    ctx.restore();
+  }
+
+  // Patterns belong to the context that made them, so they are cached per pass.
+  function patternOf(ctx, cache, name, tile) {
+    if (cache[name] === undefined) cache[name] = (tile && ctx.createPattern(tile, 'repeat')) || null;
+    return cache[name];
+  }
+
+  // The recording front-end shared by both canvases: a Graphics-shaped object
+  // whose strokes are buffered as ops (the passes below need the network more
+  // than once) and replayed by commit().
+  function beginCanvasPass(scene, texKey, alpha) {
     if (typeof document === 'undefined' || !scene.textures || !scene.roadGeomContainer) return null;
-    if (scene._roadGeomTarget) return scene._roadGeomTarget;
     const pad = CELL_PX * 2;
     const size = Math.ceil(scene.viewSize + pad * 2);
     const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
-    if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    if (scene.textures.exists(texKey)) scene.textures.remove(texKey);
+    const tex = scene.textures.createCanvas(texKey, size, size);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0).setAlpha(ALPHA);
+    const img = scene.add.image(originX, originY, texKey).setOrigin(0, 0).setAlpha(alpha);
     scene.roadGeomContainer.add(img);
-    // Stone pattern + its phase, built on first commit and kept for the life
-    // of the target. The texture canvas is screen-fixed while the ways slide
-    // across it, so an un-phased pattern would swim over the roads as the
-    // player walks; the phase pins it to the world instead.
-    let stonePattern;
-    let phaseX = 0, phaseY = 0;
-    // Rounded, not just wrapped: a fractional translate makes the canvas
-    // resample the stone tile, which softens the pebble edges into mush and
-    // re-blurs them differently on every rebuild. Whole pixels keep the
-    // cobblestones as crisp as the rest of the art.
-    const wrap = (v) => ((Math.round(v) % STONE_TILE_PX) + STONE_TILE_PX) % STONE_TILE_PX;
-    // The pass is RECORDED rather than stroked immediately: the rough-edge
-    // nibble needs the whole network twice (fringe pass, then the narrower
-    // repair pass — see "Rough edges" above), so commit() replays the buffer.
-    // rebuild()'s calling contract is unchanged — the tests' recording stub
-    // and this adapter see the exact same one-pass sequence.
-    let ops = [];      // { w, c, pts: [x0,y0, x1,y1, …] } per stroked path
-    let decorOps = []; // { w, c, pts: [{x,y}…] } track furniture, drawn after the gravel
-    let erases = [];   // [x, y, w, h] keep-out holes, applied after all paint
+    const pass = {
+      ctx, tex, size, originX, originY, image: img,
+      ops: [], decorOps: [], erases: [], pats: {},
+      // Screen position the world origin projected to in this pass, relative
+      // to the canvas — see patternFill.
+      phaseX: 0, phaseY: 0,
+    };
     let curStyle = { w: 1, c: ROAD_COLOR };
     let curPts = null;
-    // World-phased pattern fill (stones and edge noise share the anchoring):
-    // translating by the phase pins the tile to the world, and the fill runs a
-    // tile wider on every side to cover what the shift pushes off the canvas.
-    const patternFill = (pattern, composite) => {
-      ctx.save();
-      ctx.globalCompositeOperation = composite;
-      ctx.fillStyle = pattern;
-      ctx.translate(phaseX, phaseY);
-      ctx.fillRect(-STONE_TILE_PX, -STONE_TILE_PX, size + STONE_TILE_PX * 2, size + STONE_TILE_PX * 2);
-      ctx.restore();
-    };
-    // One replay of the recorded network. `widthDelta` widens (fringe) or
-    // narrows (repair) every path; the floor keeps a hairline way from
-    // vanishing outright in the repair pass.
-    const strokeAll = (widthDelta) => {
-      for (const op of ops) {
-        ctx.lineWidth = Math.max(1, op.w + widthDelta);
-        ctx.strokeStyle = cssOf(op.c);
-        ctx.beginPath();
-        ctx.moveTo(op.pts[0], op.pts[1]);
-        for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
-        ctx.stroke();
-      }
-    };
-    let edgeNoisePattern;
-    const target = {
-      clear() { ops = []; decorOps = []; erases = []; curPts = null; ctx.clearRect(0, 0, size, size); },
+    pass.target = {
+      clear() {
+        pass.ops = []; pass.decorOps = []; pass.erases = []; curPts = null;
+        ctx.clearRect(0, 0, size, size);
+      },
       // The alpha is carried by the IMAGE (see above), so the stroke itself is
       // always opaque; the colour is the caller's (earth for roads, slate for
-      // rail) and the alpha argument is deliberately ignored here.
+      // rail, near-black for a restored street) and the alpha argument is
+      // deliberately ignored here.
       lineStyle(w, c) { curStyle = { w, c: c == null ? ROAD_COLOR : c }; },
       beginPath() { curPts = []; },
       moveTo(x, y) { curPts.push(x - originX, y - originY); },
       lineTo(x, y) { curPts.push(x - originX, y - originY); },
       strokePath() {
-        if (curPts && curPts.length >= 4) ops.push({ w: curStyle.w, c: curStyle.c, pts: curPts });
+        if (curPts && curPts.length >= 4) pass.ops.push({ w: curStyle.w, c: curStyle.c, pts: curPts });
         curPts = null;
       },
       // Punch a cell-sized hole in the finished band. Recorded and applied
-      // after both stroke passes — an immediate clearRect would be repainted
+      // after every paint pass — an immediate clearRect would be repainted
       // by the repair pass; clearRect rather than a destination-out fill so
       // the hole is exact and costs nothing to composite.
-      eraseRect(x, y, w, h) { erases.push([x - originX, y - originY, w, h]); },
+      eraseRect(x, y, w, h) { pass.erases.push([x - originX, y - originY, w, h]); },
       // Track furniture (railway ties + rails). Stroked plain in commit() —
       // after the gravel so it stays crisp, before the erases so the keep-out
       // cells punch it out along with the ballast.
       decorPath(w, c, pts) {
         if (pts && pts.length >= 2) {
-          decorOps.push({ w, c, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+          pass.decorOps.push({ w, c, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
         }
       },
-      // Screen position the world origin projected to this pass — the stone
-      // pattern is anchored there, so it sits still on the road while the road moves.
-      texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
-      commit() {
-        ctx.clearRect(0, 0, size, size);
-        // Fringe pass at true width, then eat random bites out of everything…
-        strokeAll(0);
-        if (edgeNoisePattern === undefined) {
-          const tile = edgeNoiseTile();
-          edgeNoisePattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
-        }
-        if (edgeNoisePattern && ops.length) {
-          patternFill(edgeNoisePattern, 'destination-out');
-          // …and repair the interior: the bites survive only in the outer
-          // EDGE_FRINGE_PX of each band, which is the rough edge.
-          strokeAll(-EDGE_FRINGE_PX);
-        }
-        if (stonePattern === undefined) {
-          const tile = stoneTile();
-          stonePattern = (tile && ctx.createPattern(tile, 'repeat')) || null;
-        }
-        // source-atop keeps the stones inside what's already drawn — the
-        // nibbled silhouette included — so they never leak off the ways. Laid
-        // BEFORE the track furniture, so ties and rails stay untextured.
-        if (stonePattern) patternFill(stonePattern, 'source-atop');
-        for (const op of decorOps) {
-          ctx.lineWidth = op.w;
-          ctx.strokeStyle = cssOf(op.c);
-          ctx.beginPath();
-          ctx.moveTo(op.pts[0].x, op.pts[0].y);
-          for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
-          ctx.stroke();
-        }
-        // Land only, and never over a floor — applied LAST so the keep-out
-        // holes punch through band, gravel and track alike.
-        for (const [x, y, w, h] of erases) ctx.clearRect(x, y, w, h);
-        tex.refresh();
-      },
+      texturePhase(x, y) { pass.phaseX = Math.round(x - originX); pass.phaseY = Math.round(y - originY); },
     };
-    scene._roadGeomTarget = target;
-    return target;
+    return pass;
   }
+
+  // ── The dilapidated pass ─────────────────────────────────────────────────
+  function commitBase(pass) {
+    const { ctx, size } = pass;
+    ctx.clearRect(0, 0, size, size);
+    // Fringe pass at true width, then eat random bites out of everything…
+    strokeOps(ctx, pass.ops, 0);
+    const noise = patternOf(ctx, pass.pats, 'edge', edgeNoiseTile());
+    if (noise && pass.ops.length) {
+      patternFill(ctx, pass, noise, 'destination-out', STONE_TILE_PX);
+      // …and repair the interior: the bites survive only in the outer
+      // EDGE_FRINGE_PX of each band, which is the rough edge.
+      strokeOps(ctx, pass.ops, -EDGE_FRINGE_PX);
+    }
+    // source-atop keeps the stones inside what's already drawn — the
+    // nibbled silhouette included — so they never leak off the ways. Laid
+    // BEFORE the track furniture, so ties and rails stay untextured.
+    const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
+    if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
+    // Weathering, on the ROADS only. A rail band is ballast and gets none, but
+    // the stone pattern above is one fill over the whole network — there is no
+    // per-way pass to opt out of. So the cracks are masked instead: the road
+    // ops alone are replayed on a scratch layer, the tile is composited
+    // 'source-in' against THAT (pattern ∩ roads), and the result is drawn back
+    // source-atop. One extra layer per rebuild — and rebuilds are rare — where
+    // re-stroking the rail runs plain afterwards would have wiped their gravel
+    // off with the cracks, and a clip path can't be built from a stroke at all.
+    // Rail is identified by its colour: RAIL_COLOR has exactly one source.
+    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR);
+    if (roadOps.length) {
+      const layer = scratchLayer(size);
+      const tile = weatherTile();
+      if (layer && tile) {
+        // The repaired width, so weathering never lands in the nibbled fringe.
+        strokeOps(layer.ctx, roadOps, -EDGE_FRINGE_PX);
+        const pat = layer.ctx.createPattern(tile, 'repeat');
+        if (pat) {
+          patternFill(layer.ctx, pass, pat, 'source-in', WEATHER_TILE_PX);
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.drawImage(layer.canvas, 0, 0);
+          ctx.restore();
+        }
+      }
+    }
+    for (const op of pass.decorOps) {
+      ctx.lineWidth = op.w;
+      ctx.strokeStyle = cssOf(op.c);
+      ctx.beginPath();
+      ctx.moveTo(op.pts[0].x, op.pts[0].y);
+      for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
+      ctx.stroke();
+    }
+    // Land only, and never over a floor — applied LAST so the keep-out
+    // holes punch through band, gravel, cracks and track alike.
+    for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
+    pass.tex.refresh();
+  }
+
+  // ── The restored pass ────────────────────────────────────────────────────
+  // No edge nibble here: a clean edge is the whole point of a rebuilt street.
+  // Roads and paths are laid as two SEPARATE layers because their clean tiles
+  // differ (the path's mortar is halved) and a pattern fill is a whole-canvas
+  // operation — one fill after both were stroked would texture the roads
+  // twice. Roads go down first so a footpath crossing a street reads on top,
+  // matching the base pass's widest-first order.
+  function commitRestored(pass) {
+    const { ctx, size } = pass;
+    ctx.clearRect(0, 0, size, size);
+    for (const isPath of [false, true]) {
+      const want = isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR;
+      const ops = pass.ops.filter((op) => op.c === want);
+      if (!ops.length) continue;
+      const layer = scratchLayer(size);
+      if (!layer) break;
+      const lx = layer.ctx;
+      const tile = cleanTile(isPath);
+      const pat = tile && lx.createPattern(tile, 'repeat');
+      strokeOps(lx, ops, 0);
+      if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      // The kerb: wash the whole band pale, cover all but the outer pixel
+      // back up in the band colour, then re-lay the setts over the repair.
+      // What survives is a hairline light edge — a built kerb, not an outline.
+      lx.save();
+      lx.globalCompositeOperation = 'source-atop';
+      strokeOps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
+      strokeOps(lx, ops, -KERB_INSET_PX);
+      lx.restore();
+      if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      ctx.drawImage(layer.canvas, 0, 0);
+    }
+    for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
+    pass.tex.refresh();
+  }
+
+  function canvasTarget(scene) {
+    if (scene._roadGeomTarget) return scene._roadGeomTarget;
+    const pass = beginCanvasPass(scene, TEX_KEY, ALPHA);
+    if (!pass) return null;
+    pass.target.commit = () => commitBase(pass);
+    scene._roadGeomTarget = pass.target;
+    return pass.target;
+  }
+
+  function canvasRestoredTarget(scene) {
+    if (scene._roadRestoredTarget) return scene._roadRestoredTarget;
+    const pass = beginCanvasPass(scene, RESTORED_TEX_KEY, RESTORED_ALPHA);
+    if (!pass) return null;
+    pass.target.commit = () => commitRestored(pass);
+    scene._roadRestoredTarget = pass.target;
+    // The live Graphics (drawLive) belongs above both images; if it was
+    // created before this pass existed, put it back on top.
+    const c = scene.roadGeomContainer;
+    if (scene.roadLiveGfx && c && c.bringToTop) c.bringToTop(scene.roadLiveGfx);
+    return pass.target;
+  }
+
   // Prefer a scene-provided Graphics-shaped object (the headless tests inject
-  // one); otherwise build the canvas adapter.
+  // one); otherwise build the canvas adapter. The restored pass has no
+  // fallback: a scene that provides no roadRestoredGfx and can't build a
+  // canvas simply doesn't get one (the base band still draws).
   function strokeTarget(scene) {
     return scene.roadGeomGfx || canvasTarget(scene);
+  }
+  function restoredTarget(scene) {
+    return scene.roadRestoredGfx || canvasRestoredTarget(scene);
   }
 
   function invalidate(scene) {
@@ -503,6 +828,10 @@
       if (scene._roadGeomKey !== null) {
         g.clear();
         if (g.commit) g.commit();
+        // Only a restored pass that already EXISTS is blanked — underground
+        // there is nothing to restore, so there is no reason to build one.
+        const r = scene.roadRestoredGfx || scene._roadRestoredTarget;
+        if (r) { r.clear(); if (r.commit) r.commit(); }
         scene._roadGeomKey = null;
       }
       return;
@@ -517,7 +846,12 @@
     // stands still.
     const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
       overlayFrame(scene, (entry) => !!entry.layers);
-    const key = `${baseCellIX},${baseCellIY},${ready}`;
+    // …and the STREETS epoch, which Streets.restore bumps whenever a stretch
+    // is newly rebuilt. That's what repaints the restored canvas the frame
+    // after a restore — and, because it only moves when something changed,
+    // what keeps a standing player from repainting either canvas per frame.
+    const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
+    const key = `${baseCellIX},${baseCellIY},${ready},${epoch}`;
     if (key !== scene._roadGeomKey) {
       scene._roadGeomKey = key;
       timedOverlayRebuild('road overlay rebuild',
@@ -578,14 +912,86 @@
     }
   }
 
+  // Split one polyline (WORLD METRES) into runs of consecutive ON-SCREEN
+  // segments and hand each to `add`. A run is broken wherever a segment is
+  // wholly outside the padded viewport — the skipped stretch would otherwise
+  // be drawn as a straight shortcut across the view.
+  function emitRuns(pts, proj, add) {
+    const { projX, projY, minX, maxX, minY, maxY } = proj;
+    let px = projX(pts[0].x), py = projY(pts[0].y);
+    let run = [{ x: px, y: py }];
+    for (let i = 1; i < pts.length; i++) {
+      const qx = projX(pts[i].x), qy = projY(pts[i].y);
+      const offscreen =
+        (px < minX && qx < minX) || (px > maxX && qx > maxX) ||
+        (py < minY && qy < minY) || (py > maxY && qy > maxY);
+      if (offscreen) { add(run); run = [{ x: qx, y: qy }]; }
+      else run.push({ x: qx, y: qy });
+      px = qx; py = qy;
+    }
+    add(run);
+  }
+
+  // Stroke a style-bucketed collection — widest first, so a narrow street
+  // crossing a motorway still reads as its own stroke on top. Sorted rather
+  // than insertion-ordered so the draw order doesn't depend on which tile
+  // happened to load first; ties (same width, different colour) break on the
+  // colour so the order is fully determined.
+  function strokeBuckets(g, runsByStyle, alpha) {
+    const styles = [...runsByStyle.values()]
+      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color));
+    for (const { widthPx, color, runs } of styles) {
+      g.lineStyle(widthPx, color, alpha);
+      for (const run of runs) {
+        g.beginPath();
+        g.moveTo(run[0].x, run[0].y);
+        for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
+        g.strokePath();
+      }
+    }
+  }
+
+  // Iterate every transportation LINE of every tile in the frame:
+  // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
+  function eachTransportLine(tiles, fn) {
+    for (const { tx, ty, entry } of tiles) {
+      const tileEdgeM = entry.tileEdgeM;
+      const originMx = tx * tileEdgeM;
+      const originMy = ty * tileEdgeM;
+      const tileKey = WorldGen.tileKey(tx, ty);
+      for (const layer of entry.layers) {
+        if (layer.name !== 'transportation') continue;
+        const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
+        for (const f of layer.features) {
+          if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
+          for (let i = 0; i < f.geom.length; i++) {
+            const line = f.geom[i];
+            if (!line || line.length < 2) continue;
+            fn(f, line, i, mvtToM, originMx, originMy, tileKey);
+          }
+        }
+      }
+    }
+  }
+
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
-    const g = strokeTarget(scene);
-    g.clear();
     // Cell-snapped projection from the camera anchor (the container re-applies
     // the sub-cell offset) and the padded cull bounds — a segment whose
     // endpoints both sit outside the padded viewport can still cross it, so
     // the pad is a full cell wider than the sub-cell scroll can ever reveal.
-    const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
+    // Both passes share it, so the restored metres land exactly on the band
+    // they were restored from.
+    const proj = overlayProjection(scene, fracX, fracY);
+    rebuildBase(scene, tiles, proj, baseCellIX, baseCellIY);
+    rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY);
+  }
+
+  // ── The dilapidated network ──────────────────────────────────────────────
+  function rebuildBase(scene, tiles, proj, baseCellIX, baseCellIY) {
+    const g = strokeTarget(scene);
+    if (!g) return;
+    g.clear();
+    const { projX, projY } = proj;
 
     // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
     // by stroke STYLE (width + colour), and stroked as PATHS rather than loose
@@ -602,60 +1008,15 @@
       if (isRail) railRuns.push(run);
     };
 
-    for (const { tx, ty, entry } of tiles) {
-      const tileEdgeM = entry.tileEdgeM;
-      const originMx = tx * tileEdgeM;
-      const originMy = ty * tileEdgeM;
-      for (const layer of entry.layers) {
-        if (layer.name !== 'transportation') continue;
-        const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
-        for (const f of layer.features) {
-          if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
-          const widthPx = widthPxFor(scene, f.tags);
-          const color = colorFor(f.tags);
-          const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
-          for (const line of f.geom) {
-            if (!line || line.length < 2) continue;
-            let px = projX(originMx + line[0].x * mvtToM);
-            let py = projY(originMy + line[0].y * mvtToM);
-            let run = [{ x: px, y: py }];
-            for (let i = 1; i < line.length; i++) {
-              const qx = projX(originMx + line[i].x * mvtToM);
-              const qy = projY(originMy + line[i].y * mvtToM);
-              const offscreen =
-                (px < minX && qx < minX) || (px > maxX && qx > maxX) ||
-                (py < minY && qy < minY) || (py > maxY && qy > maxY);
-              if (offscreen) {
-                // Break the path here — the skipped stretch would otherwise be
-                // drawn as a straight shortcut across the viewport.
-                addRun(widthPx, color, run, isRail);
-                run = [{ x: qx, y: qy }];
-              } else {
-                run.push({ x: qx, y: qy });
-              }
-              px = qx; py = qy;
-            }
-            addRun(widthPx, color, run, isRail);
-          }
-        }
-      }
-    }
+    eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy) => {
+      const widthPx = widthPxFor(scene, f.tags);
+      const color = colorFor(f.tags);
+      const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
+      const pts = line.map((p) => ({ x: originMx + p.x * mvtToM, y: originMy + p.y * mvtToM }));
+      emitRuns(pts, proj, (run) => addRun(widthPx, color, run, isRail));
+    });
 
-    // Widest first, so a narrow street crossing a motorway still reads as its
-    // own stroke on top. Sorted rather than insertion-ordered so the draw order
-    // doesn't depend on which tile happened to load first; ties (same width,
-    // different colour) break on the colour so the order is fully determined.
-    const styles = [...runsByStyle.values()]
-      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color));
-    for (const { widthPx, color, runs } of styles) {
-      g.lineStyle(widthPx, color, ALPHA);
-      for (const run of runs) {
-        g.beginPath();
-        g.moveTo(run[0].x, run[0].y);
-        for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
-        g.strokePath();
-      }
-    }
+    strokeBuckets(g, runsByStyle, ALPHA);
     // Dress the railways as track — ties + rails over the ballast band. Only
     // when the target can draw decor (the canvas adapter); the headless test
     // stub gets the plain band.
@@ -672,5 +1033,97 @@
     if (g.commit) g.commit();
   }
 
-  global.RoadOverlay = { draw, invalidate };
+  // ── The restored metres ──────────────────────────────────────────────────
+  // Same walk, but each line is asked what the player has REBUILT of it: an
+  // interval list of metres along the line, from the save through Streets (the
+  // raw save shape is never read here). Each interval becomes its own exact
+  // sub-polyline, so a restored stretch ends where the player's dwell ended
+  // rather than at the nearest vertex.
+  //
+  // Rail is skipped outright: a railway is not a street to rebuild.
+  function rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY) {
+    const g = restoredTarget(scene);
+    if (!g) return;
+    g.clear();
+    const { projX, projY } = proj;
+    const S = (typeof Streets !== 'undefined') ? Streets : null;
+    if (S && scene.save) {
+      const runsByStyle = new Map();
+      const addRun = (widthPx, color, run) => {
+        if (run.length < 2) return;
+        const k = `${widthPx}|${color}`;
+        let bucket = runsByStyle.get(k);
+        if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
+        bucket.runs.push(run);
+      };
+      eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey) => {
+        if (RAIL_CLASSES.has((f.tags && f.tags.class) || '')) return;
+        const list = S.restoredList(scene.save, tileKey, S.lineKey(f, i));
+        if (!list || !list.length) return;
+        const widthPx = widthPxFor(scene, f.tags);
+        const color = restoredColorFor(f.tags);
+        for (const iv of list) {
+          const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
+          if (!sub || sub.length < 2) continue;
+          const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
+          emitRuns(pts, proj, (run) => addRun(widthPx, color, run));
+        }
+      });
+      strokeBuckets(g, runsByStyle, RESTORED_ALPHA);
+    }
+    keepOut(scene, g, baseCellIX, baseCellIY);
+    if (g.texturePhase) g.texturePhase(projX(0), projY(0));
+    if (g.commit) g.commit();
+  }
+
+  // ── The live pass ────────────────────────────────────────────────────────
+  // Everything the overlay draws that changes EVERY frame: the dwell preview
+  // creeping along a street the player is standing over, and the white shine
+  // that runs down a stretch the moment it is rebuilt. Those can't live on
+  // either canvas — a canvas rebuild is a hundred strokes and a handful of
+  // pattern fills, and this changes sixty times a second — so they go on a
+  // plain Phaser Graphics, cleared and re-stroked per frame. Usually 0–10
+  // short runs.
+  //
+  // Two things to know about the seating:
+  //   • the points are projected through scene.worldMetersToScreen — the
+  //     camera-anchored projection, so a peek drag carries the preview with
+  //     the ground, exactly as it carries the bands;
+  //   • the Graphics sits INSIDE roadGeomContainer (so it stays above both
+  //     images and inside the same mask), and draw() moves that container by
+  //     the sub-cell scroll every frame — which worldMetersToScreen already
+  //     accounts for. So the container's own offset is subtracted back out,
+  //     or the preview would run half a cell ahead of the band under it.
+  // Phaser's Graphics has no lineCap, so these runs end square where the
+  // canvas bands end round; at preview alphas that is not worth a second
+  // canvas.
+  function drawLive(scene, runs) {
+    const container = scene.roadGeomContainer;
+    let g = scene.roadLiveGfx;
+    if (!g) {
+      if (!container || !scene.add || typeof scene.add.graphics !== 'function') return;
+      g = scene.add.graphics();
+      scene.roadLiveGfx = g;
+      container.add(g);
+      if (container.bringToTop) container.bringToTop(g);
+    }
+    g.clear();
+    if (!runs || !runs.length || typeof scene.worldMetersToScreen !== 'function') return;
+    const ox = container ? (container.x || 0) : 0;
+    const oy = container ? (container.y || 0) : 0;
+    for (const run of runs) {
+      const pts = run && run.pts;
+      if (!pts || pts.length < 2) continue;
+      const color = run.colour == null ? restoredColorFor(run.tags) : run.colour;
+      g.lineStyle(widthPxFor(scene, run.tags), color, run.alpha == null ? 1 : run.alpha);
+      g.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const s = scene.worldMetersToScreen(pts[i].x, pts[i].y);
+        if (i) g.lineTo(s.x - ox, s.y - oy); else g.moveTo(s.x - ox, s.y - oy);
+      }
+      g.strokePath();
+    }
+  }
+
+  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile };
 })(window);

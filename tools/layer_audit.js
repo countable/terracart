@@ -9,11 +9,11 @@
 // The bug that motivated it: the out-of-reach dim — the wash that makes
 // "outside the lit area" mean something — was painted into cellGfx, the
 // BOTTOM-most layer. It could only darken the base terrain fill. Every piece
-// of ground decoration above it (biome seam borders, cobbles, road letters,
+// of ground decoration above it (biome seam borders, planks, road letters,
 // POI halos, treasure pads) stayed at full brightness outside the lit area,
 // and the biome boundaries in particular read as glowing lines in the dark.
 // Forcing the dim to alpha 1.0 made it obvious: the road strip, the pale
-// cobbles and the road lettering all punched straight through a fully opaque
+// planks and the road lettering all punched straight through a fully opaque
 // black wash.
 //
 // These checks are about ORDER ONLY. They deliberately do not care how many
@@ -55,7 +55,7 @@ const GROUND = [
   'cellGfx',           // base terrain fill
   'gridGfx',           // dashed cell grid
   'borderGfx',         // biome seam borders  <- the reported bug
-  'cobbleContainer',   // road / path stones
+  'cobbleContainer',   // ground decoration (the pier plank)
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths
@@ -90,7 +90,7 @@ const LIGHT = 'lightMap';
 // never found.
 const FOG = 'fogContainer';
 // The particle-burst layer (src/particles.js): gold stars off a fanfare,
-// chips off a lighting cobble, leaf flecks off a growing crop.
+// chips off a street coming back, leaf flecks off a growing crop.
 const FX = 'fxContainer';
 const BELOW_FOG = [...GROUND, ...SPRITES,
   'reachGfx', LIGHT, 'atmosRimGfx', FX, 'labelContainer', 'tierGfx'];

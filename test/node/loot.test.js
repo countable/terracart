@@ -74,7 +74,7 @@ test('pickReward: the ring nudges loot rarer on average (statistical, large N)',
 });
 
 // ── opts.rollBonus — the walk's extra chain steps ─────────────────────────
-// A cobble-trail prize costs ~200 m of walking, so it rolls the lowtier T4
+// A street-restoration prize costs 200 m of restored street, so it rolls the lowtier T4
 // curve plus Trail.PRIZE_ROLL_BONUS extra boost steps. A bonus step buys TIER
 // and nothing else: it lifts a roll toward the context's ceiling, never above
 // it, and never into the stack.

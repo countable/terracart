@@ -1,21 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Trail — the arithmetic behind COBBLE TRAILS (paths and roads alike).
+// Trail — the arithmetic behind the STREET RESTORATION ladder.
 //
-// A STONE is a cobble that actually draws a pebble (render.js thins them to
-// one per Render.COBBLE_SPACING_M, so the stones you see and the stones that
-// count are the same stones). Walking lights every stone inside the player's
-// reach and adds it to ONE running total — every path, every street, every
-// tile, one number. Reach the goal and a treasure lands; the next goal is
-// GOAL_STEP longer and rolls a step better.
+// The world is walked in METRES. A stretch of street or footpath that has sat
+// inside the player's lit reach for the dwell turns from dilapidated to clean
+// cobble (src/streets.js owns which metres those are), and every metre newly
+// restored — anywhere in the world, on any way, in any tile — adds to ONE
+// running total. Reach the goal and a treasure lands; the next goal is
+// GOAL_STEP_M longer and rolls a step better.
 //
-// ONE LADDER, NOT ONE PER PATH. Prizes used to be per named way per tile:
+// ONE LADDER, NOT ONE PER STREET. Prizes used to be per named way per tile:
 // each street and footpath carried its own counter, its own segment length,
 // its own short-remainder rule, its own "too short to pay anything" floor and
 // its own row in the save — and worldgen ran a whole wavefront pass to decide
-// which stone belonged to which way. The same walk therefore paid differently
+// which ground belonged to which way. The same walk therefore paid differently
 // depending on how OSM happened to split the ways under it, and the counter
 // ("7/29") answered a question nobody had asked: how far along THIS way am I.
-// None of it survives. A stone is a stone, wherever you pick it up.
+// None of it survives. A metre is a metre, wherever it is restored.
+//
+// METRES, NOT COUNTS. The ladder counted lit pebbles until Sep 2026 — one
+// sprite per 20 m of way, thinned by the renderer — so what a walk paid
+// depended on where the thinning happened to drop a stone, and half a street
+// restored between two of them paid nothing at all. Restoration is exact
+// float arclength now, so the ladder is too: 200 m for the first prize is the
+// same walk ten stones used to be, measured instead of counted.
 //
 // Pure arithmetic on purpose: app.js can't load headlessly (it needs Phaser),
 // so keeping the rule here is what lets test/node/trail.test.js pin the real
@@ -24,48 +31,67 @@
 (function (root) {
   'use strict';
 
-  // The ladder. The first prize wants GOAL_STEP stones, the second GOAL_STEP
-  // more than that, and so on: 10, 20, 30, … Stones are ~20 m apart
-  // (Render.COBBLE_SPACING_M), so the first prize is a couple of hundred
-  // metres of walking and the tenth is a proper expedition.
-  const GOAL_STEP = 10;
+  // The ladder, in METRES of street restored. The first prize wants
+  // GOAL_STEP_M, the second GOAL_STEP_M more than that, and so on: 200, 400,
+  // 600, … The first prize is a couple of hundred metres of walking and the
+  // tenth is a proper expedition.
+  const GOAL_STEP_M = 200;
 
-  // Stones the NEXT prize wants, given how many are already won. (The nth
-  // prize, 1-based, wants GOAL_STEP × n.)
+  // Metres the NEXT prize wants, given how many are already won. (The nth
+  // prize, 1-based, wants GOAL_STEP_M × n.)
   function goalFor(prizes) {
-    return GOAL_STEP * (Math.max(0, prizes | 0) + 1);
+    return GOAL_STEP_M * (Math.max(0, prizes | 0) + 1);
   }
 
-  // The "N/M" the player sees: stones banked toward the current goal.
-  function progress(stones, prizes) {
-    return { pos: Math.max(0, stones | 0), target: goalFor(prizes) };
+  // ONE FORMATTER. The counter that pops on the street and the prize
+  // ceremony's sub-line both print the same walk, so they both print it from
+  // here — a second `${x}/${y} m` anywhere else is how the two came to
+  // disagree about which rung had just been paid.
+  //
+  // Rounded, because the position is a float: restoration is exact arclength,
+  // and "137.4183/200 m" is noise on a toast read at a glance.
+  function label(pos, target) {
+    return `${Math.round(pos)}/${target} m`;
   }
 
-  // The "N/M" for the sweep that produced `out` (a bank() result). Normally
+  // Metres banked toward the current goal — the "N/M m" the player sees.
+  function progress(metres, prizes) {
+    const pos = Math.max(0, Number.isFinite(metres) ? metres : 0);
+    const target = goalFor(prizes);
+    return { pos, target, label: label(pos, target) };
+  }
+
+  // The readout for the sweep that produced `out` (a bank() result). Normally
   // the running progress toward the NEXT goal — but on a sweep that PAYS, the
-  // counter reads the goal just completed, full ("10/10"), not the carried
-  // remainder against the goal after it ("3/20"). The ladder grows by
-  // GOAL_STEP each rung, so at the very moment the prize ceremony opened the
-  // stone used to say "out of 20" while the walk had paid at 10, and the two
-  // read as a disagreement (Sep 2026). The remainder is still banked and
+  // counter reads the goal just completed, full ("200/200 m"), not the carried
+  // remainder against the goal after it ("60/400 m"). The ladder grows by
+  // GOAL_STEP_M each rung, so at the very moment the prize ceremony opened the
+  // counter used to say "out of 400" while the walk had paid at 200, and the
+  // two read as a disagreement (Sep 2026). The remainder is still banked and
   // shows on the next sweep; only the readout of the paying sweep changes.
   function readout(out) {
     if (out && (out.owed | 0) > 0) {
       const goal = goalFor((out.prizes | 0) - 1);
-      return { pos: goal, target: goal };
+      return { pos: goal, target: goal, label: label(goal, goal) };
     }
-    return progress(out ? out.stones : 0, out ? out.prizes : 0);
+    return progress(out ? out.metres : 0, out ? out.prizes : 0);
   }
 
-  // Bank `lit` newly lit stones. Returns the new running total, the new prize
-  // count and how many prizes that crossing owes.
+  // Bank `addM` newly restored metres. Returns the new running total, the new
+  // prize count and how many prizes that crossing owes.
   //
-  // A LOOP, not an `if`: a wide reach can sweep up more stones in one step
-  // than a goal is long, and each goal crossed makes the next one longer, so
-  // the remainder has to be re-tested against the NEW goal. (The goals grow,
-  // so it always terminates; the guard is belt and braces.)
-  function bank(stones, prizes, lit) {
-    let s = Math.max(0, stones | 0) + Math.max(0, lit | 0);
+  // FLOATS, not counts: a sweep restores whatever arclength was in reach, so
+  // the total carries fractions and the remainder that carries into the next
+  // goal is a fraction too.
+  //
+  // A LOOP, not an `if`: a wide reach can restore more street in one step than
+  // a goal is long, and each goal crossed makes the next one longer, so the
+  // remainder has to be re-tested against the NEW goal. (The goals grow, so it
+  // always terminates; the guard is belt and braces.)
+  function bank(metres, prizes, addM) {
+    const base = Math.max(0, Number.isFinite(metres) ? metres : 0);
+    const add = Math.max(0, Number.isFinite(addM) ? addM : 0);
+    let s = base + add;
     let p = Math.max(0, prizes | 0);
     let owed = 0;
     for (let guard = 0; guard < 1000; guard++) {
@@ -73,7 +99,7 @@
       if (s < goal) break;
       s -= goal; p += 1; owed += 1;
     }
-    return { stones: s, prizes: p, owed };
+    return { metres: s, prizes: p, owed };
   }
 
   // ── The prize is a CHOICE ────────────────────────────────────────────────
@@ -98,8 +124,8 @@
   // ── The prize gets BETTER as the walks get longer ────────────────────────
   // Extra boost-chain steps the roll gets over a plain chest of the same tier
   // (app.js hands it to pickReward as opts.rollBonus): one to begin with, and
-  // one more for every prize already won, so the tenth prize — a hundred
-  // stones of walking — is visibly a better find than the first.
+  // one more for every prize already won, so the tenth prize — two kilometres
+  // of restored street — is visibly a better find than the first.
   //
   // BETTER, NOT BIGGER. A bonus step buys TIER only (see the bonus loop in
   // rarity.js pickReward). As an ordinary chain step it fell through to a
@@ -149,7 +175,7 @@
   }
 
   root.Trail = {
-    GOAL_STEP, goalFor, progress, bank, readout,
+    GOAL_STEP_M, goalFor, progress, bank, readout, label,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };

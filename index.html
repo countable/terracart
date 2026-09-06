@@ -2432,10 +2432,11 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=4"></script>
-  <script src="src/difficulty.js?v=3"></script>
-  <script src="src/util.js?v=30"></script>
-  <script src="src/particles.js?v=5"></script>
-  <script src="src/trail.js?v=5"></script>
+  <script src="src/difficulty.js?v=5"></script>
+  <script src="src/util.js?v=31"></script>
+  <script src="src/particles.js?v=6"></script>
+  <script src="src/trail.js?v=6"></script>
+  <script src="src/streets.js?v=1"></script>
   <script src="src/sprite_layout.js?v=13"></script>
   <script src="src/placed_floor.js?v=1"></script>
   <script src="src/home.js?v=12"></script>
@@ -2443,7 +2444,8 @@
   <script src="src/fog.js?v=5"></script>
   <script src="src/biome_profiles.js?v=7"></script>
   <script src="src/traps.js?v=1"></script>
-  <script src="src/worldgen.js?v=238"></script>
+  <script src="src/lairs.js?v=1"></script>
+  <script src="src/worldgen.js?v=239"></script>
   <script src="src/textures.js?v=177"></script>
   <script src="src/save.js?v=116"></script>
   <script src="src/items.js?v=216"></script>
@@ -2451,7 +2453,7 @@
   <script src="src/energy.js?v=5"></script>
   <script src="src/crops.js?v=5"></script>
   <script src="src/delivery.js?v=9"></script>
-  <script src="src/savemigrate.js?v=13"></script>
+  <script src="src/savemigrate.js?v=14"></script>
   <script src="src/gear.js?v=5"></script>
   <script src="src/shops_math.js?v=7"></script>
   <script src="src/shops.js?v=7"></script>
@@ -2460,13 +2462,13 @@
   <script src="src/quests.js?v=6"></script>
   <script src="src/interactables.js?v=25"></script>
   <script src="src/combat.js?v=11"></script>
-  <script src="src/interact.js?v=244"></script>
-  <script src="src/lighting.js?v=13"></script>
-  <script src="src/render.js?v=357"></script>
+  <script src="src/interact.js?v=245"></script>
+  <script src="src/lighting.js?v=14"></script>
+  <script src="src/render.js?v=358"></script>
   <script src="src/multiplayer.js?v=9"></script>
-  <script src="src/road_overlay.js?v=15"></script>
+  <script src="src/road_overlay.js?v=16"></script>
   <script src="src/building_overlay.js?v=7"></script>
-  <script src="src/assets.js?v=181"></script>
+  <script src="src/assets.js?v=182"></script>
   <script src="src/sandbox.js?v=43"></script>
   <script src="src/testtools.js?v=10"></script>
   <script src="src/geo.js?v=3"></script>
@@ -2526,7 +2528,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=511';
+      const APP_SRC = 'src/app.js?v=514';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -1,5 +1,5 @@
 // Per-frame draw pipeline — extracted from app.js. Owns the cell-grid paint
-// (terrain, tilled overlay, road cobbles, reach silhouette, treasure X marks)
+// (terrain, tilled overlay, pier planks, reach silhouette, treasure X marks)
 // and the dynamic sprite-pool dance for chests / planted / wild plants /
 // creatures / labels / tier diamonds.
 //
@@ -107,68 +107,19 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
-// Terrain codes the cobble rule and drawCells' road/path tests share.
+// Terrain codes drawCells' road/path tests share.
+//
+// THERE ARE NO COBBLE SPRITES. Until Sep 2026 this pass stamped a pebble on a
+// share of every path cell and a stone cluster on a share of every road cell,
+// and app.js lit them one at a time as the player walked past. Restoring a
+// street is arclength along the WAY now (src/streets.js), drawn by
+// road_overlay.js on the band itself at the width the carriageway really is —
+// so the thinning rule (cobbleShown), the spacing (COBBLE_SPACING_M), the
+// lit-copy textures (litCobbleTexKey) and the scale-pop (PATH_STONE_FLASH_MS)
+// all went with them. A stone drawn per CELL could never line up with a band
+// stroked per METRE, which is the whole reason the mechanic moved.
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
-// METRES BETWEEN PATH PEBBLES. A stone on every single 7 m path cell read as a
-// continuous paved strip rather than scattered stepping stones (and busier
-// than the dense ROAD cluster it's supposed to look sparser than), so only a
-// share of the cells draw one.
-//
-// The share is DERIVED from this spacing and the tile's own cell size
-// (pathStonePct below), not authored as a percentage: a cell is
-// tileEdgeM / cellsPerEdge across, which drifts with latitude, so a fixed
-// percentage would put the stones further apart the further north you played.
-// Paired with Trail.GOAL_STEP — the first prize wants ten stones and a stone is
-// every 20 m of path, so the first walk is a couple of hundred metres. Only a
-// DRAWN stone counts (see cobbleShown below), so this spacing is the walk.
-//
-// The roll is permanent and does NOT consult `active`: a cell that rolled no
-// stone stays bare even once lit, because a stone popping into existence where
-// there wasn't one reads as a bug rather than as "lighting up". It is not
-// decoration on top of the count either — a thinned-away cell is not a stone,
-// so it neither lights nor counts (app.js _activatePathStone asks cobbleShown).
-// The counter only ever ticks on stones the player can actually see.
-const COBBLE_SPACING_M = 20;
-// Percent of path cells that draw a pebble, for a cell `cellM` metres across.
-// Clamped to 1..100 — a cell wider than the spacing still gets every stone.
-const pathStonePct = (cellM) =>
-  Math.max(1, Math.min(100, Math.round(100 * (cellM || 0) / COBBLE_SPACING_M)));
-// Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
-// cluster on every cell, which read as a continuously paved surface; at 15%
-// (an 85% cut) the clusters become occasional patches and the road band's own
-// paint carries the "this is a road" read instead.
-const ROAD_COBBLE_DENSITY_PCT = 15;
-// DOES THIS CELL DRAW A STONE AT ALL? The one rule both the draw pass and
-// app.js read: the renderer thins path pebbles to one per COBBLE_SPACING_M and
-// road clusters to ROAD_COBBLE_DENSITY_PCT, so a cobble cell is not
-// necessarily a VISIBLE cobble — and the trail counter has to land on a stone
-// the player can see, not over bare ground. Hashed off the ABS cell (distinct
-// multipliers from the noise-variant hash) so presence is stable across frames
-// and reloads and uncorrelated with the ground texture variant. Anything that
-// is neither path nor road (the PIER plank) always draws.
-const cobbleShown = (absIX, absIY, type, cellM) => {
-  const pct = type === T_PATH ? pathStonePct(cellM)
-            : isRoadType(type) ? ROAD_COBBLE_DENSITY_PCT
-            : 100;
-  return ((((absIX * 668265263) ^ (absIY * 2654435761)) >>> 0) % 100) < pct;
-};
-Render.COBBLE_SPACING_M = COBBLE_SPACING_M;
-Render.cobbleShown = cobbleShown;
-// A freshly claimed cobble gets a brief scale-pop instead of silently
-// jumping to full opacity next frame, so claiming reads as an event. 450ms
-// played and decayed almost before the eye caught it, so it's slower now —
-// still short, just actually visible. app.js's flash-prune window has to
-// stay comfortably above this or an activation would get pruned mid-animation.
-// The bounce is the pop's SIZE — the fraction of its own width the stone
-// swells by at the instant it lights. Claiming is no longer a deliberate tap
-// on one stone: walking simply sweeps up every cobble that enters the lit
-// reach, so several pop at once a few cells from the player and the old 0.4
-// was too small to catch out of the corner of the eye. 0.85 briefly overflows
-// the cell, which is the point of a pop — it decays away inside the first few
-// frames and the stone never RESTS bigger than its cell.
-const PATH_STONE_FLASH_MS = 900;
-const PATH_STONE_FLASH_BOUNCE = 0.85;
 
 // Both directions of the world⇄screen projection are defined against the CAMERA
 // ANCHOR (coords.js viewAnchorWorldM), not the player: they are the same thing
@@ -417,36 +368,6 @@ const _WAVE_TABLE = (() => {
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
-// Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
-// contain art. Each road tier picks ONE frame so the same road class reads
-// visually consistent across cells; different tiers look distinct.
-//   - ROAD_LG (motorway/trunk/primary): frame 0 — biggest, densest cluster
-//   - ROAD_MD (secondary/tertiary):     frame 5 — medium cluster
-//   - ROAD (minor/service/street):      frame 1 — small cluster
-//   - PATH:                             frame 3 — single small pebble
-const ROAD_FRAME = { 7: 1, 13: 0, 14: 5 };
-const PATH_FRAME = 3;
-// LIT cobbles. A claimed stone is drawn from a recoloured copy of its OWN
-// frame, baked once in app.js create() — one shared "lit" key would light a
-// motorway's dense cluster with a footpath's single pebble. The key function
-// lives here, beside the frame table it is derived from, so the baker and the
-// drawer can't disagree about what a frame is called.
-const litCobbleTexKey = (f) => `cobble_lit_${f}`;
-// Every frame that can be lit: the three vehicle tiers plus the path pebble.
-// Roads are claimable trails now too, so all four need a lit copy.
-const LIT_COBBLE_FRAMES = [ROAD_FRAME[7], ROAD_FRAME[13], ROAD_FRAME[14], PATH_FRAME];
-// The lit stone GLOWS. Its baked copy (app.js create()) is padded by
-// LIT_COBBLE_GLOW_PAD of the frame's width on every side and carries a soft
-// violet halo in that margin, under the recoloured stone — so drawCells draws
-// a lit stone LIT_COBBLE_GLOW_SCALE times the size an unlit one is, which
-// keeps the STONE itself at its cell size and lets the halo spill around it.
-// One pair, both sides: the baker pads by the first, the drawer scales by the
-// second, and the second is derived from the first so a wider halo can't
-// shrink the stone (cobble_glow.test.js pins it). Until Sep 2026 a lit
-// cobble was the same grey pebble in a flat lavender — the recolour alone
-// read as "slightly different gravel", not as something that had come on.
-const LIT_COBBLE_GLOW_PAD = 0.5;
-const LIT_COBBLE_GLOW_SCALE = 1 + 2 * LIT_COBBLE_GLOW_PAD;
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -1128,33 +1049,21 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
-  // The lit cobbles' own light (src/lighting.js): a small violet glow on the
-  // lightmap under every lit stone, and a brief bright blast on one that has
-  // just come on. Collected here, in the cell pass, because a stone is a CELL
-  // and never crosses drawObjects' scan; kept on its own list (beginCells /
-  // considerCobble) because drawObjects runs after this pass and resets the
-  // object lights at its top.
-  const LIGHTS = (typeof Lighting !== 'undefined') ? Lighting : null;
-  if (LIGHTS) LIGHTS.beginCells(scene);
-  // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
-  // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
-  // stones read as settled into the ground they cross rather than stamped on
-  // top of it. The PIER plank stays fully opaque — it's a solid walkway, not
-  // scattered stone — and so does an ACTIVATED named-path stone: coming up to
-  // full opacity is how a claimed stone reads as lit.
-  const COBBLE_ALPHA = 0.57;
   // (Road / path terrain tests are the module-scope isRoadType / T_PATH.)
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
-  // Reuses the cobblePool slot for the overlay sprite but swaps its texture
-  // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
-  // 16×16 frames). Frame 20 = row 2 col 4 = an interior tile of the continuous
+  // The ONLY thing left on the cobblePool: the road and path stones that
+  // shared it are gone (see the note by T_PATH). The pool and its container
+  // keep their name — the layer order is pinned on it (tools/layer_audit.js)
+  // and a plank is still ground decoration in the same slot.
+  // 'pier' is assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
+  // 16×16 frames. Frame 20 = row 2 col 4 = an interior tile of the continuous
   // plank-deck band (frames 16-23): 100% opaque wood, no baked-in water, no
   // gaps, no support posts — so it tiles edge-to-edge across adjacent pier
   // cells (vertical OR horizontal runs) as clean decking. The earlier choice
   // (frame 33) was a bridge-span tile with baked-in blue water + a diagonal
   // support leg + transparent holes, which rendered as fragmented "docks with
   // posts and water patches" instead of a solid walkway. Pier cells are NOT
-  // roads (no road-name labels) and NOT paths (no path-stone activation tint).
+  // roads (no road-name labels) and NOT paths.
   const PIER = 23;
   const PIER_FRAME = 20;
   const WATER = 3;
@@ -1281,10 +1190,10 @@ Render.drawCells = function drawCells(scene) {
       // ("rubble" flash on a grass-coloured tile) confused players. Now
       // we keep type=10 so the broken cell still reads as rock terrain;
       // the dimmed mineralrock sprite alone signals "spent".
-      // For ROAD cells, inherit the color of the nearest non-road neighbor so the cobbles
-      // sit on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
+      // For ROAD cells, inherit the color of the nearest non-road neighbor so the road
+      // band sits on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
-      // An unclaimed castle's COURT is shaded with its stone. The cobble
+      // An unclaimed castle's COURT is shaded with its stone. The paving
       // overlay baked over this fill (drawCastleFloorTex) is pure alpha, so
       // recolouring the fill recolours the paving with it — no second texture
       // family, and the floor can't end up lit under shaded walls.
@@ -1314,7 +1223,7 @@ Render.drawCells = function drawCells(scene) {
 
       // Mid-reveal cell: its tile just loaded, so the real terrain paints
       // below and the fog fades off it on the lighting layer (drawn there so
-      // the veil covers borders / cobbles / noise, not just the base fill).
+      // the veil covers borders / planks / noise, not just the base fill).
       {
         const veil = VEIL(col, row);
         if (veil > 0 && veil < 1) _fadeRects.push(sx, sy, veil);
@@ -1330,7 +1239,7 @@ Render.drawCells = function drawCells(scene) {
         const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
         const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
         // Road/path cells only paint a BACKDROP here (the inherited zone
-        // colour — the cobbles themselves are sprites drawn above), so for
+        // colour — the carriageway itself is the band drawn above), so for
         // rounding purposes all road/path tiers count as ONE type: a tier
         // change must not round corners, and a road-like diagonal's corner
         // paint must use its inferred backdrop colour, never the raw road
@@ -1377,8 +1286,8 @@ Render.drawCells = function drawCells(scene) {
         // residential colour partway down its own run. That flip is a
         // full-strength colour seam on screen, and the short-circuit
         // suppressed the border on precisely those cells — which is why zone
-        // boundaries appeared to lose their decoration wherever a road (and so
-        // a line of cobbles) sat on them.
+        // boundaries appeared to lose their decoration wherever a road sat
+        // on them.
         // Comparing colours alone also subsumes the old `t === type` skip: two
         // cells of one non-road type always resolve to the same colour.
         // The neighbour's PAINTED colour, which both the needs-a-border test
@@ -1528,7 +1437,7 @@ Render.drawCells = function drawCells(scene) {
           // PATH cells render the biome they were painted over (recorded in
           // worldgen's pathUnder) so a footpath reads as stepping-stones on the
           // existing ground rather than carving out a path-coloured patch. The
-          // cobble pebble overlay still draws on top (cobblePool below). Falls
+          // road overlay's band still draws on top (road_overlay.js). Falls
           // back to the path's own base if there's no record or the under-biome
           // has no texture (e.g. commercial/industrial concrete pads).
           let baseType = type;
@@ -1580,11 +1489,11 @@ Render.drawCells = function drawCells(scene) {
       // Road-name label — one compact whole-word text per anchor cell
       // (worldgen drops an anchor every ~12 road cells), laid along the road
       // direction like a map label. Replaced the old letter-per-cell trail,
-      // which spelled the name out one glyph per cobble and read as noise.
+      // which spelled the name out one glyph per cell and read as noise.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Anchors exist only on vehicle road tiers (PATH pebbles are too
-        // small to carry a label), so the isRoad gate also keeps lookups cheap.
+        // Anchors exist only on vehicle road tiers (a footpath is too narrow
+        // to carry a label), so the isRoad gate also keeps lookups cheap.
         if (!isTilled && isRoadType(type)) {
           // Look up this cell's label anchor from its owning tile.
           const wcxL = pc.cx + ox + pc.tx * scene.cellsPerTile;
@@ -1610,110 +1519,22 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Cobblestone overlay — dense cluster for ROAD, sparse single pebble for
-      // PATH, wooden plank for PIER. All three share the cobblePool slot but
-      // PIER swaps the sprite's texture from 'cobble' to 'pier' (Bridge Beach).
+      // The PIER plank — the only sprite left on the cobblePool. Road and
+      // path stones used to share this slot; a street's paving is the road
+      // band's own texture now (road_overlay.js), drawn per METRE at the
+      // carriageway's real width instead of per cell.
       {
         const cs = scene.cobblePool[cobbleIdx++];
-        // Single frame per type — no per-cell randomization, so a road of one
-        // class reads as one consistent surface across all its cells.
-        const isPier = (type === PIER);
-        const frame = isPier ? PIER_FRAME
-                     : isRoadType(type) ? ROAD_FRAME[type]
-                     : (type === T_PATH ? PATH_FRAME : null);
-        // Cobbles the player has lit by walking within reach of them come up
-        // to FULL opacity and a recoloured "lit" texture (litCobbleTexKey,
-        // baked in app.js) — the same stone, lit rather than a different
-        // material dropped into the ground. ROADS count as well as paths: a
-        // street is a claimable trail too. _isPathStoneActive is null-safe
-        // (returns false in test mode or before save state exists), so this
-        // check is always cheap. PIER is excluded — a plank is not a cobble.
-        let active = false;
-        if ((type === T_PATH || isRoadType(type)) && typeof scene._isPathStoneActive === 'function') {
-          // Cells outside the player's own tile fall back to the cell's
-          // tile coords — paths span tile seams, and we want the same answer
-          // on both sides of the boundary.
-          const N2  = scene.cellsPerTile;
-          const tx2 = Math.floor(absCellIX / N2);
-          const ty2 = Math.floor(absCellIY / N2);
-          active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
-        }
-        // Sparse decoration: a deterministic chunk of path cells never draws a
-        // pebble at all, claimed or not — a footpath is meant to read as
-        // stepping stones roughly COBBLE_SPACING_M apart, not a continuous
-        // paved strip — and a road's clusters are thinned the same way. The
-        // rule is cobbleShown (module scope), because app.js seats the trail
-        // counter with it too.
-        //
-        // This sits ON TOP of the geometric rule in worldgen: a cell is only
-        // PATH at all where the way really crosses it (pathCross), and this
-        // then thins the stones along what survives. What survives is what the
-        // trail COUNTS, too — a cell with no pebble is not a stone and never
-        // lights (app.js reads this same rule) — so this is not a decorative
-        // layer over a separate truth, it IS where the stones are. The roll
-        // must NOT depend on `active`, though: a lit cell popping a stone into
-        // existence that wasn't there a moment ago read as a bug, not as
-        // "lighting up."
-        const showStone = frame != null && !isTilled
-          && cobbleShown(absCellIX, absCellIY, type, scene.cellM);
-        if (showStone) {
-          // Both cobble tiles — the dense ROAD cluster and the sparse PATH
-          // pebble — sit inside their cell and have been stepped down another
-          // 20% (per playtest), centred on the same point: roads at 0.64 of a
-          // cell and paths at 0.584. Smaller stones leave more of the cell's
-          // own ground showing between them, so a road reads as a track laid
-          // ON the zone rather than as a tiled surface, and the wavy biome
-          // border at the cell edge has room to read. The PIER plank is not
-          // one of them and keeps cell size: its art tiles edge-to-edge across
-          // adjacent pier cells, and any resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoadType(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
-          // A just-claimed stone gets a brief scale-pop (PATH_STONE_FLASH_MS)
-          // instead of silently jumping to its lit state next frame — claiming
-          // reads as an event. Pure transform, no extra sprite/pool, so it's
-          // renderer-agnostic like the recolour it plays over.
-          let flashMul = 1;
-          if (active && scene._pathStoneFlashes) {
-            const flashAt = scene._pathStoneFlashes.get(cellKeyFromAbsCell(absCellIX, absCellIY));
-            if (flashAt != null) {
-              const ft = (performance.now() - flashAt) / PATH_STONE_FLASH_MS;
-              if (ft < 1) {
-                const decay = (1 - ft) * (1 - ft);   // ease-out: snaps in, settles slowly
-                flashMul = 1 + PATH_STONE_FLASH_BOUNCE * decay;
-              }
-            }
-          }
-          // A lit stone is a light: the steady violet pool that keeps a walked
-          // trail glowing after dark. Metres from the camera anchor, like every
-          // light — the cell's centre is (ox + 0.5 - fracX) cells from it. The
-          // FLASH as it comes on is not offered here: it is a BLAST, fired once
-          // by the sweep that lit the stone (app.js _blastAt → Lighting.blast),
-          // so one stone is one flash however many frames the pop runs for.
-          if (active && LIGHTS) {
-            LIGHTS.considerCobble(scene, (ox + 0.5 - fracX) * scene.cellM,
-                                  (oy + 0.5 - fracY) * scene.cellM, tilledKey);
-          }
-          // Swap texture key — 'pier' for plank, the lit copy of this frame
-          // for a claimed stone, 'cobble' for everything else. Pool sprites
-          // are created with the 'cobble' texture so reassign each frame;
-          // Phaser short-circuits if the key is already current.
-          const litKey = (active && frame != null) ? litCobbleTexKey(frame) : null;
-          const useActiveTex = !!litKey && scene.textures.exists(litKey);
-          if (useActiveTex) {
-            cs.setTexture(litKey);
-          } else {
-            cs.setTexture(isPier ? 'pier' : 'cobble', frame);
-            cs.setFrame(frame);
-          }
-          // Alpha is set on every draw, not just for the translucent kinds:
-          // pool slots are reused across cell types, so a slot that carried a
-          // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
-          // The lit copy carries its halo in a padded margin, so it is drawn
-          // LIT_COBBLE_GLOW_SCALE larger to keep the stone at its cell size.
-          const dsize = size * flashMul * (useActiveTex ? LIT_COBBLE_GLOW_SCALE : 1);
-          cs.setDisplaySize(dsize, dsize)
+        // Cell size, no resize: the plank art tiles edge-to-edge across
+        // adjacent pier cells (vertical OR horizontal runs) and any resize
+        // opens a seam. Fully opaque — it's a solid walkway.
+        if (type === PIER && !isTilled) {
+          cs.setTexture('pier', PIER_FRAME);
+          cs.setFrame(PIER_FRAME);
+          cs.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
-            .setAlpha(isPier || active ? 1 : COBBLE_ALPHA)
+            .setAlpha(1)
             .setVisible(true);
         } else {
           cs.setVisible(false);
@@ -2080,7 +1901,7 @@ Render.drawCells = function drawCells(scene) {
   const depth = scene.depth ?? 0;
   // Every pass from here to the reach outline paints onto reachGfx (app.js),
   // not the terrain graphics: in cellGfx — the bottom-most layer — the biome
-  // seams, cobbles, road letters and pads drawn above it would cover the
+  // seams, planks, road letters and pads drawn above it would cover the
   // outline. Falling back to `g` keeps a scene without the layer rendering
   // rather than throwing.
   const gr = scene.reachGfx || g;

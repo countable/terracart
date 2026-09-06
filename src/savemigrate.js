@@ -5,7 +5,7 @@
 // save was created, re-derives maxEnergy from armor, applies the history-size
 // cap, and runs the data migrations (inv string→object, stash fold, discovery
 // counter→badge stack, venison→meat, golden→shiny rename, flute→honey rename,
-// released golden flag, the sapling review seed).
+// released golden flag, the sapling review seed, cobble stones→street metres).
 //
 // Returns `needsPersist`: true iff a REAL data migration changed something and
 // the save should be re-written now. Idempotent defaults (slot backfills, the
@@ -144,32 +144,46 @@
     }
 
     // --- Data migrations (these DO force a persist) --------------------------
-    // Cobble trails: per-PATH counters → ONE ladder. The old shape was
-    //   save.pathStones[tileKey][trailName] = { stones: ["ix_iy"…], prizes, done }
-    // — a counter, a prize count and a "finished" flag for every named way on
-    // every tile. The ladder is global now (src/trail.js), so a tile keeps only
-    // WHICH stones are lit, as a flat list, and the count lives in save.trail.
+    // COBBLE TRAILS → STREET RESTORATION. Two old shapes go, one new one
+    // arrives. The save now reads:
+    //   save.trail        = { metres: <banked toward the current goal>, prizes: n }
+    //   save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
+    //   save.streetsEpoch = n
+    // — the restored stretches of each street as flat pairs of arclength in
+    // METRES along one line of one OSM way (src/streets.js owns the shape and
+    // is the ONLY thing that should read it).
     //
-    // Prizes already won do NOT carry into the new ladder: they were paid on a
-    // different rule (a short cul-de-sac paid the same as a mile of high
-    // street), so carrying them would hand a veteran a 400-stone first goal for
-    // walks they were never asked to make. Everyone starts at the first rung;
-    // what they already collected, they keep.
-    if (save.pathStones && typeof save.pathStones === 'object'
-        && Object.values(save.pathStones).some((v) => v && !Array.isArray(v))) {
-      const flat = {};
-      for (const [tileKey, tile] of Object.entries(save.pathStones)) {
-        if (Array.isArray(tile)) { if (tile.length) flat[tileKey] = tile; continue; }
-        const cells = new Set();
-        for (const rec of Object.values(tile || {})) {
-          for (const c of ((rec && rec.stones) || [])) cells.add(c);
-        }
-        if (cells.size) flat[tileKey] = [...cells];
-      }
-      save.pathStones = flat;
+    // The ladder counted lit PEBBLES — one sprite per 20 m of way, the
+    // spacing the renderer thinned them to — and is measured in metres now
+    // (src/trail.js), so a veteran's banked count is multiplied by the
+    // spacing it was earned at. That is the same walk they actually made, and
+    // the same rungs: ten stones and 200 m are one number stated two ways, so
+    // prizes and progress both carry across untouched.
+    //
+    // save.pathStones — WHICH pebble cells were lit — does not map onto the
+    // new shape at all, so it is dropped rather than guessed at. A restored
+    // stretch is float arclength along a line; a set of cell keys cannot say
+    // which metres of which way they came from (a cell knows nothing about
+    // the way that crossed it, and the grid under-reports a road band by a
+    // cell either side anyway — the road rule in CLAUDE.md). The streets are
+    // simply there to restore again; what the ladder already PAID is kept,
+    // which is the part that cost the player something.
+    const OLD_STONE_M = 20;
+    if (save.trail && save.trail.stones !== undefined) {
+      const stones = Number.isFinite(save.trail.stones) ? Math.max(0, save.trail.stones) : 0;
+      const had = Number.isFinite(save.trail.metres) ? save.trail.metres : 0;
+      save.trail.metres = had + stones * OLD_STONE_M;
+      delete save.trail.stones;
       needsPersist = true;
     }
-    if (!save.trail) save.trail = { stones: 0, prizes: 0 };
+    if (save.pathStones !== undefined) {
+      delete save.pathStones;
+      needsPersist = true;
+    }
+    if (!save.trail || typeof save.trail !== 'object') save.trail = { metres: 0, prizes: 0 };
+    if (!Number.isFinite(save.trail.metres)) save.trail.metres = 0;
+    if (!Number.isFinite(save.trail.prizes)) save.trail.prizes = 0;
+    if (!save.streets || typeof save.streets !== 'object') save.streets = {};
     // Older save: inv as a string array → {id,count} objects (else sel.count -= 1
     // yields NaN and stacks become uncountable).
     if (save.inv && typeof save.inv[0] === 'string') {

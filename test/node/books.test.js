@@ -221,6 +221,7 @@ test('course: the pages run in the order the player needs them', () => {
     chests:   idx(/Treasure X marks are buried in car parks/i),
     village:  idx(/ending in 9 is a Blacksmith/i),
     land:     idx(/Wild rock grows in residential streets/i),
+    streets:  idx(/derelict until you stand by them/i),
     animals:  idx(/Feeding an animal its favourite/i),
     fighting: idx(/Only one weapon is ever in play/i),
     caves:    idx(/Tap a staircase to go down/i),
@@ -413,6 +414,31 @@ test('tips: the chest rings and the depth step are the ones loot.js applies', ()
   assert.truthy(someTip(/violet and the gold ones/i), 'and the gem tip names both top gems');
 });
 
+test('books: the derelict-lair tip is re-derived from lairs.js', () => {
+  // A hard-mode ruin's garrison is invisible until you are standing in it, and
+  // the RULE behind it — a safe ring, then more for a bigger building and more
+  // the further out — is not visible at all. So it is Book-documented, and the
+  // three figures the sentence quotes come from the module that owns them.
+  assert.eq(Lairs.LAIR_MIN_HOME_CELLS, 12,
+    'the tip says "a dozen cells of home" — re-word it or move the constant back');
+  assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre away"');
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "fifteen slimes"');
+  // And the sentence's claim is the module's actual answer, not a nearby one.
+  assert.eq(Lairs.capFor(12, Lairs.LAIR_FAR_M, 7), 15,
+    'a castle at the far ring no longer holds the fifteen the tip promises');
+  assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9],
+    'the tip says "more the bigger the building"');
+  assert.truthy(someTip(/a dozen cells of home/i), 'a tip names the safe ring');
+  assert.truthy(someTip(/a kilometre away can hide fifteen/i), 'and the far end');
+  // It has to say WHICH GAME it is describing: easy has no lairs at all
+  // (Difficulty derelictLairs), and a Book is read in both modes.
+  const tip = PLAY_TIPS.find((t) => /a dozen cells of home/i.test(t));
+  assert.truthy(/^On hard,/.test(tip), 'the tip must name the mode — it is false on easy');
+  assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
+  // The one thing a player cannot see coming: they do not chase.
+  assert.truthy(/never leave the ruin/i.test(tip), 'and that a garrison stays put');
+});
+
 test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), 5, 'a fort takes 5 deals an hour');
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a plain house just 1');
@@ -483,4 +509,27 @@ test('tips: the snares are documented — nothing else can say where they are', 
   assert.truthy(/10⚡/.test(tip) && /2 a second/.test(tip), 'and quotes both costs');
   assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
     'and says where they lie');
+});
+
+test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
+  // Nothing on the map says how long you have to stand by a street, or how
+  // much of one a prize costs — the dwell is a constant in app.js and the rung
+  // is a constant in trail.js, and no item's ✦ line can carry either. So the
+  // Book carries them, and both are re-derived here rather than retyped: a
+  // retune of the ladder or the dwell has to move the tip with it.
+  assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
+  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
+  assert.truthy(tip, 'the street tip is in the list');
+  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
+  // The dwell, in whole seconds, said in words.
+  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
+  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
+  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
+  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
+  // lie by the second prize.
+  assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
+  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
+  // The stale claim: the mechanic was lit pebbles until Sep 2026.
+  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
+  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
 });
