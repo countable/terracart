@@ -46,6 +46,40 @@
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
 
+- **The camera is not the player.** Since the peek drag (drag the map to look a
+  few cells past the edge; it springs back on release), the viewport centres on
+  a CAMERA ANCHOR — the player plus `scene.peekM`. The split is absolute:
+  anything asking **"where do I DRAW this?"** goes through
+  **`coords.js` › `viewAnchorWorldM` / `viewAnchorCell`** (or `worldMetersToScreen`
+  / `screenToWorldMeters` / `cellScreenXY`, which already do), and anything
+  asking **"where IS the player?"** keeps using `playerM` / `playerToWorldCell()`
+  — reach, every tap gate, fog reveal, tile loading, the 3×3 tile scans. Mixing
+  them is the bug in both directions: a draw pass left on the body tears that
+  layer off the ground under a peek (the road bands, the building footprints and
+  the reach glow each had to be re-anchored), and a gameplay test moved onto the
+  anchor would let a peek reach three cells further than the arm does.
+  Anything drawn AT the player rather than at a world position — the sprite, its
+  shadow, halo, facing arrow, sword swing — reads `scene.playerScreen()`, never
+  `viewCenterX/Y`. **When you add a world-drawn layer, anchor it; when you add a
+  reach or gate test, don't.**
+  A third case sits beside those two: a layer too expensive to rebuild per frame
+  is cached about `viewCenterX/Y` and SLID by the peek (`setPosition(-peekPx)`)
+  instead. That is fine, but a slid image must be drawn WIDER than the frame —
+  by `PEEK_MAX_CELLS` cells, the drag's own clamp — or the peek pulls its outer
+  edge into view. The distance falloff shipped stopping exactly at the viewport
+  half-diagonal, so a drag put a hard circular arc of the darkness's own edge
+  across the corner of the map. The lightmap (`src/lighting.js`) is drawn at
+  the player's screen point every frame rather than slid, and its ramp ends ON
+  ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
+  so the corners stay just lit — with the ambient floor past it the same value,
+  so there is no edge for a peek to find. **When you cache a layer about the
+  viewport centre and slide it, give it the peek margin.**
+  **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
+  lifted shipping code: the projection round-trip under a peek, that a tap lands
+  in the cell it was drawn over, that reach is unmoved by the camera, that a
+  pointer which dragged taps nothing, and that no viewport corner escapes the
+  falloff rings at any peek angle.
+
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
   `src/render.js` › drawObjects (a sprite in a lower screen row always draws
@@ -83,6 +117,42 @@
   drifted, and verifies every seated sprite obeys the rule. When art changes,
   regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
   it into `src/sprite_layout.js`.
+
+- **What the art SHOWS is what it DROPS.** A sprite variant is not free
+  cosmetics when the variants differ in COUNT. The plain rock's four looks
+  (mineralrock sheet row 15, cols 3..6) include one that draws a PAIR of
+  stones — and until Sep 2026 the variant was a bare `(x+y) % 4` hash in
+  `render.js` while every plain rock dropped the same `randInt(1,3)`, so the
+  double rock could hand you one and a lone pebble could hand you three. The
+  answer is the same discipline as `roadOverlayWidthM`: **one table both sides
+  read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
+  draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
+  and both callers (`SpriteLayout.plainRockFrame` for the draw,
+  `SpriteLayout.plainRockStones` for the drop) resolve the variant through the
+  one internal `plainRockVariant` so they can't pick different rocks. A surface with no rock sprite promises
+  nothing and passes `stones = null` for the old flat roll — that's the cave
+  WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
+  can count it: `stones` is authored, and the tripwire if the sheet is re-cut
+  is the `ART_BOUNDS` width drift check in `tools/sprite_audit.js`.
+  **And say the real number.** The plain-rock toast read `+1 Rock` while
+  handing over three — if a loot path rolls a quantity, its flash prints that
+  quantity.
+  **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
+
+- **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
+  soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
+  pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
+  and a transparent ring, so each cell reads as its own bed with the ground
+  colour showing between neighbours, and `render.js` paints NO soil fill under
+  it. Until Sep 2026 it painted one — and at a sand/residential zone corner it
+  was a `fillRoundedRect` wearing the ZONE's radii, which Phaser tessellates
+  into ~400 points and triangulates every frame (cellGfx is cleared each
+  frame). Any shape a cell wears every frame belongs in its texture, not in a
+  Graphics path. The watered darkening is a TINT on that pad sprite
+  (`WATERED_TINT`), set on every frame the pool sprite is reused: a wash under
+  an opaque pad is hidden, and one over it darkens the ground ring too.
+  **Audit it:** `node test/node/run.js` › `test/node/tilled_bed.test.js` runs
+  the real `drawTilledTex` against a recording 2D context.
 
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
@@ -201,6 +271,168 @@
   **Every tile fetch goes through `fetchTileResponse`** — a raw
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
+
+- **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
+  and every world layer (ground cells, the road band, the building polygons)
+  is drawn in that one frame with the fix at `viewCenter`. The player sprite
+  is seated so its visible feet land ON that point: `playerFeetNudgeY` (app.js
+  create()) is the NEGATIVE of the frame's feet drop, the sprite is drawn that
+  much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
+  shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
+  in `multiplayer.js` — sit on the point itself; anything that wants the
+  body's centre (the facing arrow, the dragon timer, the swing arc, the halo)
+  adds `playerFeetNudgeY` to it. **Until Sep 2026 the sprite was CENTRED on
+  the fix** and the feet hung 14px (3 m) south of it, with every ground mark
+  carrying its own +13/+14 to follow them down — so standing on a road's
+  centreline put the band through the character's waist and the whole map
+  read as shifted a body-length north of where you stood. If the map looks
+  offset from the feet along one axis, the seating has drifted; never fix it
+  by moving the projection or by re-adding a per-mark offset.
+  The road band's WIDTH is a different question: it is drawn at true scale
+  (`widthPxFor` = metres × CELL_PX / cellM) from the per-class guess table in
+  `WorldGen.roadWidthM` (the tiles carry no width tag), so a band that reads
+  too narrow or wide against the real street is that table's number to change.
+  **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`
+  pins the seating as source text (app.js can't load headlessly).
+
+- **Every wait the player can read is `shortDuration`.** One notation, one
+  helper: the LARGEST unit that applies, an integer, and a unit letter —
+  `20d`, `3h`, `30m`, `12s`. Never a compound (`1h 5m`), never a bare number,
+  never `0m` while the gate still refuses (the ceil cascades, so 59.5 minutes
+  is `1h` and the smallest pending wait is `1s`). It lives in
+  **`src/util.js`** › `shortDuration`, beside `msToNextUtcDay` — the companion
+  for anything gated on a UTC day key (`Delivery.dayKey`, the castle favour,
+  the coin-burst POIs), because "come back tomorrow" is twenty hours or twenty
+  minutes and the player can't tell which.
+  Until Sep 2026 there were FIVE shapes for the same question: the fruit tree
+  rolled its own `d`/`h` ladder, the produce cooldown printed `(43m)`, the shop
+  plaque `12m`, the crop badge a **bare `7`** with no unit at all, and the
+  delivery house, the castle, the coin-burst POI and the resting anvil gave no
+  number whatsoever. A shop's wait is the one number two call sites both draw
+  (`ShopsMath.readiness().waitMs` for the plaque, `shopWaitLabel` for the tap),
+  so both format the same ms — the `roadOverlayWidthM` discipline again.
+  **When you add a timed thing, format its wait with `shortDuration`** — and if
+  it has no readout at all, that is the bug, not a style choice.
+  **Audit it:** `node test/node/run.js` › `test/node/duration_notation.test.js`
+  pins the formatter and sweeps the call-site sources for a re-grown ladder or
+  a fresh unquantified "tomorrow" / "later".
+
+- **An energy number lands ON ITS CELL, by the player.** Every `+N⚡` / `−N⚡`
+  goes through `app.js` › `_popEnergy(delta, { ix, iy })`: the absolute cell
+  the change belongs to (the plot a till paid for, the wall a dig cost — a
+  spend resolves it from the TAP via `_cellAtScreen`), defaulting to the
+  player's own cell when the change is to the body (a rest tick, a slime's
+  leech, the offline refill). It seats through the projection
+  (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
+  hangs just clear of the cell's top edge — or of the player's HEAD on their
+  own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
+  drop — and ticks a thin outline on the cell in the same ink so the reader
+  is told WHICH cell. That tick is for OTHER cells only: the player's own
+  cell never raised the question (the number is already on the body), and
+  ringing it just circled the character in red or green on every rest tick,
+  leech and spend underfoot. `_isPlayerCell(ix, iy)` is the one test both
+  halves read — `_energyPopAt` anchors on the body when it's true,
+  `_popCellNumber` skips the outline when it is — so where the number hangs
+  and which cell is ticked can't drift apart. It wears the `cell` toast tier: bold, stroked and
+  drop-shadowed, no chip, because it sits on any ground at all. Until Sep
+  2026 the rest splash was a note at the viewport centre minus 70px and the
+  drains sat 40px above the same point — nowhere in particular, and under a
+  peek drag two cells from anyone. **When you add an energy gain or loss the
+  player can see, pop it with `_popEnergy` and name the cell** — a `flash` of
+  a ⚡ number at the viewport centre is the bug coming back.
+  **Every other number on the map is the same thing.** `_popEnergy` is the
+  ⚡ face of `_popCellNumber(text, color, ix, iy)`, which the coin pickup's
+  `+$1` uses on the coin's cell (it used to flash at the finger, which is
+  over the coin only until it lifts). The foe's `-N` (`_popDamageNumber`)
+  stays on the foe's health bar — that IS its cell — but is a `damage` row
+  of the same `TOAST_TIER` table, so it wears the same stroke and shadow;
+  it was a hand-set `add.text` beside the table with no shadow. **A number
+  drawn on the map is a `_toast` tier, never its own `add.text`**, and it
+  names the cell or the foe it is about.
+  **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
+  the lifted seating on a stub scene (cell edge, head clearance, peek) and
+  pins the call sites and the tiers as source text.
+
+- **Working is not resting.** The passive rests in `app.js` update() — Home
+  (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
+  a work wheel runs (`const working = !!this._workProgress`). Until Sep 2026
+  they didn't, and a new player's first till was free: the starter trailer is
+  dropped under the player at spawn, the starter plot is carved two cells from
+  it inside reach from the trailer's own cell, and the Home rest ticked at
+  ~1.1⚡/s under a 2.25 s wheel that had cost 2⚡ — the bar read the same
+  number before and after. Never fix a "free" job by raising its cost or
+  slowing its wheel; the rest resumes the moment the wheel clears, and that
+  is what earns the energy back. **When you add a passive energy source,
+  gate it on `working`.**
+  **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
+  both gates as source text and shows the ungated rest out-earning the till.
+
+- **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
+  Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
+  gradient primitive": a fillRect per unlit cell, a second wash over the lit
+  cells underground, a pink wash at low energy and ~100 cached strokeCircle
+  falloff rings. All of it painted DARKNESS, which
+  composes one way only (two dims overlap darker), so a campfire could never
+  be built out of it. `src/lighting.js` replaced the lot with one model:
+  a viewport-sized CANVAS texture (`scene.lightTex`, shown by the
+  `scene.lightMap` image, app.js create()) filled with the ambient floor,
+  every light source adding its baked radial-gradient cookie into it with
+  `'lighter'`, and the whole thing MULTIPLIED over the world from ABOVE the
+  sprites — so a house or a tree outside every light goes as dark as the
+  ground it stands on, and `Render.spriteTint` must never compose the reach
+  dim onto a sprite again (that darkens a wreck twice). It is a 2D canvas,
+  not a RenderTexture, on purpose: the cookies drawn through Phaser's
+  render-texture batch came back cut and quadrant-scrambled on some GPUs,
+  and a canvas composites the same way everywhere.
+  **The plateau is per cell.** The lit area's sharp edge is painted with
+  `cellInReach`'s own expressions over every reach cell, so it IS the
+  staircase the white outline traces and the tap gate accepts; only the
+  falloff outside it is a circle. A circle for the plateau is the bug.
+  Inside the staircase the plateau is NOT flat: the fill is a radial
+  gradient about the feet (`plateauFill`), full `lit` at the player and
+  `PLATEAU_FALL` of it gone by the reach rim (`plateauLevel`, quadratic so
+  the middle stays flat), clipped by the per-cell path so the edge is still
+  exact. It is shading, not a second falloff: the test pins that the step
+  off the plateau to `edge` outweighs the fall across it at every depth and
+  hour. Deepen the look through `PLATEAU_FALL`; if the rim ever needs to be
+  darker than that step, that is a reach-affordance change, not a lighting
+  tweak.
+  **The numbers are derived, not tuned:** `Lighting.profile` builds the
+  ambient, the plateau and the edge level from the same
+  `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
+  falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
+  player lit looks as it did — except the FLOOR, which `AMBIENT_K` scales
+  down for contrast (the one deliberate departure: "totally unlit areas
+  should be darker"). Retune a look through those; `AMBIENT_K` is the
+  contrast knob, and another factor added in lighting.js breaks the
+  correspondence the test pins.
+  **The surface picture is HIGH NOON, and the real sun darkens it.**
+  `Lighting.daylight(scene, now)` is 0..1 from the sun's elevation at the
+  player's lon/lat (`sunElevationDeg`, recomputed once a minute), a twilight
+  ramp from `DAY_ELEV_DEG` down to `NIGHT_ELEV_DEG`; `profile(scene, daylight)`
+  moves the out-of-reach wash toward `NIGHT_DIM_A` and drains its biome tint
+  to `NIGHT_TINT_KEEP`. The reach plateau is NOT darkened — it is the Inner
+  Light — and caves ignore the sun. `window.__DAYLIGHT = 0..1` forces it for
+  eyeballing. `profile()` with no daylight is noon, which is what keeps the
+  derivation tests clock-free.
+  **The light table is `Lighting.KINDS`**, one row per source: the player, Home
+  (`trailer` — the starter trailer or the house adopted in its place), a
+  restored building (keyed on the SAME `isClaimedKey` test the derelict wash
+  reads, so it lights the frame its wash lifts), a campfire whose radius
+  IS `FIRE_REST_R` — stand in the light, stand in the warmth — and every live
+  POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
+  with a per-id phase: that IS the old halo ping (the ring layer, its pool
+  and its texture are gone), so a place reads from across the map by its own
+  light in the dark, never by a ring drawn back under the pad. **When you add a
+  light source, add a row and return its kind from `Lighting.sourceKind`**;
+  the collector culls at `halfM` + the row's own radius, not the sprite cull,
+  so a lantern a cell off-screen still lights the edge.
+  **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
+  affordance; never move it onto the lightmap.
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
+  derived levels, the table, the collector, the source pins) and
+  `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
+  the labels).
 
 ## Testing
 
