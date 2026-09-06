@@ -32,7 +32,7 @@
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   textures.js  — BIOME_TEX, TILLED_COLOR, TILLED_VARIANTS, PAD_SHAPES
+//   textures.js  — BIOME_TEX, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
 //   loot.js      — POI_CLASS_FALLBACK, CHEST_TIER_COLOR,
@@ -413,6 +413,9 @@ const _WAVE_TABLE = (() => {
 // Flat-only terrain types (no tileset art) get rounded corners at zone
 // boundaries. Module-level: the membership never changes, and drawCells runs
 // every frame — rebuilding a 12-element Set 60 times a second bought nothing.
+// Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
+// (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
+const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
 // Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
 // contain art. Each road tier picks ONE frame so the same road class reads
@@ -1507,15 +1510,9 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Repaint base color for tilled cells (yellow-brown soil, replaces underlying terrain color).
-      if (isTilled) {
-        g.fillStyle(TILLED_COLOR, 1);
-        if (tl || tr || bl || br) {
-          g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
-        } else {
-          g.fillRect(sx, sy, CELL_PX, CELL_PX);
-        }
-      }
+      // (No soil fill for a tilled cell: the `tilled_N` texture below is an
+      // opaque, inset, rounded bed — see textures.js TILLED_INSET_PX — and the
+      // terrain colour just painted is what shows in the ring around it.)
 
       // Procedural texture overlay for every ground cell.
       // All terrain types — including water and sand — use a procedural biome
@@ -1569,6 +1566,12 @@ Render.drawCells = function drawCells(scene) {
           ns.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
+          // Watered soil reads a shade darker (damp). The pad is an opaque
+          // sprite now, so the tint goes on the sprite — a wash on the cell
+          // graphics under it would be hidden, and one over it would darken
+          // the ground ring too. The pool is reused every frame, so the tint
+          // is set on every path, not only the watered one.
+          ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
         } else {
           ns.setVisible(false);
         }
@@ -1716,11 +1719,6 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Subtle darker tint for watered tilled cells (just enough to read as damp soil).
-      if (isWatered) {
-        g.fillStyle(0x000000, 0.22);
-        g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
-      }
     }
   }
   // Building outline pass — runs AFTER all cells are filled so a neighbour

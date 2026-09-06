@@ -1043,6 +1043,17 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+// textures.js loads headlessly (plain canvas-2D drawing against whatever ctx
+// it is handed) — in its OWN context, since its module constants share names
+// with the stubs above. tilled_bed.test.js runs drawTilledTex from here
+// against a recording 2D context (the test vm has no require()).
+ctx.TILLED_TEX = (() => {
+  const c = vm.createContext({ window: {}, console });
+  vm.runInContext(readSrc('textures.js')
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    c, { filename: 'textures.js#tilled' });
+  return c.__x;
+})();
 // The texture catalog, as text: assets.js is not bundled (it is data for the
 // Phaser loader), so a test that needs to know a sheet is declared pins it.
 ctx.ASSETS_SRC = readSrc('assets.js');
