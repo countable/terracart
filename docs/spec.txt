@@ -230,8 +230,9 @@ MOVEMENT & REACH
    the bubble tightens the deeper you descend — and the out-of-range mask darkens
    per level too. Reach grows to 5 via SIX +0.5-cell upgrades on one ladder
    (save.reachUpgrades, capped at 6 / 5 cells), claimed EXCLUSIVELY at the Wizard
-   Tower's Inner Light (bought with Discovery — see ECONOMY). Each upgrade also
-   forges the RING relic, whose tier mirrors the inner-light level (ECONOMY/GEAR).
+   Tower's Inner Light — the FIRST rung of his ladder, bought with Discovery
+   (see ECONOMY). The RING used to be forged by the same purchase; it is its own
+   rung (Keen Eye) now.
  - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
    defeat a pest / catch an animal) shows a circular progress wheel at the spot.
    The matching tool relic's TIER sets the duration — it only SPEEDS the work,
@@ -942,13 +943,26 @@ ECONOMY (buying & selling)
    are tracked in save.openedCastles. The price of entry is footwork, not goods.
    (This REPLACED the old one-time tier-2 goods tribute; once the tally clears a
    castle's gate, that castle trades normally forever.)
- - WIZARD TOWER (the 15th restored wreck): buys "Inner Light" reach upgrades on
-   the shared ladder (see MOVEMENT & REACH) for DISCOVERY points (see SHINY
-   VARIANTS) — WIZARD_INNER_LIGHT_COST (5) Discovery each, no delivery gate.
-   Each Inner Light also forges the player's RING relic, whose tier tracks the
-   inner-light level (= reachUpgrades). The ring is the wizard tower's exclusive
-   gift: it is NEVER sold or forged anywhere else (excluded from buildRelicOffer),
-   so widening your sight is the only way to a Ring.
+ - WIZARD TOWER (the 15th restored wreck): sells a LADDER of upgrades for
+   DISCOVERY points (see SHINY VARIANTS) — WIZARD_UPGRADE_COST (5) Discovery a
+   rung, no delivery gate. One rung per visit, climbed strictly in order, and
+   the tower always offers the first rung not yet finished (app.js
+   wizardLadder / wizardNextRung):
+     1. INNER LIGHT  ×6 — +0.5 cell of reach each (see MOVEMENT & REACH).
+     2. FULL MEASURE ×3 — QUANTITY luck: P(a find comes in a bigger stack),
+        linear onto RARITY_TUNING.qtyLuckMaxP (0.35). This was the AMULET's
+        until Sep 2026 (0.05 per amulet tier, so a Frost amulet sat at exactly
+        0.35); the ceiling is unchanged, so the amulet lost a bonus rather than
+        the player. save.qtyUpgrades.
+     3. KEEN EYE     ×7 — the RING, i.e. TIER luck: P(a find comes a tier
+        rarer), rarity.js ringLuck at 0.01 a tier. Until Sep 2026 the Ring rode
+        along with the Inner Light — one purchase bought both — so the two
+        kinds of luck are two things you buy now.
+   The Ring is still the wizard tower's exclusive gift: it is NEVER sold or
+   forged anywhere else (excluded from buildRelicOffer), so the tower is the
+   only way to one.
+   The percentage a rung's modal prints comes from rarity.js's own qtyLuck, not
+   a second formula, so a rung can't advertise a number the loot roll won't pay.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
@@ -1022,9 +1036,11 @@ GEAR: RELICS & ARMOR
               the tier-0 rung, only slowly enough that a quick animal usually
               gets away)
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
-     ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
-              wizard tower's Inner Light, tier = inner-light/reach level
-     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
+     ring   — TIER luck: +1%/tier chance to bump chest loot up a tier; granted
+              ONLY by the wizard tower's Keen Eye rung (see ECONOMY)
+     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper.
+              It carried the QUANTITY luck too until Sep 2026; that is the
+              wizard's Full Measure rung now.
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
               auto-engages the nearest enemy in reach WHEN ACTIVE — see
               COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
@@ -1576,8 +1592,10 @@ not threading another branch through the dispatcher.
                        harvest, chest ceremony, well refill, shop/shrine UIs)
    A single runInteractable(ctx, o) driver walks gate → spend → work-wheel, or
    defers to custom. Adding a new interactable = adding a row.
- - LUCK (ring → rarer pulls, amulet → bigger stacks) applies to CHEST/treasure
-   loot only, read off `save` by pickReward() in rarity.js. Gather drops (wood,
+ - LUCK applies to CHEST/treasure loot only, read off `save` by pickReward() in
+   rarity.js: TIER luck (the ring → rarer pulls, ringLuck) and QUANTITY luck
+   (save.qtyUpgrades → bigger stacks, qtyLuck). Both are wizard-tower rungs;
+   quantity was the amulet's until Sep 2026. Gather drops (wood,
    ore, gems, fruit) are not luck-aware: the registry carried a declarative
    `luck` field and a GATHER_LUCK_DEFAULT flag for it that shipped OFF and was
    never turned on, and both were removed rather than left as dead weight.
