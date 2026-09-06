@@ -6686,8 +6686,11 @@ class MapScene extends Phaser.Scene {
     if (relics.sword && this.save.activeWeapon === 'sword' && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
-        const fc = worldMetersToAbsCell(this, c.x, c.y);
-        if (!cellInReach(this, fc.cellIX, fc.cellIY)) continue;
+        // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
+        // swings as far as a monster bites and no further. This used to be
+        // cellInReach, so an auto-engaging sword picked up a foe 2.5 cells off
+        // — 5.5 with the Inner Light upgrades — and fought it the whole way in.
+        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM)) continue;
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
@@ -6924,6 +6927,24 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
     c._lastDamagedT = Date.now();
+    // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
+    // ring around and switches its bite off (wanderCreatures' homeWard), but
+    // the ring is only HOME_R — four cells — so a foe walked out, stopped
+    // being warded on the doorstep's edge and came straight back at you. Hit
+    // one while it is being warded and it does not merely leave the ring, it
+    // RUNS: the ward radius becomes CREATURE_SIM_CELLS for this foe alone
+    // until it is out, which is the edge of the sim bubble — as far as
+    // anything is driven in this game, and far enough that the yard is quiet
+    // for a while rather than for a step. The flag clears itself on the first
+    // tick it is outside (see wanderCreatures), so nothing about it persists.
+    if (!c._routedFromHome && Combat.isEnemy(c)) {
+      const home = this.homeWorldPos();
+      if (home) {
+        const r = HOME_R * this.cellM;
+        const hx = c.x - home.x, hy = c.y - home.y;
+        if (hx * hx + hy * hy <= r * r) c._routedFromHome = true;
+      }
+    }
     const now = performance.now();
     c._hurtUntilT = now + ENEMY_HEALTH_RING_MS;
     // Damage numbers. Accumulate-and-beat rather than pop-per-call: a shot
@@ -7263,10 +7284,20 @@ class MapScene extends Phaser.Scene {
       // diamond, so a crow still sitting inside the lit range read as "got
       // away" while it hadn't visually left it.
       const tc = worldMetersToAbsCell(this, c.x, c.y);
-      const outOfRange = (typeof cellInReach === 'function')
-        ? !cellInReach(this, tc.cellIX, tc.cellIY)
-        : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
-           + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
+      // A FIGHT breaks off at arm's length (Combat.MELEE_REACH_CELLS), a HUNT
+      // at the lit reach. Same wheel, two ranges, because they are two things:
+      // a crow you are running down stays yours while it is in the light, but
+      // a foe that has backed out of swinging distance is no longer being hit
+      // — and without this you could engage at one cell and keep landing blows
+      // out to five as it walked away.
+      const outOfRange = wp.combat
+        ? !Combat.inMeleeReach(c.x, c.y,
+            this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y,
+            this.cellM)
+        : (typeof cellInReach === 'function')
+          ? !cellInReach(this, tc.cellIX, tc.cellIY)
+          : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
+             + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
@@ -7450,6 +7481,10 @@ class MapScene extends Phaser.Scene {
     // which is what switches the ward off.
     const homePos = this.homeWorldPos();
     const HOME_WARD_R2 = (HOME_R * this.cellM) * (HOME_R * this.cellM);
+    // The radius a foe STRUCK inside the ring is driven out to instead — the
+    // sim bubble's own edge (CREATURE_SIM_CELLS), so "it ran off" means it is
+    // gone rather than circling the doormat. Set by _damageEnemy.
+    const HOME_ROUT_R2 = (CREATURE_SIM_CELLS * this.cellM) * (CREATURE_SIM_CELLS * this.cellM);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -7538,16 +7573,25 @@ class MapScene extends Phaser.Scene {
       // Combat.isEnemy is the registered-hostile test (the wild slime, every
       // cave monster), so a kind added to the monster table is warded the day
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
+      // A foe hit while it was being warded keeps being warded all the way out
+      // to the bubble's edge (_routedFromHome, set in _damageEnemy) — same
+      // away-from-Home angle, same bite switched off, just a bigger ring.
+      const homeD2 = homePos
+        ? (c.x - homePos.x) * (c.x - homePos.x) + (c.y - homePos.y) * (c.y - homePos.y)
+        : Infinity;
       const homeWard = !!homePos && !isTame && Combat.isEnemy(c) &&
-        (c.x - homePos.x) * (c.x - homePos.x) +
-        (c.y - homePos.y) * (c.y - homePos.y) <= HOME_WARD_R2;
+        homeD2 <= (c._routedFromHome ? HOME_ROUT_R2 : HOME_WARD_R2);
+      // Out at last: it rejoins the ordinary rules and may hunt again.
+      if (c._routedFromHome && homeD2 > HOME_ROUT_R2) c._routedFromHome = false;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
       if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {
-        const STEAL_R = this.cellM;   // 1 cell — adjacent only
+        // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
+        // — one number for "melee is arm's length", read by both sides.
+        const STEAL_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // 3 energy/sec

@@ -616,3 +616,89 @@ test('combat: the health tint reads full → hurt → nearly dead', () => {
   assert.truthy(full !== hurt && hurt !== dying && full !== dying,
     'three distinct bands — the ring has to say how the fight is going');
 });
+
+
+// ── Melee reach ─────────────────────────────────────────────────────────────
+// MELEE IS ARM'S LENGTH. Until Sep 2026 the player's melee reached the LIT
+// reach — 2.5 cells at the start, up to 5.5 through the six Inner Light
+// upgrades — while every melee monster had to be adjacent to bite. So you
+// out-ranged the thing you were fighting, bare-handed, and buying reach
+// upgrades for farming quietly bought combat range too.
+
+test('combat: melee reaches exactly as far as a melee monster does', () => {
+  assert.eq(Combat.MELEE_REACH_CELLS, 1,
+    'one cell — the range every melee monster in the MONSTERS table attacks at');
+  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M,
+    'and in metres it is one cell of whatever the world is scaled to');
+  // The MONSTERS table lives in app.js (no headless load), so its melee kinds
+  // are pinned as source text against the number above.
+  const rows = APP_JS_SRC.slice(APP_JS_SRC.indexOf('const MONSTERS = {'));
+  const table = rows.slice(0, rows.indexOf('\n};'));
+  const ranges = [...table.matchAll(/range:\s*(\d+)/g)].map((m) => Number(m[1]));
+  assert.gt(ranges.length, 3, 'found the monster ranges');
+  const melee = ranges.filter((r) => r <= 1);
+  assert.gt(melee.length, 0, 'there are melee monsters at all');
+  for (const r of melee) {
+    assert.eq(r, Combat.MELEE_REACH_CELLS,
+      'a melee monster reaches exactly what the player does — one number, both sides');
+  }
+  assert.truthy(ranges.some((r) => r > Combat.MELEE_REACH_CELLS),
+    'and the goblin archer still out-ranges a fist, which is what makes it archer');
+});
+
+test('combat: the melee test is symmetric with the monster\'s own attack gate', () => {
+  const C = COMBAT_CELL_M;
+  // Centre-to-centre, the same measure wanderCreatures runs from the creature
+  // to the player's FEET — so "it can bite me" and "I can hit it" agree.
+  assert.truthy(Combat.inMeleeReach(0, 0, 0, 0, C), 'on top of it');
+  assert.truthy(Combat.inMeleeReach(C, 0, 0, 0, C), 'exactly one cell east');
+  assert.truthy(Combat.inMeleeReach(0, -C, 0, 0, C), 'exactly one cell north');
+  assert.falsy(Combat.inMeleeReach(C * 1.01, 0, 0, 0, C), 'a hair past one cell');
+  assert.falsy(Combat.inMeleeReach(C, C, 0, 0, C), 'the diagonal is √2 cells — out');
+  // The reach the LIT diamond would have granted, at every rung, is out of it.
+  for (const upgrades of [0, 3, 6]) {
+    const litCells = Math.min(5.5, 2.5 + 0.5 * upgrades);
+    assert.falsy(Combat.inMeleeReach(litCells * C, 0, 0, 0, C),
+      `a foe at the edge of the lit reach (${litCells} cells) is NOT in melee range`);
+  }
+});
+
+test('combat: every melee gate the player has runs the shared test', () => {
+  // Comments are stripped first: these files EXPLAIN the change ("this used to
+  // be cellInReach"), and a prose mention is not a call site.
+  const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  // Tap to fight (interact.js) — and NOT through tooFar, which gates every tap
+  // in the game: feeding, catching, petting and hunting keep the lit reach.
+  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
+  const head = code(tap.slice(0, tap.indexOf('\n    }')));
+  assert.truthy(/Combat\.inMeleeReach\(target\.x, target\.y, px, py, scene\.cellM\)/.test(head),
+    'a tapped fight is gated at arm\'s length');
+  assert.truthy(/Too far to swing\./.test(head), 'and it says so rather than failing silently');
+
+  // Sword auto-engage (app.js _combatTick) — was cellInReach.
+  const auto = APP_JS_SRC.slice(APP_JS_SRC.indexOf("this.save.activeWeapon === 'sword'"));
+  const autoHead = code(auto.slice(0, auto.indexOf('startCombat(best')));
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(autoHead),
+    'a sword picks up only what it can actually reach');
+  assert.falsy(/cellInReach/.test(autoHead),
+    'the lit reach must not choose the foe a sword auto-engages');
+
+  // The wheel's escape abort: a FIGHT breaks at arm's length, a HUNT does not.
+  const wheel = APP_JS_SRC.slice(APP_JS_SRC.indexOf('const outOfRange = wp.combat'));
+  const wheelHead = code(wheel.slice(0, wheel.indexOf('if (outOfRange)')));
+  assert.truthy(/wp\.combat\s*\?\s*!Combat\.inMeleeReach/.test(wheelHead),
+    'a fight you have engaged ends when the foe backs out of swinging distance');
+  assert.truthy(/cellInReach/.test(wheelHead),
+    'and a hunt still runs to the lit reach — same wheel, two ranges');
+
+  // The surface slime reads the one number rather than its own copy of it.
+  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(APP_JS_SRC),
+    'the slime\'s leech radius IS the melee reach, not a second 1-cell constant');
+});
+
+test('combat: the RANGED weapons keep their range', () => {
+  for (const slot of Combat.RANGED_SLOTS) {
+    assert.gt(Combat.SHOT[slot].rangeCells, Combat.MELEE_REACH_CELLS,
+      `${slot} still reaches past a fist — that is what it is for`);
+  }
+});
