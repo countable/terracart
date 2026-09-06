@@ -57,6 +57,10 @@
     if (save.invCat === undefined) save.invCat = 'seed';
     if (save.selGear === undefined) save.selGear = null;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
+    // The wizard's quantity ladder (Full Measure). Before Sep 2026 the bonus
+    // it grants was the amulet's, so an old save starts this ladder at 0 —
+    // the amulet keeps its stick walking and loses only the loot bonus.
+    if (save.qtyUpgrades === undefined) save.qtyUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
     // Per-house pinned wishlist (delivery.js wantedProduce). An older save has

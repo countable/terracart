@@ -59,9 +59,9 @@
       }
     };
     for (const slot of Object.keys(RELIC_DEFS)) {
-      // The Ring is the wizard tower's exclusive gift — it embodies the Inner
-      // Light / reach level (app.js syncInnerLightRing) and is never sold or
-      // forged anywhere else, so it's excluded from every shop / smithy / castle
+      // The Ring is the wizard tower's exclusive gift — the Keen Eye rung of
+      // his ladder (app.js wizardLadder) — and is never sold or forged
+      // anywhere else, so it's excluded from every shop / smithy / castle
       // offer.
       if (slot === 'ring') continue;
       consider('relic', slot, save.relics?.[slot]?.tier ?? 0);

@@ -302,7 +302,7 @@ const MODAL_KINDS = {
   relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery'  },   // household orders
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
-  wizard:   { icon: '🔮', label: 'Wizard'    },   // Inner Light reach upgrades
+  wizard:   { icon: '🔮', label: 'Wizard'    },   // the Discovery upgrade ladder
   farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
   stats:    { icon: '📊', label: 'Stats'     },   // stats & relics readout
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
@@ -10733,11 +10733,11 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
-    // mage now trades the player's hard-won Discovery badges for an "Inner
-    // Light": one +0.5-cell reach (range) upgrade per 5 badges. See
-    // presentInnerLightOffer.
+    // mage trades the player's hard-won Discovery badges for the rungs of his
+    // ladder: Inner Light (reach), then Full Measure (quantity luck), then
+    // Keen Eye (the Ring — tier luck). See presentWizardOffer.
     if (shopType === 'wizard') {
-      this.presentInnerLightOffer(sx, sy, recordDeal);
+      this.presentWizardOffer(sx, sy, recordDeal);
       return;
     }
     // Markets skip the 10% relic-swap; the market shop kind is dedicated.
@@ -11592,7 +11592,8 @@ class MapScene extends Phaser.Scene {
     // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
     // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
     // threads the seeded shopRng) calls it the same way. The Ring is excluded
-    // there (it's the wizard tower's exclusive gift — see syncInnerLightRing).
+    // there (it's the wizard tower's exclusive gift — the Keen Eye rung of
+    // wizardLadder).
     return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
@@ -11797,69 +11798,137 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // ─── Wizard tower: Inner Light (Discovery → reach) ───────────────
-  // The wizard tower spends the player's Discovery badges on an "Inner
-  // Light": each one is a +0.5-cell reach (range) upgrade on the reachUpgrades
-  // ladder (capped at 5 cells / 6 upgrades). The tower is the SOLE source of
-  // reach upgrades — each Inner Light costs WIZARD_INNER_LIGHT_COST Discovery.
+  // ─── Wizard tower: three gifts, climbed in order ─────────────────
+  // The wizard spends the player's hard-won Discovery badges on a LADDER, one
+  // rung per visit, at WIZARD_UPGRADE_COST badges a rung. The rungs are
+  // climbed strictly in order, and the wizard always offers the first one the
+  // player has not finished:
   //
-  // The Inner Light and the RING relic are one and the same: kindling a light
-  // also forges a Ring whose tier tracks the inner-light level (reachUpgrades).
-  // The ring is the wizard tower's exclusive gift — it is no longer offered for
-  // sale or at the smithy (see buildRelicOffer), so the only way to a Ring is
-  // to widen your sight. syncInnerLightRing() is the single point that keeps the
-  // ring tier in step with the light; it's called from every place the reach
-  // ladder advances.
-  WIZARD_INNER_LIGHT_COST = 5;
-  // Keep the Ring relic's tier locked to the inner-light level. Never downgrades
-  // a ring the player somehow holds higher (e.g. a legacy forged ring on an old
-  // save); the ring tops out at the reach ladder's 6 upgrades.
-  syncInnerLightRing() {
-    const level = Math.min(7, this.save.reachUpgrades ?? 0);
-    if (level <= 0) return;
-    this.save.relics = this.save.relics || {};
-    const cur = this.save.relics.ring?.tier ?? 0;
-    if (level > cur) this._equipGear('relic', 'ring', level);
+  //   1. INNER LIGHT  — +0.5 cell of reach, REACH_UPGRADE_MAX rungs (2 → 5).
+  //   2. FULL MEASURE — the QUANTITY luck: a chance that a find comes in a
+  //                     bigger stack (RARITY_TUNING.qtyLuckMaxP, rolled by
+  //                     rarity.js qtyLuck). This was the AMULET's, 0.05 per
+  //                     amulet tier, until Sep 2026; the ceiling is unchanged,
+  //                     so the amulet lost a bonus rather than the player.
+  //   3. KEEN EYE     — the RING, i.e. the TIER luck: a chance that a find
+  //                     comes a tier rarer (rarity.js ringLuck). Until Sep
+  //                     2026 the Ring rode along with the Inner Light — one
+  //                     purchase bought both — and it is its own rung now, so
+  //                     the two kinds of luck are two things you buy.
+  //
+  // The Ring is still the wizard's EXCLUSIVE gift: gear.js buildRelicOffer
+  // skips the slot, so no shop, smithy or castle ever sells one.
+  WIZARD_UPGRADE_COST = 5;
+  // The Ring tops out at the material ladder's 7 tiers.
+  RING_UPGRADE_MAX = 7;
+  // The quantity ladder's rung count is rarity.js's, not a second copy: the
+  // percentages the modal prints and the roll the picker makes come off the
+  // one table (qtyLuck), so a rung can't advertise a number it doesn't pay.
+  get QTY_UPGRADE_MAX() {
+    return (typeof RARITY_TUNING !== 'undefined' && RARITY_TUNING.qtyLuckLevels) || 3;
   }
-  presentInnerLightOffer(sx, sy, recordDeal) {
-    const cost = this.WIZARD_INNER_LIGHT_COST;
-    const claimed = this.save.reachUpgrades ?? 0;
-    // Reach already maxed — the Inner Light has nothing left to widen.
-    if (claimed >= this.REACH_UPGRADE_MAX) {
-      this.flash('The wizard nods — your sight already spans the world.', sx, sy);
+
+  // The ladder itself. Each rung says where the player stands, what the next
+  // step buys, and how to grant it — so presentWizardOffer is just "find the
+  // first unfinished rung and offer it".
+  wizardLadder() {
+    const save = this.save;
+    const pct = (p) => `${Math.round(p * 100)}%`;
+    return [
+      {
+        key: 'light',
+        have: save.reachUpgrades ?? 0,
+        max: this.REACH_UPGRADE_MAX,
+        title: 'The wizard offers an Inner Light:',
+        accept: 'Kindle',
+        // Reach runs 2 cells + 0.5 a rung, capped at 5 (coords.js reads the
+        // same save field).
+        get: (n) => `🔆 Inner Light — reach ${Math.min(5, 2 + 0.5 * n)} cells`,
+        header: '✨ Inner Light kindled ✨',
+        name: (n) => `Reach ${Math.min(5, 2 + 0.5 * n)} cells`,
+        sub: 'The wizard channels your discoveries into wider sight.',
+        grant: (n) => { save.reachUpgrades = n; },
+      },
+      {
+        key: 'measure',
+        have: save.qtyUpgrades ?? 0,
+        max: this.QTY_UPGRADE_MAX,
+        title: 'The wizard offers a Full Measure:',
+        accept: 'Accept',
+        get: (n) => `🎒 Full Measure — ${pct(this.wizardQtyLuckAt(n))} chance of a bigger find`,
+        header: '✨ Full Measure granted ✨',
+        name: (n) => `Bigger finds — ${pct(this.wizardQtyLuckAt(n))} of the time`,
+        sub: 'What the world gives you, it gives you more of.',
+        grant: (n) => { save.qtyUpgrades = n; },
+      },
+      {
+        key: 'eye',
+        have: save.relics?.ring?.tier ?? 0,
+        max: this.RING_UPGRADE_MAX,
+        title: 'The wizard offers a Keen Eye:',
+        accept: 'Accept',
+        get: (n) => `👁 Keen Eye — Ring T${n} · rarer finds`,
+        header: '✨ Keen Eye opened ✨',
+        name: (n) => `Ring T${n} · rarer finds`,
+        sub: 'A Ring to bear the sight — the world yields its rarer things.',
+        grant: (n) => { this._equipGear('relic', 'ring', n); },
+      },
+    ];
+  }
+
+  // What the quantity ladder pays at rung `n`. Reads rarity.js's own qtyLuck
+  // against a stand-in save, so the modal's percentage is literally the number
+  // the loot roll will use — never a second formula that can drift from it.
+  wizardQtyLuckAt(n) {
+    return (typeof qtyLuck === 'function') ? qtyLuck({ qtyUpgrades: n }) : 0;
+  }
+
+  // The rung on offer: the first one not yet finished, or null when the
+  // wizard has nothing left to give.
+  wizardNextRung() {
+    return this.wizardLadder().find((r) => r.have < r.max) || null;
+  }
+
+  presentWizardOffer(sx, sy, recordDeal) {
+    const cost = this.WIZARD_UPGRADE_COST;
+    const rung = this.wizardNextRung();
+    if (!rung) {
+      this.flash('The wizard nods — he has taught you all he knows.', sx, sy);
       return;
     }
+    const next = rung.have + 1;
     const have = Inventory.count(this.save, 'discovery');
-    const reachAfter = Math.min(5, 2 + 0.5 * (claimed + 1));
     this.showOfferModal({
       kind: 'wizard',
-      title: 'The wizard offers an Inner Light:',
+      title: rung.title,
       cancelLabel: 'Later',
-      acceptLabel: 'Kindle',
-      get: `🔆 Inner Light — reach ${reachAfter} cells`,
+      acceptLabel: rung.accept,
+      get: rung.get(next),
       cost: `🔆 ${cost} Discovery (you have ${have})`,
       canAfford: have >= cost,
       onAccept: () => {
-        // Re-read the live stack so a stale modal can't overspend badges.
+        // Re-read the live stack AND the live rung so a stale modal can't
+        // overspend badges or grant a rung the player has since climbed.
         if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
-        if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
+        const live = this.wizardNextRung();
+        if (!live || live.key !== rung.key || live.have !== rung.have) {
+          this.flash('The wizard has moved on.', sx, sy);
+          return;
+        }
         Inventory.remove(this.save, 'discovery', cost);
         this._clampSelSlot();
-        this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
-        // The light's gift is a Ring whose tier matches the new inner-light
-        // level — the relic that embodies your widened sight.
-        this.syncInnerLightRing();
+        live.grant(next);
         recordDeal();
-        // The reach silhouette redraws every frame from reachRadiusM, so the
+        // The reach silhouette redraws every frame from reachRadiusM, so a
         // wider reach shows on the next frame with no explicit invalidation.
         persistSave(this.save);
         if (this.buildInventoryDOM) this.buildInventoryDOM();
         this.showChestRewardModal({
           kind: 'wizard',
-          header: '✨ Inner Light kindled ✨',
+          header: live.header,
           iconHTML: '',
-          name: `Reach ${reachAfter} cells · Ring T${Math.min(7, this.save.reachUpgrades)}`,
-          sub: `The wizard channels your discoveries into wider sight — and a Ring to bear it.`,
+          name: live.name(next),
+          sub: live.sub,
           color: UI_TREASURE,
         });
       },
@@ -11868,8 +11937,8 @@ class MapScene extends Phaser.Scene {
 
   // ─── Reach / Inner Light cap ─────────────────────────────────────
   // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
-  // EXCLUSIVELY at the wizard tower's Inner Light (presentInnerLightOffer),
-  // which also forges the matching Ring tier.
+  // EXCLUSIVELY at the wizard tower's Inner Light (presentWizardOffer),
+  // the first rung of its ladder.
   REACH_UPGRADE_MAX = 6;
 
   // Trader offer: barter-only, qty scaled to a target trade value. The trader
@@ -12550,7 +12619,7 @@ class MapScene extends Phaser.Scene {
               ? 'Buys your crops at a premium — and stocks the starter seeds to grow more.'
               : 'Buys your crops at a premium — and stocks fresh produce.' },
             trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage trades 5 Discovery badges a step, up his ladder: a wider reach, then bigger finds, then the Ring that finds the rarer thing.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
