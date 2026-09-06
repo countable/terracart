@@ -12,11 +12,16 @@
 const app = APP_JS_SRC;
 
 test('hit flash: every drain on the body flinches at the instant it lands', () => {
-  // Three drains, three calls, each right after the loss is banked.
+  // Four drains, four calls, each right after the loss is banked.
   const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(\);/g) || [];
-  assert.eq(sites.length, 3, 'slime leech, monster melee, arrow');
+  assert.eq(sites.length, 4, 'slime leech, monster melee, arrow, standing on a sprung trap');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(arrow && /this\._flashPlayerHit\(\);/.test(arrow[1]), 'the arrow is one of them');
+  // …and the trap's BITE, which lands through the pain effect rather than in
+  // that shape, because it carries the rim pulse and the shake with it.
+  const pain = app.match(/\n  _painFlash\(\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(pain && /this\._flashPlayerHit\(\);/.test(pain[1]),
+    'a trap springing flinches the body too — it is the biggest single hit there is');
 });
 
 test('hit flash: it is a flinch, not the throttled pop', () => {

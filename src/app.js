@@ -3122,6 +3122,7 @@ class MapScene extends Phaser.Scene {
       if (before > 0) {
         this.save.energy = Math.max(0, before - pips);
         this._trapDrainPop = (this._trapDrainPop || 0) + (before - this.save.energy);
+        this._flashPlayerHit();
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
@@ -3152,6 +3153,11 @@ class MapScene extends Phaser.Scene {
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
   _painFlash() {
+    // The BODY's own channel first — the red flick + haptic buzz every other
+    // blow on the player uses (_flashPlayerHit). The rest of this method is
+    // what a trap adds on top of that: it is the biggest single hit in the
+    // game, so it also reaches the edges of the screen.
+    this._flashPlayerHit();
     if (typeof Particles !== 'undefined' && this.playerScreen) {
       const ps = this.playerScreen();
       if (ps && isFinite(ps.x) && isFinite(ps.y)) {
