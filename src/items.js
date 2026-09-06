@@ -198,6 +198,13 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // Acorn — the sapling that grows a MAPLE (a tree, felled for wood, not a
+  // fruit tree). Its icon is the acorn off the props sheet: row 6 col 14
+  // (frame 6 * 22 + 14 = 146), a dark cap over a tan-bellied nut — the one
+  // cell in the pebble row that reads as cap-and-nut. Its neighbour 147 is
+  // the big pinecone/chestnut blob, and cols 12/13 (frames 144/145) are blue
+  // pebble clusters, so don't "correct" the index toward them.
+  acorn:         { sheet: 'props',      frame: 146 },
   // Discovery badge — the gold five-point star at row 8 col 4 of
   // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
   discovery:     { sheet: 'pickup',     frame: 116 },
@@ -283,6 +290,9 @@ const BASE_TIER = {
   banana: 4, coconut: 4,
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
   apple_sapling: 3, peach_sapling: 5,
+  // The acorn is the cheap common sapling (T2): every grown wild tree can
+  // shake one loose, and what it grows is a maple to fell for wood.
+  acorn: 2,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -470,6 +480,14 @@ const ITEMS = [
   // common apple (T3) and the rare peach (T5).
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
   { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
+  // Acorn — a sapling by kind (same plant gate, same save.fruittrees growth
+  // path, same 4-day schedule as the apple) whose species is the MAPLE: no
+  // fruit, ever — a grown one is felled for wood like the wild maple it
+  // renders as (util.js plantedMapleView), and the cell is free again after.
+  // Source: a wild tree felled at its mature canopy drops one on
+  // ACORN_DROP_P (interactables.js); T2 also lets the rarity picker hand
+  // one out of the sapling class in nature chests and at the trader.
+  { id: 'acorn',         name: 'Acorn',         kind: 'sapling', grows: 'maple', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -511,6 +529,15 @@ for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// The tree species a planted sapling can grow — read off the sapling rows
+// above (`grows`), so a new sapling registers its species here by existing.
+// spawnInTile re-injects save.fruittrees through this: an entry whose species
+// is not one a sapling grows (a stale or hand-edited save) reverts to apple,
+// the same repair the fruittree tap handler makes.
+const SAPLING_SPECIES = new Set(ITEMS.filter(i => i.kind === 'sapling').map(i => i.grows));
+function plantedTreeSpecies(species) {
+  return SAPLING_SPECIES.has(species) ? species : 'apple';
+}
 
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST. Prices are tuned to how easy each item is
@@ -609,6 +636,10 @@ const PRICES = {
   minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  // ── Saplings ─────────────────────────────────────────────
+  // The acorn sells for less than the apple it's shaken loose beside: it is a
+  // by-product of felling, and the maple it grows pays out in wood.
+  acorn: 6,
 };
 // Canonical "sell value" of an item. Used for the shiny-find money bonus
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
@@ -725,6 +756,7 @@ const PLAY_TIPS = [
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Hold rock and tap an empty tile to drop a stone fence.',
+  'Felling a grown tree sometimes shakes an Acorn loose. Plant it in tilled soil and four days later it is a maple, ready to fell for wood.',
   // ── Animals ───────────────────────────────────────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
@@ -770,6 +802,9 @@ const ITEM_EFFECTS = {
   rope:          'Use to climb up or lower down one level, right here',
   torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
+  // The acorn is planted like a fruit sapling (tilled soil) but grows a tree
+  // that is chopped, not picked.
+  acorn:        'Plant on tilled soil to grow a maple for wood',
 };
 
 const STARTING_ENERGY = 100;

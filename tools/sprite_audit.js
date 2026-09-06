@@ -255,6 +255,14 @@ const SHEETS = {
 //    said 0.5, and nothing noticed for the good reason that nothing could.
 //    SEAT_ANCHOR below stands in for all of them.
 const t = (species, size) => treeScale({ species, size });
+// The acorn's planted maple (render.js fruittree spec, species 'maple') is
+// drawn as the size-less maple `tree` it stands for at each growth stage —
+// util.js plantedMapleView picks the frame, treeScale the scale — so its rows
+// are exactly what a size-less wild maple at that frame seats with.
+const pm = (stage) => {
+  const view = treeCtx.plantedMapleView({ planted: true }, stage);
+  return { frameIdx: view.variant, scale: treeScale(view) };
+};
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
@@ -262,6 +270,9 @@ const SCENARIOS = [
   { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
   { name: 'maple medium',    key: 'trees',         frameIdx: 3, scale: t('maple', 'medium') },
   { name: 'maple large',     key: 'trees',         frameIdx: 3, scale: t('maple', 'large') },
+  { name: 'planted maple sprout', key: 'trees',    ...pm(0) },
+  { name: 'planted maple young',  key: 'trees',    ...pm(2) },
+  { name: 'planted maple grown',  key: 'trees',    ...pm(4) },
   { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'small') },
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },

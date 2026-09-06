@@ -118,7 +118,9 @@ test('fruittree: a tree already stamped with a non-fruit species repairs itself 
   // rebuilt from is shared for the session, and a stale cached home.js can
   // still tame it — so a tree that reaches the pick with a species that is not
   // a produce item must hand out a real fruit anyway, and flash it.
-  for (const bad of ['pine', 'maple', undefined, 'wood']) {
+  // ('maple' is NOT on this list: a maple fruittree is the acorn's planted
+  // tree — felled for wood, never repaired to apple. See acorn.test.js.)
+  for (const bad of ['pine', undefined, 'wood']) {
     const o = { kind: 'fruittree', id: `ft_bad_${bad}`, x: 84, y: 0, species: bad, wild: true };
     const save = { inv: [], selSlot: 0 };
     const msgs = [];
@@ -131,7 +133,7 @@ test('fruittree: a tree already stamped with a non-fruit species repairs itself 
     const got = save.inv.find(s => s && s.id === 'apple');
     assert.truthy(got && got.count >= 1, `picked an apple: ${JSON.stringify(save.inv)}`);
     assert.truthy(msgs.some(m => m.includes('Apple')), `flash names Apple, got ${JSON.stringify(msgs)}`);
-    assert.falsy(msgs.some(m => /pine|maple|wood|undefined/.test(m)), 'never flashes the bad species');
+    assert.falsy(msgs.some(m => /pine|wood|undefined/.test(m)), 'never flashes the bad species');
   }
   // A real fruit is left alone.
   const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'peach', wild: true };

@@ -2482,6 +2482,9 @@ Render.drawObjects = function drawObjects(scene) {
   const filteredObj = objList.filter(({ o }) =>
     !(o.kind === 'chest' && openedSet.has(o.id)) &&
     !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
+    // A felled planted maple (a `fruittree` of species maple) is spliced out
+    // of the tile by interactables.js; the flag just covers the frame between.
+    !(o.kind === 'fruittree' && o.chopped) &&
     // Mined-out mineralrocks vanish. Previously they hung around as a
     // dimmed sprite that flashed "spent" on tap — now they just clear,
     // matching how chopped trees and opened chests already disappear.
@@ -2612,16 +2615,27 @@ Render.drawObjects = function drawObjects(scene) {
   // pick removes a fruit rather than repainting the tree. That's why `grow`
   // ends on the mature frame it already passed through at stage 2: stage 3 is
   // blossom, and stage 4 is the same mature tree with fruit hung on it.
+  //
+  // The MAPLE row is the acorn's tree (items.js `acorn`, grows 'maple'): a
+  // fruittree by plumbing that draws off the maple `trees` sheet — its stages
+  // are MAPLE_GROW_FRAMES (util.js), 1 sprout → 2 young → 3 mature, the
+  // frames the wild maple is drawn from — and bears nothing: `after` never
+  // hangs fruit on it, and the fruittree tap handler fells it for wood.
   const FRUIT_FRAMES = {
     apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
     peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
+    maple: { grow: MAPLE_GROW_FRAMES, mature: 3 },
   };
-  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
-  const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;   // 1 day/stage → 4 days sprout→fruit
+  const _ftSpec = (o) => FRUIT_FRAMES[o.species] || FRUIT_FRAMES.apple;
+  const _ftMaple = (o) => o.species === 'maple';
+  // The size-less maple `tree` a planted maple stands for at its current
+  // stage — scale, tool-gate fade and the chop all read this one object.
+  const _mapleView = (o) => plantedMapleView(o, _ftStage(o));
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // fruit yields once per 24h
-  // Growth stage 0..4 of a planted sapling from elapsed real time.
-  const _ftStage = (o) => Math.min(4,
-    Math.floor((Date.now() - (o.planted_t || 0)) / FRUIT_STAGE_MS));
+  // Growth stage 0..4 of a planted sapling from elapsed real time — the
+  // shared clock in util.js (1 day/stage → 4 days sprout→fruit), the same one
+  // the fruittree tap handler gates on.
+  const _ftStage = (o) => plantedTreeStage(o);
   const _ftPicked = (o) => {
     const fp = scene.save.fruitPicked;
     const at = fp && fp[o.id];
@@ -2905,7 +2919,8 @@ Render.drawObjects = function drawObjects(scene) {
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => { const L = _chestLook(o); return !L.stand && !L.coin; } },
-    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
+    fruittree: { key: (o) => _ftMaple(o) ? 'trees'
+                              : `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
                 // A planted sapling still walks the sheet's life-cycle frames
@@ -2917,6 +2932,10 @@ Render.drawObjects = function drawObjects(scene) {
               },
               origin: [0.5, 0.95],
               scale: (o) => {
+                // The maple draws at the wild maple's own scale for the stage
+                // it shows (treeScale over the size-less tree it stands for),
+                // so a grown acorn is the same tree as the forest's.
+                if (_ftMaple(o)) return treeScale(_mapleView(o));
                 const base = 0.85;
                 // Planted saplings start clearly visible (0.7) and grow to the
                 // mature wild-tree size (1.0×base) over their 4 stages — a small
@@ -2929,11 +2948,20 @@ Render.drawObjects = function drawObjects(scene) {
               },
               // Fruit trees stand 10% taller than their width — stretch Y only.
               // The seat pass measures the stretched art so the trunk base
-              // still lands 1px above the cell edge.
-              scaleYMul: 1.10,
+              // still lands 1px above the cell edge. The maple is a tree and
+              // keeps the tree's proportions.
+              scaleYMul: (o) => _ftMaple(o) ? 1 : 1.10,
               // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
               seat: true,
               after: (s, o, scene) => {
+                // The maple bears nothing. What it gets instead is the tree's
+                // tool-gate fade — the shared gate over the tree it stands
+                // for — and only once grown: a sprout can't be chopped yet,
+                // so fading it for a missing axe would be a lie.
+                if (_ftMaple(o)) {
+                  if (_ftStage(o) >= 4) s.setAlpha(toolGatedAlpha(_mapleView(o), scene.save));
+                  return;
+                }
                 // Hand the fruit pass everything it needs to hang this tree's
                 // fruit on it, measured off the sprite as it was just drawn:
                 // position, origin and scale are all final by now, so the
