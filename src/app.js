@@ -507,6 +507,17 @@ const SWORD_SWING_MS = 220;
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
 const SHOT_DRAW_LIFT_PX = 10;
+// Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
+// art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
+// the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
+// sits at — so its crown is 42 - 16 = 26px above that centre, and the arrow
+// leaves a few px under the crenellation line. It descends to
+// SHOT_DRAW_LIFT_PX over the flight to its target (see _drawShots).
+const TURRET_ARROW_LIFT_PX = 42 - CELL_PX / 2 - 4;
+// How often the set of on-screen turrets is re-scanned while enemies are on
+// screen. Turrets don't move, and the objects list of nine tiles is far too
+// long to walk every frame.
+const TURRET_SCAN_MS = 300;
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
@@ -2100,6 +2111,10 @@ class MapScene extends Phaser.Scene {
     this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
     this._shots = [];
     this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
+    // Castle turrets' own clocks (turret id → next-fire ms) and the cached
+    // on-screen turret scan — see _turretFire.
+    this._turretNextT = {};
+    this._turretScan = null;
     // Health bars over recently-hurt enemies. Under the work wheel (95) so a
     // foe you are actually swinging at keeps the brighter bar on top.
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
@@ -6076,6 +6091,17 @@ class MapScene extends Phaser.Scene {
       this._nextShotT = {};
     }
 
+    // ── Castle turrets: Wood bow arrows at 1/5 the player's cadence ─────────
+    // Every turret on screen with the player shoots at the nearest enemy on
+    // screen (Combat.turretTick — the maths, the damage and the rate all live
+    // in combat.js). Surface only: caves have no castles, and a foe down
+    // there must not draw fire from a rim two hundred metres overhead.
+    if (enemies.length && this.depth === 0) {
+      this._turretFire(now, px, py, halfSpanM, enemies, pcTick);
+    } else {
+      this._turretNextT = {};          // re-arm at the phase on the next sighting
+    }
+
     if (this._shots.length) {
       // What stops an ARROW (staff bolts pierce and never consult this):
       // underground, cave rock — _cellBlocked is the SAME test the body walks
@@ -6134,6 +6160,36 @@ class MapScene extends Phaser.Scene {
     this._drawEnemyHealth(enemies);
   }
 
+  // The castle turrets' volley — one arrow per turret per Combat.TURRET
+  // interval at the nearest enemy in range. `enemies` is _combatTick's
+  // already-filtered hostile list (Combat.isEnemy, minus the caught), so a
+  // turret can no more shoot a crow or a pet than the player's bow can. The
+  // on-screen turret set is the same viewport box the enemies were culled
+  // with, rebuilt every TURRET_SCAN_MS rather than per frame (a tile can be
+  // rebuilt under us — see rebuildTileWithBin — and the short cache is what
+  // keeps a swapped-in entry's turrets firing without any hook there).
+  // Turret arrows join _shots and fly exactly as the player's do: same
+  // stepShots, same solid-cell test, same _damageEnemy — so a turret's kill
+  // pays the bounty the way an arrow of your own does.
+  _turretFire(now, px, py, halfSpanM, enemies, pc) {
+    let scan = this._turretScan;
+    if (!scan || now - scan.t > TURRET_SCAN_MS) {
+      const list = [];
+      WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+        if (o.kind !== 'tower') return;
+        if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
+        list.push(o);
+      });
+      scan = this._turretScan = { t: now, list };
+    }
+    if (!scan.list.length) return;
+    const shots = Combat.turretTick(scan.list, this._turretNextT, now, enemies, this.cellM);
+    for (const shot of shots) {
+      shot.liftFromPx = TURRET_ARROW_LIFT_PX;   // leaves the battlements
+      this._shots.push(shot);
+    }
+  }
+
   // Shots in flight, drawn as a short streak along their own heading so the
   // direction they're travelling is legible at a glance (a dot would just read
   // as a floating pixel).
@@ -6148,7 +6204,17 @@ class MapScene extends Phaser.Scene {
       // creature are anchored), but drawing them down at ankle height would
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
-      const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
+      // A turret's arrow starts higher — up on the battlements (liftFromPx)
+      // — and comes down to the common chest height over the distance it was
+      // aimed at (aimDistM, stamped by Combat.turretShot), so it reads as
+      // loosed from the tower and landing on the foe rather than skimming
+      // along the wall's foot.
+      let lift = SHOT_DRAW_LIFT_PX;
+      if (s.liftFromPx != null) {
+        const f = s.aimDistM > 0 ? Math.min(1, s.travelledM / s.aimDistM) : 1;
+        lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
+      }
+      const hx = Math.round(head.x), hy = Math.round(head.y - lift);
       if (s.dotPx) {
         // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
         // a thrown thing, an arrow as a flying line. Its radius is the shot's
@@ -8372,6 +8438,8 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress?.combat) this.cancelWorkProgress();
     this._shots = [];
     this._nextShotT = {};
+    this._turretNextT = {};
+    this._turretScan = null;
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
     this.ensureTilesAround().catch(() => {});
@@ -8392,6 +8460,8 @@ class MapScene extends Phaser.Scene {
     this._autoMineKey = null;
     this._shots = [];              // nothing you loosed down there follows you up
     this._nextShotT = {};
+    this._turretNextT = {};
+    this._turretScan = null;
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);

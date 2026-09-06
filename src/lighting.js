@@ -15,7 +15,8 @@
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
-//   Lighting.profile(scene)       — ambient / lit / edge levels at this depth
+//   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
+//   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
@@ -131,6 +132,71 @@
   // 1.0 is the old picture exactly; lower is more contrast.
   const AMBIENT_K = 0.45;
 
+  // ── Time of day ───────────────────────────────────────────────────────────
+  // The surface picture above is HIGH NOON. As the real sun goes down where
+  // the player actually is, the out-of-reach world darkens toward the first
+  // cave level's dark: the out-of-reach wash deepens from the biome's day
+  // value to NIGHT_DIM_A, and its colour drains toward black keeping
+  // NIGHT_TINT_KEEP of the biome hue. The reach PLATEAU is not touched — it
+  // is the Inner Light, the player's own lamp, and a dark bubble at night
+  // would take the affordance with it. Caves ignore the sun entirely.
+  //
+  // `daylight` is 0..1 from the sun's elevation at the player's lon/lat
+  // (sunElevationDeg — the NOAA low-precision algorithm, good to a fraction
+  // of a degree): 1 above DAY_ELEV_DEG, 0 below NIGHT_ELEV_DEG (civil
+  // twilight's end), smoothstep between. Sunset is exactly halfway.
+  // window.__DAYLIGHT = 0..1 forces it for eyeballing.
+  const NIGHT_DIM_A = 0.74;
+  const NIGHT_TINT_KEEP = 0.15;
+  const DAY_ELEV_DEG = 6;
+  const NIGHT_ELEV_DEG = -6;
+
+  function sunElevationDeg(ms, lat, lon) {
+    const rad = Math.PI / 180;
+    const d = ms / 86400000 - 10957.5;                       // days since J2000.0
+    const g = ((357.529 + 0.98560028 * d) % 360) * rad;      // mean anomaly
+    const q = (280.459 + 0.98564736 * d) % 360;              // mean longitude
+    const L = ((q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) % 360) * rad;
+    const e = (23.439 - 0.00000036 * d) * rad;               // obliquity
+    const RA = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L));
+    const dec = Math.asin(Math.sin(e) * Math.sin(L));
+    const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+    const H = ((gmst + lon / 15) * 15) * rad - RA;           // hour angle
+    const la = lat * rad;
+    const sinAlt = Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(H);
+    return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+  }
+
+  function daylightFromElevation(elevDeg) {
+    const t = (elevDeg - NIGHT_ELEV_DEG) / (DAY_ELEV_DEG - NIGHT_ELEV_DEG);
+    const u = Math.max(0, Math.min(1, t));
+    return u * u * (3 - 2 * u);
+  }
+
+  // The frame's daylight, 0..1. Recomputed once a minute (the sun moves a
+  // quarter degree in that time); the player's position is read through the
+  // projection coords.js owns. Noon when there is no fix to place the sun by.
+  function daylight(scene, now) {
+    if (typeof window !== 'undefined' && window.__DAYLIGHT != null) {
+      return Math.max(0, Math.min(1, +window.__DAYLIGHT));
+    }
+    const st = scene._daylight || (scene._daylight = { minute: -1, value: 1 });
+    const minute = Math.floor(now / 60000);
+    if (st.minute === minute) return st.value;
+    st.minute = minute;
+    let value = 1;
+    try {
+      if (typeof localMToLonLat === 'function' && scene.playerM && scene.startWorldM && scene.mPerPx) {
+        const ll = localMToLonLat(scene, scene.playerM.x, scene.playerM.y);
+        if (Number.isFinite(ll.lat) && Number.isFinite(ll.lon)) {
+          value = daylightFromElevation(sunElevationDeg(now, ll.lat, ll.lon));
+        }
+      }
+    } catch (e) { value = 1; }
+    st.value = value;
+    return value;
+  }
+
   // Underground the lit bubble itself is dimmer than daylight, deepening
   // slightly per level so descents feel progressively gloomier. (The
   // surrounding rock is far darker still, so the bubble stays readable.)
@@ -178,20 +244,30 @@
   //   lit        the cookie INSIDE the plateau, so that
   //              ambient + lit == 1 - litDim(depth) (1 on the surface)
   //   litColour  white, or the low-energy pink
-  function profile(scene) {
+  //   night      1 - daylight on the surface, always 0 underground; moves
+  //              dimA toward NIGHT_DIM_A and drains dimColour (see above)
+  //
+  // `daylight` defaults to noon so the derivation is pinned without a clock;
+  // draw() passes the frame's real value.
+  function profile(scene, daylightIn) {
     const depth = scene.depth ?? 0;
     // render.js declares Render as a top-level const, so it is reachable by
     // bare name in every scope loaded after it (the browser and the node
     // bundle alike), never as a window property.
     const R = (typeof Render !== 'undefined') ? Render : null;
-    const dimA = R ? R.reachDimAlpha(scene) : 0.38;
-    const dimColour = R ? R.reachDimColor(scene) : 0x000000;
+    let dimA = R ? R.reachDimAlpha(scene) : 0.38;
+    let dimColour = R ? R.reachDimColor(scene) : 0x000000;
+    const night = depth > 0 ? 0 : 1 - Math.max(0, Math.min(1, daylightIn == null ? 1 : daylightIn));
+    if (night > 0) {
+      dimA = dimA + (NIGHT_DIM_A - dimA) * night;
+      dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
+    }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
     const ambient = scaleColour(mixToWhite(dimColour, farA), AMBIENT_K);
     const edge = (1 - dimA) * FALLOFF_A;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA));
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
-    return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour };
+    return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour, night };
   }
 
   // The player cookie's alpha at ramp position t (0 at the plateau edge, 1 at
@@ -390,7 +466,8 @@
     if (!tex || typeof document === 'undefined') return;
     if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
-    const prof = profile(scene);
+    const now = Date.now();
+    const prof = profile(scene, daylight(scene, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
@@ -398,7 +475,6 @@
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
     const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
-    const now = Date.now();
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
@@ -462,6 +538,8 @@
 
   window.Lighting = {
     KINDS, radiusCells, FALLOFF_A, FALLOFF_P, AMBIENT_K, litDim, POI_PULSE_PERIOD_S,
+    NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
+    sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, draw,

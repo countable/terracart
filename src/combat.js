@@ -21,6 +21,10 @@
 //                    you face (SHOT[].aim below). A hit drains the same HP
 //                    pool the melee wheel does.
 //   bare hands     — still work, still slow (the 9 s tier-0 rung).
+//   castle turrets — every `tower` object on screen with the player looses a
+//                    Wood-tier bow arrow at the nearest enemy on screen, at
+//                    one fifth the player's cadence (TURRET / turretTick
+//                    below; app.js `_turretFire` is the scene glue).
 //
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
 // `toolDurationMs × hp/15` ms on a target, so the damage per second that
@@ -380,6 +384,80 @@
     return alive;
   }
 
+  // ── Castle turrets ───────────────────────────────────────────────────────
+  // A castle's turrets (worldgen's `tower` objects, one per ~5 rim cells) are
+  // archers. While an enemy is on screen, every turret ALSO on screen looses a
+  // WOOD-TIER BOW ARROW at the nearest foe inside the bow's range — at ONE
+  // FIFTH the player's cadence, so a rim of six covers the approach without
+  // fighting the fight for you. Nothing here is tuned: the arrow IS the
+  // player's bow arrow (SHOT.bow — same speed, range, streak, and it stops in
+  // timber and rock the same way), its damage is what a Wood bow deals
+  // (shotDamage over TURRET_RELICS, so a re-shaped tool ladder moves the
+  // turrets with it), and the interval is the player's times TURRET_RATE_DIV.
+  // A turret has no compass, so it aims the staff's way (aimAtNearest) and,
+  // like the staff, holds fire — clock left due — while the nearest foe is
+  // beyond the arrow's range, so it fires the instant one steps in.
+  // "Enemy" is the caller's already-filtered list, exactly as stepShots takes
+  // it: a turret can no more shoot a crow, a deer or a tamed slime than the
+  // player's auto-fire can.
+  const TURRET_RATE_DIV = 5;
+  const TURRET = {
+    slot: 'bow',
+    tier: 1,                                              // Wood
+    fireIntervalMs: FIRE_INTERVAL_MS * TURRET_RATE_DIV,   // 10 s a turret
+  };
+  const TURRET_RELICS = { bow: { tier: TURRET.tier } };
+  function turretShotDamage() { return shotDamage(TURRET_RELICS, TURRET.slot); }
+
+  // Where in its cadence a turret starts, in ms — a deterministic hash of its
+  // id spread over one interval, so the six turrets of a rim that all sight a
+  // foe on the same frame don't volley as one and then fall silent together.
+  // The same turret always gets the same phase, so the pattern is stable
+  // across sightings and sessions.
+  function turretPhaseMs(id) {
+    let h = 2166136261;
+    const str = String(id == null ? '' : id);
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return (h % 1000) / 1000 * TURRET.fireIntervalMs;
+  }
+
+  // The arrow a turret at (x, y) looses at `enemies`: a bow shot along the
+  // line to the nearest foe within the bow's range, or null when there is
+  // none. `aimDistM` is stamped on for the draw — the arrow leaves the
+  // battlements and comes down to chest height over that distance.
+  function turretShot(x, y, enemies, cellM) {
+    const heading = aimAtNearest(x, y, enemies, SHOT[TURRET.slot].rangeCells * cellM);
+    if (!heading) return null;
+    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier);
+    if (!shot) return null;
+    shot.turret = true;
+    shot.aimDistM = Math.hypot(heading.x, heading.y);
+    return shot;
+  }
+
+  // Advance the on-screen turrets' clocks and return the arrows loosed this
+  // frame. `clocks` is the caller's per-turret map (id → next-fire ms) and is
+  // mutated in place; the caller clears it while no enemy is on screen so the
+  // next sighting re-arms each turret at its phase rather than firing a
+  // cadence that ran down in an empty street — the player's `_nextShotT`
+  // rule. A turret whose nearest foe is out of range keeps its clock due.
+  function turretTick(turrets, clocks, now, enemies, cellM) {
+    const shots = [];
+    for (const t of turrets || []) {
+      let due = clocks[t.id];
+      if (due == null) due = clocks[t.id] = now + turretPhaseMs(t.id);
+      if (now < due) continue;
+      const shot = turretShot(t.x, t.y, enemies, cellM);
+      if (!shot) continue;
+      clocks[t.id] = now + TURRET.fireIntervalMs;
+      shots.push(shot);
+    }
+    return shots;
+  }
+
   // Is there a clear line from (x0,y0) to (x1,y1)? Sampled at the same
   // resolution a shot's flight is, through the same caller-supplied world
   // test, so what stops an arrow stops a line of fire.
@@ -420,6 +498,7 @@
     FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
+    TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
   };
   root.Combat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
