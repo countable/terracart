@@ -179,19 +179,32 @@ function treeGrowthStage(o) {
   return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;
 }
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
-// shrink. treeSizeClass thresholds against this so the size tiers stay stable.
+// shrink. A tree is one of FOUR sizes, or it is size-less and draws its
+// species' flat base.
+//
+// THERE IS NO SMOOTH SCALING, and the continuous path that used to be here is
+// worth a note because it looked load-bearing. DeepForest hands every detected
+// tree a crown diameter in metres, and this function used to scale by
+// crown_m/5 clamped to 0.8–1.6 whenever no discrete `size` was present. But the
+// detector's own classifier (satextract/trees.py) buckets that same crown_m
+// into bush / small / medium / large before the geojson is ever written — the
+// cut-points are 1.8 / 2.5 / 4 m — so every one of the 804 trees in
+// data/satextract_osm.geojson carries BOTH fields, `size` always wins, and the
+// smooth branch had not scaled a tree since the classifier shipped. It was a
+// leftover from the crown_m-only sidecars (data/trees_z20_t10.geojson and
+// friends, no longer loaded).
+//
+// Leaving it in was not harmless. It disagreed with the table it stood behind:
+// its 0.8 floor is nearly TWICE the bush multiplier of 0.42, so a tree that
+// reached it would have drawn a bush-sized crown at small-tree size — and since
+// treeSizeClass thresholds the same multiplier, that tree could never have
+// classed as a bush at all, whatever its crown said.
+//
+// crown_m is still carried and still used — worldgen thins a crowded tile
+// biggest-crown-first — it just doesn't set a sprite size any more.
 function treeBaseScale(o) {
   const base = treeSpeciesBaseScale(o);
-  // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
-  // sprite tiers, which the "tier harvesting by size" gating reads back via
-  // treeSizeClass. Prefer it over the continuous crown_m scale.
-  if (o.size && TREE_SIZE_MUL[o.size]) return base * TREE_SIZE_MUL[o.size];
-  // DeepForest trees carry a crown diameter (m); scale around a 5 m reference
-  // (the median detection), clamped 0.8–1.6. OSM trees have no crown_m and
-  // keep the flat species scale.
-  if (o.crown_m == null) return base;
-  const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
-  return base * mul;
+  return (o.size && TREE_SIZE_MUL[o.size]) ? base * TREE_SIZE_MUL[o.size] : base;
 }
 // Rendered sprite scale — the canopy size with the maple shrink folded in.
 // Maple gets the flat 10% shrink at every size, plus a further 10% on the two
@@ -216,19 +229,21 @@ function treeSizeClass(o) {
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
-  // Size-less trees (OSM / procedural forest) fall back to the canopy scale.
-  // Threshold the CROWN MULTIPLIER, not the raw scale: dividing the species
-  // base back out means a size-less tree classes off its crown alone, the same
-  // for every species. Thresholding the raw scale instead used to read maple's
-  // larger sheet base (0.85 vs 0.62) as a larger TREE, so every size-less maple
-  // classed 'full' — and with the hardwood +1 on top, a sapling-sized maple
-  // demanded the same Gold axe as a large one.
-  const mul = treeBaseScale(o) / treeSpeciesBaseScale(o);
-  let cls = mul >= 1.37 ? 'full' : mul >= 1 ? 'medium' : 'small';
+  // Size-less: an OSM street/yard tree or the procedural forest. There is no
+  // crown to measure, so they all class the same — 'medium', the middle gate.
+  // This used to threshold treeBaseScale/treeSpeciesBaseScale against 1.37 and
+  // 1, which for a size-less tree is exactly 1 by construction (the species
+  // base divides itself out) and so only ever returned 'medium' anyway; the
+  // ladder was there for the crown_m scaling that treeBaseScale no longer does.
+  // Dividing the species base back out was still the right idea and is worth
+  // keeping in mind if a continuous size ever returns: thresholding the RAW
+  // scale read maple's larger sheet base (0.85 vs 0.62) as a larger TREE, so
+  // every size-less maple classed 'full' — and with the hardwood +1 on top, a
+  // sapling-sized maple demanded the same Gold axe as a large one.
+  //
   // A maple-sheet tree draws its growth stage, so cap the class by what's
   // actually on screen — a sprout/young frame can't gate like a mature canopy.
-  if (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) cls = 'small';
-  return cls;
+  return (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) ? 'small' : 'medium';
 }
 // Species shifts the felling difficulty on top of the size class. Pine is a
 // SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
@@ -374,72 +389,76 @@ function setOf(arr) {
 }
 
 // ── Building roof scale ──────────────────────────────────────────────────
-// Sprite scale for a building's roof art, from the OSM footprint it stands on.
-// sqrt(area) is the footprint's side in metres; /cellM gives cells and ×cellPx
-// the on-screen extent the art has to fill, so `fit` is the scale at which the
-// art exactly covers its own footprint.
+// ONE RULE FOR EVERY BUILDING: draw at your own FOOTPRINT, clamped to the range
+// your role is allowed. sqrt(area) is the footprint's side in metres and /cellM
+// turns it into cells, so `fit` is the size at which the art exactly covers the
+// polygon it stands on.
 //
-// Ordinary houses only ever SHRINK: capped at their baseline so a house never
-// grows past the size it has always drawn at, while a small polygon stops
-// getting a roof that overhangs its own tiles.
+// THE RANGE IS IN DRAWN CELLS, NOT IN SPRITE SCALE, and that is the whole point
+// of this table. A scale is meaningless on its own: it means one size on the
+// 72px house frame and quite another on the 214px fort PNG. Houses and forts
+// used to be two separate expressions for that reason — houses clamped a scale
+// DOWN from 0.6, forts clamped one UP from 0.28 — and the shared 0.6 the
+// residential roles were said to "share so they look like neighbours from one
+// village" did no such thing: at 0.6 the blacksmith drew 1.35 cells wide, the
+// trader 1.43, the wreck and the wizard 1.50, the market 1.99 and the trailer
+// 2.02. The village was sized by whatever width each artist had chosen for
+// their PNG. Worse, a wreck (80px) and the house it restores into (72px) drew
+// at different widths, so REPAIRING a building shrank it by 10%.
 //
-// FORTS ALSO GROW. A fort's footprint has no fixed size: buildingTier gives
-// BUILDING_MED to anything over 350 m², and enforceBuildingDistribution then
-// promotes a tile's largest polygons into that band behind the single castle —
+// In cells all of that disappears: a role names the size it draws at, every
+// frame reaches it, and the two roles differ only in the numbers on their row.
+//
+// FORTS GROW, HOUSES DON'T — now visible as the shape of a range rather than as
+// two different formulas. A house's range is a sliver (1.2–1.35) because the
+// sprite is one dwelling and a footprint can only ever pull it slightly under
+// its natural size. A fort's footprint has no fixed size at all: buildingTier
+// gives BUILDING_MED to anything over 350 m², and enforceBuildingDistribution
+// promotes a tile's largest polygons into that band behind the single castle,
 // so a re-tiered civic block can be 5000 m² (10 cells across) or 20000 m² (20).
-// Held at the baseline those drew the same ~2.3-cell roof as a 19 m fort, and
-// the footprint read as a field of bare brick with a toy building parked in the
-// middle. Growing the art to its own footprint fixes that; FORT_MAX_SCALE stops
-// a huge polygon filling the screen with one roof. The game runs pixelArt:true,
-// so the upscale stays crisp rather than blurring.
+// Pinned at one size those drew the same roof as a 19 m fort and the footprint
+// read as a field of bare brick with a toy building parked in the middle.
 //
-// FORT_MAX_SCALE was originally 1.05 (~7 cells / 49 m wide) — nearly two-thirds
-// of the 11-cell viewport, which read as oversized rather than as a landmark
-// you could still see around. Then 0.65 (~4.3 cells / 30 m), which still read
-// ~25% too big; now 0.52 (~3.5 cells / 24 m) — clearly bigger than an ordinary
-// house, just not looming.
+// `def` is what a building with NO footprint draws at — the synthetic starter
+// trailer, sandbox houses. It sits at the top of the house range and the bottom
+// of the fort range because that is where each role's real buildings cluster.
 //
-// Buildings with no area (the synthetic starter trailer, sandbox houses) and
-// unmeasurable frames keep the baseline untouched.
-const FORT_MAX_SCALE = 0.52;
-// The two BASELINES the roles draw at with no footprint to go on — the `base`
-// argument above, and the value the whole curve is measured against. They live
-// here, beside the rest of the rule, rather than in render.js: a baseline that
-// only makes sense next to the cap that bounds it and the fit that overrides it
-// is not a render detail, and splitting them left render.js holding a bare 0.28
-// under a comment pointing back at this file for why.
-//
-// Plain / blacksmith / trader / trailer / wizard all share the residential
-// baseline so they look like neighbours from one village. The fort's is far
-// smaller because fort.png is ~3x the others (214px wide against 72-80), so
-// the same drawn size needs a third of the scale.
-const HOUSE_BASE_SCALE = 0.6;
-// 0.28 is 0.35 x FORT_FIT. Written out rather than computed because 0.35 * 0.8
-// is 0.27999999999999997 in binary floating point, and this number is compared
-// for equality; the x0.8 it carries is the same shrink FORT_FIT applies to the
-// footprint fit and FORT_MAX_SCALE bakes into its cap (0.65 x 0.8), so all
-// three points on the fort curve moved together when forts read ~25% too big.
-const FORT_BASE_SCALE = 0.28;
-// Forts draw at this fraction of exact footprint fill. Exact fill (1.0) read
-// ~25% too big in play, so the whole fort curve — the baseline above (was
-// 0.35), this fit, and FORT_MAX_SCALE (was 0.65) — is shrunk ×0.8. The growth
-// rationale above still holds; the roof just keeps a small brick margin inside
-// its footprint instead of covering it edge to edge.
-const FORT_FIT = 0.8;
-// Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
-// polygon, the roof never draws narrower than this. Unfloored, a sub-cell
-// footprint shrank the art toward half a cell, which read as yard clutter
-// rather than a dwelling. Expressed in cells (not scale) so it lands the same
-// on every frame width — the base house frame is 72 px, the wreck 80 px. Kept
-// under the 0.6-baseline width (72 × 0.6 / 32 = 1.35 cells) so bigger houses
-// still draw bigger, and paired with the 2-cell footprint bias in worldgen's
-// assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored roof has a pad to
-// stand on.
-const HOUSE_MIN_CELLS = 1.2;
-function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
-  if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
-  const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
-  if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, FORT_FIT * fit));
-  const floor = cellPx > 0 ? (HOUSE_MIN_CELLS * cellPx) / frameW : 0;
-  return Math.min(base, Math.max(fit, floor));
+// The fort cap has come down twice: ~7 cells read as oversized against an
+// 11-cell viewport rather than as a landmark you could see around, then ~4.3
+// still read ~25% too big. The game runs pixelArt:true, so growing the art
+// stays crisp rather than blurring.
+const BUILDING_ART = {
+  // fitMul — how much of its own footprint the role fills. Forts keep a small
+  //          brick margin inside theirs; exact fill read ~25% too big.
+  // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
+  house: { fitMul: 1,   min: 1.2,  def: 1.35, max: 1.35 },
+  fort:  { fitMul: 0.8, min: 1.87, def: 1.87, max: 3.48 },
+};
+// The residential 1.35 is the width the plain house has always drawn at
+// (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the
+// odd ones out come to meet it. The floor of 1.2 keeps a sub-cell polygon from
+// shrinking a dwelling into yard clutter, and pairs with the 2-cell footprint
+// bias in worldgen's assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored
+// roof has a pad to stand on. The fort's 1.87 and 3.48 are its previous 0.28
+// and 0.52 on the 214px frame, in cells — the curve is unchanged.
+function buildingArt(isFort) { return isFort ? BUILDING_ART.fort : BUILDING_ART.house; }
+// Sprite scale that draws `cells` cells wide from a frame `frameW` px wide.
+// An unmeasurable frame can't be sized at all — but render.js has already
+// hidden that sprite (the texture check in RENDER_SPEC), so the number only
+// has to be finite and to agree with buildingBaseScale below, which the
+// shadow pass divides by.
+function buildingCellsToScale(cells, frameW, cellPx) {
+  if (!(frameW > 0) || !(cellPx > 0)) return 1;
+  return (cells * cellPx) / frameW;
+}
+// What this role draws at with no footprint to go on.
+function buildingBaseScale(frameW, isFort, cellPx) {
+  return buildingCellsToScale(buildingArt(isFort).def, frameW, cellPx);
+}
+function houseArtScale(area, frameW, isFort, cellM, cellPx) {
+  const a = buildingArt(isFort);
+  const cells = (area > 0 && cellM > 0)
+    ? Math.min(a.max, Math.max(a.min, a.fitMul * (Math.sqrt(area) / cellM)))
+    : a.def;
+  return buildingCellsToScale(cells, frameW, cellPx);
 }

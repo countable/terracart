@@ -2455,9 +2455,9 @@ Render.drawObjects = function drawObjects(scene) {
   scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   // Extra cull reach for house sprites — half the widest building art that can
-  // be drawn (the fort growth cap FORT_MAX_SCALE: 214 px of fort.png at 0.52 is
-  // ~3.5 cells wide, so 2.2 cells of roof either side of the centroid covers it
-  // with margin). Pinned by test/node/house_scale.test.js.
+  // be drawn (BUILDING_ART.fort.max: a fort tops out at 3.48 cells wide, so 2.2
+  // cells of roof either side of the centroid covers it with margin). Pinned by
+  // test/node/house_scale.test.js.
   const HOUSE_PAD_M = 2.2 * scene.cellM;
   // Both the cull and the projection measure from the CAMERA ANCHOR (normally
   // the player; offset from them while a peek drag is live), so a sprite that
@@ -2733,9 +2733,10 @@ Render.drawObjects = function drawObjects(scene) {
   };
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
   // Four discrete in-game size tiers from the DeepForest crown size class —
-  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees (no
-  // size) fall back to crown_m, then the flat species scale. (Authoritative
-  // copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
+  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees carry
+  // no size and draw their flat species scale; there is no continuous size in
+  // between (see treeBaseScale in util.js for why the crown_m one went).
+  // (Authoritative copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
@@ -2798,23 +2799,23 @@ Render.drawObjects = function drawObjects(scene) {
     if (role === 'wizard') return 3;
     return undefined;
   };
-  // Baseline sprite scale per role — the size a building draws at before its
-  // own footprint has a say. Both numbers, and why they differ by so much, live
-  // with the rest of the roof-scale rule in util.js.
-  const _houseBaseScale = (o) =>
-    (_houseRole(o) === 'fort' ? FORT_BASE_SCALE : HOUSE_BASE_SCALE);
-  // Size the roof against the building's OWN footprint — houses shrink to fit,
-  // forts also grow into a big one. The rule itself (and why forts differ) is
-  // houseArtScale in util.js; this only reads the art's real frame width and
-  // hands it over. Buildings whose texture isn't loaded keep the baseline.
-  const _houseScale = (o) => {
-    const base = _houseBaseScale(o);
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return base;
+  // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
+  // util.js): draw at your own footprint, clamped to a range stated in DRAWN
+  // CELLS. All render.js does is read the art's real frame width and hand it
+  // over — the width is what turns a cell count into a sprite scale, and it is
+  // why a role's size is stated in cells rather than in scale (see the note on
+  // the table). Frames that can't be measured come back as 0, which the rule
+  // answers with 1; the sprite is already hidden by then.
+  const _houseFrameW = (o) => {
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    if (!fr || !fr.width) return base;
-    return houseArtScale(o.area, fr.width, base, _houseRole(o) === 'fort',
-                         scene.cellM, CELL_PX);
+    return (fr && fr.width) || 0;
   };
+  const _houseBaseScale = (o) =>
+    buildingBaseScale(_houseFrameW(o), _houseRole(o) === 'fort', CELL_PX);
+  const _houseScale = (o) =>
+    houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
+                  scene.cellM, CELL_PX);
 
   // Height in px from the house's ground point (sy) up to the TOP of its drawn
   // art — what a badge has to clear to sit above the roof rather than on it.

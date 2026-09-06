@@ -86,10 +86,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
-  // The building roof-scale curve — house_scale.test.js asserts against the
-  // SHIPPING baselines rather than its own copies of them.
-  houseArtScale, HOUSE_BASE_SCALE, FORT_BASE_SCALE, FORT_FIT, FORT_MAX_SCALE,
-  HOUSE_MIN_CELLS,
+  // The one building roof-scale rule — house_scale.test.js asserts against the
+  // SHIPPING table rather than its own copies of it.
+  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
   TRAILER_SELL_MUL,

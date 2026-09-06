@@ -190,7 +190,7 @@
   // real PNGs to check minY/maxY hasn't drifted from the art.
   const CREATURE_ART = {
     chicken:       { fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
-    cow:           { fw: 32, fh: 32, scale: 1.50, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cow:           { fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
     dog:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
     deer:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
