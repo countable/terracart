@@ -532,6 +532,22 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // slime branch in wanderCreatures) — it is only the SPEED that came down.
 const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
 const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// ── The creature sim bubble ──────────────────────────────────────────────────
+// The radius, in cells from the player's FEET, inside which a creature thinks:
+// wanderCreatures culls on it before anything else, and beyond it a creature is
+// frozen at its last position (it does not wander, hunt, leech, shoot or eat a
+// crop). The viewport corner is VIEW_CELLS/2 * √2 ≈ 7.8 cells away, so this is
+// about half a viewport of margin — enough that a stalking monster or an
+// inbound crow is already moving by the time it crosses the glass, instead of
+// starting the instant it becomes visible.
+// Anything that spawns a creature "just off-screen" for the player to meet must
+// land INSIDE this radius (see the crow pump's SPAWN_R), or it lands frozen.
+const CREATURE_SIM_CELLS = 12;
+// Where the crop-raiding crow pump seats the bird it dispatches (hard mode
+// only — see wanderCreatures): past the viewport corner (7.8 cells) so it is
+// never seen popping into being, but inside CREATURE_SIM_CELLS so it is
+// thinking, and flying at the field, from the tick it is pushed.
+const PEST_CROW_SPAWN_CELLS = 10;
 // ── The doorstep greeter ─────────────────────────────────────────────────────
 // How far from the starting trailer the mode's guaranteed creature is seated
 // (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
@@ -7397,15 +7413,25 @@ class MapScene extends Phaser.Scene {
     const shadowed = this.isShadowActive();
     const STEP_MS = 5000;
     const STEP_M = this.cellM;   // 1 cell per step
-    // Only sim chickens near the player (slightly beyond viewport). Off-screen
-    // chickens stay frozen at their last position — cheap and invisible.
+    // Only sim creatures near the player. Beyond the bubble they stay frozen
+    // at their last position — cheap, and the player cannot see it happen.
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
-    // Spec §fauna: "animals simulate when within viewport range (~7-8 cells);
-    // stationary beyond that." The viewport corner sits at VIEW_CELLS/2 * √2 ≈
-    // 7.8 cells, so 8 cells covers a creature just entering the viewport while
-    // matching the spec's ~7-8 cell sim window.
-    const RANGE_M = 8 * this.cellM;
+    // THE SIM BUBBLE — measured from the player's FEET, never the camera
+    // anchor (a peek drag must not widen who is thinking; see the camera rule
+    // in CLAUDE.md).
+    //   The viewport corner sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells, and the
+    // bubble used to stop at 8 — one tenth of a cell past the glass. That is
+    // exactly where it reads as a cheat: a deer frozen mid-stride pops into
+    // motion the moment it crosses the corner, and anything that should be
+    // walking toward you (a stalking monster, a crow inbound to your field)
+    // only starts once it is already on screen. CREATURE_SIM_CELLS gives it a
+    // margin of about half a viewport, so a creature is moving for a second or
+    // two before you ever see it and arrives already in motion.
+    //   The cost is quadratic in the radius (2.25× the creatures of the old 8)
+    // but the population is a handful either way, and the 3×3 tile ring below
+    // still covers it many times over — a tile edge is hundreds of cells.
+    const RANGE_M = CREATURE_SIM_CELLS * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
     // Per-frame loop hygiene (the render pass documents the same fix): only
     // the 3×3 tile neighbourhood is simmed — the sim range above is a handful
@@ -7457,17 +7483,20 @@ class MapScene extends Phaser.Scene {
     // the last. Now the pump only backfills an emptied field, and slowly, so
     // defeating the crows near your field actually buys a quiet window.
     this._lastPestT = this._lastPestT || 0;
-    // Only crops crows actually eat (not potato) justify spawning a pest —
-    // and none at all until the player's FIRST crop is in (save.hasHarvested,
-    // the same grace the tile spawner's pest-free home zone reads). Before
-    // that, the only crops in the world are the tutorial's; a zone check on
-    // the spawn point would be theatre, because the pump spawns the crow just
-    // off-screen and it flies straight to the nearest crop anyway.
+    // Only crops crows actually eat (not potato) justify spawning a pest — and
+    // only on HARD (Difficulty.get().cropPests). The pump is not a difficulty
+    // KNOB, it is a mode difference: a crow that hunts down your field wherever
+    // you plant it is the hard game's answer to farming as a quiet income, and
+    // on easy the tile spawner's own crows are the whole crow threat — meet one
+    // by walking into it, not by having one dispatched to you. That also
+    // retires the amnesty clause this gate used to carry (hasHarvested ||
+    // !pestAmnesty): easy never pumps at all now, and hard has no grace to
+    // wait out, so the check could only ever answer "true" where it still ran.
     // Timer gate first: the planted-crop scan is O(planted) and has no
     // business running on the ~5400 frames between pest windows.
     if (now - this._lastPestT > 90000) {
       const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-      if (hasCrowCrop && (this.save.hasHarvested || !Difficulty.get().pestAmnesty)) {
+      if (hasCrowCrop && Difficulty.get().cropPests) {
         this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) crows.
         let wildCrows = 0;
@@ -7482,10 +7511,17 @@ class MapScene extends Phaser.Scene {
           const pc = pcW;
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
           if (entry && entry.creatures) {
-            // Spawn 12 m away in a random direction so the crow is just
-            // off-screen; it flies toward the nearest crop next tick.
+            // Spawn in a random direction, OUTSIDE the viewport but INSIDE
+            // the sim bubble, so the crow flies toward the nearest crop from
+            // its first tick. Seated at CREATURE_SIM_CELLS (12) it landed on
+            // the rim of the very cull that decides whether it thinks, so the
+            // bird the pump had just dispatched sat frozen in the dark until
+            // the player happened to walk at it — the comment right here
+            // claimed it "flies straight to the nearest crop" and it did not.
+            // 10 cells clears the viewport corner (7.8) by a comfortable
+            // margin and stays two cells inside the bubble.
             const angle = Math.random() * Math.PI * 2;
-            const SPAWN_R = 12 * this.cellM;   // ~12 cells; outside viewport
+            const SPAWN_R = PEST_CROW_SPAWN_CELLS * this.cellM;
             entry.creatures.push({
               kind: 'crow',
               x: px + Math.cos(angle) * SPAWN_R,

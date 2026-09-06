@@ -12,6 +12,8 @@
 //           one slime seated beside the trailer before you take a step. The purse is
 //           smaller, the traders greedier, Home pays less for a haul — and
 //           the enemies are tougher, hit harder and come in bigger packs.
+//           Crows are sent to your crops rather than merely lived among, so a
+//           field is a thing you defend.
 //           A kill still pays per HP, so a tougher foe pays more: fighting
 //           is the income rather than the thing you walk around.
 //
@@ -49,6 +51,15 @@
       tutorial: true,           // starter ladder chip + green arrow + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
       pestAmnesty: true,        // no slime / crow near home until the first harvest
+      // ── Pests ──
+      // The crop-raiding crow PUMP (app.js wanderCreatures): a wild crow
+      // dispatched just off-screen every ~90 s whenever a crow-edible crop is
+      // planted and no wild crow is already near, which then flies at the
+      // field. Off on easy — a crow you meet by walking into one is the whole
+      // crow threat there — and on hard it is what stops farming from being a
+      // quiet income you can leave unattended. The tile spawner's own crows
+      // are NOT this flag: both modes get those.
+      cropPests: false,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
@@ -86,6 +97,7 @@
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
+      cropPests: true,          // crows are dispatched to your field, ~90 s apart
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one

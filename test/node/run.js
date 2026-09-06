@@ -841,6 +841,44 @@ try {
     ctx, { filename: 'pestFreeZone.js' });
 }
 
+// The creature SIM BUBBLE — the radius inside which wanderCreatures lets a
+// creature think, and the radius the crow pump seats its bird at. Both are
+// plain constants, but the two lines that USE them are inside the per-frame
+// loop on the scene class and can't be lifted, so hand their source text over
+// too: creature_sim_range.test.js pins that the cull reads the constant (not a
+// re-typed number), that it measures from the player rather than the camera
+// anchor, and that the spawn radius stays between the viewport corner and the
+// bubble — the invariant a dispatched crow's whole behaviour rests on.
+{
+  const src = readSrc('app.js');
+  let decls = '';
+  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `globalThis.${name} = ${m[1]};\n`;
+  }
+  const cull = src.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
+  const feet = src.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
+  // There are two `const SPAWN_R` in app.js (the cave entrance scatter is the
+  // other), so take the one in the pump — the last before the pest-crow id.
+  const pumpAt = src.indexOf('`pest_crow_${');
+  const spawnAt = pumpAt < 0 ? -1 : src.lastIndexOf('const SPAWN_R = ', pumpAt);
+  const spawn = spawnAt < 0 ? null : [src.slice(spawnAt, src.indexOf('\n', spawnAt))];
+  if (!cull || !feet || !spawn) {
+    console.error('Could not find the creature sim-range lines in src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(
+    decls
+    + `globalThis.CREATURE_CULL_SRC = ${JSON.stringify(cull[0])};\n`
+    + `globalThis.CREATURE_FEET_SRC = ${JSON.stringify(feet[0])};\n`
+    + `globalThis.PEST_CROW_SPAWN_SRC = ${JSON.stringify(spawn[0])};\n`,
+    ctx, { filename: 'creatureSimRange.js' });
+}
+
 // The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one
 // screen out from the anchor and decides which wooden relic is inside it. Pure
 // grid + seeded-rng math, but it lives on the Phaser scene class — lift the

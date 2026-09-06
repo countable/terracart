@@ -36,6 +36,7 @@
     assert.eq(e.trapCountMul, 10, 'easy still multiplies the base trap rate, just less than hard');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
+    assert.falsy(e.cropPests, 'easy never dispatches a crow at a planted field');
   });
 
   test('difficulty: hard is harsher on every axis the card names', () => {
@@ -43,6 +44,7 @@
     assert.falsy(h.tutorial, 'no tutorial');
     assert.falsy(h.starterCrates, 'no supply crates');
     assert.falsy(h.pestAmnesty, 'pests from minute one');
+    assert.truthy(h.cropPests, 'and crows are sent to the crops you plant');
     assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
@@ -144,7 +146,19 @@
     };
     assert.truthy(withMode('easy', () => pestFreeZone.call(scene, 0, 0)), 'easy: the grace runs until the first harvest');
     assert.eq(withMode('hard', () => pestFreeZone.call(scene, 0, 0)), null, 'hard: no grace, ever');
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('pestAmnesty'), 'the crow pump reads the same flag');
+  });
+
+  test('difficulty: the crow pump is a hard-mode rule, read at its own site', () => {
+    // The dispatched-crow pump (app.js wanderCreatures) is a MODE difference,
+    // not a knob: on easy a field is only raided by a crow the tile already
+    // spawned nearby, and on hard one is sent every ~90 s. The gate is one line
+    // in app.js; run.js hands its source text over so it cannot drift from the
+    // table. It used to read pestAmnesty + save.hasHarvested — retired, because
+    // the mode flag subsumes both (easy never pumps; hard has no grace).
+    assert.truthy(CROW_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
+      'the pump reads the flag at the site that owns the behaviour');
+    assert.falsy(CROW_PUMP_GATE_SRC.includes('pestAmnesty'),
+      'and no longer doubles as an amnesty check');
   });
 
   test('difficulty: the save rules — veterans are easy, a fresh save is asked', () => {
