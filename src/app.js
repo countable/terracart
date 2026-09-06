@@ -11295,10 +11295,10 @@ class MapScene extends Phaser.Scene {
       const def = gearDef(kind, slot);
       if (!def) return '';
       if (kind === 'armor') {
-        // What a piece SOAKS — the one number items.js authors (tier²), never
-        // a second copy of the formula. An empty slot previews the rule.
+        // What a piece SOAKS — the one number items.js authors, never a second
+        // copy of the formula. An empty slot previews the rule.
         if (tierOrZero > 0) return `−${armorSlotReduction(tierOrZero)} damage soaked`;
-        return 'Soaks damage — tier² per piece';
+        return 'Soaks damage — one per tier';
       }
       // Relics: per-slot blurb. Add a quantitative tier-scaled hint where
       // the formula is cheap to evaluate without re-deriving game balance.

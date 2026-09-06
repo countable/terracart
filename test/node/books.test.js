@@ -301,15 +301,17 @@ test('tips: the armour tip quotes the real mitigation ladder', () => {
   assert.truthy(/four times/i.test(tip), 'and the tip says four');
   assert.eq(Combat.MIN_PLAYER_DAMAGE, 1, 'a blow always lands for at least 1');
   assert.truthy(/never soak a blow to nothing/i.test(tip), 'and the tip says so');
-  // The two halving claims, read off the shipping function rather than the
-  // loop. A pool of 1 is spent entirely in round one and halves away to
-  // nothing, so it measures round one alone: exactly 1 off a big blow.
-  assert.eq(Combat.mitigate(40, 1), 39, 'round one spends the pool against the hit');
-  // A pool of 2 spends 2, then halves to 1 and spends that — the pool halving
-  // between rounds, which is the part of the rule only a Book can carry.
-  assert.eq(Combat.mitigate(40, 2), 40 - 2 - 1, 'and the pool halves between rounds');
-  // A pool that can cover half the blow takes exactly half in round one
-  // (rounded down), so a full ladder never gets past the geometric floor.
+  // The halving claims, read off the shipping function rather than the loop.
+  // Round one soaks up to half the blow out of the pool: against a 40-point
+  // hit a pool of 12 can only spend what it has.
+  assert.eq(Combat.mitigate(40, 12), 40 - 12, 'round one spends the pool against the hit');
+  // Whatever the pool does NOT spend is halved before the next round, so a
+  // pool bigger than half the blow cannot carry its full weight forward: of a
+  // pool of 30, round one spends 20 (half the blow), the 10 left over halves
+  // to 5, and round two spends that — 25 soaked out of a pool of 30.
+  assert.eq(Combat.mitigate(40, 30), 40 - 20 - 5, 'and the pool halves between rounds');
+  // Four rounds is the ceiling: even an unlimited pool only halves the blow
+  // four times, so armour asymptotes at 1/16th rather than at nothing.
   assert.eq(Combat.mitigate(40, 1e9), 3, 'even an unlimited pool leaves 40 → 20 → 10 → 5 → 3');
   assert.truthy(/half/i.test(tip), 'which is what the tip promises');
   // And no tip may claim armour lengthens the bar — that rule is retired.

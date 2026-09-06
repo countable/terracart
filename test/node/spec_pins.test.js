@@ -60,7 +60,7 @@ test('#1 armor equip: upgrading a slot replaces its tier (and its soak)', () => 
   assert.eq(armorReduction(save.armor), 1, 'a Wood helmet soaks 1');
   Gear.equip(save, 'armor', 'helmet', 3);
   assert.eq(save.armor.helmet.tier, 3, 'the slot holds one piece, the newer one');
-  assert.eq(armorReduction(save.armor), 9, 'T3 soaks 9 — tier², not 1 + 9');
+  assert.eq(armorReduction(save.armor), 3, 'T3 soaks 3 — the new tier, not 1 + 3');
   assert.eq(save.energy, 50, 'and the bar is where it was');
 });
 
@@ -70,7 +70,7 @@ test('#1 equipGearReward: the interact path equips the same way', () => {
   const scene = makeScene();
   equipGearReward({ kind: 'armor', slot: 'legs', tier: 2 }, save, scene);
   assert.eq(save.armor.legs.tier, 2, 'looted armour lands in its slot');
-  assert.eq(armorReduction(save.armor), 4, 'and starts soaking immediately');
+  assert.eq(armorReduction(save.armor), 2, 'and starts soaking immediately');
   assert.eq(save.energy, 100, 'without touching the bar');
 });
 

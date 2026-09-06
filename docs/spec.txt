@@ -333,15 +333,21 @@ ENERGY & FOOD
  - ENERGY_COST (items.js): till 2, plant 1, harvest 1, catch 5, rockPlace 1;
    picking wildplants/flora is free. Mining ore rocks costs 10 + (tier-1)*4.
  - ARMOR does NOT raise max energy (it did until Sep 2026) — it SOAKS the
-   energy an attack takes off the bar. Each worn piece contributes its TIER
-   SQUARED to a reduction pool (items.js armorSlotReduction / armorReduction;
-   all four slots pay the same for a tier and differ only in price). A blow
-   spends that pool in 4 rounds (Combat.mitigate): soak up to HALF the damage,
-   halve the pool, soak up to half of what is LEFT, repeat. Halves round down,
-   and a minimum of 1 damage always lands. Applied at the three sites a foe
-   can hit the player — the surface slime's leech, a cave monster's melee, and
-   a goblin archer's arrow (per carried hit, not per bundle) — AFTER the
-   difficulty multiplier and the shield potion have scaled the blow.
+   energy an attack takes off the bar. Each worn piece contributes ITS TIER to
+   a reduction pool (items.js armorSlotReduction / armorReduction; all four
+   slots pay the same for a tier and differ only in price), so a lone Wood
+   helmet is a flat -1 and a full Frost set is 28. A blow spends that pool over
+   4 rounds (Combat.mitigate): soak up to HALF the damage, halve what is LEFT
+   of the pool, soak up to half of what is left of the blow, repeat. Halves
+   round down, the total soak can never exceed the pool, and a minimum of 1
+   damage always lands — four halvings cap armour at 15/16ths of any blow.
+   The soak is linear and the pool is spent-once on purpose: every hit in the
+   game is 1..16 (a kind's dmg 1..4, doubled elite, doubled on hard), so a
+   quadratic pool or a pool re-handed to each round flattens every tier above
+   Wood to the floor. Applied at the three sites a foe can hit the player —
+   the surface slime's leech, a cave monster's melee, and a goblin archer's
+   arrow (per carried hit, not per bundle) — AFTER the difficulty multiplier
+   and the shield potion have scaled the blow.
  - the only thing that raises max energy is the FIRST-TASTE bonus: +1 for every
    distinct edible ever eaten (save.eaten, folded in by Energy.maxEnergy).
  - EAT: a persistent Eat button below the inventory eats the selected food for

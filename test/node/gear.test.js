@@ -35,8 +35,8 @@ test('equip: a SECOND armor piece adds its own soak, and still no energy', () =>
   Gear.equip(save, 'armor', 'helmet', 3);
   const afterHelmet = armorReduction(save.armor);
   Gear.equip(save, 'armor', 'boots', 2);
-  assert.eq(afterHelmet, 9, 'a T3 helmet soaks 9 — its tier squared');
-  assert.eq(armorReduction(save.armor), 9 + 4, 'boots add their own tier² on top');
+  assert.eq(afterHelmet, 3, 'a T3 helmet soaks 3 — one per tier');
+  assert.eq(armorReduction(save.armor), 3 + 2, 'boots add their own tier on top');
   assert.eq(save.energy, 5, 'the bar is exactly where it was');
 });
 

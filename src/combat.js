@@ -103,23 +103,33 @@
   // Every hit the player takes — the surface slime's leech, a cave monster's
   // melee, a goblin archer's arrow — is spent against the worn set's pool
   // before it reaches the bar. The pool is `armorReduction(save.armor)`
-  // (items.js: each piece contributes its tier SQUARED), and it is spent in
+  // (items.js: each worn piece contributes its TIER), and it is spent over
   // MITIGATION_ROUNDS passes:
   //
   //   round 1  soak up to HALF the incoming damage, paying out of the pool
-  //   round 2  halve the pool, soak up to half of what is LEFT
+  //   round 2  halve what is LEFT of the pool, soak up to half of what is
+  //            left of the blow
   //   …        MITIGATION_ROUNDS times in all
   //
   // Halves round DOWN, so a hit is never soaked to nothing by the arithmetic,
   // and MIN_PLAYER_DAMAGE is the floor: no attack ever lands for zero, however
-  // good the armour. That last rule is why the pool can be large without
-  // making a player invulnerable — a full Frost set (4 × 49 = 196) still takes
-  // a bite from every foe that reaches it, just a shallow one.
+  // good the armour.
   //
-  // Diminishing by construction: even an infinite pool only halves four times,
-  // so armour asymptotes at 1/16th of a blow rather than at nothing. THAT is
-  // what makes the number safe to derive from tier² instead of hand-tuning a
-  // percentage per slot.
+  // THE POOL IS SPENT, NOT RE-CHARGED — the single most important line here.
+  // It shipped for a day handing each round the whole halved pool afresh, so a
+  // pool of P could soak P + P/2 + P/4 + P/8 ≈ 1.9P in total: a full Wood set
+  // (4) removed SEVEN points from a blow, which is most of anything this game
+  // throws, and every tier above Wood was indistinguishable because they all
+  // bottomed out at the floor. Now what survives a round is halved before the
+  // next one, so the total soak can never exceed the pool and a piece is worth
+  // exactly what it says it is worth. The halving still bites: it decays the
+  // UNSPENT remainder, which is what stops a big pool carrying its full weight
+  // into every round of a long blow.
+  //
+  // Between the two rules — a linear per-piece tier and a pool spent once —
+  // armour lives on the same scale as the damage (1..16 across the whole
+  // game), so every rung of the ladder tells. A T1 piece is a flat −1 on
+  // every blow; a full Frost set takes a 24-point elite giant's swing to 5.
   //
   // Nothing here is the difficulty mode's or the shield potion's business:
   // both scale the blow BEFORE it arrives (app.js), and armour spends against
@@ -131,10 +141,10 @@
     let left = damage;
     let pool = Math.max(0, Math.floor(reduction || 0));
     for (let i = 0; i < MITIGATION_ROUNDS; i++) {
-      const half = Math.floor(left / 2);
-      const soaked = Math.min(pool, half);
+      const soaked = Math.min(pool, Math.floor(left / 2));
       left -= soaked;
-      pool = Math.floor(pool / 2);
+      // What is LEFT of the pool, halved — never the pool handed out again.
+      pool = Math.floor((pool - soaked) / 2);
       if (pool <= 0) break;      // nothing left to spend; the rest is a no-op
     }
     return Math.max(MIN_PLAYER_DAMAGE, left);

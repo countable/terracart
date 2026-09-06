@@ -7,23 +7,31 @@
 //
 // The rule, in one place:
 //
-//   • what one worn piece is worth is its TIER SQUARED (items.js
-//     armorSlotReduction) — every slot pays the same for a tier, so a set is
-//     just the sum of its four (armorReduction);
-//   • a blow spends that pool in Combat.MITIGATION_ROUNDS passes: soak up to
-//     HALF the damage, halve the pool, soak up to half of what is LEFT, four
-//     times over;
+//   • what one worn piece is worth is ITS TIER (items.js armorSlotReduction) —
+//     every slot pays the same for a tier, so a set is just the sum of its
+//     four (armorReduction);
+//   • a blow spends that pool over Combat.MITIGATION_ROUNDS passes: soak up to
+//     HALF the damage, halve what is LEFT of the pool, soak up to half of what
+//     is left of the blow, four times over;
 //   • halves round DOWN, and Combat.MIN_PLAYER_DAMAGE is the floor — no
 //     attack ever lands for nothing, however good the armour.
 //
-// Two things follow that are worth defending, because both are what make the
-// quadratic pool safe to hand out at all:
+// THE TWO THINGS THAT KEEP THE LADDER LEGIBLE, both learned the hard way in a
+// day when armour shipped soaking tier SQUARED out of a pool handed to every
+// round afresh:
 //
-//   1. IT DIMINISHES BY CONSTRUCTION. Four halvings cannot take more than
-//      15/16ths of a blow, so an ARBITRARILY large pool still leaves a bite.
-//      Nobody can out-equip the game.
-//   2. IT IS NOT IN THE CAP. Energy.maxEnergy must not learn about armour
-//      again — the tests below pin that both ways round.
+//   1. THE SCALE MATCHES THE DAMAGE. Every blow in the game is 1..4 base,
+//      doubled for an elite and again on hard — 1..16 in total. A quadratic
+//      per-piece soak put a full Frost set at 196 against that, and every tier
+//      from Iron up flattened every hit to the floor: the whole ladder above
+//      Wood was invisible. Linear keeps the pool (1..28) beside the damage.
+//   2. THE POOL IS SPENT, NOT RE-CHARGED. Handing each round the full halved
+//      pool lets P soak P + P/2 + P/4 + P/8 ≈ 1.9P — a Wood SET removed seven
+//      points, more than most blows are worth. Total soak is capped at the
+//      pool now, and the halving decays the UNSPENT remainder instead.
+//
+// And it is still NOT IN THE CAP: Energy.maxEnergy must not learn about armour
+// again — the tests below pin that both ways round.
 //
 // Everything here runs the SHIPPING functions; the three app.js call sites
 // (the slime leech, the monster melee, the archer's arrow) can't be loaded
@@ -31,15 +39,32 @@
 
 // ── The per-piece number ────────────────────────────────────────────────────
 
-test('armor: one piece soaks its tier SQUARED, whatever slot it is', () => {
+test('armor: one piece soaks ITS TIER, whatever slot it is', () => {
   for (let t = 0; t <= 7; t++) {
-    assert.eq(armorSlotReduction(t), t * t, `T${t} soaks ${t * t}`);
+    assert.eq(armorSlotReduction(t), t, `T${t} soaks ${t}`);
   }
   // Slots are interchangeable: a T4 helmet and a T4 chestplate soak the same.
   // (They differ in PRICE — ARMOR_DEFS.baseCost — not in what they do.)
   for (const slot of Object.keys(ARMOR_DEFS)) {
-    assert.eq(armorReduction({ [slot]: { tier: 4 } }), 16, `a T4 ${slot} soaks 16`);
+    assert.eq(armorReduction({ [slot]: { tier: 4 } }), 4, `a T4 ${slot} soaks 4`);
   }
+});
+
+test('armor: the soak is LINEAR — it lives on the same scale as the damage', () => {
+  // The reason it is not quadratic. Every blow the game can land is a kind's
+  // dmg (1..4) doubled for an elite and doubled again on hard: 16 at the very
+  // worst. A pool that runs to 196 flattens all of that to the floor from
+  // Iron up; one that runs to 28 leaves every rung visible.
+  const WORST_BLOW = 16;
+  const fullSet = (t) => { const a = {}; for (const s of Object.keys(ARMOR_DEFS)) a[s] = { tier: t }; return a; };
+  assert.eq(armorReduction(fullSet(7)), 28, 'the biggest pool in the game is 28');
+  assert.lt(armorReduction(fullSet(7)), WORST_BLOW * 2,
+    'and it stays within sight of the worst blow — a quadratic pool would be 12x it');
+  // Every tier of a SINGLE piece is a distinct answer against that worst blow,
+  // which is the property the quadratic version destroyed.
+  const seen = new Set();
+  for (let t = 0; t <= 7; t++) seen.add(Combat.playerDamage(WORST_BLOW, { helmet: { tier: t } }));
+  assert.eq(seen.size, 8, 'all eight rungs of a single piece are distinguishable');
 });
 
 test('armor: the pool is the sum over the worn set, and empties cleanly', () => {
@@ -47,11 +72,11 @@ test('armor: the pool is the sum over the worn set, and empties cleanly', () => 
   assert.eq(armorReduction({}), 0, 'no armour worn');
   assert.eq(armorReduction({ helmet: null, chest: null, legs: null, boots: null }), 0,
     'four empty slots — the shape savemigrate backfills');
-  assert.eq(armorReduction({ helmet: { tier: 1 }, boots: { tier: 2 } }), 1 + 4,
+  assert.eq(armorReduction({ helmet: { tier: 1 }, boots: { tier: 2 } }), 1 + 2,
     'additive across slots');
   const full = {};
   for (const slot of Object.keys(ARMOR_DEFS)) full[slot] = { tier: 7 };
-  assert.eq(armorReduction(full), 4 * 49, 'a full Frost set is 196');
+  assert.eq(armorReduction(full), 4 * 7, 'a full Frost set is 28');
 });
 
 test('armor: a slot or tier the catalog does not know contributes nothing', () => {
@@ -62,16 +87,45 @@ test('armor: a slot or tier the catalog does not know contributes nothing', () =
 
 // ── The ladder ──────────────────────────────────────────────────────────────
 
-test('armor: the ladder soaks half, halves the pool, and repeats four times', () => {
-  // Walked by hand against the spec, so the loop can't quietly change shape.
+test('armor: the ladder soaks half, halves what is LEFT of the pool, four times', () => {
+  // Walked by hand against the rule, so the loop can't quietly change shape.
   // pool 4 vs a 10-damage blow:
-  //   round 1  half=5, pool 4 covers 4 of it → 6 left, pool → 2
-  //   round 2  half=3, pool 2 covers 2       → 4 left, pool → 1
-  //   round 3  half=2, pool 1 covers 1       → 3 left, pool → 0
-  //   round 4  nothing left to spend         → 3
-  assert.eq(Combat.mitigate(10, 4), 3, 'the worked example');
+  //   round 1  half=5, the pool of 4 covers 4 → 6 left; 0 of the pool
+  //            survives, so it halves to 0 and the rest is a no-op
+  //                                          → 6
+  assert.eq(Combat.mitigate(10, 4), 6, 'the worked example');
+  // pool 12 vs the same blow — here the pool OUTLASTS a round, so the halving
+  // of the remainder is what is being measured:
+  //   round 1  half=5, soak 5 → 5 left; 7 survives, halved → 3
+  //   round 2  half=2, soak 2 → 3 left; 1 survives, halved → 0
+  //                                    → 3
+  assert.eq(Combat.mitigate(10, 12), 3, 'a surviving pool is halved, not re-handed');
   assert.eq(Combat.MITIGATION_ROUNDS, 4, 'four rounds, as specified');
   assert.eq(Combat.MIN_PLAYER_DAMAGE, 1, 'and a floor of one');
+});
+
+test('armor: THE POOL IS SPENT, NOT RE-CHARGED — total soak never exceeds it', () => {
+  // The bug that made every tier above Wood identical: each round used to be
+  // handed the whole halved pool afresh, so a pool of P soaked up to
+  // P + P/2 + P/4 + P/8 ≈ 1.9P. A full Wood set (4) took SEVEN points off a
+  // blow — more than most blows in this game are worth — and everything from
+  // Iron up bottomed out at the floor whatever it cost.
+  for (let pool = 0; pool <= 40; pool++) {
+    for (let d = 1; d <= 120; d++) {
+      const soaked = d - Combat.mitigate(d, pool);
+      assert.lte(soaked, pool, `pool ${pool} soaked ${soaked} of a ${d}-damage blow`);
+    }
+  }
+});
+
+test('armor: a T1 piece is a flat −1 on every blow it can bite', () => {
+  // The anchor the whole scale hangs off: one Wood piece, one point of damage,
+  // every single time. If this stops being exactly −1 the pool has started
+  // multiplying itself again.
+  for (let d = 2; d <= 400; d++) {
+    assert.eq(Combat.mitigate(d, 1), d - 1, `a T1 piece takes exactly 1 off ${d}`);
+  }
+  assert.eq(Combat.mitigate(1, 1), 1, 'except against a 1-damage hit, which is the floor');
 });
 
 test('armor: no armour changes nothing', () => {
@@ -84,7 +138,7 @@ test('armor: halves round DOWN, so a small blow is never soaked away', () => {
   // 1 damage: half is 0 every round — the pool never gets to spend a thing.
   assert.eq(Combat.mitigate(1, 1000), 1, 'a 1-damage hit is untouched by any pool');
   // 3 damage (the surface slime's leech) against a lone Wood helmet:
-  //   half=1, soak 1 → 2 left; pool halves to 0 and the rest is a no-op.
+  //   half=1, soak 1 → 2 left; nothing survives, so that is the answer.
   assert.eq(Combat.mitigate(3, 1), 2, 'the slime leech, one Wood piece');
   // 5 damage: 2 soaked, then 1, then 1 → 1.
   assert.eq(Combat.mitigate(5, 1000), 1, '5 → the floor');
@@ -93,7 +147,8 @@ test('armor: halves round DOWN, so a small blow is never soaked away', () => {
 test('armor: four halvings is the ceiling — an infinite pool still bites', () => {
   // Round-down halving takes a blow d → ceil(d/2) each round, so four rounds
   // can never take it below ceil(ceil(ceil(ceil(d/2)/2)/2)/2). Nothing anyone
-  // can wear beats that, which is why the pool may be quadratic in the tier.
+  // can wear beats that — armour asymptotes at 1/16th of a blow, never at
+  // nothing, so no kit ever makes the player untouchable.
   const ceilFour = (d) => { let x = d; for (let i = 0; i < 4; i++) x = Math.ceil(x / 2); return x; };
   const HUGE = 1e9;
   for (const d of [1, 2, 3, 5, 8, 13, 16, 17, 32, 100, 160]) {
@@ -127,30 +182,31 @@ test('armor: a real ladder of sets against a real blow', () => {
     for (const slot of Object.keys(ARMOR_DEFS)) a[slot] = { tier };
     return a;
   };
+  // The worst blow in the game — a kind's 4 dmg, doubled elite, doubled hard,
+  // then some. EVERY rung has to tell here, or the ladder is decoration.
   const hit = (tier) => Combat.playerDamage(24, tier ? setOf(tier) : null);
   assert.eq(hit(0), 24, 'bare — the whole blow');
-  assert.gt(hit(0), hit(1), 'a Wood set already helps');
-  assert.gt(hit(1), hit(4), 'a mid-tier one helps a great deal more');
-  // Past a point a set is soaking everything the four halvings will let it,
-  // and a finer one has nothing left to buy against a blow this size: 24 is
-  // already at the geometric floor by T4. That is the diminishing return
-  // working, not a rung missing — the heavy blow below is where the top of
-  // the ladder still separates.
-  assert.gte(hit(4), hit(7), 'a Frost set is never worse');
-  assert.gte(hit(7), Combat.MIN_PLAYER_DAMAGE, 'and it still gets its bite');
-  const heavy = (tier) => Combat.playerDamage(200, setOf(tier));
-  assert.gt(heavy(1), heavy(4), 'against a genuinely heavy blow every rung tells');
-  assert.gt(heavy(4), heavy(7), 'up to the top of the ladder');
-  // The small blows a new player actually meets bottom out fast: the surface
-  // slime's 3-a-second leech is down to the floor in a Wood set, which is
-  // the whole reason the floor exists.
+  let prev = hit(0);
+  for (let t = 1; t <= 7; t++) {
+    assert.lt(hit(t), prev, `a T${t} set beats a T${t - 1} one against a heavy blow`);
+    prev = hit(t);
+  }
+  assert.gte(hit(7), Combat.MIN_PLAYER_DAMAGE, 'and a Frost set still gets bitten');
+  // A single piece separates every rung too, which is what a player upgrading
+  // one slot at a time actually experiences.
+  const one = (tier) => Combat.playerDamage(24, { chest: { tier } });
+  prev = 24;
+  for (let t = 1; t <= 7; t++) { assert.lt(one(t), prev, `one T${t} piece beats one T${t - 1}`); prev = one(t); }
+  // The small blows a new player actually meets bottom out fast, and that is
+  // right: the surface slime's 3-a-second leech is down to the floor in a full
+  // Wood set. Four pieces of armour SHOULD make the weakest foe a non-event.
   assert.eq(Combat.playerDamage(3, setOf(1)), Combat.MIN_PLAYER_DAMAGE,
     'a Wood set already takes the slime leech to 1 — and never past it');
 });
 
 test('armor: playerDamage reads the pool off the worn set', () => {
-  assert.eq(Combat.playerDamage(10, { helmet: { tier: 2 } }), Combat.mitigate(10, 4),
-    'the T2 helmet is a pool of 4');
+  assert.eq(Combat.playerDamage(10, { helmet: { tier: 2 } }), Combat.mitigate(10, 2),
+    'the T2 helmet is a pool of 2');
   assert.eq(Combat.playerDamage(10, null), 10, 'no set = no soak');
   assert.eq(Combat.playerDamage(0, { helmet: { tier: 2 } }), 0,
     'a non-attack is not rounded up to the floor');
@@ -215,7 +271,7 @@ test('armor: every blow on the player is soaked before it reaches the bar', () =
 
 test('armor: what a piece soaks is printed ON the piece', () => {
   // The description surfaces (CLAUDE.md: what an item DOES is written on the
-  // item). Both read armorSlotReduction rather than re-deriving tier² — one
+  // item). Both read armorSlotReduction rather than re-deriving the tier — one
   // table, both sides, so the number shown is the number spent.
   const app = APP_JS_SRC;
   assert.truthy(/armorSlotReduction\(tierOrZero\)/.test(app),

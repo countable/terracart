@@ -1225,11 +1225,11 @@ test('amulet relic does NOT double chest qty (job is stick walking)', () => {
 
 test('armor pieces build a damage-soak pool via armorReduction', () => {
   assert.eq(armorReduction(null), 0, 'no armor = nothing soaked');
-  assert.eq(armorReduction({ helmet: { tier: 1 } }), 1, 'a Wood helmet soaks 1 — tier squared');
-  // helmet T2: 2² = 4; chest T1: 1² = 1. Slots do not differ — only tiers do.
-  assert.eq(armorReduction({ helmet: { tier: 2 }, chest: { tier: 1 } }), 5,
+  assert.eq(armorReduction({ helmet: { tier: 1 } }), 1, 'a Wood helmet soaks 1 — one per tier');
+  // Slots do not differ — only tiers do.
+  assert.eq(armorReduction({ helmet: { tier: 2 }, chest: { tier: 1 } }), 3,
     'multiple armor pieces are additive');
-  assert.eq(armorReduction({ helmet: { tier: 7 } }), 49, 'and quadratic in the tier');
+  assert.eq(armorReduction({ helmet: { tier: 7 } }), 7, 'and linear in the tier');
 });
 
 test('gearPrice scales with tier multiplier', () => {
