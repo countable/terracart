@@ -12,9 +12,13 @@
 //   Lighting.KINDS                — the light table: one row per source kind
 //   Lighting.radiusCells(kind)    — a row's radius, resolving the fire's
 //   Lighting.sourceKind(scene, o) — which row a world object lights as, or null
+//   Lighting.playerKind(scene)    — which row the PLAYER lights as: 'player',
+//                                   or 'torch' while a Torch burns
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
+//   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
+//   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
@@ -75,7 +79,30 @@
   // and repels slimes (app.js) — so "stand in the light" and "stand in the
   // warmth" are one rule. It is resolved at call time because app.js defines
   // it after this file loads; lighting.test.js pins the two are equal.
+  //
+  // The player's own light is the RAMP (ensurePlayerCookie + the plateau in
+  // draw()), not a cookie — but it has a row too, so the one thing derived
+  // from it (the torch) has a number to derive from, and draw() reads the
+  // ramp's extent off the row rather than a second copy of the maths.
+  //
+  // The Torch (a T1 consumable, useTorch in app.js) doesn't change the reach
+  // plateau — that is the Inner Light, and the tap gate's — it widens the
+  // FALLOFF: while it burns the collector stamps the `torch` cookie at the
+  // player's feet ON TOP of the ramp (light adds), white like the player's
+  // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
+  // depth: a torch by night on the surface is fine, and free.
+  const TORCH_RADIUS_MUL = 2;
   const KINDS = {
+    // The player: white, out to the furthest visible pixel (the viewport's
+    // half-diagonal — ramping past it only spends the ramp where nobody
+    // sees). `peak` is DERIVED per depth (profile().edge at the plateau's
+    // edge, the old falloff), so the row carries none: it is never baked as
+    // a kind cookie, the ramp is its picture.
+    player:   { radiusCells: () => Math.hypot(viewCells(), viewCells()) / 2, colour: 0xffffff, peak: null, flicker: 0 },
+    // The player with a Torch lit: the same white, TORCH_RADIUS_MUL times as
+    // far, breathing like the fire it is. Stamped at the feet in ADDITION to
+    // the ramp, so the plateau is untouched and only the dark around it lifts.
+    torch:    { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.85, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to.
@@ -102,6 +129,12 @@
 
   // Seconds per POI breath. Slow on purpose (see the row above).
   const POI_PULSE_PERIOD_S = 4.5;
+
+  // app.js's VIEW_CELLS, read at call time like FIRE_REST_R (app.js loads
+  // after this file); 11 is its shipping value, for a context without it.
+  function viewCells() {
+    return (typeof VIEW_CELLS !== 'undefined') ? VIEW_CELLS : 11;
+  }
 
   function radiusCells(kind) {
     const r = KINDS[kind].radiusCells;
@@ -286,6 +319,7 @@
   // cull: a fire whose anchor is a cell off-screen still lights the edge.
   function sourceKind(scene, o) {
     if (!o) return null;
+    if (o.kind === 'player') return playerKind(scene);
     if (o.kind === 'house') {
       if (scene.save && scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
       return (scene.isClaimedKey && scene.isClaimedKey(o.id)) ? 'building' : null;
@@ -298,6 +332,14 @@
     // per-frame Set of save.opened it culls the sprite with).
     if (o.kind === 'chest') return o.crate ? null : 'poi';
     return null;
+  }
+
+  // Which row the player lights as this frame. The ramp is always drawn
+  // (the player's own light); 'torch' is the row the collector ADDS on top
+  // of it while app.js's Torch timer runs (scene.isTorchActive — in memory,
+  // never on the save, like the dragon's minute).
+  function playerKind(scene) {
+    return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'torch' : 'player';
   }
 
   function beginFrame(scene) {
@@ -331,6 +373,21 @@
       n++;
     }
     return n;
+  }
+
+  // The player's light beyond the ramp: the torch cookie, at the feet (metres
+  // from the camera anchor, like every light — it slides with a peek), while
+  // one burns. Returns the row the player lit as. The plain 'player' row
+  // pushes nothing: the ramp IS that light, and a cookie on top of it would
+  // brighten the surface picture the profile derivation pins.
+  const PLAYER_OBJ = { kind: 'player', id: 'player' };
+  function collectPlayer(scene, ax, ay, halfM) {
+    const kind = sourceKind(scene, PLAYER_OBJ);
+    if (kind === 'player') return kind;
+    const dx = scene.startWorldM.x + scene.playerM.x - ax;
+    const dy = scene.startWorldM.y + scene.playerM.y - ay;
+    if (inRange(scene, dx, dy, kind, halfM)) scene._lights.push({ kind, dx, dy, id: PLAYER_OBJ.id });
+    return kind;
   }
 
   // ── Drawing (the browser from here down) ──────────────────────────────────
@@ -408,14 +465,15 @@
     ctx.clearRect(0, 0, S, S);
     const g = ctx.createRadialGradient(c, c, 0, c, c, rMaxT);
     const fr = (r) => Math.min(1, Math.max(0, r / rMaxT));
-    g.addColorStop(0, rgba(0xffffff, prof.edge));
+    const white = KINDS.player.colour;
+    g.addColorStop(0, rgba(white, prof.edge));
     // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
     // super-linear curve at RAMP_STOPS points so the gradient's linear
     // segments track it.
     const span = rMaxT - r0T;
     for (let i = 0; i <= RAMP_STOPS; i++) {
       const t = i / RAMP_STOPS;
-      g.addColorStop(fr(r0T + t * span), rgba(0xffffff, playerCookieAlpha(t, prof)));
+      g.addColorStop(fr(r0T + t * span), rgba(white, playerCookieAlpha(t, prof)));
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
@@ -466,10 +524,12 @@
     if (!tex || typeof document === 'undefined') return;
     if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
+    collectPlayer(scene, ax, ay, halfM);
     const now = Date.now();
     const prof = profile(scene, daylight(scene, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
-    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
+    // The ramp's extent: the player row's radius (the viewport's half-diagonal).
+    const rMax = radiusCells('player') * CELL_PX;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
@@ -537,11 +597,12 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, FALLOFF_A, FALLOFF_P, AMBIENT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
+    collectPlayer,
     flickerAlpha, draw,
   };
 })(window);

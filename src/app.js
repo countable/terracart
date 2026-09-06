@@ -673,6 +673,9 @@ const SPEED_POTION_AMULET_TIER = 9;
 // those top out at so a coffee can't out-tier the rarest buff.
 const COFFEE_AMULET_BOOST = 2;
 const COFFEE_BUFF_MS = 3 * MINUTE_MS;
+// Torch: how long one burns (useTorch). Lighting another while one burns
+// extends from the current end, so a bag of them is one long light.
+const TORCH_MS = 3 * MINUTE_MS;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -1020,6 +1023,8 @@ const ICON_SHEETS = {
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
+  // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
+  icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -2059,6 +2064,12 @@ class MapScene extends Phaser.Scene {
     this.shadowTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
       font: fontMono('bold 13px'), color: '#d9b3ff',
       stroke: '#2a1040', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // The Torch's countdown — the same label again in flame orange, stacked
+    // above whichever of the other two are showing (set per-frame in update()).
+    this.torchTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: fontMono('bold 13px'), color: '#ffb347',
+      stroke: '#3a1600', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     // There is NO walk-target marker. Movement is target-follow at every depth:
     // GPS fixes and steering input move a free-flying target (this._targetM)
@@ -5643,6 +5654,17 @@ class MapScene extends Phaser.Scene {
         .setVisible(true);
     } else if (this.shadowTimerText.visible) {
       this.shadowTimerText.setVisible(false);
+    }
+    // Torch: the same in-memory timer (this._torchUntil, TORCH_MS a light),
+    // the same readout, one line above whatever the other two are showing.
+    if (this.isTorchActive()) {
+      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
+      this.torchTimerText
+        .setText(shortDuration(this._torchUntil - Date.now()))
+        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35 - 15 * stacked)
+        .setVisible(true);
+    } else if (this.torchTimerText.visible) {
+      this.torchTimerText.setVisible(false);
     }
     let vx = 0, vy = 0;
     const k = this.keys;
@@ -9515,6 +9537,31 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
       'The dark takes you in — for one minute no monster can find you: none will stalk you, none will strike. Your own blows still land.',
+    );
+  }
+
+  // True while a Torch burns: the same in-memory timer the dragon keeps
+  // (this._torchUntil, NOT persisted — a refresh puts it out). Lighting.draw
+  // reads it through Lighting.playerKind to stamp the `torch` row at the feet.
+  isTorchActive() {
+    return (this._torchUntil ?? 0) > Date.now();
+  }
+
+  // Torch: for TORCH_MS the player's own light reaches TORCH_RADIUS_MUL times
+  // as far — the `torch` row of Lighting.KINDS, added on top of the reach ramp
+  // (light adds; the plateau, and so the tap gate, are untouched). Lighting
+  // one while another burns EXTENDS from the current end rather than wasting
+  // what is left. Never gated on depth: a torch by night on the surface is
+  // fine, and free.
+  useTorch() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'torch' || (sel.count ?? 0) <= 0) return false;
+    const now = Date.now();
+    const burning = this.isTorchActive();
+    this._torchUntil = Math.max(now, this._torchUntil ?? 0) + TORCH_MS;
+    return this._finishConsumable(
+      burning ? '🔥 You light another Torch' : '🔥 You light the Torch',
+      `The flame takes and the dark draws back — your light reaches twice as far for ${shortDuration(this._torchUntil - now)}.`,
     );
   }
 
@@ -13914,6 +13961,12 @@ class MapScene extends Phaser.Scene {
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
       shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: '🌑 monsters ignore you for 1 min — no stalking, no hits' },
       frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
+      // Torch: `get` is a function so that, with one already burning, the line
+      // says the new one ADDS to it (useTorch extends from the current end).
+      torch: { verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
+               get: () => (this.isTorchActive()
+                 ? `🔥 adds ${shortDuration(TORCH_MS)} to the ${shortDuration(this._torchUntil - Date.now())} still burning — your light reaches twice as far`
+                 : `🔥 your light reaches twice as far for ${shortDuration(TORCH_MS)}`) },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
       // Rope: the ONE consumable whose dialog is a choice, not a yes/no. The
       // primary button lowers you a level (useRopeDown), the `secondary` one

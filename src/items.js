@@ -176,6 +176,10 @@ const MINERAL_ICON_SHEET = {
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
   rope:          { sheet: 'icon_rope', frame: 0 },
+  // Torch — single 16×16 stick-and-flame icon (Icons/Items). Lighting it
+  // widens the player's own light for a few minutes (useTorch in app.js →
+  // the `torch` row of Lighting.KINDS).
+  torch:         { sheet: 'icon_torch', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -293,6 +297,8 @@ const BASE_TIER = {
   growth_powder: 2, shadow_powder: 3, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
+  // Torch — the T1 cave staple: light for the dark, cheap and common.
+  torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -394,6 +400,12 @@ const ITEMS = [
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
   // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
   { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  // Torch: light it (Use button with it selected) and for three minutes the
+  // player's own light reaches twice as far — the `torch` row of
+  // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
+  // plateau (what you can tap) is untouched; only the dark around it lifts.
+  // Lighting another while one burns EXTENDS the time (useTorch in app.js).
+  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -569,6 +581,7 @@ const PRICES = {
   shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
+  torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -668,6 +681,7 @@ const PLAY_TIPS = [
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   'A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
+  'A Torch throws your light twice as far for three minutes. Light a second one before the first is out and the time adds up.',
   'Diamonds come only from the deepest, Frost-bearing ore — and every piece of Frost jewelry is cut around one.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
@@ -754,6 +768,7 @@ const ITEM_EFFECTS = {
   shadow_powder: 'Use to make monsters ignore you (1 min)',
   frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
+  torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };
 

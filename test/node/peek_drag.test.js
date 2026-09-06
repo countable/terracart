@@ -344,8 +344,12 @@ test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
 const lightScene = () => ({ depth: 0, save: { energy: 100, maxEnergy: 100 }, _atmos: { dim: 0x1a2a1e } });
 
 test('falloff: the player ramp ends at the viewport half-diagonal, on zero', () => {
-  assert.truthy(/const rMax = Math\.hypot\(scene\.viewSize, scene\.viewSize\) \/ 2;/.test(LIGHTING_SRC),
-                'the ramp is graded over the visible square, not past it');
+  // The ramp's extent is the player row of Lighting.KINDS (the torch derives
+  // its radius from it), and that row IS the half-diagonal of the view.
+  assert.truthy(/const rMax = radiusCells\('player'\) \* CELL_PX;/.test(LIGHTING_SRC),
+                'the ramp is graded over the player row\'s radius');
+  assert.truthy(Math.abs(Lighting.radiusCells('player') * CELL_PX - Math.hypot(VIEW_CELLS * CELL_PX, VIEW_CELLS * CELL_PX) / 2) < 1e-9,
+                'which is the visible square\'s half-diagonal, not past it');
   const prof = Lighting.profile(lightScene());
   assert.eq(Lighting.playerCookieAlpha(1, prof), 0,
             'zero light at the ramp end — the ambient past it is the same value, so there is no edge');
