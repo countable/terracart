@@ -301,6 +301,45 @@
   pins the formatter and sweeps the call-site sources for a re-grown ladder or
   a fresh unquantified "tomorrow" / "later".
 
+- **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
+  Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
+  gradient primitive": a fillRect per unlit cell, a second wash over the lit
+  cells underground, a pink wash at low energy and ~100 cached strokeCircle
+  falloff rings. All of it painted DARKNESS, which
+  composes one way only (two dims overlap darker), so a campfire could never
+  be built out of it. `src/lighting.js` replaced the lot with one model:
+  a viewport-sized RenderTexture (`scene.lightMap`, app.js create()) filled
+  with the ambient floor, every light source ADDing its baked radial-gradient
+  cookie into it, and the whole thing MULTIPLIED over the world from ABOVE the
+  sprites — so a house or a tree outside every light goes as dark as the
+  ground it stands on, and `Render.spriteTint` must never compose the reach
+  dim onto a sprite again (that darkens a wreck twice).
+  **The numbers are derived, not tuned:** `Lighting.profile` builds the
+  ambient, the plateau and the edge level from the same
+  `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
+  falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
+  player lit looks as it did. Retune a look through those; a factor added in
+  lighting.js breaks the correspondence the test pins.
+  **The light table is `Lighting.KINDS`**, one row per source: the player, Home
+  (`trailer` — the starter trailer or the house adopted in its place), a
+  restored building (keyed on the SAME `isClaimedKey` test the derelict wash
+  reads, so it lights the frame its wash lifts), a campfire whose radius
+  IS `FIRE_REST_R` — stand in the light, stand in the warmth — and every live
+  POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
+  with a per-id phase: that IS the old halo ping (the ring layer, its pool
+  and its texture are gone), so a place reads from across the map by its own
+  light in the dark, never by a ring drawn back under the pad. **When you add a
+  light source, add a row and return its kind from `Lighting.sourceKind`**;
+  the collector culls at `halfM` + the row's own radius, not the sprite cull,
+  so a lantern a cell off-screen still lights the edge.
+  **What stayed per-cell:** the white reach OUTLINE on `reachGfx`. It is the
+  tap affordance and `cellInReach` is cell-exact; a cookie is a circle. Never
+  move the affordance onto the lightmap.
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
+  derived levels, the table, the collector, the source pins) and
+  `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
+  the labels).
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

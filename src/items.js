@@ -65,11 +65,12 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
-  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
-  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
-  // pass, so it shrinks about the cell centre and stays centred.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
+  // scale 1.36 (1.7 — itself down 15% from the wildplant default of 2 — then
+  // a further 20% off, Sep 2026 playtest) renders the 16px frame at ~22px —
+  // the toadstool reads as a prop tucked in its tile rather than one filling
+  // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
+  // shrinks about the cell centre and stays centred.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -630,8 +631,10 @@ const PLAY_TIPS = [
   // ── Relic effects ─────────────────────────────────────────
   'A Sword raises your sell price — a Frost sword doubles what the trailer pays for a haul.',
   'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
-  'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
+  'A Bow or Staff shoots on its own — one shot a second, while a foe is on screen.',
   'Arrows fly where the compass points, not at what you tap. Turn to aim.',
+  'A Staff bolt seeks the nearest foe on its own — no aiming, but each bolt costs a little energy.',
+  'A better Staff throws a bigger bolt: a Frost bolt is twice the size of a Wood one, and sweeps up more foes.',
   'The ring over a foe is its health, not a timer — green, then amber, then red.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
@@ -791,8 +794,9 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, once a second along the compass, while
-  // an enemy is on screen. All three still speed the crow/deer hunt wheel by
+  // are ranged — they fire on their own, once a second, while an enemy is on
+  // screen: the bow along the compass, the staff at the nearest foe in range.
+  // All three still speed the crow/deer hunt wheel by
   // tier. On top of the fighting, the Sword raises sell values and the Bow
   // lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
@@ -800,7 +804,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots foes on screen' },
+             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.

@@ -348,9 +348,12 @@ const MONSTERS = {
 // the moment it has stats, and the doubling below reaches the giants too.
 // There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
 // at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
-// health bar, tap box, shadow) resolves through the same helper. A giant's
-// kill credits the BASE kind's quest (resolveDefeat), and its elite roll gets
-// the +2 tier of its deeper introduction for free (eliteRollBonus).
+// health bar, tap box, shadow) resolves through the same helper. For the
+// quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
+// goblin job wants giant goblins, and an elite giant goblin banks its own
+// badge beside the elite goblin's (resolveDefeat credits victim.kind as-is;
+// quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the +2 tier
+// of its deeper introduction for free (eliteRollBonus).
 const GIANT_HP_MUL = 4;
 const GIANT_DEPTH_STEP = 2;
 for (const [kind, m] of Object.entries(MONSTERS)) {
@@ -834,7 +837,9 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
 // OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
 // demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
-// CHEST_TIER_HOME_RINGS_M, floor T1). The tier drives the sprite/gem in
+// CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
+// levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
+// mirrors (worldgen.js caveChestsFrom). The tier drives the sprite/gem in
 // render.js and the chestTierMod loot curve in rarity.js; only the loot roll
 // itself is random.
 
@@ -1446,37 +1451,22 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
-    // LIGHTING — the out-of-reach dim, the underground torch wash, the
-    // low-energy pink tint and the white reach outline. It sits here, ABOVE
-    // every piece of ground decoration (biome seams, cobbles, road letters,
-    // treasure pads, shadows, the haze) and BELOW the standing sprites,
-    // because "outside the lit area" has to mean the whole ground goes dark —
-    // not just the flat terrain fill. POI halos are the one ground element
-    // that sits ABOVE this layer instead — see the note where
-    // poiHaloContainer is created just below, right after this one.
+    // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
+    // affordance. It sits here, ABOVE every piece of ground decoration (biome
+    // seams, cobbles, road letters, treasure pads, shadows, the haze) so the
+    // outline is never covered by the ground it marks, and BELOW the standing
+    // sprites so a tree stands over it.
     //
-    // These passes used to live in cellGfx, the bottom-most layer, so the dim
-    // could only reach the base colour: biome BOUNDARIES in particular stayed
-    // at full brightness outside the lit area and read as glowing seams in the
-    // dark. (The distance falloff hit the same wall and was moved above the
-    // sprites for it; this is the same bug one layer down.) Sprites stay at
-    // full contrast on purpose — see the note on atmosGroundGfx above — and
-    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    // Until Sep 2026 this was the LIGHTING layer too: the out-of-reach dim,
+    // the underground torch wash and the low-energy pink were fillRects here,
+    // below the sprites, which were deliberately exempt from the dim. The
+    // darkness moved to the lightMap (below, above the sprites) when the
+    // world gained more than one light — see src/lighting.js. What remains
+    // here is only the per-cell work a cookie can't do.
     this.reachGfx = this.add.graphics();
-    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
-    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
-    // every other ground layer gets. A halo's whole job is to read as a place
-    // "from across the map" (see render.js's POI-halo comment); crushing it
-    // under the same dim that swallows biome seams and cobbles defeats that —
-    // most of the visible grid sits outside the small reach radius at any
-    // moment, so the ping would only ever show right under the player's feet.
-    // It's still below worldContainer (so it doesn't draw over the chest
-    // itself) and below atmosFalloffGfx (so it still fades with sheer
-    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
-    // ring's own texture is a transparent-centred band, so drawing it above
-    // padContainer here (instead of below, as before) doesn't hide the pad —
-    // the ring just crosses over the slab's rim as it expands.
-    this.poiHaloContainer = this.add.container(0, 0);
+    // (The POI halo layer — a ring "ping" under every live POI — lived here
+    // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
+    // Lighting.KINDS.poi.)
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1532,15 +1522,28 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
-    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
-    // out-of-reach dim with distance from the player (render.js drawCells).
-    // Sits beside the rim haze for the same reason and with the same
-    // constraint: after every world sprite, so distant OBJECTS recede along
-    // with the ground they stand on — in cellGfx (the bottom layer) it could
-    // only darken the base terrain fill, and objects at the rim stayed fully
-    // lit and read as stickers on dark ground. Still before labelContainer:
-    // POI name tablets are UI and must stay crisp at any distance.
-    this.atmosFalloffGfx = this.add.graphics();
+    // THE LIGHTMAP — every light in the world, composited in one texture and
+    // MULTIPLIED over everything below it (src/lighting.js). Each frame the
+    // texture is filled with the ambient darkness and every light source adds
+    // its baked cookie: the player's reach bubble with the distance falloff
+    // built in, Home, each restored building, each campfire.
+    //
+    // It sits AFTER every world sprite, so a house or a tree outside every
+    // light goes as dark as the ground it stands on — the same lesson the old
+    // falloff rings learned when they moved up from cellGfx (objects at the
+    // rim read as stickers on dark ground) — and BEFORE labelContainer: POI
+    // name tablets are UI and stay crisp in the dark. Exactly the viewport
+    // square, so it needs no geometry mask.
+    //
+    // A RenderTexture rather than Graphics because the passes it replaced —
+    // a fillRect per unlit cell, ~100 strokeCircle falloff rings — were all
+    // darkness, and darkness can't add up into a second light. Blend modes are what make it renderer-agnostic: ADD and
+    // MULTIPLY map to canvas composite operations, so the Canvas fallback
+    // draws the same picture. LINEAR filtering (WebGL) keeps the upscale from
+    // the logical grid to the device canvas from stepping the gradients.
+    this.lightMap = this.add.renderTexture(this.viewLeft, this.viewTop, this.viewSize, this.viewSize)
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    try { this.lightMap.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -1649,7 +1652,6 @@ class MapScene extends Phaser.Scene {
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
-    this.poiHaloPool = [];    // slow pulsing glow under each live POI (render.js)
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
@@ -1705,27 +1707,6 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // POI marker: a thick soft-edged RING (not a filled disc like the warning
-    // halos above) that render.js expands outward and fades as it grows — a
-    // "ping" rather than a breathing glow. Drawn as concentric strokes whose
-    // alpha follows a triangular feather peaking at the middle of the band,
-    // so both the inner and outer edge of the ring soften instead of hard-
-    // cutting. Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the
-    // pale pad it rings out from — a gold ring under a blue-white slab would
-    // read as two different signals for the same thing.
-    if (!this.textures.exists('halo_poi')) {
-      const rg = this.make.graphics({ x: 0, y: 0, add: false });
-      const C = 32, steps = 24, outerR = 30, bandW = 9;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;                        // 0 → inner edge of band, 1 → outer edge
-        const r = outerR - bandW + bandW * t;
-        const feather = 1 - Math.abs(t - 0.5) * 2;   // 0 at both edges, 1 at band centre
-        rg.lineStyle(2, 0xcfe2ff, 0.65 * feather);
-        rg.strokeCircle(C, C, r);
-      }
-      rg.generateTexture('halo_poi', 64, 64);
-      rg.destroy();
-    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -1873,7 +1854,6 @@ class MapScene extends Phaser.Scene {
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
-    this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
@@ -1885,7 +1865,6 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
-    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
@@ -5689,7 +5668,8 @@ class MapScene extends Phaser.Scene {
 
   // ── COMBAT ───────────────────────────────────────────────────────────────
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
-  // staff loose its shots along the compass, fly the shots already out, and —
+  // staff loose its shots (the bow along the compass, the staff at the nearest
+  // foe — Combat.shotHeading), fly the shots already out, and —
   // if the sword is the active weapon — engage the nearest foe without being
   // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
   // here at a time; the rest sit inert until switched to. The maths (what
@@ -5723,10 +5703,15 @@ class MapScene extends Phaser.Scene {
     // wheel reads), so a dragon's arrows hit twice as hard too.
     const dmgMul = this.isDragonActive() ? 2 : 1;
 
-    // ── Bow / staff: one shot a second, along the COMPASS heading ──────────
-    // They do not home and they do not pick a target: the shot goes where you
-    // are facing, so aiming is turning. Firing is gated on an enemy being on
-    // screen — otherwise every walk across town would be trailing arrows.
+    // ── Bow / staff: one shot a second ──────────────────────────────────────
+    // The BOW does not home and does not pick a target: the arrow goes where
+    // you are facing, so aiming is turning. The STAFF picks: its bolt is
+    // loosed straight at the nearest enemy inside its range, whatever way the
+    // body faces, and holds fire (spending no energy) while the nearest is
+    // still out of reach. Which is which lives in Combat.SHOT[slot].aim and
+    // is resolved by Combat.shotHeading, so this loop never has to know.
+    // Firing is gated on an enemy being on screen — otherwise every walk
+    // across town would be trailing arrows.
     // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
     // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
     // auto-engage below.
@@ -5741,6 +5726,13 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (now < due) continue;
+        // Where this shot goes — the compass for the bow, the line to the
+        // nearest foe in range for the staff. Resolved BEFORE the energy is
+        // spent: a staff whose nearest foe is still beyond its range keeps
+        // both its energy and its cadence (left due, so it fires the instant
+        // one steps in).
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM);
+        if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
         // an auto-firing weapon must not spam "too tired" (spendEnergy only
@@ -5749,8 +5741,11 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
-        const shot = Combat.spawnShot(slot, px, py, this.facing, this.cellM,
-                                      Combat.shotDamage(relics, slot) * dmgMul);
+        // The tier sizes the shot too (a staff bolt grows with it — both its
+        // sweep and its drawn dot, stamped on the shot by spawnShot).
+        const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
+                                      Combat.shotDamage(relics, slot) * dmgMul,
+                                      relics[slot].tier);
         if (shot) this._shots.push(shot);
       }
     } else {
@@ -5833,13 +5828,15 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
-      if (spec.dotPx) {
+      if (s.dotPx) {
         // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
-        // a thrown thing, an arrow as a flying line.
+        // a thrown thing, an arrow as a flying line. Its radius is the shot's
+        // own (stamped by Combat.spawnShot from the staff's tier, off the same
+        // scale as the radius it hits with), never the spec's base dotPx.
         g.fillStyle(spec.color, 0.95);
-        g.fillCircle(hx, hy, spec.dotPx);
+        g.fillCircle(hx, hy, s.dotPx);
         g.lineStyle(1, 0xffffff, 0.5);
-        g.strokeCircle(hx, hy, spec.dotPx);
+        g.strokeCircle(hx, hy, s.dotPx);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -6081,10 +6078,9 @@ class MapScene extends Phaser.Scene {
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
-      // A giant is its base kind for the bounty board: "defeat 3 goblins" is
-      // satisfied by a giant goblin, which is a goblin and then some.
-      const questKind = MONSTERS[victim.kind]?.giant || victim.kind;
-      const qDone = Quests.onKill(save, questKind);
+      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+      // never credit toward its base kind's.
+      const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
