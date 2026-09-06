@@ -301,4 +301,48 @@ test('lighting: the plateau cells land on the lit level, pink when tired', () =>
   assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the pink');
 });
 
+test('lighting: the plateau eases down toward the reach rim, and the step at the rim still wins', () => {
+  assert.inRange(Lighting.PLATEAU_FALL, 0.08, 0.30, 'a little — shading, not a second falloff');
+  for (const [depth, day] of [[0, 1], [0, 0.5], [0, 0], [1, 1], [3, 1]]) {
+    for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
+      const p = Lighting.profile(scene({ depth, save: sv }), day);
+      const tag = `depth ${depth} daylight ${day} energy ${sv.energy}`;
+      near(Lighting.plateauLevel(p, 0), p.lit, 1e-12, `full at the feet (${tag})`);
+      near(Lighting.plateauLevel(p, 1), p.lit * (1 - Lighting.PLATEAU_FALL), 1e-12, `PLATEAU_FALL down at the rim (${tag})`);
+      assert.eq(Lighting.plateauLevel(p, 1.7), Lighting.plateauLevel(p, 1), `flat past the rim (${tag})`);
+      assert.gt(Lighting.plateauLevel(p, 0.5), (Lighting.plateauLevel(p, 0) + Lighting.plateauLevel(p, 1)) / 2,
+        `quadratic: the middle stays near full, the easing gathers at the edge (${tag})`);
+      let prev = Infinity;
+      for (let t = 0; t <= 1; t += 0.05) {
+        const L = Lighting.plateauLevel(p, t);
+        assert.lte(L, prev, `never brightens with distance (${tag})`);
+        prev = L;
+      }
+      // The affordance: the darkest of the plateau (its rim) is still further
+      // above the ramp's edge level than the rim is below the feet.
+      const rim = Lighting.plateauLevel(p, 1);
+      assert.gt(rim - p.edge, p.lit - rim, `the step off the plateau outweighs the fall across it (${tag})`);
+      // And each stop's fill lands on its own level × litColour, per channel.
+      for (const t of [0, 0.5, 1]) {
+        const level = Lighting.plateauLevel(p, t);
+        const cell = Lighting.plateauCellColour(p, level);
+        for (const sh of [16, 8, 0]) {
+          const got = p.edge + (level - p.edge) * (ch(cell, sh) / 255);
+          const want = level * (ch(p.litColour, sh) / 255);
+          near(got, Math.min(want, level), 0.004, `stop ${t} channel ${sh} (${tag})`);
+        }
+      }
+    }
+  }
+  // draw() fills the reach-cell path with the gradient about the feet, out
+  // to the furthest corner a reach cell can put on the plateau.
+  const L = LIGHTING_SRC;
+  assert.truthy(/ctx\.fillStyle = plateauFill\(ctx, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
+    'the plateau fill is the gradient, centred on the feet-on-the-fix point');
+  assert.truthy(/const rim = r0 \+ CELL_PX \* Math\.SQRT1_2;/.test(L), 'the rim is the reach radius plus half a cell diagonal');
+  assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
+    'each stop is the cell colour at its level, over the ramp\'s edge');
+  assert.falsy(/rgba\(plateauCellColour\(prof\), prof\.lit - prof\.edge\)/.test(L), 'the flat plateau fill is gone');
+});
+
 })();

@@ -18,6 +18,7 @@
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
+//   Lighting.plateauLevel(prof, t)  — the plateau's light at t of the way to the rim
 //   Lighting.plateauCellPath(ctx, sx, sy, …) — one reach cell's rounded plateau path
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
@@ -54,7 +55,11 @@
 // maths, so the sharp edge of the lit area IS the staircase the white outline
 // traces and the tap gate accepts. Only the falloff outside it is a circle.
 // The outline itself stays on reachGfx: it marks what you can touch; the
-// light is only light.
+// light is only light. Inside the staircase the plateau is not flat: it is
+// the player's own lamp, full at the feet and easing down PLATEAU_FALL of
+// the way by the reach rim (plateauLevel), so the lit area reads as light
+// thrown from the body rather than a cut-out — the step down at its edge
+// is still the biggest thing in the picture.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
 // profile() reproduces the old wash for the white channel from the same two
@@ -279,6 +284,25 @@
     return prof.edge * (1 - Math.pow(t, FALLOFF_P));
   }
 
+  // The plateau's own falloff: how much of the lit level the player's lamp
+  // has given up by the reach rim. A little — the rim of the reach area is
+  // a touch darker than the feet, so the lit area reads as light thrown from
+  // the body — and quadratic in the distance, so the middle stays flat and
+  // the easing gathers at the edge. It is a fraction of `lit` (the derived
+  // level), not a fixed alpha, so it scales with the depth's bubble; the
+  // step down to `edge` at the staircase stays larger than this fall at
+  // every depth and hour (lighting.test.js pins it), because that step is
+  // the affordance and this is only shading.
+  const PLATEAU_FALL = 0.18;
+  const PLATEAU_STOPS = 6;
+
+  // The plateau's total light (ramp + cell fill) at t = distance / rim,
+  // 0 at the feet, 1 at the reach rim; clamped flat past it.
+  function plateauLevel(prof, t) {
+    const u = Math.max(0, Math.min(1, t));
+    return prof.lit * (1 - PLATEAU_FALL * u * u);
+  }
+
   // ── Collecting the frame's lights ────────────────────────────────────────
   // Positions are metres from the CAMERA ANCHOR, exactly as drawObjects
   // measures its sprites (dx, dy) — a light is a world-drawn thing, so it
@@ -423,17 +447,36 @@
     return st;
   }
 
-  // The colour the reach cells are filled with, at alpha (lit - edge), so that
-  // on top of the ramp's flat `edge` of white they land on exactly
-  // lit × litColour per channel — the plateau level, pink when tired.
-  function plateauCellColour(prof) {
-    const f = prof.lit - prof.edge;
+  // The colour the reach cells are filled with, at alpha (level - edge), so
+  // that on top of the ramp's flat `edge` of white they land on exactly
+  // level × litColour per channel — the plateau level, pink when tired.
+  // `level` defaults to the full lit level (the feet); the gradient in draw()
+  // asks for each stop's plateauLevel.
+  function plateauCellColour(prof, level) {
+    const L = level == null ? prof.lit : level;
+    const f = L - prof.edge;
     if (f <= 0) return 0xffffff;
     const ch = (sh) => {
-      const target = prof.lit * (((prof.litColour >> sh) & 255) / 255);
+      const target = L * (((prof.litColour >> sh) & 255) / 255);
       return Math.round(255 * Math.max(0, Math.min(1, (target - prof.edge) / f)));
     };
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  }
+
+  // The plateau's fill: a radial gradient about the feet, each stop the
+  // cell colour at that stop's level. The rim is the furthest a reach cell's
+  // corner can sit from the reach radius (half a cell's diagonal), so the
+  // darkest of the plateau is its true extremity; past it the last stop
+  // continues flat. Clipped by the per-cell path, so the staircase is exact.
+  function plateauFill(ctx, prof, cx, cy, r0) {
+    const rim = r0 + CELL_PX * Math.SQRT1_2;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rim);
+    for (let i = 0; i <= PLATEAU_STOPS; i++) {
+      const t = i / PLATEAU_STOPS;
+      const level = plateauLevel(prof, t);
+      g.addColorStop(t, rgba(plateauCellColour(prof, level), level - prof.edge));
+    }
+    return g;
   }
 
   // A fire's breath: two sines at unrelated rates, phased by where it stands
@@ -549,7 +592,7 @@
         const ddy = (baseCellIY + (r - half) - rp.cellIY) * scene.cellM;
         return ddx * ddx + ddy * ddy <= reachM2;
       };
-      ctx.fillStyle = rgba(plateauCellColour(prof), prof.lit - prof.edge);
+      ctx.fillStyle = plateauFill(ctx, prof, ps.x - ox, ps.y - oy, r0);
       // ONE path, ONE fill: the cells abut on integer px so the union fills
       // seamlessly, and under 'lighter' a single fill adds the plateau once
       // (a fillet a second cell repeated would not double up either).
@@ -594,6 +637,7 @@
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
+    PLATEAU_FALL, plateauLevel,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, plateauCellPath, draw,
   };
