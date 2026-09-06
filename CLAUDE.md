@@ -326,14 +326,13 @@
   (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
   hangs just clear of the cell's top edge — or of the player's HEAD on their
   own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
-  drop — and ticks a thin outline on the cell in the same ink so the reader
-  is told WHICH cell. That tick is for OTHER cells only: the player's own
-  cell never raised the question (the number is already on the body), and
-  ringing it just circled the character in red or green on every rest tick,
-  leech and spend underfoot. `_isPlayerCell(ix, iy)` is the one test both
-  halves read — `_energyPopAt` anchors on the body when it's true,
-  `_popCellNumber` skips the outline when it is — so where the number hangs
-  and which cell is ticked can't drift apart. It wears the `cell` toast tier: bold, stroked and
+  drop, `_isPlayerCell(ix, iy)` being the test that picks the body — so where
+  the number hangs is what tells the reader WHICH cell. **The number is the
+  whole mark: nothing is drawn on the ground.** A thin outline used to tick on
+  the cell under it in the same ink, which read as a flash of red or green
+  damage on whatever you had just tapped; it was removed in Sep 2026 along
+  with `_flashCellOutline`, and adding a ring back is the bug returning.
+  It wears the `cell` toast tier: bold, stroked and
   drop-shadowed, no chip, because it sits on any ground at all. Until Sep
   2026 the rest splash was a note at the viewport centre minus 70px and the
   drains sat 40px above the same point — nowhere in particular, and under a
@@ -375,6 +374,27 @@
   gate it on `working`.**
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
+
+- **A trap is generated, never stored — until it is sprung.** Where the traps
+  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
+  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
+  the cave rocks. The ONLY thing that ever reaches the save is
+  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
+  what keeps a discovered trap discovered across a reload, a tile eviction and
+  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
+  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
+  one rng and taking numbers out of them would re-roll every world seed
+  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
+  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+  `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
+  above, not a copy of it. Cave traps sit around the up-staircases (the
+  monsters' and coins' anchors) and never under an object sprite, since down
+  there the art is the only warning. The per-frame tick reads
+  `playerToWorldCell()` — the FEET, never the peek anchor — and both costs pop
+  through `_popEnergy` on the trap's own cell.
+  **Audit it:** `node test/node/run.js` › `test/node/traps.test.js`, which also
+  runs both procedural textures against a recording 2D context and fails if the
+  hidden one stops being subtle or either leaves its cell.
 
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
   Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
@@ -442,6 +462,44 @@
   derived levels, the table, the collector, the source pins) and
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
+
+- **What an item DOES is written on the ITEM, not in the Book.** There are
+  four description surfaces, and the player reads every one while HOLDING the
+  thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line
+  under the selected stack), `RELIC_DEFS[slot].blurb` (the same line for a
+  relic, plus the Stats panel's per-slot row), the Eat button's `+N⚡` for a
+  food, and the Stats panel's `+N max energy` for armour. **`PLAY_TIPS` is not
+  one of them.** A Book is a consumable: spending one to be told what the
+  inventory bar was already showing is a wasted read, and the two copies drift.
+  Until Sep 2026 a THIRD of the list was that — the Rope tip and
+  `ITEM_EFFECTS.rope` said the same sentence twice, the Hoe tip was its blurb
+  reworded, and one tip explained what a Book does, which you could only read
+  by burning a Book. The drift was real and shipped: the Bow/Staff tip still
+  said "one shot a second" long after `Combat.FIRE_INTERVAL_MS` was halved to
+  2000, and the tool tip still said a Wood relic was "three times quicker"
+  after `TOOL_DURATION_MS[1]` moved 3000 → 4000 ms (it is 2.25×).
+  A tip carries what no single item can — where things grow, how a shop or a
+  gate behaves, what an animal wants, what a readout means, a riddle. **When a
+  tip and a description overlap, the description wins and the tip goes**; if the
+  tip carried a fact the line didn't, move the fact onto the line (keep it
+  short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
+  **The one exception is the one SECRET.** What an item secretly does is not a
+  description — printing it spoils it. `ITEM_EFFECTS.sapphire` read `Offer to a
+  slime to tame it` until Sep 2026: the game's single real secret, on the
+  inventory bar the instant anyone held a sapphire, while the gem's ADVERTISED
+  use (the portal down, its own Portal button) went undescribed. The line names
+  the portal now, and the taming is hinted in exactly one place — the closing
+  riddle in `PLAY_TIPS`, which says "creature" before it says "slime". Nothing
+  else names it: `ANIMAL_FOOD.slime` is unreachable through `animalLikesFood`
+  in practice (a slime is an enemy, so `interact.js` takes the sapphire branch
+  and then the combat branch long before the favourite-food path), so no
+  "it wants X" hint can leak it. **When an item has a secret use, its ✦ line
+  describes the open one.**
+  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
+  sweeps every tip against every description for word overlap (three distinct
+  words is a restatement), re-checks that the sweep still catches the six real
+  tips deleted in the prune, pins that the facts they carried landed on the
+  items, and pins the sapphire's one-hint rule.
 
 ## Testing
 

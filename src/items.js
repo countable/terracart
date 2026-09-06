@@ -606,6 +606,24 @@ const STARTING_MONEY = 50;
 // pool is too low.
 // === Book of Tips ============================================
 // Non-obvious play tips revealed when the player uses a Book consumable.
+//
+// WHAT DOES *NOT* BELONG HERE: what a single item or relic DOES. That is the
+// item's own description — ITEM_EFFECTS below (the "✦ …" line under the
+// selected stack) for a consumable or material, RELIC_DEFS.blurb (the same
+// line for a relic, plus the Stats panel's per-slot row) for a relic, the Eat
+// button's "+N⚡" for a food, and the Stats panel's "+N max energy" for armour.
+// The player reads those while HOLDING the thing, exactly when the answer is
+// wanted; a Book that restates them spends a consumable to tell you something
+// the inventory bar was already showing, and the two copies then drift apart.
+// Until Sep 2026 a third of this list was that — the Rope tip and
+// ITEM_EFFECTS.rope said the same sentence twice, the Hoe tip was its blurb
+// verbatim, and one tip explained what a Book does, which you could only read
+// by burning a Book. When a tip and a description overlap, the description
+// wins and the tip goes.
+//
+// What a tip IS for: knowledge no single item can carry — where things grow,
+// how a shop or a gate behaves, what an animal wants, what a screen readout
+// means, and the odd riddle pointing at a secret.
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
 // Ordered roughly by relevance to a NEW player: the first-hour basics
@@ -626,18 +644,13 @@ const PLAY_TIPS = [
   'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
   'Stand inside any building to rest — a full bar in five minutes. Your own home does it in ninety seconds.',
   'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
-  'Every tool works bare-handed — just slowly. A Wood relic is three times quicker, a Frost one thirty.',
-  'Armour is not just protection: each piece you equip raises your maximum energy.',
+  'Every tool works bare-handed — just slowly. A Wood relic is twice as quick, a Frost one thirty times.',
   // ── The farming loop ──────────────────────────────────────
-  'A better Hoe makes a better BED: the tier you till with is the quality the crop pays out — bonus seeds and a bigger yield.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
-  'A Watering Can can spring a crop a whole stage the moment you water it — never bare-handed, always at Frost.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
+  'Crows raid ripe crops but never touch potatoes.',
   // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks are buried in car parks — every parking lot hides one.',
-  'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
-  'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only violet ones can reach Frost.',
   'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
   // ── Underground ───────────────────────────────────────────
@@ -645,7 +658,6 @@ const PLAY_TIPS = [
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
-  'A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
@@ -658,35 +670,16 @@ const PLAY_TIPS = [
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
   'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
   'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
+  'A Ring is never sold, forged or found in a chest — the wizard is the only source.',
   'The castle guard posts quests: cull ten slimes, find the old well, then bring a sapphire up from level 3.',
   'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
-  // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell price — a Frost sword doubles what the trailer pays for a haul.',
-  'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
-  'A Bow or Staff shoots on its own — one shot a second, while a foe is on screen.',
-  'Arrows fly where the compass points, not at what you tap. Turn to aim.',
-  'A Staff bolt seeks the nearest foe on its own — no aiming, but each bolt costs a little energy.',
-  'A better Staff throws a bigger bolt: a Frost bolt is twice the size of a Wood one, and sweeps up more foes.',
-  'The ring over a foe is its health, not a timer — green, then amber, then red.',
-  'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
-  'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
-  'An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
-  'A bigger Bag relic raises how many of each item one slot can hold: 9 bare-handed, 249 at Frost.',
-  'A Hoe makes tilling cheaper — and, now and then, free.',
-  'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
-  // ── Consumables / placeables ──────────────────────────────
-  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
-  'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
-  'Set out a jar of Honey to draw every chicken and cow within 30m toward you.',
-  // ── Food side-effects ─────────────────────────────────────
-  'Rainberry waters every crop within 20m when you eat it.',
-  'An Iceflower restores 150 energy — the biggest meal in the world.',
-  'A Mango is the universal treat: feed one to tame any wild animal. Cave monsters are the exception.',
+  // ── Reading the screen ────────────────────────────────────
+  'The bar over a foe is its health, not a timer — green, then amber, then red.',
   // ── World / map ───────────────────────────────────────────
+  'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
-  'Hold rock and tap an empty tile to drop a stone fence.',
   // ── Animals ───────────────────────────────────────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
@@ -712,12 +705,19 @@ const ITEM_EFFECTS = {
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
   coffee:    'Eat for +1 amulet tier of stick-walking speed (3 min)',
-  // Universal tame treat — fed to any wild creature.
-  mango:     'Feed to instantly tame any wild animal',
-  // Offered to a slime to calm it (the secret gem).
-  sapphire:  'Offer to a slime to tame it',
+  // Universal tame treat — fed to any wild creature. Cave monsters are the
+  // one exception, and the line says so: it is the only place that caveat is
+  // written now that the Book no longer repeats the mango's effect.
+  mango:     'Feed to tame any wild animal — never a cave monster',
+  // The sapphire's ADVERTISED use — the one its Portal button opens, and the
+  // only one this line may name. Until Sep 2026 it read "Offer to a slime to
+  // tame it": the game's one real secret, printed on the inventory bar the
+  // instant anyone selected a sapphire, while its actual function went
+  // undescribed. The taming is hinted in exactly one place now — the closing
+  // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
+  sapphire:  'Use to open a portal one level down',
   // Consumables used on yourself / the world.
-  honey:        'Set out to lure nearby chickens & cows toward you',
+  honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink for full-screen reach (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
@@ -726,6 +726,10 @@ const ITEM_EFFECTS = {
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
   rope:          'Use to climb up or lower down one level, right here',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
+  // Materials that are also placeables — held-and-tapped, so the line has to
+  // say so or nothing does (a rock in the bag looks like pure sell value).
+  rock:         'Hold and tap an empty tile to drop a stone fence',
+  coal:         'Burn on bare ground to make a campfire',
 };
 
 const STARTING_ENERGY = 100;
@@ -788,7 +792,11 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
-  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
+  // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
+  // Not reachable through animalLikesFood in practice: a slime is an enemy, so
+  // interact.js takes the sapphire branch and then the combat branch long
+  // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
@@ -829,26 +837,30 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own while an enemy is on screen: the bow
-  // along the compass every 2 s, the staff at the nearest foe in range every
-  // 4 s (Combat.fireIntervalMs). They fight ENEMIES and nothing else: the
-  // crow/deer hunt wheel is the BUG NET's job, not theirs. On top of the
-  // fighting, the Sword raises sell values and the Bow lowers buy prices; the
-  // Staff bends no prices at all.
+  // are ranged — they fire on their own while an enemy is on screen, each on
+  // its OWN beat (Combat.fireIntervalMs): the bow along the compass every 2 s,
+  // the staff at the nearest foe in range every 4 s. The staff's slower beat
+  // is pacing, not a nerf — one bolt carries the extra beat's damage.
+  // These blurbs are the WHOLE disclosure for a weapon — the Book no longer
+  // carries a second copy — so the bow's blurb has to say it aims by the
+  // compass and the staff's that each bolt costs energy.
+  // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
+  // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
+  // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
+             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots along the compass · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'bolt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
-  // (Crops.waterJumpChance) of springing the crop a whole growth stage on the
+  // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
   // spot: nothing bare-handed, certain at Frost. It used to set produce
   // QUALITY as well, plus 2 more tiers while a refill charge bank held out;
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'watered crops spring ahead a stage' },
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
@@ -858,7 +870,7 @@ const RELIC_DEFS = {
   // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
   // watering can's until Sep 2026.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
-             effectKey: 'tillQuality',   blurb: 'cheaper tilling · better beds' },
+             effectKey: 'tillQuality',   blurb: 'cheaper tilling, sometimes free · the bed sets crop quality' },
   // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
   // the catch wheel (chicken / cow / cat / dog / rabbit / butterfly) and the
   // crow / deer HUNT wheel, which weapons used to speed. Bare hands work at

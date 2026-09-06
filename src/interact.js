@@ -534,7 +534,9 @@ const TAP_HANDLERS = [
     // which also means you can still kill the very slime that's draining you
     // when low on energy.
 
-    // Secret: slime can be tamed with a sapphire (hinted only via book tips).
+    // Secret: slime can be tamed with a sapphire. Hinted in ONE place — the
+    // closing riddle in PLAY_TIPS — and nowhere else: ITEM_EFFECTS.sapphire
+    // names the portal, which is the sapphire's advertised use.
     // Checked before the enemy branch below so the sapphire path wins over the
     // combat wheel — otherwise you'd stab the slime you meant to befriend.
     if (target.kind === 'slime') {

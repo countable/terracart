@@ -1175,6 +1175,11 @@ class MapScene extends Phaser.Scene {
     this.save = Object.assign(
       {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
+        // Ids of traps the player has SPRUNG. Where the traps are is generated
+        // from the tile's coordinates every time (src/traps.js) and never
+        // stored; this list is the only thing about them that is written down,
+        // and it is what keeps a discovered trap discovered across a reload.
+        sprungTraps: [],
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements
         // count. Starts empty: the player's first potato seeds come from a
@@ -1412,6 +1417,9 @@ class MapScene extends Phaser.Scene {
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
     makePotOfGoldTexture(this);
+    // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
+    // a discovered one. Temporary procedural stand-ins — see textures.js.
+    makeTrapTextures(this);
     // (Longgrass used to be a procedural canvas texture painted by
     // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
     // 'props' sheet, which reads as a hand-painted grass tuft consistent
@@ -1518,6 +1526,14 @@ class MapScene extends Phaser.Scene {
     this.buildingGeomContainer = this.add.container(0, 0);
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
+    // TRAPS — flat marks lying ON the ground (src/traps.js), so they belong
+    // with the ground decoration: above the terrain, the cobbles and the road
+    // linework the trap is laid beside, and BELOW the shadows, the sprites and
+    // (crucially) the lightmap. Under the lightmap is the point: a hidden trap
+    // is meant to be spottable in daylight and invisible in an unlit cave, and
+    // "how well lit is this cell" is the lightmap's answer, not a second
+    // brightness rule here.
+    this.trapContainer = this.add.container(0, 0);
     // Soft contact shadows under buildings — drawn just below the object
     // sprites so a house/tower visibly sits ON the ground instead of floating.
     this.shadowContainer = this.add.container(0, 0);
@@ -1743,6 +1759,7 @@ class MapScene extends Phaser.Scene {
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
+    this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
     // Generated once at scene-create so we don't need an art asset on disk.
@@ -1982,6 +1999,7 @@ class MapScene extends Phaser.Scene {
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
     this.padContainer.setMask(mask);
+    this.trapContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
     this.reachGfx.setMask(mask);
@@ -3033,6 +3051,140 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  // ── Traps ─────────────────────────────────────────────────────────────────
+  // Two costs, one cell. Walking onto a HIDDEN trap springs it: it is revealed
+  // for good (save.sprungTraps — the only thing about a trap that is ever
+  // stored) and takes Traps.STEP_ENERGY in one bite, with the pain effect.
+  // Staying on the sprung one bleeds Traps.STAND_ENERGY_PER_S — faster than any
+  // passive rest can refill, so waiting it out is never the answer and stepping
+  // off is.
+  //
+  // THE CAMERA IS NOT THE PLAYER (CLAUDE.md). Both gates read
+  // playerToWorldCell() — the feet — never the peek-aware view anchor: a drag
+  // must not spring a trap the body is nowhere near, and must not spare the
+  // body the one it is standing in.
+  //
+  // The trap under the player is memoised on the cell key, so the walk of the
+  // tile's trap list happens once per cell crossed (about once per 7 m) rather
+  // than every frame. The memo is deliberately NOT taken when the tile isn't
+  // cached yet — otherwise a trap would be missed for as long as the player
+  // stood on the cell they arrived at while it streamed in.
+  _tickTraps(dt) {
+    if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
+    const pc = this.playerToWorldCell();
+    const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
+    const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
+    if (key !== this._trapCellKey) {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+      if (!entry || !entry.traps) { this._trapHere = null; return; }   // retry next frame
+      this._trapCellKey = key;
+      this._trapHere = Traps.trapAt(entry, lix, liy);
+      // Stepping off ends the bleed: no partial second carries to the next trap.
+      this._trapDrainAccum = 0;
+      this._trapDrainPop = 0;
+    }
+    const trap = this._trapHere;
+    if (!trap) return;
+    // The cell the numbers land on — an ABSOLUTE cell, which is what _popEnergy
+    // wants (it is the trap's own cell, which is also the player's).
+    const ix = pc.tx * this.cellsPerTile + lix;
+    const iy = pc.ty * this.cellsPerTile + liy;
+
+    // First contact. spring() returns false for one already recorded, so this
+    // branch runs exactly once per trap however long the player stands on it.
+    if (Traps.spring(this.save, trap.id)) {
+      const before = this.save.energy ?? 0;
+      this.save.energy = Math.max(0, before - Traps.STEP_ENERGY);
+      const spent = before - this.save.energy;
+      this._painFlash();
+      // Say the real number: an empty bar loses nothing, so nothing is popped —
+      // the toast below is what tells the player what happened either way.
+      if (spent > 0) this._popEnergy(-spent, { ix, iy, label: '🪤 trap' });
+      this._warnIfTiring(before);
+      if (this.updateEnergyDOM) this.updateEnergyDOM();
+      const ps = this.playerScreen ? this.playerScreen() : null;
+      this.flash(`🪤 a trap! −${Traps.STAND_ENERGY_PER_S}⚡/s — step off`,
+        ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
+      // The reveal has to survive a reload, so it is written now rather than
+      // waiting on some later caller's persist.
+      if (typeof persistSave === 'function') persistSave(this.save);
+      return;   // the bite is this frame's cost; the bleed starts on the next
+    }
+
+    // Still standing on a sprung one. Float accumulator → whole pips, the same
+    // shape the passive rests use, so a fractional per-frame drain doesn't
+    // churn save.energy and the DOM every frame.
+    this._trapDrainAccum = (this._trapDrainAccum || 0) + Traps.STAND_ENERGY_PER_S * dt;
+    const pips = Math.floor(this._trapDrainAccum);
+    if (pips > 0) {
+      this._trapDrainAccum -= pips;
+      const before = this.save.energy ?? 0;
+      if (before > 0) {
+        this.save.energy = Math.max(0, before - pips);
+        this._trapDrainPop = (this._trapDrainPop || 0) + (before - this.save.energy);
+        this._flashPlayerHit();
+        this._warnIfTiring(before);
+        if (this.updateEnergyDOM) this.updateEnergyDOM();
+      }
+    }
+    // One throttled pop for everything the trap has taken this window — the
+    // slime-leech roll-up, for the same reason: a number a second stacks into
+    // an unreadable column.
+    const now = performance.now();
+    if (this._trapDrainPop > 0 && now - (this._lastTrapFlashT || 0) > 1200) {
+      this._lastTrapFlashT = now;
+      const drained = this._trapDrainPop;
+      this._trapDrainPop = 0;
+      this._popEnergy(-drained, { ix, iy, label: '🪤 trap' });
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
+  }
+
+  // THE PAIN EFFECT — what being bitten looks like. Three things, each on its
+  // own side of the reduced-motion line:
+  //   • a red chip burst off the BODY (Particles 'pain'), which is already 0
+  //     under prefers-reduced-motion by burstCount's own rule;
+  //   • a red pulse around the map's rim — the vignette's construction (nested
+  //     1px rings, since Phaser Graphics has no gradient) in the danger red,
+  //     faded out by one tween. A fade, not a flicker, so it stays on under
+  //     reduced motion: something has to mark the hit for a player who has
+  //     turned the rest off;
+  //   • a short camera shake, which is motion and is the one piece suppressed.
+  // Depth 92: above the vignette (90) and below the work wheel (95), and
+  // unmasked like both of them — it is UI about the body, not a world layer.
+  _painFlash() {
+    // The BODY's own channel first — the red flick + haptic buzz every other
+    // blow on the player uses (_flashPlayerHit). The rest of this method is
+    // what a trap adds on top of that: it is the biggest single hit in the
+    // game, so it also reaches the edges of the screen.
+    this._flashPlayerHit();
+    if (typeof Particles !== 'undefined' && this.playerScreen) {
+      const ps = this.playerScreen();
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) {
+        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY);
+      }
+    }
+    if (!this.add || !this.tweens || this.viewLeft == null) return;
+    const g = this.add.graphics().setDepth(92);
+    const x0 = this.viewLeft, y0 = this.viewTop, size = this.viewSize;
+    const RINGS = 12;
+    for (let i = 0; i < RINGS; i++) {
+      // Quadratic falloff inward, like the vignette's own soft ramp, so the
+      // red reads as blood at the edges of vision rather than as a red frame.
+      const a = 0.55 * (1 - i / RINGS) ** 2;
+      // The UI's own danger red (util.js), not a second one picked here.
+      g.lineStyle(1, parseInt(UI_DANGER.slice(1), 16), a);
+      g.strokeRect(x0 + i + 0.5, y0 + i + 0.5, size - i * 2 - 1, size - i * 2 - 1);
+    }
+    this.tweens.add({
+      targets: g, alpha: 0, duration: 420, ease: 'Sine.In',
+      onComplete: () => g.destroy(),
+    });
+    if (!this._reducedMotion) {
+      try { this.cameras.main.shake(160, 0.006); } catch (_) { /* no camera in a stub scene */ }
+    }
+  }
+
   // Debug: dump what worldgen actually produced for the tile under the player,
   // in a copyable form (routed through the #errbar overlay). DevTools isn't
   // reachable on a phone, so this is how we see how a real-world feature (e.g.
@@ -3580,6 +3732,24 @@ class MapScene extends Phaser.Scene {
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time
     // via this.save.picked.
     entry.wildplants = entry.wildplants || [];
+
+    // Traps ALONGSIDE the roads. Nothing about a trap is stored until it is
+    // stepped on: the placement is a pure function of the tile's coordinates
+    // (Traps.spawnSurface seeds its own rng off tx/ty, so it takes no draws out
+    // of the stream above and every existing world seed is untouched), and only
+    // save.sprungTraps ever reaches disk. Handed `_spawnOpts` — the SAME shared
+    // spawn options every other spawner in this method uses — so the road rule
+    // is the one in WorldGen.isSpawnCell, not a copy of it: a trap sits on the
+    // VERGE the drawn band stops at, never under the band. Plain assignment,
+    // not `||`: a rebuilt entry (see CLAUDE.md) arrives carrying nothing and
+    // re-runs this pass, and the draw is deterministic, so it lays the same set.
+    // No traps in test mode, for the reason the extra-X scatter skips it too:
+    // the browser harness walks the player over arbitrary cells and asserts on
+    // energy, and a trap under one of them would charge a run that never asked
+    // to step on one.
+    entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
+      ? Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts)
+      : [];
 
     // Treasure marks. Three streams:
     //  1) entry.treasure       — single legacy slot. Starter tile (guaranteed)
@@ -5432,6 +5602,23 @@ class MapScene extends Phaser.Scene {
       }
       entry.coinDrops = coins;
     }
+    // Cave traps — same anchors, same reason: a trap 200 cells out in the dark
+    // is a trap nobody ever meets. Seeded off its own stream (Traps.spawnCave),
+    // so the monster / rabbit / coin draws above keep the numbers they had.
+    // Every cell an object already holds is refused, so a trap is never laid
+    // under a rock or a staircase sprite — down here the art is the only
+    // warning there is, and an unlit cell already swallows most of it.
+    entry.traps = [];
+    if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
+      const occupiedIdx = new Set();
+      for (const o of (entry.objects || [])) {
+        const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+        const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+        occupiedIdx.add(oy * N + ox);
+      }
+      entry.traps = Traps.spawnCave(entry.grid, N, tx, ty, entry.tileEdgeM, depth,
+        anchors, occupiedIdx);
+    }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
   }
@@ -6061,6 +6248,12 @@ class MapScene extends Phaser.Scene {
     // foes actually are this frame) and BEFORE the wheel, which is where melee
     // damage lands.
     this._combatTick(dt);
+    // Did we just walk onto a trap, or are we still standing on one? Runs
+    // beside the fog reveal because it asks the same question — which cell are
+    // the player's FEET in — and answers it the same way (playerToWorldCell,
+    // never the camera anchor: a peek drag must not spring a trap two cells
+    // away, nor stop one under you from biting).
+    this._tickTraps(dt);
     this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
@@ -9047,11 +9240,11 @@ class MapScene extends Phaser.Scene {
   // the plot a till just paid for, the wall a dig just cost — defaulting to the
   // player's own cell when the change is to the body (a rest tick, a slime's
   // leech, an offline refill). The number hangs just clear of that cell's top
-  // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX)
-  // and a thin outline in the same ink ticks on the cell under it, so the eye
-  // is told WHICH cell earned or paid it, not just that something did — on
-  // every cell but the player's own, where the number is already on the body
-  // and a ring would just circle the character (see _popCellNumber).
+  // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX),
+  // which is what tells the eye WHICH cell earned or paid it. The number is
+  // the whole mark: until Sep 2026 a thin outline in the same ink also ticked
+  // on the cell under it, which read as a flicker of red or green damage on
+  // whatever you had just tapped. Don't add a ring back.
   //
   // Seated through the projection (_energyPopAt → worldMetersToScreen /
   // playerScreen), never off viewCenterX/Y: until Sep 2026 the rest splash was
@@ -9080,18 +9273,12 @@ class MapScene extends Phaser.Scene {
   // Any short number ON a cell — the energy pops above, and the "+$1" on the
   // cell a coin was just picked from (interact.js 'coindrop'). Seats the text
   // by _energyPopAt (clear of the cell's top edge, or of the player's head on
-  // their own cell), ticks the cell's outline in the same ink, and wears the
-  // `cell` tier. Falls back to the toast's centred default when (ix, iy)
-  // can't be projected.
+  // their own cell) and wears the `cell` tier — the seating is what points at
+  // the cell, so nothing is drawn ON the ground. Falls back to the toast's
+  // centred default when (ix, iy) can't be projected.
   _popCellNumber(text, color, ix, iy) {
     if (!this.add) return null;
     const at = this._energyPopAt(ix, iy);
-    // The tick answers WHICH cell — a question the player's OWN cell never
-    // raises: the number is already hanging over their head, on their body.
-    // Drawing it there ringed the character in red or green on every rest
-    // tick, leech and self-cell spend, which reads as a status effect on the
-    // player rather than a pointer at the ground. The body pop ticks nothing.
-    if (at.x != null && !this._isPlayerCell(ix, iy)) this._flashCellOutline(ix, iy, color);
     return this._toast(text, { tier: 'cell', color, ...at });
   }
 
@@ -9102,11 +9289,10 @@ class MapScene extends Phaser.Scene {
     this._popEnergy(amount);
   }
 
-  // Is (ix, iy) the cell the player is standing on? The ONE test both halves
-  // of a body pop read — where the number hangs (_energyPopAt anchors it on
-  // the body there) and whether a cell is ticked (_popCellNumber skips its
-  // outline there) — so the two can't drift into ringing a player the number
-  // isn't over, or leaving a cell unmarked that the number points at.
+  // Is (ix, iy) the cell the player is standing on? The test _energyPopAt
+  // reads to anchor a body pop on the character (their head) rather than on
+  // the ground, so a rest tick, a leech or a spend underfoot hangs where the
+  // player already is.
   _isPlayerCell(ix, iy) {
     if (ix == null || iy == null) return false;
     if (!this.startWorldM || !this.originPx || typeof playerReachCell !== 'function') return false;
@@ -9143,31 +9329,6 @@ class MapScene extends Phaser.Scene {
     return { ix: c.cellIX, iy: c.cellIY };
   }
 
-  // A one-pixel rounded outline on abs cell (ix, iy) in `color`, held and
-  // faded on the CELL tier's own clock so it leaves with the number it
-  // underlines. Screen-fixed once drawn, like the toast: both are gone in
-  // about a second, well before a walk could carry the cell away from them.
-  _flashCellOutline(ix, iy, color) {
-    if (!this.add || !this.tweens || !this.worldMetersToScreen) return;
-    if (!this.startWorldM || !this.originPx || typeof absCellCenterMeters !== 'function') return;
-    const c = absCellCenterMeters(this, ix, iy);
-    const p = this.worldMetersToScreen(c.x, c.y);
-    if (!p || !isFinite(p.x) || !isFinite(p.y)) return;
-    const S = TOAST_TIER.cell;
-    const g = this.add.graphics().setDepth(S.depth - 1);
-    // Clip to the map viewport like every other world-anchored layer.
-    if (this.enemyHealthGfx?.mask) g.setMask(this.enemyHealthGfx.mask);
-    g.lineStyle(1, parseInt(String(color).replace('#', ''), 16), 0.9);
-    const h = CELL_PX / 2;
-    // Inset 1.5px: a 1px stroke centred on a half-pixel lands crisp, and the
-    // inset keeps it off the neighbour's edge so it reads as THIS cell.
-    g.strokeRoundedRect(Math.round(p.x - h) + 1.5, Math.round(p.y - h) + 1.5,
-                        CELL_PX - 3, CELL_PX - 3, 3);
-    this.tweens.add({
-      targets: g, alpha: 0, duration: S.fade, delay: S.hold,
-      ease: 'Sine.In', onComplete: () => g.destroy(),
-    });
-  }
 
   // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
   // accumulator field, spends whole points into save.energy (capped at maxE),
