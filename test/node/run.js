@@ -207,6 +207,35 @@ try {
   }
 }
 
+// A TRAIL PRIZE is now a CHOICE, which splits one method into two: the card a
+// reward DRAWS as, and the payout it makes when the player keeps it. Nothing
+// may be granted by the drawing half — the option the player turns down is
+// rendered too — so both halves are lifted out of app.js and run for real on a
+// stub scene in trail.test.js, rather than pinned as source text that would say
+// nothing about what they actually pay.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_claimTrailReward' });
+  for (const k of ['_trailRewardCard', '_claimTrailReward']) {
+    if (typeof ctx.__trailPrize[k] !== 'function') {
+      console.error(`__trailPrize.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
 // The PEEK DRAG: the camera-offset maths (clamp, spring-back, where the player
 // sprite goes) plus the pointer-release rule that decides whether a pointer was
 // a tap or a drag. Both are lifted as text and run on a stub scene — the same

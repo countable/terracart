@@ -167,3 +167,148 @@ test('trail names: an unnamed way still becomes its own trail', () => {
   assert.truthy(only.startsWith('trail#'), `synthetic id, got "${only}"`);
 });
 })();
+
+// ── The prize is a CHOICE ─────────────────────────────────────────────────
+// A segment pays two rolls and the player keeps ONE. Two rules carry it:
+// the options must actually differ (Trail.rollChoices), and NOTHING may be
+// granted until the player picks — the roll they turn down was never theirs.
+// The second rule is the one that would silently break: the option not taken
+// still has to be drawn, so the drawing half must pay nothing at all. Both
+// halves are the real app.js methods, lifted by run.js and run on a stub
+// scene, so this tests what ships rather than a transcription of it.
+(() => {
+const T = Trail;
+const { _trailRewardCard, _claimTrailReward } = __trailPrize;
+
+// A scene stub carrying just what the two methods touch.
+const scene = (over = {}) => ({
+  save: { money: 0, inv: [], relics: {} },
+  taken: [],
+  addToInv(id, qty) { this.taken.push([id, qty]); },
+  iconSpanHTML: (id) => `<i>${id}</i>`,
+  gearIconHTML: (kind, slot, tier) => `<i>${kind}:${slot}:${tier}</i>`,
+  markRelicsDirty() {},
+  _trailRewardCard, _claimTrailReward,
+  ...over,
+});
+
+test('trail prize: two of a kind is not a choice', () => {
+  // Gold is gold and the same item is the same card, however the quantity
+  // lands — rolling either twice has to keep looking rather than offer the
+  // player a decision with one answer.
+  const gold = () => ({ kind: 'gold', amount: 7 });
+  assert.eq(T.rollChoices(gold).length, 1, 'gold twice collapses to one option');
+  let n = 0;
+  const sameItem = () => ({ kind: 'item', id: 'potato', qty: ++n });
+  assert.eq(T.rollChoices(sameItem).length, 1, 'the same item at a new qty is the same card');
+});
+
+test('trail prize: two different finds are offered as two', () => {
+  const rolls = [{ kind: 'gold', amount: 7 }, { kind: 'item', id: 'potato', qty: 2 }];
+  let i = 0;
+  const out = T.rollChoices(() => rolls[i++] || null);
+  assert.eq(out.length, 2, 'both are offered');
+  assert.eq(out[0].kind, 'gold', 'in the order they rolled');
+  assert.eq(out[1].id, 'potato', 'and the second is the other one');
+});
+
+test('trail prize: a gold roll and a gear roll are told apart by slot and tier', () => {
+  const pairs = [
+    [{ kind: 'relic', slot: 'axe', tier: 2 }, { kind: 'relic', slot: 'axe', tier: 2 }, 1],
+    [{ kind: 'relic', slot: 'axe', tier: 2 }, { kind: 'relic', slot: 'axe', tier: 3 }, 2],
+    [{ kind: 'relic', slot: 'axe', tier: 2 }, { kind: 'armor', slot: 'axe', tier: 2 }, 2],
+  ];
+  for (const [a, b, want] of pairs) {
+    let i = 0;
+    const got = T.rollChoices(() => [a, b][i++] ?? b);
+    assert.eq(got.length, want, `${T.rewardKey(a)} vs ${T.rewardKey(b)} → ${want} option(s)`);
+  }
+});
+
+test('trail prize: a picker with nothing to give ends the search', () => {
+  assert.eq(T.rollChoices(() => null).length, 0, 'no rolls, no prize');
+  let i = 0;
+  assert.eq(T.rollChoices(() => (i++ ? null : { kind: 'gold', amount: 3 })).length, 1,
+    'one roll then empty → one option, not an infinite retry');
+  assert.eq(T.rollChoices(null).length, 0, 'no picker at all is survivable');
+});
+
+test('trail prize: an unkeyable roll is never folded into another', () => {
+  // A reward shape trail.js does not recognise must not be treated as a
+  // duplicate — that would drop a prize the player earned.
+  const odd = () => ({ kind: 'mystery' });
+  assert.eq(T.rollChoices(odd).length, T.PRIZE_CHOICES, 'both odd rolls survive');
+});
+
+test('trail prize: rolling stops at PRIZE_CHOICES even when every roll differs', () => {
+  let n = 0;
+  const out = T.rollChoices(() => ({ kind: 'item', id: `x${n++}`, qty: 1 }));
+  assert.eq(out.length, T.PRIZE_CHOICES, 'never more than the offer');
+  assert.eq(T.PRIZE_CHOICES, 2, 'and the offer is two');
+});
+
+test('trail prize: DRAWING an option grants nothing', () => {
+  // The whole point: the option the player does not take is rendered too.
+  const s = scene();
+  for (const reward of [{ kind: 'item', id: 'potato', qty: 3 },
+                        { kind: 'gold', amount: 50 },
+                        { kind: 'relic', slot: 'axe', tier: 4 }]) {
+    const card = s._trailRewardCard(reward);
+    assert.truthy(card && card.name, `${reward.kind} draws a card`);
+  }
+  assert.eq(s.taken.length, 0, 'nothing reached the bag');
+  assert.eq(s.save.money, 0, 'no money moved');
+  assert.falsy(s.save.relics.axe, 'no gear was equipped');
+});
+
+test('trail prize: CLAIMING pays exactly the option taken', () => {
+  const s = scene();
+  const card = s._claimTrailReward({ kind: 'item', id: 'potato', qty: 3 });
+  assert.eq(s.taken.length, 1, 'one payout');
+  assert.eq(s.taken[0][0], 'potato', 'the item taken');
+  assert.eq(s.taken[0][1], 3, 'at its rolled quantity');
+  assert.truthy(card && card.name, 'and the claim hands back the card to announce');
+  assert.eq(card.qty, '× 3', 'quantity shown as the player sees it');
+
+  const g = scene();
+  g._claimTrailReward({ kind: 'gold', amount: 50 });
+  assert.eq(g.save.money, 50, 'gold lands in the purse');
+
+  const r = scene();
+  r._claimTrailReward({ kind: 'relic', slot: 'axe', tier: 4 });
+  assert.eq(r.save.relics.axe?.tier, 4, 'gear is equipped');
+});
+
+test('trail prize: consolation coins ride with the option taken, not the other', () => {
+  const s = scene();
+  s._claimTrailReward({ kind: 'item', id: 'potato', qty: 1, consolation: 9 });
+  assert.eq(s.save.money, 9, 'the claimed roll pays its consolation');
+  const d = scene();
+  d._trailRewardCard({ kind: 'item', id: 'potato', qty: 1, consolation: 9 });
+  assert.eq(d.save.money, 0, 'the drawn-but-unclaimed roll pays nothing');
+});
+
+test('trail prize: an unrecognised reward draws no card and pays nothing', () => {
+  const s = scene();
+  assert.falsy(s._trailRewardCard({ kind: 'mystery' }), 'no card');
+  assert.falsy(s._claimTrailReward({ kind: 'mystery' }), 'no claim');
+  assert.falsy(s._trailRewardCard(null), 'and null is survivable');
+  assert.eq(s.save.money, 0, 'nothing paid out');
+});
+
+// app.js can't load headlessly, so the wiring AROUND those two methods — that
+// the pick is what pays, and that the modal offering it can't be dismissed
+// without choosing — is pinned as source text.
+test('trail prize: the payout hangs off the button, not the offer', () => {
+  const app = APP_JS_SRC;
+  const at = app.indexOf('_firePathCompletionReward(name, onDismiss) {');
+  assert.gt(at, 0, 'found the prize path');
+  const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
+  assert.truthy(/actions: choices\.map\(/.test(body), 'the choice opens as an actions modal');
+  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(body),
+    'and each option only pays when its own button is clicked');
+  // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
+  // can't drop the prize — pin that the offer really is the actions variant.
+  assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
+});
+})();

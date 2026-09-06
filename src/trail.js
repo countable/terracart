@@ -73,8 +73,57 @@
   // Long enough to be worth walking?
   function qualifies(total) { return total >= MIN_TRAIL_CELLS; }
 
+  // ── The prize is a CHOICE ────────────────────────────────────────────────
+  // A segment pays PRIZE_CHOICES rolls and the player keeps ONE. Walking is
+  // the one reward loop with no decision in it — a chest is what it is, a shop
+  // is a price you accept or don't — so the trail is where a pick costs
+  // nothing and makes the walk yours.
+  //
+  // The offer has to be a real choice, which means the options must DIFFER.
+  // Two piles of gold, or the same item twice, is a decision with one answer,
+  // so rollChoices keeps rolling for a distinct option and gives up rather
+  // than presenting a fake one: it returns 1..PRIZE_CHOICES rewards and the
+  // caller shows the plain single-reward ceremony when it gets one. Distinct
+  // means "reads differently to the player" (rewardKey) — the same item at a
+  // different quantity is still the same card, and gold is gold.
+  const PRIZE_CHOICES = 2;
+  // Rolls to spend looking for a distinct option before settling for fewer.
+  // The lowtier curve is gold-heavy, so a couple of retries is the difference
+  // between an offer and a formality; past that it's just burning entropy.
+  const PRIZE_ROLL_TRIES = 6;
+
+  // What makes two rewards the same OFFER. Null for a reward with no shape we
+  // recognise — an unkeyable roll is never treated as a duplicate, because
+  // silently folding it into another would drop a prize the player earned.
+  function rewardKey(r) {
+    if (!r || !r.kind) return null;
+    if (r.kind === 'item')  return r.id ? `item:${r.id}` : null;
+    if (r.kind === 'gold')  return 'gold';
+    if (r.kind === 'relic' || r.kind === 'armor') return `${r.kind}:${r.slot}:${r.tier}`;
+    return null;
+  }
+
+  // Roll up to `count` rewards the player can choose between. `roll` is the
+  // caller's picker (app.js hands it pickReward, the tests a stub); it may
+  // return null, which ends the search — a picker with nothing to give won't
+  // start having something on the next call.
+  function rollChoices(roll, count = PRIZE_CHOICES, tries = PRIZE_ROLL_TRIES) {
+    if (typeof roll !== 'function') return [];
+    const out = [], keys = new Set();
+    for (let i = 0; i < tries && out.length < count; i++) {
+      const r = roll();
+      if (!r) break;
+      const k = rewardKey(r);
+      if (k !== null && keys.has(k)) continue;   // same card — roll again
+      if (k !== null) keys.add(k);
+      out.push(r);
+    }
+    return out;
+  }
+
   root.Trail = {
     SEGMENT_CELLS, MIN_TRAIL_CELLS,
     segmentIndex, segmentTarget, progress, maxPrizes, prizesEarned, qualifies,
+    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

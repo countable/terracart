@@ -11095,19 +11095,30 @@ class MapScene extends Phaser.Scene {
   // competing with the actual T4 epic POI chests. Routed through
   // showChestRewardModal so it shares the same fanfare + sparkles as chest
   // opens. `onDismiss` walks the prize queue on.
+  //
+  // THE PRIZE IS A CHOICE: a segment rolls Trail.PRIZE_CHOICES rewards and the
+  // player keeps ONE. Nothing is granted until they pick — the roll they turn
+  // down was never theirs — so the payout lives in _claimTrailReward and fires
+  // from the button, not from here. Trail.rollChoices owns the "the options
+  // have to actually differ" rule and may hand back a single reward (a picker
+  // with only one thing to give); that opens the plain one-reward ceremony it
+  // always did, rather than a choice with one answer.
   _firePathCompletionReward(name, onDismiss) {
-    const reward = (typeof pickReward === 'function')
+    const roll = () => ((typeof pickReward === 'function')
       ? pickReward('chest:lowtier', this.save, undefined, { tier: 4 })
-      : null;
+      : null);
+    const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
+      ? Trail.rollChoices(roll) : [roll()].filter(Boolean);
     // Unnamed trails carry a synthetic "trail#<tile>_<n>" key (worldgen's
     // naming pass) — show a generic title rather than the raw id.
     const title = name.startsWith('trail#') ? 'HIDDEN TRAIL' : name.toUpperCase();
-    if (!reward) {
+    const header = `${title} walked`;
+    if (!choices.length) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} walked`,
+        header,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
         color: UI_GOLD,
@@ -11115,30 +11126,99 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
+    if (choices.length === 1) {
+      // One option is not a choice — claim it and run the ceremony as before.
+      const card = this._claimTrailReward(choices[0]);
+      if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
+      this.showChestRewardModal({ kind: 'trail', header, onDismiss, ...card });
+      return;
+    }
+    // The pick. Each button IS a reward card (the shell takes HTML labels), so
+    // the player reads the two the same way they read a single ceremony. An
+    // actions modal has no tap-to-dismiss, so the prize can't be lost to a
+    // stray tap on the overlay.
+    this.showChestRewardModal({
+      kind: 'trail',
+      header,
+      iconHTML: '<span style="font-size:44px">💎</span>',
+      name: 'Take your pick',
+      sub: `${choices.length} finds — one is yours`,
+      onDismiss,
+      actions: choices.map((reward) => ({
+        label: this._trailChoiceLabel(reward),
+        onClick: () => {
+          const card = this._claimTrailReward(reward);
+          if (!card) return;
+          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
+                         card.color || UI_TREASURE, 1,
+                         reward.kind === 'item' ? reward.id : null);
+        },
+      })),
+    });
+  }
+
+  // The button face for one option: the reward's own icon over its name, so
+  // the two options read as two small ceremonies rather than two words.
+  // The card's `sub` is deliberately NOT drawn here — it's the ceremony's
+  // outcome line ("equipped"), and on an option the player hasn't taken yet
+  // that would state as done the very thing the button is asking about.
+  _trailChoiceLabel(reward) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return '';
+    const qty = card.qty
+      ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:78px">' +
+           `<div style="font-size:0;line-height:0">${card.iconHTML}</div>` +
+           `<div style="font-size:11px;font-weight:700;color:${card.color};line-height:1.2">${card.name}</div>` +
+           qty + '</div>';
+  }
+
+  // How ONE reward PRESENTS: icon, name, quantity, colour. Display only — it
+  // grants nothing, because an option the player didn't take still has to be
+  // drawn. _claimTrailReward is the half that pays out.
+  _trailRewardCard(reward) {
+    if (!reward) return null;
     if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty);
       const item = ITEM_BY_ID[reward.id];
-      const color = (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff');
-      const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '';
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} walked`,
-        iconHTML,
+      return {
+        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '',
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
-        color,
-        onDismiss,
-      });
-    } else if (reward.kind === 'gold') {
-      addMoney(this.save, reward.amount);
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} walked`,
+        color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
+      };
+    }
+    if (reward.kind === 'gold') {
+      return {
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
         color: UI_GOLD,
-        onDismiss,
-      });
+      };
+    }
+    if (reward.kind === 'relic' || reward.kind === 'armor') {
+      return {
+        iconHTML: this.gearIconHTML
+          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64) : '★',
+        name: (typeof gearName === 'function')
+          ? gearName(reward.kind, reward.slot, reward.tier)
+          : `${reward.slot} T${reward.tier}`,
+        sub: 'equipped',
+        color: UI_TREASURE,
+      };
+    }
+    return null;   // an unrecognised kind draws no card and opens no modal
+  }
+
+  // Pay out the reward the player KEPT — item into the bag, gold into the
+  // purse, gear equipped — and hand back its card so the caller can say what
+  // arrived. Consolation coins ride along with whatever was taken; a roll
+  // nobody claimed pays none.
+  _claimTrailReward(reward) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return null;
+    if (reward.kind === 'item') {
+      this.addToInv(reward.id, reward.qty);
+    } else if (reward.kind === 'gold') {
+      addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
       // slot). equipGearReward handles both and bumps energy for armor.
@@ -11148,29 +11228,9 @@ class MapScene extends Phaser.Scene {
         this.save.relics[reward.slot] = { tier: reward.tier };
         this.markRelicsDirty?.();
       }
-      const relicName = (typeof gearName === 'function')
-        ? gearName(reward.kind, reward.slot, reward.tier)
-        : `${reward.slot} T${reward.tier}`;
-      const iconHTML = this.gearIconHTML
-        ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64)
-        : '★';
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} walked`,
-        iconHTML,
-        name: relicName,
-        sub: 'equipped',
-        color: UI_TREASURE,
-        onDismiss,
-      });
-    } else if (typeof onDismiss === 'function') {
-      // An unrecognised reward kind opens no modal, so nothing would ever
-      // dismiss one — walk the queue on ourselves instead of stalling it.
-      onDismiss();
     }
-    if (reward.consolation > 0) {
-      addMoney(this.save, reward.consolation);
-    }
+    if (reward.consolation > 0) addMoney(this.save, reward.consolation);
+    return card;
   }
 
   // by shopInteract to route to the restore modal and by the render layer
