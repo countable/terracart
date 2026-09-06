@@ -223,14 +223,21 @@ const MODAL_LIFT_PX = 140;
 //   gain    — "you got something". Centred, pops in, can carry an icon.
 //   fanfare — jackpot / shiny. Biggest, keeps its own chip colour, overshoots
 //             and settles, and stacks ABOVE a gain (hence the depth gap).
-//   energy  — a "+N⚡" / "−N⚡" ON THE CELL the change belongs to (the tilled
-//             plot, the felled tree, the player's own cell for a rest tick or
-//             a slime's leech — see _popEnergy). No chip, like a note, because
-//             it sits on the map over the very thing it is about; but it is
-//             bold, STROKED and drop-shadowed, because that thing can be any
-//             ground at all (a road, a snowfield, a lit plot) and the number
-//             has to read against every one of them. Short and quick: a job
-//             pays one, a rest ticks one a second, and they must not pile up.
+//   cell    — a NUMBER ON THE CELL it belongs to: "+N⚡" / "−N⚡" on the tilled
+//             plot, the felled tree or the player's own cell for a rest tick
+//             or a slime's leech (_popEnergy), "+$1" on the cell a coin was
+//             picked from (_popCellNumber). No chip, like a note, because it
+//             sits on the map over the very thing it is about; but it is bold,
+//             STROKED and drop-shadowed, because that thing can be any ground
+//             at all (a road, a snowfield, a lit plot) and the number has to
+//             read against every one of them. Short and quick: a job pays one,
+//             a rest ticks one a second, and they must not pile up.
+//   damage  — the "-N" over a foe as a hit lands (_popDamageNumber). The cell
+//             tier's dress at the health bar's scale (it sits ON the bar, so it
+//             is the smallest text on the map) and the cell tier's stroke and
+//             shadow, because a foe stands on any ground too; quicker still,
+//             since a melee wheel lands one every beat, and it does not stack
+//             (a scatter of its own keeps back-to-back hits apart).
 //
 // dy is the offset from the viewport centre, and the ladder of values is what
 // lets a gain and a fanfare fired in the same moment stack instead of overlap.
@@ -242,9 +249,12 @@ const TOAST_TIER = {
   note:    { font: '12px',      stroke: 0, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 1, blur: 4 },
              pop: 0,   hold: 1300, fade: 700, rise: 30 },
-  energy:  { font: 'bold 13px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
+  cell:    { font: 'bold 13px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 700, fade: 500, rise: 14, ease: 'Sine.In' },
+  damage:  { font: 'bold 11px', stroke: 3, pad: 6,  padY: 4, depth: 96,  dy:  -70,
+             bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
+             pop: 90, popScale: 0.7, hold: 90, fade: 520, rise: 13, ease: 'Sine.Out' },
   sub:     { font: 'bold 16px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
              pop: 0,   fadeIn: 240, hold: 1800, fade: 700, rise: 60, ease: 'Sine.In' },
   gain:    { font: 'bold 22px', stroke: 3, pad: 10, padY: 5, depth: 101, dy:  -90,
@@ -6401,28 +6411,25 @@ class MapScene extends Phaser.Scene {
 
   // A floating "-N" over a foe as damage lands — the sword's melee wheel and
   // every bow/staff shot funnel through _damageEnemy, so they all pop the
-  // same way. Spawned at the health bar and drifting up into the sky above
-  // it; short-lived enough that it doesn't need to track a moving target.
+  // same way. Spawned at the health bar (projected off the foe's own world
+  // position, so a peek slides it with the foe) and drifting up into the sky
+  // above it; short-lived enough that it doesn't need to track a moving
+  // target. It is a `damage` toast: the one style table dresses it, so it
+  // wears the same stroke and drop shadow as every other number on the map
+  // rather than a hand-set style that drifts from them.
   _popDamageNumber(c, amount) {
     if (!this.add) return;                       // headless / teardown guard
     const screen = this.worldMetersToScreen(c.x, c.y);
     // Small horizontal scatter so back-to-back numbers (a bow hit landing
-    // mid-swing) read as separate hits instead of overprinting.
+    // mid-swing) read as separate hits instead of overprinting — which is
+    // also why it does NOT stack: a lift would undo the scatter.
     const jitter = Math.round((Math.random() - 0.5) * 10);
     const x = Math.round(screen.x) + jitter;
     const y = Math.round(screen.y) + Math.round(this._healthBarTop(c.kind)) - 3;
-    const t = this.add.text(x, y, `-${amount}`, {
-      font: fontMono('bold 11px'), color: '#ff8a75',
-      stroke: UI_SHADOW, strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(96).setAlpha(0.95);
     // Clip to the map viewport like every other world-anchored layer.
-    if (this.enemyHealthGfx?.mask) t.setMask(this.enemyHealthGfx.mask);
-    t.setScale(0.7);
-    this.tweens.add({ targets: t, scale: 1, duration: 90, ease: 'Back.Out' });
-    this.tweens.add({
-      targets: t, y: y - 13, alpha: 0,
-      duration: 520, delay: 90, ease: 'Sine.Out',
-      onComplete: () => t.destroy(),
+    this._toast(`-${amount}`, {
+      tier: 'damage', color: UI_DANGER_INK, x, y, stack: false,
+      mask: this.enemyHealthGfx?.mask,
     });
   }
 
@@ -8838,6 +8845,9 @@ class MapScene extends Phaser.Scene {
   //   color, bg     ink and chip colour
   //   dwellMul      scales hold + fade (a chest open lingers longer)
   //   padExtraLeft  reserve inside the chip for flashLoot's DOM icon
+  //   mask          clip to a geometry mask (a world-anchored pop takes the
+  //                 map viewport's, like every other world-anchored layer)
+  //   stack         false to skip the lift past other toasts
   _toast(text, opts = {}) {
     const S = TOAST_TIER[opts.tier || 'note'];
     const x = opts.x ?? this.viewCenterX;
@@ -8866,6 +8876,7 @@ class MapScene extends Phaser.Scene {
     }
     const t = this.add.text(x, y, text, style)
       .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
+    if (opts.mask) t.setMask(opts.mask);
     // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
     // edge rendered half a message ("Just out o") — and why a long item name
     // at 22px could still run off the 352px viewport in the loot pop, where
@@ -9009,9 +9020,20 @@ class MapScene extends Phaser.Scene {
       const p = playerReachCell(this);
       ix = p.cellIX; iy = p.cellIY;
     }
+    return this._popCellNumber(text, color, ix, iy);
+  }
+
+  // Any short number ON a cell — the energy pops above, and the "+$1" on the
+  // cell a coin was just picked from (interact.js 'coindrop'). Seats the text
+  // by _energyPopAt (clear of the cell's top edge, or of the player's head on
+  // their own cell), ticks the cell's outline in the same ink, and wears the
+  // `cell` tier. Falls back to the toast's centred default when (ix, iy)
+  // can't be projected.
+  _popCellNumber(text, color, ix, iy) {
+    if (!this.add) return null;
     const at = this._energyPopAt(ix, iy);
     if (at.x != null) this._flashCellOutline(ix, iy, color);
-    return this._toast(text, { tier: 'energy', color, ...at });
+    return this._toast(text, { tier: 'cell', color, ...at });
   }
 
   // Small green "+N⚡" on the player when energy is RECOVERED (passive rest,
@@ -9052,7 +9074,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // A one-pixel rounded outline on abs cell (ix, iy) in `color`, held and
-  // faded on the ENERGY tier's own clock so it leaves with the number it
+  // faded on the CELL tier's own clock so it leaves with the number it
   // underlines. Screen-fixed once drawn, like the toast: both are gone in
   // about a second, well before a walk could carry the cell away from them.
   _flashCellOutline(ix, iy, color) {
@@ -9061,7 +9083,7 @@ class MapScene extends Phaser.Scene {
     const c = absCellCenterMeters(this, ix, iy);
     const p = this.worldMetersToScreen(c.x, c.y);
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return;
-    const S = TOAST_TIER.energy;
+    const S = TOAST_TIER.cell;
     const g = this.add.graphics().setDepth(S.depth - 1);
     // Clip to the map viewport like every other world-anchored layer.
     if (this.enemyHealthGfx?.mask) g.setMask(this.enemyHealthGfx.mask);

@@ -871,7 +871,15 @@ const TAP_HANDLERS = [
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
     addMoney(save, 1);
-    scene.flash('+$1', sx, sy);
+    // The "+$1" lands ON the cell the coin was picked from, like every other
+    // number on the map (app.js _popCellNumber) — not at the finger, which
+    // is over the coin only until it lifts. A stub scene has no cell pops.
+    if (typeof scene._popCellNumber === 'function') {
+      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
+      scene._popCellNumber('+$1', UI_GOLD, cc.cellIX, cc.cellIY);
+    } else {
+      scene.flash('+$1', sx, sy);
+    }
     ctx.dirty = true;   // money changed — persist
     return true;
   }},

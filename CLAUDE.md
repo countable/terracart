@@ -312,16 +312,25 @@
   hangs just clear of the cell's top edge — or of the player's HEAD on their
   own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
   drop — and ticks a thin outline on the cell in the same ink so the reader
-  is told WHICH cell. It wears the `energy` toast tier: bold, stroked and
+  is told WHICH cell. It wears the `cell` toast tier: bold, stroked and
   drop-shadowed, no chip, because it sits on any ground at all. Until Sep
   2026 the rest splash was a note at the viewport centre minus 70px and the
   drains sat 40px above the same point — nowhere in particular, and under a
   peek drag two cells from anyone. **When you add an energy gain or loss the
   player can see, pop it with `_popEnergy` and name the cell** — a `flash` of
   a ⚡ number at the viewport centre is the bug coming back.
+  **Every other number on the map is the same thing.** `_popEnergy` is the
+  ⚡ face of `_popCellNumber(text, color, ix, iy)`, which the coin pickup's
+  `+$1` uses on the coin's cell (it used to flash at the finger, which is
+  over the coin only until it lifts). The foe's `-N` (`_popDamageNumber`)
+  stays on the foe's health bar — that IS its cell — but is a `damage` row
+  of the same `TOAST_TIER` table, so it wears the same stroke and shadow;
+  it was a hand-set `add.text` beside the table with no shadow. **A number
+  drawn on the map is a `_toast` tier, never its own `add.text`**, and it
+  names the cell or the foe it is about.
   **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
   the lifted seating on a stub scene (cell edge, head clearance, peek) and
-  pins the call sites and the tier as source text.
+  pins the call sites and the tiers as source text.
 
 - **Working is not resting.** The passive rests in `app.js` update() — Home
   (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
