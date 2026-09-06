@@ -833,7 +833,9 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
 // OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
 // demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
-// CHEST_TIER_HOME_RINGS_M, floor T1). The tier drives the sprite/gem in
+// CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
+// levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
+// mirrors (worldgen.js caveChestsFrom). The tier drives the sprite/gem in
 // render.js and the chestTierMod loot curve in rarity.js; only the loot roll
 // itself is random.
 
