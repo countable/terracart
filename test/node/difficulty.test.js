@@ -49,6 +49,7 @@
     assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
     assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
     assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
+    assert.gt(h.trapBiteMul, e.trapBiteMul, 'and bites harder on first contact');
     // What the mode deliberately leaves alone has no knob at all.
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
       assert.eq(k in h, false, `${k} is not a mode difference`);

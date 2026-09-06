@@ -67,6 +67,9 @@
                                  // to ever meet in practice (see traps.test.js).
                                  // Cave traps aren't here: they're flat-scaled by
                                  // Traps.DUNGEON_DENSITY_MUL regardless of mode.
+      trapBiteMul: 1,           // over Traps.STEP_ENERGY (10⚡) — the first-contact
+                                 // bite. The bleed rate (STAND_ENERGY_PER_S) does
+                                 // not scale with mode.
       // ── The doorstep ──
       // The one creature GUARANTEED beside the starting trailer, whatever the
       // biome roll gave the tile (app.js `_placeHomeGreeter`). It is the first
@@ -91,6 +94,7 @@
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
       trapCountMul: 100,        // hard means it: the verge is closer to a minefield
+      trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
     },
   };
