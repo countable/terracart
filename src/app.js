@@ -60,6 +60,10 @@ const CELL_PX = 32;
 // cell, so the number clears the pebble it belongs to without floating off
 // into the cell above it.
 const TRAIL_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
+// The trail prize modal's header — the kind label the ceremony overrides
+// (MODAL_KINDS). It used to be the count ("10 COBBLES WALKED"); the count now
+// lives on the stone's counter and in the pick's flavour line.
+const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';
 // How long a cobble has to stay IN SIGHT — inside the lit reach, continuously —
 // before it lights. Walking past a trail at the edge of the bubble no longer
 // harvests it in the frame it clips: the stones you bank are the ones you
@@ -273,7 +277,8 @@ const TOAST_TIER = {
 //
 // The label is the CATEGORY, not the specific offer — the flavour line under
 // it still carries that. Callers may override the label for a one-off outcome
-// ("30 cobbles walked") and keep the kind's icon; see showChestRewardModal.
+// (the trail prize's "Thou hast traveled far") and keep the kind's icon; see
+// showChestRewardModal.
 //
 // `supplies` exists because the tutorial's own material handout was opening as
 // TREASURE: the objective chip calls them supply crates, they render as the
@@ -11979,7 +11984,12 @@ class MapScene extends Phaser.Scene {
     // "where do I DRAW this?" goes through the projection). Falls back to the
     // centred toast if the cell can't be projected — a headless scene, or a
     // sweep before the camera exists.
-    const { pos, target } = Trail.progress(st.stones, st.prizes);
+    //
+    // Trail.readout, not Trail.progress: on the sweep that pays, the counter
+    // reads the goal just completed ("10/10"), so the stone and the prize
+    // modal agree; the carried remainder against the next, longer goal shows
+    // from the next sweep on.
+    const { pos, target } = Trail.readout(out);
     this._toast(`${pos}/${target}`, {
       tier: 'note', color: UI_TRAIL_LIT,
       ...this._trailCounterAt(at && at.ix, at && at.iy),
@@ -12064,9 +12074,13 @@ class MapScene extends Phaser.Scene {
       : null);
     const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
       ? Trail.rollChoices(roll) : [roll()].filter(Boolean);
-    // The header is the walk, not the way: "30 COBBLES WALKED". A trail has no
-    // name any more because the ladder no longer asks which one you were on.
-    const header = `${Trail.goalFor(Math.max(0, (n | 0) - 1))} cobbles walked`;
+    // The header is the walk, not the way — "THOU HAST TRAVELED FAR" — and a
+    // trail has no name any more because the ladder no longer asks which one
+    // you were on. The goal just completed (10, 20, 30 … stones) is the
+    // number the counter on the stone read when it paid (Trail.readout), and
+    // the pick's flavour line repeats it under the header.
+    const header = TRAIL_PRIZE_HEADER;
+    const walked = Trail.goalFor(Math.max(0, (n | 0) - 1));
     if (!choices.length) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -12096,7 +12110,7 @@ class MapScene extends Phaser.Scene {
       header,
       iconHTML: '<span style="font-size:44px">💎</span>',
       name: 'Take your pick',
-      sub: `${choices.length} finds — one is yours`,
+      sub: `${walked} cobbles walked · ${choices.length} finds — one is yours`,
       onDismiss,
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),
@@ -13473,7 +13487,7 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  // `header` is the legacy per-reward line ('30 cobbles walked', 'Restored!').
+  // `header` is the legacy per-reward line ('Thou hast traveled far', 'Restored!').
   // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what
