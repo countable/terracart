@@ -994,9 +994,12 @@ function effectiveTillCost(relics, rng) {
 // steps wandered between 1.25× and 1.67×, and the flat spot was exactly where
 // a new player lives: copper→iron bought 25%, so the first three relics — the
 // only ones reachable in the opening hour — felt like the same tool. In combat
-// that's the loudest, because a slime is BASELINE_HP and so its kill time in
-// seconds IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
-// was a wooden sword killing nearly as fast as an iron one. Wood also moved 3s
+// that's the loudest, because a foe of BASELINE_HP has a kill time in seconds
+// that IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
+// was a wooden sword killing nearly as fast as an iron one. (The surface slime
+// was that reference foe until Sep 2026; it is 10 HP now, so it dies in two
+// thirds of a rung — the ladder's SHAPE is what this paragraph is about, and
+// that is unchanged.) Wood also moved 3s
 // → 4s in the same pass, which is what opens the bottom of the curve up.
 //
 // TIER 0 = BARE HANDS is deliberately NOT on this curve. It stays at 9s, the

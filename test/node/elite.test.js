@@ -31,7 +31,8 @@ test('elite: a shiny cave monster has double HP; nothing else does', () => {
   }
   // The surface slime and game animals never become elites, shiny or not.
   assert.eq(Combat.isElite({ kind: 'slime', shiny: true }), false, 'shiny surface slime is not an elite');
-  assert.eq(Combat.maxHp({ kind: 'slime', shiny: true }), 15, 'and keeps its 15 HP');
+  assert.eq(Combat.maxHp({ kind: 'slime', shiny: true }), Combat.creatureMaxHp('slime'),
+    'and keeps its own fauna HP');
   assert.eq(Combat.isElite({ kind: 'deer', shiny: true }), false, 'a shiny deer is game, not an elite');
   assert.eq(Combat.maxHp({ kind: 'deer', shiny: true }), Combat.creatureMaxHp('deer'), 'unchanged HP');
 });

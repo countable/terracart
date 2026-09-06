@@ -72,7 +72,7 @@ test('combat: max HP comes from the monster table, then the fauna ladder', () =>
   // literal would only pin how stale this copy is. What is being tested is
   // which source answers, not what the number happens to be.
   assert.eq(Combat.creatureMaxHp('goblin'), MONSTERS.goblin.hp, 'monster table wins');
-  assert.eq(Combat.creatureMaxHp('slime'), 15, 'surface slime baseline (fauna, not the table)');
+  assert.eq(Combat.creatureMaxHp('slime'), 10, 'surface slime (fauna, not the table)');
   assert.eq(Combat.creatureMaxHp('dog'), 40, 'pet-combat ladder still answered here');
   assert.eq(Combat.creatureMaxHp('nonesuch'), 10, 'unknown kind falls back');
 });
@@ -103,6 +103,81 @@ test('combat: melee dps reproduces the OLD timed wheel exactly', () => {
         `tier ${tier} vs ${hp} HP: ${newMs} ms should match the old ${oldMs} ms`);
     }
   }
+});
+
+test('combat: the surface slime is the softest enemy in the game', () => {
+  // It is the FIRST enemy — met above ground, often with no sword at all — so
+  // nothing hostile may be cheaper to kill than it is. Pinned against the real
+  // monster table rather than a literal, so a soft new cave kind fails here
+  // rather than quietly stealing the tutorial foe's job.
+  for (const kind of Object.keys(MONSTERS)) {
+    assert.gt(Combat.creatureMaxHp(kind), Combat.creatureMaxHp('slime'),
+      `${kind} should be tougher than the surface slime`);
+  }
+  // And bare hands still finish it: the tier-0 rung is 9000 ms per 15 HP.
+  const bareMs = (Combat.creatureMaxHp('slime') / Combat.meleeDps({})) * 1000;
+  assert.lt(bareMs, 9000, 'a bare-handed slime kill is under the old 9 s');
+});
+
+// ── The melee cadence ───────────────────────────────────────────────────────
+
+test('combat: melee lands BLOWS, and the cadence cancels out of the rate', () => {
+  // The attack rate is a real number now (MELEE_INTERVAL_MS) rather than the
+  // damage-popup throttle app.js used to borrow for the swing animation. What
+  // it must NOT do is change how long a fight takes: one blow is one
+  // interval's worth of the tier's rung, so the delivered dps is the rung
+  // whatever the cadence. Slowing the beat makes blows chunkier, not fights
+  // longer — that is what keeps the kill-time identity above true.
+  for (const tier of [0, 1, 4, 7]) {
+    const relics = tier ? { sword: { tier } } : {};
+    const perSecond = Combat.meleeSwingDamage(relics) * (1000 / Combat.MELEE_INTERVAL_MS);
+    assert.inRange(perSecond - Combat.meleeDps(relics), -1e-9, 1e-9,
+      `tier ${tier}: blows must deliver exactly the melee rung`);
+  }
+  // The multiplier a caller applies to the swing (app.js passes 2 for the
+  // dragon) rides the blow, so it can't be applied twice or dropped.
+  assert.eq(Combat.meleeSwingDamage({ sword: { tier: 1 } }, 2),
+    2 * Combat.meleeSwingDamage({ sword: { tier: 1 } }), 'the dragon doubles one blow');
+  // One blow a second: slower than the 500 ms beat the slash used to run at,
+  // and slower than one drawn swing (SWORD_SWING_MS, 220) so arcs never
+  // overlap.
+  assert.eq(Combat.MELEE_INTERVAL_MS, 1000, 'one blow a second');
+});
+
+test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () => {
+  // The rate the player attacks at is a real cadence in app.js now. Pinned as
+  // source text because app.js never loads headlessly: what must not come
+  // back is the old per-frame `dps * dt` hose, which had no attack rate at all
+  // and banked partial damage from a fight broken off mid-beat.
+  const app = APP_JS_SRC;
+  const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
+  assert.truthy(/if \(now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
+    'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
+  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1\)/.test(wheel),
+    'and one blow is one interval of the rung, dragon bonus included');
+  assert.falsy(/const dps = Combat\.meleeDps\(this\.save\.relics\) \* \(this\.isDragonActive/.test(app),
+    'no per-frame melee drain may return');
+  // The slash rides the blow, so blade and number share the one cadence.
+  assert.falsy(/this\._nextSwingT/.test(app), 'the swing has no throttle of its own any more');
+});
+
+test('combat: the surface slime oozes slowly enough to walk away from', () => {
+  // Its speed IS its threat: it homes in on you and leeches energy by sitting
+  // on you, so a slime that keeps pace with a walk can never be left behind.
+  // Derived from the two gait constants and the base wander beat rather than
+  // pinned, so retuning either shows up here as a speed, not a diff.
+  const app = APP_JS_SRC;
+  const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(app)?.[1]);
+  const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(app)?.[1]);
+  const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
+  assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
+  assert.truthy(/c\.kind === 'slime' \? STEP_MS \* SLIME_STEP_MUL/.test(app),
+    'the cadence branch reads the constant');
+  assert.truthy(/const stepM = c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
+    'and so does the hop distance');
+  const mps = (hop * COMBAT_CELL_M) / ((beat * mul) / 1000);
+  assert.lt(mps, 0.7, `a slime oozes at ${mps.toFixed(2)} m/s — well under a walking pace`);
+  assert.gt(mps, 0.15, 'but it still closes on you eventually');
 });
 
 test('combat: bow and staff no longer shorten the melee wheel', () => {
