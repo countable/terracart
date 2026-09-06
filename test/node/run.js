@@ -1027,6 +1027,9 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+// The texture catalog, as text: assets.js is not bundled (it is data for the
+// Phaser loader), so a test that needs to know a sheet is declared pins it.
+ctx.ASSETS_SRC = readSrc('assets.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
 // source text — draw() is the one Phaser-bound function in the module.
 ctx.LIGHTING_SRC = readSrc('lighting.js');

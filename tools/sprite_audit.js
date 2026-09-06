@@ -241,6 +241,7 @@ const SHEETS = {
   pillar:        { file: 'assets/Objects/Wilderness/pillar.png',             fw: 16, fh: 32, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Scarecrow_16x16.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
+  torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
@@ -279,6 +280,7 @@ const SCENARIOS = [
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 2.0 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
+  { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
 ];
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────
