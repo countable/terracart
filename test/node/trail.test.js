@@ -10,14 +10,45 @@
   const T = Trail;
   const S = T.SEGMENT_CELLS;
 
-  test('trail: the segment cap is 20 stones', () => {
-    // The user-facing promise: a long trail asks for 20 at a time, not all
-    // of itself. Pinned as a literal so a retune is a deliberate edit here.
-    assert.eq(S, 20, 'SEGMENT_CELLS');
+  test('trail: a prize is about 200 metres of walking', () => {
+    // The ladder is a DISTANCE wearing a cell count. trail.js loads before
+    // worldgen.js so it can't do this division itself — this is the tripwire
+    // that keeps the written-out number and the real cell size together.
+    assert.eq(T.PRIZE_WALK_M, 200, 'the walk a prize costs');
+    assert.eq(S, Math.round(T.PRIZE_WALK_M / WorldGen.CELL_M),
+      `SEGMENT_CELLS is ${T.PRIZE_WALK_M}m of ${WorldGen.CELL_M}m cells`);
+    const walkM = S * WorldGen.CELL_M;
+    assert.inRange(walkM, T.PRIZE_WALK_M - 10, T.PRIZE_WALK_M + 10,
+      `a segment is ${walkM}m on the ground`);
+  });
+
+  test('trail: about ten pebbles light up between prizes', () => {
+    // The two halves of the same feel: render.js draws one stone per
+    // COBBLE_SPACING_M of path, the ladder pays per PRIZE_WALK_M of it, so the
+    // player watches ~10 stones come on and then gets something. Neither
+    // number means anything without the other, so they're pinned together.
+    assert.eq(Render.COBBLE_SPACING_M, 20, 'metres between pebbles');
+    const pct = Render.pathStonePct(WorldGen.CELL_M);
+    assert.eq(pct, Math.round(100 * WorldGen.CELL_M / Render.COBBLE_SPACING_M),
+      'the share is derived from the cell size, not authored');
+    const stones = S * pct / 100;
+    assert.inRange(stones, 8, 12, `${stones} stones drawn per prize`);
+  });
+
+  test('trail: the pebble share follows the cell size', () => {
+    // Cell size drifts with latitude (tileEdgeM / cellsPerEdge), which is why
+    // the share is computed rather than authored: the SPACING is what stays
+    // put, so smaller cells mean more of them per metre and a smaller share
+    // carrying a stone. Never zero and never over 100 — a cell wider than the
+    // spacing simply draws every stone.
+    assert.lt(Render.pathStonePct(3.5), Render.pathStonePct(7),
+      'half-size cells need half the share for the same spacing');
+    assert.eq(Render.pathStonePct(40), 100, 'a huge cell draws every stone');
+    assert.gt(Render.pathStonePct(0.1), 0, 'and a tiny one still draws some');
   });
 
   test('trail: a short trail counts against its own length', () => {
-    // The canonical example: a 9-cell trail reads 1/9 … 9/9, never 1/20.
+    // The canonical example: a 9-cell trail reads 1/9 … 9/9, never 1/S.
     for (let c = 1; c <= 9; c++) {
       const p = T.progress(9, c);
       assert.eq(p.pos, c, `stone ${c} is at position ${c}`);
@@ -25,40 +56,43 @@
     }
   });
 
-  test('trail: a long trail counts in 20s and restarts', () => {
-    assert.eq(T.progress(45, 1).target, 20, 'first segment wants 20');
-    assert.eq(T.progress(45, 20).pos, 20, 'stone 20 closes it');
-    assert.eq(T.progress(45, 21).pos, 1, 'stone 21 restarts the count');
-    assert.eq(T.progress(45, 21).target, 20, 'second segment wants 20 too');
-    assert.eq(T.progress(45, 41).pos, 1, 'and again at 41');
-    assert.eq(T.progress(45, 41).target, 5, 'but the remainder only wants 5');
-    assert.eq(T.progress(45, 45).pos, 5, 'the last stone closes the remainder');
+  test('trail: a long trail counts in segments and restarts', () => {
+    const total = 2 * S + 12;            // two full segments and a remainder
+    assert.eq(T.progress(total, 1).target, S, 'first segment wants a full one');
+    assert.eq(T.progress(total, S).pos, S, 'the S-th stone closes it');
+    assert.eq(T.progress(total, S + 1).pos, 1, 'the next restarts the count');
+    assert.eq(T.progress(total, S + 1).target, S, 'and wants a full one too');
+    assert.eq(T.progress(total, 2 * S + 1).pos, 1, 'and again on the third');
+    assert.eq(T.progress(total, 2 * S + 1).target, 12, 'but the remainder wants 12');
+    assert.eq(T.progress(total, total).pos, 12, 'the last stone closes it');
   });
 
-  test('trail: prizes = ceil(length / 20)', () => {
-    for (const [total, want] of [[1, 1], [8, 1], [20, 1], [21, 2], [40, 2],
-                                 [41, 3], [45, 3], [200, 10]]) {
+  test('trail: prizes = ceil(length / segment)', () => {
+    for (const [total, want] of [[1, 1], [S - 1, 1], [S, 1], [S + 1, 2],
+                                 [2 * S, 2], [2 * S + 1, 3], [10 * S, 10]]) {
       assert.eq(T.maxPrizes(total), want, `a ${total}-cell trail offers ${want}`);
     }
   });
 
   test('trail: a prize lands on every segment boundary, remainder included', () => {
-    // 45 cells: paid at 20, at 40, and again when the final 5 are lit.
+    // Two full segments and a 12-cell tail: paid at S, at 2S, and again when
+    // the tail is lit.
+    const total = 2 * S + 12;
     const paid = [];
     let last = 0;
-    for (let c = 1; c <= 45; c++) {
-      const n = T.prizesEarned(45, c);
+    for (let c = 1; c <= total; c++) {
+      const n = T.prizesEarned(total, c);
       if (n > last) { paid.push(c); last = n; }
     }
-    assert.eq(paid.join(','), '20,40,45', 'prizes at 20 / 40 / 45');
-    assert.eq(last, T.maxPrizes(45), 'and they add up to the trail\'s total');
+    assert.eq(paid.join(','), `${S},${2 * S},${total}`, 'prizes on each boundary');
+    assert.eq(last, T.maxPrizes(total), 'and they add up to the trail\'s total');
   });
 
   test('trail: an exact multiple pays no extra prize at the end', () => {
-    // 40 cells is two full segments — the remainder branch must not fire a
-    // third one when the last stone is also the 40th.
-    assert.eq(T.prizesEarned(40, 40), 2, 'two prizes, not three');
-    assert.eq(T.prizesEarned(40, 40), T.maxPrizes(40), 'matches the ceiling');
+    // Two whole segments — the remainder branch must not fire a third one
+    // when the last stone is also the last of a full segment.
+    assert.eq(T.prizesEarned(2 * S, 2 * S), 2, 'two prizes, not three');
+    assert.eq(T.prizesEarned(2 * S, 2 * S), T.maxPrizes(2 * S), 'matches the ceiling');
   });
 
   test('trail: prizes never exceed the ceiling, even over-claimed', () => {
@@ -66,7 +100,7 @@
     // trail has cells. It must not mint prizes out of that.
     assert.eq(T.prizesEarned(9, 99), T.maxPrizes(9), 'capped at the ceiling');
     assert.eq(T.prizesEarned(0, 5), 0, 'a zero-length trail pays nothing');
-    assert.eq(T.prizesEarned(20, 0), 0, 'and an unwalked one pays nothing');
+    assert.eq(T.prizesEarned(S, 0), 0, 'and an unwalked one pays nothing');
   });
 
   test('trail: a stub too short to be worth walking pays nothing', () => {

@@ -110,15 +110,30 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
-// Percent chance a path cell draws a decorative stepping-stone pebble at all.
-// A stone on every single 7m path cell read as a continuous paved strip rather
-// than scattered stepping stones (and busier than the dense ROAD cluster it's
-// supposed to look sparser than). The roll is permanent and does NOT consult
-// `active`: a cell that rolled no stone stays bare even once lit, because a
-// stone popping into existence where there wasn't one reads as a bug rather
-// than as "lighting up". Claiming still counts that cell toward the trail, so
-// thinning never costs the player progress — only pebbles.
-const PATH_STONE_DENSITY_PCT = 50;
+// METRES BETWEEN PATH PEBBLES. A stone on every single 7 m path cell read as a
+// continuous paved strip rather than scattered stepping stones (and busier
+// than the dense ROAD cluster it's supposed to look sparser than), so only a
+// share of the cells draw one.
+//
+// The share is DERIVED from this spacing and the tile's own cell size
+// (pathStonePct below), not authored as a percentage: a cell is
+// tileEdgeM / cellsPerEdge across, which drifts with latitude, so a fixed
+// percentage would put the stones further apart the further north you played.
+// Paired with Trail.PRIZE_WALK_M — a prize is 200 m of path and a stone is
+// every 20 m of it, so about ten stones light up between prizes.
+//
+// The roll is permanent and does NOT consult `active`: a cell that rolled no
+// stone stays bare even once lit, because a stone popping into existence where
+// there wasn't one reads as a bug rather than as "lighting up". Claiming still
+// counts that cell toward the trail, so thinning never costs the player
+// progress — only pebbles.
+const COBBLE_SPACING_M = 20;
+// Percent of path cells that draw a pebble, for a cell `cellM` metres across.
+// Clamped to 1..100 — a cell wider than the spacing still gets every stone.
+const pathStonePct = (cellM) =>
+  Math.max(1, Math.min(100, Math.round(100 * (cellM || 0) / COBBLE_SPACING_M)));
+Render.COBBLE_SPACING_M = COBBLE_SPACING_M;
+Render.pathStonePct = pathStonePct;
 // Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
 // cluster on every cell, which read as a continuously paved surface; at 15%
 // (an 85% cut) the clusters become occasional patches and the road band's own
@@ -1066,6 +1081,10 @@ Render.drawCells = function drawCells(scene) {
   scene._boot_crossing = borderDirty;
   scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
+  // One read per pass: the pebble share this tile's cell size works out to for
+  // COBBLE_SPACING_M (see above). Hoisted so a 121-cell pass doesn't redo the
+  // division per cell.
+  const stonePct = pathStonePct(scene.cellM);
   let noiseIdx = 0;
   let letterIdx = 0;
   // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
@@ -1574,10 +1593,10 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(absCellIY / N2);
           active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
         }
-        // Sparse PATH decoration: a deterministic chunk of path cells
-        // (PATH_STONE_DENSITY_PCT) never draw a pebble at all, claimed or
-        // not — a footpath is meant to read as scattered stepping stones,
-        // not a continuous paved strip. This sits ON TOP of the geometric
+        // Sparse PATH decoration: a deterministic chunk of path cells never
+        // draw a pebble at all, claimed or not — a footpath is meant to read
+        // as scattered stepping stones roughly COBBLE_SPACING_M apart, not a
+        // continuous paved strip. This sits ON TOP of the geometric
         // rule in worldgen: a cell is only PATH at all where the way really
         // crosses it (pathCross), and this then thins the stones along what
         // survives. This is PURELY decorative: claiming (walking/tapping)
@@ -1592,7 +1611,7 @@ Render.drawCells = function drawCells(scene) {
         let showStone = frame != null && !isTilled;
         if (showStone && type === PATH) {
           const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
-          showStone = (sh % 100) < PATH_STONE_DENSITY_PCT;
+          showStone = (sh % 100) < stonePct;
         } else if (showStone && isRoad(type)) {
           // Same stable per-cell hash trick as PATH above, gated by the road
           // density (ROAD_COBBLE_DENSITY_PCT) — purely decorative thinning.

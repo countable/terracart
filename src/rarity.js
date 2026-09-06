@@ -345,7 +345,15 @@
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
     // Deterministic chain. The context declares how many boost steps fire
-    // (chainSteps). Each step:
+    // (chainSteps), plus any ROLL BONUS the caller asked for — an extra step
+    // or two for a reward that cost the player more than walking up to a box
+    // (opts.rollBonus; the cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on
+    // it). A bonus step is worth the same as one of the context's own: a
+    // tier-up while the chain is under its cap, a quantity bracket after that,
+    // and the context's maxTier / chainMax still bound the result, so a bonus
+    // can lift a roll toward its ceiling but never above it. It does not touch
+    // a gear roll — those go through rollGearUpgrade on the chest tier alone.
+    // Each step:
     //   • 33% chance: qty-up (bracket++ if below cap, else nothing).
     //   • 67% chance: tier-up if below chainCap, else qty-up (fallback).
     // The chain never 'misses' — every step does something, which lets the
@@ -355,7 +363,8 @@
     // already at 3, or the class is single-stack so the bump never converts
     // to actual qty. Each wasted bump pays out small consolation coins.
     let wastedQtyBumps = 0;
-    const chainSteps = ctx.chainSteps ?? 0;
+    const chainSteps = (ctx.chainSteps ?? 0)
+      + Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
     const luck = ringLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {

@@ -72,3 +72,48 @@ test('pickReward: the ring nudges loot rarer on average (statistical, large N)',
   const ringed = meanTier({ relics: { ring: { tier: 7 } }, armor: {} });
   assert.gte(ringed + 1e-9, base, `ring mean tier ${ringed} >= base ${base}`);
 });
+
+// ── opts.rollBonus — the walk's extra chain steps ─────────────────────────
+// A cobble-trail prize costs ~200 m of walking, so it rolls the lowtier T4
+// curve plus Trail.PRIZE_ROLL_BONUS extra boost steps. A bonus step is worth
+// exactly one of the context's own: it lifts a roll toward the context's
+// ceiling and never above it.
+test('pickReward: a roll bonus lifts the average haul', () => {
+  const N = 600;
+  const save = () => ({ relics: {}, armor: {} });
+  // Tier and quantity are the two axes a chain step can move, so score both —
+  // a bonus that ran out of tier headroom spends itself on the stack instead.
+  const mean = (bonus) => {
+    let sum = 0, n = 0;
+    for (let s = 1; s <= N; s++) {
+      const r = pickReward('chest:lowtier', save(), seeded(s * 2246822519),
+                           { tier: 4, rollBonus: bonus });
+      if (r && r.kind === 'item') { sum += r.tier + Math.min(r.qty, 10) / 10; n++; }
+    }
+    return n ? sum / n : 0;
+  };
+  const base = mean(0);
+  const bonused = mean(Trail.PRIZE_ROLL_BONUS);
+  assert.gt(bonused, base, `bonused ${bonused} > base ${base}`);
+});
+
+test('pickReward: a roll bonus cannot break the context ceiling', () => {
+  // The lowtier T4 curve caps items at maxTier 7 and the chain at chainMax 4;
+  // a bonus is more steps, not a bigger cap.
+  for (let s = 1; s <= 300; s++) {
+    const r = pickReward('chest:lowtier', { relics: {}, armor: {} },
+                         seeded(s * 40503), { tier: 4, rollBonus: 5 });
+    if (r && r.kind === 'item') {
+      assert.truthy(r.tier <= 7, `tier ${r.tier} stays inside the ceiling`);
+      assert.truthy(r.qty >= 1, 'and the stack is real');
+    }
+  }
+});
+
+test('pickReward: no bonus asked for is the old roll, exactly', () => {
+  // Every other caller passes no rollBonus and must be untouched by it.
+  const a = pickReward('chest:lowtier', { relics: {}, armor: {} }, seeded(99), { tier: 4 });
+  const b = pickReward('chest:lowtier', { relics: {}, armor: {} }, seeded(99),
+                       { tier: 4, rollBonus: 0 });
+  assert.eq(JSON.stringify(a), JSON.stringify(b), 'rollBonus 0 changes nothing');
+});

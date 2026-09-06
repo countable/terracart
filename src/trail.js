@@ -11,11 +11,11 @@
 // get nothing" would have made roads pay nothing at all. So the requirement is
 // capped at SEGMENT_CELLS and restarts: a trail of N cells offers
 // ceil(N / SEGMENT_CELLS) prizes, and the LAST segment is the short remainder
-// (a 45-cell street pays at 20, at 40, and again when its final 5 are lit).
+// (a 70-cell street pays at 29, at 58, and again when its final 12 are lit).
 //
 // The counter the player sees is the position INSIDE the current segment
-// (`progress`), so a 9-cell trail reads 1/9 … 9/9 and a 45-cell street reads
-// 1/20 … 20/20 then 1/20 … 20/20 then 1/5 … 5/5.
+// (`progress`), so a 9-cell trail reads 1/9 … 9/9 and a 70-cell street reads
+// 1/29 … 29/29 then 1/29 … 29/29 then 1/12 … 12/12.
 //
 // Pure arithmetic on purpose: app.js can't load headlessly (it needs Phaser),
 // so keeping the rule here is what lets test/node/trail.test.js pin the real
@@ -25,14 +25,28 @@
   'use strict';
 
   // Stones per prize. Also the cap on a segment's requirement.
-  const SEGMENT_CELLS = 20;
+  //
+  // It's a DISTANCE wearing a cell count: one prize per PRIZE_WALK_M of path,
+  // so the ladder is tuned by how far the player actually walks rather than by
+  // a bare number of cells that means a different walk at a different cell
+  // size. A trail cell is WorldGen.CELL_M (7 m) across, so 200 m is ~29 of
+  // them, and render.js draws a pebble every COBBLE_SPACING_M (20 m) — about
+  // ten stones lighting up between prizes.
+  //
+  // The division is written out rather than computed because trail.js loads
+  // BEFORE worldgen.js (the reward ladder has no business being imported by
+  // the rasterizer). test/node/trail.test.js recomputes it against the real
+  // CELL_M, so the two numbers can't drift apart in silence.
+  const PRIZE_WALK_M = 200;
+  const SEGMENT_CELLS = 29;        // ≈ PRIZE_WALK_M / WorldGen.CELL_M
   // A trail shorter than this pays nothing and shows no counter. Every cobble
   // cell is named now (worldgen's wavefront), so without a floor a 2-cell
   // service-road stub would pop the full treasure ceremony.
   const MIN_TRAIL_CELLS = 8;
 
-  // Which segment the `claimed`-th stone belongs to (0-based). Stone 20 is the
-  // last of segment 0, stone 21 the first of segment 1 — hence the -1.
+  // Which segment the `claimed`-th stone belongs to (0-based). Stone
+  // SEGMENT_CELLS is the last of segment 0, the next one the first of segment
+  // 1 — hence the -1.
   function segmentIndex(claimed) {
     if (!(claimed > 0)) return 0;
     return Math.floor((claimed - 1) / SEGMENT_CELLS);
@@ -87,6 +101,14 @@
   // means "reads differently to the player" (rewardKey) — the same item at a
   // different quantity is still the same card, and gold is gold.
   const PRIZE_CHOICES = 2;
+  // Extra boost-chain steps the walk's roll gets over a plain chest of the
+  // same tier (app.js hands it to pickReward as opts.rollBonus). A trail
+  // prize already rolls on the most generous lowtier curve; the bonus is what
+  // makes 200 m of walking pay a little better than opening a box you
+  // happened to stand next to. One step, deliberately: each step is a
+  // near-certain tier-up (67%) or a quantity bracket, so two would put every
+  // prize on the ceiling and flatten the roll out entirely.
+  const PRIZE_ROLL_BONUS = 1;
   // Rolls to spend looking for a distinct option before settling for fewer.
   // The lowtier curve is gold-heavy, so a couple of retries is the difference
   // between an offer and a formality; past that it's just burning entropy.
@@ -122,8 +144,8 @@
   }
 
   root.Trail = {
-    SEGMENT_CELLS, MIN_TRAIL_CELLS,
+    SEGMENT_CELLS, MIN_TRAIL_CELLS, PRIZE_WALK_M,
     segmentIndex, segmentTarget, progress, maxPrizes, prizesEarned, qualifies,
-    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
+    PRIZE_CHOICES, PRIZE_ROLL_TRIES, PRIZE_ROLL_BONUS, rewardKey, rollChoices,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
