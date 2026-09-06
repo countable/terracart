@@ -187,6 +187,61 @@ test('lighting: a fire breathes, a house does not', () => {
   assert.gt(hi - lo, fire.flicker * 0.5, 'and actually moves');
 });
 
+test('lighting: the sun is where the almanac says', () => {
+  const T = (iso) => Date.parse(iso);
+  // Equinox noon on the equator at Greenwich: the sun is overhead.
+  assert.gt(Lighting.sunElevationDeg(T('2024-03-20T12:07:00Z'), 0, 0), 88, 'overhead at equinox noon');
+  assert.lt(Lighting.sunElevationDeg(T('2024-03-20T00:07:00Z'), 0, 0), -85, 'and underfoot at midnight');
+  // Midwinter noon at 60°N: 90 - 60 - 23.4 ≈ 6.6°.
+  const w = Lighting.sunElevationDeg(T('2024-12-21T12:00:00Z'), 60, 0);
+  assert.inRange(w, 5.5, 7.5, `midwinter noon at 60N is a hand above the horizon (${w.toFixed(2)})`);
+  // Longitude shifts the clock: noon at 90°W is 18:00 UTC.
+  assert.gt(Lighting.sunElevationDeg(T('2024-06-21T18:00:00Z'), 40, -90), 70, 'summer noon at 40N, 90W');
+  assert.lt(Lighting.sunElevationDeg(T('2024-06-21T06:00:00Z'), 40, -90), -20, 'is midnight there at 06:00 UTC');
+});
+
+test('lighting: daylight is a twilight ramp around the horizon', () => {
+  assert.eq(Lighting.daylightFromElevation(30), 1, 'high sun is full day');
+  assert.eq(Lighting.daylightFromElevation(Lighting.DAY_ELEV_DEG), 1, 'full from DAY_ELEV_DEG up');
+  assert.eq(Lighting.daylightFromElevation(Lighting.NIGHT_ELEV_DEG), 0, 'night from civil twilight\'s end down');
+  assert.eq(Lighting.daylightFromElevation(-40), 0);
+  near(Lighting.daylightFromElevation(0), 0.5, 1e-9, 'sunset is halfway');
+  let prev = 0;
+  for (let e = -10; e <= 10; e += 0.5) { const d = Lighting.daylightFromElevation(e); assert.gte(d, prev); prev = d; }
+});
+
+test('lighting: night darkens the world but not the Inner Light, and never a cave', () => {
+  const noon = Lighting.profile(scene(), 1), night = Lighting.profile(scene(), 0), dusk = Lighting.profile(scene(), 0.5);
+  assert.eq(noon.night, 0); assert.eq(night.night, 1);
+  assert.eq(Lighting.profile(scene()).night, 0, 'no daylight given means noon — the derivation tests above are clock-free');
+  assert.eq(night.dimA, Lighting.NIGHT_DIM_A, 'full night: the out-of-reach wash is the first cave level\'s');
+  assert.gt(dusk.dimA, noon.dimA); assert.lt(dusk.dimA, night.dimA);
+  const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
+  assert.lt(lum(night.ambient), lum(noon.ambient) * 0.5, 'the floor goes much darker');
+  assert.lt(night.edge, noon.edge, 'so does the ground just outside reach');
+  // The plateau: lit + floor still sums to full daylight on the surface.
+  near((1 - night.farA) + night.lit, 1, 1e-12, 'the reach bubble stays fully lit at night');
+  assert.eq(night.litColour, 0xffffff);
+  // A cave has no sun.
+  const caveDay = Lighting.profile(scene({ depth: 1 }), 1), caveNight = Lighting.profile(scene({ depth: 1 }), 0);
+  assert.eq(caveNight.night, 0);
+  assert.eq(caveNight.ambient, caveDay.ambient); assert.eq(caveNight.edge, caveDay.edge);
+});
+
+test('lighting: the frame reads the real sun at the player, once a minute', () => {
+  const s = scene();
+  // The test scene's projection puts the player at lon -180, lat ~85 — the
+  // sun there is whatever it is; what matters is that it is a number, cached
+  // by the minute, and that the override wins.
+  const a = Lighting.daylight(s, Date.parse('2024-06-21T12:00:00Z'));
+  assert.inRange(a, 0, 1);
+  s._daylight.value = 0.123;
+  assert.eq(Lighting.daylight(s, Date.parse('2024-06-21T12:00:30Z')), 0.123, 'same minute: cached');
+  assert.truthy(Lighting.daylight(s, Date.parse('2024-06-21T12:01:00Z')) !== 0.123, 'next minute: recomputed');
+  assert.eq(Lighting.daylight({ depth: 0 }, Date.now()), 1, 'no fix to place the sun by: noon');
+  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\)\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight');
+});
+
 // ── Source pins: the old passes are gone, the new path is wired ───────────
 test('lighting: the darkness passes are gone from drawCells', () => {
   const r = RENDER_SRC;

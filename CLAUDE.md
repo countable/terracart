@@ -331,6 +331,15 @@
   should be darker"). Retune a look through those; `AMBIENT_K` is the
   contrast knob, and another factor added in lighting.js breaks the
   correspondence the test pins.
+  **The surface picture is HIGH NOON, and the real sun darkens it.**
+  `Lighting.daylight(scene, now)` is 0..1 from the sun's elevation at the
+  player's lon/lat (`sunElevationDeg`, recomputed once a minute), a twilight
+  ramp from `DAY_ELEV_DEG` down to `NIGHT_ELEV_DEG`; `profile(scene, daylight)`
+  moves the out-of-reach wash toward `NIGHT_DIM_A` and drains its biome tint
+  to `NIGHT_TINT_KEEP`. The reach plateau is NOT darkened — it is the Inner
+  Light — and caves ignore the sun. `window.__DAYLIGHT = 0..1` forces it for
+  eyeballing. `profile()` with no daylight is noon, which is what keeps the
+  derivation tests clock-free.
   **The light table is `Lighting.KINDS`**, one row per source: the player, Home
   (`trailer` — the starter trailer or the house adopted in its place), a
   restored building (keyed on the SAME `isClaimedKey` test the derelict wash
