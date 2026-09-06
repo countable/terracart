@@ -490,6 +490,30 @@
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
 
+- **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
+  the budget for every `flash` / `flashLoot` — a toast drawn over the world, on
+  a phone, read at a glance while the player is looking at the cell they just
+  tapped. Past about thirty characters it stops being a glance and starts
+  covering the thing it describes. **The budget is the whole rendered line**,
+  including any name or number interpolated into it, and a `\n` toast gets it
+  per line.
+  So it is a real constraint on what a flash can SAY, and the answer when a
+  line does not fit is to cut the sentence — never to wrap it. Anything that
+  genuinely needs more room is a **modal** (`showMessageModal` /
+  `showOfferModal`), where the player has stopped to read: that is why the
+  consumable dialogs run to two clauses and their flashes do not.
+  Two consequences worth knowing before you write one. **Do not interpolate
+  anything unbounded**: a chest's POI name is arbitrary OSM text ('Saint
+  Someone Memorial Library and Reading Room'), so the till refusal names the
+  KIND instead. And when the budget forces a cut, cut the scaffolding, not the
+  information — 'A tree stands here — fell it first.' lost four words and kept
+  both the obstacle and the verb.
+  **Audit it:** `node test/node/run.js` › `test/node/copy_voice.test.js`
+  measures every static flash literal (a template is measured as its skeleton,
+  since its real width is a runtime value), the terrain table and every till
+  refusal, plus the name-bearing lines against the longest name the catalog
+  can actually produce.
+
 - **What an item DOES is written on the ITEM, not in the Book.** There are
   four description surfaces, and the player reads every one while HOLDING the
   thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line

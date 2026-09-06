@@ -39,10 +39,12 @@ test('copy: the till refusal names the obstacle and, where there is one, the ver
   // A house cannot be cleared, and offers no verb rather than a false hope.
   const house = tillBlockerLine({ kind: 'house' });
   assert.falsy(/first/i.test(house), 'a building promises no way to clear it');
-  // A named chest keeps its rustic name; an unnamed one still reads as English.
-  assert.truthy(/Scriptorium/.test(tillBlockerLine({ kind: 'chest', name: 'Library' })),
-    'a named chest is named, through rusticifyName');
-  assert.truthy(/chest/i.test(tillBlockerLine({ kind: 'chest' })), 'an unnamed one says what it is');
+  // A chest says what it is and never its NAME: a POI name is arbitrary OSM
+  // text, so interpolating one would put an unbounded string in a line with a
+  // thirty-character budget.
+  assert.truthy(/chest/i.test(tillBlockerLine({ kind: 'chest' })), 'a chest says what it is');
+  assert.eq(tillBlockerLine({ kind: 'chest', name: 'Library' }),
+            tillBlockerLine({ kind: 'chest' }), 'and the name changes nothing');
   // The catch-all is the point: ANY kind reaches a sentence, so a new object
   // kind can never print its own identifier at a player again.
   const unknown = tillBlockerLine({ kind: 'some_new_kind' });
@@ -66,7 +68,7 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
   assert.truthy(/cropName\(item\.grows\)/.test(INTERACT_SRC), 'it resolves the name instead');
   // A seed does nothing until its first watering — the flash is the one moment
   // the player is looking at the cell, so it is where that belongs.
-  assert.truthy(/Planted \$\{cropName\(item\.grows\)\} — water it\./.test(INTERACT_SRC),
+  assert.truthy(/\$\{cropName\(item\.grows\)\} — water it\./.test(INTERACT_SRC),
     'and the line nudges the watering the crop is waiting on');
 });
 
@@ -79,6 +81,202 @@ test('copy: "bag full" is one line raised from both call sites', () => {
   assert.falsy(/flash\('bag full'/i.test(APP_JS_SRC), 'neither casing survives as a literal');
   const msg = APP_JS_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
+});
+
+// ── Thirty characters, on the map ───────────────────────────────────────────
+// A flash is a toast over the world on a phone, read at a glance while the
+// player is looking at the cell they just tapped. util.js MAP_MSG_MAX is the
+// budget, and it covers the WHOLE rendered line — a name or a number
+// interpolated into it counts. Anything that needs more room is a modal.
+
+// Every static flash literal in the three files that own player-facing taps.
+function mapMessages() {
+  const out = [];
+  const files = { 'app.js': APP_JS_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC };
+  for (const [name, src] of Object.entries(files)) {
+    for (const m of src.matchAll(/flash(?:Loot)?\(\s*(['`])((?:[^\\]|\\.)*?)\1/g)) {
+      out.push({ file: name, raw: m[2] });
+    }
+  }
+  return out;
+}
+// Width of a line as the player sees it. An interpolation is measured at
+// INTERP_W — wide enough to stand for a wait ('43m'), a price ('$40') or a
+// small count, but NOT for a full item name, so any line that interpolates a
+// name is checked against the real thing at runtime below instead.
+// A template's real width depends on runtime values this sweep cannot know, so
+// it measures the SKELETON — every interpolation counted as one character. A
+// skeleton that already busts the budget is an unambiguous failure; the lines
+// whose width really rides on an interpolated NAME get their own worst-case
+// checks below, against the longest name the catalog can produce.
+const INTERP_W = 1;
+// An interpolation that is a ternary between two string LITERALS is a
+// pluralisation or a prefix — measure the longer branch, not the placeholder,
+// or `${n === 1 ? '' : 's'}` reads as six characters of nothing.
+const interpWidth = (body) => {
+  const lits = [...body.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1].length);
+  return (body.includes('?') && lits.length >= 2) ? Math.max(...lits) : INTERP_W;
+};
+// A toast with a newline in it is TWO lines on the map, and each gets the
+// budget on its own — the trade toast is deliberately a give line over a take
+// line.
+const shownWidth = (raw) => {
+  const flat = raw
+    .replace(/\$\{([^}]*)\}/g, (_, b) => 'x'.repeat(interpWidth(b)))
+    .replace(/\\u[0-9a-fA-F]{4}/g, 'x')
+    .replace(/\\'/g, "'");
+  return Math.max(...flat.split(/\\n/).map((line) => [...line].length));
+};
+
+test('map copy: every flash fits in MAP_MSG_MAX', () => {
+  assert.eq(MAP_MSG_MAX, 30, 'the budget is thirty characters');
+  const over = mapMessages()
+    .map((m) => ({ ...m, n: shownWidth(m.raw) }))
+    .filter((m) => m.n > MAP_MSG_MAX)
+    .sort((a, b) => b.n - a.n);
+  // Compact on purpose: the runner truncates a long error, so a list of
+  // forty over-budget lines would print three of them and hide the rest.
+  const shown = over.slice(0, 6).map((m) => `${m.n}:${m.raw.slice(0, 34)}`).join(' | ');
+  assert.eq(over.length, 0, `${over.length} flash(es) over ${MAP_MSG_MAX} — ${shown}`);
+});
+
+test('map copy: the shared refusal constants fit too', () => {
+  for (const name of ['TOO_TIRED_MSG', 'BAG_FULL_MSG']) {
+    const m = APP_JS_SRC.match(new RegExp(`const ${name} = '([^']*)';`));
+    assert.truthy(m, `${name} is still one constant`);
+    assert.lte([...m[1]].length, MAP_MSG_MAX, `${name} fits: ${m[1]}`);
+  }
+});
+
+test('map copy: a refusal built by a gate() fits too', () => {
+  // THE SWEEP'S BLIND SPOT. mapMessages() only sees literals written inside a
+  // flash( call, and runInteractable flashes `blockMsg` — a string RETURNED by
+  // the registry's gate(). Both tool gates hid there at 34-44 characters
+  // ('Need a Platinum axe to fell this maple tree.') while the sweep reported
+  // everything in budget. So these are measured by CALLING them, at the
+  // widest tier name the ladder has.
+  const widest = Object.values(TIER_BY_NUM)
+    .map((t) => t.name).reduce((a, b) => (b.length > a.length ? b : a), '');
+  assert.gt(widest.length, 5, 'there is a genuinely long tier name to test with');
+  const bare = { relics: {} };
+  const cases = [
+    ['tree',        { kind: 'tree', size: 'full', species: 'maple', variant: 3 }],
+    ['mineralrock', { kind: 'mineralrock', yieldTier: 7, requiredTier: 6 }],
+  ];
+  for (const [key, o] of cases) {
+    const msg = INTERACTABLES[key].gate(o, bare);
+    assert.truthy(msg, `${key} still refuses a bare hand`);
+    assert.lte([...msg].length, MAP_MSG_MAX, `${key} gate: ${msg}`);
+    // The tier is the only half the player can act on — it must survive any cut.
+    assert.truthy(/Wood|Copper|Iron|Gold|Platinum|Crimson|Frost|better/.test(msg),
+      `${key} gate still names the tool tier: ${msg}`);
+    // 'Need a Iron axe' — the article has to agree, and at this length the
+    // mistake IS the sentence.
+    assert.falsy(/\ba [AEIOU]/.test(msg), `${key} gate reads grammatically: ${msg}`);
+  }
+  // Every tier, both gates, since only one rung starts with a vowel.
+  for (const t of [1, 2, 3, 4, 5, 6, 7]) {
+    const msg = INTERACTABLES.mineralrock.gate(
+      { kind: 'mineralrock', yieldTier: t + 1, requiredTier: t }, bare);
+    if (!msg) continue;
+    assert.lte([...msg].length, MAP_MSG_MAX, `tier ${t}: ${msg}`);
+    assert.falsy(/\ba [AEIOU]/.test(msg), `tier ${t} reads grammatically: ${msg}`);
+  }
+});
+
+test('map copy: nothing else reaches flash() through a variable unmeasured', () => {
+  // The audit that keeps the blind spot shut. Every non-literal argument to a
+  // flash is listed here with where its text is measured; a new one shows up
+  // as a failure rather than as unchecked copy.
+  const known = new Set([
+    'TOO_TIRED_MSG', 'BAG_FULL_MSG',  // the shared constants test
+    'flavor',                          // TERRAIN_FLAVOR, measured above
+    'blocker',                         // tillBlockerLine, measured above
+    'blockMsg',                        // the gate() test above
+    'msg', 'text', 'line',             // locally built, measured at their source
+    'single', 'missing', 'target', 'stageReadout', 'o', 'bedQ', 'asTree',
+    'offer', 'emptyMsg', 'flashMsg',
+    'card', 'name', 'label',           // name-bearing loot toasts, below
+  ]);
+  const seen = new Set();
+  for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
+    for (const m of src.matchAll(/flash(?:Loot)?\(\s*([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
+  }
+  const unknown = [...seen].filter((v) => !known.has(v));
+  assert.eq(unknown.length, 0,
+    'flash fed from an unmeasured variable: ' + unknown.join(', '));
+});
+
+test('map copy: the name-bearing loot toasts fit at their widest', () => {
+  // Three flashes are built from a CATALOG or GEAR name — the trail card, the
+  // forge splash and the treasure line — so their width is set by the longest
+  // name each can be handed, not by the sentence around it.
+  const longestItem = ITEMS.map((i) => i.name)
+    .reduce((a, b) => (b.length > a.length ? b : a), '');
+  const gearNames = [];
+  for (const [defs, kind] of [[RELIC_DEFS, 'relic'], [ARMOR_DEFS, 'armor']]) {
+    for (const slot of Object.keys(defs)) {
+      for (const t of Object.keys(TIER_BY_NUM)) gearNames.push(gearName(kind, slot, Number(t)));
+    }
+  }
+  const longestGear = gearNames.reduce((a, b) => (b.length > a.length ? b : a), '');
+  assert.gt(longestItem.length, 10, 'there is a long item name to test with');
+  assert.gt(longestGear.length, 10, 'and a long gear name');
+  const shapes = [
+    `${longestGear} × 10`,                  // the trail card (name + qty)
+    longestGear,                            // the forge splash
+    `\u2715 → ${longestItem} ×10`,          // the treasure line
+  ];
+  for (const line of shapes) {
+    assert.lte([...line].length, MAP_MSG_MAX, `worst-case loot toast overflows: ${line}`);
+  }
+});
+
+test('map copy: the terrain table fits at every code', () => {
+  for (const code of NON_TILLABLE_CODES) {
+    const label = TERRAIN_FLAVOR[code];
+    assert.lte([...label].length, MAP_MSG_MAX, `terrain ${code}: ${label}`);
+  }
+});
+
+test('map copy: a till refusal fits for every kind it can name', () => {
+  // Run for real rather than by regex — these are built, not literal, and the
+  // catch-all interpolates whatever kind it was handed.
+  const kinds = ['tree', 'fruittree', 'mineralrock', 'staircase', 'house', 'tower',
+                 'shrine', 'trailer', 'chest', 'some_new_kind'];
+  for (const kind of kinds) {
+    const line = tillBlockerLine({ kind });
+    assert.lte([...line].length, MAP_MSG_MAX, `${kind}: ${line}`);
+  }
+  // And with the longest name the game can hand it — a chest carrying a real
+  // POI name is the unbounded case, so the line must not interpolate one.
+  const long = tillBlockerLine({ kind: 'chest', name: 'Saint Someone Memorial Library and Reading Room' });
+  assert.lte([...long].length, MAP_MSG_MAX, 'a long POI name cannot blow the budget: ' + long);
+});
+
+test('map copy: a line that names an item fits at the longest name', () => {
+  // cropName feeds the plant flash and both plant-side till refusals. The
+  // longest thing it can return is what the budget has to survive.
+  // The domain is CROP ids — cropName is handed pp.crop, wp.crop and
+  // item.grows, all of which resolve to the produce, never to a seed.
+  const cropIds = new Set([
+    ...ITEMS.filter((i) => i.grows).map((i) => i.grows),
+    ...ITEMS.filter((i) => i.crop).map((i) => i.crop),
+  ]);
+  const crops = [...cropIds].map((id) => cropName(id));
+  const longest = crops.reduce((a, b) => (b.length > a.length ? b : a), '');
+  const longestCrop = longest;
+  assert.gt(longestCrop.length, 8, 'there is a genuinely long crop name to test against');
+  // The three shapes those names go into, measured with the worst case in them.
+  const shapes = [
+    `\u{1F331} ${longestCrop} — water it.`,
+    `Pick the ${longestCrop} first.`,
+    `${longestCrop} grows here.`,
+  ];
+  for (const line of shapes) {
+    assert.lte([...line].length, MAP_MSG_MAX, `worst-case name overflows: ${line}`);
+  }
+  assert.truthy(longest, 'the catalog has names');
 });
 
 // ── Refusals: the register, and the way out ─────────────────────────────────
@@ -106,7 +304,7 @@ test('copy: a shop with nothing to offer says WHEN, not just no', () => {
   // blacksmith's own version of this line has quoted shopWaitLabel for a
   // while; the storefront and the trader said a bare 'no deal'.
   assert.falsy(/flash\('no deal'/.test(APP_JS_SRC), 'the bare fragment is gone');
-  const waits = APP_JS_SRC.match(/Come back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
+  const waits = APP_JS_SRC.match(/Back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
   assert.eq(waits.length, 2, 'both the storefront and the trader now name the wait');
 });
 

@@ -92,6 +92,13 @@ function plainRockBaseDrop(scene, stones) {
   return qty;
 }
 
+// 'a' or 'an' for a tier name. Iron is the only vowel-initial rung, and both
+// tool gates read it out in a line short enough that the mistake is the whole
+// sentence.
+function tierArticle(name) {
+  return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
+}
+
 const INTERACTABLES = {
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
@@ -106,7 +113,12 @@ const INTERACTABLES = {
       const axeTier = save.relics?.axe?.tier || 0;
       if (axeTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
-        return `Need a ${need} axe to fell this ${treeSpeciesName(o)} tree.`;
+        // The tool TIER is the only actionable half — the player is looking
+        // at the tree they just tapped, so naming its species and the verb
+        // spent twenty characters restating the obvious (util.js MAP_MSG_MAX).
+        // `Iron` is the one tier name that starts with a vowel, and the short
+        // line put the old "Need a Iron axe" right under the player's thumb.
+        return `Need ${tierArticle(need)} ${need} axe.`;
       }
       return null;
     },
@@ -169,7 +181,7 @@ const INTERACTABLES = {
       const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
-        return `Need a ${need} pick to mine this ore.`;
+        return `Need ${tierArticle(need)} ${need} pick.`;
       }
       return null;
     },
@@ -501,12 +513,18 @@ const INTERACTABLES = {
         return true;
       }
       // Fits fully — take it and empty the chest.
-      scene.addToInv(lootId, lootQty);
+      // deferBookRead: a Book grant would otherwise pop its read modal right
+      // here, before showChestRewardModal below even mounts — two modals at
+      // once. Queue it and reveal once the "you found a Book" ceremony is
+      // dismissed instead (see addToInv / _revealPendingBookReads in app.js);
+      // a no-op for every other loot id.
+      scene.addToInv(lootId, lootQty, false, { deferBookRead: true });
       markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-                                   kind: rewardKind });
+                                   kind: rewardKind,
+                                   onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
         scene.flashJackpot(result.jackpot);
       }
@@ -527,7 +545,7 @@ const INTERACTABLES = {
         const done = Quests.onPoiVisit(save, 'well');
         if (done) {
           ctx.dirty = true;
-          scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
+          scene.flash('Quest done — see the castle.', scene.viewCenterX, scene.viewCenterY - 60);
           return true;
         }
       }

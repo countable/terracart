@@ -804,14 +804,14 @@ if (typeof window !== 'undefined') {
 // purchase — and they had drifted into 'bag full' and 'Bag full', the same
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
-const BAG_FULL_MSG = 'No room in your bag — sell, eat, or carry a bigger one.';
+const BAG_FULL_MSG = 'Bag full — sell or eat first.';
 // The other line every player meets constantly: an action they cannot afford.
 // It was a bare lowercase fragment at three call sites — the stick, the cave
 // dig and the shared spendEnergy gate — and it named the STATE without the
 // remedy, so a player at 1⚡ was told "too tired" and left to work out that
 // energy comes back from food, from their own home, and from a campfire. Three
 // words longer, and it is the whole answer.
-const TOO_TIRED_MSG = 'Too tired — eat, or rest at home or a fire.';
+const TOO_TIRED_MSG = 'Too tired — eat or rest.';
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -6998,7 +6998,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) addMoney(save, coins);
       const name = MONSTERS[victim.kind]?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      this.flash(`⚔️ ${elite ? 'Elite ' : ''}${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+      this.flash(`⚔️ ${name}${coins > 0 ? ` +$${coins}` : ' slain'}`,
         this.viewCenterX, this.viewCenterY - 60);
       if (elite) {
         // An elite always pays past the wage: the kind's Discovery badge the
@@ -7026,7 +7026,7 @@ class MapScene extends Phaser.Scene {
       // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
       // never credit toward its base kind's.
       const qDone = Quests.onKill(save, victim.kind);
-      if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
+      if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
@@ -9117,7 +9117,7 @@ class MapScene extends Phaser.Scene {
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to go down — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
       return;
     }
     this.depth = target;
@@ -9328,7 +9328,7 @@ class MapScene extends Phaser.Scene {
     if (!best) {
       // Out of decorated chests within loaded tiles — reset cycle.
       this._poiTpVisited.clear();
-      this.flash('cycle reset — press space again', this.viewCenterX, this.viewCenterY - 40);
+      this.flash('cycle reset — press space', this.viewCenterX, this.viewCenterY - 40);
       return;
     }
     this._poiTpVisited.add(bestKey);
@@ -10447,6 +10447,43 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(title, body);
   }
 
+  // The auto-read fired by addToInv on pickup — framed as involuntary
+  // ("your curiosity compels you") rather than readBook's deliberate "you
+  // crack open the book", since nobody chose to read here. The page-count
+  // line is worth keeping (it's the one place the course's progress shows),
+  // so it survives as a lead-in line above the quote; the plain "you crack
+  // open the book" lead-in is dropped as redundant with the new title.
+  // `onDismiss` (optional) fires once THIS modal is tapped away — how
+  // _revealPendingBookReads chains multiple reads one at a time instead of
+  // stacking them.
+  _presentBookRead(onDismiss) {
+    const read = this._bookRead();   // mutates + the caller persists via this call
+    persistSave(this.save);
+    const detail = read.title.replace(/^📖\s*/, '');
+    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    this.showMessageModal({ title: 'Your curiosity compels you to read the book:', body, onDismiss });
+  }
+
+  // Fires any book read(s) addToInv deferred (via { deferBookRead: true })
+  // because the caller was about to show its own "you found a Book" modal
+  // right after — call this from THAT modal's onDismiss so the read shows
+  // once it's closed instead of stacking on top of it. No-op (calls
+  // `onDone` straight away) when nothing is queued — every non-book pickup
+  // never touches _pendingBookReads. Reads run ONE AT A TIME, each waiting
+  // for the last to be dismissed, so a rare multi-book grant can't stack
+  // its own modals either; `onDone` (e.g. draining the next trail prize)
+  // only fires after the last one closes.
+  _revealPendingBookReads(onDone) {
+    let remaining = this._pendingBookReads || 0;
+    this._pendingBookReads = 0;
+    const showNext = () => {
+      if (remaining <= 0) { if (typeof onDone === 'function') onDone(); return; }
+      remaining--;
+      this._presentBookRead(showNext);
+    };
+    showNext();
+  }
+
   // Drink a Potion of Reach (consumed): light up the whole visible view for
   // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
   // it's in the future, returns a full-screen radius regardless of energy — so
@@ -10533,7 +10570,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'growth_powder' || (sel.count ?? 0) <= 0) return false;
     const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
     if (n <= 0) {
-      this.flash(`No crop to grow within ${GROWTH_POWDER_R_M}m — the powder stays in your bag.`,
+      this.flash(`No crop within ${GROWTH_POWDER_R_M}m — kept.`,
         this.viewCenterX, this.viewCenterY);
       return false;
     }
@@ -10607,7 +10644,7 @@ class MapScene extends Phaser.Scene {
       targets.push(c);
     });
     if (targets.length === 0) {
-      this.flash('No enemy in reach to freeze — the powder stays in your bag.', this.viewCenterX, this.viewCenterY);
+      this.flash('No foe in reach — powder kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     const until = Date.now() + FROST_POWDER_MS;
@@ -10632,7 +10669,7 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
     if ((this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to open a portal — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to open a portal.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
@@ -10669,11 +10706,11 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'rope' || (sel.count ?? 0) <= 0) return false;
     const target = (this.depth || 0) + delta;
     if (target < 0) {
-      this.flash('Nowhere to climb — you are on the surface.', this.viewCenterX, this.viewCenterY);
+      this.flash('Nowhere to climb up here.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to climb down — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to climb down.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     // Synthetic "stair" at the player's own world cell, as the portal does:
@@ -10887,7 +10924,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
-  showMessageModal({ title, body, okLabel = 'OK' }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: () => {}, kind: 'note' });
@@ -10896,7 +10933,11 @@ class MapScene extends Phaser.Scene {
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
-    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrap.remove();
+      if (typeof onDismiss === 'function') onDismiss();
+    });
     box.appendChild(btn);
     mount();
   }
@@ -11168,7 +11209,7 @@ class MapScene extends Phaser.Scene {
       // say what home is FOR. Selling is home-only — the single most
       // easily-missed rule in the economy — and this tap was answering it
       // with a stock phrase and nothing else.
-      if (!hasSel) { this.flash('Home sweet home. Pick a stack to sell it here.', sx, sy); return; }
+      if (!hasSel) { this.flash('Home. Pick a stack to sell.', sx, sy); return; }
       // noSell items (the Discovery badge) never enter the sell modal — the
       // wizard tower is the only place they're worth anything.
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
@@ -11363,7 +11404,7 @@ class MapScene extends Phaser.Scene {
       // the anvil wakes when this house's bucket rolls over. Without it this
       // was the one shop message that named no wait at all, and a player could
       // only find out by tapping again.
-      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     // Traders are barter-only with their own seeded offer (qty scales to a
@@ -11423,7 +11464,7 @@ class MapScene extends Phaser.Scene {
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
-      this.flash(`"Nothing worth selling today. Come back ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`No stock today. Back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
@@ -12178,7 +12219,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
-        if (firstHere) this.flash('🔆 +1 Discovery — first delivery here', sx, sy - 24);
+        if (firstHere) this.flash('🔆 +1 Discovery — new house', sx, sy - 24);
       },
     });
   }
@@ -12266,7 +12307,7 @@ class MapScene extends Phaser.Scene {
       label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
         if (curState) curState.rerolls += 1;
         const next = this.peekOrBuildRelicOffer(house);
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
@@ -12306,7 +12347,7 @@ class MapScene extends Phaser.Scene {
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < price) { this.flash(`Coin purse won't stretch — need $${price}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need $${price}.`, sx, sy); return; }
         addMoney(this.save, -price);
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
@@ -12558,7 +12599,7 @@ class MapScene extends Phaser.Scene {
     const cost = this.WIZARD_UPGRADE_COST;
     const rung = this.wizardNextRung();
     if (!rung) {
-      this.flash('The wizard nods — he has taught you all he knows.', sx, sy);
+      this.flash('The wizard has nothing left.', sx, sy);
       return;
     }
     const next = rung.have + 1;
@@ -12670,7 +12711,7 @@ class MapScene extends Phaser.Scene {
 
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash(`"No trade in me today. Come back ${this.shopWaitLabel(house)}."`, sx, sy); return; }
+    if (!offer) { this.flash(`No trade today. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
@@ -12710,7 +12751,7 @@ class MapScene extends Phaser.Scene {
         label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
           curState.rerolls += 1;
           addMoney(this.save, -rerollCost);
           persistSave(this.save);
@@ -13058,9 +13099,18 @@ class MapScene extends Phaser.Scene {
     }
     if (choices.length === 1) {
       // One option is not a choice — claim it and run the ceremony as before.
-      const card = this._claimTrailReward(choices[0]);
+      // A book grant defers its read (deferBookRead) so it doesn't stack on
+      // top of this ceremony modal. On dismiss, reveal it first and only
+      // THEN run the caller's own onDismiss (which may drain the next
+      // queued prize into its own ceremony modal) — otherwise the next
+      // prize's modal could open while the book read is still queued,
+      // stacking the two again just one call later.
+      const card = this._claimTrailReward(choices[0], { deferBookRead: true });
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
-      this.showChestRewardModal({ kind: 'trail', header, onDismiss, ...card });
+      this.showChestRewardModal({
+        kind: 'trail', header, ...card,
+        onDismiss: () => this._revealPendingBookReads(onDismiss),
+      });
       return;
     }
     // The pick. Each button IS a reward card (the shell takes HTML labels), so
@@ -13142,11 +13192,11 @@ class MapScene extends Phaser.Scene {
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
-  _claimTrailReward(reward) {
+  _claimTrailReward(reward, opts = {}) {
     const card = this._trailRewardCard(reward);
     if (!card) return null;
     if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty);
+      this.addToInv(reward.id, reward.qty, false, opts);
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
@@ -13484,7 +13534,7 @@ class MapScene extends Phaser.Scene {
     if (this._castleServiceUsedToday(house)) {
       // The favour is one per UTC day (_dayKey === Delivery.dayKey),
       // so the castellan names the wait rather than saying "tomorrow".
-      this.flash(`Thank you for visiting us, my lord. Come back in ${shortDuration(msToNextUtcDay())}.`,
+      this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
                  sx, sy);
       return;
     }
@@ -13549,7 +13599,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${finished.reward}`, '#ffe066');
         if (claimed) {
-          this.flash('The castle is yours — its vault is open.',
+          this.flash('The castle vault is yours.',
             this.viewCenterX, this.viewCenterY - 60);
         }
       },
@@ -13614,7 +13664,7 @@ class MapScene extends Phaser.Scene {
     // blacksmithRecipe — keeps every other smithy on the original ladder.
     const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
-      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
@@ -14629,21 +14679,27 @@ class MapScene extends Phaser.Scene {
   // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
-  addToInv(id, n = 1, silent = false) {
+  addToInv(id, n = 1, silent = false, opts = {}) {
     // A book triggers its read (a page of the course, or a chest hint) the
     // instant it's picked up rather than waiting in the bag for a manual
-    // Read tap — see readBook / _bookRead. It never occupies an inventory
-    // slot, so it skips Inventory.add entirely; it still counts as
-    // "accepted" for callers that adjust their pickup narration off the
-    // return value.
+    // Read tap — see readBook / _bookRead / _presentBookRead. It never
+    // occupies an inventory slot, so it skips Inventory.add entirely; it
+    // still counts as "accepted" for callers that adjust their pickup
+    // narration off the return value.
+    // opts.deferBookRead: the caller is about to show its OWN "you found a
+    // Book" modal (a chest/trail ceremony) right after this call — showing
+    // the read modal here too would stack two modals at once. Queue it
+    // instead; the caller must fire it from that modal's onDismiss via
+    // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
-        for (let i = 0; i < n; i++) {
-          const { title, body } = this._bookRead();
-          this.showMessageModal({ title, body });
-        }
-        persistSave(this.save);   // _bookRead advances save.tipsRead
+        this._pendingBookReads = (this._pendingBookReads || 0) + n;
+        // deferBookRead: the caller shows its own modal right after and will
+        // reveal these itself from that modal's onDismiss. Otherwise reveal
+        // now — _revealPendingBookReads shows multiple reads one at a time
+        // rather than stacking them, so even a rare qty>1 grant is safe.
+        if (!opts.deferBookRead) this._revealPendingBookReads();
       }
       return n;
     }
