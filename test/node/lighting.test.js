@@ -52,8 +52,11 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     const dimA = Render.reachDimAlpha(s);
     // The floor is where the old wash + falloff landed at the corner…
     near(p.farA, 1 - (1 - dimA) * (1 - Lighting.FALLOFF_A), 1e-12, `farA @${depth}`);
-    // …scaled by the contrast knob, and by nothing else…
-    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), Lighting.AMBIENT_K),
+    // …scaled by the contrast knob (blended toward the daytime value on the
+    // surface, flat underground), and by nothing else…
+    const expectedK = depth > 0 ? Lighting.AMBIENT_K
+      : Lighting.AMBIENT_K + (Lighting.AMBIENT_K_DAY - Lighting.AMBIENT_K) * (1 - p.night);
+    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), expectedK),
       `ambient @${depth}`);
     // …the cookie just outside the plateau lifts it back to the flat wash,
     // scaled down by the player's own output knob…
@@ -65,9 +68,13 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
   // old wash's (times PLAYER_OUTPUT_K), so the reach step is untouched and
   // only the dark got darker.
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
+  assert.inRange(Lighting.AMBIENT_K_DAY, 1.0, 1.6, "noon reads brighter than the raw old wash, not just 'less dark'");
   assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.5, 1.0, 'a real dimming of the body light, not a blackout');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
-  assert.lt(lum(Lighting.profile(scene()).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance');
+  assert.lt(lum(Lighting.profile(scene(), 0).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance at night');
+  near(lum(Lighting.profile(scene(), 1).ambient), 0.25, 0.03, 'a peek into the distance at noon reads about a quarter luminance');
+  assert.gt(lum(Lighting.profile(scene(), 1).ambient), lum(Lighting.profile(scene(), 0).ambient) * 3,
+    'and noon out there is meaningfully brighter than night out there');
   assert.eq(Lighting.litDim(0), 0, 'the surface bubble is full daylight');
   assert.gt(Lighting.litDim(2), Lighting.litDim(1), 'the bubble dims with every level down');
   const surf = Lighting.profile(scene()), cave = Lighting.profile(scene({ depth: 1 }));
