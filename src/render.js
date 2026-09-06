@@ -834,6 +834,36 @@ Render.reachDimAlpha = (scene) => {
 };
 Render.reachDimTint = (scene) => _washTint(Render.reachDimColor(scene), Render.reachDimAlpha(scene));
 
+// ── How far the distance falloff reaches ──────────────────────────────────
+// Two radii, and the split between them is the whole point.
+//
+//   rRamp — where the ramp ENDS: the viewport's own half-diagonal, the
+//           furthest VISIBLE pixel with the camera sat on the player. drawCells
+//           fills out to -1..VIEW_CELLS, but the geometry mask clips to the
+//           viewSize square, so grading past this only spends the ramp on
+//           pixels nobody sees and dilutes everything inside it.
+//   rOut  — where the rings STOP BEING DRAWN, flat at the ramp's final alpha
+//           from rRamp outward.
+//
+// They were one number until Sep 2026, and that was the bug the peek drag
+// exposed. The ring image is cached about the viewport centre and SLID by the
+// peek offset rather than rebuilt (~100 strokeCircles a frame otherwise), so a
+// drag pulls the far side of the disc into the frame — and past the last ring
+// nothing is drawn at all, which put a hard circular arc of the darkness's own
+// outer edge across the corner of the map. The ramp is not the problem and is
+// not retuned: the rings simply keep going at FALLOFF_A (which the ramp reaches
+// exactly at rRamp, so the join is continuous and invisible) far enough that no
+// peek can reach their edge.
+//
+// "Far enough" is PEEK_MAX_CELLS — the same clamp _setPeekFromDrag applies to
+// the drag — so the image can never be slid further than it was drawn, the
+// roadOverlayWidthM discipline again. Anything else cached about the viewport
+// centre and slid by peekPxOf owes the same margin.
+Render.falloffRadii = (viewSize) => {
+  const rRamp = Math.hypot(viewSize, viewSize) / 2;
+  return { rRamp, rOut: rRamp + PEEK_MAX_CELLS * CELL_PX };
+};
+
 // "Is this object standing outside the lit reach bubble?" Asked only by the
 // wreck dim in spriteTint — every other sprite is deliberately exempt from the
 // reach wash. Goes through coords.js's cellInReach so the lit cells, the
@@ -2125,11 +2155,9 @@ Render.drawCells = function drawCells(scene) {
     // wash does. reachRadiusM is the same source cellInReach uses, so the two
     // can't drift apart when energy / depth / a Potion of Reach moves it.
     const r0 = (reachRadiusM(scene) / scene.cellM) * CELL_PX;
-    // The viewport's own corner — the furthest VISIBLE pixel. drawCells fills
-    // out to -1..VIEW_CELLS, but the geometry mask clips to the viewSize
-    // square, so ramping past its half-diagonal only spends the ramp on pixels
-    // nobody sees and dilutes everything inside it.
-    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
+    // Where the ramp ENDS and how far the rings are DRAWN — two numbers, see
+    // Render.falloffRadii.
+    const { rRamp, rOut } = Render.falloffRadii(scene.viewSize);
     // 0.90 at the corner on a p=1.5 ramp. Picked by measuring mean luminance
     // per radius band against the effect switched off, not by eye:
     //
@@ -2165,8 +2193,11 @@ Render.drawCells = function drawCells(scene) {
       scene._falloffKey = key;
       const fg = scene.atmosFalloffGfx;
       fg.clear();
-      for (let r = r0; r < rMax; r += STEP) {
-        const t = (r - r0) / (rMax - r0);
+      for (let r = r0; r < rOut; r += STEP) {
+        // Clamped, not extrapolated: past rRamp the ramp is over and the rings
+        // continue flat at FALLOFF_A. t hits 1 exactly at rRamp, so the join is
+        // continuous and the ring image simply has no edge inside any peek.
+        const t = Math.min(1, (r - r0) / (rRamp - r0));
         fg.lineStyle(STEP, colour, FALLOFF_A * Math.pow(t, FALLOFF_P));
         fg.strokeCircle(scene.viewCenterX, scene.viewCenterY, r + STEP / 2);
       }
