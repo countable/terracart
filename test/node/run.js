@@ -259,7 +259,7 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward) {']
+  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward, opts = {}) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });

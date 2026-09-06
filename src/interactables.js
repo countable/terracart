@@ -501,12 +501,18 @@ const INTERACTABLES = {
         return true;
       }
       // Fits fully — take it and empty the chest.
-      scene.addToInv(lootId, lootQty);
+      // deferBookRead: a Book grant would otherwise pop its read modal right
+      // here, before showChestRewardModal below even mounts — two modals at
+      // once. Queue it and reveal once the "you found a Book" ceremony is
+      // dismissed instead (see addToInv / _revealPendingBookReads in app.js);
+      // a no-op for every other loot id.
+      scene.addToInv(lootId, lootQty, false, { deferBookRead: true });
       markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-                                   kind: rewardKind });
+                                   kind: rewardKind,
+                                   onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
         scene.flashJackpot(result.jackpot);
       }
