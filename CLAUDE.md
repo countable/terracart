@@ -301,6 +301,20 @@
   pins the formatter and sweeps the call-site sources for a re-grown ladder or
   a fresh unquantified "tomorrow" / "later".
 
+- **Working is not resting.** The passive rests in `app.js` update() — Home
+  (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
+  a work wheel runs (`const working = !!this._workProgress`). Until Sep 2026
+  they didn't, and a new player's first till was free: the starter trailer is
+  dropped under the player at spawn, the starter plot is carved two cells from
+  it inside reach from the trailer's own cell, and the Home rest ticked at
+  ~1.1⚡/s under a 2.25 s wheel that had cost 2⚡ — the bar read the same
+  number before and after. Never fix a "free" job by raising its cost or
+  slowing its wheel; the rest resumes the moment the wheel clears, and that
+  is what earns the energy back. **When you add a passive energy source,
+  gate it on `working`.**
+  **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
+  both gates as source text and shows the ungated rest out-earning the till.
+
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
   Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
   gradient primitive": a fillRect per unlit cell, a second wash over the lit
