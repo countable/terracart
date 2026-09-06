@@ -28,7 +28,6 @@
         marks: [],     // { name, t }              — instants
         spans: [],     // { name, t, ms, note }    — completed stretches
         long: [],      // { t, ms }                — main-thread blocks > 50 ms
-        open: new Map(),
         mark(name) { try { B.marks.push({ name, t: t() }); } catch (_) {} },
         // begin() returns its own end function, so a span can't be closed by
         // the wrong name and nesting the same name twice is safe.
@@ -39,9 +38,6 @@
             try { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {}
           };
         },
-        // Fire-and-forget for a stretch measured somewhere else.
-        span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
-
         // ── Live half ──────────────────────────────────────────────────
         // The boot half above answers "why was the start slow". This answers
         // "why does it stutter while I walk", which is a different question
@@ -1393,7 +1389,7 @@
     }
 
     function fitGame() {
-      const W = BOX_W, H = BOX_H;
+      const W = BOX_W;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const portrait = vw < vh;
@@ -1534,18 +1530,25 @@
     });
     // Vibration toggle (UX audit §18). Label tracks the save both before the
     // scene exists (read localStorage) and after each click.
+    // The active slot's save, read straight out of the registry — for the
+    // controls that paint BEFORE save.js has parsed (this script runs first).
+    // Same registry shape save.js's initSaves/loadSave read; null when there
+    // is no registry, no active slot, or the read throws.
+    function readActiveSlotData() {
+      try {
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        const slot = reg && reg.slots.find(s => s.id === reg.active);
+        return (slot && JSON.parse(localStorage.getItem(slot.key) || 'null')) || null;
+      } catch { return null; }
+    }
     (function wireHaptics() {
       const btn = document.getElementById('toggle-haptics');
       if (!btn) return;
       const read = () => {
         const sc = window.__scene;
         if (sc && sc.save) return sc.save.haptics !== false;
-        try {
-          const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-          const slot = reg && reg.slots.find(s => s.id === reg.active);
-          const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-          return !d || d.haptics !== false;
-        } catch { return true; }
+        const d = readActiveSlotData();
+        return !d || d.haptics !== false;
       };
       const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
       btn.addEventListener('click', (e) => {
@@ -1831,13 +1834,10 @@
       if (sc && sc.save) return sc.save.playerName || '';
       try {
         if (typeof loadSave === 'function') return loadSave().playerName || '';
-        // Before save.js has loaded (this script runs first): read the active
-        // slot straight out of the registry, same as the haptics toggle does.
-        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-        const slot = reg && reg.slots.find(s => s.id === reg.active);
-        const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-        return (d && d.playerName) || '';
       } catch { return ''; }
+      // Before save.js has loaded: the registry, same as the haptics toggle.
+      const d = readActiveSlotData();
+      return (d && d.playerName) || '';
     }
     window.__setPlayerName = function (raw) {
       const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
