@@ -4706,6 +4706,25 @@
   // `occupied` (cell index set) is read AND extended so a rock cluster never
   // lands on a chest, and a chest never lands on a stair.
   const CAVE_CHEST_SEEK_CELLS = 3;
+  // Nearest free CAVE_FLOOR cell to local cell (lix, liy), nearest ring first
+  // in a deterministic order, within CAVE_CHEST_SEEK_CELLS — or null. Shared
+  // by the mirrored chests and the torches so both step off a wall the same
+  // way.
+  function seekFloorSeat(grid, N, lix, liy, occupied) {
+    for (let r = 0; r <= CAVE_CHEST_SEEK_CELLS; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring r only
+          const cx = lix + dx, cy = liy + dy;
+          if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+          const idx = cy * N + cx;
+          if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+          return { idx, cx, cy };
+        }
+      }
+    }
+    return null;
+  }
   function caveChestsFrom(aboveObjects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
     for (const o of aboveObjects || []) {
@@ -4713,20 +4732,7 @@
       if (typeof chestMirrorsUnderground === 'function' && !chestMirrorsUnderground(o.poiClass)) continue;
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || lix >= N || liy < 0 || liy >= N) continue;
-      let seat = null;
-      for (let r = 0; r <= CAVE_CHEST_SEEK_CELLS && !seat; r++) {
-        for (let dy = -r; dy <= r && !seat; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring r only
-            const cx = lix + dx, cy = liy + dy;
-            if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
-            const idx = cy * N + cx;
-            if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
-            seat = { idx, cx, cy };
-            break;
-          }
-        }
-      }
+      const seat = seekFloorSeat(grid, N, lix, liy, occupied);
       if (!seat) continue;
       occupied.add(seat.idx);
       const surfaceId = o.caveOf || o.id;
@@ -4737,6 +4743,88 @@
         caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth });
     }
     return out;
+  }
+
+  // ── Cave torches: where the lowtier POIs overhead WOULD have been ───────
+  // The lowtier street furniture (bus stops, crossings, bins…) is the one POI
+  // class that does not mirror underground (loot.js chestMirrorsUnderground),
+  // so the cave under a town has no trace of most of its street. A torch at
+  // a random subset of those points gives it back as LIGHT: the level reads
+  // as the town's shape in the dark, and a torch is a landmark rather than a
+  // T1 box every few cells.
+  //   • Sites come from the surface: `caveTorchSites(above)` reads the lowtier
+  //     chests out of the surface tile's objects, and every cave level carries
+  //     the full site list down as `entry.torchSites` (the chests themselves
+  //     are not there to re-read, and a torch on level N-1 says nothing about
+  //     level N: each level rolls its OWN subset, seeded per tile+depth, so
+  //     the descent finds different corners lit).
+  //   • CAVE_TORCH_P of the sites light on a given level. A site under a wall
+  //     steps to the nearest floor cell the way a chest does (seekFloorSeat)
+  //     or is dropped for that level.
+  //   • Decorative: `torch` has no interaction; its light is
+  //     Lighting.KINDS.torch and its art the `torch` render spec.
+  const CAVE_TORCH_P = 0.6;
+  function caveTorchSites(above) {
+    if (above.torchSites) return above.torchSites;
+    const sites = [];
+    if (typeof chestMirrorsUnderground !== 'function') return sites;
+    for (const o of above.objects || []) {
+      if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
+      if (chestMirrorsUnderground(o.poiClass)) continue;
+      sites.push({ x: o.x, y: o.y, id: o.id });
+    }
+    return sites;
+  }
+  function caveTorchesFrom(sites, grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    const out = [];
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xC2B2AE35)) >>> 0);
+    for (const s of sites || []) {
+      const lit = rng() < CAVE_TORCH_P;     // roll for every site, so the sequence is stable
+      if (!lit) continue;
+      const { lix, liy } = cellIndexOf(tx, ty, s.x, s.y, tileEdgeM, N);
+      if (lix < 0 || lix >= N || liy < 0 || liy >= N) continue;
+      const seat = seekFloorSeat(grid, N, lix, liy, occupied);
+      if (!seat) continue;
+      occupied.add(seat.idx);
+      const onSpot = seat.cx === lix && seat.cy === liy;
+      const { x: cx, y: cy } = onSpot ? { x: s.x, y: s.y }
+        : cellCentreM(tx, ty, seat.cx, seat.cy, tileEdgeM, N);
+      out.push({ kind: 'torch', x: cx, y: cy, id: `torch_${s.id}_d${depth}`, site: s.id, depth });
+    }
+    return out;
+  }
+
+  // ── Cave mushrooms: a little forage, and a little light ─────────────────
+  // Sparse clumps of the `mushroom` wildplant on a cave level's floor — the
+  // same crop the forests grow (picking one is a Mushroom, food), stamped
+  // `_cave` so the renderer draws the blue luminous caps (items.js
+  // CROP_SPRITE.mushroom.caveFrames) and Lighting.KINDS.mushroom gives each a
+  // faint cool glow: a patch reads from a few cells off in the dark, which
+  // is the whole point of putting them down here. Rolled AFTER the rocks and
+  // torches so the mineral layout is untouched; never on an occupied cell.
+  // Roughly one clump per PIVOT² cells: at PIVOT 8 / FIRE 0.25 that is about
+  // one mushroom per viewport, in ones and threes. Deterministic per
+  // tile+depth; ids carry the depth so save.picked keeps levels apart.
+  function spawnCaveMushrooms(grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x27D4EB2F)) >>> 0);
+    const PIVOT = 8, FIRE = 0.25, CLUSTER_MIN = 1, CLUSTER_SPAN = 3, RADIUS = 1;
+    for (let py = 1; py < N; py += PIVOT) {
+      for (let px = 1; px < N; px += PIVOT) {
+        if (rng() > FIRE) continue;
+        const n = CLUSTER_MIN + Math.floor(rng() * CLUSTER_SPAN);
+        for (let k = 0; k < n; k++) {
+          const lix = px + Math.round((rng() - 0.5) * 2 * RADIUS);
+          const liy = py + Math.round((rng() - 0.5) * 2 * RADIUS);
+          if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+          const idx = liy * N + lix;
+          if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+          occupied.add(idx);
+          const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+          wildplants.push({ x: cx, y: cy, crop: 'mushroom', _ix: lix, _iy: liy, _cave: true,
+            id: `cwp_${depth}_${tx}_${ty}_${lix}_${liy}` });
+        }
+      }
+    }
   }
 
   async function loadCaveTile(cache, depth, key, x, y, lat) {
@@ -4780,11 +4868,19 @@
     for (const c of caveChestsFrom(above.objects, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(c);
     }
+    // Torches where the lowtier POIs overhead would have been (a random
+    // subset per level), seated before the rocks so they keep their spot.
+    const torchSites = caveTorchSites(above);
+    for (const t of caveTorchesFrom(torchSites, grid, N, x, y, tileEdgeM, depth, occupied)) {
+      objects.push(t);
+    }
     spawnCaveRocks(grid, N, x, y, tileEdgeM, depth, objects, occupied);
+    const wildplants = [];
+    spawnCaveMushrooms(grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
-      objects, wildplants: [], parkingTreasures: [],
-      roadLabels: {}, pathUnder: {},
+      objects, wildplants, parkingTreasures: [],
+      roadLabels: {}, pathUnder: {}, torchSites,
     };
     cache.set(key, entry);
     pruneCache(cache, key);
@@ -4870,6 +4966,7 @@
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
+    caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).

@@ -104,6 +104,20 @@
     // throb in lockstep. Small, so it marks the place rather than lighting
     // the block.
     poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.75, flicker: 0, pulse: 0.5 },
+    // A cave torch (worldgen.js caveTorchesFrom — planted where a lowtier
+    // street-furniture POI stands overhead, the one chest class that does not
+    // mirror underground). A real flame: warm, a little smaller than a
+    // campfire, and it breathes like one. Bright enough to read a cave
+    // junction by from across the level.
+    torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 0.90, flicker: 0.22 },
+    // A wild mushroom — the faint one. Every `mushroom` wildplant glows, on
+    // the surface as well as in the caves (where spawnCaveMushrooms scatters
+    // the blue luminous kind): a cool, small, slow-breathing light that marks
+    // a forage spot in the dark without lighting anything around it. The
+    // torch/mushroom pair is deliberately far apart in both radius and peak
+    // — lighting.test.js pins the order — so a lit cave reads as "a torch
+    // there, some fungus here", never two of the same lamp.
+    mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.40, flicker: 0, pulse: 0.35 },
   };
 
   // Seconds per POI breath. Slow on purpose (see the row above).
@@ -319,6 +333,10 @@
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
     if (o.kind === '_fire') return 'fire';
+    if (o.kind === 'torch') return 'torch';
+    // A wildplant has no `kind` — it is offered as itself from drawObjects'
+    // wildplant scan, and only the mushroom is a light.
+    if (o.kind === undefined && o.crop) return o.crop === 'mushroom' ? 'mushroom' : null;
     // Opened chests are the CALLER's to drop (drawObjects already builds the
     // per-frame Set of save.opened it culls the sprite with).
     if (o.kind === 'chest') return o.crate ? null : 'poi';
