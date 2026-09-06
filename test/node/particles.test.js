@@ -181,8 +181,12 @@ test('particles: watering a crop says so and sprinkles the cell', () => {
   const a = inter.indexOf("    if (!p.watered_t) {");
   assert.truthy(a > 0, 'found the watering branch');
   const body = inter.slice(a, inter.indexOf('\n    }\n', a));
-  assert.truthy(/const how = can\?\.tier \? 'watered' : 'you water by cupping your hands';/.test(body),
+  assert.truthy(/const how = can\?\.tier \? 'watered' : 'watered by hand';/.test(body),
     'bare hands are named when there is no can');
+  // The no-can line shares the flash with the stage readout and the wait, so
+  // the verb phrase stays short — "you water by cupping your hands" overran.
+  const m = /const how = can\?\.tier \? 'watered' : '([^']+)';/.exec(body);
+  assert.truthy(m && m[1].split(' ').length <= 3, 'the no-can verb phrase is at most three words');
   assert.truthy(/`💧 \$\{how\} — \$\{stageReadout\(\)\}`/.test(body),
     'the flash leads with the verb, then the stage readout');
   assert.truthy(/scene\._burstAtWorld\?\.\('water', cwmx, cwmy\);\n\s+if \(jumped\) scene\._burstAtWorld\?\.\('sprout', cwmx, cwmy\);/.test(body),

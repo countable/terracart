@@ -68,11 +68,12 @@
   by `PEEK_MAX_CELLS` cells, the drag's own clamp — or the peek pulls its outer
   edge into view. The distance falloff shipped stopping exactly at the viewport
   half-diagonal, so a drag put a hard circular arc of the darkness's own edge
-  across the corner of the map. The fix is not to retune the ramp: it still ends
-  at the half-diagonal, and the rings simply continue past it flat at the alpha
-  the ramp reaches there (`render.js` › `Render.falloffRadii` — one helper, two
-  radii, so the margin can't drift from the clamp). **When you cache a layer
-  about the viewport centre and slide it, give it the peek margin.**
+  across the corner of the map. The lightmap (`src/lighting.js`) is drawn at
+  the player's screen point every frame rather than slid, and its ramp ends ON
+  ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
+  so the corners stay just lit — with the ambient floor past it the same value,
+  so there is no edge for a peek to find. **When you cache a layer about the
+  viewport centre and slide it, give it the peek margin.**
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
   lifted shipping code: the projection round-trip under a peek, that a tap lands
   in the cell it was drawn over, that reach is unmoved by the camera, that a

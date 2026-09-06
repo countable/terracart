@@ -337,15 +337,16 @@ test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
 // own outer edge into the corner of the map as a circular arc. The lightmap
 // (src/lighting.js) has no edge to expose. The player's cookie is drawn at
 // the player's actual screen point EVERY frame (nothing is cached and slid),
-// its ramp lands on exactly zero light at the viewport half-diagonal, and
-// past it the map is the ambient floor — the value the ramp ends on — so the
+// its ramp lands on exactly zero light PLAYER_RAMP_PAST_CORNER_CELLS beyond
+// the viewport half-diagonal, and past it the map is the ambient floor — the value the ramp ends on — so the
 // join is continuous wherever a peek puts a corner.
 
 const lightScene = () => ({ depth: 0, save: { energy: 100, maxEnergy: 100 }, _atmos: { dim: 0x1a2a1e } });
 
-test('falloff: the player ramp ends at the viewport half-diagonal, on zero', () => {
-  assert.truthy(/const rMax = Math\.hypot\(scene\.viewSize, scene\.viewSize\) \/ 2;/.test(LIGHTING_SRC),
-                'the ramp is graded over the visible square, not past it');
+test('falloff: the player ramp ends a cell past the viewport half-diagonal, on zero', () => {
+  assert.truthy(/const rMax = Math\.hypot\(scene\.viewSize, scene\.viewSize\) \/ 2 \+ PLAYER_RAMP_PAST_CORNER_CELLS \* CELL_PX;/.test(LIGHTING_SRC),
+                'the ramp is graded over the visible square plus the past-corner margin');
+  assert.eq(Lighting.PLAYER_RAMP_PAST_CORNER_CELLS, 1, 'one cell past the corner — the corners stay just lit');
   const prof = Lighting.profile(lightScene());
   assert.eq(Lighting.playerCookieAlpha(1, prof), 0,
             'zero light at the ramp end — the ambient past it is the same value, so there is no edge');
@@ -366,7 +367,7 @@ test('falloff: under a peek in any direction the corner still sits on the ambien
   // rings failed. There the cookie contributes nothing and the corner reads
   // pure ambient, continuous with the ramp's last value.
   const vs = VIEW_CELLS * CELL_PX;
-  const rMax = Math.hypot(vs, vs) / 2;
+  const rMax = Math.hypot(vs, vs) / 2 + Lighting.PLAYER_RAMP_PAST_CORNER_CELLS * CELL_PX;
   const half = vs / 2;
   const prof = Lighting.profile(lightScene());
   const s = peekScene();

@@ -423,9 +423,12 @@
   }
 
   // The player's RAMP: flat at `edge` out to the reach radius, then the
-  // falloff to zero at the viewport's half-diagonal (the furthest visible
-  // pixel — ramping past it only spends the ramp where nobody sees). The
-  // PLATEAU is not in here: it is painted per reach cell in draw(), so the
+  // falloff to zero PLAYER_RAMP_PAST_CORNER_CELLS beyond the viewport's
+  // half-diagonal. It used to land on zero exactly at the corner, which put
+  // the far field of the frame at the ambient floor with nothing of the
+  // player's light left in it; one cell past keeps the corners just lit,
+  // and the ramp still ends on zero so a peek finds no edge past it (the
+  // ambient beyond is the value it lands on). The PLATEAU is not in here: it is painted per reach cell in draw(), so the
   // sharp edge of the lit area is the same staircase the reach outline
   // traces and the tap gate accepts (cellInReach), not a circle near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
@@ -435,6 +438,7 @@
   // so nothing is lost and the canvas is a quarter the bytes.
   const RAMP_STOPS = 16;
   const PLAYER_COOKIE_SCALE = 2;
+  const PLAYER_RAMP_PAST_CORNER_CELLS = 1;
 
   function ensurePlayerCookie(scene, prof, r0, rMax) {
     const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.edge.toFixed(3)}`;
@@ -569,7 +573,7 @@
     const now = Date.now();
     const prof = profile(scene, daylight(scene, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
-    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
+    const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2 + PLAYER_RAMP_PAST_CORNER_CELLS * CELL_PX;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
@@ -655,7 +659,7 @@
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
-    PLATEAU_FALL, plateauLevel,
+    PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, plateauCellPath, draw,
   };
