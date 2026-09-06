@@ -577,6 +577,44 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // slime branch in wanderCreatures) — it is only the SPEED that came down.
 const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
 const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// ── Struck, a slime CHARGES ──────────────────────────────────────────────────
+// How long a creature keeps reacting to a hit. ONE window, two opposite
+// reactions, because the two kinds of prey are opposite: a crow or a deer that
+// is struck RUNS (the flee override in wanderCreatures), and a slime that is
+// struck COMES AT YOU. Same number for both — being hit is one event — and it
+// outlasts the wander step it interrupts, which is what the flee's original
+// hand-typed 8000 was picked for.
+//
+// A charge is NOT a new speed. The slime keeps its hop (SLIME_HOP_CELLS) and
+// drops the lazy BEAT it ambles on (SLIME_STEP_MUL), and every hop of the
+// charge goes at the player at the monsters' own stalk jitter instead of half
+// of them meandering off — so it closes several times faster than an
+// unprovoked slime while still, deliberately, being slower than a walk. The
+// gait note above is the thing that must not be undone: you can always walk
+// away from a slime. You just can't stab one and stroll off any more.
+//
+// Until Sep 2026 nothing at all came of hitting one: the slime went back to
+// its 50/50 meander, and a PET's bite actively pushed it AWAY — the flee
+// override was written for birds and applied to every prey kind, so a dog
+// worrying a slime shoved it out of its own owner's reach.
+const STRUCK_REACTION_MS = 8000;
+// The spread on a COMMITTED approach, in radians: tight enough to read as a
+// line rather than a meander. The cave monsters stalk on it (a flyer doubles
+// it, which is what makes a bat careen), and a charging slime borrows it —
+// once it has been hit, it moves like the things that hunt you.
+const STALK_JITTER = 0.8;
+// Is this slime still coming for whoever hit it? Derived from `_lastDamagedT`
+// — the stamp BOTH damage paths already set, the player's blows and shots via
+// _damageEnemy and a pet's teeth in wanderCreatures — so "the player or their
+// pet hit it" needs no second flag and cannot drift from the damage that
+// caused it. WHERE it is asked is what makes it "if not warded": the charge is
+// read below Home's ward in the angle chain (a warded slime is walking out and
+// cannot bite), a lit campfire's ring still refuses every target cell inside
+// it, and a shadowed player is not there to be charged at.
+function slimeCharging(c) {
+  return c.kind === 'slime' && c._lastDamagedT != null
+    && Date.now() - c._lastDamagedT < STRUCK_REACTION_MS;
+}
 // ── The creature sim bubble ──────────────────────────────────────────────────
 // The radius, in cells from the player's FEET, inside which a creature thinks:
 // wanderCreatures culls on it before anything else, and beyond it a creature is
@@ -6939,7 +6977,18 @@ class MapScene extends Phaser.Scene {
   _damageEnemy(c, amount) {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
+    // Asked BEFORE the stamp below, which is what makes it "was it already
+    // charging" rather than "is it a slime".
+    const wasCharging = slimeCharging(c);
     c._lastDamagedT = Date.now();
+    // TURN NOW. A struck slime charges (slimeCharging), but the charge is only
+    // read when it chooses its next hop, and its beat is the longest in the
+    // game — so without this it finishes ambling away for up to 7.5 s before it
+    // reacts to being stabbed. Only on the FIRST hit of a charge: the melee
+    // wheel lands a blow a SECOND, and re-choosing on every blow would restart
+    // the hop it is part-way through each time, leaving a slime under constant
+    // fire twitching on the spot instead of closing.
+    if (!wasCharging && c.kind === 'slime') c._nextChooseT = 0;
     // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
     // ring around and switches its bite off (wanderCreatures' homeWard), but
     // the ring is only HOME_R — four cells — so a foe walked out, stopped
@@ -7736,12 +7785,20 @@ class MapScene extends Phaser.Scene {
       // An ELITE monster hits harder, not faster: its cadence comes purely
       // from SPEED, so the shiny check is for animals only.
       const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
+      // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
+      // not warded off. Resolved once here because both halves of the charge
+      // read it — the quickened beat just below and the committed angle in the
+      // chain — and they must not disagree about whether this is a charge.
+      // A tamed slime is a pet and never charges its owner; `homeWard` and
+      // `shadowed` are the two wards that switch it off (the campfire's is a
+      // refused target cell, so it needs nothing here).
+      const charging = !isTame && !homeWard && !shadowed && slimeCharging(c);
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
                    : deerFleeing ? 340
                    : isMon ? STEP_MS / mon.speed
-                   : c.kind === 'slime' ? STEP_MS * SLIME_STEP_MUL
+                   : c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (SLIME_HOP_CELLS — see the gait note
       // beside the constant); rabbits hop 0.5/1.4 cells; butterflies dart
@@ -7854,10 +7911,20 @@ class MapScene extends Phaser.Scene {
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
-            // Push prey away from pet; force immediate direction-change.
-            tgt._fleeAngle   = Math.atan2(tgt.y - c.y, tgt.x - c.x);
-            tgt._fleeUntilT  = now + 8000;   // > one wander step so flee fires
+            // React to the bite immediately either way — but WHICH reaction
+            // depends on the prey. A bird or a deer runs (the flee override
+            // below). A SLIME charges, at the player: it is an enemy, not
+            // game, and the flee this block used to set on every prey kind
+            // alike was shoving it out of the reach of the person whose dog
+            // had just bitten it. slimeCharging reads `_lastDamagedT`, stamped
+            // just above, so the pet's teeth provoke exactly what the player's
+            // sword does.
             tgt._nextChooseT = 0;            // interrupt current step immediately
+            if (!slimeCharging(tgt)) {
+              // Push prey away from pet.
+              tgt._fleeAngle  = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+              tgt._fleeUntilT = now + STRUCK_REACTION_MS;  // outlasts one wander step
+            }
             if (tgt._hp <= 0) {
               // Auto-defeat the prey — the SAME outcome as the player killing
               // it, by calling the one payout path rather than re-implementing
@@ -7907,11 +7974,18 @@ class MapScene extends Phaser.Scene {
             angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
                   + (Math.random() - 0.5) * 0.8;
           } else if (c.kind === 'slime') {
-            // Lazily drawn to the player: about half its hops amble toward
-            // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
-            // the rest are aimless. Slimes ignore home-bias — they roam free
-            // and home in on whoever's nearby.
-            if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+            // STRUCK: it charges. Every hop at the player, on the monsters'
+            // stalk jitter — no coin flip, no meander. Below the homeWard
+            // branch above on purpose: a slime being walked out of Home's ring
+            // is warded whether or not you hit it, which is the whole point of
+            // the ring.
+            if (charging && distToPlayer > 0.5 * this.cellM) {
+              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER;
+            // Otherwise lazily drawn to the player: about half its hops amble
+            // toward them (heavy ±0.7 rad jitter so it's a meander, not a
+            // beeline), the rest are aimless. Slimes ignore home-bias — they
+            // roam free and home in on whoever's nearby.
+            } else if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -7922,7 +7996,8 @@ class MapScene extends Phaser.Scene {
             // wide jitter so they read as erratic. The archer closes in too —
             // its range only lets it start draining sooner, not hang back.
             if (!shadowed && distToPlayer > 0.5 * this.cellM) {
-              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * (mon.fly ? 1.6 : 0.8);
+              angle = Math.atan2(dyp, dxp)
+                    + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
             } else {
               angle = Math.random() * Math.PI * 2;
             }

@@ -525,6 +525,31 @@ test('tips: Home\'s ward is documented, rout and all', () => {
   assert.falsy(/\d/.test(tip), `the ward tip quotes no number to drift: ${tip}`);
 });
 
+test('tips: a struck slime charges, and the tip quotes STRUCK_REACTION_MS', () => {
+  const tip = PLAY_TIPS.find((t) => /Strike a slime/i.test(t));
+  assert.truthy(tip, 'what a hit turns a slime into is invisible until it happens — Book or nowhere');
+  // The window is app.js', so it is re-derived rather than retyped. Spelt in
+  // words, like every other duration the Book quotes.
+  const m = APP_JS_SRC.match(/const STRUCK_REACTION_MS = (\d+);/);
+  assert.truthy(m, 'app.js still owns the reaction window');
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+    'eight', 'nine', 'ten'];
+  const secs = Number(m[1]) / 1000;
+  assert.truthy(tip.includes(`${WORDS[secs]} second`),
+    `the tip must quote STRUCK_REACTION_MS (${secs}s): ${tip}`);
+  // Both provokers, because a pet's bite used to do the OPPOSITE.
+  assert.truthy(/pet/i.test(tip), 'a pet\'s bite provokes the charge too');
+  // And the wards it does not beat — the half that keeps Home worth having.
+  assert.truthy(/home/i.test(tip) && /fire/i.test(tip),
+    'the tip names the two wards that still turn a charging slime back');
+  // No tip may still say a slime is only ever escapable — the pest tip's
+  // "walk away" is true of an unprovoked one and this page is what qualifies it.
+  const pest = PLAY_TIPS.find((t) => /drains 3 energy a second/i.test(t));
+  assert.truthy(pest, 'the pest tip is still there');
+  assert.lt(PLAY_TIPS.indexOf(pest), PLAY_TIPS.indexOf(tip),
+    'what a slime does is taught before what hitting one does');
+});
+
 test('tips: no tip promises a mechanic that does not exist', () => {
   // Gather luck (ring/amulet on tree/rock/fruit yields) was never switched on
   // and has since been deleted outright, so neither the Book nor a blurb may
