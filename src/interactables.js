@@ -92,6 +92,13 @@ function plainRockBaseDrop(scene, stones) {
   return qty;
 }
 
+// 'a' or 'an' for a tier name. Iron is the only vowel-initial rung, and both
+// tool gates read it out in a line short enough that the mistake is the whole
+// sentence.
+function tierArticle(name) {
+  return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
+}
+
 const INTERACTABLES = {
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
@@ -106,7 +113,12 @@ const INTERACTABLES = {
       const axeTier = save.relics?.axe?.tier || 0;
       if (axeTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
-        return `Need a ${need} axe to fell this ${treeSpeciesName(o)} tree.`;
+        // The tool TIER is the only actionable half — the player is looking
+        // at the tree they just tapped, so naming its species and the verb
+        // spent twenty characters restating the obvious (util.js MAP_MSG_MAX).
+        // `Iron` is the one tier name that starts with a vowel, and the short
+        // line put the old "Need a Iron axe" right under the player's thumb.
+        return `Need ${tierArticle(need)} ${need} axe.`;
       }
       return null;
     },
@@ -169,7 +181,7 @@ const INTERACTABLES = {
       const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
-        return `Need a ${need} pick to mine this ore.`;
+        return `Need ${tierArticle(need)} ${need} pick.`;
       }
       return null;
     },

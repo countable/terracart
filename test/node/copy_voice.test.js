@@ -148,6 +148,90 @@ test('map copy: the shared refusal constants fit too', () => {
   }
 });
 
+test('map copy: a refusal built by a gate() fits too', () => {
+  // THE SWEEP'S BLIND SPOT. mapMessages() only sees literals written inside a
+  // flash( call, and runInteractable flashes `blockMsg` — a string RETURNED by
+  // the registry's gate(). Both tool gates hid there at 34-44 characters
+  // ('Need a Platinum axe to fell this maple tree.') while the sweep reported
+  // everything in budget. So these are measured by CALLING them, at the
+  // widest tier name the ladder has.
+  const widest = Object.values(TIER_BY_NUM)
+    .map((t) => t.name).reduce((a, b) => (b.length > a.length ? b : a), '');
+  assert.gt(widest.length, 5, 'there is a genuinely long tier name to test with');
+  const bare = { relics: {} };
+  const cases = [
+    ['tree',        { kind: 'tree', size: 'full', species: 'maple', variant: 3 }],
+    ['mineralrock', { kind: 'mineralrock', yieldTier: 7, requiredTier: 6 }],
+  ];
+  for (const [key, o] of cases) {
+    const msg = INTERACTABLES[key].gate(o, bare);
+    assert.truthy(msg, `${key} still refuses a bare hand`);
+    assert.lte([...msg].length, MAP_MSG_MAX, `${key} gate: ${msg}`);
+    // The tier is the only half the player can act on — it must survive any cut.
+    assert.truthy(/Wood|Copper|Iron|Gold|Platinum|Crimson|Frost|better/.test(msg),
+      `${key} gate still names the tool tier: ${msg}`);
+    // 'Need a Iron axe' — the article has to agree, and at this length the
+    // mistake IS the sentence.
+    assert.falsy(/\ba [AEIOU]/.test(msg), `${key} gate reads grammatically: ${msg}`);
+  }
+  // Every tier, both gates, since only one rung starts with a vowel.
+  for (const t of [1, 2, 3, 4, 5, 6, 7]) {
+    const msg = INTERACTABLES.mineralrock.gate(
+      { kind: 'mineralrock', yieldTier: t + 1, requiredTier: t }, bare);
+    if (!msg) continue;
+    assert.lte([...msg].length, MAP_MSG_MAX, `tier ${t}: ${msg}`);
+    assert.falsy(/\ba [AEIOU]/.test(msg), `tier ${t} reads grammatically: ${msg}`);
+  }
+});
+
+test('map copy: nothing else reaches flash() through a variable unmeasured', () => {
+  // The audit that keeps the blind spot shut. Every non-literal argument to a
+  // flash is listed here with where its text is measured; a new one shows up
+  // as a failure rather than as unchecked copy.
+  const known = new Set([
+    'TOO_TIRED_MSG', 'BAG_FULL_MSG',  // the shared constants test
+    'flavor',                          // TERRAIN_FLAVOR, measured above
+    'blocker',                         // tillBlockerLine, measured above
+    'blockMsg',                        // the gate() test above
+    'msg', 'text', 'line',             // locally built, measured at their source
+    'single', 'missing', 'target', 'stageReadout', 'o', 'bedQ', 'asTree',
+    'offer', 'emptyMsg', 'flashMsg',
+    'card', 'name', 'label',           // name-bearing loot toasts, below
+  ]);
+  const seen = new Set();
+  for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
+    for (const m of src.matchAll(/flash(?:Loot)?\(\s*([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
+  }
+  const unknown = [...seen].filter((v) => !known.has(v));
+  assert.eq(unknown.length, 0,
+    'flash fed from an unmeasured variable: ' + unknown.join(', '));
+});
+
+test('map copy: the name-bearing loot toasts fit at their widest', () => {
+  // Three flashes are built from a CATALOG or GEAR name — the trail card, the
+  // forge splash and the treasure line — so their width is set by the longest
+  // name each can be handed, not by the sentence around it.
+  const longestItem = ITEMS.map((i) => i.name)
+    .reduce((a, b) => (b.length > a.length ? b : a), '');
+  const gearNames = [];
+  for (const [defs, kind] of [[RELIC_DEFS, 'relic'], [ARMOR_DEFS, 'armor']]) {
+    for (const slot of Object.keys(defs)) {
+      for (const t of Object.keys(TIER_BY_NUM)) gearNames.push(gearName(kind, slot, Number(t)));
+    }
+  }
+  const longestGear = gearNames.reduce((a, b) => (b.length > a.length ? b : a), '');
+  assert.gt(longestItem.length, 10, 'there is a long item name to test with');
+  assert.gt(longestGear.length, 10, 'and a long gear name');
+  const shapes = [
+    `${longestGear} × 10`,                  // the trail card (name + qty)
+    longestGear,                            // the forge splash
+    `\u2715 → ${longestItem} ×10`,          // the treasure line
+  ];
+  for (const line of shapes) {
+    assert.lte([...line].length, MAP_MSG_MAX, `worst-case loot toast overflows: ${line}`);
+  }
+});
+
 test('map copy: the terrain table fits at every code', () => {
   for (const code of NON_TILLABLE_CODES) {
     const label = TERRAIN_FLAVOR[code];
