@@ -331,68 +331,60 @@ test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
 });
 
 // ── The darkness has to be drawn wider than the frame ───────────────────────
-// The distance falloff (render.js drawCells) is ~100 concentric rings cached
-// about the VIEWPORT CENTRE and slid by the peek offset with setPosition
-// instead of being rebuilt at the player's new screen position every frame of
-// a drag. That cache is why the ring set can't stop at the frame edge: a peek
-// pulls the far side of the disc inward, and past the last ring nothing is
-// drawn at all — the darkness's own outer edge showed as a circular arc cutting
-// across the corner of the map.
-//
-// So Render.falloffRadii splits the one radius in two: the RAMP still ends at
-// the viewport's half-diagonal (its shape and the measured luminance spread are
-// untouched), and the rings keep going flat past it, far enough that no peek
-// can reach their edge.
+// The distance falloff used to be ~100 concentric rings cached about the
+// VIEWPORT CENTRE and slid by the peek offset — and the ring image had an
+// EDGE: past the last ring nothing was drawn, so a peek pulled the darkness's
+// own outer edge into the corner of the map as a circular arc. The lightmap
+// (src/lighting.js) has no edge to expose. The player's cookie is drawn at
+// the player's actual screen point EVERY frame (nothing is cached and slid),
+// its ramp lands on exactly zero light at the viewport half-diagonal, and
+// past it the map is the ambient floor — the value the ramp ends on — so the
+// join is continuous wherever a peek puts a corner.
 
-test('falloff: the ramp still ends at the viewport half-diagonal', () => {
-  const vs = VIEW_CELLS * CELL_PX;
-  const { rRamp } = Render.falloffRadii(vs);
-  near(rRamp, Math.hypot(vs, vs) / 2, 1e-9,
-       'the ramp is graded over the visible square, not past it');
+const lightScene = () => ({ depth: 0, save: { energy: 100, maxEnergy: 100 }, _atmos: { dim: 0x1a2a1e } });
+
+test('falloff: the player ramp ends at the viewport half-diagonal, on zero', () => {
+  assert.truthy(/const rMax = Math\.hypot\(scene\.viewSize, scene\.viewSize\) \/ 2;/.test(LIGHTING_SRC),
+                'the ramp is graded over the visible square, not past it');
+  const prof = Lighting.profile(lightScene());
+  assert.eq(Lighting.playerCookieAlpha(1, prof), 0,
+            'zero light at the ramp end — the ambient past it is the same value, so there is no edge');
+  assert.eq(Lighting.playerCookieAlpha(1.5, prof), 0, 'and nothing beyond it');
 });
 
-test('falloff: the rings are drawn past every pixel a peek can expose', () => {
-  const vs = VIEW_CELLS * CELL_PX;
-  const { rRamp, rOut } = Render.falloffRadii(vs);
-  // The furthest the cached image can be slid: the drag clamp, in screen px.
-  const peekPx = PEEK_MAX_CELLS * CELL_PX;
-  assert.gte(rOut, rRamp + peekPx,
-             'a full-magnitude peek still lands inside the drawn rings');
-  // ...and that is the drag's OWN clamp, not a number of its own — a bigger
-  // PEEK_MAX_CELLS has to widen the rings with it or the edge comes back.
-  near(rOut - rRamp, peekPx, 1e-9, 'the margin IS the peek clamp');
+test('falloff: the light is drawn at the player every frame, never slid', () => {
+  const src = LIGHTING_SRC;
+  assert.truthy(/const ps = scene\.playerScreen \? scene\.playerScreen\(\)/.test(src),
+                'centred on the feet-on-the-fix point');
+  assert.truthy(/rt\.draw\(player\.img, ps\.x - ox, ps\.y - oy\)/.test(src), 'drawn there each frame');
+  assert.falsy(/setPosition\(-pk\.x, -pk\.y\)/.test(RENDER_SRC),
+               'no cached darkness image is slid by the peek any more');
 });
 
-test('falloff: no visible corner escapes the rings under a peek in any direction', () => {
+test('falloff: under a peek in any direction the corner still sits on the ambient floor', () => {
+  // A full peek pushes a viewport corner past the ramp's end — the case the
+  // rings failed. There the cookie contributes nothing and the corner reads
+  // pure ambient, continuous with the ramp's last value.
   const vs = VIEW_CELLS * CELL_PX;
-  const { rOut } = Render.falloffRadii(vs);
-  const s = peekScene();
+  const rMax = Math.hypot(vs, vs) / 2;
   const half = vs / 2;
-  // Push the peek to the clamp in a ring of directions, then measure the worst
-  // visible corner in the ring image's own (unslid) coordinates: the viewport
-  // corner offset by the peek.
+  const prof = Lighting.profile(lightScene());
+  const s = peekScene();
+  let beyond = 0;
   for (let a = 0; a < 16; a++) {
     const th = (a / 16) * Math.PI * 2;
     s._setPeekFromDrag(-Math.cos(th) * 1000, -Math.sin(th) * 1000);
     const pk = { x: s.peekM.x * PX_PER_M, y: s.peekM.y * PX_PER_M };
     for (const cx of [-half, half]) {
       for (const cy of [-half, half]) {
-        const d = Math.hypot(cx + pk.x, cy + pk.y);
-        assert.lte(d, rOut, `corner (${cx},${cy}) is covered at ${a}/16`);
+        const d = Math.hypot(cx + pk.x, cy + pk.y);       // corner, from the player
+        const t = d / rMax;                                // ramp position with no plateau
+        const alpha = Lighting.playerCookieAlpha(t, prof);
+        assert.gte(alpha, 0, `corner (${cx},${cy}) at ${a}/16 never goes negative`);
+        if (t >= 1) { beyond++; assert.eq(alpha, 0, `corner (${cx},${cy}) past the ramp is ambient at ${a}/16`); }
       }
     }
   }
+  assert.gt(beyond, 0, 'a full-magnitude peek does push a corner past the ramp');
   s.clearPeek();
-});
-
-test('falloff: the ring loop clamps the ramp instead of running past it', () => {
-  // The loop itself needs Phaser, so pin it as source text: it must walk out to
-  // rOut while the ramp parameter saturates at 1. Extrapolating t past rRamp
-  // would drive the alpha above FALLOFF_A and reintroduce a graded edge.
-  const src = RENDER_SRC;
-  assert.truthy(/for \(let r = r0; r < rOut; r \+= STEP\)/.test(src),
-                'the rings are drawn out to rOut');
-  assert.truthy(/const t = Math\.min\(1, \(r - r0\) \/ \(rRamp - r0\)\)/.test(src),
-                'the ramp parameter is clamped at the ramp radius');
-  assert.falsy(/rMax/.test(src), 'the old single radius is gone');
 });

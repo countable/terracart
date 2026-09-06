@@ -1438,36 +1438,28 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
-    // LIGHTING — the out-of-reach dim, the underground torch wash, the
-    // low-energy pink tint and the white reach outline. It sits here, ABOVE
-    // every piece of ground decoration (biome seams, cobbles, road letters,
-    // treasure pads, shadows, the haze) and BELOW the standing sprites,
-    // because "outside the lit area" has to mean the whole ground goes dark —
-    // not just the flat terrain fill. POI halos are the one ground element
-    // that sits ABOVE this layer instead — see the note where
-    // poiHaloContainer is created just below, right after this one.
+    // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
+    // affordance. It sits here, ABOVE every piece of ground decoration (biome
+    // seams, cobbles, road letters, treasure pads, shadows, the haze) so the
+    // outline is never covered by the ground it marks, and BELOW the standing
+    // sprites so a tree stands over it.
     //
-    // These passes used to live in cellGfx, the bottom-most layer, so the dim
-    // could only reach the base colour: biome BOUNDARIES in particular stayed
-    // at full brightness outside the lit area and read as glowing seams in the
-    // dark. (The distance falloff hit the same wall and was moved above the
-    // sprites for it; this is the same bug one layer down.) Sprites stay at
-    // full contrast on purpose — see the note on atmosGroundGfx above — and
-    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    // Until Sep 2026 this was the LIGHTING layer too: the out-of-reach dim,
+    // the underground torch wash and the low-energy pink were fillRects here,
+    // below the sprites, which were deliberately exempt from the dim. The
+    // darkness moved to the lightMap (below, above the sprites) when the
+    // world gained more than one light — see src/lighting.js. What remains
+    // here is only the per-cell work a cookie can't do.
     this.reachGfx = this.add.graphics();
-    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
-    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
-    // every other ground layer gets. A halo's whole job is to read as a place
-    // "from across the map" (see render.js's POI-halo comment); crushing it
-    // under the same dim that swallows biome seams and cobbles defeats that —
-    // most of the visible grid sits outside the small reach radius at any
-    // moment, so the ping would only ever show right under the player's feet.
-    // It's still below worldContainer (so it doesn't draw over the chest
-    // itself) and below atmosFalloffGfx (so it still fades with sheer
-    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
-    // ring's own texture is a transparent-centred band, so drawing it above
-    // padContainer here (instead of below, as before) doesn't hide the pad —
-    // the ring just crosses over the slab's rim as it expands.
+    // POI halos — the slow ring "ping" under every live POI (render.js). A
+    // halo's whole job is to read as a place "from across the map" (see
+    // render.js's POI-halo comment), so it sits above the reach layer and its
+    // outline; the lightMap above the sprites still fades it with distance,
+    // as it does everything else. It's still below worldContainer (so it
+    // doesn't draw over the chest itself). The ring's own texture is a
+    // transparent-centred band, so drawing it above padContainer here
+    // (instead of below, as before) doesn't hide the pad — the ring just
+    // crosses over the slab's rim as it expands.
     this.poiHaloContainer = this.add.container(0, 0);
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
@@ -1524,15 +1516,28 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
-    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
-    // out-of-reach dim with distance from the player (render.js drawCells).
-    // Sits beside the rim haze for the same reason and with the same
-    // constraint: after every world sprite, so distant OBJECTS recede along
-    // with the ground they stand on — in cellGfx (the bottom layer) it could
-    // only darken the base terrain fill, and objects at the rim stayed fully
-    // lit and read as stickers on dark ground. Still before labelContainer:
-    // POI name tablets are UI and must stay crisp at any distance.
-    this.atmosFalloffGfx = this.add.graphics();
+    // THE LIGHTMAP — every light in the world, composited in one texture and
+    // MULTIPLIED over everything below it (src/lighting.js). Each frame the
+    // texture is filled with the ambient darkness and every light source adds
+    // its baked cookie: the player's reach bubble with the distance falloff
+    // built in, Home, each restored building, each campfire.
+    //
+    // It sits AFTER every world sprite, so a house or a tree outside every
+    // light goes as dark as the ground it stands on — the same lesson the old
+    // falloff rings learned when they moved up from cellGfx (objects at the
+    // rim read as stickers on dark ground) — and BEFORE labelContainer: POI
+    // name tablets are UI and stay crisp in the dark. Exactly the viewport
+    // square, so it needs no geometry mask.
+    //
+    // A RenderTexture rather than Graphics because the passes it replaced —
+    // a fillRect per unlit cell, ~100 strokeCircle falloff rings — were all
+    // darkness, and darkness can't add up into a second light. Blend modes are what make it renderer-agnostic: ADD and
+    // MULTIPLY map to canvas composite operations, so the Canvas fallback
+    // draws the same picture. LINEAR filtering (WebGL) keeps the upscale from
+    // the logical grid to the device canvas from stepping the gradients.
+    this.lightMap = this.add.renderTexture(this.viewLeft, this.viewTop, this.viewSize, this.viewSize)
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    try { this.lightMap.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -1877,7 +1882,6 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
-    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
