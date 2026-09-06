@@ -5663,7 +5663,8 @@ class MapScene extends Phaser.Scene {
 
   // ── COMBAT ───────────────────────────────────────────────────────────────
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
-  // staff loose its shots along the compass, fly the shots already out, and —
+  // staff loose its shots (the bow along the compass, the staff at the nearest
+  // foe — Combat.shotHeading), fly the shots already out, and —
   // if the sword is the active weapon — engage the nearest foe without being
   // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
   // here at a time; the rest sit inert until switched to. The maths (what
@@ -5697,10 +5698,15 @@ class MapScene extends Phaser.Scene {
     // wheel reads), so a dragon's arrows hit twice as hard too.
     const dmgMul = this.isDragonActive() ? 2 : 1;
 
-    // ── Bow / staff: one shot a second, along the COMPASS heading ──────────
-    // They do not home and they do not pick a target: the shot goes where you
-    // are facing, so aiming is turning. Firing is gated on an enemy being on
-    // screen — otherwise every walk across town would be trailing arrows.
+    // ── Bow / staff: one shot a second ──────────────────────────────────────
+    // The BOW does not home and does not pick a target: the arrow goes where
+    // you are facing, so aiming is turning. The STAFF picks: its bolt is
+    // loosed straight at the nearest enemy inside its range, whatever way the
+    // body faces, and holds fire (spending no energy) while the nearest is
+    // still out of reach. Which is which lives in Combat.SHOT[slot].aim and
+    // is resolved by Combat.shotHeading, so this loop never has to know.
+    // Firing is gated on an enemy being on screen — otherwise every walk
+    // across town would be trailing arrows.
     // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
     // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
     // auto-engage below.
@@ -5715,6 +5721,13 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (now < due) continue;
+        // Where this shot goes — the compass for the bow, the line to the
+        // nearest foe in range for the staff. Resolved BEFORE the energy is
+        // spent: a staff whose nearest foe is still beyond its range keeps
+        // both its energy and its cadence (left due, so it fires the instant
+        // one steps in).
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM);
+        if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
         // an auto-firing weapon must not spam "too tired" (spendEnergy only
@@ -5723,7 +5736,7 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
-        const shot = Combat.spawnShot(slot, px, py, this.facing, this.cellM,
+        const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul);
         if (shot) this._shots.push(shot);
       }

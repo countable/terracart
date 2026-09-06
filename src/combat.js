@@ -14,10 +14,12 @@
 //                    reach, so you don't have to tap a slime that's already
 //                    chewing on you.
 //   bow / staff    — ranged. While an enemy is on screen the ACTIVE one of
-//                    the two looses one shot a second along the COMPASS
-//                    HEADING (app.js `_combatTick`) — it does not home, so you
-//                    aim by turning. A hit drains the same HP pool the melee
-//                    wheel does.
+//                    the two looses one shot a second (app.js `_combatTick`).
+//                    The bow fires along the COMPASS HEADING — it does not
+//                    home, so you aim by turning; the staff seeks, loosing its
+//                    bolt straight at the NEAREST enemy in range whatever way
+//                    you face (SHOT[].aim below). A hit drains the same HP
+//                    pool the melee wheel does.
 //   bare hands     — still work, still slow (the 9 s tier-0 rung).
 //
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
@@ -158,10 +160,22 @@
   //           on affording it — and hits twice as hard as an arrow
   //           (SHOT_DMG_MUL below): the energy is the price of the pierce
   //           and the punch.
+  //
+  // And they differ in how they AIM (`aim`):
+  //   'compass' — the bow. The arrow goes where you are facing; aiming is
+  //           turning, and a foe off your heading is simply not shot at.
+  //   'nearest' — the staff. Magic seeks: the bolt is loosed straight at the
+  //           NEAREST enemy on screen (aimAtNearest below), whatever way the
+  //           body is facing, and only when one sits inside its range — a
+  //           bolt that could never arrive would just burn the energy.
+  //           The compass is coarse and jittery on a phone, and a spell
+  //           that missed because you were standing a few degrees off read
+  //           as broken rather than skilful.
   const SHOT = {
-    bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2, phaseMs: 0 },
+    bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
+             phaseMs: 0, aim: 'compass' },
     staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
-             phaseMs: 0, pierce: true, energyCost: 1 },
+             phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest' },
   };
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
@@ -189,9 +203,38 @@
     return Math.max(1, Math.round(perSecond * FIRE_INTERVAL_MS / 1000));
   }
 
-  // A shot in flight. `dir` is the compass heading (need not be normalised);
-  // a zero-length heading is refused rather than firing a shot that sits on
-  // the player's feet forever.
+  // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
+  // the closest of `enemies`, or null when there is none — or none within
+  // `maxRangeM` (optional; the slot's own rangeCells × cellM is what the
+  // caller hands over, so the staff never spends a bolt on a foe it can't
+  // reach). Ties go to the first listed, so the pick is stable frame to frame.
+  // `enemies` is the caller's already-filtered hostile list, exactly as
+  // stepShots takes it — a crow or a pet can no more be aimed at than hit.
+  function aimAtNearest(x, y, enemies, maxRangeM) {
+    let best = null, bestD2 = maxRangeM != null ? maxRangeM * maxRangeM : Infinity;
+    for (const e of enemies || []) {
+      const dx = e.x - x, dy = e.y - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > bestD2 || !(d2 > 0)) continue;
+      bestD2 = d2;
+      best = { x: dx, y: dy };
+    }
+    return best;
+  }
+
+  // Resolve the heading a slot fires along: the compass `facing` for a
+  // 'compass' slot, the line to the nearest foe for a 'nearest' one. Returns
+  // null when there is nothing to fire at, and app.js fires nothing then.
+  function shotHeading(slot, x, y, facing, enemies, cellM) {
+    const spec = SHOT[slot];
+    if (!spec) return null;
+    if (spec.aim === 'nearest') return aimAtNearest(x, y, enemies, spec.rangeCells * cellM);
+    return facing || null;
+  }
+
+  // A shot in flight. `dir` is the heading (need not be normalised) — the
+  // compass or the line to a foe, per shotHeading; a zero-length heading is
+  // refused rather than firing a shot that sits on the player's feet forever.
   function spawnShot(slot, x, y, dir, cellM, dmg) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
     if (!(mag > 0)) return null;
@@ -327,7 +370,7 @@
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, shotDamage,
     FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
-    spawnShot, stepShots, lineOfFire, healthColor,
+    aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
   };
   root.Combat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
