@@ -1090,11 +1090,13 @@ function makeHiddenTrapTexture(scene) {
     ctx.fillRect(Math.round(x), Math.round(y) - 1, 2, 1);
   }
   // The sag: one small dark crescent just below centre where the covering has
-  // given a little. The only genuinely dark pixel group in the whole texture,
-  // and the thing a player learns to spot.
-  ctx.fillStyle = 'rgba(18,14,10,0.34)';
+  // given a little. Deliberately fainter and smaller than the disturbed-earth
+  // ring around it — the ring is the tell a careful player learns to read;
+  // the centre itself should all but disappear into the ground, not draw the
+  // eye first.
+  ctx.fillStyle = 'rgba(18,14,10,0.15)';
   ctx.beginPath();
-  ctx.ellipse(c + 1, c + 2, 4.5, 2.2, -0.25, 0, Math.PI * 2);
+  ctx.ellipse(c + 1, c + 2, 3, 1.5, -0.25, 0, Math.PI * 2);
   ctx.fill();
   // Twigs / grass laid over the covering — three short pale strokes at
   // different angles. Straight lines are what makes it read as PLACED cover

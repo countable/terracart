@@ -3195,7 +3195,11 @@ class MapScene extends Phaser.Scene {
     // branch runs exactly once per trap however long the player stands on it.
     if (Traps.spring(this.save, trap.id)) {
       const before = this.save.energy ?? 0;
-      this.save.energy = Math.max(0, before - Traps.STEP_ENERGY);
+      // Hard mode bites harder on first contact (Difficulty.trapBiteMul,
+      // 2.5x — 10⚡ base becomes 25⚡). The bleed rate (STAND_ENERGY_PER_S)
+      // is untouched by mode.
+      const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul;
+      this.save.energy = Math.max(0, before - bite);
       const spent = before - this.save.energy;
       this._painFlash();
       // Say the real number: an empty bar loses nothing, so nothing is popped —
