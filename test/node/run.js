@@ -276,7 +276,13 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailCounterAt(ix, iy) {', '_pathStoneAt(tx, ty, ix, iy) {',
+  // _cellToastAt is the ONE cell→toast seating the trail counter and the
+  // energy pops share; _energyPopAt / _cellAtScreen / playerScreen are the
+  // energy pop's own placement (energy_pop.test.js drives them on the same
+  // stub scene).
+  const methods = ['_trailCounterAt(ix, iy) {', '_cellToastAt(ix, iy, liftPx) {',
+                   '_energyPopAt(ix, iy) {', '_cellAtScreen(sx, sy) {', 'playerScreen() {',
+                   '_pathStoneAt(tx, ty, ix, iy) {',
                    '_activatePathStone(tx, ty, ix, iy) {',
                    '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
                    '_sweepCobbleTrails() {']
@@ -303,11 +309,18 @@ try {
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
     `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
-    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};`,
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
+    // The energy pop's seating: derived from the walker's art, in the order
+    // app.js declares them (the head clearance reads the two before it).
+    `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
+    `globalThis.PLAYER_FRAME_PX = ${constOf('PLAYER_FRAME_PX')};\n` +
+    `globalThis.ENERGY_POP_LIFT_PX = ${constOf('ENERGY_POP_LIFT_PX')};\n` +
+    `globalThis.ENERGY_POP_HEAD_PX = ${constOf('ENERGY_POP_HEAD_PX')};`,
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_pathStoneAt', '_activatePathStone',
+  for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_cellAtScreen',
+                   'playerScreen', '_pathStoneAt', '_activatePathStone',
                    '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);

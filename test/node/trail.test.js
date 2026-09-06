@@ -321,7 +321,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
 // because it is a PROJECTION — the thing a peek drag breaks when someone
 // measures it off the player instead of the camera anchor.
 (() => {
-const { _trailCounterAt } = __trailCounter;
+const { _trailCounterAt, _cellToastAt } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as peek_drag.test.js's scene — round numbers, shipping cellM.
@@ -337,6 +337,7 @@ const counterScene = (over) => Object.assign({
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
   _trailCounterAt,
+  _cellToastAt,
 }, over || {});
 
 // The cell the player is standing in, so the maths below has a known answer.

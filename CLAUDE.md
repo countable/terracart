@@ -301,6 +301,27 @@
   pins the formatter and sweeps the call-site sources for a re-grown ladder or
   a fresh unquantified "tomorrow" / "later".
 
+- **An energy number lands ON ITS CELL, by the player.** Every `+N⚡` / `−N⚡`
+  goes through `app.js` › `_popEnergy(delta, { ix, iy })`: the absolute cell
+  the change belongs to (the plot a till paid for, the wall a dig cost — a
+  spend resolves it from the TAP via `_cellAtScreen`), defaulting to the
+  player's own cell when the change is to the body (a rest tick, a slime's
+  leech, the offline refill). It seats through the projection
+  (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
+  hangs just clear of the cell's top edge — or of the player's HEAD on their
+  own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
+  drop — and ticks a thin outline on the cell in the same ink so the reader
+  is told WHICH cell. It wears the `energy` toast tier: bold, stroked and
+  drop-shadowed, no chip, because it sits on any ground at all. Until Sep
+  2026 the rest splash was a note at the viewport centre minus 70px and the
+  drains sat 40px above the same point — nowhere in particular, and under a
+  peek drag two cells from anyone. **When you add an energy gain or loss the
+  player can see, pop it with `_popEnergy` and name the cell** — a `flash` of
+  a ⚡ number at the viewport centre is the bug coming back.
+  **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
+  the lifted seating on a stub scene (cell edge, head clearance, peek) and
+  pins the call sites and the tier as source text.
+
 - **Working is not resting.** The passive rests in `app.js` update() — Home
   (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
   a work wheel runs (`const working = !!this._workProgress`). Until Sep 2026
